@@ -3,6 +3,10 @@
 
 /imagenet-schedule-training/
 /neuralmagicbase/models/pretrained/
+neuralmagicML/notebooks/logs/*
+/.ipynb_checkpoints
+neuralmagicML/data/*
+
 
 ### Python template
 # Byte-compiled / optimized / DLL files
