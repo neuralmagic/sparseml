@@ -85,7 +85,7 @@ class KSLayerMask(object):
 
     @property
     def masked_grad(self) -> Tensor:
-        return self._mask * self._grad
+        return self._mask_tensor * self._grad
 
     def enable(self):
         """
@@ -183,7 +183,7 @@ class KSLayerMask(object):
         if not self._enabled:
             return
 
-        self._param.data.mul_(self._mask)
+        self._param.data.mul_(self._mask_tensor)
 
     def _create_hooks(self):
         def _mask_forward(_mod: Module, _inp: Union[Tensor, Tuple[Tensor]]):
@@ -197,7 +197,7 @@ class KSLayerMask(object):
                 else:
                     self._grad.mul_(self._grad_track_mom).add_((1.0 - self._grad_track_mom) * _grad)
 
-            return _grad.mul(self._mask)
+            return _grad.mul(self._mask_tensor)
 
         if self._forward_hook is None:
             self._forward_hook = self._layer.register_forward_pre_hook(_mask_forward)
