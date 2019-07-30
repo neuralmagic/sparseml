@@ -254,7 +254,7 @@ class ScheduledModifierManager(Modifier):
         vals.extend([mod.start_epoch for mod in self._modifiers if mod.start_epoch > -1])
         vals.extend([mod.end_epoch for mod in self._modifiers if mod.end_epoch > -1])
 
-        return min(vals) if len(vals) > 0 else -1
+        return max(vals) if len(vals) > 0 else -1
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
