@@ -42,7 +42,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         instance.__init__(**state)
 
     def __init__(self, param: str, layers: Union[str, List[str]], init_sparsity: float, final_sparsity: float,
-                 prune_global: bool = False, leave_enabled: bool = False,
+                 prune_global: bool = False, leave_enabled: bool = True,
                  inter_func: str = 'linear', param_strict: bool = True,
                  start_epoch: float = -1.0, end_epoch: float = -1.0, update_frequency: float = -1.0):
         """
