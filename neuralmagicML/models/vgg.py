@@ -31,7 +31,7 @@ class _Block(Module):
         super().__init__()
         self.conv = Conv2d(in_channels, out_channels, kernel_size=3, padding=1, stride=1, bias=not batch_norm)
         self.bn = BatchNorm2d(out_channels) if batch_norm else None
-        self.act = ReLU()
+        self.act = ReLU(inplace=True)
 
         self.initialize()
 
@@ -59,10 +59,10 @@ class _Classifier(Module):
         self.mlp = Sequential(
             Linear(in_channels * 7 * 7, 4096),
             Dropout(),
-            ReLU(),
+            ReLU(inplace=True),
             Linear(4096, 4096),
             Dropout(),
-            ReLU(),
+            ReLU(inplace=True),
             Linear(4096, num_classes)
         )
         self.softmax = Softmax(dim=1)
