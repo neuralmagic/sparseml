@@ -8,6 +8,9 @@ from torch.utils.hooks import RemovableHandle
 from ..utils import tensor_sparsity, tensor_sample
 
 
+__all__ = ['ASResultType', 'ASAnalyzerLayer', 'ASAnalyzerModule']
+
+
 class ASResultType(Enum):
     inputs_sparsity = 'inputs_sparsity'
     inputs_sample = 'inputs_sample'
@@ -27,6 +30,7 @@ class ASAnalyzerLayer(object):
         self._inputs_sample_size = inputs_sample_size
         self._outputs_sample_size = outputs_sample_size
         self._enabled = enabled
+        self._connected = False
 
         self._inputs_sparsity = []  # type: List[Tensor]
         self._inputs_sample = []  # type: List[Tensor]
@@ -38,6 +42,12 @@ class ASAnalyzerLayer(object):
 
     def __del__(self):
         self._disable_hooks()
+
+    def __str__(self):
+        return ('name: {}, division: {}, track_inputs_sparsity: {}, track_outputs_sparsity: {}, '
+                'inputs_sample_size: {}, outputs_sample_size: {}, enabled: {}'
+                .format(self._name, self._division, self._track_inputs_sparsity, self._track_outputs_sparsity,
+                        self._inputs_sample_size, self._outputs_sample_size, self._enabled))
 
     @property
     def name(self) -> str:
@@ -187,6 +197,7 @@ class ASAnalyzerLayer(object):
 
     def connect(self, module: Module):
         self._module = module
+        self._connected = True
 
         if self.enabled:
             self._enable_hooks()
@@ -212,6 +223,9 @@ class ASAnalyzerLayer(object):
             raise Exception('unrecognized result_type given {}'.format(result_type))
 
     def _enable_hooks(self):
+        if not self._connected:
+            return
+
         # set the layer when we are enabled
         layer = self._module
         layers = self.name.split('.')

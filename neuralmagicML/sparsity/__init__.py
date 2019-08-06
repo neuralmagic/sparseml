@@ -1,3 +1,4 @@
+from .activation import *
 from .kernel import *
 
 from .modifier import *

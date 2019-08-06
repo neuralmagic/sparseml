@@ -81,7 +81,7 @@ class FlopsAnalyzerModule(Module):
         flops = 0
 
         for _, child in mod.named_modules():
-            flops += child._analyzed_flops
+            flops += child.analyzed_flops
 
         return flops
 
@@ -102,7 +102,7 @@ class FlopsAnalyzerModule(Module):
         params = 0
 
         for _, child in mod.named_modules():
-            params += child._analyzed_params
+            params += child.analyzed_params
 
         return params
 
@@ -110,9 +110,9 @@ class FlopsAnalyzerModule(Module):
         self.module(*inp)
 
     def _add_hook(self, name, mod: Module) -> Union[None, RemovableHandle]:
-        mod._analyzed_name = name
-        mod._analyzed_flops = 0
-        mod._analyzed_params = 0
+        mod.analyzed_name = name
+        mod.analyzed_flops = 0
+        mod.analyzed_params = 0
 
         if isinstance(mod, _ConvNd):
             return self._add_conv_hook(mod)
@@ -156,11 +156,11 @@ class FlopsAnalyzerModule(Module):
             out_pixels_per_batch = numpy.prod(_out.shape[1:])
             flops_per_batch = flops_per_out_pixel * out_pixels_per_batch
 
-            _mod._analyzed_flops = flops_per_batch * batch_size
-            _mod._analyzed_params = _mod.weight.numel()
+            _mod.analyzed_flops = flops_per_batch * batch_size
+            _mod.analyzed_params = _mod.weight.numel()
 
             if _mod.bias is not None:
-                _mod._analyzed_params += _mod.bias.numel()
+                _mod.analyzed_params += _mod.bias.numel()
 
         return conv.register_forward_hook(_hook)
 
@@ -180,11 +180,11 @@ class FlopsAnalyzerModule(Module):
             out_pixels_per_batch = _mod.out_features
             flops_per_batch = flops_per_out_pixel * out_pixels_per_batch
 
-            _mod._analyzed_flops = flops_per_batch * batch_size
-            _mod._analyzed_params = _mod.weight.numel()
+            _mod.analyzed_flops = flops_per_batch * batch_size
+            _mod.analyzed_params = _mod.weight.numel()
 
             if _mod.bias is not None:
-                _mod._analyzed_params += _mod.bias.numel()
+                _mod.analyzed_params += _mod.bias.numel()
 
         return linear.register_forward_hook(_hook)
 
@@ -194,8 +194,8 @@ class FlopsAnalyzerModule(Module):
             # 4 elementwise operations on the output space, just need to add all of them up
             flops_per_batch = 4 * numpy.prod(_out.shape[1:])
 
-            _mod._analyzed_flops = flops_per_batch * batch_size
-            _mod._analyzed_params = _mod.weight.numel() + _mod.bias.numel()
+            _mod.analyzed_flops = flops_per_batch * batch_size
+            _mod.analyzed_params = _mod.weight.numel() + _mod.bias.numel()
 
         return batch_norm.register_forward_hook(_hook)
 
@@ -207,8 +207,8 @@ class FlopsAnalyzerModule(Module):
             out_pixels_per_batch = numpy.prod(_out.shape[1:])
             flops_per_batch = flops_per_out_pixel * out_pixels_per_batch
 
-            _mod._analyzed_flops = flops_per_batch * batch_size
-            _mod._analyzed_params = sum(param.numel() for param in _mod.parameters())
+            _mod.analyzed_flops = flops_per_batch * batch_size
+            _mod.analyzed_params = sum(param.numel() for param in _mod.parameters())
 
         return pool.register_forward_hook(_hook)
 
@@ -223,8 +223,8 @@ class FlopsAnalyzerModule(Module):
             # make an assumption that we are averaging down to 1 on the output size
             flops_per_batch = numpy.prod(_inp.shape[1:])
 
-            _mod._analyzed_flops = flops_per_batch * batch_size
-            _mod._analyzed_params = sum(param.numel() for param in _mod.parameters())
+            _mod.analyzed_flops = flops_per_batch * batch_size
+            _mod.analyzed_params = sum(param.numel() for param in _mod.parameters())
 
         return pool.register_forward_hook(_hook)
 
@@ -235,8 +235,8 @@ class FlopsAnalyzerModule(Module):
             # making assumption that flops spent is one per element (so swish is counted the same as ReLU)
             flops_per_batch = numpy.prod(_out.shape[1:])
 
-            _mod._analyzed_flops = flops_per_batch * batch_size
-            _mod._analyzed_params = sum(param.numel() for param in _mod.parameters())
+            _mod.analyzed_flops = flops_per_batch * batch_size
+            _mod.analyzed_params = sum(param.numel() for param in _mod.parameters())
 
         return act.register_forward_hook(_hook)
 
@@ -248,7 +248,7 @@ class FlopsAnalyzerModule(Module):
             flops_per_channel = 2 if len(_out.shape) < 3 else numpy.prod(_out.shape[2:])
             flops_per_batch = flops_per_channel * _out.shape[1]
 
-            _mod._analyzed_flops = flops_per_batch * batch_size
-            _mod._analyzed_params = sum(param.numel() for param in _mod.parameters())
+            _mod.analyzed_flops = flops_per_batch * batch_size
+            _mod.analyzed_params = sum(param.numel() for param in _mod.parameters())
 
         return soft.register_forward_hook(_hook)
