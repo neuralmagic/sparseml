@@ -43,7 +43,7 @@ def validate_str_list(val: Union[str, List[str]], val_name: str, par_name: str) 
     return val
 
 
-INTERPOLATION_FUNCS = ['linear', 'cubic', 'inverse_cubic']
+INTERPOLATION_FUNCS = ['linear', 'cubic', 'inverse_cubic', 'geometric']
 
 
 def interpolate(x_cur: float, x0: float, x1: float, y0: float, y1: float, inter_func: str = 'linear') -> float:
@@ -63,6 +63,17 @@ def interpolate(x_cur: float, x0: float, x1: float, y0: float, y1: float, inter_
     elif inter_func == 'inverse_cubic':
         # https://www.wolframalpha.com/input/?i=1-(1-x)%5E(1%2F3)+from+0+to+1
         y_cur = 1 - (1 - x_cur) ** (1/3)
+    elif inter_func == 'geometric':
+        x_cur = (x1 - x0) * x_cur + x0 #revert back to native values
+        if x_cur <= x0:
+            y_cur = y0
+        d0 = 1-y0
+        df = 1-y1
+        gamma = (df / d0) ** (1 / (x1 - x0))
+        d_cur = d0 * gamma ** (x_cur - x0)
+        y_cur = 1 - d_cur
+        return y_cur
+
     else:
         raise Exception('unsupported inter_func given of {} in interpolate'.format(inter_func))
 
