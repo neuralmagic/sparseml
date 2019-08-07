@@ -64,6 +64,7 @@ def interpolate(x_cur: float, x0: float, x1: float, y0: float, y1: float, inter_
         # https://www.wolframalpha.com/input/?i=1-(1-x)%5E(1%2F3)+from+0+to+1
         y_cur = 1 - (1 - x_cur) ** (1/3)
     elif inter_func == 'geometric':
+        x_cur = (x1 - x0) * x_cur + x0 #revert back to native values
         if x_cur <= x0:
             y_cur = y0
         d0 = 1-y0
