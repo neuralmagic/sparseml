@@ -1,14 +1,15 @@
 from typing import Union, Tuple
 from threading import Lock
+import re
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
 
-__all__ = ['EarlyStopDataSet', 'NoisyDataset', 'RandNDataset', 'CacheableDataset']
+__all__ = ['EarlyStopDataset', 'NoisyDataset', 'RandNDataset', 'CacheableDataset']
 
 
-class EarlyStopDataSet(Dataset):
+class EarlyStopDataset(Dataset):
     def __init__(self, original: Dataset, early_stop: int):
         """
         Dataset that handles applying an early stop when iterating through the dataset
@@ -29,6 +30,12 @@ class EarlyStopDataSet(Dataset):
 
     def __len__(self):
         return self._early_stop if self._early_stop > 0 else self._original.__len__()
+
+    def __repr__(self):
+        rep = self._original.__str__()
+        rep = re.sub(r'Number of datapoints:[ ]+[0-9]+', 'Number of datapoints: {}'.format(self.__len__()), rep)
+
+        return rep
 
 
 class NoisyDataset(Dataset):

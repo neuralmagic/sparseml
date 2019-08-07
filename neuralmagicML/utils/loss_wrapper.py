@@ -1,8 +1,11 @@
-from typing import Dict, Union, Callable, List, Tuple
+from typing import Dict, Union, Callable, List, Tuple, Any
 import torch
 import torch.nn.functional as TF
 from torch import Tensor
 from torch.nn import Module
+
+
+__all__ = ['KnowledgeDistillationSettings', 'LossWrapper', 'BinaryCrossEntropyLossWrapper', 'CrossEntropyLossWrapper']
 
 
 class KnowledgeDistillationSettings(object):
@@ -35,10 +38,10 @@ class KnowledgeDistillationSettings(object):
         return self._contradict_hinton
 
 
-class LossCalc(object):
+class LossWrapper(object):
     def __init__(self, loss_fn: Callable, extras: Union[None, Dict[str, Callable]] = None,
                  kd_settings: Union[None, KnowledgeDistillationSettings] = None):
-        super(LossCalc, self).__init__()
+        super(LossWrapper, self).__init__()
         self._loss_fn = loss_fn
         self._extras = extras
         self._kd_settings = kd_settings  # type: KnowledgeDistillationSettings
@@ -46,6 +49,20 @@ class LossCalc(object):
     def __call__(self,  x_feature: Tensor, y_lab: Tensor,
                  y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Dict[str, Tensor]:
         return self.forward(x_feature, y_lab, y_pred)
+
+    def __repr__(self):
+        def _create_repr(_obj: Any) -> str:
+            if hasattr(_obj, '__name__'):
+                return _obj.__name__
+
+            if hasattr(_obj, '__class__'):
+                return _obj.__class__.__name__
+
+            return str(_obj)
+
+        return ('{}(Loss: {}; Extras: {})'
+                .format(self.__class__.__name__, _create_repr(self._loss_fn),
+                        ','.join([_create_repr(extra) for extra in self._extras.values()])))
 
     def forward(self, x_feature: Tensor, y_lab: Tensor,
                 y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Dict[str, Tensor]:
@@ -92,13 +109,13 @@ class LossCalc(object):
         return self._kd_settings.weight * distill_loss + (1 - self._kd_settings.weight) * loss
 
 
-class BinaryCrossEntropyLossCalc(LossCalc):
+class BinaryCrossEntropyLossWrapper(LossWrapper):
     def __init__(self, extras: Union[None, Dict] = None,
                  kd_settings: Union[None, KnowledgeDistillationSettings] = None):
-        super(BinaryCrossEntropyLossCalc, self).__init__(TF.binary_cross_entropy_with_logits, extras, kd_settings)
+        super(BinaryCrossEntropyLossWrapper, self).__init__(TF.binary_cross_entropy_with_logits, extras, kd_settings)
 
 
-class CrossEntropyLossCalc(LossCalc):
+class CrossEntropyLossWrapper(LossWrapper):
     def __init__(self, extras: Union[None, Dict] = None,
                  kd_settings: Union[None, KnowledgeDistillationSettings] = None):
-        super(CrossEntropyLossCalc, self).__init__(TF.cross_entropy, extras, kd_settings)
+        super(CrossEntropyLossWrapper, self).__init__(TF.cross_entropy, extras, kd_settings)

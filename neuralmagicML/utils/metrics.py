@@ -3,6 +3,9 @@ from torch import Tensor
 from torch.nn import Module
 
 
+__all__ = ['TopKAccuracy', 'Accuracy', 'accuracy']
+
+
 class TopKAccuracy(Module):
     def __init__(self, topk: int = 1):
         super(TopKAccuracy, self).__init__()
