@@ -1,6 +1,8 @@
 from typing import List, Tuple
 import copy
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import pandas
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -10,7 +12,7 @@ from torch.utils.data import DataLoader
 from .loss_wrapper import LossWrapper
 
 
-__all__ = ['lr_analysis']
+__all__ = ['lr_analysis', 'lr_analysis_figure']
 
 
 def _endless_loader(data_loader: DataLoader):
@@ -20,7 +22,7 @@ def _endless_loader(data_loader: DataLoader):
 
 
 def lr_analysis(module: Module, device: str, train_data: DataLoader, loss_wrapper: LossWrapper,
-                batches_per_sample: int = 10, lr_mult: float = 1.1, init_lr: float = 1e-9, final_lr: float = 1e0,
+                batches_per_sample: int = 1, lr_mult: float = 1.1, init_lr: float = 1e-9, final_lr: float = 1e0,
                 sgd_momentum: float = 0.9, sgd_dampening: float = 0.0, sgd_weight_decay: float = 1e-4,
                 sgd_nesterov: bool = True) -> List[Tuple[float, Tensor]]:
     lr_module = copy.deepcopy(module.to('cpu'))
@@ -55,6 +57,21 @@ def lr_analysis(module: Module, device: str, train_data: DataLoader, loss_wrappe
             loss = loss.repeat(y_lab.shape[0])
             losses.append(loss)
 
-        analysis.append((check_lr, torch.stack(losses)))
+        analysis.append((check_lr, torch.cat(losses)))
 
     return analysis
+
+
+def lr_analysis_figure(analysis: List[Tuple[float, Tensor]]):
+    analysis = [(lr, torch.mean(loss).item()) for lr, loss in analysis]
+    fig = plt.figure(figsize=(5, 5))
+    ax = fig.add_subplot(111)
+    title = 'LR Analysis'
+    ax.set_title(title)
+    ax.set_xlabel('Learning Rate')
+    ax.set_ylabel('Avg Loss')
+    frame = pandas.DataFrame.from_records(analysis, columns=['Learning Rate', 'Avg Loss'])
+    frame.plot(x='Learning Rate', y='Avg Loss', marker='.', ax=ax)
+    frame.hist(column=title, bins=256, ax=ax)
+
+    return fig, ax
