@@ -14,6 +14,7 @@ __all__ = ['KSModifierWidgets']
 class KSModifierWidgets(object):
     @staticmethod
     def interactive_module(module: Module, device: str = 'cpu', inp_dim: Union[None, Tuple[int, ...]] = None,
+                           inter_func: str = 'cubic',
                            init_start_sparsity: int = 0.05, init_final_sparsity: int = 0.5,
                            disable_first_last: bool = True, disable_all: bool = True,
                            init_start_epoch: int = 0.0, init_end_epoch: int = 10.0,
@@ -60,7 +61,7 @@ class KSModifierWidgets(object):
 
         tabs = widgets.Tab()
         init_widg, init_mod = KSModifierWidgets.interactive_group_module(
-            module, flops_analyzer if ran_flops else None, init_start_sparsity, init_final_sparsity,
+            module, flops_analyzer if ran_flops else None, inter_func, init_start_sparsity, init_final_sparsity,
             disable_first_last, disable_all, init_start_epoch, init_end_epoch, init_update_frequency
         )
         modifiers.append(init_mod)
@@ -72,7 +73,7 @@ class KSModifierWidgets(object):
             nonlocal tab_counter
 
             add_widg, add_mod = KSModifierWidgets.interactive_group_module(
-                module, flops_analyzer if ran_flops else None, init_start_sparsity, init_final_sparsity,
+                module, flops_analyzer if ran_flops else None, inter_func, init_start_sparsity, init_final_sparsity,
                 True, True, init_start_epoch, init_end_epoch, init_update_frequency
             )
             tabs.children = tuple([*tabs.children, add_widg])
@@ -109,6 +110,7 @@ class KSModifierWidgets(object):
 
     @staticmethod
     def interactive_group_module(module: Module, flops_analyzer: Union[FlopsAnalyzerModule, None] = None,
+                                 inter_func: str = 'cubic',
                                  init_start_sparsity: int = 0.05, init_final_sparsity: int = 0.5,
                                  disable_first_last: bool = True, disable_all: bool = True,
                                  init_start_epoch: int = 0.0, init_end_epoch: int = 10.0,
@@ -138,7 +140,7 @@ class KSModifierWidgets(object):
         total_params = flops_analyzer.total_params if flops_analyzer is not None else 0
         modifier = GradualKSModifier(
             'weight', layers=[], init_sparsity=init_start_sparsity, final_sparsity=init_final_sparsity,
-            inter_func='cubic', start_epoch=init_start_epoch, end_epoch=init_end_epoch,
+            inter_func=inter_func, start_epoch=init_start_epoch, end_epoch=init_end_epoch,
             update_frequency=init_update_frequency
         )
         lay_widgets = []
