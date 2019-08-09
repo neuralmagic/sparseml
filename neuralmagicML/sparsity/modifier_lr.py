@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, Union, Callable
 import yaml
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import (
 from .modifier import ScheduledUpdateModifier
 
 
-__all__ = ['LearningRateModifier']
+__all__ = ['LearningRateModifier', 'CyclicLRModifier']
 
 
 CONSTRUCTORS = {
@@ -17,7 +17,6 @@ CONSTRUCTORS = {
     'MultiStepLR': MultiStepLR,
     'ExponentialLR': ExponentialLR,
     'ReduceLROnPlateau': ReduceLROnPlateau,
-    'CyclicLR': CyclicLR,
     'CosineAnnealingWarmRestarts': CosineAnnealingWarmRestarts
 }
 
@@ -129,3 +128,101 @@ class LearningRateModifier(ScheduledUpdateModifier):
 
 yaml.add_constructor(LearningRateModifier.YAML_KEY, LearningRateModifier.yaml_constructor)
 yaml.add_constructor(LearningRateModifier.YAML_KEY, LearningRateModifier.yaml_constructor, yaml.SafeLoader)
+
+
+class CyclicLRModifier(ScheduledUpdateModifier):
+    YAML_KEY = u'!CyclicLRModifier'
+
+    @staticmethod
+    def yaml_constructor(loader, node):
+        instance = LearningRateModifier.__new__(LearningRateModifier)
+        yield instance
+        state = loader.construct_mapping(node, deep=True)
+        instance.__init__(**state)
+
+    def __init__(self, base_lr: float, max_lr: float, step_size_up: int = 2000, step_size_down: Union[int, None] = None,
+                 mode: str = 'triangular', gamma: float = 1.0, scale_fn: Callable = None, scale_mode: str = 'cycle',
+                 cycle_momentum: bool = True, base_momentum: float = 0.8, max_momentum: float = 0.9,
+                 start_epoch: float = -1.0, end_epoch: float = -1.0):
+        """
+        Controls the learning rate of the optimizer based on the cyclic LR
+
+        Sample yaml:
+            !CyclicLRModifier
+                start_epoch: 0.0
+                end_epoch: 10.0
+                base_lr: 0.0001
+                max_lr: 0.01
+
+        :param base_lr: Initial learning rate which is the lower boundary in the cycle for each parameter group.
+        :param max_lr: Upper learning rate boundaries in the cycle for each parameter group.
+                       Functionally, it defines the cycle amplitude (max_lr - base_lr).
+                       The lr at any cycle is the sum of base_lr and some scaling of the amplitude;
+                       therefore max_lr may not actually be reached depending on scaling function.
+        :param step_size_up: Number of training iterations in the increasing half of a cycle. Default: 2000
+        :param step_size_down: Number of training iterations in the decreasing half of a cycle.
+                               If step_size_down is None, it is set to step_size_up. Default: None
+        :param mode: One of {triangular, triangular2, exp_range}. Values correspond to policies detailed above.
+                     If scale_fn is not None, this argument is ignored. Default: 'triangular'
+        :param gamma: Constant in 'exp_range' scaling function: gamma**(cycle iterations) Default: 1.0
+        :param scale_fn: Custom scaling policy defined by a single argument lambda function,
+                         where 0 <= scale_fn(x) <= 1 for all x >= 0. If specified, then 'mode' is ignored. Default: None
+        :param scale_mode: {'cycle', 'iterations'}. Defines whether scale_fn is evaluated on cycle number or
+                           cycle iterations (training iterations since start of cycle). Default: 'cycle'
+        :param cycle_momentum: If ``True``, momentum is cycled inversely to learning rate between
+                               'base_momentum' and 'max_momentum'. Default: True
+        :param base_momentum: Initial momentum which is the lower boundary in the cycle for each parameter group.
+                              Default: 0.8
+        :param max_momentum: Upper momentum boundaries in the cycle for each parameter group.
+                             Functionally, it defines the cycle amplitude (max_momentum - base_momentum).
+                             The momentum at any cycle is the difference of max_momentum and some scaling of the amplitude;
+                             therefore base_momentum may not actually be reached depending on scaling function.
+                             Default: 0.9
+        :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
+        :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
+        """
+        super().__init__(start_epoch, end_epoch, update_frequency=-1.0)
+        self._lr_kwargs = {
+            'base_lr': base_lr, 'max_lr': max_lr, 'step_size_up': step_size_up, 'step_size_down': step_size_down,
+            'mode': mode, 'gamma': gamma, 'scale_fn': scale_fn, 'scale_mode': scale_mode,
+            'cycle_momentum': cycle_momentum, 'base_momentum': base_momentum, 'max_momentum': max_momentum
+        }
+        self._lr_scheduler = None
+        self._init_lr_set = False
+
+    @property
+    def lr_kwargs(self) -> Dict:
+        return self._lr_kwargs
+
+    @lr_kwargs.setter
+    def lr_kwargs(self, value: Dict):
+        if self._initialized:
+            raise Exception('Cannot change lr_kwargs after {} has been initialized'.format(self.__class__.__name__))
+
+        self._lr_kwargs = value
+
+    def initialize(self, module: Module, optimizer: Optimizer):
+        """
+        Create the lr_scheduler using the optimizer and the provided lr_kwargs
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        """
+        super(CyclicLRModifier, self).initialize(module, optimizer)
+        self._lr_scheduler = CyclicLR(optimizer=optimizer, **self._lr_kwargs)
+
+    def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+        """
+        Calls into the lr scheduler to step for each batch
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        batch_count = round(epoch * steps_per_epoch)
+        self._lr_scheduler.step(batch_count)
+
+
+yaml.add_constructor(CyclicLRModifier.YAML_KEY, CyclicLRModifier.yaml_constructor)
+yaml.add_constructor(CyclicLRModifier.YAML_KEY, CyclicLRModifier.yaml_constructor, yaml.SafeLoader)

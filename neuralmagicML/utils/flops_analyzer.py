@@ -45,12 +45,7 @@ class FlopsAnalyzerModule(Module):
                 self._hooks[name] = hook
 
     def __del__(self):
-        for hook in self._hooks.values():
-            hook.remove()
-
-        self._hooks.clear()
-        self._module_hook.remove()
-        self._module_hook = None
+        self.disable()
 
     @property
     def total_flops(self) -> int:
@@ -65,6 +60,16 @@ class FlopsAnalyzerModule(Module):
         :return: total number of params in the module
         """
         return self.layer_params(None)
+
+    def disable(self):
+        for hook in self._hooks.values():
+            hook.remove()
+
+        self._hooks.clear()
+
+        if self._module_hook is not None:
+            self._module_hook.remove()
+            self._module_hook = None
 
     def layer_flops(self, name: Union[str, None]) -> int:
         """

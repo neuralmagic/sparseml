@@ -38,6 +38,7 @@ class ASAnalyzerWidgets(object):
 
             ran_flops = True
 
+        flops_analyzer.disable()
         groups = OrderedDict()
 
         for name, mod in module.named_modules():
@@ -96,8 +97,6 @@ class ASAnalyzerWidgets(object):
 
         for group_index, group_name in enumerate(groups.keys()):
             accordion.set_title(group_index, group_name)
-
-        del flops_analyzer
 
         return accordion, layer_analyzers
 

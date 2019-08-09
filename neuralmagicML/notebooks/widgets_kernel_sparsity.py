@@ -56,6 +56,8 @@ class KSModifierWidgets(object):
 
             ran_flops = True
 
+        flops_analyzer.disable()
+
         tabs = widgets.Tab()
         init_widg, init_mod = KSModifierWidgets.interactive_group_module(
             module, flops_analyzer if ran_flops else None, init_start_sparsity, init_final_sparsity,
@@ -80,6 +82,7 @@ class KSModifierWidgets(object):
 
         def _delete_current(_state):
             children = [*tabs.children]
+            modifiers.pop(tabs.selected_index)
             children.pop(tabs.selected_index)
             tabs.children = children
 
@@ -102,9 +105,7 @@ class KSModifierWidgets(object):
         widg_container = widgets.Box((container,), layout=widgets.Layout(margin='16px'))
         widg_container.update_from_modifiers = _update_from_modifiers
 
-        del flops_analyzer
-
-        return widg_container, tabs
+        return widg_container, modifiers
 
     @staticmethod
     def interactive_group_module(module: Module, flops_analyzer: Union[FlopsAnalyzerModule, None] = None,

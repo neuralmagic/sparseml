@@ -259,8 +259,11 @@ class ScheduledUpdateModifier(ScheduledModifier):
             return False
 
         start_or_end = super().update_ready(epoch, steps_per_epoch)
-        update_ready = (self.started and not self.ended and self._update_frequency >= 0.0 and
-                        self._last_update_epoch >= 0.0 and epoch >= self._last_update_epoch + self._update_frequency)
+        update_ready = (
+            self.started and not self.ended and
+            ((self._update_frequency == -1.0) or
+             (self._last_update_epoch >= 0.0 and epoch >= self._last_update_epoch + self._update_frequency))
+        )
 
         if start_or_end or update_ready:
             self._last_update_epoch = epoch
