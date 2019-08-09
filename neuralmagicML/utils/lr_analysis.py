@@ -71,7 +71,6 @@ def lr_analysis_figure(analysis: List[Tuple[float, Tensor]]):
     ax.set_xlabel('Learning Rate')
     ax.set_ylabel('Avg Loss')
     frame = pandas.DataFrame.from_records(analysis, columns=['Learning Rate', 'Avg Loss'])
-    frame.plot(x='Learning Rate', y='Avg Loss', marker='.', ax=ax)
-    frame.hist(column=title, bins=256, ax=ax)
+    frame.plot(x='Learning Rate', y='Avg Loss', marker='.', logx=True, ax=ax)
 
     return fig, ax
