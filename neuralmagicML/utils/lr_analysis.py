@@ -59,12 +59,15 @@ def lr_analysis(module: Module, device: str, train_data: DataLoader, loss_wrappe
 
         analysis.append((check_lr, torch.cat(losses)))
 
+    del lr_module
+    del optimizer
+
     return analysis
 
 
 def lr_analysis_figure(analysis: List[Tuple[float, Tensor]]):
     analysis = [(lr, torch.mean(loss).item()) for lr, loss in analysis]
-    fig = plt.figure(figsize=(5, 5))
+    fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111)
     title = 'LR Analysis'
     ax.set_title(title)
