@@ -151,6 +151,7 @@ class KSLayerMask(object):
         self._unmasked_param_tensor = (newly_masked * self._unmasked_param_tensor +
                                        (newly_masked == 0.0).type(mask_tensor.type()) * self._unmasked_param_tensor)
         self._mask_tensor = mask_tensor
+        self._regen_mask()
         self.apply()
 
         return newly_masked + -1 * newly_unmasked
@@ -183,7 +184,13 @@ class KSLayerMask(object):
         if not self._enabled:
             return
 
+        if self._param.data.device != self._mask_tensor.device:
+            self._regen_mask()
+
         self._param.data.mul_(self._mask_tensor)
+
+    def _regen_mask(self):
+        self._mask_tensor = self._param.data.new_tensor(self._mask_tensor)
 
     def _create_hooks(self):
         def _mask_forward(_mod: Module, _inp: Union[Tensor, Tuple[Tensor]]):
