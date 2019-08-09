@@ -64,6 +64,39 @@ class LearningRateModifier(ScheduledUpdateModifier):
 
         assert self._lr_class in CONSTRUCTORS
 
+    @property
+    def lr_class(self) -> str:
+        return self._lr_class
+
+    @lr_class.setter
+    def lr_class(self, value: str):
+        if self._initialized:
+            raise Exception('Cannot change lr_class after {} has been initialized'.format(self.__class__.__name__))
+
+        self._lr_class = value
+
+    @property
+    def lr_kwargs(self) -> Dict:
+        return self._lr_kwargs
+
+    @lr_kwargs.setter
+    def lr_kwargs(self, value: Dict):
+        if self._initialized:
+            raise Exception('Cannot change lr_kwargs after {} has been initialized'.format(self.__class__.__name__))
+
+        self._lr_kwargs = value
+
+    @property
+    def init_lr(self) -> Union[float, None]:
+        return self._init_lr
+
+    @init_lr.setter
+    def init_lr(self, value: Union[float, None]):
+        if self._initialized:
+            raise Exception('Cannot change init_lr after {} has been initialized'.format(self.__class__.__name__))
+
+        self._init_lr = value
+
     def initialize(self, module: Module, optimizer: Optimizer):
         """
         Create the lr_scheduler using the optimizer and the provided lr_kwargs
@@ -71,6 +104,7 @@ class LearningRateModifier(ScheduledUpdateModifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
+        super(LearningRateModifier, self).initialize(module, optimizer)
         self._lr_scheduler = CONSTRUCTORS[self._lr_class](optimizer=optimizer, **self._lr_kwargs)
 
     def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):

@@ -12,7 +12,7 @@ from torch.nn.modules.batchnorm import _BatchNorm
 from torch.nn.modules.pooling import _MaxPoolNd, _AvgPoolNd
 from torch.nn.modules.pooling import _AdaptiveMaxPoolNd, _AdaptiveAvgPoolNd
 
-from ..sparsity.activation.analyzer import ASAnalyzerLayer, ASAnalyzerModule
+from ..sparsity.activation.analyzer import ASAnalyzerLayer
 from ..utils.flops_analyzer import FlopsAnalyzerModule
 
 
@@ -149,41 +149,29 @@ class ASAnalyzerWidgets(object):
         output_distribution_check = widgets.Checkbox(value=False, description='toggle all output distribution')
 
         def _input_sparsity_change(_change):
-            if _change['type'] != 'change' or not isinstance(_change['new'], bool):
-                return
-
             for lay_widget in lay_widgets[1:]:
                 checkbox = lay_widget.children[0].children[1].children[0]
                 checkbox.value = _change['new']
 
         def _input_distribution_change(_change):
-            if _change['type'] != 'change' or not isinstance(_change['new'], bool):
-                return
-
             for lay_widget in lay_widgets[1:]:
                 checkbox = lay_widget.children[0].children[1].children[1]
                 checkbox.value = _change['new']
 
         def _output_sparsity_change(_change):
-            if _change['type'] != 'change' or not isinstance(_change['new'], bool):
-                return
-
             for lay_widget in lay_widgets[1:]:
                 checkbox = lay_widget.children[0].children[1].children[2]
                 checkbox.value = _change['new']
 
         def _output_distribution_change(_change):
-            if _change['type'] != 'change' or not isinstance(_change['new'], bool):
-                return
-
             for lay_widget in lay_widgets[1:]:
                 checkbox = lay_widget.children[0].children[1].children[3]
                 checkbox.value = _change['new']
 
-        input_sparsity_check.observe(_input_sparsity_change)
-        input_distribution_check.observe(_input_distribution_change)
-        output_sparsity_check.observe(_output_sparsity_change)
-        output_distribution_check.observe(_output_distribution_change)
+        input_sparsity_check.observe(_input_sparsity_change, names='value')
+        input_distribution_check.observe(_input_distribution_change, names='value')
+        output_sparsity_check.observe(_output_sparsity_change, names='value')
+        output_distribution_check.observe(_output_distribution_change, names='value')
         all_box = widgets.VBox((
             input_sparsity_check, input_distribution_check,
             output_sparsity_check, output_distribution_check
@@ -228,37 +216,25 @@ class ASAnalyzerWidgets(object):
                 analyzer.disable()
 
         def _input_sparsity_change(_change):
-            if _change['type'] != 'change' or not isinstance(_change['new'], bool):
-                return
-
             analyzer.track_inputs_sparsity = _change['new']
             _fix_analyzer_state()
 
         def _input_distribution_change(_change):
-            if _change['type'] != 'change' or not isinstance(_change['new'], bool):
-                return
-
             analyzer.inputs_sample_size = ASAnalyzerWidgets.INPUTS_SAMPLE_SIZE if _change['new'] else 0
             _fix_analyzer_state()
 
         def _output_sparsity_change(_change):
-            if _change['type'] != 'change' or not isinstance(_change['new'], bool):
-                return
-
             analyzer.track_outputs_sparsity = _change['new']
             _fix_analyzer_state()
 
         def _output_distribution_change(_change):
-            if _change['type'] != 'change' or not isinstance(_change['new'], bool):
-                return
-
             analyzer.outputs_sample_size = ASAnalyzerWidgets.OUTPUTS_SAMPLE_SIZE if _change['new'] else 0
             _fix_analyzer_state()
 
-        input_sparsity_check.observe(_input_sparsity_change)
-        input_distribution_check.observe(_input_distribution_change)
-        output_sparsity_check.observe(_output_sparsity_change)
-        output_distribution_check.observe(_output_distribution_change)
+        input_sparsity_check.observe(_input_sparsity_change, names='value')
+        input_distribution_check.observe(_input_distribution_change, names='value')
+        output_sparsity_check.observe(_output_sparsity_change, names='value')
+        output_distribution_check.observe(_output_distribution_change, names='value')
 
         checks_box = widgets.GridBox((
             input_sparsity_check, input_distribution_check, output_sparsity_check, output_distribution_check

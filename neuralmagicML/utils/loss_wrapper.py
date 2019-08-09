@@ -46,7 +46,7 @@ class LossWrapper(object):
         self._extras = extras
         self._kd_settings = kd_settings  # type: KnowledgeDistillationSettings
 
-    def __call__(self,  x_feature: Tensor, y_lab: Tensor,
+    def __call__(self,  x_feature: Union[Tensor, Tuple[Tensor, ...]], y_lab: Tensor,
                  y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Dict[str, Tensor]:
         return self.forward(x_feature, y_lab, y_pred)
 
@@ -64,7 +64,7 @@ class LossWrapper(object):
                 .format(self.__class__.__name__, _create_repr(self._loss_fn),
                         ','.join([_create_repr(extra) for extra in self._extras.values()])))
 
-    def forward(self, x_feature: Tensor, y_lab: Tensor,
+    def forward(self, x_feature: Union[Tensor, Tuple[Tensor, ...]], y_lab: Tensor,
                 y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Dict[str, Tensor]:
         calculated = {
             'loss': self._calc_loss(x_feature, y_lab, y_pred)
@@ -76,7 +76,7 @@ class LossWrapper(object):
 
         return calculated
 
-    def _calc_loss(self, x_feature: Tensor, y_lab: Tensor,
+    def _calc_loss(self, x_feature: Union[Tensor, Tuple[Tensor, ...]], y_lab: Tensor,
                    y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Tensor:
         if not isinstance(y_pred, Tensor):
             # returning multiple outputs (like logits and classes)
@@ -88,8 +88,11 @@ class LossWrapper(object):
         if self._kd_settings is None:
             return loss
 
+        if isinstance(x_feature, Tensor):
+            x_feature = (x_feature,)
+
         with torch.no_grad():
-            y_pred_teacher = self._kd_settings.teacher(x_feature)
+            y_pred_teacher = self._kd_settings.teacher(*x_feature)
 
             if not isinstance(y_pred_teacher, Tensor):
                 # returning multiple outputs (like logits and classes)

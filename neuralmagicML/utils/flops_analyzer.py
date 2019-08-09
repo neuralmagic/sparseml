@@ -49,6 +49,8 @@ class FlopsAnalyzerModule(Module):
             hook.remove()
 
         self._hooks.clear()
+        self._module_hook.remove()
+        self._module_hook = None
 
     @property
     def total_flops(self) -> int:

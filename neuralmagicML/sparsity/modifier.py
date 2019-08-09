@@ -43,18 +43,49 @@ class ScheduledModifier(Modifier):
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
         :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
         """
+        self._initialized = False
+        self._enabled = True
         self._start_epoch = start_epoch
         self._end_epoch = end_epoch
         self._started = False
         self._ended = False
 
     @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value: bool):
+        if self._initialized:
+            raise Exception('Cannot change enabled after {} has been initialized'.format(self.__class__.__name__))
+
+        self._enabled = value
+        
+    @property
+    def initialized(self) -> bool:
+        return self._initialized
+
+    @property
     def start_epoch(self) -> float:
         return self._start_epoch
+
+    @start_epoch.setter
+    def start_epoch(self, value: float):
+        if self._initialized:
+            raise Exception('Cannot change start_epoch after {} has been initialized'.format(self.__class__.__name__))
+
+        self._start_epoch = value
 
     @property
     def end_epoch(self) -> float:
         return self._end_epoch
+
+    @end_epoch.setter
+    def end_epoch(self, value: float):
+        if self._initialized:
+            raise Exception('Cannot change end_epoch after {} has been initialized'.format(self.__class__.__name__))
+
+        self._end_epoch = value
 
     @property
     def started(self) -> bool:
@@ -72,6 +103,9 @@ class ScheduledModifier(Modifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: True if the modifier is ready to begin modifying, false otherwise
         """
+        if not self.enabled:
+            return False
+
         pending = not self._started and not self._ended and (epoch >= self._start_epoch >= 0.0 or
                                                              self._start_epoch == -1.0)
 
@@ -85,6 +119,9 @@ class ScheduledModifier(Modifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: True if the modifier is ready to stop modifying, false otherwise
         """
+        if not self.enabled:
+            return False
+
         pending = not self._ended and self._started and epoch >= self._end_epoch >= 0.0
 
         return pending
@@ -97,6 +134,9 @@ class ScheduledModifier(Modifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: True if the modifier is pending an update and update() should be called
         """
+        if not self.enabled:
+            return False
+
         pending = self.start_pending(epoch, steps_per_epoch) or self.end_pending(epoch, steps_per_epoch)
 
         return pending
@@ -119,7 +159,6 @@ class ScheduledModifier(Modifier):
         if self.end_pending(epoch, steps_per_epoch):
             self._ended = True
 
-    @abstractmethod
     def initialize(self, module: Module, optimizer: Optimizer):
         """
         Handles initializing and setting up the modifier
@@ -128,7 +167,7 @@ class ScheduledModifier(Modifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
-        raise NotImplementedError()
+        self._initialized = True
 
     @abstractmethod
     def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
@@ -199,6 +238,14 @@ class ScheduledUpdateModifier(ScheduledModifier):
     def update_frequency(self) -> float:
         return self._update_frequency
 
+    @update_frequency.setter
+    def update_frequency(self, value: float):
+        if self._initialized:
+            raise Exception('Cannot change update_frequency after {} has been initialized'
+                            .format(self.__class__.__name__))
+
+        self._update_frequency = value
+
     def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
         """
         Calls base implementation to check if start_pending() or end_pending()
@@ -208,6 +255,9 @@ class ScheduledUpdateModifier(ScheduledModifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: True if the modifier is pending an update and update() should be called
         """
+        if not self.enabled:
+            return False
+
         start_or_end = super().update_ready(epoch, steps_per_epoch)
         update_ready = (self.started and not self.ended and self._update_frequency >= 0.0 and
                         self._last_update_epoch >= 0.0 and epoch >= self._last_update_epoch + self._update_frequency)
@@ -219,9 +269,8 @@ class ScheduledUpdateModifier(ScheduledModifier):
 
         return False
 
-    @abstractmethod
     def initialize(self, module: Module, optimizer: Optimizer):
-        raise NotImplementedError()
+        super(ScheduledUpdateModifier, self).initialize(module, optimizer)
 
     @abstractmethod
     def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):

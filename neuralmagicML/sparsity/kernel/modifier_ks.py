@@ -83,9 +83,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         super().__init__(start_epoch, end_epoch, update_frequency)
         self._param = param
+        self._layers = validate_str_list(layers, 'layers', GradualKSModifier.YAML_KEY)
         self._init_sparsity = init_sparsity
         self._final_sparsity = final_sparsity
-        self._layers = validate_str_list(layers, 'layers', GradualKSModifier.YAML_KEY)
         self._prune_global = convert_to_bool(prune_global)
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
@@ -112,8 +112,97 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
     def __del__(self):
         self._module_masks.clear()
+        
+    @property
+    def param(self) -> str:
+        return self._param
+    
+    @param.setter
+    def param(self, value: str):
+        if self.initialized:
+            raise Exception('Cannot change param after {} has been initialized'.format(self.__class__.__name__))
+        
+        self._param = value
+
+    @property
+    def layers(self) -> Union[str, List[str]]:
+        return self._layers
+
+    @layers.setter
+    def layers(self, value: Union[str, List[str]]):
+        if self.initialized:
+            raise Exception('Cannot change layers after {} has been initialized'.format(self.__class__.__name__))
+
+        self._layers = value
+
+    @property
+    def init_sparsity(self) -> float:
+        return self._init_sparsity
+
+    @init_sparsity.setter
+    def init_sparsity(self, value: float):
+        if self.initialized:
+            raise Exception('Cannot change init_sparsity after {} has been initialized'.format(self.__class__.__name__))
+
+        self._init_sparsity = value
+
+    @property
+    def final_sparsity(self) -> float:
+        return self._final_sparsity
+
+    @final_sparsity.setter
+    def final_sparsity(self, value: float):
+        if self.initialized:
+            raise Exception('Cannot change final_sparsity after {} has been initialized'.format(self.__class__.__name__))
+
+        self._final_sparsity = value
+
+    @property
+    def prune_global(self) -> bool:
+        return self._prune_global
+
+    @prune_global.setter
+    def prune_global(self, value: bool):
+        if self.initialized:
+            raise Exception('Cannot change prune_global after {} has been initialized'.format(self.__class__.__name__))
+
+        self._prune_global = value
+
+    @property
+    def leave_enabled(self) -> bool:
+        return self._leave_enabled
+
+    @leave_enabled.setter
+    def leave_enabled(self, value: bool):
+        if self.initialized:
+            raise Exception('Cannot change leave_enabled after {} has been initialized'.format(self.__class__.__name__))
+
+        self._leave_enabled = value
+
+    @property
+    def inter_func(self) -> str:
+        return self._inter_func
+
+    @inter_func.setter
+    def inter_func(self, value: str):
+        if self.initialized:
+            raise Exception('Cannot change inter_func after {} has been initialized'.format(self.__class__.__name__))
+
+        self._inter_func = value
+
+    @property
+    def param_strict(self) -> float:
+        return self._param_strict
+
+    @param_strict.setter
+    def param_strict(self, value: float):
+        if self.initialized:
+            raise Exception('Cannot change param_strict after {} has been initialized'.format(self.__class__.__name__))
+
+        self._param_strict = value
 
     def initialize(self, module: Module, optimizer: Optimizer):
+        super(GradualKSModifier, self).initialize(module, optimizer)
         layers = get_terminal_layers(module) if self._layers == ALL_TOKEN else \
             [get_layer(name, module) for name in self._layers]
 

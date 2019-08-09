@@ -62,6 +62,7 @@ class TrainableParamsModifier(ScheduledModifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
+        super(TrainableParamsModifier, self).initialize(module, optimizer)
         layers = get_terminal_layers(module) if self._layers == ALL_TOKEN else \
             [get_layer(name, module) for name in self._layers]
 
@@ -156,6 +157,7 @@ class SetParamModifier(ScheduledModifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
+        super(SetParamModifier, self).initialize(module, optimizer)
         layers = get_terminal_layers(module) if self._layers == ALL_TOKEN else \
             [get_layer(name, module) for name in self._layers]
 
@@ -299,6 +301,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
+        super(GradualParamModifier, self).initialize(module, optimizer)
         layers = get_terminal_layers(module) if self._layers == ALL_TOKEN else \
             [get_layer(name, module) for name in self._layers]
 
