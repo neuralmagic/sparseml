@@ -14,10 +14,8 @@ __all__ = ['KSModifierWidgets']
 class KSModifierWidgets(object):
     @staticmethod
     def interactive_module(module: Module, device: str = 'cpu', inp_dim: Union[None, Tuple[int, ...]] = None,
-                           inter_func: str = 'cubic',
-                           init_start_sparsity: int = 0.05, init_final_sparsity: int = 0.5,
-                           disable_first_last: bool = True, disable_all: bool = True,
-                           init_start_epoch: int = 0.0, init_end_epoch: int = 10.0,
+                           inter_func: str = 'cubic', init_start_sparsity: int = 0.05, init_final_sparsity: int = 0.5,
+                           init_enabled: bool = True, init_start_epoch: int = 0.0, init_end_epoch: int = 10.0,
                            init_update_frequency: int = 1.0):
         """
         ----------------------------------------------------------------------------
@@ -62,7 +60,7 @@ class KSModifierWidgets(object):
         tabs = widgets.Tab()
         init_widg, init_mod = KSModifierWidgets.interactive_group_module(
             module, flops_analyzer if ran_flops else None, inter_func, init_start_sparsity, init_final_sparsity,
-            disable_first_last, disable_all, init_start_epoch, init_end_epoch, init_update_frequency
+            init_enabled, init_start_epoch, init_end_epoch, init_update_frequency
         )
         modifiers.append(init_mod)
         tabs.children = (init_widg,)
@@ -74,7 +72,7 @@ class KSModifierWidgets(object):
 
             add_widg, add_mod = KSModifierWidgets.interactive_group_module(
                 module, flops_analyzer if ran_flops else None, inter_func, init_start_sparsity, init_final_sparsity,
-                True, True, init_start_epoch, init_end_epoch, init_update_frequency
+                False, init_start_epoch, init_end_epoch, init_update_frequency
             )
             tabs.children = tuple([*tabs.children, add_widg])
             modifiers.append(add_mod)
@@ -110,9 +108,8 @@ class KSModifierWidgets(object):
 
     @staticmethod
     def interactive_group_module(module: Module, flops_analyzer: Union[FlopsAnalyzerModule, None] = None,
-                                 inter_func: str = 'cubic',
-                                 init_start_sparsity: int = 0.05, init_final_sparsity: int = 0.5,
-                                 disable_first_last: bool = True, disable_all: bool = True,
+                                 inter_func: str = 'cubic', init_start_sparsity: int = 0.05,
+                                 init_final_sparsity: int = 0.5, init_enabled: bool = True,
                                  init_start_epoch: int = 0.0, init_end_epoch: int = 10.0,
                                  init_update_frequency: int = 1.0) -> Tuple[widgets.Box, GradualKSModifier]:
         """
@@ -184,7 +181,7 @@ class KSModifierWidgets(object):
                     # add the layer
                     cur_layers.append(name)
 
-            enable_checkbox = widgets.Checkbox(value=not disable_all, description=name)
+            enable_checkbox = widgets.Checkbox(value=init_enabled, description=name)
             enable_checkbox.observe(_enable_change, names='value')
             description = '{}: '.format(mod.__class__.__name__)
 
@@ -210,7 +207,7 @@ class KSModifierWidgets(object):
             lay_widgets.append(mod_container)
             lay_names.append(name)
 
-            if not disable_all:
+            if init_enabled:
                 modifier.layers.append(name)
 
         def _update_layers():
@@ -225,7 +222,7 @@ class KSModifierWidgets(object):
 
             _update_layers()
 
-        bulk_enable_checkbox = widgets.Checkbox(value=not (disable_all or disable_first_last),
+        bulk_enable_checkbox = widgets.Checkbox(value=init_enabled,
                                                 description='enable / disable all',
                                                 layout=widgets.Layout(margin='8px'))
         bulk_enable_checkbox.observe(_bulk_enable_change, names='value')
@@ -250,11 +247,6 @@ class KSModifierWidgets(object):
             end_text.value = modifier.end_epoch
             freq_text.value = modifier.update_frequency
             _update_layers()
-
-        if disable_first_last and not disable_all:
-            modifier.layers.pop(0)
-            modifier.layers.pop()
-            _update_from_modifier()
 
         widg_container = widgets.Box((container,), layout=widgets.Layout(margin='8px'))
         widg_container.update_from_modifier = _update_from_modifier

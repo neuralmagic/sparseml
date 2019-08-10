@@ -31,7 +31,7 @@ class LearningRateModifier(ScheduledUpdateModifier):
         state = loader.construct_mapping(node, deep=True)
         instance.__init__(**state)
 
-    def __init__(self, lr_class: str, lr_kwargs: Dict, init_lr: Union[float, None] = None,
+    def __init__(self, lr_class: str, lr_kwargs: Dict, init_lr: Union[float, None] = None, adjust_update: bool = True,
                  start_epoch: float = -1.0, end_epoch: float = -1.0, update_frequency: float = -1.0):
         """
         Controls the learning rate of the optimizer based on a scheduled frequency
@@ -49,6 +49,7 @@ class LearningRateModifier(ScheduledUpdateModifier):
         :param lr_class: The name of the lr scheduler class to use:
                          [StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau, CyclicLR, CosineAnnealingWarmRestarts]
         :param lr_kwargs: The dictionary of keyword arguments to pass to the constructor for the lr_class
+        :param adjust_update: Adjust the update steps down by the start epoch so the first is 0 rather than start epoch
         :param init_lr: The initial learning rate to use once this modifier starts
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
         :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
@@ -57,6 +58,7 @@ class LearningRateModifier(ScheduledUpdateModifier):
         super().__init__(start_epoch, end_epoch, update_frequency)
         self._lr_class = lr_class
         self._lr_kwargs = lr_kwargs
+        self._adjust_update = adjust_update
         self._init_lr = init_lr
         self._lr_scheduler = None
         self._init_lr_set = False
@@ -122,6 +124,9 @@ class LearningRateModifier(ScheduledUpdateModifier):
                 param_group['lr'] = self._init_lr
 
             self._init_lr_set = True
+
+        if self._adjust_update:
+            epoch = epoch - self.start_epoch
 
         self._lr_scheduler.step(epoch)
 
