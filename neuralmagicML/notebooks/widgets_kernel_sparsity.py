@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict, List
 import ipywidgets as widgets
 import torch
 from torch.nn import Module, Linear
@@ -14,9 +14,7 @@ __all__ = ['KSModifierWidgets']
 class KSModifierWidgets(object):
     @staticmethod
     def interactive_module(module: Module, device: str = 'cpu', inp_dim: Union[None, Tuple[int, ...]] = None,
-                           inter_func: str = 'cubic', init_start_sparsity: int = 0.05, init_final_sparsity: int = 0.5,
-                           init_enabled: bool = True, init_start_epoch: int = 0.0, init_end_epoch: int = 10.0,
-                           init_update_frequency: int = 1.0):
+                           **new_group_kwargs: Dict) -> Tuple[widgets.Box, List[GradualKSModifier]]:
         """
         ----------------------------------------------------------------------------
         |                                                                          |
@@ -41,6 +39,11 @@ class KSModifierWidgets(object):
         |                                                                          |
         ----------------------------------------------------------------------------
 
+        :param module: the module to create ks modifier and widgets for
+        :param device: the device to run flops calculation on
+        :param inp_dim: the input dimensions for the flops calculator to use, if None will not analyze flops
+        :param new_group_kwargs: the kwargs to use when creating a new group using the widget button
+        :return: the created widget and the list of KSModifiers, widget has functions add_group, update_from_modifiers
         """
         modifiers = []
         flops_analyzer = FlopsAnalyzerModule(module).to(device)
@@ -58,26 +61,24 @@ class KSModifierWidgets(object):
         flops_analyzer.disable()
 
         tabs = widgets.Tab()
-        init_widg, init_mod = KSModifierWidgets.interactive_group_module(
-            module, flops_analyzer if ran_flops else None, inter_func, init_start_sparsity, init_final_sparsity,
-            init_enabled, init_start_epoch, init_end_epoch, init_update_frequency
-        )
-        modifiers.append(init_mod)
-        tabs.children = (init_widg,)
         tab_counter = 0
-        tabs.set_title(0, 'Group {}'.format(tab_counter))
 
-        def _add_new(_state):
+        def _add_group(init_start_sparsity: int = 0.05, init_final_sparsity: int = 0.85, init_enabled: bool = True,
+                       init_start_epoch: int = 0.0, init_end_epoch: int = 30.0, init_update_frequency: int = 1.0,
+                       inter_func: str = 'cubic'):
             nonlocal tab_counter
 
             add_widg, add_mod = KSModifierWidgets.interactive_group_module(
-                module, flops_analyzer if ran_flops else None, inter_func, init_start_sparsity, init_final_sparsity,
-                False, init_start_epoch, init_end_epoch, init_update_frequency
+                module, flops_analyzer if ran_flops else None, init_start_sparsity, init_final_sparsity, init_enabled,
+                init_start_epoch, init_end_epoch, init_update_frequency, inter_func
             )
+            modifiers.insert(0, add_mod)
             tabs.children = tuple([*tabs.children, add_widg])
-            modifiers.append(add_mod)
-            tab_counter += 1
             tabs.set_title(len(tabs.children) - 1, 'Group {}'.format(tab_counter))
+            tab_counter += 1
+
+        def _add_new(_state):
+            _add_group(**new_group_kwargs)
 
         def _delete_current(_state):
             children = [*tabs.children]
@@ -103,15 +104,16 @@ class KSModifierWidgets(object):
 
         widg_container = widgets.Box((container,), layout=widgets.Layout(margin='16px'))
         widg_container.update_from_modifiers = _update_from_modifiers
+        widg_container.add_group = _add_group
 
         return widg_container, modifiers
 
     @staticmethod
-    def interactive_group_module(module: Module, flops_analyzer: Union[FlopsAnalyzerModule, None] = None,
-                                 inter_func: str = 'cubic', init_start_sparsity: int = 0.05,
-                                 init_final_sparsity: int = 0.5, init_enabled: bool = True,
-                                 init_start_epoch: int = 0.0, init_end_epoch: int = 10.0,
-                                 init_update_frequency: int = 1.0) -> Tuple[widgets.Box, GradualKSModifier]:
+    def interactive_group_module(
+            module: Module, flops_analyzer: Union[FlopsAnalyzerModule, None] = None,
+            init_start_sparsity: int = 0.05, init_final_sparsity: int = 0.85, init_enabled: bool = True,
+            init_start_epoch: int = 0.0, init_end_epoch: int = 30.0, init_update_frequency: int = 1.0,
+            inter_func: str = 'cubic') -> Tuple[widgets.Box, GradualKSModifier]:
         """
         ----------------------------------------------------------------------------
         |                                                                          |
@@ -121,17 +123,27 @@ class KSModifierWidgets(object):
         | Update Freq [___]                                                        |
         |                                                                          |
         | [ Layers ^ ]                                                             |
-        |   []  Name     Info: ...                                                 |
-        |                Calc: ...                                                 |
+        |   []  Name     Info...                                                   |
+        |                Calc...                                                   |
         |                                                                          |
-        |   []  Name     Info: ...                                                 |
-        |                Calc: ...                                                 |
+        |   []  Name     Info...                                                   |
+        |                Calc...                                                   |
         |                                                                          |
-        |   []  Name     Info: ...                                                 |
-        |                Calc: ...                                                 |
+        |   []  Name     Info...                                                   |
+        |                Calc...                                                   |
         |                                                                          |
         ----------------------------------------------------------------------------
 
+        :param module: the module to create the interactive group for
+        :param flops_analyzer: the flops analyzer used to analyze the flops for the module, none if not analyzed
+        :param init_start_sparsity: the initial start sparsity for the KSModifier
+        :param init_final_sparsity: the initial final sparsity for the KSModifier
+        :param init_enabled: True if initially enabled for all layers else False
+        :param init_start_epoch: the initial start epoch for the KSModifier
+        :param init_end_epoch: the initial end epoch for the KSModifier
+        :param init_update_frequency: the initial udpate frequency for the KSModifier
+        :param inter_func: the interpolation function to use in the KSModifier
+        :return:
         """
         total_flops = flops_analyzer.total_flops if flops_analyzer is not None else 0
         total_params = flops_analyzer.total_params if flops_analyzer is not None else 0
