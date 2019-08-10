@@ -72,7 +72,7 @@ class KSModifierWidgets(object):
                 module, flops_analyzer if ran_flops else None, init_start_sparsity, init_final_sparsity, init_enabled,
                 init_start_epoch, init_end_epoch, init_update_frequency, inter_func
             )
-            modifiers.insert(0, add_mod)
+            modifiers.append(add_mod)
             tabs.children = tuple([*tabs.children, add_widg])
             tabs.set_title(len(tabs.children) - 1, 'Group {}'.format(tab_counter))
             tab_counter += 1
