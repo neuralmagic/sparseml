@@ -32,8 +32,8 @@ pip install -r requirements.txt
 In addition we require the installation of:
 
 ```
-torch==1.0.1
-torchvision==0.2.2
+torch==1.1.0
+torchvision==0.3.0
 ```
 
 The installation of `torch` and `torchvision` depends on your machine and specific cuda driver. 
