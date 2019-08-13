@@ -112,13 +112,19 @@ def load_pretrained_model(model: Module, pretrained_key: str, model_arch: str,
             if os.path.exists(temp.name):
                 os.remove(temp.name)
 
-    model_dict = torch.load(cache_file, map_location='cpu')
+    model_dict = torch.load(cache_file, map_location='cpu')['state_dict']
+    to_state_dict = model.state_dict()
 
     if ignore_tensors is not None:
         for ignore in ignore_tensors:
-            del model_dict['state_dict'][ignore]
+            # copy over the 'to state dict' values to our current state dict for any tensor we were supposed to ignore
+            # only do this though if we can't match the shape and the key exists in 'to state dict'
+            if ignore not in to_state_dict:
+                del model_dict[ignore]
+            elif to_state_dict[ignore].shape != model_dict[ignore].shape:
+                model_dict[ignore] = to_state_dict[ignore]
 
-    model.load_state_dict(model_dict['state_dict'], strict=ignore_tensors is None)
+    model.load_state_dict(model_dict, strict=ignore_tensors is None)
 
 
 def load_model(path: str, model: Module, optimizer: Optimizer = None, strict: bool = True):
