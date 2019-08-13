@@ -1,8 +1,10 @@
-from typing import List
+from typing import List, Union
 from torch import Tensor
 from torch.nn import (
     Module, Conv2d, BatchNorm2d, ReLU, MaxPool2d, AdaptiveAvgPool2d, Linear, init, Sequential, Softmax
 )
+
+from .utils import load_pretrained_model
 
 
 __all__ = ['ResNetSectionSettings', 'ResNet',
@@ -210,7 +212,8 @@ class ResNetSectionSettings(object):
 
 
 class ResNet(Module):
-    def __init__(self, sec_settings: List[ResNetSectionSettings], num_classes: int = 1000, pretrained: bool = False):
+    def __init__(self, sec_settings: List[ResNetSectionSettings], model_arch_tag: str, num_classes: int = 1000,
+                 pretrained: Union[bool, str] = False):
         """
         Standard ResNet model
         https://arxiv.org/abs/1512.03385
@@ -219,8 +222,11 @@ class ResNet(Module):
         https://arxiv.org/abs/1611.05431
 
         :param sec_settings: the settings for each section in the resnet model
+        :param model_arch_tag: the architecture tag used for loading pretrained weights: ex resnet/50
         :param num_classes: the number of classes to classify
-        :param pretrained: True to load pretrained weights from imagenet, false otherwise
+        :param pretrained: True to load dense, pretrained weights from imagenet, false otherwise
+                           Additionally can specify other available datsets (dataset/dense) and
+                           kernel sparsity models (dataset/sparse, dataset/sparse-perf)
         """
         super().__init__()
         self.input = _Input()
@@ -228,8 +234,10 @@ class ResNet(Module):
         self.classifier = _Classifier(sec_settings[-1].out_channels, num_classes)
 
         if pretrained:
-            # TODO: add loading of pretrained weights for initialization
-            raise Exception('pretrained not currently supported')
+            pretrained_key = pretrained if isinstance(pretrained, str) else ''
+            load_pretrained_model(self, pretrained_key, model_arch=model_arch_tag,
+                                  ignore_tensors=None if num_classes == 1000 else ['classifier.fc.weight',
+                                                                                   'classifier.fc.bias'])
 
     def forward(self, inp: Tensor):
         out = self.input(inp)
@@ -265,7 +273,7 @@ def resnet18(**kwargs) -> ResNet:
         ResNetSectionSettings(num_blocks=2, in_channels=256, out_channels=512, downsample=True)
     ]
 
-    return ResNet(sec_settings, **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/18', **kwargs)
 
 
 def resnet34(**kwargs) -> ResNet:
@@ -276,7 +284,7 @@ def resnet34(**kwargs) -> ResNet:
         ResNetSectionSettings(num_blocks=3, in_channels=256, out_channels=512, downsample=True)
     ]
 
-    return ResNet(sec_settings, **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/34', **kwargs)
 
 
 def resnet50(**kwargs) -> ResNet:
@@ -287,7 +295,7 @@ def resnet50(**kwargs) -> ResNet:
         ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=512)
     ]
 
-    return ResNet(sec_settings, **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/50', **kwargs)
 
 
 def resnext50(**kwargs) -> ResNet:
@@ -302,7 +310,7 @@ def resnext50(**kwargs) -> ResNet:
                               proj_channels=1024, groups=32)
     ]
 
-    return ResNet(sec_settings, **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnext/50', **kwargs)
 
 
 def resnet101(**kwargs) -> ResNet:
@@ -313,7 +321,7 @@ def resnet101(**kwargs) -> ResNet:
         ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=512)
     ]
 
-    return ResNet(sec_settings, **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/101', **kwargs)
 
 
 def resnext101(**kwargs) -> ResNet:
@@ -328,7 +336,7 @@ def resnext101(**kwargs) -> ResNet:
                               proj_channels=1024, groups=32)
     ]
 
-    return ResNet(sec_settings, **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnext/101', **kwargs)
 
 
 def resnet152(**kwargs) -> ResNet:
@@ -339,7 +347,7 @@ def resnet152(**kwargs) -> ResNet:
         ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=512)
     ]
 
-    return ResNet(sec_settings, **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/152', **kwargs)
 
 
 def resnext152(**kwargs) -> ResNet:
@@ -354,4 +362,4 @@ def resnext152(**kwargs) -> ResNet:
                               proj_channels=1024, groups=32)
     ]
 
-    return ResNet(sec_settings, **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnext/152', **kwargs)
