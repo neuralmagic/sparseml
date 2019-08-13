@@ -32,7 +32,7 @@ class LearningRateModifier(ScheduledUpdateModifier):
         instance.__init__(**state)
 
     def __init__(self, lr_class: str, lr_kwargs: Dict, init_lr: Union[float, None] = None, adjust_update: bool = True,
-                 start_epoch: float = -1.0, end_epoch: float = -1.0, update_frequency: float = -1.0):
+                 start_epoch: float = -1.0, end_epoch: float = -1.0, update_frequency: float = 1.0):
         """
         Controls the learning rate of the optimizer based on a scheduled frequency
 

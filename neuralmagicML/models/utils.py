@@ -1,5 +1,12 @@
+import os
+import hashlib
+import errno
+from urllib.request import urlopen
+import shutil
+import tempfile
+from tqdm import tqdm
 import torch
-from typing import Dict, Union
+from typing import Dict, Union, List
 from torch import Tensor
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
@@ -7,7 +14,7 @@ from collections import OrderedDict
 
 
 __all__ = ['copy_state_dict_value', 'copy_state_dict_linear', 'copy_state_dict_conv', 'copy_state_dict_batch_norm',
-           'load_model', 'save_model']
+           'load_pretrained_model', 'load_model', 'save_model']
 
 
 def copy_state_dict_value(target_key: str, source_key: str, target: Dict[str, Tensor], source: Dict[str, Tensor],
@@ -54,6 +61,64 @@ def copy_state_dict_batch_norm(target_name: str, source_name: str, target: Dict[
 
     if delete_from_source and '{}.num_batches_tracked'.format(source_name) in source:
         del source['{}.num_batches_tracked'.format(source_name)]
+
+
+def load_pretrained_model(model: Module, pretrained_key: str, model_arch: str,
+                          model_domain: str = 'vision', default_pretrained_key: str = 'imagenet/dense',
+                          ignore_tensors: Union[None, List[str]] = None):
+    if not pretrained_key:
+        pretrained_key = default_pretrained_key
+
+    url = 'https://storage.googleapis.com/models.neuralmagic.com/{}/{}/{}.pth'.format(model_domain, model_arch,
+                                                                                      pretrained_key)
+
+    cache_dir = os.path.join(os.path.abspath(os.path.expanduser('~')), '.cache', 'nm_models')
+    cache_name = hashlib.md5(url.encode('utf-8')).hexdigest()
+
+    try:
+        os.makedirs(cache_dir)
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            pass
+        else:
+            # Unexpected OSError, re-raise.
+            raise
+
+    cache_file = os.path.join(cache_dir, cache_name)
+
+    if not os.path.exists(cache_file):
+        print('downloading {} for {}'.format(model_arch, pretrained_key))
+        connection = urlopen(url)
+        meta = connection.info()
+        content_length = meta.getheaders('Content-Length') if hasattr(meta, 'getheaders') \
+            else meta.get_all('Content-Length')
+        file_size = int(content_length[0]) if content_length is not None and len(content_length) > 0 else None
+        temp = tempfile.NamedTemporaryFile(delete=False)
+
+        try:
+            with tqdm(total=file_size) as progress:
+                while True:
+                    buffer = connection.read(8192)
+                    if len(buffer) == 0:
+                        break
+                    temp.write(buffer)
+                    progress.update(len(buffer))
+
+            temp.close()
+            shutil.move(temp.name, cache_file)
+        finally:
+            temp.close()
+
+            if os.path.exists(temp.name):
+                os.remove(temp.name)
+
+    model_dict = torch.load(cache_file, map_location='cpu')
+
+    if ignore_tensors is not None:
+        for ignore in ignore_tensors:
+            del model_dict['state_dict'][ignore]
+
+    model.load_state_dict(model_dict['state_dict'], strict=ignore_tensors is None)
 
 
 def load_model(path: str, model: Module, optimizer: Optimizer = None, strict: bool = True):

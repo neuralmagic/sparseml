@@ -1,8 +1,10 @@
 from typing import List
 from torch import Tensor
 from torch.nn import (
-    Module, Conv2d, BatchNorm2d, AdaptiveAvgPool2d, MaxPool2d, Linear, init, Sequential, Dropout, Softmax, ReLU
+    Module, Conv2d, BatchNorm2d, MaxPool2d, Linear, init, Sequential, Dropout, Softmax, ReLU
 )
+
+from .utils import load_pretrained_model
 
 __all__ = [
     'VGG', 'vgg11', 'vgg11_bn', 'vgg13', 'vgg13_bn', 'vgg16', 'vgg16_bn', 'vgg19_bn', 'vgg19',
@@ -29,7 +31,7 @@ def _init_linear(linear: Linear):
 class _Block(Module):
     def __init__(self, in_channels: int, out_channels: int, batch_norm: bool):
         super().__init__()
-        self.conv = Conv2d(in_channels, out_channels, kernel_size=3, padding=1, stride=1, bias=not batch_norm)
+        self.conv = Conv2d(in_channels, out_channels, kernel_size=3, padding=1, stride=1)
         self.bn = BatchNorm2d(out_channels) if batch_norm else None
         self.act = ReLU(inplace=True)
 
@@ -55,7 +57,6 @@ class _Block(Module):
 class _Classifier(Module):
     def __init__(self, in_channels: int, num_classes: int):
         super().__init__()
-        self.avgpool = AdaptiveAvgPool2d(7)
         self.mlp = Sequential(
             Linear(in_channels * 7 * 7, 4096),
             Dropout(),
@@ -68,8 +69,7 @@ class _Classifier(Module):
         self.softmax = Softmax(dim=1)
 
     def forward(self, inp: Tensor):
-        out = self.avgpool(inp)
-        out = out.view(inp.size(0), -1)
+        out = inp.view(inp.size(0), -1)
         logits = self.mlp(out)
         classes = self.softmax(logits)
 
@@ -78,6 +78,12 @@ class _Classifier(Module):
 
 class VGGSectionSettings(object):
     def __init__(self, num_blocks: int, in_channels: int, out_channels: int, use_batchnorm: bool):
+        """
+        :param num_blocks: the number of blocks to put in the section (conv [bn] relu)
+        :param in_channels: the number of input channels to the section
+        :param out_channels: the number of output channels from the section
+        :param use_batchnorm: True to put batchnorm after each conv, False otherwise
+        """
         self.num_blocks = num_blocks
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -85,14 +91,28 @@ class VGGSectionSettings(object):
 
 
 class VGG(Module):
-    def __init__(self, sec_settings: List[VGGSectionSettings], num_classes: int = 1000, pretrained: bool = False):
+    def __init__(self, sec_settings: List[VGGSectionSettings], model_arch_tag: str,
+                 num_classes: int = 1000, pretrained: bool = False):
+        """
+        Standard VGG model
+        https://arxiv.org/abs/1409.1556
+
+        :param sec_settings: the settings for each section in the vgg model
+        :param model_arch_tag: the architecture tag used for loading pretrained weights: ex vgg/16, vgg/16bn
+        :param num_classes: the number of classes to classify
+        :param pretrained: True to load dense, pretrained weights from imagenet, false otherwise
+                           Additionally can specify other available datsets (dataset/dense) and
+                           kernel sparsity models (dataset/sparse, dataset/sparse-perf)
+        """
         super(VGG, self).__init__()
         self.sections = Sequential(*[VGG.create_section(settings) for settings in sec_settings])
         self.classifier = _Classifier(sec_settings[-1].out_channels, num_classes)
 
         if pretrained:
-            # TODO: add loading of pretrained weights for initialization
-            raise Exception('pretrained not currently supported')
+            pretrained_key = pretrained if isinstance(pretrained, str) else ''
+            load_pretrained_model(self, pretrained_key, model_arch=model_arch_tag,
+                                  ignore_tensors=None if num_classes == 1000 else ['classifier.mlp.6.weight',
+                                                                                   'classifier.mlp.6.bias'])
 
     def forward(self, inp):
         out = self.sections(inp)
@@ -123,7 +143,7 @@ def vgg11(**kwargs) -> VGG:
         VGGSectionSettings(num_blocks=2, in_channels=512, out_channels=512, use_batchnorm=False)
     ]
 
-    return VGG(sec_settings, **kwargs)
+    return VGG(sec_settings=sec_settings, model_arch_tag='vgg/11', **kwargs)
 
 
 def vgg11_bn(**kwargs) -> VGG:
@@ -135,7 +155,7 @@ def vgg11_bn(**kwargs) -> VGG:
         VGGSectionSettings(num_blocks=2, in_channels=512, out_channels=512, use_batchnorm=True)
     ]
 
-    return VGG(sec_settings, **kwargs)
+    return VGG(sec_settings=sec_settings, model_arch_tag='vgg/11bn', **kwargs)
 
 
 def vgg13(**kwargs) -> VGG:
@@ -147,7 +167,7 @@ def vgg13(**kwargs) -> VGG:
         VGGSectionSettings(num_blocks=2, in_channels=512, out_channels=512, use_batchnorm=False)
     ]
 
-    return VGG(sec_settings, **kwargs)
+    return VGG(sec_settings=sec_settings, model_arch_tag='vgg/13', **kwargs)
 
 
 def vgg13_bn(**kwargs) -> VGG:
@@ -159,7 +179,7 @@ def vgg13_bn(**kwargs) -> VGG:
         VGGSectionSettings(num_blocks=2, in_channels=512, out_channels=512, use_batchnorm=True)
     ]
 
-    return VGG(sec_settings, **kwargs)
+    return VGG(sec_settings=sec_settings, model_arch_tag='vgg/13bn', **kwargs)
 
 
 def vgg16(**kwargs) -> VGG:
@@ -171,7 +191,7 @@ def vgg16(**kwargs) -> VGG:
         VGGSectionSettings(num_blocks=3, in_channels=512, out_channels=512, use_batchnorm=False)
     ]
 
-    return VGG(sec_settings, **kwargs)
+    return VGG(sec_settings=sec_settings, model_arch_tag='vgg/16', **kwargs)
 
 
 def vgg16_bn(**kwargs) -> VGG:
@@ -183,7 +203,7 @@ def vgg16_bn(**kwargs) -> VGG:
         VGGSectionSettings(num_blocks=3, in_channels=512, out_channels=512, use_batchnorm=True)
     ]
 
-    return VGG(sec_settings, **kwargs)
+    return VGG(sec_settings=sec_settings, model_arch_tag='vgg/16bn', **kwargs)
 
 
 def vgg19(**kwargs) -> VGG:
@@ -195,7 +215,7 @@ def vgg19(**kwargs) -> VGG:
         VGGSectionSettings(num_blocks=4, in_channels=512, out_channels=512, use_batchnorm=False)
     ]
 
-    return VGG(sec_settings, **kwargs)
+    return VGG(sec_settings=sec_settings, model_arch_tag='vgg/19', **kwargs)
 
 
 def vgg19_bn(**kwargs) -> VGG:
@@ -207,4 +227,4 @@ def vgg19_bn(**kwargs) -> VGG:
         VGGSectionSettings(num_blocks=4, in_channels=512, out_channels=512, use_batchnorm=True)
     ]
 
-    return VGG(sec_settings, **kwargs)
+    return VGG(sec_settings=sec_settings, model_arch_tag='vgg/19bn', **kwargs)
