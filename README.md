@@ -43,7 +43,7 @@ please refer to https://pytorch.org/get-started/locally/ for installation detail
 
 ## Evaluation License Agreement
 This project and repo is proprietary Neuralmagic intellectual property and is made available strictly privately and under NDA on a per user/organization basis.
-By using this repo the user (organization) accepts the terms and conditions of the attached [evaluation license agreement](Evaluation SLA (Neuralmagic) v2).
+By using this repo the user (organization) accepts the terms and conditions of the attached [evaluation license agreement](https://bitbucket.org/neuralmagic/neuralmagicml-pytorch/src/master/Evaluation%20SLA%20(Neuralmagic)%20v2.pdf).
 
 ## Third party licenses
 
