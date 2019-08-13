@@ -2,7 +2,7 @@
 
 At Neuralmagic we offer the ability to run at GPU speeds directly on CPU through algorithmic innovation in the space of SW performance engineering, Machine Learning and Systems expertise.
 This repository is complementary to the Neuralmagic engine package, and is designed with the Machine Learning engineer in mind. 
-Specifically, this repo covers basic and advanced concepts which allow performance acceleration through the Neuralmagic engine.
+Specifically, this repo covers basic and some of the advanced concepts which allow performance acceleration through the Neuralmagic engine.
 
 ## Tutorials organization
 
@@ -12,7 +12,7 @@ tutorials are split into jupyter notebooks which are self contained and provide 
 * `kernel_sparsity_pruning.ipynb` - sparsity, why is it useful, how to achieve it - i.e. pruning
 * `activation_sparsity.ipynb` - feature (activation) sparsity origin and assessment
 
-together these notebooks are aimed at providing a step by step guide for the evaluation and preparation of ones models such that they may be accelerated by the Neuralmagic engine package.
+Together these notebooks are aimed at providing a step by step guide for the evaluation and preparation of one's models such that they may be accelerated by the Neuralmagic engine package.
 
 ## Prerequisites and installation
 
