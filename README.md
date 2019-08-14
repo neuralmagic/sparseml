@@ -16,9 +16,10 @@ Together these notebooks are aimed at providing a step by step guide for the eva
 
 ## Prerequisites and installation
 
-We require the installation `python 3.6`
+We require python 3 to already be setup on the environment for both the notebooks and the library.
+General instructions for doing this can be found [here](https://realpython.com/installing-python/).
 
-set up your environment, for example using venv:
+Next, set up your environment, for example using venv:
 
 
 ```
@@ -29,7 +30,7 @@ source /path/to/new/virtual/environment/bin/activate
 install requirements from requirements.txt:
 
 ```
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 In addition we require the installation of:
 
