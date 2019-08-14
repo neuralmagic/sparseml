@@ -16,6 +16,8 @@ Together these notebooks are aimed at providing a step by step guide for the eva
 
 ## Prerequisites and installation
 
+We require the installation `python 3.6`
+
 set up your environment, for example using venv:
 
 
