@@ -16,22 +16,6 @@ __all__ = ['GradualKSModifier']
 
 
 class GradualKSModifier(ScheduledUpdateModifier):
-    """
-    Sample YAML:
-
-    !GradualKSPolicy:
-      start_epoch: 0.0
-      end_epoch: 10.0
-      update_frequency: 2.0
-      param: weight
-      init_sparsity: 0.0
-      final_sparsity: 0.8
-      inter_func: cubic
-      layers:
-        - layer1.0.relu1
-        - layer1.1.relu2
-    """
-
     YAML_KEY = u'!GradualKSModifier'
 
     @staticmethod

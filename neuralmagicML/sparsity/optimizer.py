@@ -149,15 +149,19 @@ class ScheduledOptimizer(Optimizer):
         for manager in self._managers:
             manager.update(self._module, self._optimizer, self._epoch, self._steps_per_epoch)
 
-    def loss_update(self, loss: Tensor):
+    def loss_update(self, loss: Tensor) -> Tensor:
         """
         Optional call to update modifiers based on the calculated loss
         Not needed unless one or more of the modifier is using the loss to make a modification
+        or is modifying the loss itself
 
         :param loss: the calculated loss after running a forward pass and loss_fn
+        :return: the modified loss tensor
         """
         for manager in self._managers:
-            manager.loss_update(loss, self._module, self._optimizer, self._epoch, self._steps_per_epoch)
+            loss = manager.loss_update(loss, self._module, self._optimizer, self._epoch, self._steps_per_epoch)
+
+        return loss
 
     def _calc_current_epoch(self):
         if self._steps_per_epoch <= 0:

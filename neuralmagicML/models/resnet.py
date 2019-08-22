@@ -9,6 +9,7 @@ from .utils import load_pretrained_model
 
 __all__ = ['ResNetSectionSettings', 'ResNet',
            'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152',
+           'resnet50_2xwidth', 'resnet101_2xwidth',
            'resnext50', 'resnext101', 'resnext152']
 
 
@@ -298,6 +299,17 @@ def resnet50(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/50', **kwargs)
 
 
+def resnet50_2xwidth(**kwargs) -> ResNet:
+    sec_settings = [
+        ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=128),
+        ResNetSectionSettings(num_blocks=4, in_channels=256, out_channels=512, downsample=True, proj_channels=256),
+        ResNetSectionSettings(num_blocks=6, in_channels=512, out_channels=1024, downsample=True, proj_channels=512),
+        ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=1024)
+    ]
+
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/50_2xwidth', **kwargs)
+
+
 def resnext50(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False,
@@ -322,6 +334,17 @@ def resnet101(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/101', **kwargs)
+
+
+def resnet101_2xwidth(**kwargs) -> ResNet:
+    sec_settings = [
+        ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=128),
+        ResNetSectionSettings(num_blocks=4, in_channels=256, out_channels=512, downsample=True, proj_channels=256),
+        ResNetSectionSettings(num_blocks=23, in_channels=512, out_channels=1024, downsample=True, proj_channels=512),
+        ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=1024)
+    ]
+
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/101_2xwidth', **kwargs)
 
 
 def resnext101(**kwargs) -> ResNet:
