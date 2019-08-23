@@ -143,7 +143,8 @@ class ASRegModifier(ScheduledModifier):
             else:
                 raise Exception('unsupported reg_func given of {}'.format(self._reg_func))
 
-            reduced += tens_reduced / ten.numel()
+            # normalize by batch size
+            reduced += tens_reduced / ten.shape[0]
 
         # normalize across all the tensors that were inputs or outputs for the layer
         reduced = reduced / len(tens)
