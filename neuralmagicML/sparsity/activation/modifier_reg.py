@@ -131,7 +131,7 @@ class ASRegModifier(ScheduledModifier):
         if isinstance(tens, Tensor):
             tens = (tens,)
 
-        reduced = torch.tensor(0.0)
+        reduced = 0.0
 
         for ten in tens:
             if self._reg_func == 'l1':
