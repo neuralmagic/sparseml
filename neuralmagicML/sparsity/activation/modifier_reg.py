@@ -125,29 +125,28 @@ class ASRegModifier(ScheduledModifier):
         # normalize across the number of trackers we have
         act_reg = act_reg / len(self._trackers)
 
-        return loss + act_reg
+        return loss + self._alpha * act_reg
 
     def _regularize_tracked(self, tens: Union[Tuple[Tensor, ...], Tensor]):
         if isinstance(tens, Tensor):
             tens = (tens,)
 
-        batch_size = tens[0].shape[0]
         reduced = torch.tensor(0.0)
 
         for ten in tens:
             if self._reg_func == 'l1':
-                reduced += ten.abs().sum()
+                tens_reduced = ten.abs().sum()
             elif self._reg_func == 'l2':
-                reduced += ten.pow(2).sum()
+                tens_reduced = ten.pow(2).sum()
             elif self._reg_func == 'relu':
-                reduced += TF.relu(reduced).sum()
+                tens_reduced = TF.relu(reduced).sum()
             else:
                 raise Exception('unsupported reg_func given of {}'.format(self._reg_func))
 
+            reduced += tens_reduced / ten.numel()
+
         # normalize across all the tensors that were inputs or outputs for the layer
         reduced = reduced / len(tens)
-        # normalize across the batch to get the average contribution per element
-        reduced = reduced / batch_size
 
         return reduced
 

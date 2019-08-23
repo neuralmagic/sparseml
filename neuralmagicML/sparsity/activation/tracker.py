@@ -37,11 +37,11 @@ class ASLayerTracker(object):
 
     @property
     def tracked_input(self):
-        return self._track_input
+        return self._tracked_input
 
     @property
     def tracked_output(self):
-        return self._track_output
+        return self._tracked_output
 
     def forward(self, *inp: Any, **kwargs: Any):
         if self._track_input:
