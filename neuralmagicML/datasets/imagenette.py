@@ -7,6 +7,8 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from torchvision.datasets.utils import download_url
 
+from .utils import DATASET_MAPPINGS
+
 
 __all__ = ['ImagenetteSize', 'ImagenetteDataset']
 
@@ -92,3 +94,6 @@ class ImagenetteDataset(ImageFolder):
 
         with tarfile.open(os.path.join(root, filename), 'r:gz') as tar:
             tar.extractall(path=root)
+
+
+DATASET_MAPPINGS['imagenette'] = ImagenetteDataset, 10

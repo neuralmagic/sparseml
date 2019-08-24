@@ -105,7 +105,7 @@ class LossWrapper(object):
 
         if not self._kd_settings.contradict_hinton:
             # in hinton's original paper they included T^2 as a scaling factor
-            # distller and other implementations dropped this factor
+            # some implementations dropped this factor
             # so contradicting hinton does not scale by T^2
             distill_loss = ((self._kd_settings.temp_student + self._kd_settings.temp_teacher) / 2) ** 2 * distill_loss
 

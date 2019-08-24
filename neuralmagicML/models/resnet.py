@@ -4,7 +4,7 @@ from torch.nn import (
     Module, Conv2d, BatchNorm2d, ReLU, MaxPool2d, AdaptiveAvgPool2d, Linear, init, Sequential, Softmax
 )
 
-from .utils import load_pretrained_model
+from .utils import load_pretrained_model, MODEL_MAPPINGS
 
 
 __all__ = ['ResNetSectionSettings', 'ResNet',
@@ -277,6 +277,9 @@ def resnet18(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/18', **kwargs)
 
 
+MODEL_MAPPINGS['resnet/18'] = resnet18
+
+
 def resnet34(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=64, downsample=False),
@@ -286,6 +289,9 @@ def resnet34(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/34', **kwargs)
+
+
+MODEL_MAPPINGS['resnet/34'] = resnet34
 
 
 def resnet50(**kwargs) -> ResNet:
@@ -299,6 +305,9 @@ def resnet50(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/50', **kwargs)
 
 
+MODEL_MAPPINGS['resnet/50'] = resnet50
+
+
 def resnet50_2xwidth(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=128),
@@ -308,6 +317,9 @@ def resnet50_2xwidth(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/50_2xwidth', **kwargs)
+
+
+MODEL_MAPPINGS['resnet/50_2xwidth'] = resnet50_2xwidth
 
 
 def resnext50(**kwargs) -> ResNet:
@@ -325,6 +337,9 @@ def resnext50(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnext/50', **kwargs)
 
 
+MODEL_MAPPINGS['resnext/50'] = resnext50
+
+
 def resnet101(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=64),
@@ -336,6 +351,9 @@ def resnet101(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/101', **kwargs)
 
 
+MODEL_MAPPINGS['resnet/101'] = resnet101
+
+
 def resnet101_2xwidth(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=128),
@@ -345,6 +363,9 @@ def resnet101_2xwidth(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/101_2xwidth', **kwargs)
+
+
+MODEL_MAPPINGS['resnet/101_2xwidth'] = resnet101_2xwidth
 
 
 def resnext101(**kwargs) -> ResNet:
@@ -362,6 +383,9 @@ def resnext101(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnext/101', **kwargs)
 
 
+MODEL_MAPPINGS['resnext/101'] = resnext101
+
+
 def resnet152(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=64),
@@ -371,6 +395,9 @@ def resnet152(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/152', **kwargs)
+
+
+MODEL_MAPPINGS['resnet/152'] = resnet152
 
 
 def resnext152(**kwargs) -> ResNet:
@@ -386,3 +413,6 @@ def resnext152(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnext/152', **kwargs)
+
+
+MODEL_MAPPINGS['resnext/152'] = resnext152

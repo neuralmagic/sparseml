@@ -3,13 +3,15 @@ import random
 from torchvision import transforms
 from torchvision.datasets import ImageNet
 
+from .utils import DATASET_MAPPINGS
+
 
 __all__ = ['ImageNetDataset']
 
 
 class ImageNetDataset(ImageNet):
     def __init__(self, root: str, train: bool = True, rand_trans: bool = False,
-                 download: bool = False, image_size: int = 224):
+                 download: bool = True, image_size: int = 224):
         """
         Wrapper for the ImageNet dataset to apply standard transforms
 
@@ -35,3 +37,6 @@ class ImageNetDataset(ImageNet):
 
         # make sure we don't preserve the folder structure class order
         random.shuffle(self.samples)
+
+
+DATASET_MAPPINGS['imagenet'] = ImageNetDataset, 1000

@@ -1,13 +1,12 @@
 from typing import Union, List, Tuple
 import yaml
-import torch
 from torch import Tensor
 from torch.nn import Module
 import torch.nn.functional as TF
 from torch.optim.optimizer import Optimizer
 
 from ..modifier import ScheduledModifier, ALL_TOKEN
-from ..utils import validate_str_list, get_terminal_layers, get_layer
+from ..utils import validate_str_list, get_terminal_layers, get_layer, convert_to_bool
 from .tracker import ASLayerTracker
 
 
@@ -28,15 +27,50 @@ class ASRegModifier(ScheduledModifier):
         state = loader.construct_mapping(node, deep=True)
         instance.__init__(**state)
 
-    def __init__(self, layers: Union[str, List[str]], alpha: float, reg_func: str = 'l1', reg_tens: str = 'inp',
+    def __init__(self, layers: Union[str, List[str]], alpha: Union[float, List[float]],
+                 layer_normalized: bool = False, reg_func: str = 'l1', reg_tens: str = 'inp',
                  start_epoch: float = -1.0, end_epoch: float = -1.0):
+        """
+        Add a regularizer over the inputs or outputs to given layers (activation regularization)
+
+        Sample yaml:
+            !ASRegModifier
+                start_epoch: 0.0
+                end_epoch: 10.0
+                layers:
+                    - layer1
+                    -layer2
+                alpha: 0.00001
+                layer_normalized: True
+                reg_func: l1
+                reg_tens: inp
+
+        :param layers: str or list of str for the layers to apply the KS modifier to
+                       can also use the token __ALL__ to specify all layers
+        :param alpha: the weight to use for the regularization, ie cost = loss + alpha * reg
+        :param layer_normalized: True to normalize the values by 1 / L where L is the number of layers
+        :param reg_func: the regularization function to apply to the activations, one of: l1, l2, relu
+        :param reg_tens: the regularization tensor to apply a function to, one of: inp, out
+        :param start_epoch: The epoch to start the modifier at
+        :param end_epoch: The epoch to end the modifier at
+        """
+
         super().__init__(start_epoch, end_epoch)
 
         self._layers = validate_str_list(layers, 'layers', ASRegModifier.YAML_KEY)
         self._alpha = alpha
+        self._layer_noramlized = convert_to_bool(layer_normalized)
         self._reg_func = reg_func
         self._reg_tens = reg_tens
         self._trackers = []  # type: List[ASLayerTracker]
+
+        if not isinstance(self._alpha, float) and self._layers == ALL_TOKEN:
+            raise Exception('list of alphas {} is not supported with {} for layers in {}'
+                            .format(self._alpha, ALL_TOKEN, self.__class__.__name__))
+
+        if not isinstance(self._alpha, float) and len(self._alpha) != len(self._layers):
+            raise Exception('len(alphas) of {} must match len(layers) of {} in {}'
+                            .format(len(self._alpha), len(self._layers), self.__class__.__name__))
 
         if not isinstance(self._alpha, float):
             raise Exception('alpha must be of float type for {}'.format(self.__class__.__name__))
@@ -64,11 +98,11 @@ class ASRegModifier(ScheduledModifier):
         self._layers = value
 
     @property
-    def alpha(self) -> float:
+    def alpha(self) -> Union[float, List[float]]:
         return self._alpha
 
     @alpha.setter
-    def alpha(self, value: float):
+    def alpha(self, value: Union[float, List[float]]):
         self._alpha = value
 
     @property
@@ -114,18 +148,22 @@ class ASRegModifier(ScheduledModifier):
 
         act_reg = 0.0
 
-        for tracker in self._trackers:
+        for index, tracker in enumerate(self._trackers):
             if self._reg_tens == 'inp':
-                act_reg += tracker.tracked_input
+                tracker_reg = tracker.tracked_input
             elif self._reg_tens == 'out':
-                act_reg += tracker.tracked_output
+                tracker_reg = tracker.tracked_output
             else:
                 raise Exception('unsupported reg_tens given of {}'.format(self._reg_tens))
 
-        # normalize across the number of trackers we have
-        act_reg = act_reg / len(self._trackers)
+            alpha = self._alpha if isinstance(self._alpha, float) else self._alpha[index]
+            act_reg += tracker_reg * alpha
 
-        return loss + self._alpha * act_reg
+        if self._layer_noramlized:
+            # normalize across the number of layers we are tracking
+            act_reg = act_reg / len(self._trackers)
+
+        return loss + act_reg
 
     def _regularize_tracked(self, tens: Union[Tuple[Tensor, ...], Tensor]):
         if isinstance(tens, Tensor):

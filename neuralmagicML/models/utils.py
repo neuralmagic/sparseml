@@ -1,3 +1,4 @@
+from typing import Dict, Union, List, Tuple, Callable
 import os
 import hashlib
 import errno
@@ -6,7 +7,6 @@ import shutil
 import tempfile
 from tqdm import tqdm
 import torch
-from typing import Dict, Union, List
 from torch import Tensor
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
@@ -14,7 +14,8 @@ from collections import OrderedDict
 
 
 __all__ = ['copy_state_dict_value', 'copy_state_dict_linear', 'copy_state_dict_conv', 'copy_state_dict_batch_norm',
-           'load_pretrained_model', 'load_model', 'save_model']
+           'device_to_name_ids', 'load_optimizer',
+           'load_pretrained_model', 'load_model', 'save_model', 'parallelize_model', 'create_model']
 
 
 def copy_state_dict_value(target_key: str, source_key: str, target: Dict[str, Tensor], source: Dict[str, Tensor],
@@ -61,6 +62,32 @@ def copy_state_dict_batch_norm(target_name: str, source_name: str, target: Dict[
 
     if delete_from_source and '{}.num_batches_tracked'.format(source_name) in source:
         del source['{}.num_batches_tracked'.format(source_name)]
+
+
+def device_to_name_ids(device: str) -> Tuple[str, Union[None, List[int]]]:
+    split = device.split(':')
+    name = split[0]
+
+    if name == 'cpu':
+        return name, None
+
+    if name != 'cuda' or not torch.cuda.is_available():
+        raise Exception('{} device not available on this system'.format(name))
+
+    if len(split) < 2:
+        return name, None
+
+    ids = [int(id_) for id_ in split[1].split(',')]
+    count = torch.cuda.device_count()
+
+    for id_ in ids:
+        if id_ >= count:
+            raise Exception('{} device id not available on this system'.format(id_))
+
+    if len(ids) == 1:
+        return '{}:{}'.format(name, ids[0]), None
+
+    return name, ids
 
 
 def load_pretrained_model(model: Module, pretrained_key: str, model_arch: str,
@@ -127,24 +154,19 @@ def load_pretrained_model(model: Module, pretrained_key: str, model_arch: str,
     model.load_state_dict(model_dict, strict=ignore_tensors is None)
 
 
-def load_model(path: str, model: Module, optimizer: Optimizer = None, strict: bool = True):
+def load_model(path: str, model: Module, strict: bool = True):
     model_dict = torch.load(path, map_location='cpu')
-    first_key = [key for key in model_dict['state_dict']][0]
-
-    if first_key.startswith('module.'):
-        # convert without module because we don't have module in our naming
-        tmp_dict = OrderedDict()
-
-        for key, value in model_dict['state_dict'].items():
-            key = key[7:]
-            tmp_dict[key] = value
-
-        model_dict['state_dict'] = tmp_dict
-
     model.load_state_dict(model_dict['state_dict'], strict)
 
-    if optimizer:
-        optimizer.load_state_dict(model_dict['optimizer'])
+
+def load_optimizer(path: str, optimizer: Optimizer) -> Union[int, None]:
+    model_dict = torch.load(path, map_location='cpu')
+    optimizer.load_state_dict(model_dict['optimizer'])
+
+    if 'epoch' in model_dict:
+        return model_dict['epoch']
+
+    return None
 
 
 def save_model(path: str, model: Module, optimizer: Optimizer = None, epoch: Union[int, None] = None):
@@ -168,3 +190,40 @@ def save_model(path: str, model: Module, optimizer: Optimizer = None, epoch: Uni
         save_dict['epoch'] = epoch
 
     torch.save(save_dict, path)
+
+
+class _DataParallel(DataParallel):
+    def __getattr__(self, item):
+        module = super().__getattr__('module')
+
+        if item == 'module':
+            return module
+
+        return getattr(module, item)
+
+
+def parallelize_model(model: Module, ids: Union[None, List[int]]) -> Module:
+    return _DataParallel(model, ids)
+
+
+MODEL_MAPPINGS = {}  # type: Dict[str, Callable]
+
+
+def create_model(model_type: str, device: str, model_path: Union[None, str] = None,
+                 load_strict: bool = True, **kwargs) -> Tuple[Module, str, Union[None, List[int]]]:
+    if model_type not in MODEL_MAPPINGS:
+        raise Exception('Unsupported model_type given of {}'.format(model_type))
+
+    constructor = MODEL_MAPPINGS[model_type]
+    model = constructor(**kwargs)  # type: Module
+    device, ids = device_to_name_ids(device)
+
+    if ids is not None:
+        model = parallelize_model(model, ids)
+
+    if model_path:
+        load_model(model_path, model, strict=load_strict)
+
+    model = model.to(device)
+
+    return model, device, ids
