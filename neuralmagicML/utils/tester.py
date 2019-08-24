@@ -1,5 +1,6 @@
 from typing import Dict, List, Callable, Tuple
 from collections import OrderedDict
+import math
 from tqdm import tqdm
 import torch
 from torch import Tensor
@@ -90,11 +91,12 @@ class ModuleTester(object):
     def test_epoch(self, data_loader: DataLoader, epoch: int) -> ModuleTestResults:
         self._module = self._module.eval()
         results = ModuleTestResults()
-        print('testing for epoch {}'.format(epoch))
         step_count = 0
 
         with torch.no_grad():
-            for batch, (*x_feature, y_lab) in tqdm(enumerate(data_loader)):
+            for batch, (*x_feature, y_lab) in tqdm(enumerate(data_loader),
+                                                   desc='testing epoch {}'.format(epoch),
+                                                   total=len(data_loader)):
                 y_lab = y_lab.to(self.device)
                 x_feature = tuple([dat.to(self.device) for dat in x_feature])
                 batch_size = y_lab.shape[0]

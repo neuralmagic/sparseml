@@ -90,7 +90,9 @@ class ModuleTrainer(object):
         print('training for epoch {}'.format(epoch))
         step_count = 0
 
-        for batch, (*x_feature, y_lab) in tqdm(enumerate(data_loader)):
+        for batch, (*x_feature, y_lab) in tqdm(enumerate(data_loader),
+                                               desc='training epoch {}'.format(epoch),
+                                               total=len(data_loader)):
             # copy next batch to the device we are using
             y_lab = y_lab.to(self.device)
             x_feature = tuple([dat.to(self.device) for dat in x_feature])
