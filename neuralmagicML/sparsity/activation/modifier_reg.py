@@ -72,7 +72,7 @@ class ASRegModifier(ScheduledModifier):
             raise Exception('len(alphas) of {} must match len(layers) of {} in {}'
                             .format(len(self._alpha), len(self._layers), self.__class__.__name__))
 
-        if not (isinstance(self._alpha, float) || isinstance(self._alpha, list)):
+        if not (isinstance(self._alpha, float) or isinstance(self._alpha, list)):
             raise Exception('alpha must be of float type for {}'.format(self.__class__.__name__))
 
         if self._reg_func not in REG_FUNCTIONS:
