@@ -147,12 +147,13 @@ class ASRegModifier(ScheduledModifier):
             return super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
 
         act_reg = 0.0
+        key = 'cpu' if not loss.is_cuda else 'cuda:{}'.format(loss.get_device())
 
         for index, tracker in enumerate(self._trackers):
             if self._reg_tens == 'inp':
-                tracker_reg = tracker.tracked_input
+                tracker_reg = tracker.tracked_input[key]
             elif self._reg_tens == 'out':
-                tracker_reg = tracker.tracked_output
+                tracker_reg = tracker.tracked_output[key]
             else:
                 raise Exception('unsupported reg_tens given of {}'.format(self._reg_tens))
 
@@ -164,6 +165,10 @@ class ASRegModifier(ScheduledModifier):
             act_reg = act_reg / len(self._trackers)
 
         return loss + act_reg
+
+    def optimizer_post_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+        for tracker in self._trackers:
+            tracker.clear()
 
     def _regularize_tracked(self, tens: Union[Tuple[Tensor, ...], Tensor]):
         if isinstance(tens, Tensor):

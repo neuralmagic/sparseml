@@ -18,8 +18,8 @@ class ASLayerTracker(object):
         self._output_func = output_func
 
         self._enabled = False
-        self._tracked_input = None
-        self._tracked_output = None
+        self._tracked_input = {}
+        self._tracked_output = {}
         self._hook_handle = None  # type: RemovableHandle
 
     def __del__(self):
@@ -30,10 +30,18 @@ class ASLayerTracker(object):
             self._enabled = True
             self._enable_hooks()
 
+        self.clear()
+
     def disable(self):
         if self._enabled:
             self._enabled = False
             self._disable_hooks()
+
+        self.clear()
+
+    def clear(self):
+        self._tracked_input.clear()
+        self._tracked_output.clear()
 
     @property
     def tracked_input(self):
@@ -42,27 +50,6 @@ class ASLayerTracker(object):
     @property
     def tracked_output(self):
         return self._tracked_output
-
-    def forward(self, *inp: Any, **kwargs: Any):
-        if self._track_input:
-            tracked = inp
-
-            if self._input_func is not None:
-                tracked = self._input_func(inp)
-
-            self._tracked_input = tracked
-
-        out = self._layer(*inp, **kwargs)
-
-        if self._track_output:
-            tracked = out
-
-            if self._output_func is not None:
-                tracked = self._output_func
-
-            self._track_output = tracked
-
-        return out
 
     def _enable_hooks(self):
         if self._hook_handle is not None:
@@ -75,7 +62,8 @@ class ASLayerTracker(object):
                 if self._input_func is not None:
                     tracked = self._input_func(_inp)
 
-                self._tracked_input = tracked
+                key = 'cpu' if not tracked.is_cuda else 'cuda:{}'.format(tracked.get_device())
+                self._tracked_input[key] = tracked
 
             if self._track_output:
                 tracked = _out
@@ -83,7 +71,8 @@ class ASLayerTracker(object):
                 if self._output_func is not None:
                     tracked = self._output_func(_out)
 
-                self._tracked_output = tracked
+                key = 'cpu' if not tracked.is_cuda else 'cuda:{}'.format(tracked.get_device())
+                self._tracked_output[key] = tracked
 
         self._hook_handle = self._layer.register_forward_hook(_forward_hook)
 
