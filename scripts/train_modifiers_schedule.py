@@ -30,7 +30,8 @@ def train_modifiers_schedule(
         dataset_type: str, dataset_root: str,
         train_batch_size: int, test_batch_size: int, num_workers: int, pin_memory: bool,
         load_optim: bool, init_lr: float, momentum: float, dampening: float, weight_decay: float, nesterov: bool,
-        save_dir: str, save_epochs: Union[str, None], track_ks: bool, track_as: bool,
+        save_dir: str, save_after_epoch: int, save_epochs: Union[str, None], save_epoch_mod: int,
+        track_ks: bool, track_as: bool,
         debug_early_stop: int):
 
     ####################################################################################################################
@@ -122,7 +123,7 @@ def train_modifiers_schedule(
 
     while os.path.exists(os.path.join(logs_dir, model_id)):
         model_inc += 1
-        model_id = '{}__{}'.format(model_tag, model_inc)
+        model_id = '{}__{:02d}'.format(model_tag, model_inc)
 
     print('Model id is set to {}'.format(model_id))
     logs_dir = os.path.join(logs_dir, model_id)
@@ -226,8 +227,9 @@ def train_modifiers_schedule(
         print('Running baseline tests')
         _run_model_tests(epoch)
 
-        if epoch in save_epochs:
-            save_path = os.path.join(save_dir, '{}.checkpoint-{}.pth'.format(model_id, epoch))
+        if ((save_after_epoch < 0 or epoch >= save_after_epoch) and
+                (epoch in save_epochs or (save_epoch_mod > 0 and epoch % save_epoch_mod == 0))):
+            save_path = os.path.join(save_dir, '{}.checkpoint-{:03d}.pth'.format(model_id, epoch))
             print('Saving checkpoint to {}'.format(save_path))
             save_model(save_path, model, optimizer, epoch)
 
@@ -249,7 +251,8 @@ def main():
                         help='The device to run on (can also include ids for data parallel), ex: '
                              'cpu, cuda, cuda:0,1')
     parser.add_argument('--model-type', type=str, required=True,
-                        help='The type of model to create, ex: resnet/50, vgg/16, mobilenet/1.0')
+                        help='The type of model to create, ex: resnet/50, vgg/16, mobilenet/1.0 '
+                             'put as help to see the full list (will raise an exception with the list)')
     parser.add_argument('--pretrained', type=str, default=None,
                         help='The type of pretrained weights to use, default is not to load any, '
                              'ex: imagenet/dense, imagenet/sparse, imagenette/dense')
@@ -303,11 +306,19 @@ def main():
     parser.add_argument('--nesterov', type=bool, default=True,
                         help='Use nesterov momentum for the SGD optimizer')
 
-    # additional options
+    # save options
     parser.add_argument('--save-dir', type=str, default='modifiers-training',
                         help='The path to the directory for saving results')
+    parser.add_argument('--save-after-epoch', type=int, default=-1,
+                        help='the epoch after which to start saving checkpoints with either '
+                             'save-epochs or save-epoch-mod args')
     parser.add_argument('--save-epochs', type=str, default=None,
                         help='comma separated list of epochs to save checkpoints at')
+    parser.add_argument('--save-epoch-mod', type=int, default=-1,
+                        help='the modulus to save checkpoints at, '
+                             'ie 2 will save every other epoch starting with an even number')
+
+    # additional options
     parser.add_argument('--track-ks', type=bool, default=False,
                         help='Track the sparsity of kernels for all convolutional / linear layers')
     parser.add_argument('--track-as', type=bool, default=False,
@@ -327,7 +338,8 @@ def main():
         args.dataset_type, args.dataset_root,
         args.train_batch_size, args.test_batch_size, args.num_workers, convert_to_bool(args.pin_memory),
         convert_to_bool(args.load_optim), args.init_lr, args.momentum, args.dampening, args.weight_decay, convert_to_bool(args.nesterov),
-        args.save_dir, args.save_epochs, convert_to_bool(args.track_ks), convert_to_bool(args.track_as),
+        args.save_dir, args.save_after_epoch, args.save_epochs, args.save_epoch_mod,
+        convert_to_bool(args.track_ks), convert_to_bool(args.track_as),
         args.debug_early_stop
     )
 
