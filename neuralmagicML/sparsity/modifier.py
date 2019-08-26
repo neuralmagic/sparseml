@@ -57,7 +57,8 @@ class ScheduledModifier(Modifier):
     @enabled.setter
     def enabled(self, value: bool):
         if self._initialized:
-            raise Exception('Cannot change enabled after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change enabled after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._enabled = value
         
@@ -72,7 +73,8 @@ class ScheduledModifier(Modifier):
     @start_epoch.setter
     def start_epoch(self, value: float):
         if self._initialized:
-            raise Exception('Cannot change start_epoch after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change start_epoch after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._start_epoch = value
 
@@ -83,7 +85,8 @@ class ScheduledModifier(Modifier):
     @end_epoch.setter
     def end_epoch(self, value: float):
         if self._initialized:
-            raise Exception('Cannot change end_epoch after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change end_epoch after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._end_epoch = value
 
@@ -243,8 +246,8 @@ class ScheduledUpdateModifier(ScheduledModifier):
     @update_frequency.setter
     def update_frequency(self, value: float):
         if self._initialized:
-            raise Exception('Cannot change update_frequency after {} has been initialized'
-                            .format(self.__class__.__name__))
+            raise RuntimeError('Cannot change update_frequency after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._update_frequency = value
 

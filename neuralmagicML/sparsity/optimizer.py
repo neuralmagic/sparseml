@@ -74,7 +74,7 @@ class ScheduledOptimizer(Optimizer):
         for param_group in self.param_groups:
             return param_group['lr']
 
-        raise Exception('cannot get learning_rate, no param_groups available')
+        raise RuntimeError('cannot get learning_rate, no param_groups available')
 
     @learning_rate.setter
     def learning_rate(self, value: float):
@@ -168,8 +168,8 @@ class ScheduledOptimizer(Optimizer):
             # steps per epoch are not provided, must work at an epoch granularity
             # required that epoch_start and epoch_end are called
             if not self._epoch_started:
-                raise Exception('steps_per_epoch is not supplied for ScheduledOptimizer, '
-                                'epoch_start and epoch_end must be called then')
+                raise RuntimeError('steps_per_epoch is not supplied for ScheduledOptimizer, '
+                                   'epoch_start and epoch_end must be called then')
 
             return float(self._epoch_counter)
 

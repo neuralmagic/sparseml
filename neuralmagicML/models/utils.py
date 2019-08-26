@@ -21,7 +21,7 @@ __all__ = ['copy_state_dict_value', 'copy_state_dict_linear', 'copy_state_dict_c
 def copy_state_dict_value(target_key: str, source_key: str, target: Dict[str, Tensor], source: Dict[str, Tensor],
                           delete_from_source: bool = False):
     if source_key not in source:
-        raise Exception('{} not found in source dict'.format(source_key))
+        raise KeyError('{} not found in source dict'.format(source_key))
 
     target[target_key] = source[source_key]
 
@@ -72,7 +72,7 @@ def device_to_name_ids(device: str) -> Tuple[str, Union[None, List[int]]]:
         return name, None
 
     if name != 'cuda' or not torch.cuda.is_available():
-        raise Exception('{} device not available on this system'.format(name))
+        raise ValueError('{} device not available on this system'.format(name))
 
     if len(split) < 2:
         return name, None
@@ -82,7 +82,7 @@ def device_to_name_ids(device: str) -> Tuple[str, Union[None, List[int]]]:
 
     for id_ in ids:
         if id_ >= count:
-            raise Exception('{} device id not available on this system'.format(id_))
+            raise ValueError('{} device id not available on this system'.format(id_))
 
     if len(ids) == 1:
         return '{}:{}'.format(name, ids[0]), None
@@ -211,8 +211,12 @@ MODEL_MAPPINGS = {}  # type: Dict[str, Callable]
 
 def create_model(model_type: str, device: str, model_path: Union[None, str] = None,
                  load_strict: bool = True, **kwargs) -> Tuple[Module, str, Union[None, List[int]]]:
+    if model_type == 'help':
+        raise Exception('model_type given of help, available models: \n{}'.format(list(MODEL_MAPPINGS.keys())))
+
     if model_type not in MODEL_MAPPINGS:
-        raise Exception('Unsupported model_type given of {}'.format(model_type))
+        raise ValueError('Unsupported model_type given of {}, available models: \n{}'
+                         .format(model_type, list(MODEL_MAPPINGS.keys())))
 
     constructor = MODEL_MAPPINGS[model_type]
     model = constructor(**kwargs)  # type: Module

@@ -36,9 +36,9 @@ def validate_str_list(val: Union[str, List[str]], val_name: str, par_name: str) 
         val = flatten(val)
     elif isinstance(val, str):
         if val != '__all__':
-            raise Exception('unsupported {} string given in {}: {}'.format(val_name, par_name, val))
+            raise ValueError('unsupported {} string given in {}: {}'.format(val_name, par_name, val))
     else:
-        raise Exception('unsupported type given for {} in {}: {}'.format(val_name, par_name, val))
+        raise ValueError('unsupported type given for {} in {}: {}'.format(val_name, par_name, val))
 
     return val
 
@@ -48,8 +48,8 @@ INTERPOLATION_FUNCS = ['linear', 'cubic', 'inverse_cubic', 'geometric']
 
 def interpolate(x_cur: float, x0: float, x1: float, y0: float, y1: float, inter_func: str = 'linear') -> float:
     if inter_func not in INTERPOLATION_FUNCS:
-        raise Exception('unsupported inter_func given of {} must be one of {}'
-                        .format(inter_func, INTERPOLATION_FUNCS))
+        raise ValueError('unsupported inter_func given of {} must be one of {}'
+                         .format(inter_func, INTERPOLATION_FUNCS))
 
     # convert our x to 0-1 range since equations are designed to fit in (0,0)-(1,1) space
     x_cur = (x_cur - x0) / (x1 - x0)
@@ -63,19 +63,8 @@ def interpolate(x_cur: float, x0: float, x1: float, y0: float, y1: float, inter_
     elif inter_func == 'inverse_cubic':
         # https://www.wolframalpha.com/input/?i=1-(1-x)%5E(1%2F3)+from+0+to+1
         y_cur = 1 - (1 - x_cur) ** (1/3)
-    elif inter_func == 'geometric':
-        x_cur = (x1 - x0) * x_cur + x0  # revert back to native values
-        if x_cur <= x0:
-            y_cur = y0
-        d0 = 1-y0
-        df = 1-y1
-        gamma = (df / d0) ** (1 / (x1 - x0))
-        d_cur = d0 * gamma ** (x_cur - x0)
-        y_cur = 1 - d_cur
-        return y_cur
-
     else:
-        raise Exception('unsupported inter_func given of {} in interpolate'.format(inter_func))
+        raise ValueError('unsupported inter_func given of {} in interpolate'.format(inter_func))
 
     if y_cur > 1.0 - sys.float_info.epsilon:
         y_cur = 1.0
@@ -164,7 +153,7 @@ def tensor_sparsity(tens: Tensor, dim: Union[None, int, List[int], Tuple[int, ..
             dim = [dim]
 
         if max(dim) >= len(tens.shape):
-            raise Exception('Unsupported dim given of {} in {} for tensor shape {}'.format(max(dim), dim, tens.shape))
+            raise ValueError('Unsupported dim given of {} in {} for tensor shape {}'.format(max(dim), dim, tens.shape))
 
         sum_dims = [ind for ind in range(len(tens.shape)) if ind not in dim]
         zeros = (tens == 0).sum(dim=sum_dims)
@@ -179,7 +168,7 @@ def tensor_sparsity(tens: Tensor, dim: Union[None, int, List[int], Tuple[int, ..
 
 def tensor_sample(tens: Tensor, sample_size: int, dim: Union[None, int, List[int], Tuple[int, ...]] = None) -> Tensor:
     if sample_size < 1:
-        raise Exception('improper sample size given of {}'.format(sample_size))
+        raise ValueError('improper sample size given of {}'.format(sample_size))
 
     if dim is None:
         indices = tens.new_zeros((sample_size,)).long().random_(0, tens.numel())
@@ -191,7 +180,7 @@ def tensor_sample(tens: Tensor, sample_size: int, dim: Union[None, int, List[int
         dim = [dim]
 
     if max(dim) >= len(tens.shape):
-        raise Exception('Unsupported dim given of {} in {} for tensor shape {}'.format(max(dim), dim, tens.shape))
+        raise ValueError('Unsupported dim given of {} in {} for tensor shape {}'.format(max(dim), dim, tens.shape))
 
     if dim != [ind for ind in range(len(dim))]:
         # put the desired dimension(s) at the front to sample from

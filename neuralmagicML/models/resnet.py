@@ -201,7 +201,7 @@ class ResNetSectionSettings(object):
 
         if use_se:
             # TODO: add support for squeeze excite
-            raise Exception('squeeze excite not supported yet')
+            raise NotImplementedError('squeeze excite not supported yet')
 
         self.num_blocks = num_blocks
         self.in_channels = in_channels

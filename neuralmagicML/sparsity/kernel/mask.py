@@ -137,11 +137,11 @@ class KSLayerMask(object):
                 0 means no change, 1 means masked, -1 means unmasked
         """
         if mask_tensor is None:
-            raise Exception('mask cannot be set to None')
+            raise ValueError('mask cannot be set to None')
 
         if mask_tensor.shape != self._param.shape:
-            raise Exception('mask shape of {} does not match layer.param shape of {}'
-                            .format(mask_tensor.shape, self._param.shape))
+            raise ValueError('mask shape of {} does not match layer.param shape of {}'
+                             .format(mask_tensor.shape, self._param.shape))
 
         # figure out the delta of the mask for newly masked and unmasked values
         # we return that tensor so anyone can easily figure out what action happened
@@ -164,11 +164,11 @@ class KSLayerMask(object):
         :param param_tensor: the tensor to apply to the parameter as a new one
         """
         if param_tensor is None:
-            raise Exception('param_tensor cannot be set to None')
+            raise ValueError('param_tensor cannot be set to None')
 
         if param_tensor.shape != self._param.shape:
-            raise Exception('param_tensor shape of {} does not match layer.param shape of {}'
-                            .format(param_tensor.shape, self._param.shape))
+            raise ValueError('param_tensor shape of {} does not match layer.param shape of {}'
+                             .format(param_tensor.shape, self._param.shape))
 
         self._param.data.copy_(param_tensor)
         self.apply()

@@ -72,7 +72,8 @@ class LearningRateModifier(ScheduledUpdateModifier):
     @lr_class.setter
     def lr_class(self, value: str):
         if self._initialized:
-            raise Exception('Cannot change lr_class after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change lr_class after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._lr_class = value
 
@@ -83,7 +84,8 @@ class LearningRateModifier(ScheduledUpdateModifier):
     @lr_kwargs.setter
     def lr_kwargs(self, value: Dict):
         if self._initialized:
-            raise Exception('Cannot change lr_kwargs after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change lr_kwargs after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._lr_kwargs = value
 
@@ -94,7 +96,8 @@ class LearningRateModifier(ScheduledUpdateModifier):
     @init_lr.setter
     def init_lr(self, value: Union[float, None]):
         if self._initialized:
-            raise Exception('Cannot change init_lr after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change init_lr after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._init_lr = value
 
@@ -202,7 +205,8 @@ class CyclicLRModifier(ScheduledUpdateModifier):
     @lr_kwargs.setter
     def lr_kwargs(self, value: Dict):
         if self._initialized:
-            raise Exception('Cannot change lr_kwargs after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change lr_kwargs after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._lr_kwargs = value
 

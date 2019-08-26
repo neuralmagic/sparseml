@@ -177,7 +177,7 @@ class ASAnalyzerLayer(object):
         if result_type == ASResultType.outputs_sample:
             return self._outputs_sample
 
-        raise Exception('result_type of {} is not supported'.format(result_type))
+        raise ValueError('result_type of {} is not supported'.format(result_type))
 
     def results_mean(self, result_type: ASResultType) -> Tensor:
         results = self.results(result_type)
@@ -220,7 +220,7 @@ class ASAnalyzerLayer(object):
             samples = result.cpu()
             self._outputs_sample.append(samples)
         else:
-            raise Exception('unrecognized result_type given {}'.format(result_type))
+            raise ValueError('unrecognized result_type given {}'.format(result_type))
 
     def _enable_hooks(self):
         if not self._connected:
@@ -275,7 +275,7 @@ class ASAnalyzerModule(Module):
 
         for layer in layers:
             if layer.name in self._layers:
-                raise Exception('duplicate layer {} found, can only have one entry per layer'.format(layer.name))
+                raise ValueError('duplicate layer {} found, can only have one entry per layer'.format(layer.name))
 
             layer.connect(self.module)
             self._layers[layer.name] = layer

@@ -65,23 +65,20 @@ class ASRegModifier(ScheduledModifier):
         self._trackers = []  # type: List[ASLayerTracker]
 
         if not isinstance(self._alpha, float) and self._layers == ALL_TOKEN:
-            raise Exception('list of alphas {} is not supported with {} for layers in {}'
+            raise TypeError('list of alphas {} is not supported with {} for layers in {}'
                             .format(self._alpha, ALL_TOKEN, self.__class__.__name__))
 
         if not isinstance(self._alpha, float) and len(self._alpha) != len(self._layers):
-            raise Exception('len(alphas) of {} must match len(layers) of {} in {}'
-                            .format(len(self._alpha), len(self._layers), self.__class__.__name__))
-
-        if not (isinstance(self._alpha, float) or isinstance(self._alpha, list)):
-            raise Exception('alpha must be of float type for {}'.format(self.__class__.__name__))
+            raise ValueError('len(alphas) of {} must match len(layers) of {} in {}'
+                             .format(len(self._alpha), len(self._layers), self.__class__.__name__))
 
         if self._reg_func not in REG_FUNCTIONS:
-            raise Exception('{} is not a supported reg_func, available are {} for {}'
-                            .format(self._reg_func, REG_FUNCTIONS, self.__class__.__name__))
+            raise ValueError('{} is not a supported reg_func, available are {} for {}'
+                             .format(self._reg_func, REG_FUNCTIONS, self.__class__.__name__))
 
         if self._reg_tens not in REG_TENSORS:
-            raise Exception('{} is not a supported reg_tens, available are {} for {}'
-                            .format(self._reg_tens, REG_TENSORS, self.__class__.__name__))
+            raise ValueError('{} is not a supported reg_tens, available are {} for {}'
+                             .format(self._reg_tens, REG_TENSORS, self.__class__.__name__))
 
     def __del__(self):
         self._trackers.clear()
@@ -93,7 +90,7 @@ class ASRegModifier(ScheduledModifier):
     @layers.setter
     def layers(self, value: Union[str, List[str]]):
         if self.initialized:
-            raise Exception('Cannot change layers after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change layers after {} has been initialized'.format(self.__class__.__name__))
 
         self._layers = value
 
@@ -103,6 +100,9 @@ class ASRegModifier(ScheduledModifier):
 
     @alpha.setter
     def alpha(self, value: Union[float, List[float]]):
+        if self.initialized:
+            raise RuntimeError('Cannot change alpha after {} has been initialized'.format(self.__class__.__name__))
+
         self._alpha = value
 
     @property
@@ -111,6 +111,9 @@ class ASRegModifier(ScheduledModifier):
 
     @reg_func.setter
     def reg_func(self, value: str):
+        if self.initialized:
+            raise RuntimeError('Cannot change reg_func after {} has been initialized'.format(self.__class__.__name__))
+
         self._reg_func = value
 
     @property
@@ -119,6 +122,9 @@ class ASRegModifier(ScheduledModifier):
 
     @reg_tens.setter
     def reg_tens(self, value: str):
+        if self.initialized:
+            raise RuntimeError('Cannot change reg_tens after {} has been initialized'.format(self.__class__.__name__))
+
         self._reg_tens = value
 
     def initialize(self, module: Module, optimizer: Optimizer):
@@ -155,7 +161,7 @@ class ASRegModifier(ScheduledModifier):
             elif self._reg_tens == 'out':
                 tracker_reg = tracker.tracked_output[key]
             else:
-                raise Exception('unsupported reg_tens given of {}'.format(self._reg_tens))
+                raise ValueError('unsupported reg_tens given of {}'.format(self._reg_tens))
 
             alpha = self._alpha if isinstance(self._alpha, float) else self._alpha[index]
             act_reg += tracker_reg * alpha
@@ -184,7 +190,7 @@ class ASRegModifier(ScheduledModifier):
             elif self._reg_func == 'relu':
                 tens_reduced = TF.relu(reduced).sum()
             else:
-                raise Exception('unsupported reg_func given of {}'.format(self._reg_func))
+                raise ValueError('unsupported reg_func given of {}'.format(self._reg_func))
 
             # normalize by batch size
             reduced += tens_reduced / ten.shape[0]

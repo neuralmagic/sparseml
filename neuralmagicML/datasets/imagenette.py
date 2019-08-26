@@ -49,7 +49,7 @@ class ImagenetteDataset(ImageFolder):
             elif dataset_size == ImagenetteSize.full:
                 extract = 'imagenette'
             else:
-                raise Exception('Unknown ImagenetteSize given of {}'.format(dataset_size))
+                raise ValueError('Unknown ImagenetteSize given of {}'.format(dataset_size))
 
             extracted_root = os.path.join(root, extract)
             ImagenetteDataset.download(dataset_size, root, extract)
@@ -81,7 +81,7 @@ class ImagenetteDataset(ImageFolder):
         elif size == ImagenetteSize.s160:
             url = 'https://s3.amazonaws.com/fast-ai-imageclas/imagenette-160.tgz'
         else:
-            raise Exception('unknown imagenette size given of {}'.format(size))
+            raise ValueError('unknown imagenette size given of {}'.format(size))
 
         filename = '{}.tar'.format(extract)
 

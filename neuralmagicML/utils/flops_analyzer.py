@@ -77,7 +77,7 @@ class FlopsAnalyzerModule(Module):
         :return: the calculated FLOPS for the given layer
         """
         if not self._forward_called:
-            raise Exception('Must first execute model for an inference batch to get flops count')
+            raise RuntimeError('Must first execute model for an inference batch to get flops count')
 
         mod = self.module
 
@@ -98,7 +98,7 @@ class FlopsAnalyzerModule(Module):
         :return: the total number of params for the given layer
         """
         if not self._forward_called:
-            raise Exception('Must first execute model for an inference batch to get params count')
+            raise RuntimeError('Must first execute model for an inference batch to get params count')
 
         mod = self.module
 

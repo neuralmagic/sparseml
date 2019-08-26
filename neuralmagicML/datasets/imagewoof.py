@@ -49,7 +49,7 @@ class ImagewoofDataset(ImageFolder):
             elif dataset_size == ImagewoofSize.full:
                 extract = 'imagewoof'
             else:
-                raise Exception('Unknown ImagewoofSize given of {}'.format(dataset_size))
+                raise ValueError('Unknown ImagewoofSize given of {}'.format(dataset_size))
 
             extracted_root = os.path.join(root, extract)
             self.download(dataset_size, root, extract)
@@ -81,7 +81,7 @@ class ImagewoofDataset(ImageFolder):
         elif size == ImagewoofSize.s160:
             url = 'https://s3.amazonaws.com/fast-ai-imageclas/imagewoof-160.tgz'
         else:
-            raise Exception('unknown imagewoof size given of {}'.format(size))
+            raise ValueError('unknown imagewoof size given of {}'.format(size))
 
         filename = '{}.tar'.format(extract)
 
