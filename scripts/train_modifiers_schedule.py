@@ -1,5 +1,6 @@
-from typing import Union, Dict, Tuple
+from typing import Union, Dict, Tuple, List
 import argparse
+from importlib.machinery import SourceFileLoader
 import os
 import math
 from tensorboardX import SummaryWriter
@@ -11,7 +12,7 @@ from torch.nn import Linear
 from torch.nn.modules.conv import _ConvNd
 
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
-from neuralmagicML.models import create_model, load_optimizer, save_model
+from neuralmagicML.models import create_model, model_to_device, load_optimizer, save_model
 from neuralmagicML.sparsity import (
     ScheduledModifierManager, ScheduledOptimizer,
     KSAnalyzerLayer, ASAnalyzerModule, ASAnalyzerLayer,
@@ -32,6 +33,7 @@ def train_modifiers_schedule(
         load_optim: bool, init_lr: float, momentum: float, dampening: float, weight_decay: float, nesterov: bool,
         save_dir: str, save_after_epoch: int, save_epochs: Union[str, None], save_epoch_mod: int,
         track_ks: bool, track_as: bool,
+        model_plugin_paths: Union[None, List[str]],
         debug_early_stop: int):
 
     ####################################################################################################################
@@ -66,17 +68,40 @@ def train_modifiers_schedule(
     #
     ####################################################################################################################
 
-    model, device, device_ids = create_model(model_type, device_desc, model_path,
-                                             pretrained=pretrained, num_classes=num_classes)
+    model = create_model(model_type, model_path, pretrained=pretrained, num_classes=num_classes)
     print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}'
           .format(model_type, num_classes, pretrained, model_path))
 
     if teacher_type is not None:
-        teacher, _, __ = create_model(teacher_type, device_desc, teacher_path, pretrained=teacher_pretrained)
+        teacher = create_model(teacher_type, teacher_path, pretrained=teacher_pretrained, num_classes=num_classes)
         kd_settings = KnowledgeDistillationSettings(teacher, kd_temp_student, kd_temp_teacher,
                                                     kd_weight, kd_contradict_hinton)
+        print('Created teacher model of type {} with num_classes:{}, pretrained:{} / model_path:{}'
+              .format(teacher_type, num_classes, teacher_pretrained, teacher_path))
+        print('Created kd settings with teacher model of temp_student:{}, temp_teacher:{}, weight:{}, con_hinton:{}'
+              .format(kd_temp_student, kd_temp_teacher, kd_weight, kd_contradict_hinton))
     else:
+        teacher = None
         kd_settings = None
+        print('Not using knowledge distillation')
+
+    if model_plugin_paths:
+        for plugin_path in model_plugin_paths:
+            plugin_mod_name, _ = os.path.splitext(os.path.basename(plugin_path))
+            plugin_module = SourceFileLoader(plugin_mod_name, plugin_path).load_module()
+
+            if not hasattr(plugin_module, 'handle_models'):
+                raise Exception('model plugin at {} must have "handle_models" definition'.format(plugin_path))
+
+            plugin_func = getattr(plugin_module, 'handle_models')
+            plugin_func(model, teacher)
+
+    model, device, device_ids = model_to_device(model, device_desc)
+
+    if teacher is not None:
+        teacher, _, __ = model_to_device(teacher, device_desc)
+
+    print('Transferred model(s) to device {} with ids {}'.format(device, device_ids))
 
     loss = CrossEntropyLossWrapper(
         extras={'top1acc': TopKAccuracy(1), 'top5acc': TopKAccuracy(5)}, kd_settings=kd_settings
@@ -324,6 +349,10 @@ def main():
     parser.add_argument('--track-as', type=bool, default=False,
                         help='Track the sparsity of the inputs for all convolutional / linear layers')
 
+    # plugin options
+    parser.add_argument('--model-plugin-paths', default=None, nargs='+',
+                        help='plugins to load for handling a model and possibly teacher after creation')
+
     # debug options
     parser.add_argument('--debug-early-stop', type=int, default=-1,
                         help='Early stop going through the datasets to debug issues, '
@@ -340,6 +369,7 @@ def main():
         convert_to_bool(args.load_optim), args.init_lr, args.momentum, args.dampening, args.weight_decay, convert_to_bool(args.nesterov),
         args.save_dir, args.save_after_epoch, args.save_epochs, args.save_epoch_mod,
         convert_to_bool(args.track_ks), convert_to_bool(args.track_as),
+        args.model_plugin_paths,
         args.debug_early_stop
     )
 

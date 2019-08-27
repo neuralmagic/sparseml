@@ -14,8 +14,8 @@ from collections import OrderedDict
 
 
 __all__ = ['copy_state_dict_value', 'copy_state_dict_linear', 'copy_state_dict_conv', 'copy_state_dict_batch_norm',
-           'device_to_name_ids', 'load_optimizer',
-           'load_pretrained_model', 'load_model', 'save_model', 'parallelize_model', 'create_model']
+           'load_pretrained_model', 'load_model', 'load_optimizer', 'save_model',
+           'create_model', 'model_to_device', 'parallelize_model', 'device_to_name_ids']
 
 
 def copy_state_dict_value(target_key: str, source_key: str, target: Dict[str, Tensor], source: Dict[str, Tensor],
@@ -62,32 +62,6 @@ def copy_state_dict_batch_norm(target_name: str, source_name: str, target: Dict[
 
     if delete_from_source and '{}.num_batches_tracked'.format(source_name) in source:
         del source['{}.num_batches_tracked'.format(source_name)]
-
-
-def device_to_name_ids(device: str) -> Tuple[str, Union[None, List[int]]]:
-    split = device.split(':')
-    name = split[0]
-
-    if name == 'cpu':
-        return name, None
-
-    if name != 'cuda' or not torch.cuda.is_available():
-        raise ValueError('{} device not available on this system'.format(name))
-
-    if len(split) < 2:
-        return name, None
-
-    ids = [int(id_) for id_ in split[1].split(',')]
-    count = torch.cuda.device_count()
-
-    for id_ in ids:
-        if id_ >= count:
-            raise ValueError('{} device id not available on this system'.format(id_))
-
-    if len(ids) == 1:
-        return '{}:{}'.format(name, ids[0]), None
-
-    return name, ids
 
 
 def load_pretrained_model(model: Module, pretrained_key: str, model_arch: str,
@@ -209,8 +183,7 @@ def parallelize_model(model: Module, ids: Union[None, List[int]]) -> Module:
 MODEL_MAPPINGS = {}  # type: Dict[str, Callable]
 
 
-def create_model(model_type: str, device: str, model_path: Union[None, str] = None,
-                 load_strict: bool = True, **kwargs) -> Tuple[Module, str, Union[None, List[int]]]:
+def create_model(model_type: str, model_path: Union[None, str] = None, load_strict: bool = True, **kwargs) -> Module:
     if model_type == 'help':
         raise Exception('model_type given of help, available models: \n{}'.format(list(MODEL_MAPPINGS.keys())))
 
@@ -220,14 +193,45 @@ def create_model(model_type: str, device: str, model_path: Union[None, str] = No
 
     constructor = MODEL_MAPPINGS[model_type]
     model = constructor(**kwargs)  # type: Module
+
+    if model_path:
+        load_model(model_path, model, strict=load_strict)
+
+    return model
+
+
+def model_to_device(model: Module, device: str) -> Tuple[Module, str, Union[None, List[int]]]:
     device, ids = device_to_name_ids(device)
 
     if ids is not None:
         model = parallelize_model(model, ids)
 
-    if model_path:
-        load_model(model_path, model, strict=load_strict)
-
     model = model.to(device)
 
     return model, device, ids
+
+
+def device_to_name_ids(device: str) -> Tuple[str, Union[None, List[int]]]:
+    split = device.split(':')
+    name = split[0]
+
+    if name == 'cpu':
+        return name, None
+
+    if name != 'cuda' or not torch.cuda.is_available():
+        raise ValueError('{} device not available on this system'.format(name))
+
+    if len(split) < 2:
+        return name, None
+
+    ids = [int(id_) for id_ in split[1].split(',')]
+    count = torch.cuda.device_count()
+
+    for id_ in ids:
+        if id_ >= count:
+            raise ValueError('{} device id not available on this system'.format(id_))
+
+    if len(ids) == 1:
+        return '{}:{}'.format(name, ids[0]), None
+
+    return name, ids
