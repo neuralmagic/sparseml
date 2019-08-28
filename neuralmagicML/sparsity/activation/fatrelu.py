@@ -232,9 +232,9 @@ class _DiffFATReLU(FATReLU):
     def get_compression(self) -> Union[float, List[float]]:
         return self._compression.item() if not self._channel_wise else [float(s) for s in self._compression]
 
-    def _param_clamp(self):
-        self._threshold.clamp(self._threshold_dynamic_val, 1e5)  # NB: not done inplace
-        self._compression.clamp(self._compression_dynamic_val, 1e5)
+    # def _param_clamp(self):
+    #     self.threshold.clamp(self.threshold_dynamic_val, 1e5)  # NB: not done inplace
+    #     self.compression.clamp(self.compression_dynamic_val, 1e5)
 
     def forward(self, inp: Tensor):
         if self._clamp_thresh is not None:
@@ -266,7 +266,7 @@ class _DiffFATReLU(FATReLU):
     def extra_repr(self):
         inplace_str = 'inplace' if self.inplace else ''
 
-        return 'threshold={}, compression={}{}'.format(self._threshold, self._compression, inplace_str)
+        return 'threshold={}, compression={}{}'.format(self.threshold, self.compression, inplace_str)
 
 
 class FATPWReLU(_DiffFATReLU):
@@ -293,7 +293,7 @@ class FATPWReLU(_DiffFATReLU):
 
     def apply_diff_fat_relu(self, inp: Tensor) -> Tensor:
         out = _apply_permuted_channels(fat_pw_relu, inp, threshold=self.threshold,
-                                       compression=self.compression, inplace=self.inplace)
+                                       compression=self.compression) #TODO: verify it is OK to abolish inplace support
 
         return out
 
@@ -344,7 +344,7 @@ class FATExpReLU(_DiffFATReLU):
 
     def apply_diff_fat_relu(self, inp: Tensor) -> Tensor:
         out = _apply_permuted_channels(fat_exp_relu, inp, threshold=self.threshold,
-                                       compression=self.compression, inplace=self.inplace)
+                                       compression=self.compression) #TODO: verify OK to NOT support inplace
 
         return out
 
