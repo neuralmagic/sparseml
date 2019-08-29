@@ -124,6 +124,7 @@ def train_modifiers_schedule(
     print('Created optimizer with init_lr:{} momentum:{} dampening:{} weight_decay:{} nesterov:{}'
           .format(init_lr, momentum, dampening, weight_decay, nesterov))
 
+    schedule_path = os.path.abspath(os.path.expanduser(schedule_path))
     modifier_manager = ScheduledModifierManager.from_yaml(schedule_path)
     optimizer = ScheduledOptimizer(optimizer, model, modifier_manager,
                                    steps_per_epoch=math.ceil(len(train_dataset) / train_batch_size))
@@ -267,7 +268,7 @@ def train_modifiers_schedule(
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Benchmark an imagenet model')
+    parser = argparse.ArgumentParser(description='Train a model for a given dataset with a given schedule')
 
     # schedule device and model arguments
     parser.add_argument('--schedule-path', type=str, required=True,

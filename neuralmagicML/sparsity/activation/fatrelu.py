@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Union, List
+from typing import Union, List, Dict
 from enum import Enum
 import torch
 from torch import Tensor
@@ -24,7 +24,7 @@ def _apply_permuted_channels(apply_fn, tens: Tensor, **kwargs):
     return apply_fn(tens.permute(perm), **kwargs).permute(perm)
 
 
-def fat_relu(tens: Tensor, threshold: Tensor, inplace: bool) -> Tensor:
+def fat_relu(tens: Tensor, threshold: Union[Tensor, float], inplace: bool) -> Tensor:
     """
     :param tens: the tensor to apply the fat relu to
     :param threshold: the threshold to apply
@@ -33,6 +33,10 @@ def fat_relu(tens: Tensor, threshold: Tensor, inplace: bool) -> Tensor:
     :return: f(x, t) = 0 if x < t
              x if x >= t
     """
+    if isinstance(threshold, float):
+        # not channelwise, can get by with using a threshold
+        return TF.threshold(tens, threshold, 0.0, inplace)
+
     mask = (tens >= threshold).float()
     out = tens * mask if not inplace else tens.mul_(mask)
 
@@ -137,6 +141,7 @@ class FATReLU(Module):
                 # NB: _num_channles set dynamically - at first pass
                 self._dynamic = True
 
+        self._threshold_primitive = threshold
         self.threshold = Parameter(torch.tensor(threshold))
         self.threshold.requires_grad = False
         self.inplace = inplace
@@ -168,16 +173,17 @@ class FATReLU(Module):
             raise ValueError('cannot set threshold to list of len({}), constructor setup with list of len({})'
                              .format(len(threshold), self._num_channels))
 
+        self._threshold_primitive = threshold
         current_tens = self.threshold.data  # type: Tensor
         new_tens = current_tens.new_tensor(threshold)
         current_tens.copy_(new_tens)
 
     def get_threshold(self) -> Union[float, List[float]]:
-        return self.threshold.cpu().item() if not self._channel_wise else self.threshold.cpu().tolist()
+        return self.threshold.data.cpu().item() if not self._channel_wise else self.threshold.data.cpu().tolist()
 
     def forward(self, inp: Tensor):
         if not self._channel_wise:
-            return fat_relu(inp, self.threshold, self.inplace)
+            return fat_relu(inp, self._threshold_primitive, self.inplace)
 
         if self._dynamic:
             thresh = [0.0] * inp.shape[1]
@@ -201,6 +207,9 @@ class FATReLU(Module):
                             'with dynamic allocation of number of channels')
 
         super().load_state_dict(state_dict, strict)
+
+        if not self._channel_wise:
+            self._threshold_primitive = self.threshold.data.cpu().item()
 
 
 class _DiffFATReLU(FATReLU):
@@ -237,7 +246,7 @@ class _DiffFATReLU(FATReLU):
         self._compression.data.copy_(torch.tensor(compression))
 
     def get_compression(self) -> Union[float, List[float]]:
-        return self._compression.item() if not self._channel_wise else [float(s) for s in self._compression]
+        return self._compression.data.cpu().item() if not self._channel_wise else self._compression.data.cpu().tolist()
 
     # def _param_clamp(self):
     #     self.threshold.clamp(self.threshold_dynamic_val, 1e5)  # NB: not done inplace
@@ -365,14 +374,13 @@ class FATReluType(Enum):
     exponential = 'exponential'
 
 
-def convert_relus_to_fat(module: Module, type_: FATReluType = FATReluType.basic, **kwargs) -> List[FATReLU]:
+def convert_relus_to_fat(module: Module, type_: FATReluType = FATReluType.basic, **kwargs) -> Dict[str, FATReLU]:
     relu_keys = []
 
     for name, mod in module.named_modules():
         if isinstance(mod, ReLU) or isinstance(mod, ReLU6):
             relu_keys.append(name)
 
-    added = []
     construct = None
 
     if type_ == FATReluType.basic:
@@ -384,6 +392,8 @@ def convert_relus_to_fat(module: Module, type_: FATReluType = FATReluType.basic,
     elif type_ == FATReluType.exponential:
         construct = FATExpReLU
 
+    added = {}
+
     for key in relu_keys:
         layer = module
         layers = key.split('.')
@@ -391,8 +401,12 @@ def convert_relus_to_fat(module: Module, type_: FATReluType = FATReluType.basic,
         for lay in layers[:-1]:
             layer = layer.__getattr__(lay)
 
-        fat = construct(**kwargs)
+        fat = layer.__getattr__(layers[-1])
+
+        if not isinstance(fat, FATReLU):
+            fat = construct(**kwargs)
+
         layer.__setattr__(layers[-1], fat)
-        added.append(fat)
+        added[key] = fat
 
     return added

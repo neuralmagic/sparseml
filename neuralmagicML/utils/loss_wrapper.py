@@ -64,6 +64,10 @@ class LossWrapper(object):
                 .format(self.__class__.__name__, _create_repr(self._loss_fn),
                         ','.join([_create_repr(extra) for extra in self._extras.values()])))
 
+    @property
+    def available_losses(self) -> Tuple[str, ...]:
+        return ('loss', *list(self._extras.keys()))
+
     def forward(self, x_feature: Union[Tensor, Tuple[Tensor, ...]], y_lab: Tensor,
                 y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Dict[str, Tensor]:
         calculated = {
