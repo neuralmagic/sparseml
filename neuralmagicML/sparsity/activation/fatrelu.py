@@ -93,16 +93,23 @@ def fat_exp_relu(tens: Tensor, threshold: Tensor, compression: Tensor) -> Tensor
     """
     # remove the negative values
     out = TF.relu(tens)
-
     # calculate the compression region values
     comp_mask = ((out < threshold) * (out > 0.0)).float()
+
     comp_tens = out * torch.exp(compression * (out - threshold))
 
     # reassign the compression values in the output
-    out = (-1.0 * comp_mask + 1.0) * tens + comp_tens * comp_mask
+    out = (-1.0 * comp_mask + 1.0) * out + comp_tens * comp_mask
+
+    # inplace = False #TODO: can this be True?
+    # comp_mask = ((tens < threshold) * (tens > 0.0)).float()
+    #
+    # comp_tens = TF.relu(tens * torch.exp((compression * comp_mask) * (tens - threshold)) * comp_mask, inplace=False)
+    #
+    # tens = fat_relu(tens, threshold, inplace)
+    # out = tens + comp_tens if not inplace else tens.add_(comp_tens)
 
     return out
-
 
 class FATReLU(Module):
     def __init__(self, threshold: Union[float, List[float]] = 0.0, inplace: bool = False):
@@ -343,6 +350,8 @@ class FATExpReLU(_DiffFATReLU):
         super(FATExpReLU, self).__init__(threshold, clamp_thresh, compression, clamp_comp, inplace=False)
 
     def apply_diff_fat_relu(self, inp: Tensor) -> Tensor:
+        print(_apply_permuted_channels(fat_exp_relu, inp, threshold=self.threshold,
+                                       compression=self.compression))
         out = _apply_permuted_channels(fat_exp_relu, inp, threshold=self.threshold,
                                        compression=self.compression) #TODO: verify OK to NOT support inplace
 
