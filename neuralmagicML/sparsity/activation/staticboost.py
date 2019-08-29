@@ -119,7 +119,7 @@ class ModuleStaticBooster(object):
 
         if analyzer.outputs_sparsity_mean < min_boosted_sparsity:
             print('')
-            print('boosting layer {}: finished but sparsity of {:.4f} not greater than the min {.4f}, reverting'
+            print('boosting layer {}: finished but sparsity of {:.4f} not greater than the min {:.4f}, reverting'
                   .format(layer, analyzer.outputs_sparsity_mean, min_boosted_sparsity))
             fat_relu.set_threshold(org_thresh)
         else:
