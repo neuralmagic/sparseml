@@ -25,7 +25,7 @@ def as_staticbooster(config_path: str, device_desc: str,
     # Dataset and data loader setup section
     #
     ####################################################################################################################
-    dataset, num_classes = create_dataset(dataset_type, dataset_root, train=True, rand_trans=True)
+    dataset, num_classes = create_dataset(dataset_type, dataset_root, train=True, rand_trans=False)
     if debug_early_stop > 0:
         dataset = EarlyStopDataset(dataset, debug_early_stop)
     print('created dataset: \n{}\n'.format(dataset))
@@ -40,7 +40,7 @@ def as_staticbooster(config_path: str, device_desc: str,
     print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}'
           .format(model_type, num_classes, pretrained, model_path))
 
-    # only support for now is cross entorpy with top1 and top5 accuracy
+    # only support for now is cross entropy with top1 and top5 accuracy
     loss = CrossEntropyLossWrapper(
         extras={'top1acc': TopKAccuracy(1), 'top5acc': TopKAccuracy(5)}
     )
@@ -186,7 +186,7 @@ def main():
                         help='The device to run on (can also include ids for data parallel), ex: '
                              'cpu, cuda, cuda:0,1')
     parser.add_argument('--model-type', type=str, required=True,
-                        help='The type of model to create, ex: resnet/50, vgg/16, mobilenet/1.0 '
+                        help='The type of model to create, ex: resnet50, vgg16, mobilenet '
                              'put as help to see the full list (will raise an exception with the list)')
     parser.add_argument('--pretrained', type=str, default=None,
                         help='The type of pretrained weights to use, default is not to load any, '

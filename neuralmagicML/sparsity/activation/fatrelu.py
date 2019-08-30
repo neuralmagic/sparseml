@@ -9,7 +9,7 @@ import torch.nn.functional as TF
 
 __all__ = ['fat_relu', 'fat_pw_relu', 'fat_sig_relu', 'fat_exp_relu',
            'FATReLU', 'FATPWReLU', 'FATSigReLU', 'FATExpReLU',
-           'FATReluType', 'convert_relus_to_fat']
+           'FATReluType', 'convert_relus_to_fat', 'set_relu_to_fat']
 
 
 def _apply_permuted_channels(apply_fn, tens: Tensor, **kwargs):
@@ -368,11 +368,18 @@ def convert_relus_to_fat(module: Module, type_: FATReluType = FATReluType.basic,
     relu_keys = []
 
     for name, mod in module.named_modules():
-        if isinstance(mod, ReLU) or isinstance(mod, ReLU6):
+        if isinstance(mod, ReLU):
             relu_keys.append(name)
 
-    construct = None
+    added = {}
 
+    for key in relu_keys:
+        added[key] = set_relu_to_fat(module, key, type_, **kwargs)
+
+    return added
+
+
+def set_relu_to_fat(module: Module, layer_name: str, type_: FATReluType = FATReluType.basic, **kwargs) -> FATReLU:
     if type_ == FATReluType.basic:
         construct = FATReLU
     elif type_ == FATReluType.piecewise:
@@ -381,22 +388,20 @@ def convert_relus_to_fat(module: Module, type_: FATReluType = FATReluType.basic,
         construct = FATSigReLU
     elif type_ == FATReluType.exponential:
         construct = FATExpReLU
+    else:
+        raise ValueError('unknown type_ given of {}'.format(type_))
 
-    added = {}
+    layer = module
+    layers = layer_name.split('.')
 
-    for key in relu_keys:
-        layer = module
-        layers = key.split('.')
+    for lay in layers[:-1]:
+        layer = layer.__getattr__(lay)
 
-        for lay in layers[:-1]:
-            layer = layer.__getattr__(lay)
+    fat = layer.__getattr__(layers[-1])
 
-        fat = layer.__getattr__(layers[-1])
+    if not isinstance(fat, FATReLU):
+        fat = construct(**kwargs)
 
-        if not isinstance(fat, FATReLU):
-            fat = construct(**kwargs)
+    layer.__setattr__(layers[-1], fat)
 
-        layer.__setattr__(layers[-1], fat)
-        added[key] = fat
-
-    return added
+    return fat
