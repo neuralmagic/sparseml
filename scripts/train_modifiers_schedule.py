@@ -168,9 +168,18 @@ def train_modifiers_schedule(
         writer.add_scalar('Train/Learning Rate', optimizer.learning_rate, _step)
         writer.add_scalar('Train/Batch Size', _y_lab.shape[0], _step)
 
+    def _train_batch_end_gradient_callback(_epoch: int, _step: int, _x_feature: Tuple[Tensor, ...],
+                                  _y_lab: Tensor, _y_pred: Tensor, _losses: Dict[str, Tensor]):
+        grad_list = []
+        for param in model.parameters():
+            if param.requires_grad:
+                grad_list.extend(param.grad.flatten().tolist())
+        writer.add_histogram(tag='Train/Gradients', values=torch.tensor(grad_list), global_step=_step, bins=1000)
+
     trainer = ModuleTrainer(model, device, loss, optimizer)
     trainer.register_batch_loss_hook(_train_loss_callback)
     trainer.register_batch_end_hook(_train_batch_end_callback)
+    trainer.register_batch_end_hook(_train_batch_end_gradient_callback)
     tester = ModuleTester(model, device, loss)
 
     ####################################################################################################################
