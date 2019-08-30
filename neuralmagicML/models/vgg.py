@@ -146,7 +146,7 @@ def vgg11(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/11', **kwargs)
 
 
-MODEL_MAPPINGS['vgg/11'] = vgg11
+MODEL_MAPPINGS['vgg11'] = vgg11
 
 
 def vgg11_bn(**kwargs) -> VGG:
@@ -161,7 +161,7 @@ def vgg11_bn(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/11bn', **kwargs)
 
 
-MODEL_MAPPINGS['vgg/11bn'] = vgg11_bn
+MODEL_MAPPINGS['vgg11_bn'] = vgg11_bn
 
 
 def vgg13(**kwargs) -> VGG:
@@ -176,7 +176,7 @@ def vgg13(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/13', **kwargs)
 
 
-MODEL_MAPPINGS['vgg/13'] = vgg13
+MODEL_MAPPINGS['vgg13'] = vgg13
 
 
 def vgg13_bn(**kwargs) -> VGG:
@@ -191,7 +191,7 @@ def vgg13_bn(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/13bn', **kwargs)
 
 
-MODEL_MAPPINGS['vgg/13bn'] = vgg13_bn
+MODEL_MAPPINGS['vgg13_bn'] = vgg13_bn
 
 
 def vgg16(**kwargs) -> VGG:
@@ -206,7 +206,7 @@ def vgg16(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/16', **kwargs)
 
 
-MODEL_MAPPINGS['vgg/16'] = vgg16
+MODEL_MAPPINGS['vgg16'] = vgg16
 
 
 def vgg16_bn(**kwargs) -> VGG:
@@ -221,7 +221,7 @@ def vgg16_bn(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/16bn', **kwargs)
 
 
-MODEL_MAPPINGS['vgg/16bn'] = vgg16_bn
+MODEL_MAPPINGS['vgg16_bn'] = vgg16_bn
 
 
 def vgg19(**kwargs) -> VGG:
@@ -236,7 +236,7 @@ def vgg19(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/19', **kwargs)
 
 
-MODEL_MAPPINGS['vgg/19'] = vgg19
+MODEL_MAPPINGS['vgg19'] = vgg19
 
 
 def vgg19_bn(**kwargs) -> VGG:
@@ -251,4 +251,4 @@ def vgg19_bn(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/19bn', **kwargs)
 
 
-MODEL_MAPPINGS['vgg/19'] = vgg19_bn
+MODEL_MAPPINGS['vgg19_bn'] = vgg19_bn

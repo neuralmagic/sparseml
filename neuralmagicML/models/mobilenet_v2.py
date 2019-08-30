@@ -200,4 +200,4 @@ def mobilenet_v2_100(**kwargs) -> MobilenetV2:
     return mobilenet_v2(width_mult=1.0, model_arch_tag='mobilenetv2/1.0', **kwargs)
 
 
-MODEL_MAPPINGS['mobilenetv2/1.0'] = mobilenet_v2_100
+MODEL_MAPPINGS['mobilenet_v2_100'] = mobilenet_v2_100

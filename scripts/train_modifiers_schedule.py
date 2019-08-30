@@ -1,6 +1,5 @@
 from typing import Union, Dict, Tuple, List
 import argparse
-from importlib.machinery import SourceFileLoader
 import os
 import math
 from tensorboardX import SummaryWriter
@@ -68,12 +67,14 @@ def train_modifiers_schedule(
     #
     ####################################################################################################################
 
-    model = create_model(model_type, model_path, pretrained=pretrained, num_classes=num_classes)
-    print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}'
-          .format(model_type, num_classes, pretrained, model_path))
+    model = create_model(model_type, model_path, model_tag='train', plugin_paths=model_plugin_paths,
+                         pretrained=pretrained, num_classes=num_classes)
+    print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}, and plugins:{}'
+          .format(model_type, num_classes, pretrained, model_path, model_plugin_paths))
 
     if teacher_type is not None:
-        teacher = create_model(teacher_type, teacher_path, pretrained=teacher_pretrained, num_classes=num_classes)
+        teacher = create_model(teacher_type, teacher_path, model_tag='teacher', plugin_paths=model_plugin_paths,
+                               pretrained=teacher_pretrained, num_classes=num_classes)
         kd_settings = KnowledgeDistillationSettings(teacher, kd_temp_student, kd_temp_teacher,
                                                     kd_weight, kd_contradict_hinton)
         print('Created teacher model of type {} with num_classes:{}, pretrained:{} / model_path:{}'
@@ -84,17 +85,6 @@ def train_modifiers_schedule(
         teacher = None
         kd_settings = None
         print('Not using knowledge distillation')
-
-    if model_plugin_paths:
-        for plugin_path in model_plugin_paths:
-            plugin_mod_name, _ = os.path.splitext(os.path.basename(plugin_path))
-            plugin_module = SourceFileLoader(plugin_mod_name, plugin_path).load_module()
-
-            if not hasattr(plugin_module, 'handle_models'):
-                raise Exception('model plugin at {} must have "handle_models" definition'.format(plugin_path))
-
-            plugin_func = getattr(plugin_module, 'handle_models')
-            plugin_func(model, teacher)
 
     model, device, device_ids = model_to_device(model, device_desc)
 

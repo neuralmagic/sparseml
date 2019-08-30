@@ -170,4 +170,4 @@ def mobilenet(**kwargs) -> MobileNet:
     return MobileNet(sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS['mobilenet/1.0'] = mobilenet
+MODEL_MAPPINGS['mobilenet'] = mobilenet

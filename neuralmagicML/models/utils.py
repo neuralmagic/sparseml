@@ -1,4 +1,6 @@
 from typing import Dict, Union, List, Tuple, Callable
+from importlib.machinery import SourceFileLoader
+import inspect
 import os
 import hashlib
 import errno
@@ -15,7 +17,7 @@ from collections import OrderedDict
 
 __all__ = ['copy_state_dict_value', 'copy_state_dict_linear', 'copy_state_dict_conv', 'copy_state_dict_batch_norm',
            'load_pretrained_model', 'load_model', 'load_optimizer', 'save_model',
-           'create_model', 'model_to_device', 'parallelize_model', 'device_to_name_ids']
+           'create_model', 'edit_model_plugins', 'model_to_device', 'parallelize_model', 'device_to_name_ids']
 
 
 def copy_state_dict_value(target_key: str, source_key: str, target: Dict[str, Tensor], source: Dict[str, Tensor],
@@ -183,7 +185,9 @@ def parallelize_model(model: Module, ids: Union[None, List[int]]) -> Module:
 MODEL_MAPPINGS = {}  # type: Dict[str, Callable]
 
 
-def create_model(model_type: str, model_path: Union[None, str] = None, load_strict: bool = True, **kwargs) -> Module:
+def create_model(model_type: str, model_path: Union[None, str] = None,
+                 model_tag: Union[str, None] = None, plugin_paths: Union[None, List[str]] = None,
+                 load_strict: bool = True, **kwargs) -> Module:
     if model_type == 'help':
         raise Exception('model_type given of help, available models: \n{}'.format(list(MODEL_MAPPINGS.keys())))
 
@@ -193,9 +197,33 @@ def create_model(model_type: str, model_path: Union[None, str] = None, load_stri
 
     constructor = MODEL_MAPPINGS[model_type]
     model = constructor(**kwargs)  # type: Module
+    model = edit_model_plugins(model, model_tag, plugin_paths)
 
     if model_path:
         load_model(model_path, model, strict=load_strict)
+
+    return model
+
+
+def edit_model_plugins(model: Module, model_tag: str, plugin_paths: Union[None, List[str]] = None) -> Module:
+    if plugin_paths:
+        for plugin_path in plugin_paths:
+            plugin_path = os.path.abspath(os.path.expanduser(plugin_path))
+            plugin_mod_name, _ = os.path.splitext(os.path.basename(plugin_path))
+            plugin_module = SourceFileLoader(plugin_mod_name, plugin_path).load_module()
+
+            if not hasattr(plugin_module, 'edit_model'):
+                raise Exception('model plugin at {} must have "edit_model" definition'.format(plugin_path))
+
+            plugin_func = getattr(plugin_module, 'edit_model')
+            if len(inspect.signature(plugin_func).parameters) != 2:
+                raise Exception('model plugin at {} must take in 2 arguments: (model: Module, model_tag: str)'
+                                .format(model_tag))
+
+            model = plugin_func(model, model_tag)
+
+            if not model or not isinstance(model, Module):
+                raise Exception('model plugin at {} must return the model after editing'.format(plugin_path))
 
     return model
 
