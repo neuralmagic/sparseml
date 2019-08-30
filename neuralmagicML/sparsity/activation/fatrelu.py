@@ -105,15 +105,8 @@ def fat_exp_relu(tens: Tensor, threshold: Tensor, compression: Tensor) -> Tensor
     # reassign the compression values in the output
     out = (-1.0 * comp_mask + 1.0) * out + comp_tens * comp_mask
 
-    # inplace = False #TODO: can this be True?
-    # comp_mask = ((tens < threshold) * (tens > 0.0)).float()
-    #
-    # comp_tens = TF.relu(tens * torch.exp((compression * comp_mask) * (tens - threshold)) * comp_mask, inplace=False)
-    #
-    # tens = fat_relu(tens, threshold, inplace)
-    # out = tens + comp_tens if not inplace else tens.add_(comp_tens)
-
     return out
+
 
 class FATReLU(Module):
     def __init__(self, threshold: Union[float, List[float]] = 0.0, inplace: bool = False):
@@ -141,7 +134,6 @@ class FATReLU(Module):
                 # NB: _num_channles set dynamically - at first pass
                 self._dynamic = True
 
-        self._threshold_primitive = threshold
         self.threshold = Parameter(torch.tensor(threshold))
         self.threshold.requires_grad = False
         self.inplace = inplace
@@ -173,7 +165,6 @@ class FATReLU(Module):
             raise ValueError('cannot set threshold to list of len({}), constructor setup with list of len({})'
                              .format(len(threshold), self._num_channels))
 
-        self._threshold_primitive = threshold
         current_tens = self.threshold.data  # type: Tensor
         new_tens = current_tens.new_tensor(threshold)
         current_tens.copy_(new_tens)
@@ -183,7 +174,9 @@ class FATReLU(Module):
 
     def forward(self, inp: Tensor):
         if not self._channel_wise:
-            return fat_relu(inp, self._threshold_primitive, self.inplace)
+            threshold = self.threshold.data.item()
+
+            return fat_relu(inp, threshold, self.inplace)
 
         if self._dynamic:
             thresh = [0.0] * inp.shape[1]
@@ -207,9 +200,6 @@ class FATReLU(Module):
                             'with dynamic allocation of number of channels')
 
         super().load_state_dict(state_dict, strict)
-
-        if not self._channel_wise:
-            self._threshold_primitive = self.threshold.data.cpu().item()
 
 
 class _DiffFATReLU(FATReLU):
