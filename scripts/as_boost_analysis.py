@@ -91,20 +91,28 @@ def as_boost_analysis(device_desc: str, model_type: str, pretrained: Union[bool,
 
 
 def _save_layer_results(layer: str, results: List[Tuple[float, ModuleTestResults, ASAnalyzerLayer]], model_dir):
-    json_data = {}
+    json_data = {
+        'inputs': torch.cat(results[0][2].inputs_sample).tolist(),
+        'thresholds': {}
+    }
 
     for (thresh, test_results, analyzer_layer) in results:
         test_results = test_results  # type: ModuleTestResults
-        json_data[thresh] = {
+        json_data['thresholds'][thresh] = {
             'sparsities': torch.cat(analyzer_layer.outputs_sparsity).tolist(),
             'losses': {loss: torch.cat(values).tolist() for loss, values in test_results.results.items()}
         }
 
-    with open(os.path.join(model_dir, '{}.json'.format(layer)), 'w') as layers_file:
+    json_path = os.path.join(model_dir, '{}.json'.format(layer))
+
+    with open(json_path, 'w') as layers_file:
         json.dump(json_data, layers_file)
 
+    print('saved layer {} results json to {}'.format(layer, json_path))
+
+    inputs = torch.cat(results[0][2].inputs_sample).view(-1).tolist()
     thresholds = [res[0] for res in results]
-    sparsities = [res[2].outputs_sparsity_mean for res in results]
+    sparsities = [res[2].outputs_sparsity_mean.item() * 100.0 for res in results]
     losses = {}
 
     for res in results:
@@ -112,24 +120,24 @@ def _save_layer_results(layer: str, results: List[Tuple[float, ModuleTestResults
             if loss not in losses:
                 losses[loss] = []
 
-            losses[loss].append(res[1].result_mean(loss))
+            losses[loss].append(res[1].result_mean(loss).item())
 
     size = (10, 7)
     fig, axes = plt.subplots(nrows=2, ncols=2, figsize=size, gridspec_kw={'width_ratios': [1, 1]})
 
-    text_axis = axes[0, 0]  # type: Axes
+    text_axis = axes[0, 0]
     text_axis.axis('off')
     text_axis.text(0.5, 1.0, layer, horizontalalignment='center', verticalalignment='top',
                    fontsize=16, fontweight='bold')
 
-    inputs_axis = axes[0, 1]  # type: Axes
-    # inputs_frame = pandas.DataFrame(data={'inputs': torch.cat(results[0][2].inputs_sample).tolist()})
-    # inputs_frame.hist(column='inputs', bins=256, ax=inputs_axis)
+    inputs_axis = axes[0, 1]
+    inputs_frame = pandas.DataFrame(inputs, columns=['inputs'])
+    inputs_frame.hist(column='inputs', bins=256, ax=inputs_axis)
     inputs_axis.set_title('Baseline Inputs Distribution')
     inputs_axis.set_ylabel('Count')
     inputs_axis.set_xlabel('Input Value')
 
-    loss_axis = axes[1, 0]  # type: Axes
+    loss_axis = axes[1, 0]
     loss_frame = pandas.DataFrame(data={
         'loss': losses[list(losses.keys())[0]]
     }, index=thresholds)
@@ -139,7 +147,7 @@ def _save_layer_results(layer: str, results: List[Tuple[float, ModuleTestResults
     loss_axis.set_xlabel('Threshold')
     plt.setp(loss_axis.get_xticklabels(), rotation=30, horizontalalignment='right')
 
-    sparsity_axis = axes[1, 1]  # type: Axes
+    sparsity_axis = axes[1, 1]
     sparsity_frame = pandas.DataFrame(data={
         **losses,
         'sparsity': sparsities
@@ -150,8 +158,10 @@ def _save_layer_results(layer: str, results: List[Tuple[float, ModuleTestResults
     sparsity_axis.set_xlabel('Threshold')
     plt.setp(sparsity_axis.get_xticklabels(), rotation=30, horizontalalignment='right')
 
-    plt.savefig(os.path.join(model_dir, '{}.png'.format(layer)))
+    fig_path = os.path.join(model_dir, '{}.png'.format(layer))
+    plt.savefig(fig_path)
     plt.close(fig)
+    print('saved layer {} figure to {}'.format(layer, fig_path))
 
 
 def main():
