@@ -3,7 +3,6 @@ import argparse
 import os
 import json
 import matplotlib.pyplot as plt
-import numpy
 import pandas
 import torch
 from torch.nn import ReLU

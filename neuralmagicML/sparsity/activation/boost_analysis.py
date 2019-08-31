@@ -31,7 +31,8 @@ class ModuleBoostAnalysis(object):
         if train_dataset:
             train_early_stop = round(train_size) if train_size > 1.0 else round(train_size * len(train_dataset))
             self._train_epochs = math.ceil(train_early_stop / len(train_dataset))
-            self._train_dataset = EarlyStopDataset(train_dataset, early_stop=round(train_size))
+            self._train_dataset = EarlyStopDataset(train_dataset, early_stop=round(train_early_stop)) \
+                if train_early_stop < len(train_dataset) else train_dataset
         else:
             self._train_epochs = 0
             self._train_dataset = None
