@@ -195,7 +195,7 @@ def main():
                         help='If > 1 then the number of data items to run through training after each threshold step '
                              'If > 0 and <= 1 then the percent of the train dataset to run through after each step '
                              'If <= 0 then will not run training')
-    parser.add_argument('--train-batch-size', type=int, required=True,
+    parser.add_argument('--train-batch-size', type=int, default=-1,
                         help='The batch size to use while training')
     parser.add_argument('--test-batch-size', type=int, required=True,
                         help='The batch size to use while testing')
@@ -205,7 +205,7 @@ def main():
                         help='Use pinned memory for data loading')
 
     # optimizer settings
-    parser.add_argument('--lr', type=float, required=True,
+    parser.add_argument('--lr', type=float, default=None,
                         help='The learning rate to use while training')
     parser.add_argument('--momentum', type=float, default=0.9,
                         help='The momentum to use for the SGD optimizer')
