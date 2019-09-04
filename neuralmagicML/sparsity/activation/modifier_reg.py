@@ -13,7 +13,7 @@ from .tracker import ASLayerTracker
 __all__ = ['ASRegModifier', 'REG_FUNCTIONS', 'REG_TENSORS']
 
 
-REG_FUNCTIONS = ['l1', 'l2', 'relu']
+REG_FUNCTIONS = ['l1', 'l2', 'relu', 'hs']
 REG_TENSORS = ['inp', 'out']
 
 
@@ -49,7 +49,7 @@ class ASRegModifier(ScheduledModifier):
                        can also use the token __ALL__ to specify all layers
         :param alpha: the weight to use for the regularization, ie cost = loss + alpha * reg
         :param layer_normalized: True to normalize the values by 1 / L where L is the number of layers
-        :param reg_func: the regularization function to apply to the activations, one of: l1, l2, relu
+        :param reg_func: the regularization function to apply to the activations, one of: l1, l2, relu, hs
         :param reg_tens: the regularization tensor to apply a function to, one of: inp, out
         :param start_epoch: The epoch to start the modifier at
         :param end_epoch: The epoch to end the modifier at
@@ -189,6 +189,8 @@ class ASRegModifier(ScheduledModifier):
                 tens_reduced = ten.pow(2).sum()
             elif self._reg_func == 'relu':
                 tens_reduced = TF.relu(reduced).sum()
+            elif self._reg_func == 'hs':
+                tens_reduced = ten.abs().sum().pow(2) / ten.pow(2).sum()
             else:
                 raise ValueError('unsupported reg_func given of {}'.format(self._reg_func))
 

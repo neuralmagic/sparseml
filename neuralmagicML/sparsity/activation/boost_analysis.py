@@ -1,8 +1,9 @@
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Dict
 import copy
 import math
 from tqdm import tqdm
 import torch
+from torch import Tensor
 from torch.nn import Module
 from torch.optim import SGD
 from torch.utils.data import Dataset, DataLoader
@@ -10,18 +11,20 @@ from torch.utils.data import Dataset, DataLoader
 from ...models import model_to_device
 from ...datasets import EarlyStopDataset
 from ...utils import LossWrapper, ModuleTester, ModuleTestResults, ModuleTrainer
+from ..optimizer import ScheduledOptimizer
+from ..modifier import ScheduledModifierManager
 from .fatrelu import set_relu_to_fat, FATReLU
 from .analyzer import ASAnalyzerModule, ASAnalyzerLayer
 
 
-__all__ = ['ModuleBoostAnalysis']
+__all__ = ['ModuleASBoostAnalysis']
 
 
-class ModuleBoostAnalysis(object):
+class ModuleASBoostAnalysis(object):
     def __init__(self, module: Module, device: str, loss: LossWrapper,
                  test_dataset: Dataset, test_batch_size: int, sample_size: int,
                  train_dataset: Union[Dataset, None] = None, train_batch_size: int = 64,
-                 train_size: Union[float, int] = 0.2, **kwargs):
+                 train_size: Union[float, int] = 0.2, train_schedule_path: Union[str, None] = None, **kwargs):
         self._module = module.cpu()
         self._device = device
         self._loss = loss
@@ -38,12 +41,13 @@ class ModuleBoostAnalysis(object):
             self._train_dataset = None
 
         self._train_batch_size = train_batch_size
+        self._train_schedule_path = train_schedule_path
         self._dataloader_kwargs = {key.replace('dataloader_', ''): val
                                    for key, val in kwargs.items() if key.startswith('dataloader_')}
         self._optim_kwargs = {key.replace('optim_', ''): val
                               for key, val in kwargs.items() if key.startswith('optim_')}
 
-    def analyze_layer(self, layer: str, init_thresh: float = 0.001, final_thresh_per: float = 0.95,
+    def analyze_layer(self, layer: str, init_thresh: float = 0.001, final_thresh_per: float = 0.99,
                       thresh_mult: float = 2.0) -> List[Tuple[float, ModuleTestResults, ASAnalyzerLayer]]:
         layer_results = []
 
@@ -59,7 +63,7 @@ class ModuleBoostAnalysis(object):
         top_inputs, _ = torch.topk(inputs.view(-1), int((1.0 - final_thresh_per) * inputs.numel()),
                                    largest=True, sorted=True)
         final_thresh = top_inputs[-1].item()
-        thresholds = ModuleBoostAnalysis._thresholds(init_thresh, final_thresh, thresh_mult)
+        thresholds = ModuleASBoostAnalysis._thresholds(init_thresh, final_thresh, thresh_mult)
 
         for threshold in tqdm(thresholds, desc='eval thresholds'):
             print('\nanalyzing layer {}: checking threshold {}'.format(layer, threshold))
@@ -92,17 +96,28 @@ class ModuleBoostAnalysis(object):
             return
 
         optim = SGD(module.parameters(), **self._optim_kwargs)
+        manager = [] if self._train_schedule_path is None \
+            else ScheduledModifierManager.from_yaml(self._train_schedule_path)
+        optim = ScheduledOptimizer(optim, module, manager, math.ceil(len(self._train_dataset) / self._train_batch_size))
         trainer = ModuleTrainer(module, device, self._loss, optim)
+
+        def _train_loss_callback(_epoch: int, _step: int, _x_feature: Tuple[Tensor, ...],
+                                 _y_lab: Tensor, _y_pred: Tensor, _losses: Dict[str, Tensor]):
+            _losses['loss'] = optim.loss_update(_losses['loss'])
+
+        trainer.register_batch_loss_hook(_train_loss_callback)
 
         for epoch in range(self._train_epochs):
             data_loader = DataLoader(self._train_dataset, self._train_batch_size, **self._dataloader_kwargs)
+            optim.epoch_start()
             trainer.train_epoch(data_loader, epoch)
+            optim.epoch_end()
 
     @staticmethod
     def _thresholds(init_thresh: float, final_thresh: float, mult: float) -> List[float]:
         thresholds = [init_thresh]
 
-        while thresholds[-1] * mult <= final_thresh:
+        while thresholds[-1] < final_thresh:
             thresholds.append(thresholds[-1] * mult)
 
         return thresholds

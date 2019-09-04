@@ -9,12 +9,13 @@ from torch.nn import ReLU
 
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
 from neuralmagicML.models import create_model
-from neuralmagicML.sparsity import convert_to_bool, ModuleBoostAnalysis, ASAnalyzerLayer
+from neuralmagicML.sparsity import convert_to_bool, ModuleASBoostAnalysis, ASAnalyzerLayer
 from neuralmagicML.utils import CrossEntropyLossWrapper, TopKAccuracy, ModuleTestResults
 
 
 def as_boost_analysis(device_desc: str, model_type: str, pretrained: Union[bool, str], model_path: Union[None, str],
-                      dataset_type: str, dataset_root: str, sample_size: int, train_size: Union[float, int],
+                      dataset_type: str, dataset_root: str, sample_size: int,
+                      train_schedule: str, train_size: Union[float, int],
                       train_batch_size: int, test_batch_size: int, num_workers: int, pin_memory: bool,
                       lr: float, momentum: float, dampening: float, weight_decay: float, nesterov: bool,
                       save_dir: str, debug_early_stop: int):
@@ -71,11 +72,12 @@ def as_boost_analysis(device_desc: str, model_type: str, pretrained: Union[bool,
     os.makedirs(model_dir)
     print('Model dir set to {}'.format(model_dir))
 
-    analysis = ModuleBoostAnalysis(model, device_desc, loss, val_dataset, test_batch_size,
-                                   sample_size, train_dataset, train_batch_size, train_size,
-                                   dataloader_num_workers=num_workers, dataloader_pin_memory=pin_memory,
-                                   optim_lr=lr, optim_momentum=momentum, optim_dampening=dampening,
-                                   optim_weight_decay=weight_decay, optim_nesterov=nesterov)
+    analysis = ModuleASBoostAnalysis(model, device_desc, loss, val_dataset, test_batch_size,
+                                     sample_size, train_dataset, train_batch_size, train_size,
+                                     dataloader_num_workers=num_workers, dataloader_pin_memory=pin_memory,
+                                     optim_lr=lr, optim_momentum=momentum, optim_dampening=dampening,
+                                     optim_weight_decay=weight_decay, optim_nesterov=nesterov,
+                                     train_schedule_path=train_schedule)
     relu_layers = []
 
     for name, mod in model.named_modules():
@@ -187,6 +189,8 @@ def main():
                         help='The root path to where the dataset is stored')
     parser.add_argument('--sample-size', type=int, required=True,
                         help='The total number of samples to run through for calculating losses and sparsity values')
+    parser.add_argument('--train-schedule', type=str, default=None,
+                        help='A path to the modifier schedule to use during the training portion of the boost analysis')
     parser.add_argument('--train-size', type=float, default=-1.0,
                         help='If > 1 then the number of data items to run through training after each threshold step '
                              'If > 0 and <= 1 then the percent of the train dataset to run through after each step '
@@ -201,8 +205,6 @@ def main():
                         help='Use pinned memory for data loading')
 
     # optimizer settings
-    parser.add_argument('--load-optim', type=bool, default=False,
-                        help='Load the previous optimizer state from the model file (restore from checkpoint)')
     parser.add_argument('--lr', type=float, required=True,
                         help='The learning rate to use while training')
     parser.add_argument('--momentum', type=float, default=0.9,
@@ -226,7 +228,7 @@ def main():
     args = parser.parse_args()
     as_boost_analysis(
         args.device, args.model_type, args.pretrained, args.model_path,
-        args.dataset_type, args.dataset_root, args.sample_size, args.train_size,
+        args.dataset_type, args.dataset_root, args.sample_size, args.train_schedule, args.train_size,
         args.train_batch_size, args.test_batch_size, args.num_workers, convert_to_bool(args.pin_memory),
         args.lr, args.momentum, args.dampening, args.weight_decay, convert_to_bool(args.nesterov),
         args.save_dir,
