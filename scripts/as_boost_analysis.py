@@ -93,7 +93,7 @@ def as_boost_analysis(device_desc: str, model_type: str, pretrained: Union[bool,
 
 def _save_layer_results(layer: str, results: List[Tuple[float, ModuleTestResults, ASAnalyzerLayer]], model_dir):
     json_data = {
-        'inputs': torch.cat(results[0][2].inputs_sample).tolist(),
+        'inputs': torch.cat(results[0][2].inputs_sample).view(-1).tolist(),
         'thresholds': {}
     }
 

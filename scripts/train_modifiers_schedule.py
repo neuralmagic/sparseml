@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 from torch.optim import SGD
-from torch.nn import Linear
+from torch.nn import Linear, Module
 from torch.nn.modules.conv import _ConvNd
 
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
@@ -31,7 +31,7 @@ def train_modifiers_schedule(
         train_batch_size: int, test_batch_size: int, num_workers: int, pin_memory: bool,
         load_optim: bool, init_lr: float, momentum: float, dampening: float, weight_decay: float, nesterov: bool,
         save_dir: str, save_after_epoch: int, save_epochs: Union[str, None], save_epoch_mod: int,
-        track_ks: bool, track_as: bool,
+        track_ks: bool, track_as: bool, track_gradients: Union[None, List[str]],
         model_plugin_paths: Union[None, List[str]],
         debug_early_stop: int):
 
@@ -68,7 +68,7 @@ def train_modifiers_schedule(
     ####################################################################################################################
 
     model = create_model(model_type, model_path, model_tag='train', plugin_paths=model_plugin_paths,
-                         pretrained=pretrained, num_classes=num_classes)
+                         pretrained=pretrained, num_classes=num_classes)  # type: Module
     print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}, and plugins:{}'
           .format(model_type, num_classes, pretrained, model_path, model_plugin_paths))
 
@@ -168,18 +168,29 @@ def train_modifiers_schedule(
         writer.add_scalar('Train/Learning Rate', optimizer.learning_rate, _step)
         writer.add_scalar('Train/Batch Size', _y_lab.shape[0], _step)
 
-    def _train_batch_end_gradient_callback(_epoch: int, _step: int, _x_feature: Tuple[Tensor, ...],
-                                  _y_lab: Tensor, _y_pred: Tensor, _losses: Dict[str, Tensor]):
-        grad_list = []
-        for param in model.parameters():
-            if param.requires_grad:
-                grad_list.extend(param.grad.flatten().tolist())
-        writer.add_histogram(tag='Train/Gradients', values=torch.tensor(grad_list), global_step=_step, bins=1000)
+        if track_gradients:
+            for name, mod in model.named_modules():
+                for param_name, param in mod.named_parameters():
+                    if not param.requires_grad:
+                        continue
+
+                    grad = param.grad.view(-1)
+
+                    if 'norm' in track_gradients:
+                        writer.add_scalar('Gradients/{}/{}/norm'.format(name, param_name), grad.abs().sum(), _step)
+
+                    if 'mean' in track_gradients:
+                        writer.add_scalar('Gradients/{}/{}/mean'.format(name, param_name), grad.mean(), _step)
+
+                    if 'var' in track_gradients:
+                        writer.add_scalar('Gradients/{}/{}/var'.format(name, param_name), grad.var(), _step)
+
+                    if 'hist' in track_gradients:
+                        writer.add_histogram('Gradients/{}/{}/hist'.format(name, param_name), grad, _step)
 
     trainer = ModuleTrainer(model, device, loss, optimizer)
     trainer.register_batch_loss_hook(_train_loss_callback)
     trainer.register_batch_end_hook(_train_batch_end_callback)
-    trainer.register_batch_end_hook(_train_batch_end_gradient_callback)
     tester = ModuleTester(model, device, loss)
 
     ####################################################################################################################
@@ -348,6 +359,10 @@ def main():
                         help='Track the sparsity of kernels for all convolutional / linear layers')
     parser.add_argument('--track-as', type=bool, default=False,
                         help='Track the sparsity of the inputs for all convolutional / linear layers')
+    parser.add_argument('--track-grads', default=None, nargs='+',
+                        help='Track the gradients of trainable params in tensorboard, '
+                             'multiple ways to track so multiple args can be supplied '
+                             'options and/or: norm, mean, var, hist')
 
     # plugin options
     parser.add_argument('--model-plugin-paths', default=None, nargs='+',
@@ -368,7 +383,7 @@ def main():
         args.train_batch_size, args.test_batch_size, args.num_workers, convert_to_bool(args.pin_memory),
         convert_to_bool(args.load_optim), args.init_lr, args.momentum, args.dampening, args.weight_decay, convert_to_bool(args.nesterov),
         args.save_dir, args.save_after_epoch, args.save_epochs, args.save_epoch_mod,
-        convert_to_bool(args.track_ks), convert_to_bool(args.track_as),
+        convert_to_bool(args.track_ks), convert_to_bool(args.track_as), args.track_grads,
         args.model_plugin_paths,
         args.debug_early_stop
     )
