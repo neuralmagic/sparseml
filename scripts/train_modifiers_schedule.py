@@ -2,6 +2,7 @@ from typing import Union, Dict, Tuple, List
 import argparse
 import os
 import math
+import time
 from tensorboardX import SummaryWriter
 import torch
 from torch import Tensor
@@ -275,6 +276,9 @@ def train_modifiers_schedule(
     print('Saving result to {}'.format(save_path))
     save_model(save_path, model, optimizer, epoch)
     print('Completed')
+
+    # add sleep to make sure all background processes have finished, ex tensorboard writing
+    time.sleep(30)
 
 
 def main():

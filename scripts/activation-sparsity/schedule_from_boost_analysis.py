@@ -102,7 +102,7 @@ def main():
                              'ex: loss=0.01 top1acc=0.1')
     parser.add_argument('--min-sparsity', type=float, default=0.4,
                         help='The minimum sparsity needed after applying the boost')
-    parser.add_argument('--train-epochs', type=int, default=3,
+    parser.add_argument('--train-epochs', type=int, default=4,
                         help='The number of epochs to train for')
     parser.add_argument('--init-lr', type=float, default=0.005,
                         help='the initial learning rate to use')
