@@ -186,7 +186,7 @@ MODEL_MAPPINGS = {}  # type: Dict[str, Callable]
 
 
 def create_model(model_type: str, model_path: Union[None, str] = None,
-                 model_tag: Union[str, None] = None, plugin_paths: Union[None, List[str]] = None,
+                 plugin_paths: Union[None, List[str]] = None, plugin_args: Union[None, Dict] = None,
                  load_strict: bool = True, **kwargs) -> Module:
     if model_type == 'help':
         raise Exception('model_type given of help, available models: \n{}'.format(list(MODEL_MAPPINGS.keys())))
@@ -197,15 +197,21 @@ def create_model(model_type: str, model_path: Union[None, str] = None,
 
     constructor = MODEL_MAPPINGS[model_type]
     model = constructor(**kwargs)  # type: Module
-    model = edit_model_plugins(model, model_tag, plugin_paths)
+    model = edit_model_plugins(model, False, plugin_paths, plugin_args)
 
     if model_path:
         load_model(model_path, model, strict=load_strict)
 
+    model = edit_model_plugins(model, True, plugin_paths, plugin_args)
+
     return model
 
 
-def edit_model_plugins(model: Module, model_tag: str, plugin_paths: Union[None, List[str]] = None) -> Module:
+def edit_model_plugins(model: Module, state_loaded: bool, plugin_paths: Union[None, List[str]] = None,
+                       plugin_args: Union[None, Dict] = None) -> Module:
+    if plugin_args is None:
+        plugin_args = {}
+
     if plugin_paths:
         for plugin_path in plugin_paths:
             plugin_path = os.path.abspath(os.path.expanduser(plugin_path))
@@ -216,11 +222,11 @@ def edit_model_plugins(model: Module, model_tag: str, plugin_paths: Union[None, 
                 raise Exception('model plugin at {} must have "edit_model" definition'.format(plugin_path))
 
             plugin_func = getattr(plugin_module, 'edit_model')
-            if len(inspect.signature(plugin_func).parameters) != 2:
-                raise Exception('model plugin at {} must take in 2 arguments: (model: Module, model_tag: str)'
-                                .format(model_tag))
+            if len(inspect.signature(plugin_func).parameters) < 2:
+                raise Exception('model plugin at {} must take in at least 2 arguments: '
+                                '(model: Module, state_loaded: bool)'.format(plugin_path))
 
-            model = plugin_func(model, model_tag)
+            model = plugin_func(model, state_loaded, **plugin_args)
 
             if not model or not isinstance(model, Module):
                 raise Exception('model plugin at {} must return the model after editing'.format(plugin_path))

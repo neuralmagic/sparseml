@@ -3,6 +3,7 @@ import argparse
 import os
 import math
 import time
+import json
 from tensorboardX import SummaryWriter
 import torch
 from torch import Tensor
@@ -33,7 +34,7 @@ def train_modifiers_schedule(
         load_optim: bool, init_lr: float, momentum: float, dampening: float, weight_decay: float, nesterov: bool,
         save_dir: str, save_after_epoch: int, save_epochs: Union[str, None], save_epoch_mod: int,
         track_ks: bool, track_as: bool, track_gradients: Union[None, List[str]],
-        model_plugin_paths: Union[None, List[str]],
+        model_plugin_paths: Union[None, List[str]], model_plugin_args: Union[None, Dict],
         debug_early_stop: int):
 
     ####################################################################################################################
@@ -68,14 +69,18 @@ def train_modifiers_schedule(
     #
     ####################################################################################################################
 
-    model = create_model(model_type, model_path, model_tag='train', plugin_paths=model_plugin_paths,
+    model = create_model(model_type, model_path, plugin_paths=model_plugin_paths, plugin_args=model_plugin_args,
                          pretrained=pretrained, num_classes=num_classes)  # type: Module
     print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}, and plugins:{}'
           .format(model_type, num_classes, pretrained, model_path, model_plugin_paths))
 
     if teacher_type is not None:
-        teacher = create_model(teacher_type, teacher_path, model_tag='teacher', plugin_paths=model_plugin_paths,
-                               pretrained=teacher_pretrained, num_classes=num_classes)
+        if model_plugin_args is None:
+            model_plugin_args = {}
+
+        model_plugin_args['model_type'] = 'teacher'
+        teacher = create_model(teacher_type, teacher_path, plugin_paths=model_plugin_paths,
+                               plugin_args=model_plugin_args, pretrained=teacher_pretrained, num_classes=num_classes)
         kd_settings = KnowledgeDistillationSettings(teacher, kd_temp_student, kd_temp_teacher,
                                                     kd_weight, kd_contradict_hinton)
         print('Created teacher model of type {} with num_classes:{}, pretrained:{} / model_path:{}'
@@ -371,6 +376,8 @@ def main():
     # plugin options
     parser.add_argument('--model-plugin-paths', default=None, nargs='+',
                         help='plugins to load for handling a model and possibly teacher after creation')
+    parser.add_argument('--model-plugin-args', type=json.loads, default={},
+                        help='json string containing the args to pass to the model plugins when executing')
 
     # debug options
     parser.add_argument('--debug-early-stop', type=int, default=-1,
@@ -388,7 +395,7 @@ def main():
         convert_to_bool(args.load_optim), args.init_lr, args.momentum, args.dampening, args.weight_decay, convert_to_bool(args.nesterov),
         args.save_dir, args.save_after_epoch, args.save_epochs, args.save_epoch_mod,
         convert_to_bool(args.track_ks), convert_to_bool(args.track_as), args.track_grads,
-        args.model_plugin_paths,
+        args.model_plugin_paths, args.model_plugin_args,
         args.debug_early_stop
     )
 
