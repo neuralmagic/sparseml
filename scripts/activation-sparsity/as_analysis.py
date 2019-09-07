@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Dict
 import argparse
 import os
 import json
@@ -21,10 +21,10 @@ from neuralmagicML.utils import (
 )
 
 
-def as_analysis(device_desc: str, model_type: str, pretrained: Union[bool, str],
-                model_path: Union[None, str], model_plugin_paths: Union[None, List[str]],
+def as_analysis(device_desc: str, model_type: str, pretrained: Union[bool, str], model_path: Union[None, str],
+                model_plugin_paths: Union[None, List[str]], model_plugin_args: Union[None, Dict],
                 dataset_type: str, dataset_root: str, sample_size: int, test_batch_size: int,
-                num_workers: int, pin_memory: bool, save_dir: str):
+                num_workers: int, pin_memory: bool, save_dir: str,):
 
     ####################################################################################################################
     #
@@ -44,7 +44,7 @@ def as_analysis(device_desc: str, model_type: str, pretrained: Union[bool, str],
     #
     ####################################################################################################################
 
-    model = create_model(model_type, model_path, model_tag='train', plugin_paths=model_plugin_paths,
+    model = create_model(model_type, model_path, plugin_paths=model_plugin_paths, plugin_args=model_plugin_args,
                          pretrained=pretrained, num_classes=num_classes)  # type: Module
     print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}, and plugins:{}'
           .format(model_type, num_classes, pretrained, model_path, model_plugin_paths))
@@ -175,8 +175,12 @@ def main():
                              'ex: imagenet/dense, imagenet/sparse, imagenette/dense')
     parser.add_argument('--model-path', type=str, default=None,
                         help='The path to the model file to load a previous state dict from')
+
+    # plugin options
     parser.add_argument('--model-plugin-paths', default=None, nargs='+',
                         help='plugins to load for handling a model and possibly teacher after creation')
+    parser.add_argument('--model-plugin-args', type=json.loads, default={},
+                        help='json string containing the args to pass to the model plugins when executing')
 
     # dataset settings
     parser.add_argument('--dataset-type', type=str, required=True,
@@ -198,8 +202,8 @@ def main():
 
     args = parser.parse_args()
     as_analysis(
-        args.device, args.model_type, args.pretrained,
-        args.model_path, args.model_plugin_paths,
+        args.device, args.model_type, args.pretrained, args.model_path,
+        args.model_plugin_paths, args.model_plugin_args,
         args.dataset_type, args.dataset_root,
         args.sample_size, args.test_batch_size, args.num_workers, convert_to_bool(args.pin_memory),
         args.save_dir
