@@ -1,6 +1,7 @@
-from typing import Union, List
+from typing import Union, List, Dict
 import argparse
 import os
+import json
 
 from neuralmagicML.models import create_model
 from neuralmagicML.sparsity import convert_to_bool
@@ -10,7 +11,7 @@ from neuralmagicML.utils import ModelExporter, fix_onnx_threshold_export
 def export_model(model_type: str, pretrained: Union[bool, str], model_path: Union[None, str], num_classes: int,
                  export_dir: Union[None, str], export_batch_sizes: str, export_input_sizes: str,
                  export_intermediates: bool, export_layers: bool,
-                 model_plugin_paths: Union[None, List[str]]):
+                 model_plugin_paths: Union[None, List[str]], model_plugin_args: Union[None, Dict]):
     # fix for exporting FATReLU's
     fix_onnx_threshold_export()
 
@@ -19,7 +20,7 @@ def export_model(model_type: str, pretrained: Union[bool, str], model_path: Unio
 
     export_dir = os.path.abspath(os.path.expanduser(export_dir))
 
-    model = create_model(model_type, model_path, plugin_paths=model_plugin_paths,
+    model = create_model(model_type, model_path, plugin_paths=model_plugin_paths, plugin_args=model_plugin_args,
                          pretrained=pretrained, num_classes=num_classes)
     print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}, and plugins:{}'
           .format(model_type, num_classes, pretrained, model_path, model_plugin_paths))
@@ -72,13 +73,15 @@ def main():
     # plugin options
     parser.add_argument('--model-plugin-paths', default=None, nargs='+',
                         help='plugins to load for handling a model and possibly teacher after creation')
+    parser.add_argument('--model-plugin-args', type=json.loads, default={},
+                        help='json string containing the args to pass to the model plugins when executing')
 
     args = parser.parse_args()
     export_model(
         args.model_type, args.pretrained, args.model_path, args.num_classes,
         args.export_dir, args.export_batch_sizes, args.export_input_sizes,
         convert_to_bool(args.export_intermediates), convert_to_bool(args.export_layers),
-        args.model_plugin_paths
+        args.model_plugin_paths, args.model_plugin_args
     )
 
 
