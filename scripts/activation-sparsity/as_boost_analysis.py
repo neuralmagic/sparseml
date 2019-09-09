@@ -1,4 +1,4 @@
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Dict
 import argparse
 import os
 import json
@@ -9,16 +9,18 @@ from torch.nn import ReLU
 
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
 from neuralmagicML.models import create_model
-from neuralmagicML.sparsity import convert_to_bool, ModuleASBoostAnalysis, ASAnalyzerLayer
+from neuralmagicML.sparsity import convert_to_bool, ModuleASBoostAnalysis, ASAnalyzerLayer, FATReLU
 from neuralmagicML.utils import CrossEntropyLossWrapper, TopKAccuracy, ModuleTestResults
 
 
 def as_boost_analysis(device_desc: str, model_type: str, pretrained: Union[bool, str], model_path: Union[None, str],
-                      dataset_type: str, dataset_root: str, sample_size: int,
+                      dataset_type: str, dataset_root: str, sample_size: int, baseline_only: bool,
                       train_schedule: str, train_size: Union[float, int],
                       train_batch_size: int, test_batch_size: int, num_workers: int, pin_memory: bool,
                       lr: float, momentum: float, dampening: float, weight_decay: float, nesterov: bool,
-                      save_dir: str, debug_early_stop: int):
+                      save_dir: str,
+                      model_plugin_paths: Union[None, List[str]], model_plugin_args: Union[None, Dict],
+                      debug_early_stop: int):
     ####################################################################################################################
     #
     # Dataset setup section
@@ -43,7 +45,8 @@ def as_boost_analysis(device_desc: str, model_type: str, pretrained: Union[bool,
     #
     ####################################################################################################################
 
-    model = create_model(model_type, model_path, pretrained=pretrained, num_classes=num_classes)
+    model = create_model(model_type, model_path, plugin_paths=model_plugin_paths, plugin_args=model_plugin_args,
+                         pretrained=pretrained, num_classes=num_classes)
     print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}'
           .format(model_type, num_classes, pretrained, model_path))
 
@@ -81,11 +84,11 @@ def as_boost_analysis(device_desc: str, model_type: str, pretrained: Union[bool,
     relu_layers = []
 
     for name, mod in model.named_modules():
-        if isinstance(mod, ReLU):
+        if isinstance(mod, ReLU) or isinstance(mod, FATReLU):
             relu_layers.append(name)
 
     for layer in relu_layers:
-        layer_results = analysis.analyze_layer(layer)
+        layer_results = analysis.analyze_layer(layer, final_thresh_val=-1.0 if baseline_only else None)
         _save_layer_results(layer, layer_results, model_dir)
 
     print('Completed')
@@ -189,6 +192,8 @@ def main():
                         help='The root path to where the dataset is stored')
     parser.add_argument('--sample-size', type=int, required=True,
                         help='The total number of samples to run through for calculating losses and sparsity values')
+    parser.add_argument('--baseline-only', type=bool, default=False,
+                        help='Only calc the baseline distribution and losses')
     parser.add_argument('--train-schedule', type=str, default=None,
                         help='A path to the modifier schedule to use during the training portion of the boost analysis')
     parser.add_argument('--train-size', type=float, default=-1.0,
@@ -216,6 +221,12 @@ def main():
     parser.add_argument('--nesterov', type=bool, default=True,
                         help='Use nesterov momentum for the SGD optimizer')
 
+    # plugin options
+    parser.add_argument('--model-plugin-paths', default=None, nargs='+',
+                        help='plugins to load for handling a model and possibly teacher after creation')
+    parser.add_argument('--model-plugin-args', type=json.loads, default={},
+                        help='json string containing the args to pass to the model plugins when executing')
+
     # save options
     parser.add_argument('--save-dir', type=str, default='as-boost-analysis',
                         help='The path to the directory for saving results')
@@ -228,10 +239,12 @@ def main():
     args = parser.parse_args()
     as_boost_analysis(
         args.device, args.model_type, args.pretrained, args.model_path,
-        args.dataset_type, args.dataset_root, args.sample_size, args.train_schedule, args.train_size,
+        args.dataset_type, args.dataset_root, args.sample_size, convert_to_bool(args.baseline_only),
+        args.train_schedule, args.train_size,
         args.train_batch_size, args.test_batch_size, args.num_workers, convert_to_bool(args.pin_memory),
         args.lr, args.momentum, args.dampening, args.weight_decay, convert_to_bool(args.nesterov),
         args.save_dir,
+        args.model_plugin_paths, args.model_plugin_args,
         args.debug_early_stop
     )
 

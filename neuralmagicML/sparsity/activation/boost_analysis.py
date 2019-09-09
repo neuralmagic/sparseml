@@ -47,23 +47,29 @@ class ModuleASBoostAnalysis(object):
         self._optim_kwargs = {key.replace('optim_', ''): val
                               for key, val in kwargs.items() if key.startswith('optim_')}
 
-    def analyze_layer(self, layer: str, init_thresh: float = 0.001, final_thresh_per: float = 0.99,
+    def analyze_layer(self, layer: str, init_thresh: float = 0.001,
+                      final_thresh_per: float = 0.99, final_thresh_val: Union[None, float] = None,
                       thresh_mult: float = 2.0) -> List[Tuple[float, ModuleTestResults, ASAnalyzerLayer]]:
         layer_results = []
 
         fat = set_relu_to_fat(self._module, layer, inplace=True)  # type: FATReLU
-        fat.set_threshold(0.0)
+        orig_thresh = fat.get_threshold()
+
+        if fat.get_threshold() > 0.0:
+            init_thresh += fat.get_threshold()
 
         print('\n\n\nanalyzing layer {}: checking baseline'.format(layer))
         module, device, device_ids = model_to_device(copy.deepcopy(self._module), self._device)
         baseline_loss, baseline_analyzer = self._measure_sparse_losses(module, device, layer, include_inp_dist=True)
-        layer_results.append((0.0, baseline_loss, baseline_analyzer))
+        layer_results.append((fat.get_threshold(), baseline_loss, baseline_analyzer))
 
-        inputs = torch.cat(baseline_analyzer.inputs_sample)
-        top_inputs, _ = torch.topk(inputs.view(-1), int((1.0 - final_thresh_per) * inputs.numel()),
-                                   largest=True, sorted=True)
-        final_thresh = top_inputs[-1].item()
-        thresholds = ModuleASBoostAnalysis._thresholds(init_thresh, final_thresh, thresh_mult)
+        if final_thresh_val is None:
+            inputs = torch.cat(baseline_analyzer.inputs_sample)
+            top_inputs, _ = torch.topk(inputs.view(-1), int((1.0 - final_thresh_per) * inputs.numel()),
+                                       largest=True, sorted=True)
+            final_thresh_val = top_inputs[-1].item()
+
+        thresholds = ModuleASBoostAnalysis._thresholds(init_thresh, final_thresh_val, thresh_mult)
 
         for threshold in tqdm(thresholds, desc='eval thresholds'):
             print('\nanalyzing layer {}: checking threshold {}'.format(layer, threshold))
@@ -73,7 +79,7 @@ class ModuleASBoostAnalysis(object):
             thresh_loss, thresh_analyzer = self._measure_sparse_losses(module, device, layer)
             layer_results.append((threshold, thresh_loss, thresh_analyzer))
 
-        fat.set_threshold(0.0)
+        fat.set_threshold(orig_thresh)
 
         return layer_results
 
@@ -115,6 +121,9 @@ class ModuleASBoostAnalysis(object):
 
     @staticmethod
     def _thresholds(init_thresh: float, final_thresh: float, mult: float) -> List[float]:
+        if final_thresh <= init_thresh:
+            return []
+
         thresholds = [init_thresh]
 
         while thresholds[-1] < final_thresh:
