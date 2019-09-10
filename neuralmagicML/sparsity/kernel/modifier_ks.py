@@ -16,22 +16,6 @@ __all__ = ['GradualKSModifier']
 
 
 class GradualKSModifier(ScheduledUpdateModifier):
-    """
-    Sample YAML:
-
-    !GradualKSPolicy:
-      start_epoch: 0.0
-      end_epoch: 10.0
-      update_frequency: 2.0
-      param: weight
-      init_sparsity: 0.0
-      final_sparsity: 0.8
-      inter_func: cubic
-      layers:
-        - layer1.0.relu1
-        - layer1.1.relu2
-    """
-
     YAML_KEY = u'!GradualKSModifier'
 
     @staticmethod
@@ -93,22 +77,22 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._module_masks = []  # type: List[KSLayerMask]
 
         if not isinstance(self._init_sparsity, float):
-            raise Exception('init_sparsity must be of float type for {}'.format(self.__class__.__name__))
+            raise TypeError('init_sparsity must be of float type for {}'.format(self.__class__.__name__))
 
         if self._init_sparsity < 0.0 or self._init_sparsity > 1.0:
-            raise Exception('init_sparsity value must be in the range [0.0, 1.0], given {} for {}'
-                            .format(self._init_sparsity, self.__class__.__name__))
+            raise ValueError('init_sparsity value must be in the range [0.0, 1.0], given {} for {}'
+                             .format(self._init_sparsity, self.__class__.__name__))
 
         if not isinstance(self._final_sparsity, float):
-            raise Exception('final_sparsity must be of float type for {}'.format(self.__class__.__name__))
+            raise TypeError('final_sparsity must be of float type for {}'.format(self.__class__.__name__))
 
         if self._final_sparsity < 0.0 or self._final_sparsity > 1.0:
-            raise Exception('init_sparsity value must be in the range [0.0, 1.0], given {} for {}'
-                            .format(self._init_sparsity, self.__class__.__name__))
+            raise ValueError('init_sparsity value must be in the range [0.0, 1.0], given {} for {}'
+                             .format(self._init_sparsity, self.__class__.__name__))
 
         if self._inter_func not in INTERPOLATION_FUNCS:
-            raise Exception('{} is not a supported inter_func in layers_settings, available are {} for {}'
-                            .format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__))
+            raise ValueError('{} is not a supported inter_func in layers_settings, available are {} for {}'
+                             .format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__))
 
     def __del__(self):
         self._module_masks.clear()
@@ -120,7 +104,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @param.setter
     def param(self, value: str):
         if self.initialized:
-            raise Exception('Cannot change param after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change param after {} has been initialized'.format(self.__class__.__name__))
         
         self._param = value
 
@@ -131,7 +115,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @layers.setter
     def layers(self, value: Union[str, List[str]]):
         if self.initialized:
-            raise Exception('Cannot change layers after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change layers after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._layers = value
 
@@ -142,7 +127,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @init_sparsity.setter
     def init_sparsity(self, value: float):
         if self.initialized:
-            raise Exception('Cannot change init_sparsity after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change init_sparsity after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._init_sparsity = value
 
@@ -153,7 +139,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @final_sparsity.setter
     def final_sparsity(self, value: float):
         if self.initialized:
-            raise Exception('Cannot change final_sparsity after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change final_sparsity after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._final_sparsity = value
 
@@ -164,7 +151,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @prune_global.setter
     def prune_global(self, value: bool):
         if self.initialized:
-            raise Exception('Cannot change prune_global after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change prune_global after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._prune_global = value
 
@@ -175,7 +163,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @leave_enabled.setter
     def leave_enabled(self, value: bool):
         if self.initialized:
-            raise Exception('Cannot change leave_enabled after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change leave_enabled after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._leave_enabled = value
 
@@ -186,7 +175,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @inter_func.setter
     def inter_func(self, value: str):
         if self.initialized:
-            raise Exception('Cannot change inter_func after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change inter_func after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._inter_func = value
 
@@ -197,7 +187,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @param_strict.setter
     def param_strict(self, value: float):
         if self.initialized:
-            raise Exception('Cannot change param_strict after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change param_strict after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._param_strict = value
 
@@ -216,8 +207,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
                     break
 
             if self._param_strict and self._layers != ALL_TOKEN and not found:
-                raise Exception('Could not find required param {} in layer {} for {}'
-                                .format(self._param, layer, self.__class__.__name__))
+                raise ValueError('Could not find required param {} in layer {} for {}'
+                                 .format(self._param, layer, self.__class__.__name__))
 
     def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
         if self.start_pending(epoch, steps_per_epoch):

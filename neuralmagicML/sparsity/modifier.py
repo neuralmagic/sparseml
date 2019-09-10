@@ -57,7 +57,8 @@ class ScheduledModifier(Modifier):
     @enabled.setter
     def enabled(self, value: bool):
         if self._initialized:
-            raise Exception('Cannot change enabled after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change enabled after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._enabled = value
         
@@ -72,7 +73,8 @@ class ScheduledModifier(Modifier):
     @start_epoch.setter
     def start_epoch(self, value: float):
         if self._initialized:
-            raise Exception('Cannot change start_epoch after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change start_epoch after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._start_epoch = value
 
@@ -83,7 +85,8 @@ class ScheduledModifier(Modifier):
     @end_epoch.setter
     def end_epoch(self, value: float):
         if self._initialized:
-            raise Exception('Cannot change end_epoch after {} has been initialized'.format(self.__class__.__name__))
+            raise RuntimeError('Cannot change end_epoch after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._end_epoch = value
 
@@ -182,7 +185,8 @@ class ScheduledModifier(Modifier):
         """
         raise NotImplementedError()
 
-    def loss_update(self, loss: Tensor, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+    def loss_update(self, loss: Tensor, module: Module, optimizer: Optimizer,
+                    epoch: float, steps_per_epoch: int) -> Tensor:
         """
         Optional call that can be made on the optimizer to update the modifiers once the loss has been calculated
         Called independent of if the modifier is currently active or not
@@ -192,8 +196,9 @@ class ScheduledModifier(Modifier):
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :return: the modified loss tensor
         """
-        pass
+        return loss
 
     def optimizer_pre_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
         """
@@ -241,8 +246,8 @@ class ScheduledUpdateModifier(ScheduledModifier):
     @update_frequency.setter
     def update_frequency(self, value: float):
         if self._initialized:
-            raise Exception('Cannot change update_frequency after {} has been initialized'
-                            .format(self.__class__.__name__))
+            raise RuntimeError('Cannot change update_frequency after {} has been initialized'
+                               .format(self.__class__.__name__))
 
         self._update_frequency = value
 
@@ -334,7 +339,8 @@ class ScheduledModifierManager(Modifier):
             if mod.update_ready(epoch, steps_per_epoch):
                 mod.scheduled_update(module, optimizer, epoch, steps_per_epoch)
 
-    def loss_update(self, loss: Tensor, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+    def loss_update(self, loss: Tensor, module: Module, optimizer: Optimizer,
+                    epoch: float, steps_per_epoch: int) -> Tensor:
         """
         Optional call that can be made on the optimizer to update the contained modifiers once loss has been calculated
 
@@ -343,10 +349,13 @@ class ScheduledModifierManager(Modifier):
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :return: the modified loss tensor
         """
 
         for mod in self._modifiers:
-            mod.loss_update(loss, module, optimizer, epoch, steps_per_epoch)
+            loss = mod.loss_update(loss, module, optimizer, epoch, steps_per_epoch)
+
+        return loss
 
     def optimizer_pre_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
         """

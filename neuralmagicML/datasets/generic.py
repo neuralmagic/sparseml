@@ -22,8 +22,8 @@ class EarlyStopDataset(Dataset):
         self._early_stop = early_stop
 
         if self._early_stop > len(self._original):
-            raise Exception('Cannot apply early stop of {}, its greater than lenth of dataset {}'
-                            .format(self._early_stop, len(self._original)))
+            raise ValueError('Cannot apply early stop of {}, its greater than length of dataset {}'
+                             .format(self._early_stop, len(self._original)))
 
     def __getitem__(self, index):
         return self._original.__getitem__(index)

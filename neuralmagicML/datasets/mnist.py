@@ -1,6 +1,8 @@
 from torchvision.datasets import MNIST
 from torchvision import transforms
 
+from .utils import DATASET_MAPPINGS
+
 
 __all__ = ['MNISTDataset']
 
@@ -18,3 +20,6 @@ class MNISTDataset(MNIST):
             transforms.Normalize((0.5,), (1.0,))
         ])
         super().__init__(root, train, transform, None, True)
+
+
+DATASET_MAPPINGS['mnist'] = MNISTDataset, 10

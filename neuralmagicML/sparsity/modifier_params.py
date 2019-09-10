@@ -75,8 +75,8 @@ class TrainableParamsModifier(ScheduledModifier):
                     self._module_params.append(param)
 
             if self._params_strict and self._params != ALL_TOKEN and len(found) != len(self._params):
-                raise Exception('Could not find all required params for layer {} with params {} and required {} for {}'
-                                .format(layer, found, self._params, self.__class__.__name__))
+                raise ValueError('Could not find all required params for layer {} with params {} and required {} for {}'
+                                 .format(layer, found, self._params, self.__class__.__name__))
 
     def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
         """
@@ -167,22 +167,22 @@ class SetParamModifier(ScheduledModifier):
             for param_name, par in layer.named_parameters():
                 if param_name == self._param:
                     if not par.shape and not isinstance(self._val, float):
-                        raise Exception('Cannot apply a type {} to layer {} float param {} for {}'
+                        raise TypeError('Cannot apply a type {} to layer {} float param {} for {}'
                                         .format(type(self._val), layer, param_name, self.__class__.__name__))
                     elif par.shape and not isinstance(self._val, List):
-                            raise Exception('Cannot apply a type {} to layer {} list param {} for {}'
+                            raise TypeError('Cannot apply a type {} to layer {} list param {} for {}'
                                             .format(type(self._val), layer, param_name, self.__class__.__name__))
                     elif par.shape and len(par) != len(self._val):
-                            raise Exception('Cannot apply a val len {} to layer {} param {} with len {} for {}'
-                                            .format(len(self._val), layer, param_name, len(par),
-                                                    self.__class__.__name__))
+                            raise ValueError('Cannot apply a val len {} to layer {} param {} with len {} for {}'
+                                             .format(len(self._val), layer, param_name, len(par),
+                                                     self.__class__.__name__))
 
                     self._module_params.append(par)
                     found = True
                     break
 
             if self._param_strict and self._layers != ALL_TOKEN and not found:
-                raise Exception('Could not find required param {} in layer {} for {}'
+                raise ValueError('Could not find required param {} in layer {} for {}'
                                 .format(self._param, layer, self.__class__.__name__))
 
     def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
@@ -273,26 +273,25 @@ class GradualParamModifier(ScheduledUpdateModifier):
         self._module_params = []  # type: List[Parameter]
 
         if start_epoch < 0:
-            raise Exception('start_epoch must be greater than or equal to 0 for {}'.format(self.__class__.__name__))
+            raise ValueError('start_epoch must be greater than or equal to 0 for {}'.format(self.__class__.__name__))
 
         if end_epoch < 0:
-            raise Exception('end_epoch must be greater than or equal to 0 for {}'.format(self.__class__.__name__))
+            raise ValueError('end_epoch must be greater than or equal to 0 for {}'.format(self.__class__.__name__))
 
         if update_frequency <= 0:
-            raise Exception('update_frequency must be greater than 0 for {}'.format(self.__class__.__name__))
+            raise ValueError('update_frequency must be greater than 0 for {}'.format(self.__class__.__name__))
 
         if type(self._init_val) != type(self._final_val):
-            raise Exception('init_val of type {} does not match final_val type of {} for {}'
+            raise TypeError('init_val of type {} does not match final_val type of {} for {}'
                             .format(type(self._init_val), type(self._final_val), self.__class__.__name__))
 
         if isinstance(self._init_val, List) and len(self._init_val) != len(self._final_val):
-            raise Exception('init_val of len {} does not match final_val len of {} for {}'
-                            .format(len(self._init_val), len(self._final_val), self.__class__.__name__))
+            raise ValueError('init_val of len {} does not match final_val len of {} for {}'
+                             .format(len(self._init_val), len(self._final_val), self.__class__.__name__))
 
         if self._inter_func not in INTERPOLATION_FUNCS:
-            raise Exception('{} is not a supported inter_func in layers_settings, '
-                            'available are {} for {}'
-                            .format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__))
+            raise ValueError('{} is not a supported inter_func in layers_settings, available are {} for {}'
+                             .format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__))
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
@@ -311,23 +310,23 @@ class GradualParamModifier(ScheduledUpdateModifier):
             for param_name, par in layer.named_parameters():
                 if param_name == self._param:
                     if not par.shape and not isinstance(self._init_val, float):
-                        raise Exception('Cannot apply a type {} to layer {} float param {} for {}'
+                        raise TypeError('Cannot apply a type {} to layer {} float param {} for {}'
                                         .format(type(self._init_val), layer, param_name, self.__class__.__name__))
                     elif par.shape and not isinstance(self._init_val, List):
-                        raise Exception('Cannot apply a type {} to layer {} list param {} for {}'
+                        raise TypeError('Cannot apply a type {} to layer {} list param {} for {}'
                                         .format(type(self._init_val), layer, param_name, self.__class__.__name__))
                     elif par.shape and len(par) != len(self._init_val):
-                        raise Exception(
-                            'Cannot apply a val len {} to layer {} param {} with len {} for {}'
-                            .format(len(self._init_val), layer, param_name, len(par), self.__class__.__name__))
+                        raise ValueError('Cannot apply a val len {} to layer {} param {} with len {} for {}'
+                                         .format(len(self._init_val), layer, param_name, len(par),
+                                                 self.__class__.__name__))
 
                     self._module_params.append(par)
                     found = True
                     break
 
             if self._param_strict and self._layers != ALL_TOKEN and not found:
-                raise Exception('Could not find required param {} in layer {} for {}'
-                                .format(self._param, layer, self.__class__.__name__))
+                raise ValueError('Could not find required param {} in layer {} for {}'
+                                 .format(self._param, layer, self.__class__.__name__))
 
     def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
         """

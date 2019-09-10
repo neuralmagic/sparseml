@@ -4,11 +4,12 @@ from torch.nn import (
     Module, Conv2d, BatchNorm2d, ReLU, MaxPool2d, AdaptiveAvgPool2d, Linear, init, Sequential, Softmax
 )
 
-from .utils import load_pretrained_model
+from .utils import load_pretrained_model, MODEL_MAPPINGS
 
 
 __all__ = ['ResNetSectionSettings', 'ResNet',
            'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152',
+           'resnet50_2xwidth', 'resnet101_2xwidth',
            'resnext50', 'resnext101', 'resnext152']
 
 
@@ -200,7 +201,7 @@ class ResNetSectionSettings(object):
 
         if use_se:
             # TODO: add support for squeeze excite
-            raise Exception('squeeze excite not supported yet')
+            raise NotImplementedError('squeeze excite not supported yet')
 
         self.num_blocks = num_blocks
         self.in_channels = in_channels
@@ -276,6 +277,9 @@ def resnet18(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/18', **kwargs)
 
 
+MODEL_MAPPINGS['resnet18'] = resnet18
+
+
 def resnet34(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=64, downsample=False),
@@ -287,6 +291,9 @@ def resnet34(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/34', **kwargs)
 
 
+MODEL_MAPPINGS['resnet34'] = resnet34
+
+
 def resnet50(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=64),
@@ -296,6 +303,23 @@ def resnet50(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/50', **kwargs)
+
+
+MODEL_MAPPINGS['resnet50'] = resnet50
+
+
+def resnet50_2xwidth(**kwargs) -> ResNet:
+    sec_settings = [
+        ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=128),
+        ResNetSectionSettings(num_blocks=4, in_channels=256, out_channels=512, downsample=True, proj_channels=256),
+        ResNetSectionSettings(num_blocks=6, in_channels=512, out_channels=1024, downsample=True, proj_channels=512),
+        ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=1024)
+    ]
+
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/50_2xwidth', **kwargs)
+
+
+MODEL_MAPPINGS['resnet50_2xwidth'] = resnet50_2xwidth
 
 
 def resnext50(**kwargs) -> ResNet:
@@ -313,6 +337,9 @@ def resnext50(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnext/50', **kwargs)
 
 
+MODEL_MAPPINGS['resnext50'] = resnext50
+
+
 def resnet101(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=64),
@@ -322,6 +349,23 @@ def resnet101(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/101', **kwargs)
+
+
+MODEL_MAPPINGS['resnet101'] = resnet101
+
+
+def resnet101_2xwidth(**kwargs) -> ResNet:
+    sec_settings = [
+        ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=128),
+        ResNetSectionSettings(num_blocks=4, in_channels=256, out_channels=512, downsample=True, proj_channels=256),
+        ResNetSectionSettings(num_blocks=23, in_channels=512, out_channels=1024, downsample=True, proj_channels=512),
+        ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=1024)
+    ]
+
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/101_2xwidth', **kwargs)
+
+
+MODEL_MAPPINGS['resnet101_2xwidth'] = resnet101_2xwidth
 
 
 def resnext101(**kwargs) -> ResNet:
@@ -339,6 +383,9 @@ def resnext101(**kwargs) -> ResNet:
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnext/101', **kwargs)
 
 
+MODEL_MAPPINGS['resnext101'] = resnext101
+
+
 def resnet152(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=64),
@@ -348,6 +395,9 @@ def resnet152(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/152', **kwargs)
+
+
+MODEL_MAPPINGS['resnet152'] = resnet152
 
 
 def resnext152(**kwargs) -> ResNet:
@@ -363,3 +413,6 @@ def resnext152(**kwargs) -> ResNet:
     ]
 
     return ResNet(sec_settings=sec_settings, model_arch_tag='resnext/152', **kwargs)
+
+
+MODEL_MAPPINGS['resnext152'] = resnext152

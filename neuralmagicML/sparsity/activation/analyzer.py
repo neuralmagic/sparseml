@@ -106,6 +106,14 @@ class ASAnalyzerLayer(object):
         return self.results_std(ASResultType.inputs_sparsity)
 
     @property
+    def inputs_sparsity_max(self) -> Tensor:
+        return self.results_max(ASResultType.inputs_sparsity)
+
+    @property
+    def inputs_sparsity_min(self) -> Tensor:
+        return self.results_min(ASResultType.inputs_sparsity)
+
+    @property
     def inputs_sample(self) -> List[Tensor]:
         return self.results(ASResultType.inputs_sample)
 
@@ -116,6 +124,14 @@ class ASAnalyzerLayer(object):
     @property
     def inputs_sample_std(self) -> Tensor:
         return self.results_std(ASResultType.inputs_sample)
+
+    @property
+    def inputs_sample_max(self) -> Tensor:
+        return self.results_max(ASResultType.inputs_sample)
+
+    @property
+    def inputs_sample_min(self) -> Tensor:
+        return self.results_min(ASResultType.inputs_sample)
 
     @property
     def outputs_sparsity(self) -> List[Tensor]:
@@ -130,6 +146,14 @@ class ASAnalyzerLayer(object):
         return self.results_std(ASResultType.outputs_sparsity)
 
     @property
+    def outputs_sparsity_max(self) -> Tensor:
+        return self.results_max(ASResultType.outputs_sparsity)
+
+    @property
+    def outputs_sparsity_min(self) -> Tensor:
+        return self.results_min(ASResultType.outputs_sparsity)
+
+    @property
     def outputs_sample(self) -> List[Tensor]:
         return self.results(ASResultType.outputs_sample)
 
@@ -140,6 +164,14 @@ class ASAnalyzerLayer(object):
     @property
     def outputs_sample_std(self) -> Tensor:
         return self.results_std(ASResultType.outputs_sample)
+    
+    @property
+    def outputs_sample_max(self) -> Tensor:
+        return self.results_max(ASResultType.outputs_sample)
+    
+    @property
+    def outputs_sample_min(self) -> Tensor:
+        return self.results_min(ASResultType.outputs_sample)
 
     def clear(self, specific_result_type: Union[None, ASResultType] = None):
         if specific_result_type is None or specific_result_type == ASResultType.inputs_sparsity:
@@ -177,7 +209,7 @@ class ASAnalyzerLayer(object):
         if result_type == ASResultType.outputs_sample:
             return self._outputs_sample
 
-        raise Exception('result_type of {} is not supported'.format(result_type))
+        raise ValueError('result_type of {} is not supported'.format(result_type))
 
     def results_mean(self, result_type: ASResultType) -> Tensor:
         results = self.results(result_type)
@@ -194,6 +226,22 @@ class ASAnalyzerLayer(object):
             return torch.tensor([])
 
         return torch.std(torch.cat(results), dim=0)
+    
+    def results_max(self, result_type: ASResultType) -> Tensor:
+        results = self.results(result_type)
+        
+        if not results:
+            return torch.tensor([])
+        
+        return torch.max(torch.cat(results))
+    
+    def results_min(self, result_type: ASResultType) -> Tensor:
+        results = self.results(result_type)
+        
+        if not results:
+            return torch.tensor([])
+        
+        return torch.min(torch.cat(results))
 
     def connect(self, module: Module):
         self._module = module
@@ -220,7 +268,7 @@ class ASAnalyzerLayer(object):
             samples = result.cpu()
             self._outputs_sample.append(samples)
         else:
-            raise Exception('unrecognized result_type given {}'.format(result_type))
+            raise ValueError('unrecognized result_type given {}'.format(result_type))
 
     def _enable_hooks(self):
         if not self._connected:
@@ -275,7 +323,7 @@ class ASAnalyzerModule(Module):
 
         for layer in layers:
             if layer.name in self._layers:
-                raise Exception('duplicate layer {} found, can only have one entry per layer'.format(layer.name))
+                raise ValueError('duplicate layer {} found, can only have one entry per layer'.format(layer.name))
 
             layer.connect(self.module)
             self._layers[layer.name] = layer

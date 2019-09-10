@@ -4,7 +4,7 @@ from torch.nn import (
     Module, Conv2d, BatchNorm2d, MaxPool2d, Linear, init, Sequential, Dropout, Softmax, ReLU
 )
 
-from .utils import load_pretrained_model
+from .utils import load_pretrained_model, MODEL_MAPPINGS
 
 __all__ = [
     'VGG', 'vgg11', 'vgg11_bn', 'vgg13', 'vgg13_bn', 'vgg16', 'vgg16_bn', 'vgg19_bn', 'vgg19',
@@ -146,6 +146,9 @@ def vgg11(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/11', **kwargs)
 
 
+MODEL_MAPPINGS['vgg11'] = vgg11
+
+
 def vgg11_bn(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(num_blocks=1, in_channels=3, out_channels=64, use_batchnorm=True),
@@ -156,6 +159,9 @@ def vgg11_bn(**kwargs) -> VGG:
     ]
 
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/11bn', **kwargs)
+
+
+MODEL_MAPPINGS['vgg11_bn'] = vgg11_bn
 
 
 def vgg13(**kwargs) -> VGG:
@@ -170,6 +176,9 @@ def vgg13(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/13', **kwargs)
 
 
+MODEL_MAPPINGS['vgg13'] = vgg13
+
+
 def vgg13_bn(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=True),
@@ -180,6 +189,9 @@ def vgg13_bn(**kwargs) -> VGG:
     ]
 
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/13bn', **kwargs)
+
+
+MODEL_MAPPINGS['vgg13_bn'] = vgg13_bn
 
 
 def vgg16(**kwargs) -> VGG:
@@ -194,6 +206,9 @@ def vgg16(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/16', **kwargs)
 
 
+MODEL_MAPPINGS['vgg16'] = vgg16
+
+
 def vgg16_bn(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=True),
@@ -204,6 +219,9 @@ def vgg16_bn(**kwargs) -> VGG:
     ]
 
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/16bn', **kwargs)
+
+
+MODEL_MAPPINGS['vgg16_bn'] = vgg16_bn
 
 
 def vgg19(**kwargs) -> VGG:
@@ -218,6 +236,9 @@ def vgg19(**kwargs) -> VGG:
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/19', **kwargs)
 
 
+MODEL_MAPPINGS['vgg19'] = vgg19
+
+
 def vgg19_bn(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=True),
@@ -228,3 +249,6 @@ def vgg19_bn(**kwargs) -> VGG:
     ]
 
     return VGG(sec_settings=sec_settings, model_arch_tag='vgg/19bn', **kwargs)
+
+
+MODEL_MAPPINGS['vgg19_bn'] = vgg19_bn

@@ -7,6 +7,8 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from torchvision.datasets.utils import download_url
 
+from .utils import DATASET_MAPPINGS
+
 
 __all__ = ['ImagenetteSize', 'ImagenetteDataset']
 
@@ -47,7 +49,7 @@ class ImagenetteDataset(ImageFolder):
             elif dataset_size == ImagenetteSize.full:
                 extract = 'imagenette'
             else:
-                raise Exception('Unknown ImagenetteSize given of {}'.format(dataset_size))
+                raise ValueError('Unknown ImagenetteSize given of {}'.format(dataset_size))
 
             extracted_root = os.path.join(root, extract)
             ImagenetteDataset.download(dataset_size, root, extract)
@@ -79,7 +81,7 @@ class ImagenetteDataset(ImageFolder):
         elif size == ImagenetteSize.s160:
             url = 'https://s3.amazonaws.com/fast-ai-imageclas/imagenette-160.tgz'
         else:
-            raise Exception('unknown imagenette size given of {}'.format(size))
+            raise ValueError('unknown imagenette size given of {}'.format(size))
 
         filename = '{}.tar'.format(extract)
 
@@ -92,3 +94,6 @@ class ImagenetteDataset(ImageFolder):
 
         with tarfile.open(os.path.join(root, filename), 'r:gz') as tar:
             tar.extractall(path=root)
+
+
+DATASET_MAPPINGS['imagenette'] = ImagenetteDataset, 10

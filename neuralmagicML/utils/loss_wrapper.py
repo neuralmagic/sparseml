@@ -64,6 +64,10 @@ class LossWrapper(object):
                 .format(self.__class__.__name__, _create_repr(self._loss_fn),
                         ','.join([_create_repr(extra) for extra in self._extras.values()])))
 
+    @property
+    def available_losses(self) -> Tuple[str, ...]:
+        return ('loss', *list(self._extras.keys()))
+
     def forward(self, x_feature: Union[Tensor, Tuple[Tensor, ...]], y_lab: Tensor,
                 y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Dict[str, Tensor]:
         calculated = {
@@ -105,7 +109,7 @@ class LossWrapper(object):
 
         if not self._kd_settings.contradict_hinton:
             # in hinton's original paper they included T^2 as a scaling factor
-            # distller and other implementations dropped this factor
+            # some implementations dropped this factor
             # so contradicting hinton does not scale by T^2
             distill_loss = ((self._kd_settings.temp_student + self._kd_settings.temp_teacher) / 2) ** 2 * distill_loss
 

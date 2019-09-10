@@ -1,0 +1,3 @@
+[submodule "neuralmagicml-schedules"]
+	path = neuralmagicml-schedules
+	url = git@bitbucket.org:neuralmagic/neuralmagicml-schedules.git
