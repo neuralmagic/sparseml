@@ -1,4 +1,5 @@
 from typing import Union, Tuple
+import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
@@ -190,7 +191,7 @@ class KSLayerMask(object):
         self._param.data.mul_(self._mask_tensor)
 
     def _regen_mask(self):
-        self._mask_tensor = self._param.data.new_tensor(self._mask_tensor)
+        self._mask_tensor = torch.empty_like(self._param.data).copy_(self._mask_tensor).detach().requires_grad_(False)
 
     def _create_hooks(self):
         def _mask_forward(_mod: Module, _inp: Union[Tensor, Tuple[Tensor]]):

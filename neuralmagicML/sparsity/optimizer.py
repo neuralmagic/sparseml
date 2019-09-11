@@ -107,8 +107,8 @@ class ScheduledOptimizer(Optimizer):
 
         :param closure: optional closure passed into the contained optimizer for the step
         """
-        self._epoch_steps += 1
         self._epoch = self._calc_current_epoch()
+        self._epoch_steps += 1
 
         for manager in self._managers:
             manager.update(self._module, self._optimizer, self._epoch, self._steps_per_epoch)

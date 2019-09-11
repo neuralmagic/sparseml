@@ -1,4 +1,5 @@
 from typing import Dict, Union, Callable
+import sys
 import yaml
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -6,7 +7,7 @@ from torch.optim.lr_scheduler import (
     StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau, CyclicLR, CosineAnnealingWarmRestarts
 )
 
-from .modifier import ScheduledUpdateModifier
+from .modifier import ScheduledUpdateModifier, ScheduledModifier
 
 
 __all__ = ['LearningRateModifier', 'CyclicLRModifier']
@@ -19,6 +20,86 @@ CONSTRUCTORS = {
     'ReduceLROnPlateau': ReduceLROnPlateau,
     'CosineAnnealingWarmRestarts': CosineAnnealingWarmRestarts
 }
+
+
+class SetLearningRateModifier(ScheduledModifier):
+    YAML_KEY = u'!SetLearningRateModifier'
+
+    @staticmethod
+    def yaml_constructor(loader, node):
+        instance = SetLearningRateModifier.__new__(SetLearningRateModifier)
+        yield instance
+        state = loader.construct_mapping(node, deep=True)
+        instance.__init__(**state)
+
+    def __init__(self, learning_rate: Union[float, None], start_epoch: float = -1.0):
+        """
+        Controls the learning rate of the optimizer based on a scheduled frequency
+
+        Sample yaml:
+            !SetLearningRateModifier
+                start_epoch: 0.0
+                learning_rate: 0.001
+
+        :param learning_rate: The learning rate to use once this modifier starts
+        :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
+        """
+        super().__init__(start_epoch, end_epoch=-1.0)
+        self._learning_rate = learning_rate
+        self._lr_set = False
+
+    @property
+    def learning_rate(self) -> float:
+        return self._learning_rate
+
+    @learning_rate.setter
+    def learning_rate(self, value: str):
+        if self._initialized:
+            raise RuntimeError('Cannot change learning_rate after {} has been initialized'
+                               .format(self.__class__.__name__))
+
+        self._learning_rate = value
+
+    def initialize(self, module: Module, optimizer: Optimizer):
+        super().initialize(module, optimizer)
+        self._check_set_lr(optimizer, 0.0)
+
+    def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+        # not needed
+        pass
+
+    def optimizer_pre_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+        """
+        Sets the initial lr
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        self._check_set_lr(optimizer, epoch)
+
+    def optimizer_post_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+        """
+        Sets the initial lr
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        self._check_set_lr(optimizer, epoch)
+        self._lr_set = True
+
+    def _check_set_lr(self, optimizer: Optimizer, epoch: float):
+        if ((self.start_epoch < 0.0 or (self.start_epoch - epoch) < sys.float_info.epsilon)
+                and not self._lr_set and self._learning_rate is not None):
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = self.learning_rate
+
+
+yaml.add_constructor(SetLearningRateModifier.YAML_KEY, SetLearningRateModifier.yaml_constructor)
+yaml.add_constructor(SetLearningRateModifier.YAML_KEY, SetLearningRateModifier.yaml_constructor, yaml.SafeLoader)
 
 
 class LearningRateModifier(ScheduledUpdateModifier):
@@ -111,6 +192,9 @@ class LearningRateModifier(ScheduledUpdateModifier):
         super(LearningRateModifier, self).initialize(module, optimizer)
         self._lr_scheduler = CONSTRUCTORS[self._lr_class](optimizer=optimizer, **self._lr_kwargs)
 
+        if self._init_lr is not None:
+            self._lr_scheduler.base_lrs = list(map(lambda group: self._init_lr, optimizer.param_groups))
+
     def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
         """
         Calls into the lr scheduler to step given the epoch
@@ -122,16 +206,44 @@ class LearningRateModifier(ScheduledUpdateModifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
 
-        if not self._init_lr_set and self._init_lr is not None:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = self._init_lr
-
-            self._init_lr_set = True
+        if epoch < sys.float_info.epsilon:
+            # will not step on first update step (before optimizer is called), because of implementation detail
+            # use the initial lr instead to set the first value
+            return
 
         if self._adjust_update:
             epoch = epoch - self.start_epoch
 
         self._lr_scheduler.step(epoch)
+
+    def optimizer_pre_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+        """
+        Sets the initial lr if given
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        self._check_set_lr(optimizer, epoch)
+
+    def optimizer_post_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+        """
+        Sets the initial lr if given
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        self._check_set_lr(optimizer, epoch)
+        self._init_lr_set = True
+
+    def _check_set_lr(self, optimizer: Optimizer, epoch: float):
+        if ((self.start_epoch < 0.0 or (self.start_epoch - epoch) < sys.float_info.epsilon)
+                and not self._init_lr_set and self._init_lr is not None):
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = self._init_lr
 
 
 yaml.add_constructor(LearningRateModifier.YAML_KEY, LearningRateModifier.yaml_constructor)

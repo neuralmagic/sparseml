@@ -32,7 +32,7 @@ def train_modifiers_schedule(
         dataset_type: str, dataset_root: str,
         train_batch_size: int, test_batch_size: int, num_workers: int, pin_memory: bool,
         load_optim: bool, init_lr: float, momentum: float, dampening: float, weight_decay: float, nesterov: bool,
-        save_dir: str, save_after_epoch: int, save_epochs: Union[str, None], save_epoch_mod: int,
+        save_dir: str, save_after_epoch: int, save_epochs: Union[None, List[int]], save_epoch_mod: int,
         track_ks: bool, track_as: bool, track_gradients: Union[None, List[str]],
         model_plugin_paths: Union[None, List[str]], model_plugin_args: Union[None, Dict],
         debug_early_stop: int):
@@ -173,6 +173,7 @@ def train_modifiers_schedule(
 
         writer.add_scalar('Train/Learning Rate', optimizer.learning_rate, _step)
         writer.add_scalar('Train/Batch Size', _y_lab.shape[0], _step)
+        writer.add_scalar('Train/Epoch', _epoch, _step)
 
         if track_gradients:
             for name, mod in model.named_modules():
@@ -240,14 +241,15 @@ def train_modifiers_schedule(
             as_analyzer.disable_layers()
 
             for _name, _as_layer in as_analyzer.layers.items():
-                writer.add_scalar('Act Sparsity/{}'.format(_name), _as_layer.inputs_sparsity_mean, epoch)
+                writer.add_scalar('Act Sparsity/{}'.format(_name.replace('module.', '')),
+                                  _as_layer.inputs_sparsity_mean, epoch)
 
             as_analyzer.clear_layers()
 
         if track_ks:
             for _ks_layer in ks_analyzers:
-                writer.add_scalar('Kernel Sparsity/{}'
-                                  .format(_ks_layer.name), _ks_layer.param_sparsity, epoch)
+                writer.add_scalar('Kernel Sparsity/{}'.format(_ks_layer.name.replace('module.', '')),
+                                  _ks_layer.param_sparsity, epoch)
 
     ####################################################################################################################
     #
@@ -255,7 +257,9 @@ def train_modifiers_schedule(
     #
     ####################################################################################################################
 
-    save_epochs = [int(save) for save in save_epochs.split(',')] if save_epochs else []
+    if not save_epochs:
+        save_epochs = []
+
     print('Running baseline tests')
     _run_model_tests(epoch)
 
@@ -269,8 +273,8 @@ def train_modifiers_schedule(
         print('Running baseline tests')
         _run_model_tests(epoch)
 
-        if ((save_after_epoch < 0 or epoch >= save_after_epoch) and
-                (epoch in save_epochs or (save_epoch_mod > 0 and epoch % save_epoch_mod == 0))):
+        if ((epoch in save_epochs) or
+                (epoch >= save_after_epoch and save_epoch_mod > 0 and epoch % save_epoch_mod == 0)):
             save_path = os.path.join(save_dir, '{}.checkpoint-{:03d}.pth'.format(model_id, epoch))
             print('Saving checkpoint to {}'.format(save_path))
             save_model(save_path, model, optimizer, epoch)
@@ -340,7 +344,7 @@ def main():
     # optimizer settings
     parser.add_argument('--load-optim', type=bool, default=False,
                         help='Load the previous optimizer state from the model file (restore from checkpoint)')
-    parser.add_argument('--init-lr', type=float, required=True,
+    parser.add_argument('--init-lr', type=float, default=10e-9,
                         help='The initial learning rate to use while training')
     parser.add_argument('--momentum', type=float, default=0.9,
                         help='The momentum to use for the SGD optimizer')
@@ -357,7 +361,7 @@ def main():
     parser.add_argument('--save-after-epoch', type=int, default=-1,
                         help='the epoch after which to start saving checkpoints with either '
                              'save-epochs or save-epoch-mod args')
-    parser.add_argument('--save-epochs', type=str, default=None,
+    parser.add_argument('--save-epochs', type=int, default=[], nargs='+',
                         help='comma separated list of epochs to save checkpoints at')
     parser.add_argument('--save-epoch-mod', type=int, default=-1,
                         help='the modulus to save checkpoints at, '
