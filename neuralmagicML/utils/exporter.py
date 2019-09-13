@@ -53,7 +53,7 @@ class ModelExporter(object):
             if type_ not in layer_type_counts:
                 layer_type_counts[type_] = 0
 
-            export_name = '{}-{}.{}'.format(type_, layer_type_counts[type_], mod.__layer_name.replace('.', '-'))
+            export_name = '{}-{}.{}'.format(type_, layer_type_counts[type_], _layer.__layer_name.replace('.', '-'))
             layer_type_counts[type_] += 1
 
             if export_layers:
