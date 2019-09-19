@@ -33,7 +33,7 @@ class ModelExporter(object):
                           strip_doc_string=True, verbose=False)
         print('Exported onnx to {}'.format(onnx_path))
 
-    def export_batch(self, batch_size: int, export_intermediates: bool = False, export_layers: bool = False):
+    def export_batch(self, batch_size: int, inp: Union[None, Tuple[Tensor]] = None, export_intermediates: bool = False, export_layers: bool = False):
         batch_dir = os.path.join(self._output_dir, 'b{}'.format(batch_size))
         tensors_dir = os.path.join(batch_dir, 'tensors')
         layers_dir = os.path.join(batch_dir, 'layers')
@@ -77,7 +77,8 @@ class ModelExporter(object):
             handles.append(mod.register_forward_hook(forward_hook))
 
         with torch.no_grad():
-            inp = self._create_sample_input(batch_size)
+            if inp is None:
+                inp = self._create_sample_input(batch_size)
             out = self._model(*inp)
 
         ModelExporter.export_tensor(inp, '_model.input', tensors_dir)
