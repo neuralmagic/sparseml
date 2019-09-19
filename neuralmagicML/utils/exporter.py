@@ -4,6 +4,7 @@ import numpy
 import torch
 from torch import Tensor
 from torch.nn import Module
+from torch.utils.hooks import RemovableHandle
 
 
 __all__ = ['ModelExporter']
@@ -44,7 +45,7 @@ class ModelExporter(object):
         if not os.path.exists(layers_dir):
             os.makedirs(layers_dir)
 
-        handles = []
+        handles = []  # type: List[RemovableHandle]
         layer_type_counts = {}
 
         def forward_hook(_layer: Module, _inp: Tuple[Tensor, ...], _out: Union[Tensor, Tuple[Tensor, ...]]):
@@ -80,6 +81,11 @@ class ModelExporter(object):
             if inp is None:
                 inp = self._create_sample_input(batch_size)
             out = self._model(*inp)
+
+        for handle in handles:
+            handle.remove()
+
+        handles.clear()
 
         ModelExporter.export_tensor(inp, '_model.input', tensors_dir)
         ModelExporter.export_tensor(out, '_model.output', tensors_dir)
