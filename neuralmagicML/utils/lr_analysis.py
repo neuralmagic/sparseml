@@ -10,6 +10,7 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 
 from .loss_wrapper import LossWrapper
+from ..models import model_to_device
 
 
 __all__ = ['lr_analysis', 'lr_analysis_figure']
@@ -21,12 +22,13 @@ def _endless_loader(data_loader: DataLoader):
             yield data
 
 
-def lr_analysis(module: Module, device: str, train_data: DataLoader, loss_wrapper: LossWrapper,
+def lr_analysis(module: Module, device_desc: str, train_data: DataLoader, loss_wrapper: LossWrapper,
                 batches_per_sample: int = 1, lr_mult: float = 1.1, init_lr: float = 1e-9, final_lr: float = 1e0,
                 sgd_momentum: float = 0.9, sgd_dampening: float = 0.0, sgd_weight_decay: float = 1e-4,
                 sgd_nesterov: bool = True) -> List[Tuple[float, Tensor]]:
     lr_module = copy.deepcopy(module.to('cpu'))
-    lr_module = lr_module.to(device).train()
+    lr_module, device, device_ids = model_to_device(lr_module, device_desc)
+    lr_module.train()
     optimizer = SGD(lr_module.parameters(), init_lr, sgd_momentum, sgd_dampening, sgd_weight_decay, sgd_nesterov)
 
     data_loader = _endless_loader(train_data)

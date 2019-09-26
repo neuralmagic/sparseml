@@ -60,9 +60,9 @@ class LossWrapper(object):
 
             return str(_obj)
 
-        return ('{}(Loss: {}; Extras: {})'
-                .format(self.__class__.__name__, _create_repr(self._loss_fn),
-                        ','.join([_create_repr(extra) for extra in self._extras.values()])))
+        extras = [_create_repr(extra) for extra in self._extras.values()] if self._extras is not None else []
+
+        return '{}(Loss: {}; Extras: {})'.format(self.__class__.__name__, _create_repr(self._loss_fn), ','.join(extras))
 
     @property
     def available_losses(self) -> Tuple[str, ...]:

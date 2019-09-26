@@ -42,7 +42,7 @@ def export_model(model_type: str, pretrained: Union[bool, str], model_path: Unio
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Train a model for a given dataset with a given schedule')
+    parser = argparse.ArgumentParser(description='Export a model for a given dataset with ')
 
     # schedule device and model arguments
     parser.add_argument('--model-type', type=str, required=True,

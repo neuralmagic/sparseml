@@ -300,7 +300,7 @@ def main():
                         help='The device to run on (can also include ids for data parallel), ex: '
                              'cpu, cuda, cuda:0,1')
     parser.add_argument('--model-type', type=str, required=True,
-                        help='The type of model to create, ex: resnet/50, vgg/16, mobilenet/1.0 '
+                        help='The type of model to create, ex: resnet50, vgg16, mobilenet'
                              'put as help to see the full list (will raise an exception with the list)')
     parser.add_argument('--pretrained', type=str, default=None,
                         help='The type of pretrained weights to use, default is not to load any, '
