@@ -33,7 +33,7 @@ def learning_rate_analysis(
     print('Created loss {}'.format(loss))
 
     save_dir = os.path.abspath(os.path.expanduser(save_dir))
-    model_tag = '{}-{}'.format(model_type.replace('/', '.'), dataset_type)
+    model_tag = '{}-{}-b{}'.format(model_type.replace('/', '.'), dataset_type, train_batch_size)
     model_id = model_tag
     model_inc = 0
 

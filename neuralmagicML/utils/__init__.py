@@ -1,3 +1,4 @@
+from .benchmarker import *
 from .exporter import *
 from .flops_analyzer import *
 from .loss_wrapper import *
