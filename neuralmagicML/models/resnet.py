@@ -9,6 +9,7 @@ from .utils import load_pretrained_model, MODEL_MAPPINGS
 
 __all__ = ['ResNetSectionSettings', 'ResNet',
            'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152',
+           'resnet18_v2', 'resnet34_v2', 'resnet50_v2', 'resnet101_v2', 'resnet152_v2',
            'resnet50_2xwidth', 'resnet101_2xwidth',
            'resnext50', 'resnext101', 'resnext152']
 
@@ -165,6 +166,101 @@ class _BottleneckBlock(Module):
         _init_batch_norm(self.bn3, 0.0)
 
 
+class _BasicBlockV2(Module):
+    def __init__(self, in_channels: int, out_channels: int, stride: int = 1):
+        super().__init__()
+        self.bn1 = BatchNorm2d(out_channels)
+        self.act1 = ReLU(inplace=True)
+        self.conv1 = Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+
+        self.bn2 = BatchNorm2d(out_channels)
+        self.act2 = ReLU(inplace=True)
+        self.conv2 = Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+
+        self.identity = Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False) \
+            if in_channels != out_channels or stride != 1 else None
+
+        self.initialize()
+
+    def forward(self, inp: Tensor):
+        identity = inp
+
+        out = self.bn1(inp)
+        out = self.act1(out)
+        if self.identity is not None:
+            identity = self.identity(out)
+        out = self.conv1(out)
+
+        out = self.bn2(out)
+        out = self.act2(out)
+        out = self.conv2(out)
+
+        out += identity
+
+        return out
+
+    def initialize(self):
+        _init_conv(self.conv1)
+        _init_batch_norm(self.bn1)
+        _init_conv(self.conv2)
+        _init_batch_norm(self.bn2, 0.0)
+
+
+class _BottleneckBlockV2(Module):
+    def __init__(self, in_channels: int, out_channels: int, proj_channels: int, stride: int = 1, groups: int = 1):
+        super().__init__()
+
+        self.bn1 = BatchNorm2d(in_channels)
+        self.act1 = ReLU(inplace=True)
+        self.conv1 = Conv2d(in_channels, proj_channels, kernel_size=1, bias=False)
+
+        self.bn2 = BatchNorm2d(proj_channels)
+        self.act2 = ReLU(inplace=True)
+        self.conv2 = Conv2d(proj_channels, proj_channels, kernel_size=3, stride=stride,
+                            padding=1, bias=False, groups=groups)
+
+        self.bn3 = BatchNorm2d(proj_channels)
+        self.act3 = ReLU(inplace=True)
+        self.conv3 = Conv2d(proj_channels, out_channels, kernel_size=1, bias=False)
+
+        self.identity = Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False) \
+            if in_channels != out_channels or stride != 1 else None
+
+        self.initialize()
+
+    def forward(self, inp: Tensor):
+        identity = inp
+
+        out = self.bn1(inp)
+        out = self.act1(out)
+        if self.identity is not None:
+            identity = self.identity(out)
+        out = self.conv1(out)
+
+        out = self.bn2(out)
+        out = self.act2(out)
+        out = self.conv2(out)
+
+        out = self.bn3(out)
+        out = self.act3(out)
+        out = self.conv3(out)
+
+        out += identity
+
+        return out
+
+    def initialize(self):
+        _init_batch_norm(self.bn1)
+        _init_conv(self.conv1)
+        _init_batch_norm(self.bn2)
+        _init_conv(self.conv2)
+        _init_batch_norm(self.bn3)
+        _init_conv(self.conv3)
+
+        if self.identity is not None:
+            _init_conv(self.identity)
+
+
 class _Classifier(Module):
     def __init__(self, in_channels: int, num_classes: int):
         super().__init__()
@@ -188,7 +284,7 @@ class _Classifier(Module):
 
 class ResNetSectionSettings(object):
     def __init__(self, num_blocks: int, in_channels: int, out_channels: int, downsample: bool,
-                 proj_channels: int = -1, groups: int = 1, use_se: bool = False):
+                 proj_channels: int = -1, groups: int = 1, use_se: bool = False, version: int = 1):
         """
         :param num_blocks: the number of blocks to put in the section (ie Basic or Bottleneck blocks)
         :param in_channels: the number of input channels to the section
@@ -197,11 +293,15 @@ class ResNetSectionSettings(object):
         :param proj_channels: The number of channels in the projection for a bottleneck block, if < 0 then uses basic
         :param groups: The number of groups to use for each 3x3 conv (resnext)
         :param use_se: True to use squeeze excite, False otherwise
+        :param version: 1 for original ResNet model, 2 for ResNet v2 model
         """
 
         if use_se:
             # TODO: add support for squeeze excite
             raise NotImplementedError('squeeze excite not supported yet')
+
+        if version != 1 and version != 2:
+            raise ValueError('unknown version given of {}, only 1 and 2 are supported'.format(version))
 
         self.num_blocks = num_blocks
         self.in_channels = in_channels
@@ -210,6 +310,7 @@ class ResNetSectionSettings(object):
         self.proj_channels = proj_channels
         self.groups = groups
         self.use_se = use_se
+        self.version = version
 
 
 class ResNet(Module):
@@ -219,7 +320,10 @@ class ResNet(Module):
         Standard ResNet model
         https://arxiv.org/abs/1512.03385
 
-        Also includes ResNext models
+        ResNet V2 model
+        https://arxiv.org/abs/1603.05027
+
+        ResNext model
         https://arxiv.org/abs/1611.05431
 
         :param sec_settings: the settings for each section in the resnet model
@@ -254,11 +358,19 @@ class ResNet(Module):
         stride = 2 if settings.downsample else 1
 
         for _ in range(settings.num_blocks):
-            if settings.proj_channels > 0:
+            if settings.proj_channels > 0 and settings.version == 1:
                 blocks.append(_BottleneckBlock(in_channels, settings.out_channels, settings.proj_channels,
                                                stride, settings.groups))
-            else:
+            elif settings.proj_channels > 0 and settings.version == 2:
+                blocks.append(_BottleneckBlockV2(in_channels, settings.out_channels, settings.proj_channels,
+                                                 stride, settings.groups))
+            elif settings.version == 1:
                 blocks.append(_BasicBlock(in_channels, settings.out_channels, stride))
+            elif settings.version == 2:
+                blocks.append(_BasicBlockV2(in_channels, settings.out_channels, stride))
+            else:
+                raise ValueError('could not figure out which block to use given version:{} and proj_channels:{}'
+                                 .format(settings.version, settings.proj_channels))
 
             in_channels = settings.out_channels
             stride = 1
@@ -280,6 +392,20 @@ def resnet18(**kwargs) -> ResNet:
 MODEL_MAPPINGS['resnet18'] = resnet18
 
 
+def resnet18_v2(**kwargs) -> ResNet:
+    sec_settings = [
+        ResNetSectionSettings(num_blocks=2, in_channels=64, out_channels=64, downsample=False, version=2),
+        ResNetSectionSettings(num_blocks=2, in_channels=64, out_channels=128, downsample=True, version=2),
+        ResNetSectionSettings(num_blocks=2, in_channels=128, out_channels=256, downsample=True, version=2),
+        ResNetSectionSettings(num_blocks=2, in_channels=256, out_channels=512, downsample=True, version=2)
+    ]
+
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnetv2/18', **kwargs)
+
+
+MODEL_MAPPINGS['resnet18_v2'] = resnet18_v2
+
+
 def resnet34(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=64, downsample=False),
@@ -294,6 +420,20 @@ def resnet34(**kwargs) -> ResNet:
 MODEL_MAPPINGS['resnet34'] = resnet34
 
 
+def resnet34_v2(**kwargs) -> ResNet:
+    sec_settings = [
+        ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=64, downsample=False, version=2),
+        ResNetSectionSettings(num_blocks=4, in_channels=64, out_channels=128, downsample=True, version=2),
+        ResNetSectionSettings(num_blocks=6, in_channels=128, out_channels=256, downsample=True, version=2),
+        ResNetSectionSettings(num_blocks=3, in_channels=256, out_channels=512, downsample=True, version=2)
+    ]
+
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnetv2/34', **kwargs)
+
+
+MODEL_MAPPINGS['resnet34_v2'] = resnet34_v2
+
+
 def resnet50(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=64),
@@ -306,6 +446,24 @@ def resnet50(**kwargs) -> ResNet:
 
 
 MODEL_MAPPINGS['resnet50'] = resnet50
+
+
+def resnet50_v2(**kwargs) -> ResNet:
+    sec_settings = [
+        ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=64,
+                              version=2),
+        ResNetSectionSettings(num_blocks=4, in_channels=256, out_channels=512, downsample=True, proj_channels=128,
+                              version=2),
+        ResNetSectionSettings(num_blocks=6, in_channels=512, out_channels=1024, downsample=True, proj_channels=256,
+                              version=2),
+        ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=512,
+                              version=2)
+    ]
+
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnetv2/50', **kwargs)
+
+
+MODEL_MAPPINGS['resnet50_v2'] = resnet50_v2
 
 
 def resnet50_2xwidth(**kwargs) -> ResNet:
@@ -354,6 +512,24 @@ def resnet101(**kwargs) -> ResNet:
 MODEL_MAPPINGS['resnet101'] = resnet101
 
 
+def resnet101_v2(**kwargs) -> ResNet:
+    sec_settings = [
+        ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=64,
+                              version=2),
+        ResNetSectionSettings(num_blocks=4, in_channels=256, out_channels=512, downsample=True, proj_channels=128,
+                              version=2),
+        ResNetSectionSettings(num_blocks=23, in_channels=512, out_channels=1024, downsample=True, proj_channels=256,
+                              version=2),
+        ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=512,
+                              version=2)
+    ]
+
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/101', **kwargs)
+
+
+MODEL_MAPPINGS['resnet101_v2'] = resnet101_v2
+
+
 def resnet101_2xwidth(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=128),
@@ -398,6 +574,24 @@ def resnet152(**kwargs) -> ResNet:
 
 
 MODEL_MAPPINGS['resnet152'] = resnet152
+
+
+def resnet152_v2(**kwargs) -> ResNet:
+    sec_settings = [
+        ResNetSectionSettings(num_blocks=3, in_channels=64, out_channels=256, downsample=False, proj_channels=64,
+                              version=2),
+        ResNetSectionSettings(num_blocks=8, in_channels=256, out_channels=512, downsample=True, proj_channels=128,
+                              version=2),
+        ResNetSectionSettings(num_blocks=36, in_channels=512, out_channels=1024, downsample=True, proj_channels=256,
+                              version=2),
+        ResNetSectionSettings(num_blocks=3, in_channels=1024, out_channels=2048, downsample=True, proj_channels=512,
+                              version=2)
+    ]
+
+    return ResNet(sec_settings=sec_settings, model_arch_tag='resnet/152', **kwargs)
+
+
+MODEL_MAPPINGS['resnet152_v2'] = resnet152_v2
 
 
 def resnext152(**kwargs) -> ResNet:
