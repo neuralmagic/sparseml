@@ -1,9 +1,10 @@
 from typing import List, Union
 from torch import Tensor
 from torch.nn import (
-    Module, Conv2d, BatchNorm2d, ReLU, MaxPool2d, AdaptiveAvgPool2d, Linear, init, Sequential, Softmax
+    Module, Conv2d, BatchNorm2d, MaxPool2d, AdaptiveAvgPool2d, Linear, init, Sequential, Softmax, Sigmoid
 )
 
+from ..nn import ReLU
 from .utils import load_pretrained_model, MODEL_MAPPINGS
 
 
@@ -36,7 +37,7 @@ class _Input(Module):
         super().__init__()
         self.conv = Conv2d(_Input.IN_CHANNELS, _Input.OUT_CHANNELS, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn = BatchNorm2d(_Input.OUT_CHANNELS)
-        self.act = ReLU(inplace=True)
+        self.act = ReLU(num_channels=_Input.OUT_CHANNELS, inplace=True)
         self.pool = MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.initialize()
@@ -82,12 +83,12 @@ class _BasicBlock(Module):
         super().__init__()
         self.conv1 = Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn1 = BatchNorm2d(out_channels)
-        self.act1 = ReLU(inplace=True)
+        self.act1 = ReLU(num_channels=out_channels, inplace=True)
         self.conv2 = Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = BatchNorm2d(out_channels)
         self.identity = _IdentityModifier(in_channels, out_channels, stride) \
             if _IdentityModifier.required(in_channels, out_channels, stride) else None
-        self.act_out = ReLU(inplace=True)
+        self.act_out = ReLU(num_channels=out_channels, inplace=True)
 
         self.initialize()
 
@@ -122,16 +123,16 @@ class _BottleneckBlock(Module):
 
         self.conv1 = Conv2d(in_channels, proj_channels, kernel_size=1, bias=False)
         self.bn1 = BatchNorm2d(proj_channels)
-        self.act1 = ReLU(inplace=True)
+        self.act1 = ReLU(num_channels=proj_channels, inplace=True)
         self.conv2 = Conv2d(proj_channels, proj_channels, kernel_size=3, stride=stride,
                             padding=1, bias=False, groups=groups)
         self.bn2 = BatchNorm2d(proj_channels)
-        self.act2 = ReLU(inplace=True)
+        self.act2 = ReLU(num_channels=proj_channels, inplace=True)
         self.conv3 = Conv2d(proj_channels, out_channels, kernel_size=1, bias=False)
         self.bn3 = BatchNorm2d(out_channels)
         self.identity = _IdentityModifier(in_channels, out_channels, stride) \
             if _IdentityModifier.required(in_channels, out_channels, stride) else None
-        self.act_out = ReLU(inplace=True)
+        self.act_out = ReLU(num_channels=out_channels, inplace=True)
 
         self.initialize()
 
@@ -169,12 +170,12 @@ class _BottleneckBlock(Module):
 class _BasicBlockV2(Module):
     def __init__(self, in_channels: int, out_channels: int, stride: int = 1):
         super().__init__()
-        self.bn1 = BatchNorm2d(out_channels)
-        self.act1 = ReLU(inplace=True)
+        self.bn1 = BatchNorm2d(in_channels)
+        self.act1 = ReLU(num_channels=in_channels, inplace=True)
         self.conv1 = Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
 
         self.bn2 = BatchNorm2d(out_channels)
-        self.act2 = ReLU(inplace=True)
+        self.act2 = ReLU(num_channels=out_channels, inplace=True)
         self.conv2 = Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
 
         self.identity = Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False) \
@@ -211,16 +212,16 @@ class _BottleneckBlockV2(Module):
         super().__init__()
 
         self.bn1 = BatchNorm2d(in_channels)
-        self.act1 = ReLU(inplace=True)
+        self.act1 = ReLU(num_channels=in_channels, inplace=True)
         self.conv1 = Conv2d(in_channels, proj_channels, kernel_size=1, bias=False)
 
         self.bn2 = BatchNorm2d(proj_channels)
-        self.act2 = ReLU(inplace=True)
+        self.act2 = ReLU(num_channels=proj_channels, inplace=True)
         self.conv2 = Conv2d(proj_channels, proj_channels, kernel_size=3, stride=stride,
                             padding=1, bias=False, groups=groups)
 
         self.bn3 = BatchNorm2d(proj_channels)
-        self.act3 = ReLU(inplace=True)
+        self.act3 = ReLU(num_channels=proj_channels, inplace=True)
         self.conv3 = Conv2d(proj_channels, out_channels, kernel_size=1, bias=False)
 
         self.identity = Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False) \
@@ -262,11 +263,17 @@ class _BottleneckBlockV2(Module):
 
 
 class _Classifier(Module):
-    def __init__(self, in_channels: int, num_classes: int):
+    def __init__(self, in_channels: int, num_classes: int, class_type: str = 'single'):
         super().__init__()
         self.avgpool = AdaptiveAvgPool2d(1)
         self.fc = Linear(in_channels, num_classes)
-        self.softmax = Softmax(dim=1)
+
+        if class_type == 'single':
+            self.softmax = Softmax(dim=1)
+        elif class_type == 'multi':
+            self.softmax = Sigmoid()
+        else:
+            raise ValueError('unknown class_type given of {}'.format(class_type))
 
         self.initialize()
 
@@ -315,7 +322,7 @@ class ResNetSectionSettings(object):
 
 class ResNet(Module):
     def __init__(self, sec_settings: List[ResNetSectionSettings], model_arch_tag: str, num_classes: int = 1000,
-                 pretrained: Union[bool, str] = False):
+                 class_type: str = 'single', pretrained: Union[bool, str] = False):
         """
         Standard ResNet model
         https://arxiv.org/abs/1512.03385
@@ -336,7 +343,7 @@ class ResNet(Module):
         super().__init__()
         self.input = _Input()
         self.sections = Sequential(*[ResNet.create_section(settings) for settings in sec_settings])
-        self.classifier = _Classifier(sec_settings[-1].out_channels, num_classes)
+        self.classifier = _Classifier(sec_settings[-1].out_channels, num_classes, class_type)
 
         if pretrained:
             pretrained_key = pretrained if isinstance(pretrained, str) else ''

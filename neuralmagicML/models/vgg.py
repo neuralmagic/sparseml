@@ -1,9 +1,10 @@
 from typing import List
 from torch import Tensor
 from torch.nn import (
-    Module, Conv2d, BatchNorm2d, MaxPool2d, Linear, init, Sequential, Dropout, Softmax, ReLU
+    Module, Conv2d, BatchNorm2d, MaxPool2d, Linear, init, Sequential, Dropout, Softmax, Sigmoid
 )
 
+from ..nn import ReLU
 from .utils import load_pretrained_model, MODEL_MAPPINGS
 
 __all__ = [
@@ -33,7 +34,7 @@ class _Block(Module):
         super().__init__()
         self.conv = Conv2d(in_channels, out_channels, kernel_size=3, padding=1, stride=1)
         self.bn = BatchNorm2d(out_channels) if batch_norm else None
-        self.act = ReLU(inplace=True)
+        self.act = ReLU(num_channels=out_channels, inplace=True)
 
         self.initialize()
 
@@ -55,18 +56,24 @@ class _Block(Module):
 
 
 class _Classifier(Module):
-    def __init__(self, in_channels: int, num_classes: int):
+    def __init__(self, in_channels: int, num_classes: int, class_type: str = 'single'):
         super().__init__()
         self.mlp = Sequential(
             Linear(in_channels * 7 * 7, 4096),
             Dropout(),
-            ReLU(inplace=True),
+            ReLU(num_channels=4096, inplace=True),
             Linear(4096, 4096),
             Dropout(),
-            ReLU(inplace=True),
+            ReLU(num_channels=4096, inplace=True),
             Linear(4096, num_classes)
         )
-        self.softmax = Softmax(dim=1)
+
+        if class_type == 'single':
+            self.softmax = Softmax(dim=1)
+        elif class_type == 'multi':
+            self.softmax = Sigmoid()
+        else:
+            raise ValueError('unknown class_type given of {}'.format(class_type))
 
     def forward(self, inp: Tensor):
         out = inp.view(inp.size(0), -1)
@@ -92,7 +99,7 @@ class VGGSectionSettings(object):
 
 class VGG(Module):
     def __init__(self, sec_settings: List[VGGSectionSettings], model_arch_tag: str,
-                 num_classes: int = 1000, pretrained: bool = False):
+                 num_classes: int = 1000, class_type: str = 'single', pretrained: bool = False):
         """
         Standard VGG model
         https://arxiv.org/abs/1409.1556
@@ -106,7 +113,7 @@ class VGG(Module):
         """
         super(VGG, self).__init__()
         self.sections = Sequential(*[VGG.create_section(settings) for settings in sec_settings])
-        self.classifier = _Classifier(sec_settings[-1].out_channels, num_classes)
+        self.classifier = _Classifier(sec_settings[-1].out_channels, num_classes, class_type)
 
         if pretrained:
             pretrained_key = pretrained if isinstance(pretrained, str) else ''

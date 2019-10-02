@@ -1,7 +1,8 @@
 from typing import List
 from torch import Tensor
-from torch.nn import Module, Sequential, AvgPool2d, Conv2d, BatchNorm2d, Linear, ReLU, Softmax, init
+from torch.nn import Module, Sequential, AvgPool2d, Conv2d, BatchNorm2d, Linear, Softmax, Sigmoid, init
 
+from ..nn import ReLU
 from .utils import load_pretrained_model, MODEL_MAPPINGS
 
 
@@ -30,7 +31,7 @@ class _Input(Module):
         super().__init__()
         self.conv = Conv2d(in_channels=3, out_channels=32, kernel_size=3, stride=2, padding=1, bias=False)
         self.bn = BatchNorm2d(32)
-        self.act = ReLU(inplace=True)
+        self.act = ReLU(num_channels=32, inplace=True)
 
         self.initialize()
 
@@ -51,7 +52,7 @@ class _ConvBNRelu(Module):
         super().__init__()
         self.conv = Conv2d(in_channels, out_channels, kernel_size, stride, padding, groups=groups, bias=False)
         self.bn = BatchNorm2d(out_channels)
-        self.act = ReLU(inplace=True)
+        self.act = ReLU(num_channels=out_channels, inplace=True)
 
         self.initialize()
 
@@ -81,11 +82,17 @@ class _Block(Module):
 
 
 class _Classifier(Module):
-    def __init__(self, in_channels: int, num_classes: int):
+    def __init__(self, in_channels: int, num_classes: int, class_type: str = 'single'):
         super().__init__()
         self.avgpool = AvgPool2d(7)
         self.fc = Linear(in_channels, num_classes)
-        self.softmax = Softmax(dim=1)
+
+        if class_type == 'single':
+            self.softmax = Softmax(dim=1)
+        elif class_type == 'multi':
+            self.softmax = Sigmoid()
+        else:
+            raise ValueError('unknown class_type given of {}'.format(class_type))
 
         self.initialize()
 
@@ -116,7 +123,8 @@ class MobileNetSectionSettings(object):
 
 
 class MobileNet(Module):
-    def __init__(self, sec_settings: List[MobileNetSectionSettings], num_classes: int = 1000, pretrained: bool = False):
+    def __init__(self, sec_settings: List[MobileNetSectionSettings], num_classes: int = 1000,
+                 class_type: str = 'single', pretrained: bool = False):
         """
         Standard MobileNet model
         https://arxiv.org/abs/1704.04861
@@ -128,7 +136,7 @@ class MobileNet(Module):
         super().__init__()
         self.input = _Input()
         self.sections = Sequential(*[MobileNet.create_section(settings) for settings in sec_settings])
-        self.classifier = _Classifier(sec_settings[-1].out_channels, num_classes)
+        self.classifier = _Classifier(sec_settings[-1].out_channels, num_classes, class_type)
 
         if pretrained:
             pretrained_key = pretrained if isinstance(pretrained, str) else ''

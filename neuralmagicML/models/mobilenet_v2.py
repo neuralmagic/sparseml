@@ -2,9 +2,10 @@ from typing import List, Union, Dict
 from collections import OrderedDict
 from torch import Tensor
 from torch.nn import (
-    Module, Conv2d, BatchNorm2d, ReLU6, AdaptiveAvgPool2d, Linear, init, Sequential, Softmax, Dropout
+    Module, Conv2d, BatchNorm2d, AdaptiveAvgPool2d, Linear, init, Sequential, Softmax, Sigmoid, Dropout
 )
 
+from ..nn import ReLU6
 from .utils import load_pretrained_model, MODEL_MAPPINGS
 
 
@@ -46,13 +47,13 @@ class _InvertedResidualBlock(Module):
         self.expand = Sequential(OrderedDict([
             ('conv', Conv2d(in_channels, exp_channels, bias=False, **expand_kwargs)),
             ('bn', BatchNorm2d(exp_channels)),
-            ('act', ReLU6(inplace=True))
+            ('act', ReLU6(num_channels=exp_channels, inplace=True))
         ]))
         self.spatial = Sequential(OrderedDict([
             ('conv', Conv2d(exp_channels, exp_channels, kernel_size=3, padding=1, stride=stride,
                             groups=exp_channels, bias=False)),
             ('bn', BatchNorm2d(exp_channels)),
-            ('act', ReLU6(inplace=True))
+            ('act', ReLU6(num_channels=exp_channels, inplace=True))
         ]))
         self.compress = Sequential(OrderedDict([
             ('conv', Conv2d(exp_channels, out_channels, kernel_size=1, bias=False)),
@@ -82,12 +83,18 @@ class _InvertedResidualBlock(Module):
 
 
 class _Classifier(Module):
-    def __init__(self, in_channels: int, num_classes: int):
+    def __init__(self, in_channels: int, num_classes: int, class_type: str = 'single'):
         super().__init__()
         self.avgpool = AdaptiveAvgPool2d(1)
         self.dropout = Dropout(0.2)
         self.fc = Linear(in_channels, num_classes)
-        self.softmax = Softmax(dim=1)
+
+        if class_type == 'single':
+            self.softmax = Softmax(dim=1)
+        elif class_type == 'multi':
+            self.softmax = Sigmoid()
+        else:
+            raise ValueError('unknown class_type given of {}'.format(class_type))
 
         self.initialize()
 
@@ -125,15 +132,15 @@ class MobilenetV2SectionSettings(object):
 
 class MobilenetV2(Module):
     def __init__(self, sec_settings: List[MobilenetV2SectionSettings], model_arch_tag: str, num_classes: int = 1000,
-                 pretrained: Union[bool, str] = False):
+                 class_type: str = 'single', pretrained: Union[bool, str] = False):
         super().__init__()
         self.sections = Sequential(*[MobilenetV2.create_section(settings) for settings in sec_settings])
         self.feat_extraction = Sequential(OrderedDict([
             ('conv', Conv2d(in_channels=sec_settings[-1].out_channels, out_channels=1280, kernel_size=1, bias=False)),
             ('bn', BatchNorm2d(1280)),
-            ('act', ReLU6(inplace=True))
+            ('act', ReLU6(num_channels=1280, inplace=True))
         ]))
-        self.classifier = _Classifier(in_channels=1280, num_classes=num_classes)
+        self.classifier = _Classifier(in_channels=1280, num_classes=num_classes, class_type=class_type)
 
         if pretrained:
             pretrained_key = pretrained if isinstance(pretrained, str) else ''
