@@ -36,7 +36,7 @@ def export_model(model_type: str, pretrained: Union[bool, str], model_path: Unio
     exporter.export_onnx()
 
     for batch_size in export_batch_sizes:
-        exporter.export_batch(batch_size, export_intermediates, export_layers)
+        exporter.export_batch(batch_size, export_intermediates=export_intermediates, export_layers=export_layers)
 
     print('Completed')
 
