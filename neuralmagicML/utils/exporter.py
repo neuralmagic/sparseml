@@ -102,12 +102,12 @@ class ModelExporter(object):
             print('exported param {} for layer {} to {}'.format(param_name, name, export_path))
 
     @staticmethod
-    def export_tensor(tensors: Union[Tensor, Tuple[Tensor, ...]], name: str, export_dir: str):
+    def export_tensor(tensors: Union[Tensor, Tuple[Tensor, ...]], name: str, export_dir: str, index_offset: int = 0):
         if isinstance(tensors, Tensor):
             tensors = (tensors,)
 
         for index, tens in enumerate(tensors):
-            export_path = os.path.join(export_dir, '{}-{}.npy'.format(name, index))
+            export_path = os.path.join(export_dir, '{}-{}.npy'.format(name, index + index_offset))
             export_tens = tens.cpu().detach().numpy()
             numpy.save(export_path, export_tens)
-            print('exported tensor #{} for {} to {}'.format(index, name, export_path))
+            print('exported tensor #{} for {} to {}'.format(index + index_offset, name, export_path))
