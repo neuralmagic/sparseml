@@ -4,6 +4,8 @@ from torch import Tensor
 from torch.nn import (
     Module, Sequential, Conv2d, AdaptiveAvgPool2d, Sigmoid, ReLU)
 
+from . import Swish
+
 __all__ = ['SqueezeExcite']
 
 
@@ -16,7 +18,7 @@ class SqueezeExcite(Module):
             ('squeeze', AdaptiveAvgPool2d(1)),
             ('reduce', Sequential(OrderedDict([
                 ('conv', Conv2d(in_channels=expanded_channels, out_channels=squeezed_channels, kernel_size=1)),
-                ('act', ReLU(inplace=True))
+                ('act', Swish())
             ]))),
             ('expand', Sequential(OrderedDict([
                 ('conv', Conv2d(in_channels=squeezed_channels, out_channels=expanded_channels, kernel_size=1)),
