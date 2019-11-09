@@ -16,6 +16,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.datasets.folder import default_loader
 
+from .utils import DATASET_MAPPINGS
 from ..utils import MultiDownloader, DownloadResult, ParallelWorker
 
 
@@ -278,6 +279,9 @@ class OpenImagesDataset(Dataset):
 
         labeler = _ImageLabeler(split_name, images_dir, human_labels_path, machine_labels_path, num_workers, image_size)
         labeler.label()
+
+
+DATASET_MAPPINGS['openimages'] = OpenImagesDataset, 8658
 
 
 class _ImageDownloader(object):
