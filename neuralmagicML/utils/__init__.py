@@ -1,4 +1,5 @@
 from .benchmarker import *
+from .downloader import *
 from .exporter import *
 from .flops_analyzer import *
 from .loss_wrapper import *
@@ -7,3 +8,4 @@ from .metrics import *
 from .onnx import *
 from .tester import *
 from .trainer import *
+from .worker import *
