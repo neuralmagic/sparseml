@@ -14,10 +14,12 @@ __all__ = [
     'EfficientNet',
     'EfficientNetSectionSettings',
     'efficientnet_b0',
+    'efficientnet_b0_se_mod',
     'efficientnet_b1',
     'efficientnet_b2',
     'efficientnet_b3',
     'efficientnet_b4',
+    'efficientnet_b4_se_mod',
     'efficientnet_b5',
     'efficientnet_b6',
     'efficientnet_b7',
@@ -26,17 +28,18 @@ __all__ = [
 
 class _EfficientNetConvBlock(Module):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int, expansion_ratio: int, stride: int,
-                 se_ratio: Union[float, None]):
+                 se_ratio: Union[float, None], se_mod: bool):
         super().__init__()
         self._in_channels = in_channels
         self._out_channels = out_channels
         self._stride = stride
+        self._se_mod = se_mod
         expanded_channels = in_channels * expansion_ratio
 
         self.expand = Sequential(OrderedDict([
             ('conv', Conv2d(in_channels=in_channels, out_channels=expanded_channels, kernel_size=1, bias=False)),
             ('bn', BatchNorm2d(num_features=expanded_channels)),
-            ('act', ReLU(inplace=True))
+            ('act', Swish())
         ])) if expanded_channels != in_channels else None
 
         spatial_padding = (kernel_size - 1) // 2
@@ -44,12 +47,15 @@ class _EfficientNetConvBlock(Module):
             ('conv', Conv2d(in_channels=expanded_channels, out_channels=expanded_channels, kernel_size=kernel_size,
                             stride=stride, padding=spatial_padding, groups=expanded_channels, bias=False)),
             ('bn', BatchNorm2d(num_features=expanded_channels)),
-            ('act', ReLU(inplace=True))
+            ('act', Swish())
         ]))
 
         squeezed_channels = max(1, int(in_channels * se_ratio)) if se_ratio and 0 < se_ratio <= 1 else None
 
-        self.se = SqueezeExcite(expanded_channels, squeezed_channels) if squeezed_channels else None
+        if self._se_mod:
+            self.se = SqueezeExcite(out_channels, squeezed_channels) if squeezed_channels else None
+        else:
+            self.se = SqueezeExcite(expanded_channels, squeezed_channels) if squeezed_channels else None
 
         self.project = Sequential(OrderedDict([
             ('conv', Conv2d(in_channels=expanded_channels, out_channels=out_channels, kernel_size=1, bias=False)),
@@ -64,10 +70,13 @@ class _EfficientNetConvBlock(Module):
 
         out = self.spatial(out)
 
-        if self.se is not None:
+        if (self.se is not None) and (not self._se_mod):
             out = out * self.se(out)
 
         out = self.project(out)
+
+        if (self.se is not None) and (self._se_mod):
+            out = out * self.se(out)
 
         if self._stride == 1 and self._in_channels == self._out_channels:
             out = out + inp
@@ -80,7 +89,7 @@ class _EfficientNetClassifier(Module):
         super().__init__()
         self.conv = Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, bias=False)
         self.bn = BatchNorm2d(num_features=out_channels)
-        self.act = ReLU(inplace=True)
+        self.act = Swish()
         self.pool = AdaptiveAvgPool2d(1)
         self.dropout = Dropout(p=dropout)
         self.fc = Linear(out_channels, classes)
@@ -107,7 +116,7 @@ class _EfficientNetClassifier(Module):
 
 class EfficientNetSectionSettings(object):
     def __init__(self, num_blocks: int, in_channels: int, out_channels: int, kernel_size: int, expansion_ratio: int,
-                 stride: int, se_ratio: Union[float, None]):
+                 stride: int, se_ratio: Union[float, None], se_mod: bool):
         """
         :param num_blocks: the number of blocks to put in the section
         :param in_channels: the number of input channels to the section
@@ -117,6 +126,7 @@ class EfficientNetSectionSettings(object):
                the depth-wise convolution
         :param stride: the stride of the depth-wise convolution
         :param se_ratio: (in_channels * se_ratio) is the number of input channels for squeeze-excite
+        :param se_mod: If true, moves SE to the end of the block (after last 1x1) so that a 3 stage pyramid can run
         """
 
         self.num_blocks = num_blocks
@@ -126,6 +136,7 @@ class EfficientNetSectionSettings(object):
         self.expansion_ratio = expansion_ratio
         self.stride = stride
         self.se_ratio = se_ratio
+        self.se_mod = se_mod
 
 
 class EfficientNet(Module):
@@ -136,7 +147,7 @@ class EfficientNet(Module):
             ('conv', Conv2d(in_channels=3, out_channels=sec_settings[0].in_channels,
                             kernel_size=3, stride=2, bias=False)),
             ('bn', BatchNorm2d(num_features=sec_settings[0].in_channels)),
-            ('act', ReLU(inplace=True))
+            ('act', Swish())
         ]))
         sections = []
 
@@ -157,9 +168,13 @@ class EfficientNet(Module):
     def create_section(settings: EfficientNetSectionSettings) -> Sequential:
         assert settings.num_blocks > 0
         blocks = [_EfficientNetConvBlock(
-            in_channels=settings.in_channels, out_channels=settings.out_channels,
-            kernel_size=settings.kernel_size, expansion_ratio=settings.expansion_ratio,
-            stride=settings.stride, se_ratio=settings.se_ratio)]
+            in_channels=settings.in_channels,
+            out_channels=settings.out_channels,
+            kernel_size=settings.kernel_size,
+            expansion_ratio=settings.expansion_ratio,
+            stride=settings.stride,
+            se_ratio=settings.se_ratio,
+            se_mod=settings.se_mod)]
 
         for _ in range(settings.num_blocks - 1):
             blocks.append(_EfficientNetConvBlock(
@@ -167,7 +182,8 @@ class EfficientNet(Module):
                 out_channels=settings.out_channels,
                 kernel_size=settings.kernel_size,
                 expansion_ratio=settings.expansion_ratio, stride=1,
-                se_ratio=settings.se_ratio))
+                se_ratio=settings.se_ratio,
+                se_mod=settings.se_mod))
 
         return Sequential(*blocks)
 
@@ -190,7 +206,7 @@ def _scale_num_blocks(blocks: int, depth_mult: float) -> int:
     return scaled
 
 
-def _create_section_settings(width_mult: float, depth_mult: float) -> List[EfficientNetSectionSettings]:
+def _create_section_settings(width_mult: float, depth_mult: float, se_mod: bool) -> List[EfficientNetSectionSettings]:
     return [
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(1, depth_mult),
@@ -199,14 +215,17 @@ def _create_section_settings(width_mult: float, depth_mult: float) -> List[Effic
             kernel_size=3,
             expansion_ratio=1,
             stride=1,
-            se_ratio=0.25),
+            se_ratio=0.25,
+            se_mod=se_mod),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(2, depth_mult),
             in_channels=_scale_num_channels(16, width_mult),
             out_channels=_scale_num_channels(24, width_mult),
             kernel_size=3,
             expansion_ratio=6,
-            stride=2, se_ratio=0.25),
+            stride=2,
+            se_ratio=0.25,
+            se_mod=se_mod),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(2, depth_mult),
             in_channels=_scale_num_channels(24, width_mult),
@@ -214,7 +233,8 @@ def _create_section_settings(width_mult: float, depth_mult: float) -> List[Effic
             kernel_size=5,
             expansion_ratio=6,
             stride=2,
-            se_ratio=0.25),
+            se_ratio=0.25,
+            se_mod=se_mod),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(3, depth_mult),
             in_channels=_scale_num_channels(40, width_mult),
@@ -222,21 +242,26 @@ def _create_section_settings(width_mult: float, depth_mult: float) -> List[Effic
             kernel_size=3,
             expansion_ratio=6,
             stride=2,
-            se_ratio=0.25),
+            se_ratio=0.25,
+            se_mod=se_mod),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(3, depth_mult),
             in_channels=_scale_num_channels(80, width_mult),
             out_channels=_scale_num_channels(112, width_mult),
             kernel_size=5,
             expansion_ratio=6,
-            stride=1, se_ratio=0.25),
+            stride=1,
+            se_ratio=0.25,
+            se_mod=se_mod),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(4, depth_mult),
             in_channels=_scale_num_channels(112, width_mult),
             out_channels=_scale_num_channels(192, width_mult),
             kernel_size=5,
             expansion_ratio=6,
-            stride=2, se_ratio=0.25),
+            stride=2,
+            se_ratio=0.25,
+            se_mod=se_mod),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(1, depth_mult),
             in_channels=_scale_num_channels(192, width_mult),
@@ -244,13 +269,14 @@ def _create_section_settings(width_mult: float, depth_mult: float) -> List[Effic
             kernel_size=3,
             expansion_ratio=6,
             stride=1,
-            se_ratio=0.25),
+            se_ratio=0.25,
+            se_mod=se_mod),
     ]
 
 
-def _base_efficientnet_params(width_mult: float, depth_mult: float, dropout: float,
+def _base_efficientnet_params(width_mult: float, depth_mult: float, dropout: float, se_mod: bool,
                               kwargs: Dict) -> Tuple[List[EfficientNetSectionSettings], Dict]:
-    section_settings = _create_section_settings(width_mult, depth_mult)
+    section_settings = _create_section_settings(width_mult, depth_mult, se_mod)
 
     if 'out_channels' not in kwargs:
         kwargs['out_channels'] = _scale_num_channels(1280, width_mult)
@@ -282,7 +308,7 @@ def efficientnet_params(model_name):
 def efficientnet_b0(**kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b0')
 
-    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, kwargs)
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, False, kwargs)
 
     return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b0', **kwargs)
 
@@ -290,10 +316,21 @@ def efficientnet_b0(**kwargs) -> EfficientNet:
 MODEL_MAPPINGS['efficientnet_b0'] = efficientnet_b0
 
 
+def efficientnet_b0_se_mod(**kwargs) -> EfficientNet:
+    width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b0')
+
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, True, kwargs)
+
+    return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b0', **kwargs)
+
+
+MODEL_MAPPINGS['efficientnet_b0_se_mod'] = efficientnet_b0_se_mod
+
+
 def efficientnet_b1(**kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b1')
 
-    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, kwargs)
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, False, kwargs)
     return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b1', **kwargs)
 
 
@@ -303,7 +340,7 @@ MODEL_MAPPINGS['efficientnet_b1'] = efficientnet_b1
 def efficientnet_b2(**kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b2')
 
-    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, kwargs)
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, False, kwargs)
     return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b2', **kwargs)
 
 
@@ -313,7 +350,7 @@ MODEL_MAPPINGS['efficientnet_b2'] = efficientnet_b2
 def efficientnet_b3(**kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b3')
 
-    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, kwargs)
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, False, kwargs)
     return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b3', **kwargs)
 
 
@@ -323,17 +360,27 @@ MODEL_MAPPINGS['efficientnet_b3'] = efficientnet_b3
 def efficientnet_b4(**kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b4')
 
-    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, kwargs)
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, False, kwargs)
     return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b4', **kwargs)
 
 
 MODEL_MAPPINGS['efficientnet_b4'] = efficientnet_b4
 
 
+def efficientnet_b4_se_mod(**kwargs) -> EfficientNet:
+    width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b4')
+
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, True, kwargs)
+    return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b4', **kwargs)
+
+
+MODEL_MAPPINGS['efficientnet_b4_se_mod'] = efficientnet_b4_se_mod
+
+
 def efficientnet_b5(**kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b5')
 
-    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, kwargs)
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, False, kwargs)
     return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b5', **kwargs)
 
 
@@ -343,7 +390,7 @@ MODEL_MAPPINGS['efficientnet_b5'] = efficientnet_b5
 def efficientnet_b6(**kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b6')
 
-    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, kwargs)
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, False, kwargs)
     return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b6', **kwargs)
 
 
@@ -353,7 +400,7 @@ MODEL_MAPPINGS['efficientnet_b6'] = efficientnet_b6
 def efficientnet_b7(**kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params('efficientnet_b7')
 
-    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, kwargs)
+    sec_settings, kwargs = _base_efficientnet_params(width_mult, depth_mult, dropout, False, kwargs)
     return EfficientNet(sec_settings=sec_settings, model_arch_tag='efficientnet/b7', **kwargs)
 
 
