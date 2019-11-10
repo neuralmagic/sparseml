@@ -55,13 +55,13 @@ class MultiDownloader(object):
                 pass
 
             res.downloaded = True
-
-            if self._download_callback is not None:
-                self._download_callback(res)
         except _PreviouslyDownloadedError:
-            res.downloaded = True
+            res.downloaded = False
         except Exception as err:
             res.err = err
+
+        if self._download_callback is not None:
+                self._download_callback(res)
 
         return res
 

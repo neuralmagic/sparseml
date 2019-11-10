@@ -329,15 +329,18 @@ class _ImageDownloader(object):
             yield download
 
     def _resize(self, download: DownloadResult):
+        if download.err is not None:
+            return
+
         try:
             image = Image.open(download.dest)
 
             if min(image.size) > self._image_size:
                 x_to_y = float(image.size[0]) / float(image.size[1])
-                new_x = self._image_size if x_to_y <= 1.0 else round(image.size[0] / x_to_y)
-                new_y = self._image_size if x_to_y > 1.0 else round(image.size[0] * x_to_y)
-                image.resize((new_x, new_y), Image.ANTIALIAS)
-                image.save(download.dest)
+                new_x = self._image_size if x_to_y <= 1.0 else round(self._image_size * x_to_y)
+                new_y = self._image_size if x_to_y > 1.0 else round(self._image_size / x_to_y)
+                resized = image.resize((new_x, new_y), Image.ANTIALIAS)
+                resized.save(download.dest)
         except Exception as err:
             download.err = err
 
