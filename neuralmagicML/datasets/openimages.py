@@ -166,7 +166,7 @@ class OpenImagesDataset(Dataset):
             return None
 
         print('collecting data samples for {}...'.format(split))
-        worker = ParallelWorker(_samples_worker, 1, indefinite=True, max_source_size=1000)
+        worker = ParallelWorker(_samples_worker, num_workers, indefinite=True, max_source_size=1000)
         worker.add_async_generator(_files_generator())
         worker.start()
 
