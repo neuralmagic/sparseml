@@ -69,6 +69,8 @@ def train_modifiers_schedule(
     #
     ####################################################################################################################
 
+    num_classes = 8658 #HACK!
+
     model = create_model(model_type, model_path, plugin_paths=model_plugin_paths, plugin_args=model_plugin_args,
                          pretrained=pretrained, num_classes=num_classes)  # type: Module
     print('Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}, and plugins:{}'

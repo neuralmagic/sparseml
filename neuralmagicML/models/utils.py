@@ -118,6 +118,8 @@ def load_pretrained_model(model: Module, pretrained_key: str, model_arch: str,
     model_dict = torch.load(cache_file, map_location='cpu')['state_dict']
     to_state_dict = model.state_dict()
 
+    ignore_tensors = ["classifier.fc.weight", "classifier.fc.bias"]
+
     if ignore_tensors is not None:
         for ignore in ignore_tensors:
             # copy over the 'to state dict' values to our current state dict for any tensor we were supposed to ignore
@@ -130,7 +132,7 @@ def load_pretrained_model(model: Module, pretrained_key: str, model_arch: str,
     model.load_state_dict(model_dict, strict=ignore_tensors is None)
 
 
-def load_model(path: str, model: Module, strict: bool = True):
+def load_model(path: str, model: Module, strict: bool = False):
     model_dict = torch.load(path, map_location='cpu')
     model.load_state_dict(model_dict['state_dict'], strict)
 
