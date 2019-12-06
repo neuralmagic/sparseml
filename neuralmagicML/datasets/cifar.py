@@ -16,15 +16,22 @@ class CIFAR10Dataset(CIFAR10):
         :param train: True if this is for the training distribution, false for the validation
         :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data, False otherwise
         """
-        normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
-        trans = [
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip()
-        ] if rand_trans else []
+        if rand_trans:
+            trans = [
+                transforms.RandomResizedCrop(32),
+                transforms.RandomHorizontalFlip()
+            ]
+        else:
+            trans = [
+                transforms.Resize(32),
+                transforms.CenterCrop(32)
+            ]
+
         trans.extend([
             transforms.ToTensor(),
-            normalize
+            transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
         ])
+
         super().__init__(root, train, transforms.Compose(trans), None, True)
 
 

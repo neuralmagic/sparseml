@@ -1,5 +1,7 @@
 import os
 import random
+import PIL.Image as Image
+
 from torchvision import transforms
 from torchvision.datasets import ImageNet
 
@@ -10,6 +12,9 @@ __all__ = ['ImageNetDataset']
 
 
 class ImageNetDataset(ImageNet):
+    RGB_MEANS = [0.485, 0.456, 0.406]
+    RGB_STDS = [0.229, 0.224, 0.225]
+
     def __init__(self, root: str, train: bool = True, rand_trans: bool = False,
                  download: bool = True, image_size: int = 224):
         """
@@ -22,21 +27,28 @@ class ImageNetDataset(ImageNet):
                          Base implementation does not support leaving as false if already downloaded
         :param image_size: the size of the image to output from the dataset
         """
+        non_rand_resize_scale = 256.0 / 224.0  # standard used
         root = os.path.abspath(os.path.expanduser(root))
-        trans = [
+        init_trans = [
             transforms.RandomResizedCrop(image_size),
             transforms.RandomHorizontalFlip()
-        ] if rand_trans else [transforms.CenterCrop(image_size)]
-        trans.extend([
+        ] if rand_trans else [
+            transforms.Resize(round(non_rand_resize_scale * image_size), interpolation=Image.BICUBIC),
+            transforms.CenterCrop(image_size)
+        ]
+
+        trans = [
+            *init_trans,
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+            transforms.Normalize(mean=ImageNetDataset.RGB_MEANS, std=ImageNetDataset.RGB_STDS)
+        ]
 
         super().__init__(root, split='train' if train else 'val', download=download,
                          transform=transforms.Compose(trans))
 
-        # make sure we don't preserve the folder structure class order
-        random.shuffle(self.samples)
+        if train:
+            # make sure we don't preserve the folder structure class order
+            random.shuffle(self.samples)
 
 
 DATASET_MAPPINGS['imagenet'] = ImageNetDataset, 1000

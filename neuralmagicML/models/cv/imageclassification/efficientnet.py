@@ -5,10 +5,11 @@ from typing import Union, List, Tuple, Dict
 
 from torch import Tensor
 from torch.nn import (
-    Module, Sequential, Conv2d, BatchNorm2d, AdaptiveAvgPool2d, Sigmoid, Linear, Dropout, Softmax, ReLU)
+    Module, Sequential, Conv2d, BatchNorm2d, AdaptiveAvgPool2d, Linear, Dropout, Softmax)
 
-from ..nn import Swish, SqueezeExcite
-from .utils import load_pretrained_model, MODEL_MAPPINGS
+from ....nn import Swish, SqueezeExcite
+from ...utils import MODEL_MAPPINGS
+
 
 __all__ = [
     'EfficientNet',
@@ -26,7 +27,7 @@ __all__ = [
 ]
 
 
-class _EfficientNetConvBlock(Module):
+class _InvertedBottleneckBlock(Module):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int, expansion_ratio: int, stride: int,
                  se_ratio: Union[float, None], se_mod: bool):
         super().__init__()
@@ -39,7 +40,7 @@ class _EfficientNetConvBlock(Module):
         self.expand = Sequential(OrderedDict([
             ('conv', Conv2d(in_channels=in_channels, out_channels=expanded_channels, kernel_size=1, bias=False)),
             ('bn', BatchNorm2d(num_features=expanded_channels)),
-            ('act', Swish())
+            ('act', Swish(num_channels=expanded_channels))
         ])) if expanded_channels != in_channels else None
 
         spatial_padding = (kernel_size - 1) // 2
@@ -47,7 +48,7 @@ class _EfficientNetConvBlock(Module):
             ('conv', Conv2d(in_channels=expanded_channels, out_channels=expanded_channels, kernel_size=kernel_size,
                             stride=stride, padding=spatial_padding, groups=expanded_channels, bias=False)),
             ('bn', BatchNorm2d(num_features=expanded_channels)),
-            ('act', Swish())
+            ('act', Swish(num_channels=expanded_channels))
         ]))
 
         squeezed_channels = max(1, int(in_channels * se_ratio)) if se_ratio and 0 < se_ratio <= 1 else None
@@ -70,12 +71,12 @@ class _EfficientNetConvBlock(Module):
 
         out = self.spatial(out)
 
-        if (self.se is not None) and (not self._se_mod):
+        if self.se is not None and not self._se_mod:
             out = out * self.se(out)
 
         out = self.project(out)
 
-        if (self.se is not None) and (self._se_mod):
+        if self.se is not None and self._se_mod:
             out = out * self.se(out)
 
         if self._stride == 1 and self._in_channels == self._out_channels:
@@ -84,12 +85,12 @@ class _EfficientNetConvBlock(Module):
         return out
 
 
-class _EfficientNetClassifier(Module):
+class _Classifier(Module):
     def __init__(self, in_channels: int, out_channels: int, classes: int, dropout: float = 0.0):
         super().__init__()
         self.conv = Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, bias=False)
         self.bn = BatchNorm2d(num_features=out_channels)
-        self.act = Swish()
+        self.act = Swish(out_channels)
         self.pool = AdaptiveAvgPool2d(1)
         self.dropout = Dropout(p=dropout)
         self.fc = Linear(out_channels, classes)
@@ -147,15 +148,13 @@ class EfficientNet(Module):
             ('conv', Conv2d(in_channels=3, out_channels=sec_settings[0].in_channels,
                             kernel_size=3, stride=2, bias=False)),
             ('bn', BatchNorm2d(num_features=sec_settings[0].in_channels)),
-            ('act', Swish())
+            ('act', Swish(sec_settings[0].in_channels))
         ]))
-        sections = []
-
         self.sections = Sequential(*[EfficientNet.create_section(settings) for settings in sec_settings])
-
-        self.classifier = _EfficientNetClassifier(
+        self.classifier = _Classifier(
             in_channels=sec_settings[-1].out_channels, out_channels=out_channels,
-            classes=num_classes, dropout=dropout)
+            classes=num_classes, dropout=dropout
+        )
 
     def forward(self, inp: Tensor) -> Tuple[Tensor, Tensor]:
         feat = self.input(inp)
@@ -167,23 +166,23 @@ class EfficientNet(Module):
     @staticmethod
     def create_section(settings: EfficientNetSectionSettings) -> Sequential:
         assert settings.num_blocks > 0
-        blocks = [_EfficientNetConvBlock(
-            in_channels=settings.in_channels,
-            out_channels=settings.out_channels,
-            kernel_size=settings.kernel_size,
-            expansion_ratio=settings.expansion_ratio,
-            stride=settings.stride,
-            se_ratio=settings.se_ratio,
-            se_mod=settings.se_mod)]
 
-        for _ in range(settings.num_blocks - 1):
-            blocks.append(_EfficientNetConvBlock(
-                in_channels=settings.out_channels,
-                out_channels=settings.out_channels,
-                kernel_size=settings.kernel_size,
-                expansion_ratio=settings.expansion_ratio, stride=1,
-                se_ratio=settings.se_ratio,
-                se_mod=settings.se_mod))
+        in_channels = settings.in_channels
+        stride = settings.stride
+        blocks = []
+
+        for _ in range(settings.num_blocks):
+            blocks.append(
+                _InvertedBottleneckBlock(
+                    in_channels=in_channels,
+                    out_channels=settings.out_channels,
+                    kernel_size=settings.kernel_size,
+                    expansion_ratio=settings.expansion_ratio,
+                    stride=stride,
+                    se_ratio=settings.se_ratio,
+                    se_mod=settings.se_mod
+                )
+            )
 
         return Sequential(*blocks)
 
@@ -216,7 +215,8 @@ def _create_section_settings(width_mult: float, depth_mult: float, se_mod: bool)
             expansion_ratio=1,
             stride=1,
             se_ratio=0.25,
-            se_mod=se_mod),
+            se_mod=se_mod
+        ),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(2, depth_mult),
             in_channels=_scale_num_channels(16, width_mult),
@@ -225,7 +225,8 @@ def _create_section_settings(width_mult: float, depth_mult: float, se_mod: bool)
             expansion_ratio=6,
             stride=2,
             se_ratio=0.25,
-            se_mod=se_mod),
+            se_mod=se_mod
+        ),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(2, depth_mult),
             in_channels=_scale_num_channels(24, width_mult),
@@ -234,7 +235,8 @@ def _create_section_settings(width_mult: float, depth_mult: float, se_mod: bool)
             expansion_ratio=6,
             stride=2,
             se_ratio=0.25,
-            se_mod=se_mod),
+            se_mod=se_mod
+        ),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(3, depth_mult),
             in_channels=_scale_num_channels(40, width_mult),
@@ -243,7 +245,8 @@ def _create_section_settings(width_mult: float, depth_mult: float, se_mod: bool)
             expansion_ratio=6,
             stride=2,
             se_ratio=0.25,
-            se_mod=se_mod),
+            se_mod=se_mod
+        ),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(3, depth_mult),
             in_channels=_scale_num_channels(80, width_mult),
@@ -252,7 +255,8 @@ def _create_section_settings(width_mult: float, depth_mult: float, se_mod: bool)
             expansion_ratio=6,
             stride=1,
             se_ratio=0.25,
-            se_mod=se_mod),
+            se_mod=se_mod
+        ),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(4, depth_mult),
             in_channels=_scale_num_channels(112, width_mult),
@@ -261,7 +265,8 @@ def _create_section_settings(width_mult: float, depth_mult: float, se_mod: bool)
             expansion_ratio=6,
             stride=2,
             se_ratio=0.25,
-            se_mod=se_mod),
+            se_mod=se_mod
+        ),
         EfficientNetSectionSettings(
             num_blocks=_scale_num_blocks(1, depth_mult),
             in_channels=_scale_num_channels(192, width_mult),
@@ -270,7 +275,8 @@ def _create_section_settings(width_mult: float, depth_mult: float, se_mod: bool)
             expansion_ratio=6,
             stride=1,
             se_ratio=0.25,
-            se_mod=se_mod),
+            se_mod=se_mod
+        ),
     ]
 
 

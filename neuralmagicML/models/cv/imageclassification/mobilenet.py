@@ -2,8 +2,8 @@ from typing import List
 from torch import Tensor
 from torch.nn import Module, Sequential, AvgPool2d, Conv2d, BatchNorm2d, Linear, Softmax, Sigmoid, init
 
-from ..nn import ReLU
-from .utils import load_pretrained_model, MODEL_MAPPINGS
+from neuralmagicML.nn import ReLU
+from neuralmagicML.models.utils import load_pretrained_model, MODEL_MAPPINGS
 
 
 __all__ = ['MobileNetSectionSettings', 'MobileNet', 'mobilenet']

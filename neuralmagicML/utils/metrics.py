@@ -1,4 +1,6 @@
 from typing import Union, List, Tuple
+
+import torch
 from torch import Tensor
 from torch.nn import Module
 
@@ -21,15 +23,17 @@ class TopKAccuracy(Module):
 
 
 def topk_accuracy(pred: Tensor, lab: Tensor, topk: int):
-    batch_size = lab.size(0)
+    with torch.no_grad():
+        batch_size = lab.size(0)
 
-    _, pred = pred.topk(topk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(lab.view(1, -1).expand_as(pred))
-    correct_k = correct[:topk].view(-1).float().sum(0)
-    correct_k = correct_k.mul_(100.0 / batch_size)
+        _, pred = pred.topk(topk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(lab.view(1, -1).expand_as(pred))
 
-    return correct_k
+        correct_k = correct[:topk].view(-1).float().sum(0, keepdim=True)
+        correct_k = correct_k.mul_(100.0 / batch_size)
+
+        return correct_k
 
 
 class Accuracy(Module):

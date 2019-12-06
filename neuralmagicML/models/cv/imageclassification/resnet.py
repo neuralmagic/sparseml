@@ -4,8 +4,8 @@ from torch.nn import (
     Module, Conv2d, BatchNorm2d, MaxPool2d, AdaptiveAvgPool2d, Linear, init, Sequential, Softmax, Sigmoid
 )
 
-from ..nn import ReLU
-from .utils import load_pretrained_model, MODEL_MAPPINGS
+from neuralmagicML.nn import ReLU
+from neuralmagicML.models.utils import load_pretrained_model, MODEL_MAPPINGS
 
 
 __all__ = ['ResNetSectionSettings', 'ResNet',

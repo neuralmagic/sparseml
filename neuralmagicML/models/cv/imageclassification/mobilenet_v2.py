@@ -5,8 +5,8 @@ from torch.nn import (
     Module, Conv2d, BatchNorm2d, AdaptiveAvgPool2d, Linear, init, Sequential, Softmax, Sigmoid, Dropout
 )
 
-from ..nn import ReLU6
-from .utils import load_pretrained_model, MODEL_MAPPINGS
+from neuralmagicML.nn import ReLU6
+from neuralmagicML.models.utils import load_pretrained_model, MODEL_MAPPINGS
 
 
 __all__ = ['MobilenetV2SectionSettings', 'MobilenetV2', 'mobilenet_v2', 'mobilenet_v2_100']

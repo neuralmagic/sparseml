@@ -58,10 +58,19 @@ class ImagewoofDataset(ImageFolder):
             image_size = 160 if dataset_size == ImagewoofSize.s160 else 224
 
         extracted_root = os.path.join(extracted_root, 'train') if train else os.path.join(extracted_root, 'val')
-        trans = [
-            transforms.RandomResizedCrop(image_size),
-            transforms.RandomHorizontalFlip()
-        ] if rand_trans else [transforms.CenterCrop(image_size)]
+
+        if rand_trans:
+            trans = [
+                transforms.RandomResizedCrop(image_size),
+                transforms.RandomHorizontalFlip()
+            ]
+        else:
+            resize_scale = 256.0 / 224.0  # standard used
+            trans = [
+                transforms.Resize(round(resize_scale * image_size)),
+                transforms.CenterCrop(image_size)
+            ]
+
         trans.extend([
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])

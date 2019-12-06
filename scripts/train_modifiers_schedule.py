@@ -225,12 +225,14 @@ def train_modifiers_schedule(
 
         for _loss in _val_results.results.keys():
             writer.add_scalar('Test/Validation/{}'.format(_loss), _val_results.result_mean(_loss), _epoch)
+            print('Epoch {} Test/Validation/{}: {}'.format(_epoch, _loss, _val_results.result_mean(_loss)))
 
         print('Testing training dataset for epoch {}'.format(_epoch))
         _train_results = tester.test_epoch(_create_data_loader(train_test_dataset, False), _epoch)
 
         for _loss in _train_results.results.keys():
             writer.add_scalar('Test/Training/{}'.format(_loss), _train_results.result_mean(_loss), _epoch)
+            print('Epoch {} Test/Training/{}: {}'.format(_epoch, _loss, _train_results.result_mean(_loss)))
 
         if track_as:
             print('Testing activation sparsity for training dataset for epoch {}'

@@ -48,14 +48,24 @@ class OpenImagesDataset(Dataset):
                                    download_test_images)
 
         self.root = root
-        trans = [
-            transforms.RandomResizedCrop(image_size),
-            transforms.RandomHorizontalFlip()
-        ] if rand_trans else [transforms.CenterCrop(image_size)]
+
+        if rand_trans:
+            trans = [
+                transforms.RandomResizedCrop(image_size),
+                transforms.RandomHorizontalFlip()
+            ]
+        else:
+            resize_scale = 256.0 / 224.0  # standard used
+            trans = [
+                transforms.Resize(round(resize_scale * image_size)),
+                transforms.CenterCrop(image_size)
+            ]
+
         trans.extend([
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
+
         self.transform = transforms.Compose(trans)
         self.confidence = confidence
         self.image_size = image_size
