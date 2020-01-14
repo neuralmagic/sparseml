@@ -1,7 +1,5 @@
-from .mobilenet import *
-from .mobilenet_v2 import *
-from .resnet import *
-from .efficientnet import *
-from .vgg import *
+from .image_classification import *
+from .object_detection import *
+from .recommendation import *
 
 from .utils import *
