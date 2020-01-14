@@ -1,7 +1,7 @@
 from torchvision.datasets import CIFAR10, CIFAR100
 from torchvision import transforms
 
-from .utils import DATASET_MAPPINGS
+from neuralmagicML.datasets.utils import DATASET_MAPPINGS
 
 
 __all__ = ['CIFAR10Dataset', 'CIFAR100Dataset']

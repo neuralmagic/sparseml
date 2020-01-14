@@ -21,7 +21,7 @@ class ScheduledOptimizer(Optimizer):
         to apply appropriate modifications to both the optimizer and the module
 
         Required to either pass in steps_per_epoch or to call epoch_start() and epoch_end()
-        Doing both results in best use cases as there are some caveats when only one is used
+        Doing both results in best use cases activation there are some caveats when only one is used
 
         Only using steps_per_epoch:
         using this we estimate when epoch_start and epoch_end are based on how many steps we take
@@ -45,7 +45,7 @@ class ScheduledOptimizer(Optimizer):
                                 used to calculate decimals within the epoch, when not using can result in irregularities
         """
         # do not call into super.__init__()
-        # makes the implementation messier as this instance is not actually acting as an optimizer
+        # makes the implementation messier activation this instance is not actually acting activation an optimizer
         # just a wrapper around the passed in optimizer
         self._optimizer = optimizer
         self._module = module
@@ -100,7 +100,7 @@ class ScheduledOptimizer(Optimizer):
 
     def step(self, closure=None):
         """
-        Called to perform a step on the optimizer as normal
+        Called to perform a step on the optimizer activation normal
         Updates the current epoch based on the step count
         Calls into modifiers before the step happens
         Calls into modifiers after the step happens

@@ -1,3 +1,5 @@
-from neuralmagicML.models.utils import *
+from .image_classification import *
+from .object_detection import *
+from .recommendation import *
 
-from .cv import *
+from .utils import *

@@ -14,13 +14,13 @@ from torch.nn.modules.conv import _ConvNd
 
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
 from neuralmagicML.models import create_model, model_to_device, load_optimizer, save_model
-from neuralmagicML.sparsity import (
+from neuralmagicML.utils import (
+    CrossEntropyLossWrapper, TopKAccuracy, KnowledgeDistillationSettings, ModuleTrainer, ModuleTester
+)
+from neuralmagicML.recal import (
     ScheduledModifierManager, ScheduledOptimizer,
     KSAnalyzerLayer, ASAnalyzerModule, ASAnalyzerLayer,
     convert_to_bool
-)
-from neuralmagicML.utils import (
-    CrossEntropyLossWrapper, TopKAccuracy, KnowledgeDistillationSettings, ModuleTrainer, ModuleTester
 )
 
 

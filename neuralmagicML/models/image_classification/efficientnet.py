@@ -7,8 +7,8 @@ from torch import Tensor
 from torch.nn import (
     Module, Sequential, Conv2d, BatchNorm2d, AdaptiveAvgPool2d, Linear, Dropout, Softmax)
 
-from ....nn import Swish, SqueezeExcite
-from ...utils import MODEL_MAPPINGS
+from neuralmagicML.nn import Swish, SqueezeExcite
+from neuralmagicML.models.utils import MODEL_MAPPINGS
 
 
 __all__ = [

@@ -1,16 +1,17 @@
-from typing import Union, List, Tuple, Any
+from typing import Union, List, Tuple, Any, Dict
 import collections
 import sys
 import random
 import numpy
 import torch
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Module, Linear
+from torch.nn.modules.conv import _ConvNd
 
 
 __all__ = [
     'flatten', 'convert_to_bool', 'validate_str_list', 'INTERPOLATION_FUNCS', 'interpolate',
-    'get_layer', 'get_terminal_layers',
+    'get_layer', 'get_terminal_layers', 'get_conv_layers', 'get_linear_layers',
     'threshold_for_sparsity', 'mask_from_threshold', 'mask_from_sparsity', 'mask_from_tensor',
     'tensor_density', 'tensor_sparsity', 'tensor_sample'
 ]
@@ -100,6 +101,26 @@ def get_terminal_layers(module: Module) -> List[Module]:
         terminal.append(mod)
 
     return terminal
+
+
+def get_conv_layers(module: Module) -> Dict[str, Module]:
+    convs = {}
+
+    for name, mod in module.named_modules():
+        if isinstance(mod, _ConvNd):
+            convs[name] = mod
+
+    return convs
+
+
+def get_linear_layers(module: Module) -> Dict[str, Module]:
+    linears = {}
+
+    for name, mod in module.named_modules():
+        if isinstance(mod, Linear):
+            linears[name] = mod
+
+    return linears
 
 
 def threshold_for_sparsity(tens: Tensor, sparsity: float) -> Tensor:

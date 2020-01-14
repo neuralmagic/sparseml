@@ -16,8 +16,8 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.datasets.folder import default_loader
 
-from .utils import DATASET_MAPPINGS
-from ..utils import MultiDownloader, DownloadResult, ParallelWorker
+from neuralmagicML.datasets.utils import DATASET_MAPPINGS
+from neuralmagicML.utils import MultiDownloader, DownloadResult, ParallelWorker
 
 
 __all__ = ['OpenImagesDataset']

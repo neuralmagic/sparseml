@@ -7,24 +7,24 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from torchvision.datasets.utils import download_url
 
-from .utils import DATASET_MAPPINGS
+from neuralmagicML.datasets.utils import DATASET_MAPPINGS
 
 
-__all__ = ['ImagenetteSize', 'ImagenetteDataset']
+__all__ = ['ImagewoofSize', 'ImagewoofDataset']
 
 
-class ImagenetteSize(Enum):
+class ImagewoofSize(Enum):
     full = 'full'
     s320 = 's320'
     s160 = 's160'
 
 
-class ImagenetteDataset(ImageFolder):
+class ImagewoofDataset(ImageFolder):
     def __init__(self, root: str, train: bool = True, rand_trans: bool = False,
-                 dataset_size: ImagenetteSize = ImagenetteSize.s160, image_size: Union[int, None] = None,
+                 dataset_size: ImagewoofSize = ImagewoofSize.s160, image_size: Union[int, None] = None,
                  download: bool = True):
         """
-        Wrapper for the imagenette (10 class) dataset that fastai created
+        Wrapper for the imagewoof (10 class) dataset that fastai created
         Handles downloading and applying standard transforms
 
         :param root: The root folder to find the dataset at, if not found will download here if download=True
@@ -42,20 +42,20 @@ class ImagenetteDataset(ImageFolder):
         extracted_root = root
 
         if download:
-            if dataset_size == ImagenetteSize.s160:
-                extract = 'imagenette-160'
-            elif dataset_size == ImagenetteSize.s320:
-                extract = 'imagenette-320'
-            elif dataset_size == ImagenetteSize.full:
-                extract = 'imagenette'
+            if dataset_size == ImagewoofSize.s160:
+                extract = 'imagewoof-160'
+            elif dataset_size == ImagewoofSize.s320:
+                extract = 'imagewoof-320'
+            elif dataset_size == ImagewoofSize.full:
+                extract = 'imagewoof'
             else:
-                raise ValueError('Unknown ImagenetteSize given of {}'.format(dataset_size))
+                raise ValueError('Unknown ImagewoofSize given of {}'.format(dataset_size))
 
             extracted_root = os.path.join(root, extract)
-            ImagenetteDataset.download(dataset_size, root, extract)
+            self.download(dataset_size, root, extract)
 
         if image_size is None:
-            image_size = 160 if dataset_size == ImagenetteSize.s160 else 224
+            image_size = 160 if dataset_size == ImagewoofSize.s160 else 224
 
         extracted_root = os.path.join(extracted_root, 'train') if train else os.path.join(extracted_root, 'val')
 
@@ -82,20 +82,20 @@ class ImagenetteDataset(ImageFolder):
         random.shuffle(self.samples)
 
     @staticmethod
-    def download(size: ImagenetteSize, root: str, extract: str):
-        if size == ImagenetteSize.full:
-            url = 'https://s3.amazonaws.com/fast-ai-imageclas/imagenette.tgz'
-        elif size == ImagenetteSize.s320:
-            url = 'https://s3.amazonaws.com/fast-ai-imageclas/imagenette-320.tgz'
-        elif size == ImagenetteSize.s160:
-            url = 'https://s3.amazonaws.com/fast-ai-imageclas/imagenette-160.tgz'
+    def download(size: ImagewoofSize, root: str, extract: str):
+        if size == ImagewoofSize.full:
+            url = 'https://s3.amazonaws.com/fast-ai-imageclas/imagewoof.tgz'
+        elif size == ImagewoofSize.s320:
+            url = 'https://s3.amazonaws.com/fast-ai-imageclas/imagewoof-320.tgz'
+        elif size == ImagewoofSize.s160:
+            url = 'https://s3.amazonaws.com/fast-ai-imageclas/imagewoof-160.tgz'
         else:
-            raise ValueError('unknown imagenette size given of {}'.format(size))
+            raise ValueError('unknown imagewoof size given of {}'.format(size))
 
         filename = '{}.tar'.format(extract)
 
         if os.path.exists(os.path.join(root, filename)):
-            print('already downloaded imagenette of size {}'.format(size))
+            print('already downloaded imagewoof of size {}'.format(size))
 
             return
 
@@ -105,4 +105,4 @@ class ImagenetteDataset(ImageFolder):
             tar.extractall(path=root)
 
 
-DATASET_MAPPINGS['imagenette'] = ImagenetteDataset, 10
+DATASET_MAPPINGS['imagewoof'] = ImagewoofDataset, 10

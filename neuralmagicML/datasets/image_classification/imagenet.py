@@ -5,7 +5,7 @@ import PIL.Image as Image
 from torchvision import transforms
 from torchvision.datasets import ImageNet
 
-from .utils import DATASET_MAPPINGS
+from neuralmagicML.datasets.utils import DATASET_MAPPINGS
 
 
 __all__ = ['ImageNetDataset']

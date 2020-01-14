@@ -26,7 +26,7 @@ class KSAnalyzerLayer(object):
 
     def __init__(self, layer: Module, name: str, param_name: str = 'weight'):
         """
-        Analyzer to get the sparsity of a given layer's parameter such as weight
+        Analyzer to get the sparsity of a given layer's parameter such activation weight
 
         :param layer: the layer containing the param to analyze the sparsity for
         :param name: name of the layer, used for tracking

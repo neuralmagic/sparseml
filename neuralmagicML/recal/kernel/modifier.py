@@ -1,15 +1,13 @@
 from typing import Union, List
 import yaml
-import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from ..modifier import ScheduledUpdateModifier, ALL_TOKEN
 from ..utils import (
-    INTERPOLATION_FUNCS, get_terminal_layers, get_layer, convert_to_bool, interpolate, validate_str_list,
-    threshold_for_sparsity
+    INTERPOLATION_FUNCS, get_terminal_layers, get_layer, convert_to_bool, interpolate, validate_str_list
 )
-from .mask import KSLayerMask
+from .mask import KSLayerParamMask
 
 
 __all__ = ['GradualKSModifier']
@@ -26,8 +24,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         instance.__init__(**state)
 
     def __init__(self, param: str, layers: Union[str, List[str]], init_sparsity: float, final_sparsity: float,
-                 prune_global: bool = False, leave_enabled: bool = True,
-                 inter_func: str = 'linear', param_strict: bool = True,
+                 leave_enabled: bool = True, inter_func: str = 'linear', param_strict: bool = True,
                  start_epoch: float = -1.0, end_epoch: float = -1.0, update_frequency: float = -1.0):
         """
         Gradually applies kernel sparsity to a given layer or layers from init_sparsity until final_sparsity is reached
@@ -54,8 +51,6 @@ class GradualKSModifier(ScheduledUpdateModifier):
                        can also use the token __ALL__ to specify all layers
         :param init_sparsity: the initial sparsity for the param to start with at start_epoch
         :param final_sparsity: the final sparsity for the param to end with at end_epoch
-        :param prune_global: True to combine all layers and prune based on thresholding the combined,
-                             False to apply the sparsity per each layer
         :param leave_enabled: True to continue masking the weights after end_epoch, False to stop masking
                               Should be set to False if exporting the result immediately after or doing some other prune
         :param inter_func: the type of interpolation function to use: [linear, cubic, inverse_cubic]
@@ -70,11 +65,10 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._layers = validate_str_list(layers, 'layers', GradualKSModifier.YAML_KEY)
         self._init_sparsity = init_sparsity
         self._final_sparsity = final_sparsity
-        self._prune_global = convert_to_bool(prune_global)
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
         self._param_strict = convert_to_bool(param_strict)
-        self._module_masks = []  # type: List[KSLayerMask]
+        self._module_masks = []  # type: List[KSLayerParamMask]
 
         if not isinstance(self._init_sparsity, float):
             raise TypeError('init_sparsity must be of float type for {}'.format(self.__class__.__name__))
@@ -145,18 +139,6 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._final_sparsity = value
 
     @property
-    def prune_global(self) -> bool:
-        return self._prune_global
-
-    @prune_global.setter
-    def prune_global(self, value: bool):
-        if self.initialized:
-            raise RuntimeError('Cannot change prune_global after {} has been initialized'
-                               .format(self.__class__.__name__))
-
-        self._prune_global = value
-
-    @property
     def leave_enabled(self) -> bool:
         return self._leave_enabled
 
@@ -202,7 +184,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
             for param_name, par in layer.named_parameters():
                 if param_name == self._param:
-                    self._module_masks.append(KSLayerMask(layer, self._param))
+                    self._module_masks.append(KSLayerParamMask(layer, self._param))
                     found = True
                     break
 
@@ -213,26 +195,18 @@ class GradualKSModifier(ScheduledUpdateModifier):
     def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
         if self.start_pending(epoch, steps_per_epoch):
             for mask in self._module_masks:
-                mask.enable()
+                mask.enabled = True
 
         if self.end_pending(epoch, steps_per_epoch) and not self._leave_enabled:
             for mask in self._module_masks:
-                mask.disable()
+                mask.enabled = False
 
         # set the mask tensors according to the new sparsity
         sparsity = interpolate(epoch, self.start_epoch, self.end_epoch,
                                self._init_sparsity, self._final_sparsity, self._inter_func)
 
-        if self._prune_global:
-            tensors = [mask.param_tensor.view(-1) for mask in self._module_masks]
-            global_weights = torch.cat(tensors)
-            thresh = threshold_for_sparsity(global_weights, sparsity)
-
-            for mask in self._module_masks:
-                mask.apply_mask_tensor_from_threshold(thresh)
-        else:
-            for mask in self._module_masks:
-                mask.apply_mask_tensor_from_sparsity(sparsity)
+        for mask in self._module_masks:
+            mask.set_param_mask_from_sparsity(sparsity)
 
     def optimizer_post_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
         # be sure to apply mask again after optimizer update because weights may have changed

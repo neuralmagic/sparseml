@@ -3,7 +3,7 @@ from typing import Union, List, Dict
 from enum import Enum
 import torch
 from torch import Tensor
-from torch.nn import Module, Parameter, ReLU, ReLU6
+from torch.nn import Module, Parameter, ReLU
 import torch.nn.functional as TF
 
 
@@ -79,7 +79,7 @@ def fat_sig_relu(tens: Tensor, threshold: Tensor, compression: Tensor) -> Tensor
     :return: f(x, t, c) = x / e^(c*(t-x))
     """
     out = tens / (1.0 + torch.exp(compression * (threshold - tens)))
-    out = TF.relu(out, inplace=True)  # make sure that the negative region is always zero as with a regular ReLU
+    out = TF.relu(out, inplace=True)  # make sure that the negative region is always zero activation with a regular ReLU
 
     return out
 
@@ -117,7 +117,7 @@ class FATReLU(Module):
         :param threshold: the threshold that all values < threshold will be set to 0
                           if type float then f(x) = x if x >= threshold else 0
                           if type list then f(x[:, chan]) = x[:, chan] if x[:, chan] >= threshold[chan] else 0
-                          if type list and empty, applies as the list option but dynamically initialized to the num chan
+                          if type list and empty, applies activation the list option but dynamically initialized to the num chan
         :param inplace: perform the operation inplace or create a new tensor
         """
         super(FATReLU, self).__init__()
@@ -155,7 +155,7 @@ class FATReLU(Module):
 
     def set_threshold(self, threshold: Union[float, List[float]]):
         if self._dynamic:
-            raise RuntimeError('cannot set threshold, threshold is setup as dynamic (constructor given empty list)')
+            raise RuntimeError('cannot set threshold, threshold is setup activation dynamic (constructor given empty list)')
 
         if self._channel_wise and isinstance(threshold, float):
             raise ValueError('cannot set threshold to float value, constructor setup with list of channels len {}'

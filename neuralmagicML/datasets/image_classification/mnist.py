@@ -1,7 +1,7 @@
 from torchvision.datasets import MNIST
 from torchvision import transforms
 
-from .utils import DATASET_MAPPINGS
+from neuralmagicML.datasets.utils import DATASET_MAPPINGS
 
 
 __all__ = ['MNISTDataset']

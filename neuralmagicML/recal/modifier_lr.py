@@ -4,7 +4,7 @@ import yaml
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import (
-    StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau, CyclicLR, CosineAnnealingWarmRestarts
+    StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau, CyclicLR
 )
 
 from .modifier import ScheduledUpdateModifier, ScheduledModifier
@@ -17,8 +17,7 @@ CONSTRUCTORS = {
     'StepLR': StepLR,
     'MultiStepLR': MultiStepLR,
     'ExponentialLR': ExponentialLR,
-    'ReduceLROnPlateau': ReduceLROnPlateau,
-    'CosineAnnealingWarmRestarts': CosineAnnealingWarmRestarts
+    'ReduceLROnPlateau': ReduceLROnPlateau
 }
 
 
