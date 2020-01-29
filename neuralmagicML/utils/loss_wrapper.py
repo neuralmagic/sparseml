@@ -1,11 +1,17 @@
-from typing import Dict, Union, Callable, List, Tuple, Any
+from typing import Dict, Union, Callable, List, Tuple, Any, Iterable
 import torch
 import torch.nn.functional as TF
 from torch import Tensor
 from torch.nn import Module
 
 
+from .module import DEFAULT_LOSS_KEY
+
+
 __all__ = ['KnowledgeDistillationSettings', 'LossWrapper', 'BinaryCrossEntropyLossWrapper', 'CrossEntropyLossWrapper']
+
+
+TEACHER_LOSS_KEY = '__teacher_loss__'
 
 
 class KnowledgeDistillationSettings(object):
@@ -39,16 +45,15 @@ class KnowledgeDistillationSettings(object):
 
 
 class LossWrapper(object):
-    def __init__(self, loss_fn: Callable, extras: Union[None, Dict[str, Callable]] = None,
+    def __init__(self, loss_fn: Callable[[Any, Any], Tensor], extras: Union[None, Dict[str, Callable]] = None,
                  kd_settings: Union[None, KnowledgeDistillationSettings] = None):
         super(LossWrapper, self).__init__()
         self._loss_fn = loss_fn
         self._extras = extras
         self._kd_settings = kd_settings  # type: KnowledgeDistillationSettings
 
-    def __call__(self,  x_feature: Union[Tensor, Tuple[Tensor, ...]], y_lab: Tensor,
-                 y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Dict[str, Tensor]:
-        return self.forward(x_feature, y_lab, y_pred)
+    def __call__(self,  data: Any, pred: Any) -> Dict[str, Tensor]:
+        return self.forward(data, pred)
 
     def __repr__(self):
         def _create_repr(_obj: Any) -> str:
@@ -66,45 +71,79 @@ class LossWrapper(object):
 
     @property
     def available_losses(self) -> Tuple[str, ...]:
-        return ('loss', *list(self._extras.keys()))
+        return (DEFAULT_LOSS_KEY, *list(self._extras.keys()))
 
-    def forward(self, x_feature: Union[Tensor, Tuple[Tensor, ...]], y_lab: Tensor,
-                y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Dict[str, Tensor]:
+    def forward(self, data: Any, pred: Any) -> Dict[str, Tensor]:
         calculated = {
-            'loss': self._calc_loss(x_feature, y_lab, y_pred)
+            DEFAULT_LOSS_KEY: self.calc_loss(
+                self.get_inputs(data, pred, DEFAULT_LOSS_KEY),
+                self.get_preds(data, pred, DEFAULT_LOSS_KEY),
+                self.get_labels(data, pred, DEFAULT_LOSS_KEY)
+            )
         }
 
         if self._extras:
             for extra, func in self._extras.items():
-                calculated[extra] = func(y_pred, y_lab)
+                calculated[extra] = func(
+                    self.get_preds(data, pred, extra),
+                    self.get_labels(data, pred, extra)
+                )
 
         return calculated
 
-    def _calc_loss(self, x_feature: Union[Tensor, Tuple[Tensor, ...]], y_lab: Tensor,
-                   y_pred: Union[Tensor, List[Tensor], Tuple[Tensor, Tensor]]) -> Tensor:
-        if not isinstance(y_pred, Tensor):
-            # returning multiple outputs (like logits and classes)
-            # assume first index is supposed to be the logits
-            y_pred = y_pred[0]
+    def get_inputs(self, data: Any, pred: Any, name: str) -> Any:
+        if isinstance(data, Tensor):
+            return data
 
-        loss = self._loss_fn(y_pred, y_lab)
+        if isinstance(data, Iterable):
+            for tens in data:
+                return tens
+
+        raise TypeError('unsupported type of data given of {}'.format(data.__class__.__name__))
+
+    def get_preds(self, data: Any, pred: Any, name: str) -> Any:
+        if isinstance(pred, Tensor):
+            return pred
+
+        # assume that the desired prediction for loss is in the first instance
+        if isinstance(pred, Iterable):
+            for tens in pred:
+                return tens
+
+        raise TypeError('unsupported type of pred given of {}'.format(pred.__class__.__name__))
+
+    def get_labels(self, data: Any, pred: Any, name: str) -> Any:
+        if isinstance(data, Iterable):
+            labels = None
+
+            for tens in data:
+                labels = tens
+
+            if labels is not None:
+                return labels
+
+        raise TypeError('unsupported type of data given of {}'.format(data.__class__.__name__))
+
+    def calc_loss(self, inputs: Any, preds: Any, labels: Any) -> Tensor:
+        loss = self._loss_fn(preds, labels)
 
         if self._kd_settings is None:
             return loss
 
-        if isinstance(x_feature, Tensor):
-            x_feature = (x_feature,)
-
         with torch.no_grad():
-            y_pred_teacher = self._kd_settings.teacher(*x_feature)
+            if isinstance(inputs, Tensor):
+                preds_teacher = self._kd_settings.teacher(inputs)
+            elif isinstance(inputs, Dict):
+                preds_teacher = self._kd_settings.teacher(**inputs)
+            elif isinstance(inputs, Iterable):
+                preds_teacher = self._kd_settings.teacher(*inputs)
+            else:
+                raise TypeError('unsupported type of inputs given of {}'.format(inputs.__class__.__name__))
 
-            if not isinstance(y_pred_teacher, Tensor):
-                # returning multiple outputs (like logits and classes)
-                # assume first index is supposed to be the logits
-                y_pred_teacher = y_pred_teacher[0]
+        preds_teacher = self.get_preds(None, preds_teacher, TEACHER_LOSS_KEY)
 
-        soft_log_probs = TF.log_softmax(y_pred / self._kd_settings.temp_student, dim=1)
-        soft_targets = TF.softmax(y_pred_teacher / self._kd_settings.temp_teacher, dim=1)
+        soft_log_probs = TF.log_softmax(preds / self._kd_settings.temp_student, dim=1)
+        soft_targets = TF.softmax(preds_teacher / self._kd_settings.temp_teacher, dim=1)
         distill_loss = TF.kl_div(soft_log_probs, soft_targets, size_average=False) / soft_targets.shape[0]
 
         if not self._kd_settings.contradict_hinton:

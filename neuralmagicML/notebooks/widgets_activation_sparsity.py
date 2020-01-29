@@ -12,7 +12,7 @@ from torch.nn.modules.batchnorm import _BatchNorm
 from torch.nn.modules.pooling import _MaxPoolNd, _AvgPoolNd
 from torch.nn.modules.pooling import _AdaptiveMaxPoolNd, _AdaptiveAvgPoolNd
 
-from ..sparsity.activation.analyzer import ASAnalyzerLayer
+from ..recal import ASAnalyzerLayer
 from ..utils.flops_analyzer import FlopsAnalyzerModule
 
 

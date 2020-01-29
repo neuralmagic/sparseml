@@ -3,7 +3,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from ..utils import mask_from_tensor, mask_from_threshold, mask_from_sparsity
+from ..helpers import mask_from_tensor, mask_from_threshold, mask_from_sparsity
 
 
 __all__ = ['KSLayerParamMask']
@@ -19,8 +19,8 @@ class KSLayerParamMask(object):
         self._track_grad_mom = track_grad_mom
 
         self._enabled = False
-        self._forward_hook = False
-        self._gradient_hook = False
+        self._forward_hook = None
+        self._gradient_hook = None
 
         try:
             self._param = self._layer.__getattr__(self._param_name)  # type: Parameter
@@ -33,7 +33,7 @@ class KSLayerParamMask(object):
         self._param_unmasked = None  # type: Tensor
         self._param_grad = None  # type: Tensor
         
-        self._setup_param_grad()
+        self._setup_param_init()
         self._setup_param_unmasked()
         self._setup_param_grad()
         
@@ -135,8 +135,11 @@ class KSLayerParamMask(object):
         # also add the values that are newly masked to our unmasked tensor
         newly_masked = ((self._param_mask != value) & (value == 0.0)).type(self._param.data.type())
         newly_unmasked = ((self._param_mask != value) & (value == 1.0)).type(self._param.data.type())
-        self._param_unmasked = (newly_masked * self._param_unmasked +
-                                (newly_masked == 0.0).type(self._param.data.type()) * self._param_unmasked)
+
+        if self._param_unmasked is not None:
+            self._param_unmasked = (newly_masked * self._param_unmasked +
+                                    (newly_masked == 0.0).type(self._param.data.type()) * self._param_unmasked)
+
         self._param_mask = value
         self.apply()
 
@@ -165,6 +168,13 @@ class KSLayerParamMask(object):
 
         with torch.no_grad():
             self._param.data.mul_(self._param_mask)
+
+    def reset(self):
+        if self._param.data.device != self._param_mask.device:
+            # param is on a different device, regen values so all tensors are on the same device
+            self._regen_param_vals()
+
+        self._param.data.copy_(self._param_init)
 
     def _regen_param_vals(self):
         self._param_mask = KSLayerParamMask._detach_tens(torch.empty_like(self._param.data).copy_(self._param_mask))

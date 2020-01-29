@@ -1,4 +1,4 @@
-from typing import Union, Dict, Tuple, List
+from typing import Union, Dict, List, Iterable, Any
 import argparse
 import os
 import math
@@ -15,7 +15,7 @@ from torch.nn.modules.conv import _ConvNd
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
 from neuralmagicML.models import create_model, model_to_device, load_optimizer, save_model
 from neuralmagicML.utils import (
-    CrossEntropyLossWrapper, TopKAccuracy, KnowledgeDistillationSettings, ModuleTrainer, ModuleTester
+    CrossEntropyLossWrapper, TopKAccuracy, KnowledgeDistillationSettings, ModuleTrainer, ModuleTester, DEFAULT_LOSS_KEY
 )
 from neuralmagicML.recal import (
     ScheduledModifierManager, ScheduledOptimizer,
@@ -68,8 +68,6 @@ def train_modifiers_schedule(
     # Model, knowledge distillation, and loss function setup
     #
     ####################################################################################################################
-
-    num_classes = 8658 #HACK!
 
     model = create_model(model_type, model_path, plugin_paths=model_plugin_paths, plugin_args=model_plugin_args,
                          pretrained=pretrained, num_classes=num_classes)  # type: Module
@@ -162,19 +160,21 @@ def train_modifiers_schedule(
     #
     ####################################################################################################################
 
-    def _train_loss_callback(_epoch: int, _step: int, _x_feature: Tuple[Tensor, ...],
-                             _y_lab: Tensor, _y_pred: Tensor, _losses: Dict[str, Tensor]):
-        _losses['loss'] = optimizer.loss_update(_losses['loss'])
+    def _train_loss_callback(_epoch: int, _step: int, _batch_size: int,
+                             _data: Iterable[Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]]],
+                             _pred: Union[Tensor, Iterable[Tensor]], _losses: Dict[str, Tensor]):
+        _losses[DEFAULT_LOSS_KEY] = optimizer.loss_update(_losses[DEFAULT_LOSS_KEY])
 
-    def _train_batch_end_callback(_epoch: int, _step: int, _x_feature: Tuple[Tensor, ...],
-                                  _y_lab: Tensor, _y_pred: Tensor, _losses: Dict[str, Tensor]):
+    def _train_batch_end_callback(_epoch: int, _step: int, _batch_size: int,
+                                  _data: Iterable[Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]]],
+                                  _pred: Union[Tensor, Iterable[Tensor]], _losses: Dict[str, Tensor]):
         _step = _epoch * len(train_dataset) + _step
 
         for _loss, _value in _losses.items():
             writer.add_scalar('Train/{}'.format(_loss), _value, _step)
 
         writer.add_scalar('Train/Learning Rate', optimizer.learning_rate, _step)
-        writer.add_scalar('Train/Batch Size', _y_lab.shape[0], _step)
+        writer.add_scalar('Train/Batch Size', _batch_size, _step)
         writer.add_scalar('Train/Epoch', _epoch, _step)
 
         if track_gradients:
@@ -198,8 +198,8 @@ def train_modifiers_schedule(
                         writer.add_histogram('Gradients/{}/{}/hist'.format(name, param_name), grad, _step)
 
     trainer = ModuleTrainer(model, device, loss, optimizer)
-    trainer.register_batch_loss_hook(_train_loss_callback)
-    trainer.register_batch_end_hook(_train_batch_end_callback)
+    trainer.run_hooks.register_batch_loss_hook(_train_loss_callback)
+    trainer.run_hooks.register_batch_end_hook(_train_batch_end_callback)
     tester = ModuleTester(model, device, loss)
 
     ####################################################################################################################
@@ -223,14 +223,14 @@ def train_modifiers_schedule(
 
     def _run_model_tests(_epoch: int):
         print('Testing validation dataset for epoch {}'.format(_epoch))
-        _val_results = tester.test_epoch(_create_data_loader(val_dataset, False), _epoch)
+        _val_results = tester.run_epoch(_create_data_loader(val_dataset, False), _epoch)
 
         for _loss in _val_results.results.keys():
             writer.add_scalar('Test/Validation/{}'.format(_loss), _val_results.result_mean(_loss), _epoch)
             print('Epoch {} Test/Validation/{}: {}'.format(_epoch, _loss, _val_results.result_mean(_loss)))
 
         print('Testing training dataset for epoch {}'.format(_epoch))
-        _train_results = tester.test_epoch(_create_data_loader(train_test_dataset, False), _epoch)
+        _train_results = tester.run_epoch(_create_data_loader(train_test_dataset, False), _epoch)
 
         for _loss in _train_results.results.keys():
             writer.add_scalar('Test/Training/{}'.format(_loss), _train_results.result_mean(_loss), _epoch)
@@ -241,7 +241,7 @@ def train_modifiers_schedule(
                   .format(_epoch))
             as_analyzer.clear_layers()
             as_analyzer.enable_layers()
-            tester.test_epoch(_create_data_loader(as_dataset, False), _epoch)
+            tester.run_epoch(_create_data_loader(as_dataset, False), _epoch)
             as_analyzer.disable_layers()
 
             for _name, _as_layer in as_analyzer.layers.items():
@@ -271,7 +271,7 @@ def train_modifiers_schedule(
         epoch += 1
         print('Starting epoch {}'.format(epoch))
         optimizer.epoch_start()
-        trainer.train_epoch(_create_data_loader(train_dataset, True), epoch)
+        trainer.run_epoch(_create_data_loader(train_dataset, True), epoch)
 
         print('Completed training for epoch {}'.format(epoch))
         print('Running baseline tests')

@@ -93,23 +93,21 @@ class RandNDataset(Dataset):
 class CacheableDataset(Dataset):
     def __init__(self, original: Dataset):
         """
-        Generates a chacheable dataset, ie stores the data in a cache in cpu memory
+        Generates a cacheable dataset, ie stores the data in a cache in cpu memory
         so it doesn't have to be loaded from disk every time
+
+        Note, this can only be used with a data loader that has num_workers=0
 
         :param original: the original dataset to cache
         """
         self._original = original
-        self._cache_lock = Lock()
         self._cache = {}
 
     def __getitem__(self, index):
-        with self._cache_lock:
-            if index not in self._cache:
-                self._cache[index] = self._original.__getitem__(index)
+        if index not in self._cache:
+            self._cache[index] = self._original[index]
 
-            item = self._cache[index]
-
-        return item
+        return self._cache[index]
 
     def __len__(self):
         return self._original.__len__()

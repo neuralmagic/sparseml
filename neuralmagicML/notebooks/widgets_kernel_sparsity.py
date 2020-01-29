@@ -4,7 +4,7 @@ import torch
 from torch.nn import Module, Linear
 from torch.nn.modules.conv import _ConvNd
 
-from ..sparsity.kernel.modifier_ks import GradualKSModifier
+from ..recal import GradualKSModifier
 from ..utils.flops_analyzer import FlopsAnalyzerModule
 
 
