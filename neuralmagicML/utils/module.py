@@ -276,7 +276,7 @@ class ModuleRunHooks(object):
 
     def invoke_batch_end(self, counter: int, step_count: int, batch_size: int, data: Any, pred: Any, 
                          losses: Dict[str, Tensor]):
-        for hook in self._batch_loss_hooks.values():
+        for hook in self._batch_end_hooks.values():
             hook(counter, step_count, batch_size, data, pred, losses)
         
         
@@ -299,10 +299,10 @@ class ModuleRunFuncs(object):
             - optimizer / gradient update
             - batch end hook
         """
-        self._batch_size = None  # type: Union[None, Callable[[Any], int]]
-        self._to_device = None  # type: Union[None, Callable[[Any], Any]]
-        self._model_forward = None
-        self._model_backward = None
+        self._batch_size = def_data_batch_size  # type: Callable[[Any], int]
+        self._to_device = def_data_to_device  # type: Callable[[Any, str], Any]
+        self._model_forward = def_data_model_forward  # type: Callable[[Module, Any], Any]
+        self._model_backward = def_model_backward  # type: Callable[[Module, Dict[str, Tensor]], None]
         
     @property
     def batch_size(self) -> Callable[[Any], int]:
@@ -365,7 +365,7 @@ class ModuleRunFuncs(object):
         self._model_forward = value
 
     @property
-    def model_backward(self) -> Union[None, Callable[[Module, Dict[str, Tensor]], None]]:
+    def model_backward(self) -> Callable[[Module, Dict[str, Tensor]], None]:
         """
         Used to call backward for a given model and the calculated losses
         Expected to be called with the model and the output from the loss function as a dict mapping of names to tensors
@@ -374,7 +374,7 @@ class ModuleRunFuncs(object):
         return self._model_backward
 
     @model_backward.setter
-    def model_backward(self, value: Union[None, Callable[[Module, Dict[str, Tensor]], None]]):
+    def model_backward(self, value: Callable[[Module, Dict[str, Tensor]], None]):
         """
         Used to call backward for a given model and the calculated losses
         Expected to be called with the model and the output from the loss function as a dict mapping of names to tensors
@@ -384,17 +384,13 @@ class ModuleRunFuncs(object):
         """
         self._model_backward = value
 
-    @staticmethod
-    def default(train: bool = True):
-        run_funcs = ModuleRunFuncs()
-        run_funcs.batch_size = def_data_batch_size
-        run_funcs.to_device = def_data_to_device
-        run_funcs.model_forward = def_data_model_forward
+    def copy(self, run_funcs):
+        run_funcs = run_funcs  # type: ModuleRunFuncs
 
-        if train:
-            run_funcs.model_backward = def_model_backward
-
-        return run_funcs
+        self._batch_size = run_funcs._batch_size
+        self._to_device = run_funcs._to_device
+        self._model_forward = run_funcs._model_forward
+        self._model_backward = run_funcs._model_backward
 
 
 class ModuleRunResults(object):
@@ -494,7 +490,7 @@ class ModuleTrainer(object):
         self._num_accumulated_batches = num_accumulated_batches
         self._optim_closure = optim_closure
         
-        self._run_funcs = ModuleRunFuncs().default()
+        self._run_funcs = ModuleRunFuncs()
         self._run_hooks = ModuleRunHooks()
 
     @property
@@ -644,7 +640,7 @@ class ModuleTester(object):
         self._device = device
         self._loss = loss
 
-        self._run_funcs = ModuleRunFuncs().default(train=False)
+        self._run_funcs = ModuleRunFuncs()
         self._run_hooks = ModuleRunHooks()
 
     @property

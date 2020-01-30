@@ -1,14 +1,14 @@
-from typing import Tuple, List, Callable, Dict, Any
+from typing import Tuple, List, Callable, Dict, Any, Union
 import json
 from tqdm import auto
 
 import torch
-from torch.nn import Module
+from torch.nn import Module, DataParallel
 from torch.utils.data import Dataset, DataLoader
 
 from ...datasets import EarlyStopDataset, CacheableDataset
 from ...models import model_to_device
-from ...utils import ModuleTester, LossWrapper, clean_path, create_parent_dirs
+from ...utils import ModuleTester, clean_path, create_parent_dirs, DEFAULT_LOSS_KEY, ModuleRunFuncs
 from ..module_analyzer import ModuleAnalyzer
 from ..helpers import get_conv_layers, get_linear_layers
 from .mask import KSLayerParamMask
@@ -52,9 +52,12 @@ class OneShotLayerSensitivity(object):
         return json.dumps(self.dict())
 
 
-def one_shot_sensitivity_analysis(model: Module, data: Dataset, loss_fn: Callable, device: str, batch_size: int,
-                                  samples_per_check: int = 512, sparsity_check_levels: List[int] = None,
-                                  cache_data: bool = True, loader_args: Dict = None) -> List[OneShotLayerSensitivity]:
+def one_shot_sensitivity_analysis(
+        model: Module, data: Dataset, loss_fn: Callable, device: str, batch_size: int, samples_per_check: int,
+        sparsity_levels: List[int] = None, cache_data: bool = True,
+        loader_args: Dict = None, data_loader_const: Callable = DataLoader, tester_run_funcs: ModuleRunFuncs = None,
+        progress_callback: Callable[[int, int, str, List[int], int], None] = None
+) -> List[OneShotLayerSensitivity]:
     if len(data) > samples_per_check > 0:
         data = EarlyStopDataset(data, samples_per_check)
 
@@ -69,14 +72,16 @@ def one_shot_sensitivity_analysis(model: Module, data: Dataset, loss_fn: Callabl
         loader_args['num_workers'] = 0
         data = CacheableDataset(data)
 
-    if sparsity_check_levels is None:
-        sparsity_check_levels = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.99]
+    if sparsity_levels is None:
+        sparsity_levels = [0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.99, 0.9999]
 
     layers = {}
     layers.update(get_conv_layers(model))
     layers.update(get_linear_layers(model))
-    progress = auto.tqdm(total=len(layers) * len(sparsity_check_levels) * samples_per_check,
+    progress = auto.tqdm(total=len(layers) * len(sparsity_levels) * samples_per_check,
                          desc='Sensitivity Analysis')
+
+    orig_device = next(model.parameters()).device
 
     analyzer = ModuleAnalyzer(model, enabled=True)
     model, device, device_ids = model_to_device(model, device)
@@ -86,21 +91,30 @@ def one_shot_sensitivity_analysis(model: Module, data: Dataset, loss_fn: Callabl
         analyzer.enabled = False
         progress.update(_batch_size)
 
-    tester = ModuleTester(model, device_str, LossWrapper(loss_fn))
-    tester.run_hooks.register_batch_end_hook(_batch_end)
+    tester = ModuleTester(model, device_str, loss_fn)
+    batch_end_hook = tester.run_hooks.register_batch_end_hook(_batch_end)
+
+    if tester_run_funcs is not None:
+        tester.run_funcs.copy(tester_run_funcs)
+
     sensitivities = []
 
-    for index, (name, layer) in enumerate(layers.items()):
+    for layer_index, (name, layer) in enumerate(layers.items()):
+        if progress_callback is not None:
+            progress_callback(layer_index, len(layers), name, sparsity_levels, -1)
+
         sparsities_loss = []
         mask = KSLayerParamMask(layer, store_init=True, store_unmasked=False, track_grad_mom=-1)
         mask.enabled = True
 
-        for sparsity_level in sparsity_check_levels:
+        for sparsity_index, sparsity_level in enumerate(sparsity_levels):
             mask.set_param_mask_from_sparsity(sparsity_level)
-            data_loader = DataLoader(data, batch_size, **loader_args)
-            res = tester.run(data_loader, desc='layer {} ({})  sparsity {}'.format(index, name, sparsity_level),
-                             show_progress=False, track_results=True)
-            sparsities_loss.append((sparsity_level, res.result_mean('loss').item()))
+            data_loader = data_loader_const(data, batch_size, **loader_args)
+            res = tester.run(data_loader, desc='', show_progress=False, track_results=True)
+            sparsities_loss.append((sparsity_level, res.result_mean(DEFAULT_LOSS_KEY).item()))
+
+            if progress_callback is not None:
+                progress_callback(layer_index, len(layers), name, sparsity_levels, sparsity_index)
 
         mask.enabled = False
         mask.reset()
@@ -108,10 +122,18 @@ def one_shot_sensitivity_analysis(model: Module, data: Dataset, loss_fn: Callabl
 
         desc = analyzer.layer_desc(name)
         sensitivities.append(OneShotLayerSensitivity(name, desc.type_, desc.execution_order, sparsities_loss))
-        print('Completed layer #{} {} for sparsities {}'.format(index, name, sparsity_check_levels))
+
+        if progress_callback is not None:
+            progress_callback(layer_index, len(layers), name, sparsity_levels, len(sparsity_levels) + 1)
 
     progress.close()
-    sensitivities.sort(key=lambda val: val.layer_desc.call_order)
+    sensitivities.sort(key=lambda val: val.execution_order)
+    batch_end_hook.remove()
+
+    if isinstance(model, DataParallel):
+        model = model.module
+
+    model.to(orig_device)
 
     return sensitivities
 

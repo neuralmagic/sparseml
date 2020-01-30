@@ -13,7 +13,7 @@ from torch.nn.modules.conv import _ConvNd
 
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
 from neuralmagicML.models import create_model, model_to_device
-from neuralmagicML.sparsity import (
+from neuralmagicML.recal import (
     ASAnalyzerModule, ASAnalyzerLayer, FATReLU, convert_to_bool
 )
 from neuralmagicML.utils import (
@@ -93,7 +93,7 @@ def as_analysis(device_desc: str, model_type: str, pretrained: Union[bool, str],
     print('Testing activation sparsity')
     as_analyzer.clear_layers()
     as_analyzer.enable_layers()
-    tester.test_epoch(test_dataloader, epoch=-1)
+    tester.run_epoch(test_dataloader, epoch=-1)
     as_analyzer.disable_layers()
 
     layer_results = {
