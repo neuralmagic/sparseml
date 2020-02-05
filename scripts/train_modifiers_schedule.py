@@ -210,7 +210,7 @@ def train_modifiers_schedule(
 
     analyze_layers = [key for key, mod in model.named_modules() if isinstance(mod, _ConvNd) or isinstance(mod, Linear)]
     ks_analyzers = ModuleKSAnalyzer.analyze_layers(model, analyze_layers)  # type: List[ModuleKSAnalyzer]
-    as_analyzers = ModuleASAnalyzer.analyze_layers(model, analyze_layers,
+    as_analyzers = ModuleASAnalyzer.analyze_layers(model, analyze_layers, division=None,
                                                    track_inputs_sparsity=True)  # type: List[ModuleASAnalyzer]
     as_dataset = EarlyStopDataset(train_test_dataset, early_stop=1000 if len(train_test_dataset) > 1000 else -1)
 

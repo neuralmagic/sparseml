@@ -20,12 +20,12 @@ class ASResultType(Enum):
 
 class ModuleASAnalyzer(object):
     @staticmethod
-    def analyze_layers(module: Module, layers: List[str], **kwargs):
+    def analyze_layers(module: Module, layers: List[str], division: Union[None, int, Tuple[int, ...]], **kwargs):
         analyzed = []
 
         for layer_name in layers:
             layer = get_layer(layer_name, module)
-            analyzed.append(ModuleASAnalyzer(layer, **kwargs))
+            analyzed.append(ModuleASAnalyzer(layer, division, **kwargs))
 
         return analyzed
 
