@@ -4,7 +4,7 @@ import os
 import json
 
 from neuralmagicML.models import create_model
-from neuralmagicML.sparsity import convert_to_bool
+from neuralmagicML.recal import convert_to_bool
 from neuralmagicML.utils import ModelExporter, fix_onnx_threshold_export
 
 

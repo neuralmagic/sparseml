@@ -27,6 +27,7 @@ class ModelAnalysisWidgetSettings(object):
         self.save_perf_name = None
 
         self.model = None
+        self.model_name = None
         self.dataset = None
         self.sample_input = None
         self.loss_fn = None
@@ -41,8 +42,6 @@ class ModelAnalysisWidget(object):
     def __init__(self, settings: ModelAnalysisWidgetSettings):
         self.settings = settings  # type: ModelAnalysisWidgetSettings
 
-        self._title = None
-
         self._desc_container = None
         self._desc_message = None
         self._desc_button = None
@@ -56,32 +55,21 @@ class ModelAnalysisWidget(object):
         self._sens_message = None
         self._sens_button = None
 
-        self._perf_container = None
-        self._perf_batch_size_slider = None
-        self._perf_num_cores_slider = None
-        self._perf_num_warmups_slider = None
-        self._perf_num_test_slider = None
-        self._perf_message = None
-        self._perf_button = None
-
     def create(self):
-        self._title = widgets.HTML(value='<h3>Model Analysis Helper</h3>')
         self._create_desc_container()
         self._create_sens_container()
-        self._create_perf_container()
 
         return widgets.VBox((
-            self._title,
+            widgets.HTML(value=ModelAnalysisWidget._get_header_html('Model Analysis Helper')),
             self._desc_container,
-            self._sens_container,
-            self._perf_container
+            self._sens_container
         ))
 
     def _create_desc_container(self):
         self._desc_message = widgets.HTML(value='')
         self._desc_button = widgets.Button(description='Run', button_style='info')
         self._desc_container = widgets.VBox((
-            widgets.HTML(value='<h4>Description and ONNX Export</h4>'),
+            widgets.HTML(value=ModelAnalysisWidget._get_section_header_html('Description and ONNX Export')),
             self._desc_message,
             self._desc_button
         ))
@@ -108,7 +96,7 @@ class ModelAnalysisWidget(object):
         self._sens_message = widgets.HTML(value='')
         self._sens_button = widgets.Button(description='Run', button_style='info')
         self._sens_container = widgets.VBox((
-            widgets.HTML(value='<h4>One Shot Sensitivity Analysis</h4>'),
+            widgets.HTML(value=ModelAnalysisWidget._get_section_header_html('One Shot Sensitivity Analysis')),
             self._sens_device_buttons_container,
             self._sens_batch_size_slider,
             self._sens_samples_size_slider,
@@ -117,29 +105,6 @@ class ModelAnalysisWidget(object):
             self._sens_button
         ))
         self._setup_sens()
-
-    def _create_perf_container(self):
-        self._perf_batch_size_slider = widgets.FloatLogSlider(value=1, base=2, min=0, max=20,
-                                                              step=1, description='Batch Size:')
-        num_cores = CPUCoresCounter.factory().get_physical_cores_count()
-        self._perf_num_cores_slider = widgets.IntSlider(value=num_cores, min=1, max=num_cores, step=1,
-                                                        description='Num Cores:')
-        self._perf_num_warmups_slider = widgets.FloatLogSlider(value=10, base=2, min=0, max=20,
-                                                               description='Num Warmups')
-        self._perf_num_test_slider = widgets.FloatLogSlider(value=50, base=2, min=0, max=20,
-                                                            description='Num Tests')
-        self._perf_message = widgets.HTML(value='')
-        self._perf_button = widgets.Button(description='Run', button_style='info')
-        self._perf_container = widgets.VBox((
-            widgets.HTML(value='<h4>NM Performance Analysis</h4>'),
-            self._perf_batch_size_slider,
-            self._perf_num_cores_slider,
-            self._perf_num_warmups_slider,
-            self._perf_num_test_slider,
-            self._perf_message,
-            self._perf_button
-        ))
-        self._setup_perf()
 
     def _setup_desc(self):
         def _run_click(change):
@@ -194,21 +159,15 @@ class ModelAnalysisWidget(object):
 
         _batch_size_updater(self._sens_samples_size_slider.value)
         self._update_sens_message('Click run to analyze!')
-
-    def _setup_perf(self):
-        pass
         
     def _update_desc_message(self, message: str, success: bool = False, error: bool = False):
-        color = ModelAnalysisWidget._get_color(success, error)
-        self._desc_message.value = '<span style="color: {}">{}<span>'.format(color, message)
+        self._desc_message.value = ModelAnalysisWidget._get_message_html(message, success, error)
 
     def _update_sens_message(self, message: str, success: bool = False, error: bool = False):
-        color = ModelAnalysisWidget._get_color(success, error)
-        self._sens_message.value = '<span style="color: {}">{}<span>'.format(color, message)
+        self._sens_message.value = ModelAnalysisWidget._get_message_html(message, success, error)
 
     def _update_perf_message(self, message: str, success: bool = False, error: bool = False):
-        color = ModelAnalysisWidget._get_color(success, error)
-        self._sens_message.value = '<span style="color: {}">{}<span>'.format(color, message)
+        self._sens_message.value = ModelAnalysisWidget._get_message_html(message, success, error)
 
     def _export_description(self):
         path = os.path.join(self.settings.save_dir, self.settings.save_desc_name)
@@ -260,11 +219,21 @@ class ModelAnalysisWidget(object):
         print('saved sensitivity analysis to {}'.format(path))
 
     @staticmethod
-    def _get_color(success: bool, error: bool):
+    def _get_header_html(title: str):
+        return '<h2>{}</h2>'.format(title)
+
+    @staticmethod
+    def _get_section_header_html(title: str):
+        return '<h3>{}</h3>'.format(title)
+
+    @staticmethod
+    def _get_message_html(message: str, success: bool, error: bool):
+        color = 'black'
+
         if error:
-            return 'red'
+            color = 'red'
 
         if success:
-            return 'green'
+            color = 'green'
 
-        return 'black'
+        return '<span style="color: {}">{}<span>'.format(color, message)
