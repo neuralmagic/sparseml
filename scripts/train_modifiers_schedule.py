@@ -19,7 +19,7 @@ from neuralmagicML.utils import (
 )
 from neuralmagicML.recal import (
     ScheduledModifierManager, ScheduledOptimizer,
-    KSAnalyzerLayer, ASAnalyzerModule, ASAnalyzerLayer,
+    ModuleKSAnalyzer, ModuleASAnalyzer,
     convert_to_bool
 )
 
@@ -209,10 +209,9 @@ def train_modifiers_schedule(
     ####################################################################################################################
 
     analyze_layers = [key for key, mod in model.named_modules() if isinstance(mod, _ConvNd) or isinstance(mod, Linear)]
-    ks_analyzers = KSAnalyzerLayer.analyze_layers(model, analyze_layers)
-    as_analyzer = ASAnalyzerModule(
-        model, [ASAnalyzerLayer(name, division=0, track_inputs_sparsity=True) for name in analyze_layers]
-    )  # type: ASAnalyzerModule
+    ks_analyzers = ModuleKSAnalyzer.analyze_layers(model, analyze_layers)  # type: List[ModuleKSAnalyzer]
+    as_analyzers = ModuleASAnalyzer.analyze_layers(model, analyze_layers,
+                                                   track_inputs_sparsity=True)  # type: List[ModuleASAnalyzer]
     as_dataset = EarlyStopDataset(train_test_dataset, early_stop=1000 if len(train_test_dataset) > 1000 else -1)
 
     ####################################################################################################################
@@ -239,16 +238,17 @@ def train_modifiers_schedule(
         if track_as:
             print('Testing activation sparsity for training dataset for epoch {}'
                   .format(_epoch))
-            as_analyzer.clear_layers()
-            as_analyzer.enable_layers()
+
+            for _analyzer in as_analyzers:
+                _analyzer.clear()
+                _analyzer.enable()
+
             tester.run_epoch(_create_data_loader(as_dataset, False), _epoch)
-            as_analyzer.disable_layers()
 
-            for _name, _as_layer in as_analyzer.layers.items():
-                writer.add_scalar('Act Sparsity/{}'.format(_name.replace('module.', '')),
-                                  _as_layer.inputs_sparsity_mean, epoch)
-
-            as_analyzer.clear_layers()
+            for _index, _analyzer in enumerate(as_analyzers):
+                _analyzer.disable()
+                writer.add_scalar('Act Sparsity/{}'.format(analyze_layers[_index].replace('module.', '')),
+                                  _analyzer.inputs_sparsity_mean, epoch)
 
         if track_ks:
             for _ks_layer in ks_analyzers:

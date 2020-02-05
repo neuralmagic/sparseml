@@ -5,10 +5,10 @@ from torch.nn import Module, Parameter
 from ..helpers import tensor_sparsity
 
 
-__all__ = ['KSAnalyzerLayer']
+__all__ = ['ModuleKSAnalyzer']
 
 
-class KSAnalyzerLayer(object):
+class ModuleKSAnalyzer(object):
     @staticmethod
     def analyze_layers(module: Module, layers: List[str], param_name: str = 'weight'):
         analyzed = []
@@ -20,26 +20,26 @@ class KSAnalyzerLayer(object):
             for lay in lays:
                 mod = mod.__getattr__(lay)
 
-            analyzed.append(KSAnalyzerLayer(mod, layer_name, param_name))
+            analyzed.append(ModuleKSAnalyzer(mod, layer_name, param_name))
 
         return analyzed
 
-    def __init__(self, layer: Module, name: str, param_name: str = 'weight'):
+    def __init__(self, module: Module, name: str, param_name: str = 'weight'):
         """
         Analyzer to get the sparsity of a given layer's parameter such activation weight
 
-        :param layer: the layer containing the param to analyze the sparsity for
+        :param module: the module containing the param to analyze the sparsity for
         :param name: name of the layer, used for tracking
         :param param_name: name of the parameter to analyze the sparsity for, defaults to weight
         """
-        self._layer = layer
+        self._module = module
         self._name = name
         self._param_name = param_name
-        self._param = self._layer.__getattr__(self._param_name)  # type: Parameter
+        self._param = self._module.__getattr__(self._param_name)  # type: Parameter
 
     @property
-    def layer(self) -> Module:
-        return self._layer
+    def module(self) -> Module:
+        return self._module
 
     @property
     def name(self) -> str:

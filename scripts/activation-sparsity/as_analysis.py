@@ -14,7 +14,7 @@ from torch.nn.modules.conv import _ConvNd
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
 from neuralmagicML.models import create_model, model_to_device
 from neuralmagicML.recal import (
-    ASAnalyzerModule, ASAnalyzerLayer, FATReLU, convert_to_bool
+    ModuleASAnalyzer, FATReLU, convert_to_bool
 )
 from neuralmagicML.utils import (
     CrossEntropyLossWrapper, ModuleTester
@@ -74,15 +74,13 @@ def as_analysis(device_desc: str, model_type: str, pretrained: Union[bool, str],
     ####################################################################################################################
 
     tester = ModuleTester(model, device, CrossEntropyLossWrapper())
-    as_analyzer_layers = []
+    as_analyzer_layers = {}
 
     for name, mod in model.named_modules():
         if isinstance(mod, _ConvNd) or isinstance(mod, Linear):
-            as_analyzer_layers.append(ASAnalyzerLayer(name, division=0, track_inputs_sparsity=True))
+            as_analyzer_layers[name] = ModuleASAnalyzer(mod, division=0, track_inputs_sparsity=True)
         elif isinstance(mod, ReLU) or isinstance(mod, FATReLU):
-            as_analyzer_layers.append(ASAnalyzerLayer(name, division=0, track_outputs_sparsity=True))
-
-    as_analyzer = ASAnalyzerModule(model, as_analyzer_layers)  # type: ASAnalyzerModule
+            as_analyzer_layers[name] = ModuleASAnalyzer(mod, division=0, track_outputs_sparsity=True)
 
     ####################################################################################################################
     #
@@ -91,25 +89,26 @@ def as_analysis(device_desc: str, model_type: str, pretrained: Union[bool, str],
     ####################################################################################################################
 
     print('Testing activation sparsity')
-    as_analyzer.clear_layers()
-    as_analyzer.enable_layers()
-    tester.run_epoch(test_dataloader, epoch=-1)
-    as_analyzer.disable_layers()
+    for analyzer in as_analyzer_layers:
+        analyzer.enable()
+
+    tester.run(test_dataloader, desc='AS tracking...', show_progress=True, track_results=False)
+
+    for analyzer in as_analyzer_layers:
+        analyzer.disable()
 
     layer_results = {
         'relus': {},
         'convs': {}
     }
 
-    for name, layer in as_analyzer.layers.items():
+    for name, layer in as_analyzer_layers.items():
         if layer.track_inputs_sparsity:
             layer_results['convs'][name] = torch.cat(layer.inputs_sparsity).view(-1).tolist()
         elif layer.track_outputs_sparsity:
             layer_results['relus'][name] = torch.cat(layer.outputs_sparsity).view(-1).tolist()
         else:
             raise RuntimeError('unknown type of layer analyzer')
-
-    as_analyzer.clear_layers()
 
     json_path = os.path.join(model_dir, 'activation-sparsity.json')
     with open(json_path, 'w') as json_file:
