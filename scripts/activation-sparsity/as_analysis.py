@@ -89,12 +89,12 @@ def as_analysis(device_desc: str, model_type: str, pretrained: Union[bool, str],
     ####################################################################################################################
 
     print('Testing activation sparsity')
-    for analyzer in as_analyzer_layers:
+    for name, analyzer in as_analyzer_layers.items():
         analyzer.enable()
 
     tester.run(test_dataloader, desc='AS tracking...', show_progress=True, track_results=False)
 
-    for analyzer in as_analyzer_layers:
+    for name, analyzer in as_analyzer_layers.items():
         analyzer.disable()
 
     layer_results = {
