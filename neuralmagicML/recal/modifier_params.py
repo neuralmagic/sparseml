@@ -3,8 +3,11 @@ import yaml
 from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
-from .modifier import ScheduledModifier, ScheduledUpdateModifier, ALL_TOKEN
-from .helpers import convert_to_bool, validate_str_list, get_layer, get_terminal_layers, interpolate, INTERPOLATION_FUNCS
+from .modifier import ScheduledModifier, ScheduledUpdateModifier
+from .helpers import ALL_TOKEN
+from ..utils import (
+    convert_to_bool, validate_str_list, get_layer, get_terminal_layers, interpolate, INTERPOLATION_FUNCS
+)
 
 
 __all__ = ['TrainableParamsModifier', 'SetParamModifier', 'GradualParamModifier']

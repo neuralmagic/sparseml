@@ -5,8 +5,9 @@ from torch.nn import Module
 import torch.nn.functional as TF
 from torch.optim.optimizer import Optimizer
 
-from ..modifier import ScheduledModifier, ALL_TOKEN
-from ..helpers import validate_str_list, get_terminal_layers, get_layer, convert_to_bool
+from ...utils import validate_str_list, get_terminal_layers, get_layer, convert_to_bool
+from ..modifier import ScheduledModifier
+from ..helpers import ALL_TOKEN
 from .tracker import ASLayerTracker
 
 

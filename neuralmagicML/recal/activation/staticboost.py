@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from ...models import model_to_device
 from ...utils import LossWrapper, ModuleTester, ModuleRunResults
-from ..helpers import get_layer
+from ...utils import get_layer
 from .fatrelu import convert_relus_to_fat, FATReLU
 from .analyzer import ModuleASAnalyzer
 

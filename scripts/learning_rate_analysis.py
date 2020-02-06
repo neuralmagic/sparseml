@@ -8,8 +8,7 @@ from torch.nn import Module
 
 from neuralmagicML.datasets import create_dataset
 from neuralmagicML.models import create_model
-from neuralmagicML.recal import convert_to_bool
-from neuralmagicML.utils import CrossEntropyLossWrapper, lr_analysis, lr_analysis_figure
+from neuralmagicML.utils import CrossEntropyLossWrapper, lr_analysis, lr_analysis_figure, convert_to_bool
 
 
 def learning_rate_analysis(

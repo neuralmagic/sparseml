@@ -14,10 +14,10 @@ from torch.nn.modules.conv import _ConvNd
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
 from neuralmagicML.models import create_model, model_to_device
 from neuralmagicML.recal import (
-    ModuleASAnalyzer, FATReLU, convert_to_bool
+    ModuleASAnalyzer, FATReLU
 )
 from neuralmagicML.utils import (
-    CrossEntropyLossWrapper, ModuleTester
+    CrossEntropyLossWrapper, ModuleTester, convert_to_bool
 )
 
 

@@ -8,9 +8,11 @@ from torch.utils.data import Dataset, DataLoader
 
 from ...datasets import EarlyStopDataset, CacheableDataset
 from ...models import model_to_device
-from ...utils import ModuleTester, clean_path, create_parent_dirs, DEFAULT_LOSS_KEY, ModuleRunFuncs
+from ...utils import (
+    ModuleTester, clean_path, create_parent_dirs, DEFAULT_LOSS_KEY, ModuleRunFuncs,
+    get_conv_layers, get_linear_layers
+)
 from ..module_analyzer import ModuleAnalyzer
-from ..helpers import get_conv_layers, get_linear_layers
 from .mask import KSLayerParamMask
 
 

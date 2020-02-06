@@ -3,7 +3,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from ..helpers import mask_from_tensor, mask_from_threshold, mask_from_sparsity
+from ...utils import mask_from_tensor, mask_from_threshold, mask_from_sparsity
 
 
 __all__ = ['KSLayerParamMask']

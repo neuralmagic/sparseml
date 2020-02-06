@@ -10,8 +10,8 @@ from torch.nn import Module, ReLU
 
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset, CacheableDataset
 from neuralmagicML.models import create_model, save_model
-from neuralmagicML.recal import convert_to_bool, ModuleASOneShootBooster, LayerBoostResults, FATReLU
-from neuralmagicML.utils import CrossEntropyLossWrapper, TopKAccuracy
+from neuralmagicML.recal import ModuleASOneShootBooster, LayerBoostResults, FATReLU
+from neuralmagicML.utils import CrossEntropyLossWrapper, TopKAccuracy, convert_to_bool
 
 
 def as_staticbooster(

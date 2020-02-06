@@ -1,7 +1,7 @@
 from .activation import *
 from .kernel import *
 
-from .helpers import *
+from .manager import *
 from .modifier import *
 from .modifier_lr import *
 from .modifier_params import *

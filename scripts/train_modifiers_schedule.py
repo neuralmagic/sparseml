@@ -19,9 +19,9 @@ from neuralmagicML.utils import (
 )
 from neuralmagicML.recal import (
     ScheduledModifierManager, ScheduledOptimizer,
-    ModuleKSAnalyzer, ModuleASAnalyzer,
-    convert_to_bool
+    ModuleKSAnalyzer, ModuleASAnalyzer
 )
+from neuralmagicML.utils import convert_to_bool
 
 
 def train_modifiers_schedule(

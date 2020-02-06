@@ -3,10 +3,11 @@ import yaml
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from ..modifier import ScheduledUpdateModifier, ALL_TOKEN
-from ..helpers import (
+from ...utils import (
     INTERPOLATION_FUNCS, get_terminal_layers, get_layer, convert_to_bool, interpolate, validate_str_list
 )
+from ..modifier import ScheduledUpdateModifier
+from ..helpers import ALL_TOKEN
 from .mask import KSLayerParamMask
 
 

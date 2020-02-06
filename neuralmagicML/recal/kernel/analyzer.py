@@ -2,7 +2,7 @@ from typing import List, Union, Tuple
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from ..helpers import tensor_sparsity
+from ...utils import tensor_sparsity
 
 
 __all__ = ['ModuleKSAnalyzer']

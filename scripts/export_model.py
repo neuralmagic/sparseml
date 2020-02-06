@@ -4,8 +4,7 @@ import os
 import json
 
 from neuralmagicML.models import create_model
-from neuralmagicML.recal import convert_to_bool
-from neuralmagicML.utils import ModelExporter, fix_onnx_threshold_export
+from neuralmagicML.utils import ModelExporter, fix_onnx_threshold_export, convert_to_bool
 
 
 def export_model(model_type: str, pretrained: Union[bool, str], model_path: Union[None, str], num_classes: int,

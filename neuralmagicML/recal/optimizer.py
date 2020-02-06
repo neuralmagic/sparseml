@@ -4,7 +4,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from .modifier import ScheduledModifierManager
+from .manager import ScheduledModifierManager
 
 
 __all__ = ['ScheduledOptimizer']

@@ -5,7 +5,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.utils.hooks import RemovableHandle
 
-from ..helpers import tensor_sparsity, tensor_sample, get_layer
+from ...utils import tensor_sparsity, tensor_sample, get_layer
 
 
 __all__ = ['ASResultType', 'ModuleASAnalyzer']
