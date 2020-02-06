@@ -1,6 +1,6 @@
 from torch.nn import Module
 
-from neuralmagicML.sparsity import convert_relus_to_fat
+from neuralmagicML.recal import convert_relus_to_fat
 
 
 def edit_model(model: Module, state_loaded: bool, **kwargs):
