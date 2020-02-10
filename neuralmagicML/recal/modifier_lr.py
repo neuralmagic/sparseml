@@ -1,31 +1,48 @@
-from typing import Dict, Union, Callable
+"""
+Contains code for learning rate modifiers: schedules that change the learning rate while training according to
+certain update formulas or patterns
+"""
+
+from typing import Dict, Union
 import sys
+import math
 import yaml
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
-from torch.optim.lr_scheduler import (
-    StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau, CyclicLR
-)
+from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR, CyclicLR
 
 from .modifier import ScheduledUpdateModifier, ScheduledModifier
 
 
-__all__ = ['LearningRateModifier', 'CyclicLRModifier']
+__all__ = ["SetLearningRateModifier", "LearningRateModifier", "CyclicLRModifier"]
 
 
 CONSTRUCTORS = {
-    'StepLR': StepLR,
-    'MultiStepLR': MultiStepLR,
-    'ExponentialLR': ExponentialLR,
-    'ReduceLROnPlateau': ReduceLROnPlateau
+    "StepLR": StepLR,
+    "MultiStepLR": MultiStepLR,
+    "ExponentialLR": ExponentialLR,
 }
 
 
 class SetLearningRateModifier(ScheduledModifier):
-    YAML_KEY = u'!SetLearningRateModifier'
+    """
+    Modifier to set the learning rate to a specific value at a certain point in the training process
+    Once that point is reached, will update the optimizer's params with the learning rate
+
+    Sample yaml:
+        !SetLearningRateModifier
+            start_epoch: 0.0
+            learning_rate: 0.001
+    """
+
+    YAML_KEY = u"!SetLearningRateModifier"
 
     @staticmethod
     def yaml_constructor(loader, node):
+        """
+        Create an instance of the modifier from a yaml file
+        Follows the yaml package in python for implementation and integration
+        """
         instance = SetLearningRateModifier.__new__(SetLearningRateModifier)
         yield instance
         state = loader.construct_mapping(node, deep=True)
@@ -33,103 +50,129 @@ class SetLearningRateModifier(ScheduledModifier):
 
     def __init__(self, learning_rate: Union[float, None], start_epoch: float = -1.0):
         """
-        Controls the learning rate of the optimizer based on a scheduled frequency
-
-        Sample yaml:
-            !SetLearningRateModifier
-                start_epoch: 0.0
-                learning_rate: 0.001
-
         :param learning_rate: The learning rate to use once this modifier starts
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
         """
         super().__init__(start_epoch, end_epoch=-1.0)
         self._learning_rate = learning_rate
         self._lr_set = False
+        self._applied = -1.0
+
+    def __repr__(self):
+        return "{}(learning_rate={}, start_epoch={})".format(
+            self.__class__.__name__, self.learning_rate, self.start_epoch
+        )
 
     @property
     def learning_rate(self) -> float:
+        """
+        :return: The learning rate to use once this modifier starts
+        """
         return self._learning_rate
 
     @learning_rate.setter
     def learning_rate(self, value: str):
+        """
+        :param value: The learning rate to use once this modifier starts
+        """
         if self._initialized:
-            raise RuntimeError('Cannot change learning_rate after {} has been initialized'
-                               .format(self.__class__.__name__))
+            raise RuntimeError(
+                "Cannot change learning_rate after {} has been initialized".format(
+                    self.__class__.__name__
+                )
+            )
 
         self._learning_rate = value
 
-    def initialize(self, module: Module, optimizer: Optimizer):
-        super().initialize(module, optimizer)
-        self._check_set_lr(optimizer, 0.0)
-
-    def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
-        # not needed
-        pass
-
-    def optimizer_pre_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+    @property
+    def applied_learning_rate(self) -> float:
         """
-        Sets the initial lr
+        :return: the last applied learning rate to the optimizer, -1.0 if hasn't been applied
+        """
+        return self._applied
+
+    def update(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Ignored for this modifier
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        super().update(module, optimizer, epoch, steps_per_epoch)
         self._check_set_lr(optimizer, epoch)
-
-    def optimizer_post_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
-        """
-        Sets the initial lr
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
-        """
-        self._check_set_lr(optimizer, epoch)
-        self._lr_set = True
 
     def _check_set_lr(self, optimizer: Optimizer, epoch: float):
-        if ((self.start_epoch < 0.0 or (self.start_epoch - epoch) < sys.float_info.epsilon)
-                and not self._lr_set and self._learning_rate is not None):
+        if (
+            (
+                self.start_epoch < 0.0
+                or (self.start_epoch - epoch) < sys.float_info.epsilon
+            )
+            and not self._lr_set
+            and self._learning_rate is not None
+        ):
             for param_group in optimizer.param_groups:
-                param_group['lr'] = self.learning_rate
+                param_group["lr"] = self.learning_rate
+
+            self._applied = self._learning_rate
+            self._lr_set = True
 
 
-yaml.add_constructor(SetLearningRateModifier.YAML_KEY, SetLearningRateModifier.yaml_constructor)
-yaml.add_constructor(SetLearningRateModifier.YAML_KEY, SetLearningRateModifier.yaml_constructor, yaml.SafeLoader)
+yaml.add_constructor(
+    SetLearningRateModifier.YAML_KEY, SetLearningRateModifier.yaml_constructor
+)
+yaml.add_constructor(
+    SetLearningRateModifier.YAML_KEY,
+    SetLearningRateModifier.yaml_constructor,
+    yaml.SafeLoader,
+)
 
 
 class LearningRateModifier(ScheduledUpdateModifier):
-    YAML_KEY = u'!LearningRateModifier'
+    """
+    Modifier to set the learning rate to specific values at certain points in the training process between set epochs
+    Any time an update point is reached, the LR is updated for the parameters in the optimizer
+    Builds on top of the builtin LR schedulers in pytorch
+
+    Sample yaml:
+        !LearningRateModifier
+            start_epoch: 0.0
+            end_epoch: 10.0
+            update_frequency: 1.0
+            lr_class: ExponentialLR
+            lr_kwargs:
+                gamma: 0.95
+            init_lr: 0.01
+    """
+
+    YAML_KEY = u"!LearningRateModifier"
 
     @staticmethod
     def yaml_constructor(loader, node):
+        """
+        Create an instance of the modifier from a yaml file
+        Follows the yaml package in python for implementation and integration
+        """
         instance = LearningRateModifier.__new__(LearningRateModifier)
         yield instance
         state = loader.construct_mapping(node, deep=True)
         instance.__init__(**state)
 
-    def __init__(self, lr_class: str, lr_kwargs: Dict, init_lr: Union[float, None] = None, adjust_update: bool = True,
-                 start_epoch: float = -1.0, end_epoch: float = -1.0, update_frequency: float = 1.0):
+    def __init__(
+        self,
+        lr_class: str,
+        lr_kwargs: Dict,
+        init_lr: Union[float, None] = None,
+        start_epoch: float = -1.0,
+        end_epoch: float = -1.0,
+        update_frequency: float = 1.0,
+    ):
         """
-        Controls the learning rate of the optimizer based on a scheduled frequency
-
-        Sample yaml:
-            !LearningRateModifier
-                start_epoch: 0.0
-                end_epoch: 10.0
-                update_frequency: 1.0
-                lr_class: ExponentialLR
-                lr_kwargs:
-                    gamma: 0.95
-                init_lr: 0.01
-
-        :param lr_class: The name of the lr scheduler class to use:
-                         [StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau, CyclicLR, CosineAnnealingWarmRestarts]
+        :param lr_class: The name of the lr scheduler class to use: [StepLR, MultiStepLR, ExponentialLR]
         :param lr_kwargs: The dictionary of keyword arguments to pass to the constructor for the lr_class
-        :param adjust_update: Adjust the update steps down by the start epoch so the first is 0 rather than start epoch
         :param init_lr: The initial learning rate to use once this modifier starts
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
         :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
@@ -138,46 +181,89 @@ class LearningRateModifier(ScheduledUpdateModifier):
         super().__init__(start_epoch, end_epoch, update_frequency)
         self._lr_class = lr_class
         self._lr_kwargs = lr_kwargs
-        self._adjust_update = adjust_update
         self._init_lr = init_lr
         self._lr_scheduler = None
-        self._init_lr_set = False
+        self._base_lr_set = False
+        self._last_scheduler_epoch = math.floor(start_epoch)
+
+        if "milestones" in self._lr_kwargs:
+            self._lr_kwargs["milestones"] = [
+                mile - self._start_epoch for mile in self._lr_kwargs["milestones"]
+            ]
 
         assert self._lr_class in CONSTRUCTORS
 
+    def __repr__(self):
+        return "{}(lr_class={}, lr_kwargs={}, init_lr={}, start_epoch={}, end_epoch={}, update_frequency={})".format(
+            self.__class__.__name__,
+            self.lr_class,
+            self.lr_kwargs,
+            self.init_lr,
+            self.start_epoch,
+            self.end_epoch,
+            self.update_frequency,
+        )
+
     @property
     def lr_class(self) -> str:
+        """
+        :return: The name of the lr scheduler class to use: [StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau]
+        """
         return self._lr_class
 
     @lr_class.setter
     def lr_class(self, value: str):
+        """
+        :param value: The name of the lr scheduler class to use: [StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau]
+        """
         if self._initialized:
-            raise RuntimeError('Cannot change lr_class after {} has been initialized'
-                               .format(self.__class__.__name__))
+            raise RuntimeError(
+                "Cannot change lr_class after {} has been initialized".format(
+                    self.__class__.__name__
+                )
+            )
 
         self._lr_class = value
 
     @property
     def lr_kwargs(self) -> Dict:
+        """
+        :return: The dictionary of keyword arguments to pass to the constructor for the lr_class
+        """
         return self._lr_kwargs
 
     @lr_kwargs.setter
     def lr_kwargs(self, value: Dict):
+        """
+        :param value: The dictionary of keyword arguments to pass to the constructor for the lr_class
+        """
         if self._initialized:
-            raise RuntimeError('Cannot change lr_kwargs after {} has been initialized'
-                               .format(self.__class__.__name__))
+            raise RuntimeError(
+                "Cannot change lr_kwargs after {} has been initialized".format(
+                    self.__class__.__name__
+                )
+            )
 
         self._lr_kwargs = value
 
     @property
     def init_lr(self) -> Union[float, None]:
+        """
+        :return: The initial learning rate to use once this modifier starts
+        """
         return self._init_lr
 
     @init_lr.setter
     def init_lr(self, value: Union[float, None]):
+        """
+        :param value: The initial learning rate to use once this modifier starts
+        """
         if self._initialized:
-            raise RuntimeError('Cannot change init_lr after {} has been initialized'
-                               .format(self.__class__.__name__))
+            raise RuntimeError(
+                "Cannot change init_lr after {} has been initialized".format(
+                    self.__class__.__name__
+                )
+            )
 
         self._init_lr = value
 
@@ -189,12 +275,13 @@ class LearningRateModifier(ScheduledUpdateModifier):
         :param optimizer: optimizer to modify
         """
         super(LearningRateModifier, self).initialize(module, optimizer)
-        self._lr_scheduler = CONSTRUCTORS[self._lr_class](optimizer=optimizer, **self._lr_kwargs)
+        self._lr_scheduler = CONSTRUCTORS[self._lr_class](
+            optimizer=optimizer, **self._lr_kwargs
+        )
 
-        if self._init_lr is not None:
-            self._lr_scheduler.base_lrs = list(map(lambda group: self._init_lr, optimizer.param_groups))
-
-    def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+    def update(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
         """
         Calls into the lr scheduler to step given the epoch
         Additionally will first set the lr to the init_lr if not set yet
@@ -204,120 +291,111 @@ class LearningRateModifier(ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+        self._check_setup_base_lrs(optimizer, epoch)
 
-        if epoch < sys.float_info.epsilon:
-            # will not step on first update step (before optimizer is called), because of implementation detail
-            # use the initial lr instead to set the first value
+        if epoch < sys.float_info.epsilon or (
+            epoch < self.start_epoch
+            and abs(epoch - self.start_epoch) > sys.float_info.epsilon
+        ):
             return
 
-        if self._adjust_update:
-            epoch = epoch - self.start_epoch
+        if math.floor(epoch) != self._last_scheduler_epoch:
+            self._lr_scheduler.step()
+            self._last_scheduler_epoch = math.floor(epoch)
 
-        self._lr_scheduler.step(epoch)
+    def _check_setup_base_lrs(self, optimizer: Optimizer, epoch: float):
+        if (
+            self.start_epoch < 0.0
+            or (self.start_epoch - epoch) < sys.float_info.epsilon
+        ) and not self._base_lr_set:
+            if self._init_lr is not None:
+                self._lr_scheduler.base_lrs = list(
+                    map(lambda group: self._init_lr, optimizer.param_groups)
+                )
 
-    def optimizer_pre_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
-        """
-        Sets the initial lr if given
+                for param_group in optimizer.param_groups:
+                    param_group["lr"] = self._init_lr
+            else:
+                self._lr_scheduler.base_lrs = list(
+                    map(lambda group: group["lr"], optimizer.param_groups)
+                )
 
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
-        """
-        self._check_set_lr(optimizer, epoch)
-
-    def optimizer_post_step(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
-        """
-        Sets the initial lr if given
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
-        """
-        self._check_set_lr(optimizer, epoch)
-        self._init_lr_set = True
-
-    def _check_set_lr(self, optimizer: Optimizer, epoch: float):
-        if ((self.start_epoch < 0.0 or (self.start_epoch - epoch) < sys.float_info.epsilon)
-                and not self._init_lr_set and self._init_lr is not None):
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = self._init_lr
+            self._base_lr_set = True
 
 
-yaml.add_constructor(LearningRateModifier.YAML_KEY, LearningRateModifier.yaml_constructor)
-yaml.add_constructor(LearningRateModifier.YAML_KEY, LearningRateModifier.yaml_constructor, yaml.SafeLoader)
+yaml.add_constructor(
+    LearningRateModifier.YAML_KEY, LearningRateModifier.yaml_constructor
+)
+yaml.add_constructor(
+    LearningRateModifier.YAML_KEY,
+    LearningRateModifier.yaml_constructor,
+    yaml.SafeLoader,
+)
 
 
 class CyclicLRModifier(ScheduledUpdateModifier):
-    YAML_KEY = u'!CyclicLRModifier'
+    """
+    Modifier to set the learning rate based on a cyclic LR schedule between set epochs
+    Any time an update point is reached, the LR is updated for the parameters in the optimizer
+    Builds on top of the builtin cyclic LR scheduler in pytorch
+
+    Sample yaml:
+        !CyclicLRModifier
+            start_epoch: 0.0
+            end_epoch: 10.0
+            base_lr: 0.0001
+            max_lr: 0.01
+    """
+
+    YAML_KEY = u"!CyclicLRModifier"
 
     @staticmethod
     def yaml_constructor(loader, node):
-        instance = LearningRateModifier.__new__(LearningRateModifier)
+        instance = CyclicLRModifier.__new__(CyclicLRModifier)
         yield instance
         state = loader.construct_mapping(node, deep=True)
         instance.__init__(**state)
 
-    def __init__(self, base_lr: float, max_lr: float, step_size_up: int = 2000, step_size_down: Union[int, None] = None,
-                 mode: str = 'triangular', gamma: float = 1.0, scale_fn: Callable = None, scale_mode: str = 'cycle',
-                 cycle_momentum: bool = True, base_momentum: float = 0.8, max_momentum: float = 0.9,
-                 start_epoch: float = -1.0, end_epoch: float = -1.0):
+    def __init__(
+        self, lr_kwargs: Dict, start_epoch: float = -1.0, end_epoch: float = -1.0,
+    ):
         """
-        Controls the learning rate of the optimizer based on the cyclic LR
-
-        Sample yaml:
-            !CyclicLRModifier
-                start_epoch: 0.0
-                end_epoch: 10.0
-                base_lr: 0.0001
-                max_lr: 0.01
-
-        :param base_lr: Initial learning rate which is the lower boundary in the cycle for each parameter group.
-        :param max_lr: Upper learning rate boundaries in the cycle for each parameter group.
-                       Functionally, it defines the cycle amplitude (max_lr - base_lr).
-                       The lr at any cycle is the sum of base_lr and some scaling of the amplitude;
-                       therefore max_lr may not actually be reached depending on scaling function.
-        :param step_size_up: Number of training iterations in the increasing half of a cycle. Default: 2000
-        :param step_size_down: Number of training iterations in the decreasing half of a cycle.
-                               If step_size_down is None, it is set to step_size_up. Default: None
-        :param mode: One of {triangular, triangular2, exp_range}. Values correspond to policies detailed above.
-                     If scale_fn is not None, this argument is ignored. Default: 'triangular'
-        :param gamma: Constant in 'exp_range' scaling function: gamma**(cycle iterations) Default: 1.0
-        :param scale_fn: Custom scaling policy defined by a single argument lambda function,
-                         where 0 <= scale_fn(x) <= 1 for all x >= 0. If specified, then 'mode' is ignored. Default: None
-        :param scale_mode: {'cycle', 'iterations'}. Defines whether scale_fn is evaluated on cycle number or
-                           cycle iterations (training iterations since start of cycle). Default: 'cycle'
-        :param cycle_momentum: If ``True``, momentum is cycled inversely to learning rate between
-                               'base_momentum' and 'max_momentum'. Default: True
-        :param base_momentum: Initial momentum which is the lower boundary in the cycle for each parameter group.
-                              Default: 0.8
-        :param max_momentum: Upper momentum boundaries in the cycle for each parameter group.
-                             Functionally, it defines the cycle amplitude (max_momentum - base_momentum).
-                             The momentum at any cycle is the difference of max_momentum and some scaling of the amplitude;
-                             therefore base_momentum may not actually be reached depending on scaling function.
-                             Default: 0.9
+        :param lr_kwargs: The dictionary of keyword arguments to pass to the constructor for the lr_class
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
         :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
         """
         super().__init__(start_epoch, end_epoch, update_frequency=-1.0)
-        self._lr_kwargs = {
-            'base_lr': base_lr, 'max_lr': max_lr, 'step_size_up': step_size_up, 'step_size_down': step_size_down,
-            'mode': mode, 'gamma': gamma, 'scale_fn': scale_fn, 'scale_mode': scale_mode,
-            'cycle_momentum': cycle_momentum, 'base_momentum': base_momentum, 'max_momentum': max_momentum
-        }
+        self._lr_kwargs = lr_kwargs
         self._lr_scheduler = None
-        self._init_lr_set = False
+        self._lr_set = False
+
+        assert "base_lr" in lr_kwargs
+        assert "max_lr" in lr_kwargs
+
+    def __repr__(self):
+        return "{}(lr_kwargs={}, start_epoch={}, end_epoch={})".format(
+            self.__class__.__name__, self._lr_kwargs, self.start_epoch, self.end_epoch
+        )
 
     @property
     def lr_kwargs(self) -> Dict:
+        """
+        :return: the key word args that are passed to the cyclic scheduler class, includes most of the params given in the constructor
+        """
         return self._lr_kwargs
 
     @lr_kwargs.setter
     def lr_kwargs(self, value: Dict):
+        """
+        :param value: the key word args that are passed to the cyclic scheduler class, includes most of the params given in the constructor
+        """
         if self._initialized:
-            raise RuntimeError('Cannot change lr_kwargs after {} has been initialized'
-                               .format(self.__class__.__name__))
+            raise RuntimeError(
+                "Cannot change lr_kwargs after {} has been initialized".format(
+                    self.__class__.__name__
+                )
+            )
 
         self._lr_kwargs = value
 
@@ -329,9 +407,14 @@ class CyclicLRModifier(ScheduledUpdateModifier):
         :param optimizer: optimizer to modify
         """
         super(CyclicLRModifier, self).initialize(module, optimizer)
+        init_lrs = [g['lr'] for g in optimizer.param_groups]
         self._lr_scheduler = CyclicLR(optimizer=optimizer, **self._lr_kwargs)
+        for group, init_lr in zip(optimizer.param_groups, init_lrs):
+            group['lr'] = init_lr
 
-    def update(self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int):
+    def update(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
         """
         Calls into the lr scheduler to step for each batch
 
@@ -340,9 +423,30 @@ class CyclicLRModifier(ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+        self._check_set_lr(optimizer, epoch)
+
+        if epoch < sys.float_info.epsilon or (
+            epoch < self.start_epoch
+            and abs(epoch - self.start_epoch) > sys.float_info.epsilon
+        ):
+            return
+
         batch_count = round(epoch * steps_per_epoch)
         self._lr_scheduler.step(batch_count)
 
+    def _check_set_lr(self, optimizer: Optimizer, epoch: float):
+        if (
+            self.start_epoch < 0.0
+            or (self.start_epoch - epoch) < sys.float_info.epsilon
+        ) and not self._lr_set:
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = self.lr_kwargs["base_lr"]
+
+            self._lr_set = True
+
 
 yaml.add_constructor(CyclicLRModifier.YAML_KEY, CyclicLRModifier.yaml_constructor)
-yaml.add_constructor(CyclicLRModifier.YAML_KEY, CyclicLRModifier.yaml_constructor, yaml.SafeLoader)
+yaml.add_constructor(
+    CyclicLRModifier.YAML_KEY, CyclicLRModifier.yaml_constructor, yaml.SafeLoader
+)

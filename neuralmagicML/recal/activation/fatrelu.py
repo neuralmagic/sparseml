@@ -7,9 +7,19 @@ from torch.nn import Module, Parameter, ReLU
 import torch.nn.functional as TF
 
 
-__all__ = ['fat_relu', 'fat_pw_relu', 'fat_sig_relu', 'fat_exp_relu',
-           'FATReLU', 'FATPWReLU', 'FATSigReLU', 'FATExpReLU',
-           'FATReluType', 'convert_relus_to_fat', 'set_relu_to_fat']
+__all__ = [
+    "fat_relu",
+    "fat_pw_relu",
+    "fat_sig_relu",
+    "fat_exp_relu",
+    "FATReLU",
+    "FATPWReLU",
+    "FATSigReLU",
+    "FATExpReLU",
+    "FATReluType",
+    "convert_relus_to_fat",
+    "set_relu_to_fat",
+]
 
 
 def _apply_permuted_channels(apply_fn, tens: Tensor, **kwargs):
@@ -43,7 +53,9 @@ def fat_relu(tens: Tensor, threshold: Union[Tensor, float], inplace: bool) -> Te
     return out
 
 
-def fat_pw_relu(tens: Tensor, threshold: Tensor, compression: Tensor, inplace: bool) -> Tensor:
+def fat_pw_relu(
+    tens: Tensor, threshold: Tensor, compression: Tensor, inplace: bool
+) -> Tensor:
     """
     :param tens: the tensor to apply the piecewise fat relu to
     :param threshold: the threshold at which all values will be zero or interpolated between threshold and 0
@@ -63,8 +75,11 @@ def fat_pw_relu(tens: Tensor, threshold: Tensor, compression: Tensor, inplace: b
     comp_tens = compression * (out - x_offset)
 
     # reassign the compression values in the output
-    out = (-1.0 * comp_mask + 1.0) * out + comp_tens * comp_mask if not inplace else \
-        out.mul_(-1.0 * comp_mask + 1.0).add_(comp_tens * comp_mask)
+    out = (
+        (-1.0 * comp_mask + 1.0) * out + comp_tens * comp_mask
+        if not inplace
+        else out.mul_(-1.0 * comp_mask + 1.0).add_(comp_tens * comp_mask)
+    )
 
     return out
 
@@ -79,7 +94,9 @@ def fat_sig_relu(tens: Tensor, threshold: Tensor, compression: Tensor) -> Tensor
     :return: f(x, t, c) = x / e^(c*(t-x))
     """
     out = tens / (1.0 + torch.exp(compression * (threshold - tens)))
-    out = TF.relu(out, inplace=True)  # make sure that the negative region is always zero activation with a regular ReLU
+    out = TF.relu(
+        out, inplace=True
+    )  # make sure that the negative region is always zero activation with a regular ReLU
 
     return out
 
@@ -109,7 +126,9 @@ def fat_exp_relu(tens: Tensor, threshold: Tensor, compression: Tensor) -> Tensor
 
 
 class FATReLU(Module):
-    def __init__(self, threshold: Union[float, List[float]] = 0.0, inplace: bool = False):
+    def __init__(
+        self, threshold: Union[float, List[float]] = 0.0, inplace: bool = False
+    ):
         """
         Applies a FAT ReLU (forced activation threshold) over the input.
         Instead of setting all negative values to 0 like with ReLU, this sets all values < threshold equal to 0
@@ -149,28 +168,42 @@ class FATReLU(Module):
     @property
     def num_channels(self):
         if self._dynamic:
-            raise Exception('number of channels not yet allocated. function should be called only after allocation')
+            raise Exception(
+                "number of channels not yet allocated. function should be called only after allocation"
+            )
 
         return self._num_channels
 
     def set_threshold(self, threshold: Union[float, List[float]]):
         if self._dynamic:
-            raise RuntimeError('cannot set threshold, threshold is setup activation dynamic (constructor given empty list)')
+            raise RuntimeError(
+                "cannot set threshold, threshold is setup activation dynamic (constructor given empty list)"
+            )
 
         if self._channel_wise and isinstance(threshold, float):
-            raise ValueError('cannot set threshold to float value, constructor setup with list of channels len {}'
-                             .format(self._num_channels))
+            raise ValueError(
+                "cannot set threshold to float value, constructor setup with list of channels len {}".format(
+                    self._num_channels
+                )
+            )
 
         if self._channel_wise and self._num_channels != len(threshold):
-            raise ValueError('cannot set threshold to list of len({}), constructor setup with list of len({})'
-                             .format(len(threshold), self._num_channels))
+            raise ValueError(
+                "cannot set threshold to list of len({}), constructor setup with list of len({})".format(
+                    len(threshold), self._num_channels
+                )
+            )
 
         current_tens = self.threshold.data  # type: Tensor
         new_tens = current_tens.new_tensor(threshold)
         current_tens.copy_(new_tens)
 
     def get_threshold(self) -> Union[float, List[float]]:
-        return self.threshold.data.cpu().item() if not self._channel_wise else self.threshold.data.cpu().tolist()
+        return (
+            self.threshold.data.cpu().item()
+            if not self._channel_wise
+            else self.threshold.data.cpu().tolist()
+        )
 
     def forward(self, inp: Tensor):
         if not self._channel_wise:
@@ -184,59 +217,89 @@ class FATReLU(Module):
             self._dynamic = False
             self._num_channels = len(thresh)
 
-        assert (inp.shape[1] == self._num_channels)  # runtime test that #channels equals expected #channels
+        assert (
+            inp.shape[1] == self._num_channels
+        )  # runtime test that #channels equals expected #channels
 
-        return _apply_permuted_channels(fat_relu, inp, threshold=self.threshold, inplace=self.inplace)
+        return _apply_permuted_channels(
+            fat_relu, inp, threshold=self.threshold, inplace=self.inplace
+        )
 
     def extra_repr(self):
-        inplace_str = ', inplace' if self.inplace else ''
+        inplace_str = ", inplace" if self.inplace else ""
 
-        return 'threshold={}{}'.format(self.threshold, inplace_str)
+        return "threshold={}{}".format(self.threshold, inplace_str)
 
     def load_state_dict(self, state_dict, strict=True):
         if self._dynamic:
-            raise Exception('attempt to load state_dict, but fatrelu is not initialized yet.'
-                            'need to pass data once to initialize channel since constructed '
-                            'with dynamic allocation of number of channels')
+            raise Exception(
+                "attempt to load state_dict, but fatrelu is not initialized yet."
+                "need to pass data once to initialize channel since constructed "
+                "with dynamic allocation of number of channels"
+            )
 
         super().load_state_dict(state_dict, strict)
 
 
 class _DiffFATReLU(FATReLU):
-    def __init__(self, threshold: Union[float, List[float]], clamp_thresh: Union[float, None],
-                 compression: Union[float, List[float]], clamp_comp: Union[float, None], inplace: bool = False):
+    def __init__(
+        self,
+        threshold: Union[float, List[float]],
+        clamp_thresh: Union[float, None],
+        compression: Union[float, List[float]],
+        clamp_comp: Union[float, None],
+        inplace: bool = False,
+    ):
         super().__init__(threshold, inplace)
         self._clamp_thresh = clamp_thresh
         self._clamp_comp = clamp_comp
 
         if type(threshold) != type(compression):
-            raise Exception('Type of threshold {} must match type of compression {}'
-                            .format(type(threshold), type(compression)))
+            raise Exception(
+                "Type of threshold {} must match type of compression {}".format(
+                    type(threshold), type(compression)
+                )
+            )
 
         if isinstance(compression, List) and len(compression) != len(threshold):
-            raise Exception('len of compression {} must match len of threshold {}'
-                            .format(len(compression), len(threshold)))
+            raise Exception(
+                "len of compression {} must match len of threshold {}".format(
+                    len(compression), len(threshold)
+                )
+            )
 
         self.compression = Parameter(torch.tensor(compression))
 
     def set_compression(self, compression: Union[float, List[float]]):
         if self._dynamic:
-            raise Exception('attempted to set compression for a '
-                            'dynamic channel allocation - expected flow: pass input through model first')
+            raise Exception(
+                "attempted to set compression for a "
+                "dynamic channel allocation - expected flow: pass input through model first"
+            )
 
         if self._channel_wise and not isinstance(compression, List):
-            raise ValueError('attempted to set single compression, '
-                             'but expected channelized compression of length {}'.format(self._num_channels))
+            raise ValueError(
+                "attempted to set single compression, "
+                "but expected channelized compression of length {}".format(
+                    self._num_channels
+                )
+            )
 
         if self._channel_wise and self._num_channels != len(compression):
-            raise ValueError('attempted to set compression of len {} '
-                             'but number of channels was set to to {} '
-                             'at FATReLU init'.format(len(compression), self._num_channels))
+            raise ValueError(
+                "attempted to set compression of len {} "
+                "but number of channels was set to to {} "
+                "at FATReLU init".format(len(compression), self._num_channels)
+            )
 
         self._compression.data.copy_(torch.tensor(compression))
 
     def get_compression(self) -> Union[float, List[float]]:
-        return self._compression.data.cpu().item() if not self._channel_wise else self._compression.data.cpu().tolist()
+        return (
+            self._compression.data.cpu().item()
+            if not self._channel_wise
+            else self._compression.data.cpu().tolist()
+        )
 
     # def _param_clamp(self):
     #     self.threshold.clamp(self.threshold_dynamic_val, 1e5)  # NB: not done inplace
@@ -254,10 +317,14 @@ class _DiffFATReLU(FATReLU):
 
         if self._dynamic:
             # population of dynamic channel threshold and compression - only once: in first forward.
-            thresh = [self._clamp_thresh if self._clamp_thresh is not None else 0.0] * inp.shape[1]
+            thresh = [
+                self._clamp_thresh if self._clamp_thresh is not None else 0.0
+            ] * inp.shape[1]
             self.threshold.data = torch.tensor(thresh)
 
-            comp = [self._clamp_comp if self._clamp_comp is not None else 1.0] * inp.shape[1]
+            comp = [
+                self._clamp_comp if self._clamp_comp is not None else 1.0
+            ] * inp.shape[1]
             self.compression.data = torch.tensor(comp)
 
             self._dynamic = False
@@ -270,14 +337,22 @@ class _DiffFATReLU(FATReLU):
         raise NotImplementedError()
 
     def extra_repr(self):
-        inplace_str = 'inplace' if self.inplace else ''
+        inplace_str = "inplace" if self.inplace else ""
 
-        return 'threshold={}, compression={}{}'.format(self.threshold, self.compression, inplace_str)
+        return "threshold={}, compression={}{}".format(
+            self.threshold, self.compression, inplace_str
+        )
 
 
 class FATPWReLU(_DiffFATReLU):
-    def __init__(self, threshold: Union[float, List[float]], compression: Union[float, List[float]],
-                 clamp_thresh: bool = False, clamp_comp: bool = False, inplace: bool = False):
+    def __init__(
+        self,
+        threshold: Union[float, List[float]],
+        compression: Union[float, List[float]],
+        clamp_thresh: bool = False,
+        clamp_comp: bool = False,
+        inplace: bool = False,
+    ):
         """
         Applies a piece-wise linear approximation of the FAT ReLU such that the loss is now derivable
         according to the threshold and the slope.
@@ -295,18 +370,26 @@ class FATPWReLU(_DiffFATReLU):
         """
         clamp_thresh = 0.0 if clamp_thresh else None
         clamp_comp = 1.0 if clamp_comp else None
-        super(FATPWReLU, self).__init__(threshold, clamp_thresh, compression, clamp_comp, inplace)
+        super(FATPWReLU, self).__init__(
+            threshold, clamp_thresh, compression, clamp_comp, inplace
+        )
 
     def apply_diff_fat_relu(self, inp: Tensor) -> Tensor:
-        out = _apply_permuted_channels(fat_pw_relu, inp, threshold=self.threshold,
-                                       compression=self.compression) #TODO: verify it is OK to abolish inplace support
+        out = _apply_permuted_channels(
+            fat_pw_relu, inp, threshold=self.threshold, compression=self.compression
+        )
 
         return out
 
 
 class FATSigReLU(_DiffFATReLU):
-    def __init__(self, threshold: Union[float, List[float]], compression: Union[float, List[float]],
-                 clamp_thresh: bool = False, clamp_comp: bool = False):
+    def __init__(
+        self,
+        threshold: Union[float, List[float]],
+        compression: Union[float, List[float]],
+        clamp_thresh: bool = False,
+        clamp_comp: bool = False,
+    ):
         """
         Applies a sigmoid approximation of the FAT ReLU such that the loss is now derivable
         according to the threshold and the slope
@@ -320,17 +403,26 @@ class FATSigReLU(_DiffFATReLU):
         """
         clamp_thresh = 0.0 if clamp_thresh else None
         clamp_comp = 0.0 if clamp_comp else None
-        super(FATSigReLU, self).__init__(threshold, clamp_thresh, compression, clamp_comp, inplace=False)
+        super(FATSigReLU, self).__init__(
+            threshold, clamp_thresh, compression, clamp_comp, inplace=False
+        )
 
     def apply_diff_fat_relu(self, inp: Tensor) -> Tensor:
-        out = _apply_permuted_channels(fat_sig_relu, inp, threshold=self.threshold, compression=self.compression)
+        out = _apply_permuted_channels(
+            fat_sig_relu, inp, threshold=self.threshold, compression=self.compression
+        )
 
         return out
 
 
 class FATExpReLU(_DiffFATReLU):
-    def __init__(self, threshold: Union[float, List[float]], compression: Union[float, List[float]],
-                 clamp_thresh: bool = False, clamp_comp: bool = False):
+    def __init__(
+        self,
+        threshold: Union[float, List[float]],
+        compression: Union[float, List[float]],
+        clamp_thresh: bool = False,
+        clamp_comp: bool = False,
+    ):
         """
         Applies an exponential approximation of the FAT ReLU such that the loss is now derivable
         according to the threshold and the slope
@@ -346,25 +438,36 @@ class FATExpReLU(_DiffFATReLU):
         """
         clamp_thresh = 0.0 if clamp_thresh else None
         clamp_comp = 1.0 if clamp_comp else None
-        super(FATExpReLU, self).__init__(threshold, clamp_thresh, compression, clamp_comp, inplace=False)
+        super(FATExpReLU, self).__init__(
+            threshold, clamp_thresh, compression, clamp_comp, inplace=False
+        )
 
     def apply_diff_fat_relu(self, inp: Tensor) -> Tensor:
-        print(_apply_permuted_channels(fat_exp_relu, inp, threshold=self.threshold,
-                                       compression=self.compression))
-        out = _apply_permuted_channels(fat_exp_relu, inp, threshold=self.threshold,
-                                       compression=self.compression) #TODO: verify OK to NOT support inplace
+        print(
+            _apply_permuted_channels(
+                fat_exp_relu,
+                inp,
+                threshold=self.threshold,
+                compression=self.compression,
+            )
+        )
+        out = _apply_permuted_channels(
+            fat_exp_relu, inp, threshold=self.threshold, compression=self.compression
+        )
 
         return out
 
 
 class FATReluType(Enum):
-    basic = 'basic'
-    piecewise = 'piecewise'
-    sigmoid = 'sigmod'
-    exponential = 'exponential'
+    basic = "basic"
+    piecewise = "piecewise"
+    sigmoid = "sigmod"
+    exponential = "exponential"
 
 
-def convert_relus_to_fat(module: Module, type_: FATReluType = FATReluType.basic, **kwargs) -> Dict[str, FATReLU]:
+def convert_relus_to_fat(
+    module: Module, type_: FATReluType = FATReluType.basic, **kwargs
+) -> Dict[str, FATReLU]:
     relu_keys = []
 
     for name, mod in module.named_modules():
@@ -379,7 +482,9 @@ def convert_relus_to_fat(module: Module, type_: FATReluType = FATReluType.basic,
     return added
 
 
-def set_relu_to_fat(module: Module, layer_name: str, type_: FATReluType = FATReluType.basic, **kwargs) -> FATReLU:
+def set_relu_to_fat(
+    module: Module, layer_name: str, type_: FATReluType = FATReluType.basic, **kwargs
+) -> FATReLU:
     if type_ == FATReluType.basic:
         construct = FATReLU
     elif type_ == FATReluType.piecewise:
@@ -389,10 +494,10 @@ def set_relu_to_fat(module: Module, layer_name: str, type_: FATReluType = FATRel
     elif type_ == FATReluType.exponential:
         construct = FATExpReLU
     else:
-        raise ValueError('unknown type_ given of {}'.format(type_))
+        raise ValueError("unknown type_ given of {}".format(type_))
 
     layer = module
-    layers = layer_name.split('.')
+    layers = layer_name.split(".")
 
     for lay in layers[:-1]:
         layer = layer.__getattr__(lay)

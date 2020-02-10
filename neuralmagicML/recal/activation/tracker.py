@@ -1,15 +1,21 @@
-from typing import Union, Callable, Any, Tuple
+from typing import Union, Callable, Tuple
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.hooks import RemovableHandle
 
 
-__all__ = ['ASLayerTracker']
+__all__ = ["ASLayerTracker"]
 
 
 class ASLayerTracker(object):
-    def __init__(self, layer: Module, track_input: bool = False, track_output: bool = False,
-                 input_func: Union[None, Callable] = None, output_func: Union[None, Callable] = None):
+    def __init__(
+        self,
+        layer: Module,
+        track_input: bool = False,
+        track_output: bool = False,
+        input_func: Union[None, Callable] = None,
+        output_func: Union[None, Callable] = None,
+    ):
         super().__init__()
         self._layer = layer
         self._track_input = track_input
@@ -55,14 +61,22 @@ class ASLayerTracker(object):
         if self._hook_handle is not None:
             return
 
-        def _forward_hook(_mod: Module, _inp: Union[Tensor, Tuple[Tensor]], _out: Union[Tensor, Tuple[Tensor]]):
+        def _forward_hook(
+            _mod: Module,
+            _inp: Union[Tensor, Tuple[Tensor]],
+            _out: Union[Tensor, Tuple[Tensor]],
+        ):
             if self._track_input:
                 tracked = _inp
 
                 if self._input_func is not None:
                     tracked = self._input_func(_inp)
 
-                key = 'cpu' if not tracked.is_cuda else 'cuda:{}'.format(tracked.get_device())
+                key = (
+                    "cpu"
+                    if not tracked.is_cuda
+                    else "cuda:{}".format(tracked.get_device())
+                )
                 self._tracked_input[key] = tracked
 
             if self._track_output:
@@ -71,7 +85,11 @@ class ASLayerTracker(object):
                 if self._output_func is not None:
                     tracked = self._output_func(_out)
 
-                key = 'cpu' if not tracked.is_cuda else 'cuda:{}'.format(tracked.get_device())
+                key = (
+                    "cpu"
+                    if not tracked.is_cuda
+                    else "cuda:{}".format(tracked.get_device())
+                )
                 self._tracked_output[key] = tracked
 
         self._hook_handle = self._layer.register_forward_hook(_forward_hook)

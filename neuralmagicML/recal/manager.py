@@ -1,3 +1,8 @@
+"""
+Contains base code related to modifier managers: modifier managers handle grouping modifiers and running them together
+Also handles loading modifiers from yaml files
+"""
+
 from typing import List
 import yaml
 from torch import Tensor
@@ -25,12 +30,27 @@ class ScheduledModifierManager(Modifier):
             - optimizer_post_step
     """
 
+    @staticmethod
+    def from_yaml(file_path: str):
+        """
+        Convenience function used to create the manager of multiple modifiers from a yaml file
+
+        :param file_path: the path to the yaml file to load the modifier from
+        :return: ScheduledModifierManager() created from the yaml file
+        """
+        with open(file_path, "r") as yaml_file:
+            loaded = yaml.safe_load(yaml_file)
+        manager = ScheduledModifierManager(loaded["modifiers"])
+
+        return manager
+
     def __init__(self, modifiers: List[ScheduledModifier]):
         """
         Convenience wrapper around multiple scheduled modifiers
 
         :param modifiers: the modifiers to wrap
         """
+        super().__init__()
         self._modifiers = modifiers
 
     def __del__(self):
@@ -64,6 +84,7 @@ class ScheduledModifierManager(Modifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
+        super().initialize(module, optimizer)
 
         for mod in self._modifiers:
             mod.initialize(module, optimizer)
@@ -80,6 +101,8 @@ class ScheduledModifierManager(Modifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+
         for mod in self._modifiers:
             if mod.update_ready(epoch, steps_per_epoch):
                 mod.scheduled_update(module, optimizer, epoch, steps_per_epoch)
@@ -102,6 +125,7 @@ class ScheduledModifierManager(Modifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: the modified loss tensor
         """
+        super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
 
         for mod in self._modifiers:
             loss = mod.loss_update(loss, module, optimizer, epoch, steps_per_epoch)
@@ -120,6 +144,7 @@ class ScheduledModifierManager(Modifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
 
         for mod in self._modifiers:
             mod.optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
@@ -136,20 +161,7 @@ class ScheduledModifierManager(Modifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 
         for mod in self._modifiers:
             mod.optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
-
-    @staticmethod
-    def from_yaml(file_path: str):
-        """
-        Convenience function used to create the manager of multiple modifiers from a yaml file
-
-        :param file_path: the path to the yaml file to load the modifier from
-        :return: ScheduledModifierManager() created from the yaml file
-        """
-        with open(file_path, "r") as yaml_file:
-            loaded = yaml.safe_load(yaml_file)
-        manager = ScheduledModifierManager(loaded["modifiers"])
-
-        return manager

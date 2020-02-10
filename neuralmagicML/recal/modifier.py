@@ -11,9 +11,9 @@ from torch.optim.optimizer import Optimizer
 
 
 __all__ = [
-    'Modifier',
-    'ScheduledModifier',
-    'ScheduledUpdateModifier',
+    "Modifier",
+    "ScheduledModifier",
+    "ScheduledUpdateModifier",
 ]
 
 
@@ -31,7 +31,39 @@ class Modifier(ABC):
             - optimizer_post_step
     """
 
-    @abstractmethod
+    def __init__(self):
+        self._initialized = False
+        self._enabled = True
+
+    @property
+    def initialized(self) -> bool:
+        """
+        :return: True if the modifier has gone through the initialized life cycle, False otherwise
+        """
+        return self._initialized
+
+    @property
+    def enabled(self) -> bool:
+        """
+        :return: True if the modifier is currently enabled and making updates, False otherwise
+        """
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value: bool):
+        """
+        :param value: True to allow the modifier to make updates, False otherwise
+        """
+        self._enabled = value
+
+    def prop_set_check(self, prop_name: str = ""):
+        if self._initialized:
+            raise RuntimeError(
+                "Cannot change {} after {} has been initialized".format(
+                    prop_name, self.__class__.__name__
+                )
+            )
+
     def initialize(self, module: Module, optimizer: Optimizer):
         """
         Handles initializing and setting up the modifier
@@ -40,9 +72,8 @@ class Modifier(ABC):
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
-        raise NotImplementedError()
+        self._initialized = True
 
-    @abstractmethod
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -55,9 +86,12 @@ class Modifier(ABC):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
-        raise NotImplementedError()
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
 
-    @abstractmethod
+        if not self._enabled:
+            raise RuntimeError("modifier must be enabled")
+
     def loss_update(
         self,
         loss: Tensor,
@@ -77,9 +111,14 @@ class Modifier(ABC):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: the modified loss tensor
         """
-        raise NotImplementedError()
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
 
-    @abstractmethod
+        if not self._enabled:
+            raise RuntimeError("modifier must be enabled")
+
+        return loss
+
     def optimizer_pre_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -92,9 +131,12 @@ class Modifier(ABC):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
-        raise NotImplementedError()
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
 
-    @abstractmethod
+        if not self._enabled:
+            raise RuntimeError("modifier must be enabled")
+
     def optimizer_post_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -107,7 +149,11 @@ class Modifier(ABC):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
-        raise NotImplementedError()
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
+
+        if not self._enabled:
+            raise RuntimeError("modifier must be enabled")
 
 
 class ScheduledModifier(Modifier):
@@ -119,7 +165,9 @@ class ScheduledModifier(Modifier):
     Lifecycle:
         - initialize
         training loop:
-            - update
+            - update_ready
+            - scheduled_update
+                - update
             - loss_update
             - optimizer_pre_step
             - optimizer_post_step
@@ -130,40 +178,12 @@ class ScheduledModifier(Modifier):
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
         :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
         """
-        self._initialized = False
-        self._enabled = True
+        super(ScheduledModifier, self).__init__()
         self._start_epoch = start_epoch
         self._end_epoch = end_epoch
         self._started = False
         self._ended = False
-
-    @property
-    def enabled(self) -> bool:
-        """
-        :return: True if the modifier is currently enabled and making updates, False otherwise
-        """
-        return self._enabled
-
-    @enabled.setter
-    def enabled(self, value: bool):
-        """
-        :param value: True to allow the modifier to make updates, False otherwise
-        """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change enabled after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
-        self._enabled = value
-
-    @property
-    def initialized(self) -> bool:
-        """
-        :return: True if the modifier has gone through the initialized life cycle, False otherwise
-        """
-        return self._initialized
+        self._schedule_called = False
 
     @property
     def start_epoch(self) -> float:
@@ -229,6 +249,9 @@ class ScheduledModifier(Modifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: True if the modifier is ready to begin modifying, false otherwise
         """
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
+
         if not self.enabled:
             return False
 
@@ -248,6 +271,9 @@ class ScheduledModifier(Modifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: True if the modifier is ready to stop modifying, false otherwise
         """
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
+
         if not self.enabled:
             return False
 
@@ -263,6 +289,9 @@ class ScheduledModifier(Modifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: True if the modifier is pending an update and update() should be called
         """
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
+
         if not self.enabled:
             return False
 
@@ -284,7 +313,17 @@ class ScheduledModifier(Modifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
+
+        if not self.update_ready(epoch, steps_per_epoch):
+            raise RuntimeError(
+                "update_ready returns False, this must be true to call scheduled_update"
+            )
+
+        self._schedule_called = True
         self.update(module, optimizer, epoch, steps_per_epoch)
+        self._schedule_called = False
 
         if self.start_pending(epoch, steps_per_epoch):
             self._started = True
@@ -292,17 +331,6 @@ class ScheduledModifier(Modifier):
         if self.end_pending(epoch, steps_per_epoch):
             self._ended = True
 
-    def initialize(self, module: Module, optimizer: Optimizer):
-        """
-        Handles initializing and setting up the modifier
-        Called once on construction of the scheduled optimizer
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        """
-        self._initialized = True
-
-    @abstractmethod
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -315,56 +343,12 @@ class ScheduledModifier(Modifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
-        raise NotImplementedError()
+        super(ScheduledModifier, self).update(module, optimizer, epoch, steps_per_epoch)
 
-    def loss_update(
-        self,
-        loss: Tensor,
-        module: Module,
-        optimizer: Optimizer,
-        epoch: float,
-        steps_per_epoch: int,
-    ) -> Tensor:
-        """
-        Optional call that can be made on the optimizer to update the modifiers once the loss has been calculated
-        Called independent of if the modifier is currently active or not
-
-        :param loss: The calculated loss tensor
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
-        :return: the modified loss tensor
-        """
-        return loss
-
-    def optimizer_pre_step(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
-    ):
-        """
-        Called before the optimizer step happens (after backward has been called, before optimizer.step)
-        Called independent of if the modifier is currently active or not
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
-        """
-        pass
-
-    def optimizer_post_step(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
-    ):
-        """
-        Called after the optimizer step happens and weights have updated
-        Called independent of if the modifier is currently active or not
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
-        """
-        pass
+        if not self._schedule_called:
+            raise RuntimeError(
+                "update should not be called directly, call scheduled_update instead"
+            )
 
 
 class ScheduledUpdateModifier(ScheduledModifier):
@@ -439,6 +423,7 @@ class ScheduledUpdateModifier(ScheduledModifier):
         start_or_end = super().update_ready(epoch, steps_per_epoch)
         update_ready = (
             self.started
+            and epoch > self.start_epoch
             and not self.ended
             and (
                 (self._update_frequency == -1.0)
@@ -449,34 +434,11 @@ class ScheduledUpdateModifier(ScheduledModifier):
             )
         )
 
-        if start_or_end or update_ready:
-            self._last_update_epoch = epoch
+        return start_or_end or update_ready
 
-            return True
-
-        return False
-
-    def initialize(self, module: Module, optimizer: Optimizer):
-        """
-        Handles initializing and setting up the modifier
-        Called once on construction of the scheduled optimizer
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        """
-        super(ScheduledUpdateModifier, self).initialize(module, optimizer)
-
-    @abstractmethod
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
-        """
-        Handles updating the modifier's state, module, or optimizer
-        Called when update_ready() returns True
+        self._last_update_epoch = epoch
 
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
-        """
-        raise NotImplementedError()
+        return super().update(module, optimizer, epoch, steps_per_epoch)

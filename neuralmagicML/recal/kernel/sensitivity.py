@@ -1,4 +1,4 @@
-from typing import Tuple, List, Callable, Dict, Any, Union
+from typing import Tuple, List, Callable, Dict, Any
 import json
 from tqdm import auto
 
@@ -9,26 +9,40 @@ from torch.utils.data import Dataset, DataLoader
 from ...datasets import EarlyStopDataset, CacheableDataset
 from ...models import model_to_device
 from ...utils import (
-    ModuleTester, clean_path, create_parent_dirs, DEFAULT_LOSS_KEY, ModuleRunFuncs,
-    get_conv_layers, get_linear_layers
+    ModuleTester,
+    clean_path,
+    create_parent_dirs,
+    DEFAULT_LOSS_KEY,
+    ModuleRunFuncs,
+    get_conv_layers,
+    get_linear_layers,
 )
-from ..module_analyzer import ModuleAnalyzer
+from neuralmagicML.utils.module_analyzer import ModuleAnalyzer
 from .mask import KSLayerParamMask
 
 
-__all__ = ['one_shot_sensitivity_analysis', 'OneShotLayerSensitivity',
-           'save_one_shot_sensitivity_analysis']
+__all__ = [
+    "one_shot_sensitivity_analysis",
+    "OneShotLayerSensitivity",
+    "save_one_shot_sensitivity_analysis",
+]
 
 
 class OneShotLayerSensitivity(object):
-    def __init__(self, name: str, type_: str, execution_order: int = -1, measured: List[Tuple[float, float]] = None):
+    def __init__(
+        self,
+        name: str,
+        type_: str,
+        execution_order: int = -1,
+        measured: List[Tuple[float, float]] = None,
+    ):
         self.name = name
         self.type_ = type_
         self.execution_order = execution_order
         self.measured = measured
 
     def __repr__(self):
-        return 'OneShotLayerSensitivity({})'.format(self.json())
+        return "OneShotLayerSensitivity({})".format(self.json())
 
     @property
     def integrate(self) -> float:
@@ -36,7 +50,9 @@ class OneShotLayerSensitivity(object):
 
         for index, (sparsity, loss) in enumerate(self.measured):
             prev_sparsity = self.measured[index - 1][0] if index > 0 else 0.0
-            next_sparsity = self.measured[index + 1][0] if index < len(self.measured) - 1 else 1.0
+            next_sparsity = (
+                self.measured[index + 1][0] if index < len(self.measured) - 1 else 1.0
+            )
             x_dist = (next_sparsity - sparsity) / 2.0 + (sparsity - prev_sparsity) / 2.0
             total += x_dist * loss
 
@@ -44,10 +60,10 @@ class OneShotLayerSensitivity(object):
 
     def dict(self) -> Dict[str, Any]:
         return {
-            'name': self.name,
-            'type': self.type_,
-            'measured': [{'sparsity': val[0], 'loss': val[1]} for val in self.measured],
-            'integral_loss': self.integrate
+            "name": self.name,
+            "type": self.type_,
+            "measured": [{"sparsity": val[0], "loss": val[1]} for val in self.measured],
+            "integral_loss": self.integrate,
         }
 
     def json(self) -> str:
@@ -55,10 +71,18 @@ class OneShotLayerSensitivity(object):
 
 
 def one_shot_sensitivity_analysis(
-        model: Module, data: Dataset, loss_fn: Callable, device: str, batch_size: int, samples_per_check: int,
-        sparsity_levels: List[int] = None, cache_data: bool = True,
-        loader_args: Dict = None, data_loader_const: Callable = DataLoader, tester_run_funcs: ModuleRunFuncs = None,
-        progress_callback: Callable[[int, int, str, List[int], int], None] = None
+    model: Module,
+    data: Dataset,
+    loss_fn: Callable,
+    device: str,
+    batch_size: int,
+    samples_per_check: int,
+    sparsity_levels: List[int] = None,
+    cache_data: bool = True,
+    loader_args: Dict = None,
+    data_loader_const: Callable = DataLoader,
+    tester_run_funcs: ModuleRunFuncs = None,
+    progress_callback: Callable[[int, int, str, List[int], int], None] = None,
 ) -> List[OneShotLayerSensitivity]:
     if len(data) > samples_per_check > 0:
         data = EarlyStopDataset(data, samples_per_check)
@@ -68,10 +92,10 @@ def one_shot_sensitivity_analysis(
 
     if cache_data:
         # cacheable dataset does not work with parallel data loaders
-        if 'num_workers' in loader_args and loader_args['num_workers'] != 0:
-            raise ValueError('num_workers must be 0 for dataset cache')
+        if "num_workers" in loader_args and loader_args["num_workers"] != 0:
+            raise ValueError("num_workers must be 0 for dataset cache")
 
-        loader_args['num_workers'] = 0
+        loader_args["num_workers"] = 0
         data = CacheableDataset(data)
 
     if sparsity_levels is None:
@@ -80,16 +104,24 @@ def one_shot_sensitivity_analysis(
     layers = {}
     layers.update(get_conv_layers(model))
     layers.update(get_linear_layers(model))
-    progress = auto.tqdm(total=len(layers) * len(sparsity_levels) * samples_per_check,
-                         desc='Sensitivity Analysis')
+    progress = auto.tqdm(
+        total=len(layers) * len(sparsity_levels) * samples_per_check,
+        desc="Sensitivity Analysis",
+    )
 
     orig_device = next(model.parameters()).device
 
     analyzer = ModuleAnalyzer(model, enabled=True)
     model, device, device_ids = model_to_device(model, device)
-    device_str = device if device_ids is None or len(device_ids) < 2 else '{}:{}'.format(device, device_ids[0])
+    device_str = (
+        device
+        if device_ids is None or len(device_ids) < 2
+        else "{}:{}".format(device, device_ids[0])
+    )
 
-    def _batch_end(_epoch: int, _step: int, _batch_size: int, _data: Any, _pred: Any, _losses: Any):
+    def _batch_end(
+        _epoch: int, _step: int, _batch_size: int, _data: Any, _pred: Any, _losses: Any
+    ):
         analyzer.enabled = False
         progress.update(_batch_size)
 
@@ -106,27 +138,45 @@ def one_shot_sensitivity_analysis(
             progress_callback(layer_index, len(layers), name, sparsity_levels, -1)
 
         sparsities_loss = []
-        mask = KSLayerParamMask(layer, store_init=True, store_unmasked=False, track_grad_mom=-1)
+        mask = KSLayerParamMask(
+            layer, store_init=True, store_unmasked=False, track_grad_mom=-1
+        )
         mask.enabled = True
 
         for sparsity_index, sparsity_level in enumerate(sparsity_levels):
             mask.set_param_mask_from_sparsity(sparsity_level)
             data_loader = data_loader_const(data, batch_size, **loader_args)
-            res = tester.run(data_loader, desc='', show_progress=False, track_results=True)
-            sparsities_loss.append((sparsity_level, res.result_mean(DEFAULT_LOSS_KEY).item()))
+            res = tester.run(
+                data_loader, desc="", show_progress=False, track_results=True
+            )
+            sparsities_loss.append(
+                (sparsity_level, res.result_mean(DEFAULT_LOSS_KEY).item())
+            )
 
             if progress_callback is not None:
-                progress_callback(layer_index, len(layers), name, sparsity_levels, sparsity_index)
+                progress_callback(
+                    layer_index, len(layers), name, sparsity_levels, sparsity_index
+                )
 
         mask.enabled = False
         mask.reset()
         del mask
 
         desc = analyzer.layer_desc(name)
-        sensitivities.append(OneShotLayerSensitivity(name, desc.type_, desc.execution_order, sparsities_loss))
+        sensitivities.append(
+            OneShotLayerSensitivity(
+                name, desc.type_, desc.execution_order, sparsities_loss
+            )
+        )
 
         if progress_callback is not None:
-            progress_callback(layer_index, len(layers), name, sparsity_levels, len(sparsity_levels) + 1)
+            progress_callback(
+                layer_index,
+                len(layers),
+                name,
+                sparsity_levels,
+                len(sparsity_levels) + 1,
+            )
 
     progress.close()
     sensitivities.sort(key=lambda val: val.execution_order)
@@ -140,13 +190,12 @@ def one_shot_sensitivity_analysis(
     return sensitivities
 
 
-def save_one_shot_sensitivity_analysis(layer_sensitivities: List[OneShotLayerSensitivity], path: str):
+def save_one_shot_sensitivity_analysis(
+    layer_sensitivities: List[OneShotLayerSensitivity], path: str
+):
     path = clean_path(path)
     create_parent_dirs(path)
-    sens_object = {
-        'layer_sensitivities': [sens.dict() for sens in layer_sensitivities]
-    }
+    sens_object = {"layer_sensitivities": [sens.dict() for sens in layer_sensitivities]}
 
-    with open(path, 'w') as file:
+    with open(path, "w") as file:
         json.dump(sens_object, file)
-

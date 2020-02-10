@@ -5,17 +5,17 @@ from torch.nn import Module, Parameter
 from ...utils import tensor_sparsity
 
 
-__all__ = ['ModuleKSAnalyzer']
+__all__ = ["ModuleKSAnalyzer"]
 
 
 class ModuleKSAnalyzer(object):
     @staticmethod
-    def analyze_layers(module: Module, layers: List[str], param_name: str = 'weight'):
+    def analyze_layers(module: Module, layers: List[str], param_name: str = "weight"):
         analyzed = []
 
         for layer_name in layers:
             mod = module
-            lays = layer_name.split('.')
+            lays = layer_name.split(".")
 
             for lay in lays:
                 mod = mod.__getattr__(lay)
@@ -24,7 +24,7 @@ class ModuleKSAnalyzer(object):
 
         return analyzed
 
-    def __init__(self, module: Module, name: str, param_name: str = 'weight'):
+    def __init__(self, module: Module, name: str, param_name: str = "weight"):
         """
         Analyzer to get the sparsity of a given layer's parameter such activation weight
 
@@ -51,7 +51,7 @@ class ModuleKSAnalyzer(object):
 
     @property
     def tag(self):
-        return '{}.{}'.format(self.name, self.param_name)
+        return "{}.{}".format(self.name, self.param_name)
 
     @property
     def param(self) -> Parameter:
@@ -61,5 +61,7 @@ class ModuleKSAnalyzer(object):
     def param_sparsity(self) -> Tensor:
         return self.param_sparsity_division(None)
 
-    def param_sparsity_division(self, division: Union[None, int, Tuple[int, ...]] = None) -> Tensor:
+    def param_sparsity_division(
+        self, division: Union[None, int, Tuple[int, ...]] = None
+    ) -> Tensor:
         return tensor_sparsity(self._param.data, division)

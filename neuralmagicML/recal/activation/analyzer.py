@@ -8,19 +8,24 @@ from torch.utils.hooks import RemovableHandle
 from ...utils import tensor_sparsity, tensor_sample, get_layer
 
 
-__all__ = ['ASResultType', 'ModuleASAnalyzer']
+__all__ = ["ASResultType", "ModuleASAnalyzer"]
 
 
 class ASResultType(Enum):
-    inputs_sparsity = 'inputs_sparsity'
-    inputs_sample = 'inputs_sample'
-    outputs_sparsity = 'outputs_sparsity'
-    outputs_sample = 'outputs_sample'
+    inputs_sparsity = "inputs_sparsity"
+    inputs_sample = "inputs_sample"
+    outputs_sparsity = "outputs_sparsity"
+    outputs_sample = "outputs_sample"
 
 
 class ModuleASAnalyzer(object):
     @staticmethod
-    def analyze_layers(module: Module, layers: List[str], division: Union[None, int, Tuple[int, ...]], **kwargs):
+    def analyze_layers(
+        module: Module,
+        layers: List[str],
+        division: Union[None, int, Tuple[int, ...]],
+        **kwargs
+    ):
         analyzed = []
 
         for layer_name in layers:
@@ -29,10 +34,16 @@ class ModuleASAnalyzer(object):
 
         return analyzed
 
-    def __init__(self, module: Module, division: Union[None, int, Tuple[int, ...]],
-                 track_inputs_sparsity: bool = False, track_outputs_sparsity: bool = False,
-                 inputs_sample_size: int = 0, outputs_sample_size: int = 0,
-                 enabled: bool = False):
+    def __init__(
+        self,
+        module: Module,
+        division: Union[None, int, Tuple[int, ...]],
+        track_inputs_sparsity: bool = False,
+        track_outputs_sparsity: bool = False,
+        inputs_sample_size: int = 0,
+        outputs_sample_size: int = 0,
+        enabled: bool = False,
+    ):
         self._module = module
         self._division = division
         self._track_inputs_sparsity = track_inputs_sparsity
@@ -54,10 +65,18 @@ class ModuleASAnalyzer(object):
         self._disable_hooks()
 
     def __str__(self):
-        return ('module: {}, division: {}, track_inputs_sparsity: {}, track_outputs_sparsity: {}, '
-                'inputs_sample_size: {}, outputs_sample_size: {}, enabled: {}'
-                .format(self._module, self._division, self._track_inputs_sparsity, self._track_outputs_sparsity,
-                        self._inputs_sample_size, self._outputs_sample_size, self._enabled))
+        return (
+            "module: {}, division: {}, track_inputs_sparsity: {}, track_outputs_sparsity: {}, "
+            "inputs_sample_size: {}, outputs_sample_size: {}, enabled: {}".format(
+                self._module,
+                self._division,
+                self._track_inputs_sparsity,
+                self._track_outputs_sparsity,
+                self._inputs_sample_size,
+                self._outputs_sample_size,
+                self._enabled,
+            )
+        )
 
     @property
     def module(self) -> Module:
@@ -174,26 +193,38 @@ class ModuleASAnalyzer(object):
     @property
     def outputs_sample_std(self) -> Tensor:
         return self.results_std(ASResultType.outputs_sample)
-    
+
     @property
     def outputs_sample_max(self) -> Tensor:
         return self.results_max(ASResultType.outputs_sample)
-    
+
     @property
     def outputs_sample_min(self) -> Tensor:
         return self.results_min(ASResultType.outputs_sample)
 
     def clear(self, specific_result_type: Union[None, ASResultType] = None):
-        if specific_result_type is None or specific_result_type == ASResultType.inputs_sparsity:
+        if (
+            specific_result_type is None
+            or specific_result_type == ASResultType.inputs_sparsity
+        ):
             self._inputs_sparsity.clear()
 
-        if specific_result_type is None or specific_result_type == ASResultType.inputs_sample:
+        if (
+            specific_result_type is None
+            or specific_result_type == ASResultType.inputs_sample
+        ):
             self._inputs_sample.clear()
 
-        if specific_result_type is None or specific_result_type == ASResultType.outputs_sparsity:
+        if (
+            specific_result_type is None
+            or specific_result_type == ASResultType.outputs_sparsity
+        ):
             self._outputs_sparsity.clear()
 
-        if specific_result_type is None or specific_result_type == ASResultType.outputs_sample:
+        if (
+            specific_result_type is None
+            or specific_result_type == ASResultType.outputs_sample
+        ):
             self._outputs_sample.clear()
 
     def enable(self):
@@ -216,7 +247,7 @@ class ModuleASAnalyzer(object):
         elif result_type == ASResultType.outputs_sample:
             res = self._outputs_sample
         else:
-            raise ValueError('result_type of {} is not supported'.format(result_type))
+            raise ValueError("result_type of {} is not supported".format(result_type))
 
         if not res:
             res = torch.tensor([])
@@ -234,15 +265,15 @@ class ModuleASAnalyzer(object):
         results = self.results(result_type)
 
         return torch.std(torch.cat(results), dim=0)
-    
+
     def results_max(self, result_type: ASResultType) -> Tensor:
         results = self.results(result_type)
-        
+
         return torch.max(torch.cat(results))
-    
+
     def results_min(self, result_type: ASResultType) -> Tensor:
         results = self.results(result_type)
-        
+
         return torch.min(torch.cat(results))
 
     def _enable_hooks(self):
@@ -260,7 +291,11 @@ class ModuleASAnalyzer(object):
                 samples = result.detach_().cpu()
                 self._inputs_sample.append(samples)
 
-        def _forward_hook(_mod: Module, _inp: Union[Tensor, Tuple[Tensor]], _out: Union[Tensor, Tuple[Tensor]]):
+        def _forward_hook(
+            _mod: Module,
+            _inp: Union[Tensor, Tuple[Tensor]],
+            _out: Union[Tensor, Tuple[Tensor]],
+        ):
             if not isinstance(_out, Tensor):
                 _out = _out[0]
 
@@ -270,7 +305,9 @@ class ModuleASAnalyzer(object):
                 self._outputs_sparsity.append(sparsities)
 
             if self.outputs_sample_size > 0:
-                result = tensor_sample(_out, self.outputs_sample_size, dim=self.division)
+                result = tensor_sample(
+                    _out, self.outputs_sample_size, dim=self.division
+                )
                 samples = result.detach_().cpu()
                 self._outputs_sample.append(samples)
 

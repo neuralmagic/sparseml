@@ -7,6 +7,7 @@ from .flops_analyzer import *
 from .loss_wrapper import *
 from .lr_analysis import *
 from .module import *
+from .module_analyzer import *
 from .metrics import *
 from .onnx import *
 from .worker import *

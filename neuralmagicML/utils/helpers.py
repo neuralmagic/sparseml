@@ -13,6 +13,7 @@ from torch.nn.modules.conv import _ConvNd
 
 
 __all__ = [
+    'ALL_TOKEN',
     'flatten_list', 'convert_to_bool', 'validate_str_list',
     'INTERPOLATION_FUNCS', 'interpolate',
     'clean_path', 'create_dirs', 'create_parent_dirs',
@@ -21,6 +22,9 @@ __all__ = [
     'tensor_density', 'tensor_sparsity', 'tensor_sample',
     'get_layer', 'get_terminal_layers', 'get_conv_layers', 'get_linear_layers'
 ]
+
+
+ALL_TOKEN = "__ALL__"
 
 
 ##############################
@@ -47,46 +51,48 @@ def convert_to_bool(val: Any):
 
 def validate_str_list(val: Union[str, List[str]], val_name: str, par_name: str) -> Union[str, List[str]]:
     if isinstance(val, List):
-        val = flatten_list(val)
-    elif isinstance(val, str):
-        if val != '__all__':
-            raise ValueError('unsupported {} string given in {}: {}'.format(val_name, par_name, val))
-    else:
-        raise ValueError('unsupported type given for {} in {}: {}'.format(val_name, par_name, val))
+        return flatten_list(val)
 
-    return val
+    if isinstance(val, str):
+        if val.upper() != '__ALL__':
+            raise ValueError('unsupported {} string given in {}: {}'.format(val_name, par_name, val))
+
+        return val.upper()
+
+    raise ValueError('unsupported type given for {} in {}: {}'.format(val_name, par_name, val))
 
 
 INTERPOLATION_FUNCS = ['linear', 'cubic', 'inverse_cubic', 'geometric']
 
 
-def interpolate(x_cur: float, x0: float, x1: float, y0: float, y1: float, inter_func: str = 'linear') -> float:
+def interpolate(x_cur: float, x0: float, x1: float, y0: Any, y1: Any, inter_func: str = 'linear') -> Any:
     if inter_func not in INTERPOLATION_FUNCS:
         raise ValueError('unsupported inter_func given of {} must be one of {}'
                          .format(inter_func, INTERPOLATION_FUNCS))
 
     # convert our x to 0-1 range since equations are designed to fit in (0,0)-(1,1) space
-    x_cur = (x_cur - x0) / (x1 - x0)
+    x_per = (x_cur - x0) / (x1 - x0)
 
     # map x to y using the desired function in (0,0)-(1,1) space
     if inter_func == 'linear':
-        y_cur = x_cur
+        y_per = x_per
     elif inter_func == 'cubic':
         # https://www.wolframalpha.com/input/?i=1-(1-x)%5E3+from+0+to+1
-        y_cur = 1 - (1 - x_cur) ** 3
+        y_per = 1 - (1 - x_per) ** 3
     elif inter_func == 'inverse_cubic':
         # https://www.wolframalpha.com/input/?i=1-(1-x)%5E(1%2F3)+from+0+to+1
-        y_cur = 1 - (1 - x_cur) ** (1/3)
+        y_per = 1 - (1 - x_per) ** (1/3)
     else:
         raise ValueError('unsupported inter_func given of {} in interpolate'.format(inter_func))
 
-    if y_cur > 1.0 - sys.float_info.epsilon:
-        y_cur = 1.0
+    if y_per <= 0.0 + sys.float_info.epsilon:
+        return y0
+
+    if y_per >= 1.0 - sys.float_info.epsilon:
+        return y1
 
     # scale the threshold based on what we want the current to be
-    y_cur = y_cur * (y1 - y0) + y0
-
-    return y_cur
+    return y_per * (y1 - y0) + y0
 
 
 def clean_path(path: str) -> str:
