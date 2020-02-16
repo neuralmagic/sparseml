@@ -4,9 +4,24 @@ import json
 
 from torch import Tensor
 from torch.nn import (
-    Module, Linear, Softmax, Softmax2d,
-    Threshold, ReLU, ReLU6, RReLU, LeakyReLU, PReLU, ELU, CELU, SELU, GLU,
-    Hardtanh, Tanh, Sigmoid, LogSigmoid
+    Module,
+    Linear,
+    Softmax,
+    Softmax2d,
+    Threshold,
+    ReLU,
+    ReLU6,
+    RReLU,
+    LeakyReLU,
+    PReLU,
+    ELU,
+    CELU,
+    SELU,
+    GLU,
+    Hardtanh,
+    Tanh,
+    Sigmoid,
+    LogSigmoid,
 )
 from torch.nn.modules.conv import _ConvNd
 from torch.nn.modules.batchnorm import _BatchNorm
@@ -14,21 +29,34 @@ from torch.nn.modules.pooling import _MaxPoolNd, _AvgPoolNd
 from torch.nn.modules.pooling import _AdaptiveMaxPoolNd, _AdaptiveAvgPoolNd
 from torch.utils.hooks import RemovableHandle
 
-from neuralmagicML.utils import clean_path, create_parent_dirs, get_layer, get_conv_layers, get_linear_layers
+from neuralmagicML.utils import (
+    clean_path,
+    create_parent_dirs,
+    get_layer,
+    get_conv_layers,
+    get_linear_layers,
+)
 
 
-__all__ = ['ModuleAnalyzer', 'AnalyzedLayerDesc',
-           'model_ks_desc', 'save_model_ks_desc']
+__all__ = ["ModuleAnalyzer", "AnalyzedLayerDesc", "model_ks_desc", "save_model_ks_desc"]
 
 
 class AnalyzedLayerDesc(object):
-    def __init__(self, name: str, type_: str,
-                 params: int = 0, zeroed_params: int = 0, prunable_params: int = 0,
-                 params_dims: Dict[str, Tuple[int, ...]] = None,
-                 prunable_params_dims: Dict[str, Tuple[int, ...]] = None,
-                 execution_order: int = -1,
-                 input_shape: Tuple[Tuple[int, ...], ...] = None, output_shape: Tuple[Tuple[int, ...], ...] = None,
-                 flops: int = 0, total_flops: int = 0):
+    def __init__(
+        self,
+        name: str,
+        type_: str,
+        params: int = 0,
+        zeroed_params: int = 0,
+        prunable_params: int = 0,
+        params_dims: Dict[str, Tuple[int, ...]] = None,
+        prunable_params_dims: Dict[str, Tuple[int, ...]] = None,
+        execution_order: int = -1,
+        input_shape: Tuple[Tuple[int, ...], ...] = None,
+        output_shape: Tuple[Tuple[int, ...], ...] = None,
+        flops: int = 0,
+        total_flops: int = 0,
+    ):
         self.name = name
         self.type_ = type_
 
@@ -45,7 +73,7 @@ class AnalyzedLayerDesc(object):
         self.total_flops = total_flops
 
     def __repr__(self):
-        return 'AnalyzedLayerDesc({})'.format(self.json())
+        return "AnalyzedLayerDesc({})".format(self.json())
 
     @property
     def terminal(self) -> bool:
@@ -57,20 +85,20 @@ class AnalyzedLayerDesc(object):
 
     def dict(self) -> Dict[str, Any]:
         return {
-            'name': self.name,
-            'type': self.type_,
-            'params': self.params,
-            'zeroed_params': self.zeroed_params,
-            'prunable_params': self.prunable_params,
-            'params_dims': self.params_dims,
-            'prunable_params_dims': self.prunable_params_dims,
-            'execution_order': self.execution_order,
-            'input_shape': self.input_shape,
-            'output_shape': self.output_shape,
-            'flops': self.flops,
-            'total_flops': self.total_flops,
-            'terminal': self.terminal,
-            'prunable': self.prunable
+            "name": self.name,
+            "type": self.type_,
+            "params": self.params,
+            "zeroed_params": self.zeroed_params,
+            "prunable_params": self.prunable_params,
+            "params_dims": self.params_dims,
+            "prunable_params_dims": self.prunable_params_dims,
+            "execution_order": self.execution_order,
+            "input_shape": self.input_shape,
+            "output_shape": self.output_shape,
+            "flops": self.flops,
+            "total_flops": self.total_flops,
+            "terminal": self.terminal,
+            "prunable": self.prunable,
         }
 
     def json(self) -> str:
@@ -79,12 +107,18 @@ class AnalyzedLayerDesc(object):
     @staticmethod
     def merge_descs(orig, descs):
         merged = AnalyzedLayerDesc(
-            name=orig.name, type_=orig.type_,
-            params=orig.params, zeroed_params=orig.zeroed_params, prunable_params=orig.prunable_params,
-            params_dims=orig.params_dims, prunable_params_dims=orig.prunable_params_dims,
+            name=orig.name,
+            type_=orig.type_,
+            params=orig.params,
+            zeroed_params=orig.zeroed_params,
+            prunable_params=orig.prunable_params,
+            params_dims=orig.params_dims,
+            prunable_params_dims=orig.prunable_params_dims,
             execution_order=orig.execution_order,
-            input_shape=orig.input_shape, output_shape=orig.output_shape,
-            flops=orig.flops, total_flops=orig.total_flops
+            input_shape=orig.input_shape,
+            output_shape=orig.output_shape,
+            flops=orig.flops,
+            total_flops=orig.total_flops,
         )
 
         for desc in descs:
@@ -130,7 +164,9 @@ class ModuleAnalyzer(object):
 
     def layer_desc(self, name: Union[str, None] = None) -> AnalyzedLayerDesc:
         if not self._forward_called:
-            raise RuntimeError('module must have forward called with sample input before getting a layer desc')
+            raise RuntimeError(
+                "module must have forward called with sample input before getting a layer desc"
+            )
 
         mod = get_layer(name, self._module) if name is not None else self._module
 
@@ -172,10 +208,22 @@ class ModuleAnalyzer(object):
         if isinstance(mod, _AdaptiveAvgPoolNd) or isinstance(mod, _AdaptiveMaxPoolNd):
             return mod.register_forward_hook(self._adaptive_pool_hook)
 
-        if (isinstance(mod, Threshold) or isinstance(mod, ReLU) or isinstance(mod, ReLU6) or isinstance(mod, RReLU) or
-                isinstance(mod, LeakyReLU) or isinstance(mod, PReLU) or isinstance(mod, ELU) or isinstance(mod, CELU) or
-                isinstance(mod, SELU) or isinstance(mod, GLU) or isinstance(mod, Hardtanh) or isinstance(mod, Tanh) or
-                isinstance(mod, Sigmoid) or isinstance(mod, LogSigmoid)):
+        if (
+            isinstance(mod, Threshold)
+            or isinstance(mod, ReLU)
+            or isinstance(mod, ReLU6)
+            or isinstance(mod, RReLU)
+            or isinstance(mod, LeakyReLU)
+            or isinstance(mod, PReLU)
+            or isinstance(mod, ELU)
+            or isinstance(mod, CELU)
+            or isinstance(mod, SELU)
+            or isinstance(mod, GLU)
+            or isinstance(mod, Hardtanh)
+            or isinstance(mod, Tanh)
+            or isinstance(mod, Sigmoid)
+            or isinstance(mod, LogSigmoid)
+        ):
             return mod.register_forward_hook(self._activation_hook)
 
         if isinstance(mod, Softmax) or isinstance(mod, Softmax2d):
@@ -183,22 +231,41 @@ class ModuleAnalyzer(object):
 
         return mod.register_forward_hook(self._module_hook)
 
-    def _module_hook(self, mod: Union[_MaxPoolNd, _AvgPoolNd], inp: Union[Tuple[Tensor, ...], Tensor],
-                     out: Union[Tuple[Tensor, ...], Tensor]):
-        desc, inp, out = self._init_hook(mod, 'any', inp, out)
+    def _module_hook(
+        self,
+        mod: Union[_MaxPoolNd, _AvgPoolNd],
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ):
+        desc, inp, out = self._init_hook(mod, "any", inp, out)
         desc.params = sum(param.numel() for param in mod.parameters())
 
-    def _conv_hook(self, mod: _ConvNd, inp: Union[Tuple[Tensor, ...], Tensor], out: Union[Tuple[Tensor, ...], Tensor]):
-        desc, inp, out = self._init_hook(mod, 'conv', inp, out)
+    def _conv_hook(
+        self,
+        mod: _ConvNd,
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ):
+        desc, inp, out = self._init_hook(mod, "conv", inp, out)
 
-        params = {'weight': mod.weight} if mod.bias is None else {'weight': mod.weight, 'bias': mod.bias}
-        prunable_params = {'weight': mod.weight}
+        params = (
+            {"weight": mod.weight}
+            if mod.bias is None
+            else {"weight": mod.weight, "bias": mod.bias}
+        )
+        prunable_params = {"weight": mod.weight}
 
         desc.params = sum([val.numel() for val in params.values()])
         desc.prunable_params = sum([val.numel() for val in prunable_params.values()])
-        desc.zeroed_params = sum([(val == 0).sum().item() for val in prunable_params.values()])
-        desc.params_dims = {key: tuple(s for s in val.shape) for key, val in params.items()}
-        desc.prunable_params_dims = {key: tuple(s for s in val.shape) for key, val in prunable_params.items()}
+        desc.zeroed_params = sum(
+            [(val == 0).sum().item() for val in prunable_params.values()]
+        )
+        desc.params_dims = {
+            key: tuple(s for s in val.shape) for key, val in params.items()
+        }
+        desc.prunable_params_dims = {
+            key: tuple(s for s in val.shape) for key, val in prunable_params.items()
+        }
 
         mult_per_out_pix = float(numpy.prod(mod.kernel_size)) * mod.in_channels
         add_per_out_pix = 1 if mod.bias is not None else 0
@@ -209,17 +276,32 @@ class ModuleAnalyzer(object):
         desc.flops = (mult_per_out_pix + add_per_out_pix) * out_pix
         desc.total_flops = (mult_per_out_pix * 2 + add_per_out_pix) * out_pix
 
-    def _linear_hook(self, mod: Linear, inp: Union[Tuple[Tensor, ...], Tensor], out: Union[Tuple[Tensor, ...], Tensor]):
-        desc, inp, out = self._init_hook(mod, 'linear', inp, out)
+    def _linear_hook(
+        self,
+        mod: Linear,
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ):
+        desc, inp, out = self._init_hook(mod, "linear", inp, out)
 
-        params = {'weight': mod.weight} if mod.bias is None else {'weight': mod.weight, 'bias': mod.bias}
-        prunable_params = {'weight': mod.weight}
+        params = (
+            {"weight": mod.weight}
+            if mod.bias is None
+            else {"weight": mod.weight, "bias": mod.bias}
+        )
+        prunable_params = {"weight": mod.weight}
 
         desc.params = sum([val.numel() for val in params.values()])
         desc.prunable_params = sum([val.numel() for val in prunable_params.values()])
-        desc.zeroed_params = sum([(val == 0).sum().item() for val in prunable_params.values()])
-        desc.params_dims = {key: tuple(s for s in val.shape) for key, val in params.items()}
-        desc.prunable_params_dims = {key: tuple(s for s in val.shape) for key, val in prunable_params.items()}
+        desc.zeroed_params = sum(
+            [(val == 0).sum().item() for val in prunable_params.values()]
+        )
+        desc.params_dims = {
+            key: tuple(s for s in val.shape) for key, val in params.items()
+        }
+        desc.prunable_params_dims = {
+            key: tuple(s for s in val.shape) for key, val in prunable_params.items()
+        }
 
         mult_per_out_pix = mod.in_features
         add_per_out_pix = 1 if mod.bias is not None else 0
@@ -230,34 +312,59 @@ class ModuleAnalyzer(object):
         desc.flops = (mult_per_out_pix + add_per_out_pix) * out_pix
         desc.total_flops = (mult_per_out_pix * 2 + add_per_out_pix) * out_pix
 
-    def _bn_hook(self, mod: Linear, inp: Union[Tuple[Tensor, ...], Tensor], out: Union[Tuple[Tensor, ...], Tensor]):
-        desc, inp, out = self._init_hook(mod, 'batch_norm', inp, out)
+    def _bn_hook(
+        self,
+        mod: Linear,
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ):
+        desc, inp, out = self._init_hook(mod, "batch_norm", inp, out)
 
-        params = {'weight': mod.weight} if mod.bias is None else {'weight': mod.weight, 'bias': mod.bias}
+        params = (
+            {"weight": mod.weight}
+            if mod.bias is None
+            else {"weight": mod.weight, "bias": mod.bias}
+        )
         prunable_params = {}
 
         desc.params = sum([val.numel() for val in params.values()])
         desc.prunable_params = sum([val.numel() for val in prunable_params.values()])
-        desc.zeroed_params = sum([(val == 0).sum().item() for val in prunable_params.values()])
-        desc.params_dims = {key: tuple(s for s in val.shape) for key, val in params.items()}
-        desc.prunable_params_dims = {key: tuple(s for s in val.shape) for key, val in prunable_params.items()}
+        desc.zeroed_params = sum(
+            [(val == 0).sum().item() for val in prunable_params.values()]
+        )
+        desc.params_dims = {
+            key: tuple(s for s in val.shape) for key, val in params.items()
+        }
+        desc.prunable_params_dims = {
+            key: tuple(s for s in val.shape) for key, val in prunable_params.items()
+        }
 
         # 4 elementwise operations on the output space, just need to add all of them up
         desc.flops = 4 * float(numpy.prod(out[0].shape[1:]))
         desc.total_flops = desc.flops
 
-    def _pool_hook(self, mod: Union[_MaxPoolNd, _AvgPoolNd], inp: Union[Tuple[Tensor, ...], Tensor],
-                   out: Union[Tuple[Tensor, ...], Tensor]):
-        desc, inp, out = self._init_hook(mod, 'pool', inp, out)
+    def _pool_hook(
+        self,
+        mod: Union[_MaxPoolNd, _AvgPoolNd],
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ):
+        desc, inp, out = self._init_hook(mod, "pool", inp, out)
 
         params = {key: val for key, val in mod.named_parameters()}
         prunable_params = {}
 
         desc.params = sum([val.numel() for val in params.values()])
         desc.prunable_params = sum([val.numel() for val in prunable_params.values()])
-        desc.zeroed_params = sum([(val == 0).sum().item() for val in prunable_params.values()])
-        desc.params_dims = {key: tuple(s for s in val.shape) for key, val in params.items()}
-        desc.prunable_params_dims = {key: tuple(s for s in val.shape) for key, val in prunable_params.items()}
+        desc.zeroed_params = sum(
+            [(val == 0).sum().item() for val in prunable_params.values()]
+        )
+        desc.params_dims = {
+            key: tuple(s for s in val.shape) for key, val in params.items()
+        }
+        desc.prunable_params_dims = {
+            key: tuple(s for s in val.shape) for key, val in prunable_params.items()
+        }
 
         flops_per_out_pix = float(numpy.prod(mod.kernel_size) + 1)
         out_pix = float(numpy.prod(out[0].shape[1:]))
@@ -265,65 +372,105 @@ class ModuleAnalyzer(object):
         desc.flops = flops_per_out_pix * out_pix
         desc.total_flops = desc.flops
 
-    def _adaptive_pool_hook(self, mod: Union[_MaxPoolNd, _AvgPoolNd], inp: Union[Tuple[Tensor, ...], Tensor],
-                            out: Union[Tuple[Tensor, ...], Tensor]):
-        desc, inp, out = self._init_hook(mod, 'global_pool', inp, out)
+    def _adaptive_pool_hook(
+        self,
+        mod: Union[_MaxPoolNd, _AvgPoolNd],
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ):
+        desc, inp, out = self._init_hook(mod, "global_pool", inp, out)
 
         params = {key: val for key, val in mod.named_parameters()}
         prunable_params = {}
 
         desc.params = sum([val.numel() for val in params.values()])
         desc.prunable_params = sum([val.numel() for val in prunable_params.values()])
-        desc.zeroed_params = sum([(val == 0).sum().item() for val in prunable_params.values()])
-        desc.params_dims = {key: tuple(s for s in val.shape) for key, val in params.items()}
-        desc.prunable_params_dims = {key: tuple(s for s in val.shape) for key, val in prunable_params.items()}
+        desc.zeroed_params = sum(
+            [(val == 0).sum().item() for val in prunable_params.values()]
+        )
+        desc.params_dims = {
+            key: tuple(s for s in val.shape) for key, val in params.items()
+        }
+        desc.prunable_params_dims = {
+            key: tuple(s for s in val.shape) for key, val in prunable_params.items()
+        }
 
-        stride = tuple(inp[0].shape[i] // out[0].shape[i] for i in range(2, len(inp[0].shape)))
-        kernel_size = tuple(inp[0].shape[i] - (out[0].shape[i] - 1) * stride[i - 2]
-                            for i in range(2, len(inp[0].shape)))
+        stride = tuple(
+            inp[0].shape[i] // out[0].shape[i] for i in range(2, len(inp[0].shape))
+        )
+        kernel_size = tuple(
+            inp[0].shape[i] - (out[0].shape[i] - 1) * stride[i - 2]
+            for i in range(2, len(inp[0].shape))
+        )
         flops_per_out_pix = float(numpy.prod(kernel_size))
         out_pix = float(numpy.prod(out[0].shape[1:]))
 
         desc.flops = flops_per_out_pix * out_pix
         desc.total_flops = desc.flops
 
-    def _activation_hook(self, mod: Union[_MaxPoolNd, _AvgPoolNd], inp: Union[Tuple[Tensor, ...], Tensor],
-                         out: Union[Tuple[Tensor, ...], Tensor]):
-        desc, inp, out = self._init_hook(mod, 'act', inp, out)
+    def _activation_hook(
+        self,
+        mod: Union[_MaxPoolNd, _AvgPoolNd],
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ):
+        desc, inp, out = self._init_hook(mod, "act", inp, out)
 
         params = {key: val for key, val in mod.named_parameters()}
         prunable_params = {}
 
         desc.params = sum([val.numel() for val in params.values()])
         desc.prunable_params = sum([val.numel() for val in prunable_params.values()])
-        desc.zeroed_params = sum([(val == 0).sum().item() for val in prunable_params.values()])
-        desc.params_dims = {key: tuple(s for s in val.shape) for key, val in params.items()}
-        desc.prunable_params_dims = {key: tuple(s for s in val.shape) for key, val in prunable_params.items()}
+        desc.zeroed_params = sum(
+            [(val == 0).sum().item() for val in prunable_params.values()]
+        )
+        desc.params_dims = {
+            key: tuple(s for s in val.shape) for key, val in params.items()
+        }
+        desc.prunable_params_dims = {
+            key: tuple(s for s in val.shape) for key, val in prunable_params.items()
+        }
 
         # making assumption that flops spent is one per element (so swish is counted the same activation ReLU)
         desc.flops = float(numpy.prod(out[0].shape[1:]))
         desc.total_flops = desc.flops
 
-    def _softmax_hook(self, mod: Union[_MaxPoolNd, _AvgPoolNd], inp: Union[Tuple[Tensor, ...], Tensor],
-                      out: Union[Tuple[Tensor, ...], Tensor]):
-        desc, inp, out = self._init_hook(mod, 'softmax', inp, out)
+    def _softmax_hook(
+        self,
+        mod: Union[_MaxPoolNd, _AvgPoolNd],
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ):
+        desc, inp, out = self._init_hook(mod, "softmax", inp, out)
 
         params = {key: val for key, val in mod.named_parameters()}
         prunable_params = {}
 
         desc.params = sum([val.numel() for val in params.values()])
         desc.prunable_params = sum([val.numel() for val in prunable_params.values()])
-        desc.zeroed_params = sum([(val == 0).sum().item() for val in prunable_params.values()])
-        desc.params_dims = {key: tuple(s for s in val.shape) for key, val in params.items()}
-        desc.prunable_params_dims = {key: tuple(s for s in val.shape) for key, val in prunable_params.items()}
+        desc.zeroed_params = sum(
+            [(val == 0).sum().item() for val in prunable_params.values()]
+        )
+        desc.params_dims = {
+            key: tuple(s for s in val.shape) for key, val in params.items()
+        }
+        desc.prunable_params_dims = {
+            key: tuple(s for s in val.shape) for key, val in prunable_params.items()
+        }
 
-        flops_per_channel = 2 if len(out[0].shape) < 3 else float(numpy.prod(out[0].shape[2:]))
+        flops_per_channel = (
+            2 if len(out[0].shape) < 3 else float(numpy.prod(out[0].shape[2:]))
+        )
         desc.flops = flops_per_channel * out[0].shape[1]
         desc.total_flops = desc.flops
 
-    def _init_hook(self, mod: Module, type_: str, inp: Union[Tuple[Tensor, ...], Tensor],
-                   out: Union[Tuple[Tensor, ...], Tensor]) -> Tuple[AnalyzedLayerDesc, Tuple[Tensor, ...],
-                                                                    Tuple[Tensor, ...]]:
+    def _init_hook(
+        self,
+        mod: Module,
+        type_: str,
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ) -> Tuple[AnalyzedLayerDesc, Tuple[Tensor, ...], Tuple[Tensor, ...]]:
         self._forward_called = True
         self._call_count += 1
 
@@ -334,9 +481,15 @@ class ModuleAnalyzer(object):
             out = (out,)
 
         mod._analyzed_layer_desc = AnalyzedLayerDesc(
-            name=mod._analyzed_layer_name, type_=type_, execution_order=self._call_count,
-            input_shape=tuple(tuple(ii for ii in i.shape) for i in inp if isinstance(i, Tensor)),
-            output_shape=tuple(tuple(oo for oo in o.shape) for o in out if isinstance(o, Tensor))
+            name=mod._analyzed_layer_name,
+            type_=type_,
+            execution_order=self._call_count,
+            input_shape=tuple(
+                tuple(ii for ii in i.shape) for i in inp if isinstance(i, Tensor)
+            ),
+            output_shape=tuple(
+                tuple(oo for oo in o.shape) for o in out if isinstance(o, Tensor)
+            ),
         )
 
         return mod._analyzed_layer_desc, inp, out
@@ -348,7 +501,9 @@ class ModuleAnalyzer(object):
             if child != mod:
                 children.append(child)
 
-        merge_descs = [ModuleAnalyzer._mod_desc(child) for child in children]  # type: List[AnalyzedLayerDesc]
+        merge_descs = [
+            ModuleAnalyzer._mod_desc(child) for child in children
+        ]  # type: List[AnalyzedLayerDesc]
 
         return AnalyzedLayerDesc.merge_descs(mod._analyzed_layer_desc, merge_descs)
 
@@ -372,9 +527,7 @@ def save_model_ks_desc(analyzer: ModuleAnalyzer, path: str):
     path = clean_path(path)
     create_parent_dirs(path)
     ks_descs = model_ks_desc(analyzer)
-    ks_obj = {
-        'layer_descriptions': [desc.dict() for desc in ks_descs]
-    }
+    ks_obj = {"layer_descriptions": [desc.dict() for desc in ks_descs]}
 
-    with open(path, 'w') as file:
+    with open(path, "w") as file:
         json.dump(ks_obj, file)

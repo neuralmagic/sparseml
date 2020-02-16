@@ -1,3 +1,8 @@
+"""
+Code related to running a module through training and testing over a dataset
+Allows reporting of progress and override functions and hooks
+"""
+
 from typing import Callable, Any, Dict, Union, Iterable, List, Tuple
 from collections import OrderedDict
 from tqdm import auto
@@ -6,140 +11,24 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader
-from torch.optim import Optimizer
+from torch.optim.optimizer import Optimizer
 from torch.utils.hooks import RemovableHandle
 
-from .helpers import tensors_to_device, tensors_batch_size
+from .helpers import tensors_to_device, tensors_batch_size, tensors_module_forward
+from .loss import DEFAULT_LOSS_KEY
 
 
-__all__ = ['DEFAULT_LOSS_KEY',
-           'def_data_batch_size', 'def_data_to_device', 'def_data_model_forward', 'def_model_backward',
-           'ModuleRunFuncs', 'ModuleRunHooks', 'ModuleRunResults',
-           'ModuleTester', 'ModuleTrainer']
+__all__ = [
+    "def_model_backward",
+    "ModuleRunFuncs",
+    "ModuleRunHooks",
+    "ModuleRunResults",
+    "ModuleTester",
+    "ModuleTrainer",
+]
 
 
-DEFAULT_LOSS_KEY = '__loss__'
-
-
-def def_data_batch_size(data: Union[Tensor, Dict[Any, Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]]],
-                                    Iterable[Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]]]]) -> int:
-    """
-    Default function for getting the batch size from a tensor or collection of tensors.
-    Returns the batch size (zeroth index for shape) of the first found tensor.
-
-    Supported use cases:
-        - single tensor
-        - Dictionary of
-        -- single tensors
-        -- iterable of tensors
-        -- dictionary of tensors
-        - Iterable of
-        -- single tensors
-        -- iterable of tensors
-        -- dictionary of tensors
-
-    :param data: the tensor or collection of tensors to get a batch size from, taken from the first found tensor
-    :return: the batch size (0th element of shape) of the first contained tensor in the data
-    """
-    if isinstance(data, Tensor):
-        return tensors_batch_size(data)
-
-    if isinstance(data, Dict):
-        data = data.values()
-
-    if isinstance(data, Iterable):
-        batch_size = -1
-
-        for tensors in data:
-            batch_size = tensors_batch_size(tensors)
-
-            if batch_size > 0:
-                break
-
-        return batch_size
-
-    raise ValueError('unrecognized type for data given of {}'.format(data.__class__.__name__))
-
-
-def def_data_to_device(data: Union[Tensor, Iterable[Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]]]],
-                       device: str) -> Union[Tensor, Iterable[Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]]]]:
-    """
-    Default function for putting a tensor or collection of tensors to the proper device.
-    Returns the tensor references after being placed on the proper device.
-
-    Supported use cases:
-        - single tensor
-        - Dictionary of
-        -- single tensors
-        -- iterable of tensors
-        -- dictionary of tensors
-        - Iterable of
-        -- single tensors
-        -- iterable of tensors
-        -- dictionary of tensors
-
-    :param data: the tensors or collection of tensors to put onto a device
-    :param device: the string representing the device to put the tensors on, ex: 'cpu', 'cuda', 'cuda:1'
-    :return: the tensors or collection of tensors after being placed on the device
-    """
-
-    if isinstance(data, Tensor):
-        return tensors_to_device(data, device)
-
-    if isinstance(data, Dict):
-        return {key: tensors_to_device(tens, device) for key, tens in data.items()}
-
-    if isinstance(data, Tuple):
-        return tuple(tensors_to_device(tens, device) for tens in data)
-
-    if isinstance(data, Iterable):
-        return [tensors_to_device(tens, device) for tens in data]
-
-    raise ValueError('unrecognized type for data given of {}'.format(data.__class__.__name__))
-
-
-def def_data_model_forward(model: Module,
-                           data: Union[Tensor, Iterable[Union[Tensor, Dict[Any, Tensor], Iterable[Tensor]]]]) -> Any:
-    """
-    Default function for calling into a model with data for a forward execution
-    Returns the model result
-    Note, if an iterable the features to be passed into the model are considered to be at index 0
-     and other indices are for labels
-
-    Supported use cases:
-        - single tensor
-        - iterable with first tensor taken as the features to pass into the model
-        -- single tensor
-        -- dictionary of tensors (auto expands for the forward call with **)
-        -- iterable of tensors (auto expands for the forward call with *)
-
-    :param model: the model to pass the data into
-    :param data: the data to be passed into the model, if an iterable the features to be passed into the model are
-                 considered to be at index 0 and other indices are for labels
-    :return: the result of calling into the model for a foward pass
-    """
-    if isinstance(data, Tensor):
-        return model(data)
-
-    # assume features are at the first index of an iterable
-    if isinstance(data, Iterable):
-        for tensors in data:
-            if isinstance(tensors, Tensor):
-                return model(tensors)
-
-            if isinstance(tensors, Dict):
-                return model(**tensors)
-
-            if isinstance(tensors, Iterable):
-                return model(*tensors)
-
-            raise ValueError('unrecognized type for first element of data given of {}'
-                             .format(tensors.__class__.__name__))
-
-    raise ValueError('unrecognized type for data given of {}'.format(data.__class__.__name__))
-
-
-def def_model_backward(model: Module, losses: Dict[str, Tensor]):
+def def_model_backward(losses: Dict[str, Tensor], model: Module):
     """
     Default function to perform a backwards pass for a model and the calculated losses
     Calls backwards for the DEFAULT_LOSS_KEY in losses Dict
@@ -176,8 +65,10 @@ class ModuleRunHooks(object):
         self._batch_loss_hooks = OrderedDict()
         self._batch_backward_hooks = OrderedDict()
         self._batch_end_hooks = OrderedDict()
-        
-    def register_batch_start_hook(self, hook: Callable[[int, int, int, Any], None]) -> RemovableHandle:
+
+    def register_batch_start_hook(
+        self, hook: Callable[[int, int, int, Any], None]
+    ) -> RemovableHandle:
         """
         Called at the start of a batch with the following info:
         (counter, step_count, batch_size, data)
@@ -189,10 +80,12 @@ class ModuleRunHooks(object):
         """
         handle = RemovableHandle(self._batch_start_hooks)
         self._batch_start_hooks[handle.id] = hook
-        
+
         return handle
 
-    def register_batch_forward_hook(self, hook: Callable[[int, int, int, Any, Any], None]) -> RemovableHandle:
+    def register_batch_forward_hook(
+        self, hook: Callable[[int, int, int, Any, Any], None]
+    ) -> RemovableHandle:
         """
         Called after forward execution of a batch in the model with the following info:
         (counter, step_count, batch_size, data, pred)
@@ -208,7 +101,9 @@ class ModuleRunHooks(object):
 
         return handle
 
-    def register_batch_loss_hook(self, hook: Callable[[int, int, int, Any, Any, Dict[str, Tensor]], None]):
+    def register_batch_loss_hook(
+        self, hook: Callable[[int, int, int, Any, Any, Dict[str, Tensor]], None]
+    ):
         """
         Called after loss calculation of the batch with the following info:
         (counter, step_count, batch_size, data, pred, losses)
@@ -224,7 +119,9 @@ class ModuleRunHooks(object):
 
         return handle
 
-    def register_batch_backward_hook(self, hook: Callable[[int, int, int, Any, Any, Dict[str, Tensor]], None]):
+    def register_batch_backward_hook(
+        self, hook: Callable[[int, int, int, Any, Any, Dict[str, Tensor]], None]
+    ):
         """
         Called after calling backward on the loss for the batch with the following info:
         (counter, step_count, batch_size, data, pred, losses)
@@ -240,7 +137,9 @@ class ModuleRunHooks(object):
 
         return handle
 
-    def register_batch_end_hook(self, hook: Callable[[int, int, int, Any, Any, Dict[str, Tensor]], None]):
+    def register_batch_end_hook(
+        self, hook: Callable[[int, int, int, Any, Any, Dict[str, Tensor]], None]
+    ):
         """
         Called after all calculations are done for the batch with the following info:
         (counter, step_count, batch_size, data, pred, losses)
@@ -256,30 +155,55 @@ class ModuleRunHooks(object):
 
         return handle
 
-    def invoke_batch_start(self, counter: int, step_count: int, batch_size: int, data: Any):
+    def invoke_batch_start(
+        self, counter: int, step_count: int, batch_size: int, data: Any
+    ):
         for hook in self._batch_start_hooks.values():
             hook(counter, step_count, batch_size, data)
 
-    def invoke_batch_forward(self, counter: int, step_count: int, batch_size: int, data: Any, pred: Any):
+    def invoke_batch_forward(
+        self, counter: int, step_count: int, batch_size: int, data: Any, pred: Any
+    ):
         for hook in self._batch_forward_hooks.values():
             hook(counter, step_count, batch_size, data, pred)
 
-    def invoke_batch_loss(self, counter: int, step_count: int, batch_size: int, data: Any, pred: Any, 
-                          losses: Dict[str, Tensor]):
+    def invoke_batch_loss(
+        self,
+        counter: int,
+        step_count: int,
+        batch_size: int,
+        data: Any,
+        pred: Any,
+        losses: Dict[str, Tensor],
+    ):
         for hook in self._batch_loss_hooks.values():
             hook(counter, step_count, batch_size, data, pred, losses)
 
-    def invoke_batch_backward(self, counter: int, step_count: int, batch_size: int, data: Any, pred: Any, 
-                              losses: Dict[str, Tensor]):
+    def invoke_batch_backward(
+        self,
+        counter: int,
+        step_count: int,
+        batch_size: int,
+        data: Any,
+        pred: Any,
+        losses: Dict[str, Tensor],
+    ):
         for hook in self._batch_backward_hooks.values():
             hook(counter, step_count, batch_size, data, pred, losses)
 
-    def invoke_batch_end(self, counter: int, step_count: int, batch_size: int, data: Any, pred: Any, 
-                         losses: Dict[str, Tensor]):
+    def invoke_batch_end(
+        self,
+        counter: int,
+        step_count: int,
+        batch_size: int,
+        data: Any,
+        pred: Any,
+        losses: Dict[str, Tensor],
+    ):
         for hook in self._batch_end_hooks.values():
             hook(counter, step_count, batch_size, data, pred, losses)
-        
-        
+
+
 class ModuleRunFuncs(object):
     def __init__(self):
         """
@@ -299,11 +223,11 @@ class ModuleRunFuncs(object):
             - optimizer / gradient update
             - batch end hook
         """
-        self._batch_size = def_data_batch_size  # type: Callable[[Any], int]
-        self._to_device = def_data_to_device  # type: Callable[[Any, str], Any]
-        self._model_forward = def_data_model_forward  # type: Callable[[Module, Any], Any]
-        self._model_backward = def_model_backward  # type: Callable[[Module, Dict[str, Tensor]], None]
-        
+        self._batch_size = tensors_batch_size
+        self._to_device = tensors_to_device
+        self._model_forward = tensors_module_forward
+        self._model_backward = def_model_backward
+
     @property
     def batch_size(self) -> Callable[[Any], int]:
         """
@@ -311,7 +235,7 @@ class ModuleRunFuncs(object):
         Expected to be called with the output from a data loader and then return an int representing the batch size
         """
         return self._batch_size
-    
+
     @batch_size.setter
     def batch_size(self, value: Callable[[Any], int]):
         """
@@ -344,7 +268,7 @@ class ModuleRunFuncs(object):
         self._to_device = value
 
     @property
-    def model_forward(self) -> Callable[[Module, Any], Any]:
+    def model_forward(self) -> Callable[[Any, Module], Any]:
         """
         Used to propagate a given grouping of tensors through a model and return the result
         Expected to be called with the model and the output from a data loader
@@ -353,7 +277,7 @@ class ModuleRunFuncs(object):
         return self._model_forward
 
     @model_forward.setter
-    def model_forward(self, value: Callable[[Module, Any], Any]):
+    def model_forward(self, value: Callable[[Any, Module], Any]):
         """
         Used to propagate a given grouping of tensors through a model and return the result
         Expected to be called with the model and the output from a data loader
@@ -365,7 +289,7 @@ class ModuleRunFuncs(object):
         self._model_forward = value
 
     @property
-    def model_backward(self) -> Callable[[Module, Dict[str, Tensor]], None]:
+    def model_backward(self) -> Callable[[Dict[str, Tensor], Module], None]:
         """
         Used to call backward for a given model and the calculated losses
         Expected to be called with the model and the output from the loss function as a dict mapping of names to tensors
@@ -374,7 +298,7 @@ class ModuleRunFuncs(object):
         return self._model_backward
 
     @model_backward.setter
-    def model_backward(self, value: Callable[[Module, Dict[str, Tensor]], None]):
+    def model_backward(self, value: Callable[[Dict[str, Tensor], Module], None]):
         """
         Used to call backward for a given model and the calculated losses
         Expected to be called with the model and the output from the loss function as a dict mapping of names to tensors
@@ -458,8 +382,15 @@ class ModuleRunResults(object):
 
 
 class ModuleTrainer(object):
-    def __init__(self, module: Module, device: str, loss: Callable[[Any, Any], Dict[str, Tensor]], optimizer: Optimizer,
-                 num_accumulated_batches: int = 1, optim_closure: Union[None, Callable] = None):
+    def __init__(
+        self,
+        module: Module,
+        device: str,
+        loss: Callable[[Any, Any], Dict[str, Tensor]],
+        optimizer: Optimizer,
+        num_accumulated_batches: int = 1,
+        optim_closure: Union[None, Callable] = None,
+    ):
         """
         Container for running a module through training over a given data loader for specific settings
 
@@ -489,7 +420,7 @@ class ModuleTrainer(object):
         self._optimizer = optimizer
         self._num_accumulated_batches = num_accumulated_batches
         self._optim_closure = optim_closure
-        
+
         self._run_funcs = ModuleRunFuncs()
         self._run_hooks = ModuleRunHooks()
 
@@ -548,9 +479,15 @@ class ModuleTrainer(object):
         :return: hooks used while running traiiniing of the model to receive intermediate results
         """
         return self._run_hooks
-    
-    def run(self, data_loader: DataLoader, desc: str, counter: int = -1,
-            show_progress: bool = False, track_results: bool = False) -> Union[None, ModuleRunResults]:
+
+    def run(
+        self,
+        data_loader: DataLoader,
+        desc: str,
+        counter: int = -1,
+        show_progress: bool = False,
+        track_results: bool = False,
+    ) -> Union[None, ModuleRunResults]:
         """
         Run training over all the data in the given data loader
 
@@ -564,8 +501,11 @@ class ModuleTrainer(object):
         self._module = self._module.train()
         step_count = 0
         accumulated = 0
-        data_iter = enumerate(data_loader) if not show_progress else \
-            auto.tqdm(enumerate(data_loader), desc=desc, total=len(data_loader))
+        data_iter = (
+            enumerate(data_loader)
+            if not show_progress
+            else auto.tqdm(enumerate(data_loader), desc=desc, total=len(data_loader))
+        )
         results = ModuleRunResults() if track_results else None
 
         for batch, data in data_iter:
@@ -580,22 +520,30 @@ class ModuleTrainer(object):
                 self._optimizer.zero_grad()
 
             # forward steps
-            pred = self._run_funcs.model_forward(self._module, data)
-            self._run_hooks.invoke_batch_forward(counter, step_count, batch_size, data, pred)
+            pred = self._run_funcs.model_forward(data, self._module)
+            self._run_hooks.invoke_batch_forward(
+                counter, step_count, batch_size, data, pred
+            )
 
             # backward steps
             losses = self._loss(data, pred)
-            self._run_hooks.invoke_batch_loss(counter, step_count, batch_size, data, pred, losses)
+            self._run_hooks.invoke_batch_loss(
+                counter, step_count, batch_size, data, pred, losses
+            )
 
-            self._run_funcs.model_backward(self._module, losses)
-            self._run_hooks.invoke_batch_backward(counter, step_count, batch_size, data, pred, losses)
+            self._run_funcs.model_backward(losses, self._module)
+            self._run_hooks.invoke_batch_backward(
+                counter, step_count, batch_size, data, pred, losses
+            )
 
             # optimizer / gradients update
             if accumulated == self._num_accumulated_batches:
                 self._optimizer.step(closure=self._optim_closure)
                 accumulated = 0
 
-            self._run_hooks.invoke_batch_end(counter, step_count, batch_size, data, pred, losses)
+            self._run_hooks.invoke_batch_end(
+                counter, step_count, batch_size, data, pred, losses
+            )
             step_count += batch_size
 
             if results is not None:
@@ -603,7 +551,13 @@ class ModuleTrainer(object):
 
         return results
 
-    def run_epoch(self, data_loader: DataLoader, epoch: int, show_progress: bool = True, track_results: bool = False):
+    def run_epoch(
+        self,
+        data_loader: DataLoader,
+        epoch: int,
+        show_progress: bool = True,
+        track_results: bool = False,
+    ):
         """
         Convenience function for training over all the data in the given data loader for a specific epoch
          and making the progress visible
@@ -614,11 +568,19 @@ class ModuleTrainer(object):
         :param track_results: True to track and return the results of the training, False to return None
         :return: the results of training if track_results else None
         """
-        return self.run(data_loader, 'training epoch {}'.format(epoch), epoch, show_progress, track_results)
+        return self.run(
+            data_loader,
+            "training epoch {}".format(epoch),
+            epoch,
+            show_progress,
+            track_results,
+        )
 
 
 class ModuleTester(object):
-    def __init__(self, module: Module, device: str, loss: Callable[[Any, Any], Dict[str, Tensor]]):
+    def __init__(
+        self, module: Module, device: str, loss: Callable[[Any, Any], Dict[str, Tensor]]
+    ):
         """
         Container for running a module through evaluation over a given data loader for specific settings
 
@@ -678,8 +640,14 @@ class ModuleTester(object):
         """
         return self._run_hooks
 
-    def run(self, data_loader: DataLoader, desc: str, counter: int = -1,
-            show_progress: bool = False, track_results: bool = True) -> Union[None, ModuleRunResults]:
+    def run(
+        self,
+        data_loader: DataLoader,
+        desc: str,
+        counter: int = -1,
+        show_progress: bool = False,
+        track_results: bool = True,
+    ) -> Union[None, ModuleRunResults]:
         """
         Run evaluation over all the data in the given data loader
 
@@ -692,8 +660,11 @@ class ModuleTester(object):
         """
         self._module = self._module.eval()
         step_count = 0
-        data_iter = enumerate(data_loader) if not show_progress else \
-            auto.tqdm(enumerate(data_loader), desc=desc, total=len(data_loader))
+        data_iter = (
+            enumerate(data_loader)
+            if not show_progress
+            else auto.tqdm(enumerate(data_loader), desc=desc, total=len(data_loader))
+        )
         results = ModuleRunResults() if track_results else None
 
         with torch.no_grad():
@@ -701,17 +672,25 @@ class ModuleTester(object):
                 # setup
                 batch_size = self._run_funcs.batch_size(data)  # type: int
                 data = self._run_funcs.to_device(data, self._device)
-                self._run_hooks.invoke_batch_start(counter, step_count, batch_size, data)
+                self._run_hooks.invoke_batch_start(
+                    counter, step_count, batch_size, data
+                )
 
                 # forward steps
-                pred = self._run_funcs.model_forward(self._module, data)
-                self._run_hooks.invoke_batch_forward(counter, step_count, batch_size, data, pred)
+                pred = self._run_funcs.model_forward(data, self._module)
+                self._run_hooks.invoke_batch_forward(
+                    counter, step_count, batch_size, data, pred
+                )
 
                 # backward steps
                 losses = self._loss(data, pred)
-                self._run_hooks.invoke_batch_loss(counter, step_count, batch_size, data, pred, losses)
+                self._run_hooks.invoke_batch_loss(
+                    counter, step_count, batch_size, data, pred, losses
+                )
 
-                self._run_hooks.invoke_batch_end(counter, step_count, batch_size, data, pred, losses)
+                self._run_hooks.invoke_batch_end(
+                    counter, step_count, batch_size, data, pred, losses
+                )
                 step_count += batch_size
 
                 if results is not None:
@@ -719,7 +698,13 @@ class ModuleTester(object):
 
         return results
 
-    def run_epoch(self, data_loader: DataLoader, epoch: int, show_progress: bool = True, track_results: bool = True):
+    def run_epoch(
+        self,
+        data_loader: DataLoader,
+        epoch: int,
+        show_progress: bool = True,
+        track_results: bool = True,
+    ):
         """
         Convenience function for evaluation over all the data in the given data loader for a specific epoch
          and making the progress visible
@@ -730,4 +715,10 @@ class ModuleTester(object):
         :param track_results: True to track and return the results of the training, False to return None
         :return: the results of evaluation if track_results else None
         """
-        return self.run(data_loader, 'testing epoch {}'.format(epoch), epoch, show_progress, track_results)
+        return self.run(
+            data_loader,
+            "testing epoch {}".format(epoch),
+            epoch,
+            show_progress,
+            track_results,
+        )

@@ -4,16 +4,24 @@ from threading import Thread
 import time
 
 
-__all__ = ['ParallelWorker']
+__all__ = ["ParallelWorker"]
 
 
 class ParallelWorker(object):
-    def __init__(self, worker_func: Callable, num_workers: int, indefinite: bool, max_source_size: int = -1):
+    def __init__(
+        self,
+        worker_func: Callable,
+        num_workers: int,
+        indefinite: bool,
+        max_source_size: int = -1,
+    ):
         self._worker_func = worker_func
         self._num_workers = num_workers
 
         self._pending_count = 0
-        self._source_queue = Queue(maxsize=max_source_size) if max_source_size > 0 else Queue()
+        self._source_queue = (
+            Queue(maxsize=max_source_size) if max_source_size > 0 else Queue()
+        )
         self._completed = Queue()
         self._indefinite = Queue()
         self._shutdown = Queue()
@@ -21,8 +29,11 @@ class ParallelWorker(object):
         self.indefinite = indefinite
 
     def __iter__(self) -> Iterator[Any]:
-        while (self._shutdown.empty() and
-               not (self._indefinite.empty() and self._pending_count < 1 and self._completed.empty())):
+        while self._shutdown.empty() and not (
+            self._indefinite.empty()
+            and self._pending_count < 1
+            and self._completed.empty()
+        ):
             try:
                 res = self._completed.get(block=True, timeout=1.0)
                 self._pending_count -= 1
@@ -49,7 +60,13 @@ class ParallelWorker(object):
         for _ in range(self._num_workers):
             Thread(
                 target=ParallelWorker._worker,
-                args=(self._worker_func, self._source_queue, self._completed, self._indefinite, self._shutdown)
+                args=(
+                    self._worker_func,
+                    self._source_queue,
+                    self._completed,
+                    self._indefinite,
+                    self._shutdown,
+                ),
             ).start()
 
     def shutdown(self):
@@ -61,19 +78,29 @@ class ParallelWorker(object):
 
     def add_async(self, vals: List[Any]):
         self._pending_count += len(vals)
-        Thread(target=ParallelWorker._adder,
-               args=(vals, self._source_queue, self._shutdown)).start()
+        Thread(
+            target=ParallelWorker._adder,
+            args=(vals, self._source_queue, self._shutdown),
+        ).start()
 
     def add_async_generator(self, gen: Iterator[Any]):
-        Thread(target=ParallelWorker._gen_adder,
-               args=(gen, self._source_queue, self._shutdown, self._indefinite)).start()
+        Thread(
+            target=ParallelWorker._gen_adder,
+            args=(gen, self._source_queue, self._shutdown, self._indefinite),
+        ).start()
 
     def add_item(self, val: Any):
         self._pending_count += 1
         self._source_queue.put(val)
 
     @staticmethod
-    def _worker(worker_func: Callable, source_queue: Queue, completed: Queue, indefinite: Queue, shutdown: Queue):
+    def _worker(
+        worker_func: Callable,
+        source_queue: Queue,
+        completed: Queue,
+        indefinite: Queue,
+        shutdown: Queue,
+    ):
         while True:
             if not shutdown.empty() or (source_queue.empty() and indefinite.empty()):
                 return
@@ -99,7 +126,9 @@ class ParallelWorker(object):
                 continue
 
     @staticmethod
-    def _gen_adder(gen: Iterator[Any], source_queue: Queue, shutdown: Queue, indefinite: Queue):
+    def _gen_adder(
+        gen: Iterator[Any], source_queue: Queue, shutdown: Queue, indefinite: Queue
+    ):
         indefinite.put(True)
 
         for val in gen:

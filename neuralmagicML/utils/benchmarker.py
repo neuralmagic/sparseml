@@ -1,231 +1,222 @@
-from typing import Union, Tuple, List
+"""
+Code related to benchmarking pytorch models on a given device for given batches
+"""
+
+from typing import Tuple, List, Any
 import time
-from tqdm import tqdm
+from tqdm import auto
+import numpy
 import torch
-from torch import Tensor
 from torch.nn import Module
 
 from ..models import model_to_device
+from .helpers import (
+    tensors_to_precision,
+    tensors_batch_size,
+    tensors_to_device,
+    tensors_module_forward,
+)
 
 
-__all__ = ['BenchmarkResults', 'ModelBenchmarker']
+__all__ = ["BatchBenchmarkResults", "ModuleBenchmarker"]
 
 
-class BenchmarkResults(object):
-    def __init__(self):
-        self._model_total = 0.0
-        self._e2e_total = 0.0
-        self._num_batches = 0
-        self._num_items = 0
+class BatchBenchmarkResults(object):
+    """
+    Container class for the results of a benchmark run for a given batch size
+    Contains convenience methods for calculating different metrics around the time to run each batch and the items
+    """
+
+    def __init__(self, batch_size: int):
+        self._batch_size = batch_size
+        self._batch_model_times = []
+        self._batch_e2e_times = []
+
+    def __repr__(self):
+        return "{}(batch_size={}, batch_model_times={}, batch_e2e_times={})".format(
+            self.__class__.__name__,
+            self._batch_size,
+            self._batch_model_times,
+            self._batch_e2e_times,
+        )
 
     def __str__(self) -> str:
-        return 'BenchmarkResults(e2e=[items/sec={}, ms/item={}], mod=[items/sec={}, ms/item={}])' \
-            .format(self.e2e_items_per_second, self.e2e_ms_per_item,
-                    self.model_items_per_second, self.model_ms_per_item)
+        return "{}()".format(
+            self.__class__.__name__,
+            ", ".join(
+                [
+                    "batch_size={}".format(self._batch_size),
+                    "model_batch_seconds={}".format(self.model_batch_seconds),
+                    "model_item_seconds={}".format(self.model_item_seconds),
+                    "model_batches_per_second={}".format(self.model_batches_per_second),
+                    "model_items_per_second={}".format(self.model_items_per_second),
+                    "e2e_batch_seconds={}".format(self.e2e_batch_seconds),
+                    "e2e_item_seconds={}".format(self.e2e_item_seconds),
+                    "e2e_batches_per_second={}".format(self.e2e_batches_per_second),
+                    "e2e_items_per_second={}".format(self.e2e_items_per_second),
+                ]
+            ),
+        )
 
     @property
-    def model_items_per_second(self) -> float:
-        res = float(self._num_items) / self._model_total
-
-        return res
+    def batch_size(self) -> int:
+        return self._batch_size
 
     @property
-    def model_items_per_ms(self) -> float:
-        res = self.model_items_per_second
-        res = res / 1000.0
-
-        return res
+    def model_batch_timings(self) -> List[float]:
+        return self._batch_model_times
 
     @property
-    def model_sec_per_item(self) -> float:
-        res = 1.0 / self.model_items_per_second
-
-        return res
+    def e2e_batch_timings(self) -> List[float]:
+        return self._batch_e2e_times
 
     @property
-    def model_ms_per_item(self) -> float:
-        res = 1.0 / self.model_items_per_ms
-
-        return res
+    def model_batch_seconds(self):
+        return float(numpy.mean(self.model_batch_timings))
 
     @property
-    def model_batches_per_second(self) -> float:
-        res = float(self._num_batches) / self._model_total
-
-        return res
+    def model_batches_per_second(self):
+        return 1.0 / self.model_batch_seconds
 
     @property
-    def model_batches_per_ms(self) -> float:
-        res = self.model_batches_per_second
-        res = res / 1000.0
-
-        return res
+    def model_item_seconds(self):
+        return self.model_batch_seconds / self.batch_size
 
     @property
-    def model_sec_per_batch(self) -> float:
-        res = 1.0 / self.model_batches_per_second
-
-        return res
+    def model_items_per_second(self):
+        return 1.0 / self.model_item_seconds
 
     @property
-    def model_ms_per_batch(self) -> float:
-        res = 1.0 / self.model_batches_per_ms
-
-        return res
+    def e2e_batch_seconds(self):
+        return float(numpy.mean(self.e2e_batch_timings))
 
     @property
-    def e2e_items_per_second(self) -> float:
-        res = float(self._num_items) / self._e2e_total
-
-        return res
+    def e2e_batches_per_second(self):
+        return 1.0 / self.e2e_batch_seconds
 
     @property
-    def e2e_items_per_ms(self) -> float:
-        res = self.e2e_items_per_second
-        res = res / 1000.0
-
-        return res
+    def e2e_item_seconds(self):
+        return self.e2e_batch_seconds / self.batch_size
 
     @property
-    def e2e_sec_per_item(self) -> float:
-        res = 1.0 / self.e2e_items_per_second
+    def e2e_items_per_second(self):
+        return 1.0 / self.e2e_item_seconds
 
-        return res
+    def add(self, model_sec: float, e2e_sec: float, batch_size: int):
+        if batch_size != self._batch_size:
+            raise ValueError(
+                "batch_size of {} does not match the original batch_size {}".format(
+                    batch_size, self._batch_size
+                )
+            )
 
-    @property
-    def e2e_ms_per_item(self) -> float:
-        res = 1.0 / self.e2e_items_per_ms
-
-        return res
-
-    @property
-    def e2e_batches_per_second(self) -> float:
-        res = float(self._num_batches) / self._e2e_total
-
-        return res
-
-    @property
-    def e2e_batches_per_ms(self) -> float:
-        res = self.e2e_batches_per_second
-        res = res / 1000.0
-
-        return res
-
-    @property
-    def e2e_sec_per_batch(self) -> float:
-        res = 1.0 / self.e2e_batches_per_second
-
-        return res
-
-    @property
-    def e2e_ms_per_batch(self) -> float:
-        res = 1.0 / self.e2e_batches_per_ms
-
-        return res
-
-    def add_result(self, model_sec: float, e2e_sec, batch_size: int):
-        self._model_total += model_sec
-        self._e2e_total += e2e_sec
-        self._num_batches += 1
-        self._num_items += batch_size
+        self._batch_model_times.append(model_sec)
+        self._batch_e2e_times.append(e2e_sec)
 
 
-class ModelBenchmarker(object):
-    def __init__(self, name: str, model: Module, device: str):
-        self._name = name
-        model, device, device_ids = model_to_device(model, device)
-        self._model = model
-        self._device = device
-        self._device_ids = device_ids
+class ModuleBenchmarker(object):
+    """
+    Convenience class for benchmarking a model on a given device for given batches at a given precision
+    """
 
-    def benchmark_batch(self, batch: Union[Tensor, List[Tensor], Tuple[Tensor, ...]], full_precision: bool,
-                        test_size: int = 100, warmup_size: int = 10) -> BenchmarkResults:
-        model = self._model.eval()
-        ModelBenchmarker._convert_precisions(model, batch, full_precision)
+    def __init__(self, module: Module):
+        """
+        :param module: the module to benchmark
+        """
+        self._module = module
 
-        for _ in tqdm(range(warmup_size), desc='warmup', total=warmup_size):
-            ModelBenchmarker._execute_batch_for_time(batch, model, self._device)
+    def run_batches_on_device(
+        self,
+        batches: List[Any],
+        device: str,
+        full_precision: bool = True,
+        test_size: int = 100,
+        warmup_size: int = 10,
+    ) -> BatchBenchmarkResults:
+        """
+        :param batches: the batches to run through the model and benchmark, should all be of the same batch_size
+        :param device: the device to run the model on, ex: cpu, cuda, cuda:0, cuda:0,1
+        :param full_precision: True to run at float32, False to run at float16
+        :param test_size: the number of batches to run and calculate timings over
+        :param warmup_size: the number of batches to run before calculating timings
+        :return: the batch results for benchmarking
+        """
+        module = self._module.eval()
+        module = module.float() if full_precision else module.half()
+        module, device, device_ids = model_to_device(module, device)
+        default_device = (
+            device
+            if device_ids is None or len(device_ids) < 1
+            else "{}:{}".format(device, device_ids[0])
+        )
+        batches = tensors_to_precision(batches, full_precision)
 
-        results = BenchmarkResults()
+        def _infinite_batch_looper():
+            while True:
+                for batch in batches:
+                    yield batch
 
-        for _ in tqdm(range(test_size), desc='test', total=test_size):
-            model_sec, e2e_sec, batch_size = ModelBenchmarker._execute_batch_for_time(batch, model, self._device)
-            results.add_result(model_sec, e2e_sec, batch_size)
+        batch_iter = _infinite_batch_looper()
+
+        if warmup_size > 0:
+            for _ in auto.tqdm(
+                range(warmup_size), desc="warming up...", total=warmup_size
+            ):
+                batch = next(batch_iter)
+                ModuleBenchmarker._execute_batch_for_time(batch, module, default_device)
+
+        batch_size = tensors_batch_size(next(batch_iter))
+        results = BatchBenchmarkResults(batch_size)
+
+        for _ in auto.tqdm(range(test_size), desc="testing...", total=test_size):
+            batch = next(batch_iter)
+            model_sec, e2e_sec, batch_size = ModuleBenchmarker._execute_batch_for_time(
+                batch, module, device
+            )
+            results.add(model_sec, e2e_sec, batch_size)
 
         return results
 
     @staticmethod
-    def _convert_precisions(model: Module, batch: Union[Tensor, List[Tensor], Tuple[Tensor, ...]], full: bool):
-        if full:
-            if isinstance(batch, Tensor):
-                batch.float()
-            else:
-                for tens in batch:
-                    tens.float()
-
-            model.float()
-
-            return
-
-        if isinstance(batch, Tensor):
-            batch.half()
-        else:
-            for tens in batch:
-                tens.half()
-
-        model.half()
-
-    @staticmethod
-    def _execute_batch_for_time(batch: Union[Tensor, List[Tensor], Tuple[Tensor, ...]],
-                                model: Module, device: str) -> Tuple[float, float, int]:
+    def _execute_batch_for_time(
+        batch: Any, module: Module, device: str
+    ) -> Tuple[float, float, int]:
+        """
+        :param batch: the batch to run and get time for
+        :param module: the module to run the batch through for timing, expected to already be on the correct device and
+                       at the correct precision
+        :param device: the device to transfer the batch to for testing times
+        :return: the batch result times
+        """
         with torch.no_grad():
-            batch = ModelBenchmarker._batch_to_device(batch, 'cpu')
+            batch = tensors_to_device(batch, "cpu")
 
-            if 'cuda' in device:
+            if "cuda" in device:
                 torch.cuda.synchronize()
 
             e2e_start = time.time()
+            x_tens = tensors_to_device(batch, device)
 
-            x_tens = ModelBenchmarker._batch_to_device(batch, device)
-
-            if 'cuda' in device:
+            if "cuda" in device:
                 torch.cuda.synchronize()
 
             model_start = time.time()
-            y_pred = model(*x_tens)
+            y_pred = tensors_module_forward(x_tens, module, check_feat_lab_inp=False)
 
-            if not isinstance(y_pred, Tensor):
-                # returning multiple outputs (like logits and classes)
-                # assume first index is supposed to be the logits
-                y_pred = y_pred[0]
-
-            if 'cuda' in device:
+            if "cuda" in device:
                 torch.cuda.synchronize()
 
             model_end = time.time()
-            y_pred_local = y_pred.to('cpu')
+            y_pred_local = tensors_to_device(y_pred, "cpu")
 
-            if 'cuda' in device:
+            if "cuda" in device:
                 torch.cuda.synchronize()
 
             e2e_end = time.time()
-            batch_size = y_pred_local.shape[0]
+            batch_size = tensors_batch_size(batch)
 
             del x_tens
             del y_pred
             del y_pred_local
 
-            if 'cuda' in device:
-                torch.cuda.synchronize()
-
             return model_end - model_start, e2e_end - e2e_start, batch_size
-
-    @staticmethod
-    def _batch_to_device(batch: Union[Tensor, List[Tensor], Tuple[Tensor, ...]],
-                         device: str) -> Union[Tensor, List[Tensor], Tuple[Tensor, ...]]:
-        if isinstance(batch, Tensor):
-            batch = batch.to(device)
-        else:
-            batch = [tens.to(device) for tens in batch]
-
-        return batch

@@ -15,7 +15,7 @@ from torch.nn.modules.conv import _ConvNd
 from neuralmagicML.datasets import create_dataset, EarlyStopDataset
 from neuralmagicML.models import create_model, model_to_device, load_optimizer, save_model
 from neuralmagicML.utils import (
-    CrossEntropyLossWrapper, TopKAccuracy, KnowledgeDistillationSettings, ModuleTrainer, ModuleTester, DEFAULT_LOSS_KEY
+    CrossEntropyLossWrapper, TopKAccuracy, KDSettings, ModuleTrainer, ModuleTester, DEFAULT_LOSS_KEY
 )
 from neuralmagicML.recal import (
     ScheduledModifierManager, ScheduledOptimizer,
@@ -81,8 +81,8 @@ def train_modifiers_schedule(
         model_plugin_args['model_type'] = 'teacher'
         teacher = create_model(teacher_type, teacher_path, plugin_paths=model_plugin_paths,
                                plugin_args=model_plugin_args, pretrained=teacher_pretrained, num_classes=num_classes)
-        kd_settings = KnowledgeDistillationSettings(teacher, kd_temp_student, kd_temp_teacher,
-                                                    kd_weight, kd_contradict_hinton)
+        kd_settings = KDSettings(teacher, kd_temp_student, kd_temp_teacher,
+                                 kd_weight, kd_contradict_hinton)
         print('Created teacher model of type {} with num_classes:{}, pretrained:{} / model_path:{}'
               .format(teacher_type, num_classes, teacher_pretrained, teacher_path))
         print('Created kd settings with teacher model of temp_student:{}, temp_teacher:{}, weight:{}, con_hinton:{}'

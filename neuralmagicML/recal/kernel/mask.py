@@ -1,23 +1,44 @@
+"""
+Code related to applying a mask onto a parameter to impose kernel sparsity, aka model pruning
+"""
+
 from typing import Union, Tuple
 import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from ...utils import mask_from_tensor, mask_from_threshold, mask_from_sparsity
+from ...utils import (
+    sparsity_mask_from_tensor,
+    sparsity_mask_from_abs_threshold,
+    sparsity_mask,
+    mask_difference,
+)
 
 
-__all__ = ["KSLayerParamMask"]
+__all__ = ["ModuleParamKSMask"]
 
 
-class KSLayerParamMask(object):
+class ModuleParamKSMask(object):
+    """
+    Mask to apply kernel sparsity (model pruning) to a specific parameter in a layer
+    """
+
     def __init__(
         self,
         layer: Module,
         param_name: str = "weight",
-        store_init: bool = True,
-        store_unmasked: bool = True,
-        track_grad_mom: float = 0.9,
+        store_init: bool = False,
+        store_unmasked: bool = False,
+        track_grad_mom: float = -1.0,
     ):
+        """
+        :param layer: the layer containing the parameter to mask
+        :param param_name: the name of the parameter to mask in the layer, default is weight
+        :param store_init: store the init weights in a separate variable that can be used and referenced later
+        :param store_unmasked: store the unmasked weights in a separate variable that can be used and referenced later
+        :param track_grad_mom: store the gradient updates to the parameter with a momentum variable
+                               must be in the range [0.0, 1.0), if set to 0.0 then will only keep most recent
+        """
         self._layer = layer
         self._param_name = param_name
         self._store_init = store_init
@@ -37,7 +58,7 @@ class KSLayerParamMask(object):
                 )
             )
 
-        self._param_mask = mask_from_tensor(self._param)  # type: Tensor
+        self._param_mask = sparsity_mask_from_tensor(self._param)  # type: Tensor
         self._param_init = None  # type: Tensor
         self._param_unmasked = None  # type: Tensor
         self._param_grad = None  # type: Tensor
@@ -48,45 +69,52 @@ class KSLayerParamMask(object):
 
     @property
     def layer(self) -> Module:
+        """
+        :return: the layer containing the parameter to mask
+        """
         return self._layer
 
     @property
     def param_name(self) -> str:
+        """
+        :return: the name of the parameter to mask in the layer, default is weight
+        """
         return self._param_name
 
     @property
     def store_init(self) -> bool:
+        """
+        :return: store the init weights in a separate variable that can be used and referenced later
+        """
         return self._store_init
-
-    @store_init.setter
-    def store_init(self, value: bool):
-        self._store_init = value
-        self._setup_param_init()
 
     @property
     def store_unmasked(self) -> bool:
+        """
+        :return: store the unmasked weights in a separate variable that can be used and referenced later
+        """
         return self._store_unmasked
-
-    @store_unmasked.setter
-    def store_unmasked(self, value: bool):
-        self._store_unmasked = value
-        self._setup_param_unmasked()
 
     @property
     def track_grad_mom(self) -> float:
+        """
+        :return: store the gradient updates to the parameter with a momentum variable
+                 must be in the range [0.0, 1.0), if set to 0.0 then will only keep most recent
+        """
         return self._track_grad_mom
-
-    @track_grad_mom.setter
-    def track_grad_mom(self, value: float):
-        self._track_grad_mom = value
-        self._setup_param_grad()
 
     @property
     def enabled(self) -> bool:
+        """
+        :return: True if the parameter is currently being masked, False otherwise
+        """
         return self._enabled
 
     @enabled.setter
     def enabled(self, value: bool):
+        """
+        :param value: True to mask the parameter, False otherwise
+        """
         if value and not self._enabled:
             self._create_hooks()
             self._param_grad = None
@@ -98,18 +126,30 @@ class KSLayerParamMask(object):
 
     @property
     def param_data(self) -> Tensor:
+        """
+        :return: the current tensor in the parameter
+        """
         return self._param.data
 
     @property
     def param_mask(self) -> Tensor:
+        """
+        :return: the current mask applied to the parameter
+        """
         return self._param_mask
 
     @property
     def param_init(self) -> Union[None, Tensor]:
+        """
+        :return: the initial value of the parameter before being masked
+        """
         return self._param_init
 
     @property
     def param_unmasked(self) -> Union[None, Tensor]:
+        """
+        :return: the unmasked value of the parameter (stores the last unmasked value before masking)
+        """
         if self._param_unmasked is None:
             return None
 
@@ -121,9 +161,15 @@ class KSLayerParamMask(object):
 
     @property
     def param_grad(self) -> Union[None, Tensor]:
+        """
+        :return: the current gradient values for the parameter
+        """
         return self._param_grad
 
     def set_param_data(self, value: Tensor):
+        """
+        :param value: the value to set as the current tensor for the parameter, if enabled the mask will be applied
+        """
         if value is None:
             raise ValueError("param_data cannot be set to None")
 
@@ -140,6 +186,9 @@ class KSLayerParamMask(object):
         self.apply()
 
     def set_param_mask(self, value: Tensor):
+        """
+        :param value: the mask to set and apply as the current tensor, if enabled mask is applied immediately
+        """
         if value is None:
             raise ValueError("mask cannot be set to None")
 
@@ -150,41 +199,49 @@ class KSLayerParamMask(object):
                 )
             )
 
-        # figure out the delta of the mask for newly masked and unmasked values for returning the info
-        # also add the values that are newly masked to our unmasked tensor
-        newly_masked = ((self._param_mask != value) & (value == 0.0)).type(
-            self._param.data.type()
-        )
-        newly_unmasked = ((self._param_mask != value) & (value == 1.0)).type(
-            self._param.data.type()
-        )
+        mask_diff = mask_difference(self._param_mask, value)
 
         if self._param_unmasked is not None:
+            # store our unmasked values if they should be tracked
+            # we only want to update our param_masked tensor with the ones that are newly masked
             self._param_unmasked = (
-                newly_masked * self._param_unmasked
-                + (newly_masked == 0.0).type(self._param.data.type())
+                (mask_diff == -1.0).type(self._param.data.type()) * self._param.data
+                + (mask_diff != -1.0).type(self._param.data.type())
                 * self._param_unmasked
             )
 
         self._param_mask = value
         self.apply()
 
-        return newly_masked + -1 * newly_unmasked
+        return mask_diff
 
-    def set_param_mask_from_threshold(self, threshold: Union[float, Tensor]) -> Tensor:
-        value = mask_from_threshold(self._param.data, threshold)
+    def set_param_mask_from_abs_threshold(
+        self, threshold: Union[float, Tensor]
+    ) -> Tensor:
+        """
+        Convenience function to set the parameter mask such that if a abs(value) <= threshold the it is masked to 0
+
+        :param threshold: the threshold at which all values will be masked to 0
+        """
+        value = sparsity_mask_from_abs_threshold(self._param.data, threshold)
 
         return self.set_param_mask(value)
 
     def set_param_mask_from_sparsity(self, sparsity: float) -> Tensor:
-        value = mask_from_sparsity(self._param.data, sparsity)
+        """
+        Convenience function to set the parameter mask such that it has a specific amount of masked values such that
+        the percentage equals the sparsity amount given. Masks the absolute smallest values up until sparsity is reached
+
+        :param sparsity: the decimal sparsity to set the param mask to
+        """
+        value = sparsity_mask(self._param.data, sparsity)
 
         return self.set_param_mask(value)
 
-    def cycle_param_mask(self, cycle_percent: float) -> Tensor:
-        raise NotImplementedError()
-
     def apply(self):
+        """
+        apply the current mask to the params tensor (zero out the desired values)
+        """
         if not self._enabled:
             return
 
@@ -196,6 +253,9 @@ class KSLayerParamMask(object):
             self._param.data.mul_(self._param_mask)
 
     def reset(self):
+        """
+        resets the current stored tensors such that they will be on the same device and have the proper data
+        """
         if self._param.data.device != self._param_mask.device:
             # param is on a different device, regen values so all tensors are on the same device
             self._regen_param_vals()
@@ -203,22 +263,22 @@ class KSLayerParamMask(object):
         self._param.data.copy_(self._param_init)
 
     def _regen_param_vals(self):
-        self._param_mask = KSLayerParamMask._detach_tens(
+        self._param_mask = ModuleParamKSMask._detach_tens(
             torch.empty_like(self._param.data).copy_(self._param_mask)
         )
 
         if self._param_init is not None:
-            self._param_init = KSLayerParamMask._detach_tens(
+            self._param_init = ModuleParamKSMask._detach_tens(
                 torch.empty_like(self._param.data).copy_(self._param_init)
             )
 
         if self._param_unmasked is not None:
-            self._param_unmasked = KSLayerParamMask._detach_tens(
+            self._param_unmasked = ModuleParamKSMask._detach_tens(
                 torch.empty_like(self._param.data).copy_(self._param_unmasked)
             )
 
         if self._param_grad is not None:
-            self._param_grad = KSLayerParamMask._detach_tens(
+            self._param_grad = ModuleParamKSMask._detach_tens(
                 torch.empty_like(self._param.data).copy_(self._param_grad)
             )
 
@@ -244,7 +304,7 @@ class KSLayerParamMask(object):
         self.apply()
 
     def _hook_mask_gradient(self, grad):
-        if self._track_grad_mom >= 0.0:
+        if 0.0 <= self._track_grad_mom < 1.0:
             self._param_grad.mul_(self._track_grad_mom).add_(
                 (1.0 - self._track_grad_mom) * grad
             )
@@ -253,13 +313,13 @@ class KSLayerParamMask(object):
 
     def _setup_param_init(self):
         if self._store_init and self._param_init is None:
-            self._param_init = KSLayerParamMask._detach_tens(self._param.data.clone())
+            self._param_init = ModuleParamKSMask._detach_tens(self._param.data.clone())
         elif not self._store_init and self._param_init is not None:
             self._param_init = None
 
     def _setup_param_unmasked(self):
         if self._store_unmasked and self._param_unmasked is None:
-            self._param_unmasked = KSLayerParamMask._detach_tens(
+            self._param_unmasked = ModuleParamKSMask._detach_tens(
                 self._param.data.clone()
             )
         elif not self._store_unmasked and self._param_unmasked is not None:
@@ -267,7 +327,7 @@ class KSLayerParamMask(object):
 
     def _setup_param_grad(self):
         if self._track_grad_mom >= 0.0 and self._param_grad is None:
-            self._param_grad = KSLayerParamMask._detach_tens(
+            self._param_grad = ModuleParamKSMask._detach_tens(
                 self._param.data.new_zeros(self._param.data.shape)
             )
         elif self._track_grad_mom < 0.0 and self._param_grad is not None:

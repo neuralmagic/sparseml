@@ -5,6 +5,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from .manager import ScheduledModifierManager
+from .logger import ModifierLogger
 
 
 __all__ = ["ScheduledOptimizer"]
@@ -55,6 +56,7 @@ class ScheduledOptimizer(Optimizer):
         module: Module,
         manager: Union[ScheduledModifierManager, List[ScheduledModifierManager]],
         steps_per_epoch: int,
+        loggers: Union[List[ModifierLogger], None] = None,
     ):
         """
         :param module: module to modify
@@ -62,6 +64,7 @@ class ScheduledOptimizer(Optimizer):
         :param manager: the manager or list of managers used to apply modifications
         :param steps_per_epoch: the number of steps or batches in each epoch, not strictly required and can be set to -1
                                 used to calculate decimals within the epoch, when not using can result in irregularities
+        :param loggers: loggers to log important info to within the modifiers; ex tensorboard or to the console
         """
         # do not call into super.__init__()
         # makes the implementation messier activation this instance is not actually acting activation an optimizer
@@ -71,8 +74,9 @@ class ScheduledOptimizer(Optimizer):
         self._managers = (
             [manager] if isinstance(manager, ScheduledModifierManager) else manager
         )
-        self._steps = 0
         self._steps_per_epoch = steps_per_epoch
+
+        self._steps = 0
         self._epoch_counter = -1
         self._epoch = -1
         self._epoch_steps = 0
@@ -81,6 +85,7 @@ class ScheduledOptimizer(Optimizer):
 
         for manager in self._managers:
             manager.initialize(self._module, self._optimizer)
+            manager.initialize_loggers(loggers)
 
     def __getstate__(self):
         return self._optimizer.__getstate__()
@@ -93,6 +98,9 @@ class ScheduledOptimizer(Optimizer):
 
     @property
     def learning_rate(self) -> float:
+        """
+        :return: convenience function to get the first learning rate for any of the param groups in the optimizer
+        """
         for param_group in self.param_groups:
             return param_group["lr"]
 
@@ -100,6 +108,9 @@ class ScheduledOptimizer(Optimizer):
 
     @learning_rate.setter
     def learning_rate(self, value: float):
+        """
+        :param value: the learning rate to set for the optimizer, will set all param groups in the optim to this value
+        """
         for param_group in self.param_groups:
             param_group["lr"] = value
 
@@ -110,6 +121,24 @@ class ScheduledOptimizer(Optimizer):
     @param_groups.setter
     def param_groups(self, value):
         self._optimizer.param_groups = value
+
+    @property
+    def min_epochs(self) -> int:
+        """
+        :return: the minimum epochs required by any of the modifiers under any of the manager(s)
+        """
+        vals = [man.min_epochs for man in self._managers]
+
+        return min(vals) if len(vals) > 0 else -1
+
+    @property
+    def max_epochs(self) -> int:
+        """
+        :return: the maximum number of epochs required by any of the modifiers under any of the manager(s)
+        """
+        vals = [man.min_epochs for man in self._managers]
+
+        return max(vals) if len(vals) > 0 else -1
 
     def state_dict(self):
         self._optimizer.state_dict()

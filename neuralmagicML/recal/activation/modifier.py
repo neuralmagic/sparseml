@@ -1,3 +1,7 @@
+"""
+Code related to modifiers for enforcing activation sparsity on models while training
+"""
+
 from typing import Union, List, Tuple
 import yaml
 from torch import Tensor
@@ -24,6 +28,23 @@ REG_TENSORS = ["inp", "out"]
 
 
 class ASRegModifier(ScheduledModifier):
+    """
+    Add a regularizer over the inputs or outputs to given layers (activation regularization)
+    This promotes larger activation sparsity values
+
+    Sample yaml:
+        !ASRegModifier
+            start_epoch: 0.0
+            end_epoch: 10.0
+            layers:
+                - layer1
+                -layer2
+            alpha: 0.00001
+            layer_normalized: True
+            reg_func: l1
+            reg_tens: inp
+    """
+
     YAML_KEY = u"!ASRegModifier"
 
     @staticmethod
@@ -44,21 +65,7 @@ class ASRegModifier(ScheduledModifier):
         end_epoch: float = -1.0,
     ):
         """
-        Add a regularizer over the inputs or outputs to given layers (activation regularization)
-
-        Sample yaml:
-            !ASRegModifier
-                start_epoch: 0.0
-                end_epoch: 10.0
-                layers:
-                    - layer1
-                    -layer2
-                alpha: 0.00001
-                layer_normalized: True
-                reg_func: l1
-                reg_tens: inp
-
-        :param layers: str or list of str for the layers to apply the KS modifier to
+        :param layers: str or list of str for the layers to apply the AS modifier to
                        can also use the token __ALL__ to specify all layers
         :param alpha: the weight to use for the regularization, ie cost = loss + alpha * reg
         :param layer_normalized: True to normalize the values by 1 / L where L is the number of layers
@@ -67,12 +74,10 @@ class ASRegModifier(ScheduledModifier):
         :param start_epoch: The epoch to start the modifier at
         :param end_epoch: The epoch to end the modifier at
         """
-
         super().__init__(start_epoch, end_epoch)
-
-        self._layers = validate_str_list(layers, "layers", ASRegModifier.YAML_KEY)
+        self._layers = validate_str_list(layers, "{} for layers".format(self.__class__.__name__))
         self._alpha = alpha
-        self._layer_noramlized = convert_to_bool(layer_normalized)
+        self._layer_normalized = convert_to_bool(layer_normalized)
         self._reg_func = reg_func
         self._reg_tens = reg_tens
         self._trackers = []  # type: List[ASLayerTracker]
@@ -110,65 +115,82 @@ class ASRegModifier(ScheduledModifier):
 
     @property
     def layers(self) -> Union[str, List[str]]:
+        """
+        :return: str or list of str for the layers to apply the AS modifier to
+                 can also use the token __ALL__ to specify all layers
+        """
         return self._layers
 
     @layers.setter
     def layers(self, value: Union[str, List[str]]):
-        if self.initialized:
-            raise RuntimeError(
-                "Cannot change layers after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
+        """
+        :param value: str or list of str for the layers to apply the AS modifier to
+                      can also use the token __ALL__ to specify all layers
+        """
+        self.prop_set_check('layers')
         self._layers = value
 
     @property
     def alpha(self) -> Union[float, List[float]]:
+        """
+        :return: the weight to use for the regularization, ie cost = loss + alpha * reg
+        """
         return self._alpha
 
     @alpha.setter
     def alpha(self, value: Union[float, List[float]]):
-        if self.initialized:
-            raise RuntimeError(
-                "Cannot change alpha after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
+        """
+        :param value: the weight to use for the regularization, ie cost = loss + alpha * reg
+        """
+        self.prop_set_check('alpha')
         self._alpha = value
 
     @property
+    def layer_normalized(self):
+        return self._layer_normalized
+
+    @layer_normalized.setter
+    def layer_normalized(self, value):
+        self.prop_set_check('layer_normalized')
+        self._layer_normalized = value
+
+    @property
     def reg_func(self) -> str:
+        """
+        :return: the regularization function to apply to the activations, one of: l1, l2, relu, hs
+        """
         return self._reg_func
 
     @reg_func.setter
     def reg_func(self, value: str):
-        if self.initialized:
-            raise RuntimeError(
-                "Cannot change reg_func after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
+        """
+        :param value: the regularization function to apply to the activations, one of: l1, l2, relu, hs
+        """
+        self.prop_set_check('reg_func')
         self._reg_func = value
 
     @property
     def reg_tens(self) -> str:
+        """
+        :return: the regularization tensor to apply a function to, one of: inp, out
+        """
         return self._reg_tens
 
     @reg_tens.setter
     def reg_tens(self, value: str):
-        if self.initialized:
-            raise RuntimeError(
-                "Cannot change reg_tens after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
+        """
+        :param value: the regularization tensor to apply a function to, one of: inp, out
+        """
+        self.prop_set_check('reg_tens')
         self._reg_tens = value
 
     def initialize(self, module: Module, optimizer: Optimizer):
+        """
+        Grab the layer's to control activation sparsity for
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        """
         super(ASRegModifier, self).initialize(module, optimizer)
         layers = (
             get_terminal_layers(module)
@@ -190,6 +212,16 @@ class ASRegModifier(ScheduledModifier):
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
+        """
+        Update the loss tracking for each layer that is being modified on start and stop
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+
         if self.start_pending(epoch, steps_per_epoch):
             for tracker in self._trackers:
                 tracker.enable()
@@ -206,8 +238,17 @@ class ASRegModifier(ScheduledModifier):
         epoch: float,
         steps_per_epoch: int,
     ) -> Tensor:
-        if not self.enabled:
-            return super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
+        """
+        modify the loss to include the norms for the outputs of the layers being modified
+
+        :param loss: The calculated loss tensor
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :return: the modified loss tensor
+        """
+        loss = super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
 
         act_reg = 0.0
         key = "cpu" if not loss.is_cuda else "cuda:{}".format(loss.get_device())
@@ -227,7 +268,7 @@ class ASRegModifier(ScheduledModifier):
             )
             act_reg += tracker_reg * alpha
 
-        if self._layer_noramlized:
+        if self._layer_normalized:
             # normalize across the number of layers we are tracking
             act_reg = act_reg / len(self._trackers)
 
@@ -236,6 +277,16 @@ class ASRegModifier(ScheduledModifier):
     def optimizer_post_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
+        """
+        be sure to clear out the values after the update step has been taken
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
+
         for tracker in self._trackers:
             tracker.clear()
 

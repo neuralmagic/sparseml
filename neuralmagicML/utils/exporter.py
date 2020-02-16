@@ -1,4 +1,8 @@
-from typing import Union, Tuple, List
+"""
+Code related to exporting pytorch models on a given device for given batches
+"""
+
+from typing import Union, Tuple, List, Any, Iterable
 import os
 import numpy
 import torch
@@ -6,65 +10,125 @@ from torch import Tensor
 from torch.nn import Module
 from torch.utils.hooks import RemovableHandle
 
+from .helpers import (
+    tensors_batch_size,
+    tensors_to_device,
+    tensors_module_forward,
+    tensors_export,
+    create_parent_dirs,
+    create_dirs,
+    clean_path,
+)
 
-__all__ = ['ModelExporter']
+
+__all__ = ["ModuleExporter"]
 
 
-class ModelExporter(object):
-    def __init__(self, model: Module, inputs_shape: Union[List[Tuple[int, ...]], Tuple[int, ...]], output_dir: str):
-        self._model = model.to('cpu').eval()
-        self._inputs_shape = inputs_shape if isinstance(inputs_shape, List) else [inputs_shape]
-        self._output_dir = os.path.abspath(os.path.expanduser(output_dir))
+class ModuleExporter(object):
+    """
+    An exporter for exporting pytorch modules into onnx format
+    as well as numpy arrays for the input and output tensors
+    additional exports can be numpy arrays for the intermediate activations between layers
+    and param values for each layer as numpy arrays
+    """
 
-        if not os.path.exists(self._output_dir):
-            os.makedirs(self._output_dir)
+    def __init__(
+        self, module: Module, output_dir: str,
+    ):
+        """
+        :param module: the module to export
+        :param output_dir: the directory to export the module and extras to
+        """
+        self._module = module.to("cpu").eval()
+        self._output_dir = clean_path(output_dir)
 
-    def export_onnx(self):
-        onnx_path = os.path.join(self._output_dir, 'model.onnx')
-        inp = self._create_sample_input(batch_size=1)
+    def export_onnx(self, sample_batch: Any):
+        """
+        :param sample_batch: the batch to export an onnx for, handles creating the static graph for onnx
+                             as well as setting dimensions
+        :return: the path to the exported onnx file
+        """
+        sample_batch = tensors_to_device(sample_batch, "cpu")
+        onnx_path = os.path.join(self._output_dir, "model.onnx")
+        create_parent_dirs(onnx_path)
 
         with torch.no_grad():
-            out = self._model(*inp)
+            out = tensors_module_forward(sample_batch, self._module)
 
-        input_names = ['input'] if len(inp) == 1 else ['input_{}'.format(ind) for ind in range(len(inp))]
-        output_names = ['output'] if isinstance(out, Tensor) or len(out) == 1 \
-            else ['output_{}'.format(ind) for ind in range(len(out))]
+        input_names = None
+        if isinstance(sample_batch, Tensor):
+            input_names = ["input"]
+        elif isinstance(sample_batch, Iterable):
+            input_names = [
+                "input_{}".format(index) for index, _ in enumerate(iter(sample_batch))
+            ]
 
-        torch.onnx.export(self._model, inp, onnx_path, input_names=input_names, output_names=output_names,
-                          strip_doc_string=True, verbose=False)
-        print('Exported onnx to {}'.format(onnx_path))
+        output_names = None
+        if isinstance(out, Tensor):
+            output_names = ["output"]
+        elif isinstance(out, Iterable):
+            output_names = [
+                "output_{}".format(index) for index, _ in enumerate(iter(sample_batch))
+            ]
 
-    def export_batch(self, batch_size: int, inp: Union[None, Tuple[Tensor]] = None, export_intermediates: bool = False, export_layers: bool = False):
-        batch_dir = os.path.join(self._output_dir, 'b{}'.format(batch_size))
-        tensors_dir = os.path.join(batch_dir, 'tensors')
-        layers_dir = os.path.join(batch_dir, 'layers')
+        torch.onnx.export(
+            self._module,
+            sample_batch,
+            onnx_path,
+            input_names=input_names,
+            output_names=output_names,
+            strip_doc_string=True,
+            verbose=False,
+        )
 
-        if not os.path.exists(tensors_dir):
-            os.makedirs(tensors_dir)
+        return onnx_path
 
-        if not os.path.exists(layers_dir):
-            os.makedirs(layers_dir)
+    def export_batch(
+        self,
+        sample_batch: Any,
+        export_intermediates: bool = False,
+        export_layers: bool = False,
+    ) -> str:
+        """
+        :param sample_batch: the batch input to export along with outputs and intermediates and layer params if specified
+        :param export_intermediates: True to export the intermediate tensors between layers, False otherwise
+        :param export_layers: True to export param values for the layers into numpy arrays, False otherwise
+        :return the path to where the batch was exported to
+        """
+        sample_batch = tensors_to_device(sample_batch, "cpu")
+        batch_size = tensors_batch_size(sample_batch)
+        batch_dir = os.path.join(self._output_dir, "b{}".format(batch_size))
+        tensors_dir = os.path.join(batch_dir, "tensors")
+        layers_dir = os.path.join(batch_dir, "layers")
+        create_dirs(tensors_dir)
+        create_dirs(layers_dir)
 
         handles = []  # type: List[RemovableHandle]
         layer_type_counts = {}
 
-        def forward_hook(_layer: Module, _inp: Tuple[Tensor, ...], _out: Union[Tensor, Tuple[Tensor, ...]]):
+        def forward_hook(
+            _layer: Module,
+            _inp: Tuple[Tensor, ...],
+            _out: Union[Tensor, Tuple[Tensor, ...]],
+        ):
             type_ = type(_layer).__name__
 
             if type_ not in layer_type_counts:
                 layer_type_counts[type_] = 0
 
-            export_name = '{}-{}.{}'.format(type_, layer_type_counts[type_], _layer.__layer_name.replace('.', '-'))
+            export_name = "{}-{}.{}".format(
+                type_, layer_type_counts[type_], _layer.__layer_name.replace(".", "-")
+            )
             layer_type_counts[type_] += 1
 
             if export_layers:
-                ModelExporter.export_layer(_layer, export_name, layers_dir)
+                ModuleExporter.export_layer(_layer, export_name, layers_dir)
 
             if export_intermediates:
-                ModelExporter.export_tensor(_inp, '{}.input'.format(export_name), tensors_dir)
-                ModelExporter.export_tensor(_out, '{}.output'.format(export_name), tensors_dir)
+                tensors_export(_inp, tensors_dir, "{}.input".format(export_name))
+                tensors_export(_out, tensors_dir, "{}.output".format(export_name))
 
-        for name, mod in self._model.named_modules():
+        for name, mod in self._module.named_modules():
             # make sure we only track root nodes
             # (only has itself in named_modules)
             child_count = 0
@@ -78,36 +142,20 @@ class ModelExporter(object):
             handles.append(mod.register_forward_hook(forward_hook))
 
         with torch.no_grad():
-            if inp is None:
-                inp = self._create_sample_input(batch_size)
-            out = self._model(*inp)
+            out = tensors_module_forward(sample_batch, self._module)
 
         for handle in handles:
             handle.remove()
 
         handles.clear()
+        tensors_export(sample_batch, tensors_dir, "_model.input")
+        tensors_export(out, tensors_dir, "_model.output")
 
-        ModelExporter.export_tensor(inp, '_model.input', tensors_dir)
-        ModelExporter.export_tensor(out, '_model.output', tensors_dir)
-
-    def _create_sample_input(self, batch_size: int) -> Tuple[Tensor]:
-        return tuple(torch.randn(batch_size, *inp) for inp in self._inputs_shape)
+        return batch_dir
 
     @staticmethod
     def export_layer(layer: Module, name: str, export_dir: str):
         for param_name, param in layer.named_parameters():
-            export_path = os.path.join(export_dir, '{}.{}.npy'.format(name, param_name))
+            export_path = os.path.join(export_dir, "{}.{}.npy".format(name, param_name))
             export_tens = param.data.cpu().detach().numpy()
             numpy.save(export_path, export_tens)
-            print('exported param {} for layer {} to {}'.format(param_name, name, export_path))
-
-    @staticmethod
-    def export_tensor(tensors: Union[Tensor, Tuple[Tensor, ...]], name: str, export_dir: str, index_offset: int = 0):
-        if isinstance(tensors, Tensor):
-            tensors = (tensors,)
-
-        for index, tens in enumerate(tensors):
-            export_path = os.path.join(export_dir, '{}-{}.npy'.format(name, index + index_offset))
-            export_tens = tens.cpu().detach().numpy()
-            numpy.save(export_path, export_tens)
-            print('exported tensor #{} for {} to {}'.format(index + index_offset, name, export_path))

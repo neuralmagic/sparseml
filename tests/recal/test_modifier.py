@@ -9,7 +9,18 @@ from torch.nn import Module, Sequential, Linear
 from torch.optim import Adam, SGD
 from torch.optim.optimizer import Optimizer
 
-from neuralmagicML.recal import Modifier, ScheduledModifier, ScheduledUpdateModifier
+from neuralmagicML.recal import (
+    Modifier,
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+    PythonLogger,
+    TensorboardLogger,
+)
+
+
+DEFAULT_MODEL_LAYER = "block1.fc1"
+DEFAULT_MODEL_LAYER_PARAM = "bias"
+DEFAULT_MODEL_LAYER_PARAM_SIZE = 16
 
 
 def def_model():
@@ -51,9 +62,16 @@ class ModifierTest(ABC):
         return modifier, model, optim
 
     def initialize_helper(
-        self, modifier: Modifier, model: Module, optimizer: Optimizer
+        self,
+        modifier: Modifier,
+        model: Module,
+        optimizer: Optimizer,
+        log_initialize: bool = True,
     ):
         modifier.initialize(model, optimizer)
+
+        if log_initialize:
+            modifier.initialize_loggers([PythonLogger(), TensorboardLogger()])
 
     @pytest.mark.device_cpu
     def test_initialize(self, modifier_lambda, model_lambda, optim_lambda):
@@ -63,6 +81,19 @@ class ModifierTest(ABC):
 
         self.initialize_helper(modifier, model, optimizer)
         assert modifier.initialized
+
+    @pytest.mark.device_cpu
+    def test_initialize_loggers(self, modifier_lambda, model_lambda, optim_lambda):
+        modifier, model, optimizer = self.create_test_objs(
+            modifier_lambda, model_lambda, optim_lambda
+        )
+
+        loggers = [PythonLogger(), TensorboardLogger()]
+        modifier.initialize_loggers(loggers)
+        assert len(loggers) == len(modifier.loggers)
+
+        for logger in loggers:
+            assert logger in modifier.loggers
 
     @pytest.mark.device_cpu
     def test_update(
@@ -81,7 +112,43 @@ class ModifierTest(ABC):
             modifier.update(model, optimizer, test_epoch, test_steps_per_epoch)
 
         self.initialize_helper(modifier, model, optimizer)
+
+        modifier.enabled = False
+        with pytest.raises(RuntimeError):
+            modifier.update(model, optimizer, test_epoch, test_steps_per_epoch)
+        modifier.enabled = True
+
         modifier.update(model, optimizer, test_epoch, test_steps_per_epoch)
+
+    @pytest.mark.device_cpu
+    def test_log_update(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_epoch,
+        test_steps_per_epoch,
+    ):
+        modifier, model, optimizer = self.create_test_objs(
+            modifier_lambda, model_lambda, optim_lambda
+        )
+
+        with pytest.raises(RuntimeError):
+            modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
+
+        self.initialize_helper(modifier, model, optimizer, log_initialize=False)
+
+        with pytest.raises(RuntimeError):
+            modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
+
+        self.initialize_helper(modifier, model, optimizer, log_initialize=True)
+
+        modifier.enabled = False
+        with pytest.raises(RuntimeError):
+            modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
+        modifier.enabled = True
+
+        modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
 
     @pytest.mark.device_cpu
     def test_loss_update(
@@ -123,9 +190,19 @@ class ModifierTest(ABC):
         )
 
         with pytest.raises(RuntimeError):
-            modifier.update(model, optimizer, test_epoch, test_steps_per_epoch)
+            modifier.optimizer_pre_step(
+                model, optimizer, test_epoch, test_steps_per_epoch
+            )
 
         self.initialize_helper(modifier, model, optimizer)
+
+        modifier.enabled = False
+        with pytest.raises(RuntimeError):
+            modifier.optimizer_pre_step(
+                model, optimizer, test_epoch, test_steps_per_epoch
+            )
+        modifier.enabled = True
+
         modifier.optimizer_pre_step(model, optimizer, test_epoch, test_steps_per_epoch)
 
     @pytest.mark.device_cpu
@@ -142,10 +219,20 @@ class ModifierTest(ABC):
         )
 
         with pytest.raises(RuntimeError):
-            modifier.update(model, optimizer, test_epoch, test_steps_per_epoch)
+            modifier.optimizer_post_step(
+                model, optimizer, test_epoch, test_steps_per_epoch
+            )
 
         self.initialize_helper(modifier, model, optimizer)
-        modifier.optimizer_pre_step(model, optimizer, test_epoch, test_steps_per_epoch)
+
+        modifier.enabled = False
+        with pytest.raises(RuntimeError):
+            modifier.optimizer_post_step(
+                model, optimizer, test_epoch, test_steps_per_epoch
+            )
+        modifier.enabled = True
+
+        modifier.optimizer_post_step(model, optimizer, test_epoch, test_steps_per_epoch)
 
 
 class ScheduledModifierTest(ModifierTest):
@@ -183,7 +270,7 @@ class ScheduledModifierTest(ModifierTest):
         )
 
         with pytest.raises(RuntimeError):
-            modifier.start_pending(0.0, test_steps_per_epoch)
+            modifier.end_pending(0.0, test_steps_per_epoch)
 
         self.initialize_helper(modifier, model, optimizer)
         self.start_helper(modifier, model, optimizer)
@@ -233,7 +320,7 @@ class ScheduledModifierTest(ModifierTest):
         )
 
         with pytest.raises(RuntimeError):
-            modifier.start_pending(0.0, test_steps_per_epoch)
+            modifier.scheduled_update(model, optimizer, 0.0, test_steps_per_epoch)
 
         self.initialize_helper(modifier, model, optimizer)
 
@@ -270,6 +357,50 @@ class ScheduledModifierTest(ModifierTest):
     ):
         with pytest.raises(RuntimeError):
             super().test_update(
+                modifier_lambda,
+                model_lambda,
+                optim_lambda,
+                test_epoch,
+                test_steps_per_epoch,
+            )
+
+    @pytest.mark.device_cpu
+    def test_scheduled_log_update(
+        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+    ):
+        modifier, model, optimizer = self.create_test_objs(
+            modifier_lambda, model_lambda, optim_lambda
+        )
+
+        with pytest.raises(RuntimeError):
+            modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
+
+        self.initialize_helper(modifier, model, optimizer, log_initialize=False)
+
+        with pytest.raises(RuntimeError):
+            modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
+
+        self.initialize_helper(modifier, model, optimizer, log_initialize=True)
+
+        for epoch in range(
+            int(modifier.start_epoch) if modifier.start_epoch >= 0.0 else 0,
+            int(modifier.start_epoch) + 5
+            if modifier.start_epoch > 0.0
+            else int(modifier.start_epoch) + 15,
+        ):
+            modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
+
+    @pytest.mark.device_cpu
+    def test_log_update(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_epoch,
+        test_steps_per_epoch,
+    ):
+        with pytest.raises(RuntimeError):
+            super().test_log_update(
                 modifier_lambda,
                 model_lambda,
                 optim_lambda,

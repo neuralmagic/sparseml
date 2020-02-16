@@ -301,7 +301,7 @@ class ModelSensitivityAnalysisWidget(object):
                 sens = [(sens.layer_desc.name, sens.er) for sens in self._approx_sensitivities]
 
         if self._cat_type == ModelSensitivityAnalysisWidget.CAT_STATIC_APPROX and self._static_sensitivities:
-            sens = [(sens.layer_desc.name, sens.integrate) for sens in self._static_sensitivities]
+            sens = [(sens.layer_desc.name, sens.integral) for sens in self._static_sensitivities]
 
         if sens is not None:
             self._fig_axes = plot_sensitivities(sens, title)

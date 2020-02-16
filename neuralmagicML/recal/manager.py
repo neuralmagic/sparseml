@@ -3,12 +3,13 @@ Contains base code related to modifier managers: modifier managers handle groupi
 Also handles loading modifiers from yaml files
 """
 
-from typing import List
+from typing import List, Union
 import yaml
 from torch import Tensor
 from torch.nn import Module
-from torch.optim import Optimizer
+from torch.optim.optimizer import Optimizer
 
+from neuralmagicML.recal.logger import ModifierLogger
 from .modifier import Modifier, ScheduledModifier
 
 
@@ -21,10 +22,14 @@ class ScheduledModifierManager(Modifier):
 
     Lifecycle:
         - initialize
+        - initialize_loggers
+
         training loop:
             - update_ready
                 - scheduled_update
                     - update
+            - scheduled_log_update
+                - log_update
             - loss_update
             - optimizer_pre_step
             - optimizer_post_step
@@ -58,6 +63,9 @@ class ScheduledModifierManager(Modifier):
 
     @property
     def min_epochs(self) -> int:
+        """
+        :return: the minimum epochs required by any of the modifiers under the manager
+        """
         vals = []
         vals.extend(
             [mod.start_epoch for mod in self._modifiers if mod.start_epoch > -1]
@@ -68,6 +76,9 @@ class ScheduledModifierManager(Modifier):
 
     @property
     def max_epochs(self) -> int:
+        """
+        :return: the maximum number of epochs required by any of the modifiers under the manager
+        """
         vals = []
         vals.extend(
             [mod.start_epoch for mod in self._modifiers if mod.start_epoch > -1]
@@ -89,6 +100,18 @@ class ScheduledModifierManager(Modifier):
         for mod in self._modifiers:
             mod.initialize(module, optimizer)
 
+    def initialize_loggers(self, loggers: Union[None, List[ModifierLogger]]):
+        """
+        Handles initializing and setting up the loggers for the contained modifiers
+        Called once on construction of the scheduled optimizer
+
+        :param loggers: the loggers to setup this modifier with for logging important info and milestones to
+        """
+        super().initialize_loggers(loggers)
+
+        for mod in self._modifiers:
+            mod.initialize_loggers(loggers)
+
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -104,8 +127,13 @@ class ScheduledModifierManager(Modifier):
         super().update(module, optimizer, epoch, steps_per_epoch)
 
         for mod in self._modifiers:
+            if not mod.enabled:
+                continue
+
             if mod.update_ready(epoch, steps_per_epoch):
                 mod.scheduled_update(module, optimizer, epoch, steps_per_epoch)
+
+            mod.scheduled_log_update(module, optimizer, epoch, steps_per_epoch)
 
     def loss_update(
         self,
@@ -128,6 +156,9 @@ class ScheduledModifierManager(Modifier):
         super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
 
         for mod in self._modifiers:
+            if not mod.enabled:
+                continue
+
             loss = mod.loss_update(loss, module, optimizer, epoch, steps_per_epoch)
 
         return loss
@@ -147,6 +178,9 @@ class ScheduledModifierManager(Modifier):
         super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
 
         for mod in self._modifiers:
+            if not mod.enabled:
+                continue
+
             mod.optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
 
     def optimizer_post_step(
@@ -164,4 +198,7 @@ class ScheduledModifierManager(Modifier):
         super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 
         for mod in self._modifiers:
+            if not mod.enabled:
+                continue
+
             mod.optimizer_post_step(module, optimizer, epoch, steps_per_epoch)

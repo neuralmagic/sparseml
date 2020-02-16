@@ -11,7 +11,7 @@ from neuralmagicML.recal import (
     CyclicLRModifier,
 )
 
-from .test_modifier import (
+from tests.recal.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
     test_epoch,
@@ -440,8 +440,6 @@ def test_lr_modifier_exponential_yaml():
 # CyclicLRModifier functions
 #
 ##############################
-
-
 CYCLIC_START = 0.001
 CYCLIC_END = 0.1
 LR_CYCLIC_MODIFIERS = [

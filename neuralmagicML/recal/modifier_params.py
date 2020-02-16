@@ -75,8 +75,12 @@ class TrainableParamsModifier(ScheduledModifier):
         """
         super().__init__(start_epoch, end_epoch)
         self._start_epoch = start_epoch
-        self._params = validate_str_list(params, "params", self.__class__.__name__)
-        self._layers = validate_str_list(layers, "layers", self.__class__.__name__)
+        self._params = validate_str_list(
+            params, "{} for params".format(self.__class__.__name__)
+        )
+        self._layers = validate_str_list(
+            layers, "{} for layers".format(self.__class__.__name__)
+        )
         self._trainable = convert_to_bool(trainable)
         self._params_strict = convert_to_bool(params_strict)
         self._module_params = []  # type: List[Parameter]
@@ -187,10 +191,10 @@ class TrainableParamsModifier(ScheduledModifier):
         layers = (
             get_terminal_layers(module)
             if self._layers == ALL_TOKEN
-            else [get_layer(name, module) for name in self._layers]
+            else {name: get_layer(name, module) for name in self._layers}
         )
 
-        for layer in layers:
+        for name, layer in layers.items():
             found = []
 
             for param_name, param in layer.named_parameters():
@@ -221,6 +225,8 @@ class TrainableParamsModifier(ScheduledModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+
         if self.start_pending(epoch, steps_per_epoch):
             self._original.clear()
 
@@ -285,7 +291,9 @@ class SetParamModifier(ScheduledModifier):
         super().__init__(start_epoch, -1.0)
         self._param = param
         self._val = val
-        self._layers = validate_str_list(layers, "layers", self.__class__.__name__)
+        self._layers = validate_str_list(
+            layers, "{} for layers".format(self.__class__.__name__)
+        )
         self._param_strict = param_strict
         self._module_params = []  # type: List[Parameter]
 
@@ -398,10 +406,10 @@ class SetParamModifier(ScheduledModifier):
         layers = (
             get_terminal_layers(module)
             if self._layers == ALL_TOKEN
-            else [get_layer(name, module) for name in self._layers]
+            else {name: get_layer(name, module) for name in self._layers}
         )
 
-        for layer in layers:
+        for name, layer in layers.items():
             found = False
 
             for param_name, par in layer.named_parameters():
@@ -437,6 +445,8 @@ class SetParamModifier(ScheduledModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+
         if self.start_pending(epoch, steps_per_epoch):
             for param in self._module_params:
                 new_tens = param.data.new_tensor(self._val)
@@ -457,8 +467,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
 
     Sample YAML:
         !GradualParamModifier
-            params:
-                - bias
+            param: bias
             layers: __ALL__
             init_val: [0.0, 0.0, ...]
             final_val: [1.0, 1.0, ...]
@@ -510,7 +519,9 @@ class GradualParamModifier(ScheduledUpdateModifier):
         self._final_val = final_val
         self._init_val_tens = None
         self._final_val_tens = None
-        self._layers = validate_str_list(layers, "layers", self.__class__.__name__)
+        self._layers = validate_str_list(
+            layers, "{} for layers".format(self.__class__.__name__)
+        )
         self._inter_func = inter_func
         self._param_strict = param_strict
         self._module_params = []  # type: List[Parameter]
@@ -522,9 +533,9 @@ class GradualParamModifier(ScheduledUpdateModifier):
                 )
             )
 
-        if end_epoch < 0:
+        if end_epoch < start_epoch:
             raise ValueError(
-                "end_epoch must be greater than or equal to 0 for {}".format(
+                "end_epoch must be greater than start_epoch for {}".format(
                     self.__class__.__name__
                 )
             )
@@ -544,17 +555,20 @@ class GradualParamModifier(ScheduledUpdateModifier):
             )
 
     def __repr__(self):
-        return "{}(param={}, layers={}, init_val={}, final_val={}, start_epoch={}, end_epoch={}, update_frequency={}, inter_func={}, param_strict={})".format(
-            self.__class__.__name__,
-            self._param,
-            self._layers,
-            self._init_val,
-            self._final_val,
-            self.start_epoch,
-            self.end_epoch,
-            self.update_frequency,
-            self._inter_func,
-            self._param_strict,
+        return (
+            "{}(param={}, layers={}, init_val={}, final_val={}, start_epoch={}, end_epoch={}, update_frequency={},"
+            " inter_func={}, param_strict={})".format(
+                self.__class__.__name__,
+                self._param,
+                self._layers,
+                self._init_val,
+                self._final_val,
+                self.start_epoch,
+                self.end_epoch,
+                self.update_frequency,
+                self._inter_func,
+                self._param_strict,
+            )
         )
 
     @property
@@ -711,10 +725,10 @@ class GradualParamModifier(ScheduledUpdateModifier):
         layers = (
             get_terminal_layers(module)
             if self._layers == ALL_TOKEN
-            else [get_layer(name, module) for name in self._layers]
+            else {name: get_layer(name, module) for name in self._layers}
         )
 
-        for layer in layers:
+        for name, layer in layers.items():
             found = False
 
             for param_name, par in layer.named_parameters():
@@ -748,6 +762,8 @@ class GradualParamModifier(ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+
         new_val = interpolate(
             epoch,
             self.start_epoch,

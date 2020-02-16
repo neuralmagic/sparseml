@@ -1,4 +1,8 @@
-from typing import List, Tuple, Iterator, Any, Callable
+"""
+Code related to efficiently downloading multiple files with parallel workers
+"""
+
+from typing import List, Tuple, Iterator, Callable
 from urllib.request import urlopen
 import tempfile
 import shutil
@@ -8,11 +12,20 @@ import multiprocessing
 from .worker import ParallelWorker
 
 
-__all__ = ['DownloadResult', 'MultiDownloader']
+__all__ = ["DownloadResult", "MultiDownloader"]
 
 
 class DownloadResult(object):
+    """
+    A file result from a download
+    """
+
     def __init__(self, id_: str, source: str, dest: str):
+        """
+        :param id_: unique id for the file
+        :param source: source url the file was downloaded from
+        :param dest: destination path the file was downloaded to
+        """
         self.id_ = id_
         self.source = source
         self.dest = dest
@@ -21,11 +34,31 @@ class DownloadResult(object):
 
 
 class MultiDownloader(object):
-    def __init__(self, source_dests: List[Tuple[str, str, str]],
-                 downloaded_callback: Callable[[DownloadResult], None] = None,
-                 num_workers: int = 0, overwrite_files: bool = False, num_retries: int = 3):
+    """
+    Downloader to handle parallel download of multiple files at once
+    """
+
+    def __init__(
+        self,
+        source_dests: List[Tuple[str, str, str]],
+        downloaded_callback: Callable[[DownloadResult], None] = None,
+        num_workers: int = 0,
+        overwrite_files: bool = False,
+        num_retries: int = 3,
+    ):
+        """
+        :param source_dests: A list of tuples containing info for downloading the files, tuple is expected to be
+                             of the form: (unique_id, source url, destination path)
+        :param downloaded_callback: a callback function to be called after a download has happened in a worker
+                                    for any additional work needed before the file is completed
+        :param num_workers: number of workers to download files, if < 1 scales to 2x the core count for the machine
+        :param overwrite_files: True to overwrite previous files in the destination, False otherwise
+        :param num_retries: number of times to retry downloads for workers
+        """
         if num_workers < 1:
-            num_workers = round(2 * multiprocessing.cpu_count())  # scale with the number of cores on the machine
+            num_workers = round(
+                2 * multiprocessing.cpu_count()
+            )  # scale with the number of cores on the machine
 
         self._num_downloads = len(source_dests)
 
@@ -51,7 +84,9 @@ class MultiDownloader(object):
         res = DownloadResult(*val)
 
         try:
-            for _ in MultiDownloader.download(res.source, res.dest, self._overwrite_files, self._num_retries):
+            for _ in MultiDownloader.download(
+                res.source, res.dest, self._overwrite_files, self._num_retries
+            ):
                 pass
 
             res.downloaded = True
@@ -61,15 +96,19 @@ class MultiDownloader(object):
             res.err = err
 
         if self._download_callback is not None:
-                self._download_callback(res)
+            self._download_callback(res)
 
         return res
 
     @staticmethod
-    def download(url_path: str, dest_path: str, overwrite: bool = False, num_retries: int = 3) -> Iterator[float]:
+    def download(
+        url_path: str, dest_path: str, overwrite: bool = False, num_retries: int = 3
+    ) -> Iterator[float]:
         for _ in range(num_retries):
             try:
-                for val in MultiDownloader._download_helper(url_path, dest_path, overwrite):
+                for val in MultiDownloader._download_helper(
+                    url_path, dest_path, overwrite
+                ):
                     yield val
             except _PreviouslyDownloadedError as err:
                 raise err
@@ -79,15 +118,24 @@ class MultiDownloader(object):
             return
 
     @staticmethod
-    def _download_helper(url_path: str, dest_path: str, overwrite: bool) -> Iterator[float]:
+    def _download_helper(
+        url_path: str, dest_path: str, overwrite: bool
+    ) -> Iterator[float]:
         if not overwrite and os.path.exists(dest_path):
             raise _PreviouslyDownloadedError()
 
         with urlopen(url_path) as connection:
             meta = connection.info()
-            content_length = meta.getheaders('Content-Length') if hasattr(meta, 'getheaders') \
-                else meta.get_all('Content-Length')
-            file_size = int(content_length[0]) if content_length is not None and len(content_length) > 0 else None
+            content_length = (
+                meta.getheaders("Content-Length")
+                if hasattr(meta, "getheaders")
+                else meta.get_all("Content-Length")
+            )
+            file_size = (
+                int(content_length[0])
+                if content_length is not None and len(content_length) > 0
+                else None
+            )
             downloaded_size = 0.0
             temp = tempfile.NamedTemporaryFile(delete=False)
 
