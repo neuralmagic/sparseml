@@ -184,7 +184,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         :param value: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
         """
-        self.prop_set_check('param')
+        self.prop_set_check("param")
         self._param = value
 
     @property
@@ -201,7 +201,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         :param value: str or list of str for the layers to apply the KS modifier to
                       can also use the token __ALL__ to specify all layers
         """
-        self.prop_set_check('layers')
+        self.prop_set_check("layers")
         self._layers = value
 
     @property
@@ -216,7 +216,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         :param value: the initial sparsity for the param to start with at start_epoch
         """
-        self.prop_set_check('init_sparsity')
+        self.prop_set_check("init_sparsity")
         self._init_sparsity = value
 
     @property
@@ -231,7 +231,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         :param value: the final sparsity for the param to end with at end_epoch
         """
-        self.prop_set_check('final_sparsity')
+        self.prop_set_check("final_sparsity")
         self._final_sparsity = value
 
     @property
@@ -248,7 +248,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         :param value: True to continue masking the weights after end_epoch, False to stop masking
                       Should be set to False if exporting the result immediately after or doing some other prune
         """
-        self.prop_set_check('leave_enabled')
+        self.prop_set_check("leave_enabled")
         self._leave_enabled = value
 
     @property
@@ -263,7 +263,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         :param value: the type of interpolation function to use: [linear, cubic, inverse_cubic]
         """
-        self.prop_set_check('inter_func')
+        self.prop_set_check("inter_func")
         self._inter_func = value
 
     @property
@@ -280,7 +280,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         :param value: True if the given param must be found in each layer -- will raise an err if not found,
                       False if missing params are ok -- will not raise an err
         """
-        self.prop_set_check('param_strict')
+        self.prop_set_check("param_strict")
         self._param_strict = value
 
     @property

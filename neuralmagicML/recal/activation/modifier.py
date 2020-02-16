@@ -75,7 +75,9 @@ class ASRegModifier(ScheduledModifier):
         :param end_epoch: The epoch to end the modifier at
         """
         super().__init__(start_epoch, end_epoch)
-        self._layers = validate_str_list(layers, "{} for layers".format(self.__class__.__name__))
+        self._layers = validate_str_list(
+            layers, "{} for layers".format(self.__class__.__name__)
+        )
         self._alpha = alpha
         self._layer_normalized = convert_to_bool(layer_normalized)
         self._reg_func = reg_func
@@ -127,7 +129,7 @@ class ASRegModifier(ScheduledModifier):
         :param value: str or list of str for the layers to apply the AS modifier to
                       can also use the token __ALL__ to specify all layers
         """
-        self.prop_set_check('layers')
+        self.prop_set_check("layers")
         self._layers = value
 
     @property
@@ -142,7 +144,7 @@ class ASRegModifier(ScheduledModifier):
         """
         :param value: the weight to use for the regularization, ie cost = loss + alpha * reg
         """
-        self.prop_set_check('alpha')
+        self.prop_set_check("alpha")
         self._alpha = value
 
     @property
@@ -151,7 +153,7 @@ class ASRegModifier(ScheduledModifier):
 
     @layer_normalized.setter
     def layer_normalized(self, value):
-        self.prop_set_check('layer_normalized')
+        self.prop_set_check("layer_normalized")
         self._layer_normalized = value
 
     @property
@@ -166,7 +168,7 @@ class ASRegModifier(ScheduledModifier):
         """
         :param value: the regularization function to apply to the activations, one of: l1, l2, relu, hs
         """
-        self.prop_set_check('reg_func')
+        self.prop_set_check("reg_func")
         self._reg_func = value
 
     @property
@@ -181,7 +183,7 @@ class ASRegModifier(ScheduledModifier):
         """
         :param value: the regularization tensor to apply a function to, one of: inp, out
         """
-        self.prop_set_check('reg_tens')
+        self.prop_set_check("reg_tens")
         self._reg_tens = value
 
     def initialize(self, module: Module, optimizer: Optimizer):
