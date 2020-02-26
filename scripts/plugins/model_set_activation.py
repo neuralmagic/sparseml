@@ -1,7 +1,7 @@
 from typing import Dict
 from torch.nn import Module
 
-from neuralmagicML.nn import replace_activation, is_activation
+from neuralmagicML.pytorch.nn import replace_activation, is_activation
 
 
 def edit_model(model: Module, state_loaded: bool, **kwargs):
@@ -23,12 +23,18 @@ def edit_model(model: Module, state_loaded: bool, **kwargs):
     :param kwargs: additional args that can be used to describe how to convert, see accepted kwargs above
     :return: the edited model
     """
-    act_type = 'relu' if 'act_type' not in kwargs else kwargs['act_type']
-    convert_after = 'init' if 'convert_after' not in kwargs else kwargs['convert_after']
+    act_type = "relu" if "act_type" not in kwargs else kwargs["act_type"]
+    convert_after = "init" if "convert_after" not in kwargs else kwargs["convert_after"]
 
-    if (convert_after == 'init' and not state_loaded) or (convert_after == 'load' and state_loaded):
+    if (convert_after == "init" and not state_loaded) or (
+        convert_after == "load" and state_loaded
+    ):
         converted = _convert(model, act_type)
-        print('model_set_activation plugin converted {} activations to {}'.format(len(converted), act_type))
+        print(
+            "model_set_activation plugin converted {} activations to {}".format(
+                len(converted), act_type
+            )
+        )
         print(model)
 
     return model

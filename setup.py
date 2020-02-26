@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 
 packages = find_packages(
-    include=['neuralmagicML', 'neuralmagicML.*'],
+    include=['neuralmagicML', 'neuralmagicML.pytorch.*'],
     exclude=['*.__pycache__.*']
 )
 

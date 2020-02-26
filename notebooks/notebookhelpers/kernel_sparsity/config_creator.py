@@ -10,10 +10,10 @@ from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import Dataset, DataLoader
 
-from neuralmagicML.recal import (
+from neuralmagicML.pytorch.recal import (
     ModuleAnalyzer, save_model_ks_desc, one_shot_sensitivity_analysis, save_one_shot_sensitivity_analysis
 )
-from neuralmagicML.utils import clean_path, create_parent_dirs
+from neuralmagicML.pytorch.utils import clean_path, create_parent_dirs
 
 __all__ = ['ModelAnalysisWidgetSettings', 'ModelAnalysisWidget']
 

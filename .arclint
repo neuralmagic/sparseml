@@ -4,6 +4,11 @@
        "type": "pep8",
        "include": "(\\.py$)",
        "exclude": "(^external/)",
+       "severity": {
+        "E203": "disabled",
+        "E251": "disabled",
+        "W503": "disabled"
+       },
        "flags": [
          "--max-line-length=120"
        ]

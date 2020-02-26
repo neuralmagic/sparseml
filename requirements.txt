@@ -1,6 +1,5 @@
-# torch==1.0.1.post2 -- must install separately based on configuration
-# torchvision==0.2.2.post3 -- must install separately based on configuration
-cpu-cores==0.1.3
+coverage~=5.0.3
+cpu-cores~=0.1.3
 jupyter~=1.0.0
 ipywidgets~=7.5.0
 pyyaml~=5.1.0
@@ -9,8 +8,12 @@ matplotlib~=3.1.0
 scipy~=1.3.0
 pandas~=0.25.0
 psutil~=5.6.5
+pytest~=5.3.5
+pytest-html~=2.0.1
 requests~=2.22.0
 tqdm~=4.32.0
-tensorflow~=1.14.0
-tensorboard~=1.14.0
-tensorboardX~=1.8
+tensorflow~=1.15.0
+tensorboard~=1.15.0
+tensorboardX~=1.
+torch~=1.4.0
+torchvision~=0.5.0
