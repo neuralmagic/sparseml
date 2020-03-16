@@ -227,6 +227,7 @@ class TestingDataset(Dataset):
 
 
 def _train_helper(model, dataset, loss, optimizer, batch_size, device):
+    model.to(device)
     counters = {"start": 0, "forward": 0, "loss": 0, "backward": 0, "end": 0}
 
     def batch_start_hook(counter, step_count, batch_size, data):
@@ -328,6 +329,7 @@ def test_module_trainer_cuda(model, dataset, loss, optimizer, batch_size):
 
 
 def _test_helper(model, dataset, loss, batch_size, device):
+    model.to(device)
     counters = {"start": 0, "forward": 0, "loss": 0, "end": 0}
     non_counters = {"backward": 0}
 
