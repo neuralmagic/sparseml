@@ -4,21 +4,21 @@ Also handles loading modifiers from yaml files
 """
 
 from typing import List, Union
-import yaml
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+from neuralmagicML.recal import BaseManager
 from neuralmagicML.pytorch.recal.logger import ModifierLogger
 from neuralmagicML.pytorch.recal.modifier import Modifier, ScheduledModifier
 
 
-class ScheduledModifierManager(Modifier):
+__all__ = ["ScheduledModifierManager"]
+
+
+class ScheduledModifierManager(BaseManager, Modifier):
     """
-    The base scheduled update modifier implementation, all scheduled update modifiers must inherit from this class.
-    The difference for this and a ScheduledModifier is that these have a certain interval that they update
-    within the start and end ranges.
-    It defines common things needed for the lifecycle and implementation of a scheduled update modifier.
+    The base modifier manager, handles managing multiple ScheduledModifers.
 
     Lifecycle:
         - initialize
@@ -44,8 +44,10 @@ class ScheduledModifierManager(Modifier):
         :return: ScheduledModifierManager() created from the yaml file
         """
         with open(file_path, "r") as yaml_file:
-            loaded = yaml.safe_load(yaml_file)
-        manager = ScheduledModifierManager(loaded["modifiers"])
+            yaml_str = yaml_file.read()
+
+        modifiers = Modifier.load_list(yaml_str)
+        manager = ScheduledModifierManager(modifiers)
 
         return manager
 
@@ -55,37 +57,7 @@ class ScheduledModifierManager(Modifier):
 
         :param modifiers: the modifiers to wrap
         """
-        super().__init__()
-        self._modifiers = modifiers
-
-    def __del__(self):
-        self._modifiers.clear()
-
-    @property
-    def min_epochs(self) -> int:
-        """
-        :return: the minimum epochs required by any of the modifiers under the manager
-        """
-        vals = []
-        vals.extend(
-            [mod.start_epoch for mod in self._modifiers if mod.start_epoch > -1]
-        )
-        vals.extend([mod.end_epoch for mod in self._modifiers if mod.end_epoch > -1])
-
-        return min(vals) if len(vals) > 0 else -1
-
-    @property
-    def max_epochs(self) -> int:
-        """
-        :return: the maximum number of epochs required by any of the modifiers under the manager
-        """
-        vals = []
-        vals.extend(
-            [mod.start_epoch for mod in self._modifiers if mod.start_epoch > -1]
-        )
-        vals.extend([mod.end_epoch for mod in self._modifiers if mod.end_epoch > -1])
-
-        return max(vals) if len(vals) > 0 else -1
+        super().__init__(modifiers=modifiers)
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """

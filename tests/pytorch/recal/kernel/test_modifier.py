@@ -23,24 +23,23 @@ TEST_MODEL_LAYER = "2.0"
 
 GRADUAL_KS_MODIFIER = [
     lambda: GradualKSModifier(
-        "weight",
-        [TEST_MODEL_LAYER],
+        layers=[TEST_MODEL_LAYER],
         init_sparsity=0.05,
         final_sparsity=0.95,
         start_epoch=0.0,
         end_epoch=15.0,
-        inter_func="linear",
         update_frequency=1.0,
+        param="weight",
+        inter_func="linear",
     ),
     lambda: GradualKSModifier(
-        "weight",
-        [TEST_MODEL_LAYER],
+        layers=[TEST_MODEL_LAYER],
         init_sparsity=0.05,
         final_sparsity=0.95,
         start_epoch=10.0,
         end_epoch=25.0,
-        inter_func="cubic",
         update_frequency=1.0,
+        inter_func="cubic",
     ),
 ]
 

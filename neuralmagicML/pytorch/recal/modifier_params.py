@@ -4,29 +4,33 @@ certain update formulas or patterns
 """
 
 from typing import List, Union, Any
-import yaml
 import torch
 from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
+from neuralmagicML.utils import (
+    ALL_TOKEN,
+    convert_to_bool,
+    validate_str_iterable,
+    interpolate,
+    INTERPOLATION_FUNCS,
+)
+from neuralmagicML.recal import ModifierProp
 from neuralmagicML.pytorch.recal.modifier import (
+    PytorchModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
 from neuralmagicML.pytorch.utils import (
-    ALL_TOKEN,
-    convert_to_bool,
-    validate_str_list,
     get_layer,
     get_terminal_layers,
-    interpolate,
-    INTERPOLATION_FUNCS,
 )
 
 
 __all__ = ["TrainableParamsModifier", "SetParamModifier", "GradualParamModifier"]
 
 
+@PytorchModifierYAML()
 class TrainableParamsModifier(ScheduledModifier):
     """
     Modifier to control the params for a given list of layers to apply the trainable or not (requires_grad var)
@@ -45,15 +49,6 @@ class TrainableParamsModifier(ScheduledModifier):
             start_epoch: 0
             end_epoch: 10
     """
-
-    YAML_KEY = u"!TrainableParamsModifier"
-
-    @staticmethod
-    def yaml_constructor(loader, node):
-        instance = TrainableParamsModifier.__new__(TrainableParamsModifier)
-        yield instance
-        state = loader.construct_mapping(node, deep=True)
-        instance.__init__(**state)
 
     def __init__(
         self,
@@ -76,12 +71,14 @@ class TrainableParamsModifier(ScheduledModifier):
         :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends),
                           if > 0 then will revert to the original value for the params after this epoch
         """
-        super().__init__(start_epoch, end_epoch)
+        super().__init__(
+            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
+        )
         self._start_epoch = start_epoch
-        self._params = validate_str_list(
+        self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)
         )
-        self._layers = validate_str_list(
+        self._layers = validate_str_iterable(
             layers, "{} for layers".format(self.__class__.__name__)
         )
         self._trainable = convert_to_bool(trainable)
@@ -89,18 +86,7 @@ class TrainableParamsModifier(ScheduledModifier):
         self._module_params = []  # type: List[Parameter]
         self._original = []
 
-    def __repr__(self):
-        return "{}(params={}, layers={}, trainable={}, params_strict={}, start_epoch={}, end_epoch={})".format(
-            self.__class__.__name__,
-            self._params,
-            self._layers,
-            self._trainable,
-            self._params_strict,
-            self._start_epoch,
-            self._end_epoch,
-        )
-
-    @property
+    @ModifierProp()
     def params(self) -> Union[str, List[str]]:
         """
         :return: str or list of str for the params to apply the trainable modifier to
@@ -114,16 +100,11 @@ class TrainableParamsModifier(ScheduledModifier):
         :param value: str or list of str for the params to apply the trainable modifier to
                       can also use the token __ALL__ to specify all params
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change params after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
+        self._params = validate_str_iterable(
+            value, "{} for params".format(self.__class__.__name__)
+        )
 
-        self._params = value
-
-    @property
+    @ModifierProp()
     def layers(self) -> Union[str, List[str]]:
         """
         :return: str or list of str for the layers to apply the trainable modifier to
@@ -137,16 +118,11 @@ class TrainableParamsModifier(ScheduledModifier):
         :param value: str or list of str for the layers to apply the trainable modifier to
                       can also use the token __ALL__ to specify all layers
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change layers after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
+        self._layers = validate_str_iterable(
+            value, "{} for layers".format(self.__class__.__name__)
+        )
 
-        self._layers = value
-
-    @property
+    @ModifierProp()
     def trainable(self) -> bool:
         """
         :return: True if the param(s) should be made trainable, false to make them non-trainable
@@ -158,16 +134,9 @@ class TrainableParamsModifier(ScheduledModifier):
         """
         :param value: True if the param(s) should be made trainable, false to make them non-trainable
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change trainable after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._trainable = value
 
-    @property
+    @ModifierProp()
     def params_strict(self) -> bool:
         """
         :return: True if the given param(s) must be found in each layer -- will raise an err if not found,
@@ -241,16 +210,7 @@ class TrainableParamsModifier(ScheduledModifier):
                 param.requires_grad = original
 
 
-yaml.add_constructor(
-    TrainableParamsModifier.YAML_KEY, TrainableParamsModifier.yaml_constructor
-)
-yaml.add_constructor(
-    TrainableParamsModifier.YAML_KEY,
-    TrainableParamsModifier.yaml_constructor,
-    yaml.SafeLoader,
-)
-
-
+@PytorchModifierYAML()
 class SetParamModifier(ScheduledModifier):
     """
     Modifier to set the param values for a given list of layers
@@ -265,15 +225,6 @@ class SetParamModifier(ScheduledModifier):
             start_epoch: 0
     """
 
-    YAML_KEY = u"!SetParamModifier"
-
-    @staticmethod
-    def yaml_constructor(loader, node):
-        instance = SetParamModifier.__new__(SetParamModifier)
-        yield instance
-        state = loader.construct_mapping(node, deep=True)
-        instance.__init__(**state)
-
     def __init__(
         self,
         param: str,
@@ -281,6 +232,7 @@ class SetParamModifier(ScheduledModifier):
         val: Any,
         param_strict: bool = True,
         start_epoch: float = 0.0,
+        end_epoch: float = -1.0,
     ):
         """
         :param param: name of the param to apply the given value for
@@ -290,27 +242,20 @@ class SetParamModifier(ScheduledModifier):
         :param param_strict: True if the given param must be found in each layer -- will raise an err if not found,
                              False if missing params are ok -- will not raise an err
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
+        :param end_epoch: unused and should not be passed
         """
-        super().__init__(start_epoch, -1.0)
+        super().__init__(
+            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
+        )
         self._param = param
         self._val = val
-        self._layers = validate_str_list(
+        self._layers = validate_str_iterable(
             layers, "{} for layers".format(self.__class__.__name__)
         )
         self._param_strict = param_strict
         self._module_params = []  # type: List[Parameter]
 
-    def __repr__(self):
-        return "{}(param={}, layers={}, val={}, param_strict={}, start_epoch={})".format(
-            self.__class__.__name__,
-            self._param,
-            self._layers,
-            self._val,
-            self._param_strict,
-            self._start_epoch,
-        )
-
-    @property
+    @ModifierProp()
     def param(self) -> str:
         """
         :return: name of the param to apply the given value for
@@ -322,16 +267,9 @@ class SetParamModifier(ScheduledModifier):
         """
         :param value: name of the param to apply the given value for
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change param after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._param = value
 
-    @property
+    @ModifierProp()
     def layers(self) -> Union[str, List[str]]:
         """
         :return: str or list of str for the layers to apply the given value for
@@ -345,16 +283,11 @@ class SetParamModifier(ScheduledModifier):
         :param value: str or list of str for the layers to apply the given value for
                       can also use the token __ALL__ to specify all layers
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change layers after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
+        self._layers = validate_str_iterable(
+            value, "{} for layers".format(self.__class__.__name__)
+        )
 
-        self._layers = value
-
-    @property
+    @ModifierProp()
     def val(self) -> Any:
         """
         :return: The value to set for the given param in the given layers at start_epoch
@@ -366,16 +299,9 @@ class SetParamModifier(ScheduledModifier):
         """
         :param value: The value to set for the given param in the given layers at start_epoch
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change val after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._val = value
 
-    @property
+    @ModifierProp()
     def param_strict(self) -> bool:
         """
         :return: True if the given param must be found in each layer -- will raise an err if not found,
@@ -455,13 +381,21 @@ class SetParamModifier(ScheduledModifier):
                 new_tens = param.data.new_tensor(self._val)
                 param.data.copy_(new_tens)
 
+    def validate_schedule(self):
+        """
+        Validate the schedule values of the params for the current instance are valid
+        """
+        super().validate_schedule()
 
-yaml.add_constructor(SetParamModifier.YAML_KEY, SetParamModifier.yaml_constructor)
-yaml.add_constructor(
-    SetParamModifier.YAML_KEY, SetParamModifier.yaml_constructor, yaml.SafeLoader
-)
+        if self._end_epoch != -1.0:
+            raise ValueError(
+                "end_epoch of {} must be equal to -1.0 for {}".format(
+                    self._end_epoch, self.__class__.__name__
+                )
+            )
 
 
+@PytorchModifierYAML()
 class GradualParamModifier(ScheduledUpdateModifier):
     """
     Modifier to set the param values for a given list of layers from a start value through an end value
@@ -480,15 +414,6 @@ class GradualParamModifier(ScheduledUpdateModifier):
             end_epoch: 10.0
             update_frequency: 1.0
     """
-
-    YAML_KEY = u"!GradualParamModifier"
-
-    @staticmethod
-    def yaml_constructor(loader, node):
-        instance = GradualParamModifier.__new__(GradualParamModifier)
-        yield instance
-        state = loader.construct_mapping(node, deep=True)
-        instance.__init__(**state)
 
     def __init__(
         self,
@@ -516,65 +441,28 @@ class GradualParamModifier(ScheduledUpdateModifier):
         :param param_strict: True if the given param must be found in each layer -- will raise an err if not found,
                              False if missing params are ok -- will not raise an err; default is True
         """
-        super().__init__(start_epoch, end_epoch, update_frequency)
+        super().__init__(
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            min_end=0.0,
+            end_comparator=1,
+        )
         self._param = param
         self._init_val = init_val
         self._final_val = final_val
         self._init_val_tens = None
         self._final_val_tens = None
-        self._layers = validate_str_list(
+        self._layers = validate_str_iterable(
             layers, "{} for layers".format(self.__class__.__name__)
         )
         self._inter_func = inter_func
         self._param_strict = param_strict
         self._module_params = []  # type: List[Parameter]
 
-        if start_epoch < 0:
-            raise ValueError(
-                "start_epoch must be greater than or equal to 0 for {}".format(
-                    self.__class__.__name__
-                )
-            )
+        self.validate()
 
-        if end_epoch < start_epoch:
-            raise ValueError(
-                "end_epoch must be greater than start_epoch for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if update_frequency <= 0:
-            raise ValueError(
-                "update_frequency must be greater than 0 for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if self._inter_func not in INTERPOLATION_FUNCS:
-            raise ValueError(
-                "{} is not a supported inter_func in layers_settings, available are {} for {}".format(
-                    self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__
-                )
-            )
-
-    def __repr__(self):
-        return (
-            "{}(param={}, layers={}, init_val={}, final_val={}, start_epoch={}, end_epoch={}, update_frequency={},"
-            " inter_func={}, param_strict={})".format(
-                self.__class__.__name__,
-                self._param,
-                self._layers,
-                self._init_val,
-                self._final_val,
-                self.start_epoch,
-                self.end_epoch,
-                self.update_frequency,
-                self._inter_func,
-                self._param_strict,
-            )
-        )
-
-    @property
+    @ModifierProp()
     def param(self) -> str:
         """
         :return: name of the param to apply the given value for
@@ -586,16 +474,9 @@ class GradualParamModifier(ScheduledUpdateModifier):
         """
         :param value: name of the param to apply the given value for
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change param after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._param = value
 
-    @property
+    @ModifierProp()
     def layers(self) -> Union[str, List[str]]:
         """
         :return: str or list of str for the layers to apply the given value for
@@ -609,16 +490,11 @@ class GradualParamModifier(ScheduledUpdateModifier):
         :param value: str or list of str for the layers to apply the given value for
                       can also use the token __ALL__ to specify all layers
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change layers after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
+        self._layers = validate_str_iterable(
+            value, "{} for layers".format(self.__class__.__name__)
+        )
 
-        self._layers = value
-
-    @property
+    @ModifierProp()
     def init_val(self) -> Any:
         """
         :return: The initial value to set for the given param in the given layers at start_epoch
@@ -630,16 +506,9 @@ class GradualParamModifier(ScheduledUpdateModifier):
         """
         :param value: The initial value to set for the given param in the given layers at start_epoch
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change init_val after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._init_val = value
 
-    @property
+    @ModifierProp()
     def final_val(self) -> Any:
         """
         :return: The final value to set for the given param in the given layers at end_epoch
@@ -651,16 +520,9 @@ class GradualParamModifier(ScheduledUpdateModifier):
         """
         :param value: The final value to set for the given param in the given layers at end_epoch
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change final_val after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._final_val = value
 
-    @property
+    @ModifierProp()
     def inter_func(self) -> str:
         """
         :return: the type of interpolation function to use: [linear, cubic, inverse_cubic];
@@ -674,16 +536,10 @@ class GradualParamModifier(ScheduledUpdateModifier):
         :param value: the type of interpolation function to use: [linear, cubic, inverse_cubic];
                       default is linear
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change inter_func after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._inter_func = value
+        self.validate()
 
-    @property
+    @ModifierProp()
     def param_strict(self) -> bool:
         """
         :return: True if the given param must be found in each layer -- will raise an err if not found,
@@ -697,13 +553,6 @@ class GradualParamModifier(ScheduledUpdateModifier):
         :param value: True if the given param must be found in each layer -- will raise an err if not found,
                       False if missing params are ok -- will not raise an err; default is True
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change param_strict after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._param_strict = value
 
     def initialize(self, module: Module, optimizer: Optimizer):
@@ -779,12 +628,14 @@ class GradualParamModifier(ScheduledUpdateModifier):
             new_tens = param.data.new_tensor(new_val)
             param.data.copy_(new_tens)
 
+    def validate(self):
+        """
+        Validate the values of the params for the current instance are valid
+        """
 
-yaml.add_constructor(
-    GradualParamModifier.YAML_KEY, GradualParamModifier.yaml_constructor
-)
-yaml.add_constructor(
-    GradualParamModifier.YAML_KEY,
-    GradualParamModifier.yaml_constructor,
-    yaml.SafeLoader,
-)
+        if self._inter_func not in INTERPOLATION_FUNCS:
+            raise ValueError(
+                "{} is not a supported inter_func in layers_settings, available are {} for {}".format(
+                    self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__
+                )
+            )

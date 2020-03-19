@@ -3,20 +3,25 @@ Code related to modifiers for enforcing kernel sparsity (model pruning) on model
 """
 
 from typing import Union, List
-import yaml
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from neuralmagicML.pytorch.utils import (
+from neuralmagicML.utils import (
     ALL_TOKEN,
     INTERPOLATION_FUNCS,
-    get_terminal_layers,
-    get_layer,
     convert_to_bool,
     interpolate,
-    validate_str_list,
+    validate_str_iterable,
 )
-from neuralmagicML.pytorch.recal.modifier import ScheduledUpdateModifier
+from neuralmagicML.pytorch.utils import (
+    get_terminal_layers,
+    get_layer,
+)
+from neuralmagicML.pytorch.recal.modifier import (
+    ModifierProp,
+    ScheduledUpdateModifier,
+    PytorchModifierYAML,
+)
 from neuralmagicML.pytorch.recal.logger import ModifierLogger
 from neuralmagicML.pytorch.recal.kernel.analyzer import ModuleKSAnalyzer
 from neuralmagicML.pytorch.recal.kernel.mask import ModuleParamKSMask
@@ -42,152 +47,84 @@ def _log_sparsity(
             )
 
 
+@PytorchModifierYAML()
 class GradualKSModifier(ScheduledUpdateModifier):
     """
     Gradually applies kernel sparsity to a given layer or layers from init_sparsity until final_sparsity is reached
-        over a given amount of time and applied with an interpolated function for each step taken
+    over a given amount of time and applied with an interpolated function for each step taken
 
-        Applies based on magnitude pruning without any structure to the pruning
+    Applies based on magnitude pruning without any structure to the pruning
 
-        Sample yaml:
-            !GradualKSModifier
-                param: weight
-                layers: __ALL__
-                init_sparsity: 0.05
-                final_sparsity: 0.8
-                prune_global: False
-                leave_enabled: True
-                inter_func: cubic
-                param_strict: False
-                start_epoch: 0.0
-                end_epoch: 10.0
-                update_frequency: 1.0
-                allowed_loggers: __ALL__
+    Sample yaml:
+        !GradualKSModifier
+            param: weight
+            layers: __ALL__
+            init_sparsity: 0.05
+            final_sparsity: 0.8
+            prune_global: False
+            leave_enabled: True
+            inter_func: cubic
+            param_strict: False
+            start_epoch: 0.0
+            end_epoch: 10.0
+            update_frequency: 1.0
+            log_types: __ALL__
     """
-
-    YAML_KEY = u"!GradualKSModifier"
-
-    @staticmethod
-    def yaml_constructor(loader, node):
-        instance = GradualKSModifier.__new__(GradualKSModifier)
-        yield instance
-        state = loader.construct_mapping(node, deep=True)
-        instance.__init__(**state)
 
     def __init__(
         self,
-        param: str,
         layers: Union[str, List[str]],
         init_sparsity: float,
         final_sparsity: float,
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
+        param: str = "weight",
         leave_enabled: bool = True,
         inter_func: str = "linear",
-        param_strict: bool = True,
-        allowed_loggers: Union[str, List[str]] = ALL_TOKEN,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         """
-        :param param: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
         :param layers: str or list of str for the layers to apply the KS modifier to
                        can also use the token __ALL__ to specify all layers
         :param init_sparsity: the initial sparsity for the param to start with at start_epoch
         :param final_sparsity: the final sparsity for the param to end with at end_epoch
-        :param update_frequency: The number of epochs or fraction of epochs to update at between start and end
         :param start_epoch: The epoch to start the modifier at
         :param end_epoch: The epoch to end the modifier at
+        :param update_frequency: The number of epochs or fraction of epochs to update at between start and end
+        :param param: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
         :param leave_enabled: True to continue masking the weights after end_epoch, False to stop masking
                               Should be set to False if exporting the result immediately after or doing some other prune
         :param inter_func: the type of interpolation function to use: [linear, cubic, inverse_cubic]
-        :param param_strict: True if the given param must be found in each layer -- will raise an err if not found,
-                             False if missing params are ok -- will not raise an err
-        :param allowed_loggers: The loggers to allow the learning rate to be logged to, default is __ALL__
+        :param log_types: The loggers to allow the learning rate to be logged to, default is __ALL__
         """
-        super().__init__(start_epoch, end_epoch, update_frequency)
-        self._param = param
-        self._layers = validate_str_list(
+        super().__init__(
+            log_types=log_types,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            min_end=0.0,
+            end_comparator=1,
+        )
+        self._layers = validate_str_iterable(
             layers, "{} for layers".format(self.__class__.__name__)
         )
         self._init_sparsity = init_sparsity
         self._final_sparsity = final_sparsity
+        self._param = param
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
-        self._param_strict = convert_to_bool(param_strict)
         self._module_masks = []  # type: List[ModuleParamKSMask]
-        self._allowed_loggers = allowed_loggers
         self._applied_sparsity = None
         self._last_logged_sparsity = None
         self._analyzers = None
 
-        if start_epoch < 0:
-            raise ValueError(
-                "start_epoch must be greater than or equal to 0 for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if end_epoch < start_epoch:
-            raise ValueError(
-                "end_epoch must be greater than start_epoch for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if not isinstance(self._init_sparsity, float):
-            raise TypeError(
-                "init_sparsity must be of float type for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if self._init_sparsity < 0.0 or self._init_sparsity > 1.0:
-            raise ValueError(
-                "init_sparsity value must be in the range [0.0, 1.0], given {} for {}".format(
-                    self._init_sparsity, self.__class__.__name__
-                )
-            )
-
-        if not isinstance(self._final_sparsity, float):
-            raise TypeError(
-                "final_sparsity must be of float type for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if self._final_sparsity < 0.0 or self._final_sparsity > 1.0:
-            raise ValueError(
-                "init_sparsity value must be in the range [0.0, 1.0], given {} for {}".format(
-                    self._init_sparsity, self.__class__.__name__
-                )
-            )
-
-        if self._inter_func not in INTERPOLATION_FUNCS:
-            raise ValueError(
-                "{} is not a supported inter_func in layers_settings, available are {} for {}".format(
-                    self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__
-                )
-            )
+        self.validate()
 
     def __del__(self):
         self._module_masks.clear()
 
-    @property
-    def param(self) -> str:
-        """
-        :return: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
-        """
-        return self._param
-
-    @param.setter
-    def param(self, value: str):
-        """
-        :param value: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
-        """
-        self.prop_set_check("param")
-        self._param = value
-
-    @property
+    @ModifierProp()
     def layers(self) -> Union[str, List[str]]:
         """
         :return: str or list of str for the layers to apply the KS modifier to
@@ -201,10 +138,11 @@ class GradualKSModifier(ScheduledUpdateModifier):
         :param value: str or list of str for the layers to apply the KS modifier to
                       can also use the token __ALL__ to specify all layers
         """
-        self.prop_set_check("layers")
-        self._layers = value
+        self._layers = validate_str_iterable(
+            value, "{} for layers".format(self.__class__.__name__)
+        )
 
-    @property
+    @ModifierProp()
     def init_sparsity(self) -> float:
         """
         :return: the initial sparsity for the param to start with at start_epoch
@@ -216,10 +154,10 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         :param value: the initial sparsity for the param to start with at start_epoch
         """
-        self.prop_set_check("init_sparsity")
         self._init_sparsity = value
+        self.validate()
 
-    @property
+    @ModifierProp()
     def final_sparsity(self) -> float:
         """
         :return: the final sparsity for the param to end with at end_epoch
@@ -231,10 +169,24 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         :param value: the final sparsity for the param to end with at end_epoch
         """
-        self.prop_set_check("final_sparsity")
         self._final_sparsity = value
+        self.validate()
 
-    @property
+    @ModifierProp()
+    def param(self) -> str:
+        """
+        :return: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
+        """
+        return self._param
+
+    @param.setter
+    def param(self, value: str):
+        """
+        :param value: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
+        """
+        self._param = value
+
+    @ModifierProp()
     def leave_enabled(self) -> bool:
         """
         :return: True to continue masking the weights after end_epoch, False to stop masking
@@ -248,10 +200,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
         :param value: True to continue masking the weights after end_epoch, False to stop masking
                       Should be set to False if exporting the result immediately after or doing some other prune
         """
-        self.prop_set_check("leave_enabled")
         self._leave_enabled = value
 
-    @property
+    @ModifierProp()
     def inter_func(self) -> str:
         """
         :return: the type of interpolation function to use: [linear, cubic, inverse_cubic]
@@ -263,27 +214,10 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         :param value: the type of interpolation function to use: [linear, cubic, inverse_cubic]
         """
-        self.prop_set_check("inter_func")
         self._inter_func = value
+        self.validate()
 
-    @property
-    def param_strict(self) -> float:
-        """
-        :return: True if the given param must be found in each layer -- will raise an err if not found,
-                 False if missing params are ok -- will not raise an err
-        """
-        return self._param_strict
-
-    @param_strict.setter
-    def param_strict(self, value: float):
-        """
-        :param value: True if the given param must be found in each layer -- will raise an err if not found,
-                      False if missing params are ok -- will not raise an err
-        """
-        self.prop_set_check("param_strict")
-        self._param_strict = value
-
-    @property
+    @ModifierProp(serializable=False)
     def applied_sparsity(self) -> float:
         """
         :return: the currently applied sparsity level to the contained params
@@ -315,7 +249,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
                     found = True
                     break
 
-            if self._param_strict and self._layers != ALL_TOKEN and not found:
+            if not found:
                 raise ValueError(
                     "Could not find required param {} in layer {} for {}".format(
                         self._param, layer, self.__class__.__name__
@@ -395,8 +329,42 @@ class GradualKSModifier(ScheduledUpdateModifier):
         for mask in self._module_masks:
             mask.apply()
 
+    def validate(self):
+        """
+        Validate the values of the params for the current instance are valid
+        """
 
-yaml.add_constructor(GradualKSModifier.YAML_KEY, GradualKSModifier.yaml_constructor)
-yaml.add_constructor(
-    GradualKSModifier.YAML_KEY, GradualKSModifier.yaml_constructor, yaml.SafeLoader
-)
+        if not isinstance(self._init_sparsity, float):
+            raise TypeError(
+                "init_sparsity must be of float type for {}".format(
+                    self.__class__.__name__
+                )
+            )
+
+        if self._init_sparsity < 0.0 or self._init_sparsity > 1.0:
+            raise ValueError(
+                "final_sparsity value must be in the range [0.0, 1.0], given {} for {}".format(
+                    self._init_sparsity, self.__class__.__name__
+                )
+            )
+
+        if not isinstance(self._final_sparsity, float):
+            raise TypeError(
+                "final_sparsity must be of float type for {}".format(
+                    self.__class__.__name__
+                )
+            )
+
+        if self._final_sparsity < 0.0 or self._final_sparsity > 1.0:
+            raise ValueError(
+                "init_sparsity value must be in the range [0.0, 1.0], given {} for {}".format(
+                    self._init_sparsity, self.__class__.__name__
+                )
+            )
+
+        if self._inter_func not in INTERPOLATION_FUNCS:
+            raise ValueError(
+                "{} is not a supported inter_func in layers_settings, available are {} for {}".format(
+                    self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__
+                )
+            )

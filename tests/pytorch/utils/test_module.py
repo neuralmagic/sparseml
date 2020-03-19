@@ -213,7 +213,7 @@ TEST_MODULE = Sequential(
 )
 
 
-class TestingDataset(Dataset):
+class DatasetImpl(Dataset):
     def __init__(self, length: int):
         self._length = length
         self._x_feats = [torch.randn(8) for _ in range(length)]
@@ -286,14 +286,14 @@ def _train_helper(model, dataset, loss, optimizer, batch_size, device):
     [
         (
             TEST_MODULE,
-            TestingDataset(100),
+            DatasetImpl(100),
             LossWrapper(TF.mse_loss),
             SGD(TEST_MODULE.parameters(), 0.001),
             16,
         ),
         (
             TEST_MODULE,
-            TestingDataset(100),
+            DatasetImpl(100),
             LossWrapper(TF.mse_loss),
             Adam(TEST_MODULE.parameters()),
             27,
@@ -309,14 +309,14 @@ def test_module_trainer(model, dataset, loss, optimizer, batch_size):
     [
         (
             TEST_MODULE,
-            TestingDataset(100),
+            DatasetImpl(100),
             LossWrapper(TF.mse_loss),
             SGD(TEST_MODULE.parameters(), 0.001),
             16,
         ),
         (
             TEST_MODULE,
-            TestingDataset(100),
+            DatasetImpl(100),
             LossWrapper(TF.mse_loss),
             Adam(TEST_MODULE.parameters()),
             27,
@@ -390,8 +390,8 @@ def _test_helper(model, dataset, loss, batch_size, device):
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size",
     [
-        (TEST_MODULE, TestingDataset(100), LossWrapper(TF.mse_loss), 16),
-        (TEST_MODULE, TestingDataset(100), LossWrapper(TF.mse_loss), 27),
+        (TEST_MODULE, DatasetImpl(100), LossWrapper(TF.mse_loss), 16),
+        (TEST_MODULE, DatasetImpl(100), LossWrapper(TF.mse_loss), 27),
     ],
 )
 def test_module_tester(model, dataset, loss, batch_size):
@@ -401,8 +401,8 @@ def test_module_tester(model, dataset, loss, batch_size):
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size",
     [
-        (TEST_MODULE, TestingDataset(100), LossWrapper(TF.mse_loss), 16),
-        (TEST_MODULE, TestingDataset(100), LossWrapper(TF.mse_loss), 27),
+        (TEST_MODULE, DatasetImpl(100), LossWrapper(TF.mse_loss), 16),
+        (TEST_MODULE, DatasetImpl(100), LossWrapper(TF.mse_loss), 27),
     ],
 )
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")

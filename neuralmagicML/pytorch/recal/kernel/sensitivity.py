@@ -14,13 +14,15 @@ from torch.nn import Module
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.hooks import RemovableHandle
 
+from neuralmagicML.utils import (
+    clean_path,
+    create_parent_dirs,
+)
 from neuralmagicML.pytorch.datasets import EarlyStopDataset, CacheableDataset
 from neuralmagicML.pytorch.models import model_to_device
 from neuralmagicML.pytorch.utils import (
     ModuleTester,
     LossWrapper,
-    clean_path,
-    create_parent_dirs,
     DEFAULT_LOSS_KEY,
     ModuleRunFuncs,
     get_conv_layers,

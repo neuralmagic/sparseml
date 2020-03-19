@@ -6,14 +6,15 @@ certain update formulas or patterns
 from typing import Dict, Union, List
 import sys
 import math
-import yaml
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR, CyclicLR
 
-from neuralmagicML.pytorch.utils import ALL_TOKEN, convert_to_bool
+from neuralmagicML.utils import ALL_TOKEN, convert_to_bool
 from neuralmagicML.pytorch.recal.logger import ModifierLogger
 from neuralmagicML.pytorch.recal.modifier import (
+    ModifierProp,
+    PytorchModifierYAML,
     ScheduledUpdateModifier,
     ScheduledModifier,
 )
@@ -50,6 +51,7 @@ def _log_lr(
         logger.log_scalar("Modifier LR", cur_lr, step)
 
 
+@PytorchModifierYAML()
 class SetLearningRateModifier(ScheduledModifier):
     """
     Modifier to set the learning rate to a specific value at a certain point in the training process
@@ -59,49 +61,38 @@ class SetLearningRateModifier(ScheduledModifier):
         !SetLearningRateModifier
             start_epoch: 0.0
             learning_rate: 0.001
-            allowed_loggers: __ALL__
+            log_types: __ALL__
             constant_logging: True
     """
-
-    YAML_KEY = u"!SetLearningRateModifier"
-
-    @staticmethod
-    def yaml_constructor(loader, node):
-        """
-        Create an instance of the modifier from a yaml file
-        Follows the yaml package in python for implementation and integration
-        """
-        instance = SetLearningRateModifier.__new__(SetLearningRateModifier)
-        yield instance
-        state = loader.construct_mapping(node, deep=True)
-        instance.__init__(**state)
 
     def __init__(
         self,
         learning_rate: Union[float, None],
         start_epoch: float = -1.0,
-        allowed_loggers: Union[str, List[str]] = ALL_TOKEN,
+        end_epoch: float = -1.0,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
         constant_logging: bool = True,
     ):
         """
         :param learning_rate: The learning rate to use once this modifier starts
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
-        :param allowed_loggers: The loggers to allow the learning rate to be logged to, default is __ALL__
+        :param end_epoch: unused and should not be set
+        :param log_types: The loggers to allow the learning rate to be logged to, default is __ALL__
         :param constant_logging: True to constantly log on every step, False to only log on an LR change, default True
         """
-        super().__init__(start_epoch, end_epoch=-1.0, allowed_loggers=allowed_loggers)
+        super().__init__(
+            log_types=log_types,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            end_comparator=-1,
+        )
         self._learning_rate = learning_rate
         self._lr_set = False
         self._applied = -1.0
         self._constant_logging = convert_to_bool(constant_logging)
         self._last_logged_lr = None
 
-    def __repr__(self):
-        return "{}(learning_rate={}, start_epoch={})".format(
-            self.__class__.__name__, self.learning_rate, self.start_epoch
-        )
-
-    @property
+    @ModifierProp()
     def learning_rate(self) -> float:
         """
         :return: The learning rate to use once this modifier starts
@@ -113,16 +104,23 @@ class SetLearningRateModifier(ScheduledModifier):
         """
         :param value: The learning rate to use once this modifier starts
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change learning_rate after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._learning_rate = value
 
-    @property
+    @ModifierProp()
+    def constant_logging(self) -> bool:
+        """
+        :return: True to constantly log on every step, False to only log on an LR change, default True
+        """
+        return self._constant_logging
+
+    @constant_logging.setter
+    def constant_logging(self, value: bool):
+        """
+        :param value: True to constantly log on every step, False to only log on an LR change, default True
+        """
+        self._constant_logging = value
+
+    @ModifierProp(serializable=False)
     def applied_learning_rate(self) -> float:
         """
         :return: the last applied learning rate to the optimizer, -1.0 if hasn't been applied
@@ -163,6 +161,20 @@ class SetLearningRateModifier(ScheduledModifier):
             self._last_logged_lr = current_lr
             _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
 
+    def validate_schedule(self):
+        """
+        Validate the schedule values of the params for the current instance are valid
+        """
+
+        super().validate_schedule()
+
+        if self._end_epoch != -1.0:
+            raise ValueError(
+                "end_epoch of {} must be equal to -1.0 for {}".format(
+                    self._end_epoch, self.__class__.__name__
+                )
+            )
+
     def _check_set_lr(self, optimizer: Optimizer, epoch: float):
         if (
             (
@@ -177,16 +189,7 @@ class SetLearningRateModifier(ScheduledModifier):
             self._lr_set = True
 
 
-yaml.add_constructor(
-    SetLearningRateModifier.YAML_KEY, SetLearningRateModifier.yaml_constructor
-)
-yaml.add_constructor(
-    SetLearningRateModifier.YAML_KEY,
-    SetLearningRateModifier.yaml_constructor,
-    yaml.SafeLoader,
-)
-
-
+@PytorchModifierYAML()
 class LearningRateModifier(ScheduledUpdateModifier):
     """
     Modifier to set the learning rate to specific values at certain points in the training process between set epochs
@@ -202,45 +205,40 @@ class LearningRateModifier(ScheduledUpdateModifier):
             lr_kwargs:
                 gamma: 0.95
             init_lr: 0.01
-            allowed_loggers: __ALL__
+            log_types: __ALL__
             constant_logging: True
     """
-
-    YAML_KEY = u"!LearningRateModifier"
-
-    @staticmethod
-    def yaml_constructor(loader, node):
-        """
-        Create an instance of the modifier from a yaml file
-        Follows the yaml package in python for implementation and integration
-        """
-        instance = LearningRateModifier.__new__(LearningRateModifier)
-        yield instance
-        state = loader.construct_mapping(node, deep=True)
-        instance.__init__(**state)
 
     def __init__(
         self,
         lr_class: str,
         lr_kwargs: Dict,
         init_lr: Union[float, None] = None,
-        allowed_loggers: Union[str, List[str]] = ALL_TOKEN,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
         constant_logging: bool = True,
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         update_frequency: float = 1.0,
+        shift_milestones: bool = True,
     ):
         """
         :param lr_class: The name of the lr scheduler class to use: [StepLR, MultiStepLR, ExponentialLR]
         :param lr_kwargs: The dictionary of keyword arguments to pass to the constructor for the lr_class
         :param init_lr: The initial learning rate to use once this modifier starts
-        :param allowed_loggers: The loggers to allow the learning rate to be logged to, default is __ALL__
+        :param log_types: The loggers to allow the learning rate to be logged to, default is __ALL__
         :param constant_logging: True to constantly log on every step, False to only log on an LR change, default True
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
         :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
         :param update_frequency: The number of epochs or fraction of epochs to update at between start and end
+        :param shift_milestones: If milestones are supplied, True to shift them back by start_epoch, False for no shift
         """
-        super().__init__(start_epoch, end_epoch, update_frequency, allowed_loggers)
+        super().__init__(
+            log_types=log_types,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            end_comparator=-1,
+        )
         self._lr_class = lr_class
         self._lr_kwargs = lr_kwargs
         self._init_lr = init_lr
@@ -248,27 +246,16 @@ class LearningRateModifier(ScheduledUpdateModifier):
         self._base_lr_set = False
         self._last_scheduler_epoch = math.floor(start_epoch)
         self._constant_logging = convert_to_bool(constant_logging)
+        self._shift_milestones = convert_to_bool(shift_milestones)
         self._last_logged_lr = None
 
-        if "milestones" in self._lr_kwargs:
+        if "milestones" in self._lr_kwargs and self._shift_milestones:
             self._lr_kwargs["milestones"] = [
                 mile - self._start_epoch for mile in self._lr_kwargs["milestones"]
             ]
+            self._shift_milestones = False
 
-        assert self._lr_class in CONSTRUCTORS
-
-    def __repr__(self):
-        return "{}(lr_class={}, lr_kwargs={}, init_lr={}, start_epoch={}, end_epoch={}, update_frequency={})".format(
-            self.__class__.__name__,
-            self.lr_class,
-            self.lr_kwargs,
-            self.init_lr,
-            self.start_epoch,
-            self.end_epoch,
-            self.update_frequency,
-        )
-
-    @property
+    @ModifierProp()
     def lr_class(self) -> str:
         """
         :return: The name of the lr scheduler class to use: [StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau]
@@ -280,16 +267,10 @@ class LearningRateModifier(ScheduledUpdateModifier):
         """
         :param value: The name of the lr scheduler class to use: [StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau]
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change lr_class after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._lr_class = value
+        self.validate()
 
-    @property
+    @ModifierProp()
     def lr_kwargs(self) -> Dict:
         """
         :return: The dictionary of keyword arguments to pass to the constructor for the lr_class
@@ -301,16 +282,9 @@ class LearningRateModifier(ScheduledUpdateModifier):
         """
         :param value: The dictionary of keyword arguments to pass to the constructor for the lr_class
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change lr_kwargs after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._lr_kwargs = value
 
-    @property
+    @ModifierProp()
     def init_lr(self) -> Union[float, None]:
         """
         :return: The initial learning rate to use once this modifier starts
@@ -322,14 +296,28 @@ class LearningRateModifier(ScheduledUpdateModifier):
         """
         :param value: The initial learning rate to use once this modifier starts
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change init_lr after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._init_lr = value
+
+    @ModifierProp()
+    def constant_logging(self) -> bool:
+        """
+        :return: True to constantly log on every step, False to only log on an LR change, default True
+        """
+        return self._constant_logging
+
+    @constant_logging.setter
+    def constant_logging(self, value: bool):
+        """
+        :param value: True to constantly log on every step, False to only log on an LR change, default True
+        """
+        self._constant_logging = value
+
+    @ModifierProp()
+    def shift_milestones(self) -> bool:
+        """
+        :return: If milestones are supplied, True to shift them back by start_epoch, False for no shift
+        """
+        return self._shift_milestones
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
@@ -388,6 +376,18 @@ class LearningRateModifier(ScheduledUpdateModifier):
             self._last_logged_lr = current_lr
             _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
 
+    def validate(self):
+        """
+        Validate the values of the params for the current instance are valid
+        """
+
+        if self._lr_class not in CONSTRUCTORS:
+            raise ValueError(
+                "lr_class cannot be set to {} must be one of {} for {}".format(
+                    self._lr_class, CONSTRUCTORS, self.__class__.__name__
+                )
+            )
+
     def _check_setup_base_lrs(self, optimizer: Optimizer, epoch: float):
         if (
             self.start_epoch < 0.0
@@ -407,16 +407,7 @@ class LearningRateModifier(ScheduledUpdateModifier):
             self._base_lr_set = True
 
 
-yaml.add_constructor(
-    LearningRateModifier.YAML_KEY, LearningRateModifier.yaml_constructor
-)
-yaml.add_constructor(
-    LearningRateModifier.YAML_KEY,
-    LearningRateModifier.yaml_constructor,
-    yaml.SafeLoader,
-)
-
-
+@PytorchModifierYAML()
 class CyclicLRModifier(ScheduledUpdateModifier):
     """
     Modifier to set the learning rate based on a cyclic LR schedule between set epochs
@@ -429,39 +420,34 @@ class CyclicLRModifier(ScheduledUpdateModifier):
             end_epoch: 10.0
             base_lr: 0.0001
             max_lr: 0.01
-            allowed_loggers: __ALL__
+            log_types: __ALL__
             constant_logging: True
     """
-
-    YAML_KEY = u"!CyclicLRModifier"
-
-    @staticmethod
-    def yaml_constructor(loader, node):
-        instance = CyclicLRModifier.__new__(CyclicLRModifier)
-        yield instance
-        state = loader.construct_mapping(node, deep=True)
-        instance.__init__(**state)
 
     def __init__(
         self,
         lr_kwargs: Dict,
-        allowed_loggers: Union[str, List[str]] = ALL_TOKEN,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
         constant_logging: bool = True,
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
+        update_frequency: float = -1.0,
     ):
         """
         :param lr_kwargs: The dictionary of keyword arguments to pass to the constructor for the lr_class
-        :param allowed_loggers: The loggers to allow the learning rate to be logged to, default is __ALL__
+        :param log_types: The loggers to allow the learning rate to be logged to, default is __ALL__
         :param constant_logging: True to constantly log on every step, False to only log on an LR change, default True
         :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
         :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
+        :param update_frequency: unused and should not be set
         """
+
         super().__init__(
-            start_epoch,
-            end_epoch,
-            update_frequency=-1.0,
-            allowed_loggers=allowed_loggers,
+            log_types=log_types,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            end_comparator=-1,
         )
         self._lr_kwargs = lr_kwargs
         self._lr_scheduler = None
@@ -469,15 +455,7 @@ class CyclicLRModifier(ScheduledUpdateModifier):
         self._constant_logging = convert_to_bool(constant_logging)
         self._last_logged_lr = None
 
-        assert "base_lr" in lr_kwargs
-        assert "max_lr" in lr_kwargs
-
-    def __repr__(self):
-        return "{}(lr_kwargs={}, start_epoch={}, end_epoch={})".format(
-            self.__class__.__name__, self._lr_kwargs, self.start_epoch, self.end_epoch
-        )
-
-    @property
+    @ModifierProp()
     def lr_kwargs(self) -> Dict:
         """
         :return: the key word args that are passed to the cyclic scheduler class,
@@ -491,14 +469,21 @@ class CyclicLRModifier(ScheduledUpdateModifier):
         :param value: the key word args that are passed to the cyclic scheduler class,
                       includes most of the params given in the constructor
         """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change lr_kwargs after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
         self._lr_kwargs = value
+
+    @ModifierProp()
+    def constant_logging(self) -> bool:
+        """
+        :return: True to constantly log on every step, False to only log on an LR change, default True
+        """
+        return self._constant_logging
+
+    @constant_logging.setter
+    def constant_logging(self, value: bool):
+        """
+        :param value: True to constantly log on every step, False to only log on an LR change, default True
+        """
+        self._constant_logging = value
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
@@ -556,6 +541,31 @@ class CyclicLRModifier(ScheduledUpdateModifier):
             self._last_logged_lr = current_lr
             _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
 
+    def validate(self):
+        """
+        Validate the values of the params for the current instance are valid
+        """
+
+        if "base_lr" not in self._lr_kwargs:
+            raise ValueError(
+                "lr_kwargs must contain base_lr for {}".format(self.__class__.__name__)
+            )
+
+        if "max_lr" not in self._lr_kwargs:
+            raise ValueError(
+                "lr_kwargs must contain max_lr for {}".format(self.__class__.__name__)
+            )
+
+    def validate_schedule(self):
+        super().validate_schedule()
+
+        if self._update_frequency != -1.0:
+            raise ValueError(
+                "update_frequency of {} must be equal to -1.0 for {}".format(
+                    self._update_frequency, self.__class__.__name__
+                )
+            )
+
     def _check_set_lr(self, optimizer: Optimizer, epoch: float):
         if (
             self.start_epoch < 0.0
@@ -563,9 +573,3 @@ class CyclicLRModifier(ScheduledUpdateModifier):
         ) and not self._lr_set:
             _set_lr(self.lr_kwargs["base_lr"], optimizer)
             self._lr_set = True
-
-
-yaml.add_constructor(CyclicLRModifier.YAML_KEY, CyclicLRModifier.yaml_constructor)
-yaml.add_constructor(
-    CyclicLRModifier.YAML_KEY, CyclicLRModifier.yaml_constructor, yaml.SafeLoader
-)

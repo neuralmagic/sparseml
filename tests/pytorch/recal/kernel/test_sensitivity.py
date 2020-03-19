@@ -101,7 +101,7 @@ TEST_MODEL = Sequential(
 )
 
 
-class TestingDataset(Dataset):
+class DatasetImpl(Dataset):
     def __init__(self, length: int):
         self._length = length
         self._x_feats = [torch.randn(8) for _ in range(length)]
@@ -126,7 +126,7 @@ TEST_CNN_MODEL = Sequential(
 )
 
 
-class TestingCNNDataset(Dataset):
+class CNNDatasetImpl(Dataset):
     def __init__(self, length: int):
         self._length = length
         self._x_feats = [torch.randn(8, 16, 16) for _ in range(length)]
@@ -167,8 +167,8 @@ def _test_module_ks_sensitivity_analysis_one_shot(
 @pytest.mark.parametrize(
     "model,dataset,loss_fn,batch_size,samples_per_measurement",
     [
-        (TEST_MODEL, TestingDataset(1000), LossWrapper(TF.mse_loss), 16, 100),
-        (TEST_CNN_MODEL, TestingCNNDataset(1000), LossWrapper(TF.mse_loss), 16, 100),
+        (TEST_MODEL, DatasetImpl(1000), LossWrapper(TF.mse_loss), 16, 100),
+        (TEST_CNN_MODEL, CNNDatasetImpl(1000), LossWrapper(TF.mse_loss), 16, 100),
     ],
 )
 def test_module_ks_sensitivity_analysis_one_shot(
@@ -182,8 +182,8 @@ def test_module_ks_sensitivity_analysis_one_shot(
 @pytest.mark.parametrize(
     "model,dataset,loss_fn,batch_size,samples_per_measurement",
     [
-        (TEST_MODEL, TestingDataset(1000), LossWrapper(TF.mse_loss), 16, 100),
-        (TEST_CNN_MODEL, TestingCNNDataset(1000), LossWrapper(TF.mse_loss), 16, 100),
+        (TEST_MODEL, DatasetImpl(1000), LossWrapper(TF.mse_loss), 16, 100),
+        (TEST_CNN_MODEL, CNNDatasetImpl(1000), LossWrapper(TF.mse_loss), 16, 100),
     ],
 )
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")

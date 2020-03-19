@@ -3,20 +3,21 @@ Code related to modifiers for enforcing activation sparsity on models while trai
 """
 
 from typing import Union, List, Tuple
-import yaml
 from torch import Tensor
 from torch.nn import Module
 import torch.nn.functional as TF
 from torch.optim.optimizer import Optimizer
 
-from neuralmagicML.pytorch.utils import (
+from neuralmagicML.utils import (
     ALL_TOKEN,
-    validate_str_list,
-    get_terminal_layers,
-    get_layer,
+    validate_str_iterable,
     convert_to_bool,
 )
-from neuralmagicML.pytorch.recal.modifier import ScheduledModifier
+from neuralmagicML.pytorch.utils import (
+    get_terminal_layers,
+    get_layer,
+)
+from neuralmagicML.pytorch.recal.modifier import ModifierProp, ScheduledModifier
 from neuralmagicML.pytorch.recal.activation.tracker import ASLayerTracker
 
 
@@ -45,15 +46,6 @@ class ASRegModifier(ScheduledModifier):
             reg_tens: inp
     """
 
-    YAML_KEY = u"!ASRegModifier"
-
-    @staticmethod
-    def yaml_constructor(loader, node):
-        instance = ASRegModifier.__new__(ASRegModifier)
-        yield instance
-        state = loader.construct_mapping(node, deep=True)
-        instance.__init__(**state)
-
     def __init__(
         self,
         layers: Union[str, List[str]],
@@ -74,8 +66,10 @@ class ASRegModifier(ScheduledModifier):
         :param start_epoch: The epoch to start the modifier at
         :param end_epoch: The epoch to end the modifier at
         """
-        super().__init__(start_epoch, end_epoch)
-        self._layers = validate_str_list(
+        super().__init__(
+            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
+        )
+        self._layers = validate_str_iterable(
             layers, "{} for layers".format(self.__class__.__name__)
         )
         self._alpha = alpha
@@ -84,38 +78,12 @@ class ASRegModifier(ScheduledModifier):
         self._reg_tens = reg_tens
         self._trackers = []  # type: List[ASLayerTracker]
 
-        if not isinstance(self._alpha, float) and self._layers == ALL_TOKEN:
-            raise TypeError(
-                "list of alphas {} is not supported with {} for layers in {}".format(
-                    self._alpha, ALL_TOKEN, self.__class__.__name__
-                )
-            )
-
-        if not isinstance(self._alpha, float) and len(self._alpha) != len(self._layers):
-            raise ValueError(
-                "len(alphas) of {} must match len(layers) of {} in {}".format(
-                    len(self._alpha), len(self._layers), self.__class__.__name__
-                )
-            )
-
-        if self._reg_func not in REG_FUNCTIONS:
-            raise ValueError(
-                "{} is not a supported reg_func, available are {} for {}".format(
-                    self._reg_func, REG_FUNCTIONS, self.__class__.__name__
-                )
-            )
-
-        if self._reg_tens not in REG_TENSORS:
-            raise ValueError(
-                "{} is not a supported reg_tens, available are {} for {}".format(
-                    self._reg_tens, REG_TENSORS, self.__class__.__name__
-                )
-            )
+        self.validate()
 
     def __del__(self):
         self._trackers.clear()
 
-    @property
+    @ModifierProp()
     def layers(self) -> Union[str, List[str]]:
         """
         :return: str or list of str for the layers to apply the AS modifier to
@@ -129,10 +97,11 @@ class ASRegModifier(ScheduledModifier):
         :param value: str or list of str for the layers to apply the AS modifier to
                       can also use the token __ALL__ to specify all layers
         """
-        self.prop_set_check("layers")
-        self._layers = value
+        self._layers = validate_str_iterable(
+            value, "{} for layers".format(self.__class__.__name__)
+        )
 
-    @property
+    @ModifierProp()
     def alpha(self) -> Union[float, List[float]]:
         """
         :return: the weight to use for the regularization, ie cost = loss + alpha * reg
@@ -144,19 +113,25 @@ class ASRegModifier(ScheduledModifier):
         """
         :param value: the weight to use for the regularization, ie cost = loss + alpha * reg
         """
-        self.prop_set_check("alpha")
         self._alpha = value
+        self.validate()
 
-    @property
+    @ModifierProp()
     def layer_normalized(self):
+        """
+        :return: True to normalize the values by 1 / L where L is the number of layers
+        """
         return self._layer_normalized
 
     @layer_normalized.setter
     def layer_normalized(self, value):
-        self.prop_set_check("layer_normalized")
+        """
+        :param value: True to normalize the values by 1 / L where L is the number of layers
+        """
         self._layer_normalized = value
+        self.validate()
 
-    @property
+    @ModifierProp()
     def reg_func(self) -> str:
         """
         :return: the regularization function to apply to the activations, one of: l1, l2, relu, hs
@@ -168,10 +143,10 @@ class ASRegModifier(ScheduledModifier):
         """
         :param value: the regularization function to apply to the activations, one of: l1, l2, relu, hs
         """
-        self.prop_set_check("reg_func")
         self._reg_func = value
+        self.validate()
 
-    @property
+    @ModifierProp()
     def reg_tens(self) -> str:
         """
         :return: the regularization tensor to apply a function to, one of: inp, out
@@ -183,8 +158,8 @@ class ASRegModifier(ScheduledModifier):
         """
         :param value: the regularization tensor to apply a function to, one of: inp, out
         """
-        self.prop_set_check("reg_tens")
         self._reg_tens = value
+        self.validate()
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
@@ -292,6 +267,39 @@ class ASRegModifier(ScheduledModifier):
         for tracker in self._trackers:
             tracker.clear()
 
+    def validate(self):
+        """
+        Validate the values of the params for the current instance are valid
+        """
+
+        if not isinstance(self._alpha, float) and self._layers == ALL_TOKEN:
+            raise TypeError(
+                "list of alphas {} is not supported with {} for layers in {}".format(
+                    self._alpha, ALL_TOKEN, self.__class__.__name__
+                )
+            )
+
+        if not isinstance(self._alpha, float) and len(self._alpha) != len(self._layers):
+            raise ValueError(
+                "len(alphas) of {} must match len(layers) of {} in {}".format(
+                    len(self._alpha), len(self._layers), self.__class__.__name__
+                )
+            )
+
+        if self._reg_func not in REG_FUNCTIONS:
+            raise ValueError(
+                "{} is not a supported reg_func, available are {} for {}".format(
+                    self._reg_func, REG_FUNCTIONS, self.__class__.__name__
+                )
+            )
+
+        if self._reg_tens not in REG_TENSORS:
+            raise ValueError(
+                "{} is not a supported reg_tens, available are {} for {}".format(
+                    self._reg_tens, REG_TENSORS, self.__class__.__name__
+                )
+            )
+
     def _regularize_tracked(self, tens: Union[Tuple[Tensor, ...], Tensor]):
         if isinstance(tens, Tensor):
             tens = (tens,)
@@ -319,9 +327,3 @@ class ASRegModifier(ScheduledModifier):
         reduced = reduced / len(tens)
 
         return reduced
-
-
-yaml.add_constructor(ASRegModifier.YAML_KEY, ASRegModifier.yaml_constructor)
-yaml.add_constructor(
-    ASRegModifier.YAML_KEY, ASRegModifier.yaml_constructor, yaml.SafeLoader
-)

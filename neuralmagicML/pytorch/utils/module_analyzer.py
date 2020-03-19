@@ -29,9 +29,11 @@ from torch.nn.modules.pooling import _MaxPoolNd, _AvgPoolNd
 from torch.nn.modules.pooling import _AdaptiveMaxPoolNd, _AdaptiveAvgPoolNd
 from torch.utils.hooks import RemovableHandle
 
-from neuralmagicML.pytorch.utils import (
+from neuralmagicML.utils import (
     clean_path,
     create_parent_dirs,
+)
+from neuralmagicML.pytorch.utils import (
     get_layer,
     get_conv_layers,
     get_linear_layers,

@@ -9,11 +9,6 @@ from torch import Tensor
 from torch.nn import Module, Sequential, Linear, ReLU
 
 from neuralmagicML.pytorch.utils import (
-    ALL_TOKEN,
-    flatten_list,
-    convert_to_bool,
-    validate_str_list,
-    interpolate,
     tensors_batch_size,
     tensors_to_device,
     tensors_to_precision,
@@ -29,86 +24,6 @@ from neuralmagicML.pytorch.utils import (
     sparsity_mask_from_tensor,
     mask_difference,
 )
-
-
-@pytest.mark.parametrize(
-    "test_list,output",
-    [
-        ([], []),
-        ([0, 1], [0, 1]),
-        ([[0, 1], [2, 3]], [0, 1, 2, 3]),
-        ([[0, 1], 2, 3], [0, 1, 2, 3]),
-    ],
-)
-def test_flatten_list(test_list, output):
-    flattened = flatten_list(test_list)
-    assert flattened == output
-
-
-@pytest.mark.parametrize(
-    "test_bool,output",
-    [
-        (True, True),
-        ("t", True),
-        ("T", True),
-        ("true)", True),
-        ("True", True),
-        (1, True),
-        ("1", True),
-        (False, False),
-        ("f", False),
-        ("F", False),
-        ("false", False),
-        ("False", False),
-        (0, False),
-        ("0", False),
-    ],
-)
-def test_convert_to_bool(test_bool, output):
-    converted = convert_to_bool(test_bool)
-    assert converted == output
-
-
-@pytest.mark.parametrize(
-    "test_list,output",
-    [
-        (ALL_TOKEN, ALL_TOKEN),
-        (ALL_TOKEN.lower(), ALL_TOKEN),
-        ([], []),
-        ([0, 1], [0, 1]),
-        ([[0], [1]], [0, 1]),
-    ],
-)
-def test_validate_str_list(test_list, output):
-    validated = validate_str_list(test_list, "")
-    assert validated == output
-
-
-def test_validate_str_list_negative():
-    with pytest.raises(ValueError):
-        validate_str_list("will fail", "")
-
-    with pytest.raises(ValueError):
-        validate_str_list({}, "")
-
-
-@pytest.mark.parametrize(
-    "x_cur,x0,x1,y0,y1,inter_func,out",
-    [
-        (0.0, 0.0, 1.0, 0.0, 5.0, "linear", 0.0),
-        (0.0, 0.0, 1.0, 0.0, 5.0, "cubic", 0.0),
-        (0.0, 0.0, 1.0, 0.0, 5.0, "inverse_cubic", 0.0),
-        (1.0, 0.0, 1.0, 0.0, 5.0, "linear", 5.0),
-        (1.0, 0.0, 1.0, 0.0, 5.0, "cubic", 5.0),
-        (1.0, 0.0, 1.0, 0.0, 5.0, "inverse_cubic", 5.0),
-        (0.5, 0.0, 1.0, 0.0, 5.0, "linear", 2.5),
-        (0.5, 0.0, 1.0, 0.0, 5.0, "cubic", 4.375),
-        (0.5, 0.0, 1.0, 0.0, 5.0, "inverse_cubic", 1.031),
-    ],
-)
-def test_interpolate(x_cur, x0, x1, y0, y1, inter_func, out):
-    interpolated = interpolate(x_cur, x0, x1, y0, y1, inter_func)
-    assert abs(out - interpolated) < 0.01
 
 
 @pytest.mark.parametrize(

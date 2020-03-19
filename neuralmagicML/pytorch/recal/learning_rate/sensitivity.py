@@ -9,14 +9,16 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.hooks import RemovableHandle
 
+from neuralmagicML.utils import (
+    clean_path,
+    create_parent_dirs,
+)
 from neuralmagicML.pytorch.utils import (
     LossWrapper,
     DEFAULT_LOSS_KEY,
     ModuleTrainer,
     ModuleRunFuncs,
     ModuleRunResults,
-    clean_path,
-    create_parent_dirs,
 )
 from neuralmagicML.pytorch.models import model_to_device
 

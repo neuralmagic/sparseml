@@ -3,27 +3,48 @@ Contains base code related to modifiers: objects that modify some aspect of the 
 For example, learning rate schedules or kernel sparsity (weight pruning) are implemented as modifiers
 """
 
-
-from abc import ABC
 from typing import Union, List
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from neuralmagicML.pytorch.utils import ALL_TOKEN, validate_str_list
+from neuralmagicML.utils import ALL_TOKEN
+from neuralmagicML.recal import (
+    ModifierYAML,
+    ModifierProp,
+    BaseModifier,
+    BaseScheduled,
+    BaseUpdate,
+)
 from neuralmagicML.pytorch.recal.logger import ModifierLogger
 
 
 __all__ = [
+    "ModifierProp",
+    "PYTORCH_FRAMEWORK",
+    "PytorchModifierYAML",
     "Modifier",
     "ScheduledModifier",
     "ScheduledUpdateModifier",
 ]
 
 
-class Modifier(ABC):
+PYTORCH_FRAMEWORK = "pytorch"
+
+
+class PytorchModifierYAML(ModifierYAML):
     """
-    The base modifier implementation, all modifiers must inherit from this class.
+    A decorator to handle making a pytorch modifier class YAML ready.
+    IE it can be loaded in through the yaml plugin easily.
+    """
+
+    def __init__(self):
+        super().__init__(PYTORCH_FRAMEWORK)
+
+
+class Modifier(BaseModifier):
+    """
+    The base pytorch modifier implementation, all modifiers must inherit from this class.
     It defines common things needed for the lifecycle and implementation of a modifier.
 
     Lifecycle:
@@ -38,74 +59,43 @@ class Modifier(ABC):
             - optimizer_post_step
     """
 
-    def __init__(self, allowed_loggers: Union[None, str, List[str]] = ALL_TOKEN):
+    @staticmethod
+    def load_list(yaml_str: str):
         """
-        :param allowed_loggers: the names of the loggers the modifier can log to. set to ALL_TOKEN for no restriction
-                                and None for no loggers
+        :param yaml_str: a string representation of the yaml syntax to load modifiers from
+        :return: the loaded modifiers list
         """
-        self._allowed_loggers = (
-            validate_str_list(
-                allowed_loggers, "logger_names for {}".format(self.__class__.__name__)
-            )
-            if allowed_loggers
-            else None
-        )
-        self._initialized = False
+        return Modifier.load_framework_list(yaml_str, PYTORCH_FRAMEWORK)
+
+    @staticmethod
+    def load_obj(yaml_str: str):
+        """
+        :param yaml_str:  a string representation of the yaml syntax to load a modifier from
+        :return: the loaded modifier object
+        """
+        return Modifier.load_framework_obj(yaml_str, PYTORCH_FRAMEWORK)
+
+    def __init__(self, log_types: Union[str, List[str]] = None, **kwargs):
+        """
+        :param log_types: The loggers that can be used by the modifier instance
+        """
+        super().__init__(log_types=log_types, **kwargs)
         self._loggers_initialized = False
         self._loggers = None
-        self._enabled = True
 
-    @property
-    def allowed_loggers(self) -> Union[None, str, List[str]]:
-        """
-        :return: the names of the loggers the modifier can log to. set to ALL_TOKEN for no restriction
-                 and None for no loggers
-        """
-        return self._allowed_loggers
-
-    @property
-    def initialized(self) -> bool:
-        """
-        :return: True if the modifier has gone through the initialized life cycle, False otherwise
-        """
-        return self._initialized
-
-    @property
+    @ModifierProp(serializable=False)
     def loggers_initialized(self):
+        """
+        :return: True if initialize_loggers has been called, False otherwise
+        """
         return self._loggers_initialized
 
-    @property
+    @ModifierProp(serializable=False)
     def loggers(self):
         """
         :return: loggers to log important info to within for this modifier (filtered by allowed_loggers)
         """
         return self._loggers if self._loggers is not None else []
-
-    @property
-    def enabled(self) -> bool:
-        """
-        :return: True if the modifier is currently enabled and making updates, False otherwise
-        """
-        return self._enabled
-
-    @enabled.setter
-    def enabled(self, value: bool):
-        """
-        :param value: True to allow the modifier to make updates, False otherwise
-        """
-        self._enabled = value
-
-    def prop_set_check(self, prop_name: str = ""):
-        """
-        :param prop_name: name to raise the error under
-        :return: checks that the given properties won't be set if modifier has already been initialized
-        """
-        if self._initialized or self._loggers_initialized:
-            raise RuntimeError(
-                "Cannot change {} after {} has been initialized".format(
-                    prop_name, self.__class__.__name__
-                )
-            )
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
@@ -123,13 +113,13 @@ class Modifier(ABC):
         """
         self._loggers_initialized = True
 
-        if not self._allowed_loggers or not loggers:
+        if not self._log_types or not loggers:
             return
 
         self._loggers = [
             log
             for log in loggers
-            if self._allowed_loggers == ALL_TOKEN or log.name in self._allowed_loggers
+            if self._log_types == ALL_TOKEN or log.name in self._log_types
         ]
 
     def update(
@@ -235,7 +225,7 @@ class Modifier(ABC):
             raise RuntimeError("modifier must be enabled")
 
 
-class ScheduledModifier(Modifier):
+class ScheduledModifier(Modifier, BaseScheduled):
     """
     The base scheduled modifier implementation, all scheduled modifiers must inherit from this class.
     The difference for this and a Modifier is that these have start and end epochs.
@@ -258,74 +248,51 @@ class ScheduledModifier(Modifier):
 
     def __init__(
         self,
+        log_types: Union[str, List[str]] = None,
         start_epoch: float = -1.0,
+        min_start: float = -1.0,
         end_epoch: float = -1.0,
-        allowed_loggers: Union[None, str, List[str]] = ALL_TOKEN,
+        min_end: float = -1.0,
+        end_comparator: int = 0,
+        **kwargs,
     ):
         """
-        :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
-        :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
-        :param allowed_loggers the names of the loggers the modifier can log to. set to ALL_TOKEN for no restriction
-                                and None for no loggers
+        :param log_types: The loggers that can be used by the modifier instance
+        :param start_epoch: The epoch to start the modifier at
+        :param end_epoch: The epoch to end the modifier at
+        :param log_types: The loggers that can be used by the modifier instance
+        :param min_start: The minimum acceptable value for start_epoch, default -1
+        :param min_end: The minimum acceptable value for end_epoch, default 0
+        :param end_comparator: integer value representing how the end_epoch should be compared to start_epoch
+                               if == -1, then end_epoch can be less than, equal to, or greater than start_epoch
+                               if == 0, then end_epoch can be equal to or greater than start_epoch
+                               if == 1, then end_epoch can only be greater than start_epoch
         """
-        super(ScheduledModifier, self).__init__(allowed_loggers)
-        self._start_epoch = start_epoch
-        self._end_epoch = end_epoch
+        super().__init__(
+            log_types=log_types,
+            start_epoch=start_epoch,
+            min_start=min_start,
+            end_epoch=end_epoch,
+            min_end=min_end,
+            end_comparator=end_comparator,
+            **kwargs,
+        )
+
         self._started = False
         self._ended = False
         self._schedule_called = False
         self._scheduled_log_called = False
 
-    @property
-    def start_epoch(self) -> float:
-        """
-        :return: The epoch to start the modifier at (set to -1.0 so it starts immediately)
-        """
-        return self._start_epoch
+        self.validate_schedule()
 
-    @start_epoch.setter
-    def start_epoch(self, value: float):
-        """
-        :param value: The epoch to start the modifier at (set to -1.0 so it starts immediately)
-        """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change start_epoch after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
-        self._start_epoch = value
-
-    @property
-    def end_epoch(self) -> float:
-        """
-        :return: The epoch to end the modifier at (set to -1.0 so it never ends)
-        """
-        return self._end_epoch
-
-    @end_epoch.setter
-    def end_epoch(self, value: float):
-        """
-        :param value: The epoch to end the modifier at (set to -1.0 so it never ends)
-        """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change end_epoch after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
-        self._end_epoch = value
-
-    @property
+    @ModifierProp(serializable=False)
     def started(self) -> bool:
         """
         :return: True if the modifier has been started (ie between the start and end range), False otherwise
         """
         return self._started
 
-    @property
+    @ModifierProp(serializable=False)
     def ended(self) -> bool:
         """
         :return: True if the modifier has ended (ie after the start and end range), False otherwise
@@ -343,7 +310,7 @@ class ScheduledModifier(Modifier):
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
 
-        if not self.enabled:
+        if not self._enabled:
             return False
 
         pending = (
@@ -365,7 +332,7 @@ class ScheduledModifier(Modifier):
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
 
-        if not self.enabled:
+        if not self._enabled:
             return False
 
         pending = not self._ended and self._started and epoch >= self._end_epoch >= 0.0
@@ -383,7 +350,7 @@ class ScheduledModifier(Modifier):
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
 
-        if not self.enabled:
+        if not self._enabled:
             return False
 
         pending = self.start_pending(epoch, steps_per_epoch) or self.end_pending(
@@ -463,7 +430,7 @@ class ScheduledModifier(Modifier):
         if not self._enabled:
             raise RuntimeError("modifier must be enabled")
 
-        if epoch < self.start_epoch or epoch > self.end_epoch:
+        if epoch < self._start_epoch or epoch > self._end_epoch:
             return
 
         self._scheduled_log_called = True
@@ -490,7 +457,7 @@ class ScheduledModifier(Modifier):
             )
 
 
-class ScheduledUpdateModifier(ScheduledModifier):
+class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     """
     The base scheduled update modifier implementation, all scheduled update modifiers must inherit from this class.
     The difference for this and a ScheduledModifier is that these have a certain interval that they update
@@ -512,45 +479,45 @@ class ScheduledUpdateModifier(ScheduledModifier):
 
     def __init__(
         self,
+        log_types: Union[str, List[str]] = None,
         start_epoch: float = -1.0,
+        min_start: float = -1.0,
         end_epoch: float = -1.0,
+        min_end: float = -1.0,
+        end_comparator: int = 0,
         update_frequency: float = -1.0,
-        allowed_loggers: Union[None, str, List[str]] = ALL_TOKEN,
+        min_frequency: float = -1.0,
+        **kwargs,
     ):
         """
         Base class for any update modifier, allows updates to happen every # epochs (or fraction of epochs)
         Overrides update_ready to return true when update_frequency is reached
 
-        :param start_epoch: The epoch to start the modifier at (set to -1.0 so it starts immediately)
-        :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
+        :param log_types: The loggers that can be used by the modifier instance
+        :param start_epoch: The epoch to start the modifier at
+        :param end_epoch: The epoch to end the modifier at
+        :param log_types: The loggers that can be used by the modifier instance
+        :param min_start: The minimum acceptable value for start_epoch, default -1
+        :param min_end: The minimum acceptable value for end_epoch, default 0
+        :param end_comparator: integer value representing how the end_epoch should be compared to start_epoch
+                               if == -1, then end_epoch can be less than, equal to, or greater than start_epoch
+                               if == 0, then end_epoch can be equal to or greater than start_epoch
+                               if == 1, then end_epoch can only be greater than start_epoch
         :param update_frequency: The number of epochs or fraction of epochs to update at between start and end
-        :param allowed_loggers the names of the loggers the modifier can log to. set to ALL_TOKEN for no restriction
-                                and None for no loggers
+        :param min_frequency: The minimum acceptable value for update_frequency, default -1
         """
-        super().__init__(start_epoch, end_epoch, allowed_loggers)
-        self._update_frequency = update_frequency
+        super().__init__(
+            log_types=log_types,
+            start_epoch=start_epoch,
+            min_start=min_start,
+            end_epoch=end_epoch,
+            min_end=min_end,
+            end_comparator=end_comparator,
+            update_frequency=update_frequency,
+            min_frequency=min_frequency,
+            **kwargs,
+        )
         self._last_update_epoch = -1.0
-
-    @property
-    def update_frequency(self) -> float:
-        """
-        :return: The number of epochs or fraction of epochs to update at between start and end
-        """
-        return self._update_frequency
-
-    @update_frequency.setter
-    def update_frequency(self, value: float):
-        """
-        :param value: The number of epochs or fraction of epochs to update at between start and end
-        """
-        if self._initialized:
-            raise RuntimeError(
-                "Cannot change update_frequency after {} has been initialized".format(
-                    self.__class__.__name__
-                )
-            )
-
-        self._update_frequency = value
 
     def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
         """
@@ -561,13 +528,13 @@ class ScheduledUpdateModifier(ScheduledModifier):
         :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
         :return: True if the modifier is pending an update and update() should be called
         """
-        if not self.enabled:
+        if not self._enabled:
             return False
 
         start_or_end = super().update_ready(epoch, steps_per_epoch)
         update_ready = (
             self.started
-            and epoch > self.start_epoch
+            and epoch > self._start_epoch
             and not self.ended
             and (
                 (self._update_frequency == -1.0)

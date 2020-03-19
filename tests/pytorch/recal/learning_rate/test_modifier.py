@@ -1,7 +1,6 @@
 import pytest
 
 import sys
-import yaml
 from torch.optim import SGD, Adam
 from torch.optim.optimizer import Optimizer
 
@@ -92,14 +91,27 @@ def test_set_lr_yaml():
     """.format(
         SET_LR, start_epoch
     )
-    yaml_modifier = yaml.safe_load(yaml_str)  # type: SetLearningRateModifier
+    yaml_modifier = SetLearningRateModifier.load_obj(
+        yaml_str
+    )  # type: SetLearningRateModifier
+    serialized_modifier = SetLearningRateModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: SetLearningRateModifier
     obj_modifier = SetLearningRateModifier(
         learning_rate=SET_LR, start_epoch=start_epoch
     )
 
     assert isinstance(yaml_modifier, SetLearningRateModifier)
-    assert yaml_modifier.learning_rate == obj_modifier.learning_rate
-    assert yaml_modifier.start_epoch == obj_modifier.start_epoch
+    assert (
+        yaml_modifier.learning_rate
+        == serialized_modifier.learning_rate
+        == obj_modifier.learning_rate
+    )
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
 
 
 ##############################
@@ -202,7 +214,12 @@ def test_lr_modifier_step_yaml():
     """.format(
         start_epoch, end_epoch, update_frequency, lr_class, lr_kwargs, init_lr
     )
-    yaml_modifier = yaml.safe_load(yaml_str)  # type: LearningRateModifier
+    yaml_modifier = LearningRateModifier.load_obj(
+        yaml_str
+    )  # type: LearningRateModifier
+    serialized_modifier = LearningRateModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: LearningRateModifier
     obj_modifier = LearningRateModifier(
         start_epoch=start_epoch,
         end_epoch=end_epoch,
@@ -213,12 +230,30 @@ def test_lr_modifier_step_yaml():
     )
 
     assert isinstance(yaml_modifier, LearningRateModifier)
-    assert yaml_modifier.start_epoch == obj_modifier.start_epoch
-    assert yaml_modifier.end_epoch == obj_modifier.end_epoch
-    assert yaml_modifier.update_frequency == obj_modifier.update_frequency
-    assert yaml_modifier.lr_class == obj_modifier.lr_class
-    assert yaml_modifier.lr_kwargs == obj_modifier.lr_kwargs
-    assert yaml_modifier.init_lr == obj_modifier.init_lr
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert (
+        yaml_modifier.lr_class == serialized_modifier.lr_class == obj_modifier.lr_class
+    )
+    assert (
+        yaml_modifier.lr_kwargs
+        == serialized_modifier.lr_kwargs
+        == obj_modifier.lr_kwargs
+    )
+    assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
 
 
 MILESTONES = [5, 9, 12]
@@ -311,7 +346,12 @@ def test_lr_modifier_multi_step_yaml():
     """.format(
         start_epoch, end_epoch, update_frequency, lr_class, lr_kwargs, init_lr
     )
-    yaml_modifier = yaml.safe_load(yaml_str)  # type: LearningRateModifier
+    yaml_modifier = LearningRateModifier.load_obj(
+        yaml_str
+    )  # type: LearningRateModifier
+    serialized_modifier = LearningRateModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: LearningRateModifier
     obj_modifier = LearningRateModifier(
         start_epoch=start_epoch,
         end_epoch=end_epoch,
@@ -322,12 +362,30 @@ def test_lr_modifier_multi_step_yaml():
     )
 
     assert isinstance(yaml_modifier, LearningRateModifier)
-    assert yaml_modifier.start_epoch == obj_modifier.start_epoch
-    assert yaml_modifier.end_epoch == obj_modifier.end_epoch
-    assert yaml_modifier.update_frequency == obj_modifier.update_frequency
-    assert yaml_modifier.lr_class == obj_modifier.lr_class
-    assert yaml_modifier.lr_kwargs == obj_modifier.lr_kwargs
-    assert yaml_modifier.init_lr == obj_modifier.init_lr
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert (
+        yaml_modifier.lr_class == serialized_modifier.lr_class == obj_modifier.lr_class
+    )
+    assert (
+        yaml_modifier.lr_kwargs
+        == serialized_modifier.lr_kwargs
+        == obj_modifier.lr_kwargs
+    )
+    assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
 
 
 LR_EXPONENTIAL_MODIFIERS = [
@@ -408,7 +466,12 @@ def test_lr_modifier_exponential_yaml():
     """.format(
         start_epoch, end_epoch, update_frequency, lr_class, lr_kwargs, init_lr
     )
-    yaml_modifier = yaml.safe_load(yaml_str)  # type: LearningRateModifier
+    yaml_modifier = LearningRateModifier.load_obj(
+        yaml_str
+    )  # type: LearningRateModifier
+    serialized_modifier = LearningRateModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: LearningRateModifier
     obj_modifier = LearningRateModifier(
         start_epoch=start_epoch,
         end_epoch=end_epoch,
@@ -419,12 +482,30 @@ def test_lr_modifier_exponential_yaml():
     )
 
     assert isinstance(yaml_modifier, LearningRateModifier)
-    assert yaml_modifier.start_epoch == obj_modifier.start_epoch
-    assert yaml_modifier.end_epoch == obj_modifier.end_epoch
-    assert yaml_modifier.update_frequency == obj_modifier.update_frequency
-    assert yaml_modifier.lr_class == obj_modifier.lr_class
-    assert yaml_modifier.lr_kwargs == obj_modifier.lr_kwargs
-    assert yaml_modifier.init_lr == obj_modifier.init_lr
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert (
+        yaml_modifier.lr_class == serialized_modifier.lr_class == obj_modifier.lr_class
+    )
+    assert (
+        yaml_modifier.lr_kwargs
+        == serialized_modifier.lr_kwargs
+        == obj_modifier.lr_kwargs
+    )
+    assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
 
 
 ##############################
@@ -528,13 +609,32 @@ def test_lr_modifier_cyclic_yaml():
     """.format(
         start_epoch, end_epoch, lr_kwargs
     )
-    yaml_modifier = yaml.safe_load(yaml_str)  # type: CyclicLRModifier
+    yaml_modifier = CyclicLRModifier.load_obj(yaml_str)  # type: CyclicLRModifier
+    serialized_modifier = CyclicLRModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: CyclicLRModifier
     obj_modifier = CyclicLRModifier(
         start_epoch=start_epoch, end_epoch=end_epoch, lr_kwargs=lr_kwargs
     )
 
     assert isinstance(yaml_modifier, CyclicLRModifier)
-    assert yaml_modifier.start_epoch == obj_modifier.start_epoch
-    assert yaml_modifier.end_epoch == obj_modifier.end_epoch
-    assert yaml_modifier.update_frequency == obj_modifier.update_frequency
-    assert yaml_modifier.lr_kwargs == obj_modifier.lr_kwargs
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert (
+        yaml_modifier.lr_kwargs
+        == serialized_modifier.lr_kwargs
+        == obj_modifier.lr_kwargs
+    )

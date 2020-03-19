@@ -1,6 +1,7 @@
 import pytest
 
 from abc import ABC
+from typing import List
 from collections import OrderedDict
 import sys
 import torch
@@ -9,6 +10,7 @@ from torch.nn import Module, Sequential, Linear
 from torch.optim import Adam, SGD
 from torch.optim.optimizer import Optimizer
 
+from neuralmagicML.utils import ALL_TOKEN
 from neuralmagicML.pytorch.recal import (
     Modifier,
     ScheduledModifier,
@@ -86,9 +88,25 @@ class ModifierTest(ABC):
             modifier_lambda, model_lambda, optim_lambda
         )
 
-        loggers = [PythonLogger(), TensorboardLogger()]
+        loggers = []
+        expected_loggers = []
+
+        if modifier.log_types == ALL_TOKEN or (
+            isinstance(modifier.log_types, List) and "python" in modifier.log_types
+        ):
+            logger = PythonLogger()
+            loggers.append(logger)
+            expected_loggers.append(logger)
+
+        if modifier.log_types == ALL_TOKEN or (
+            isinstance(modifier.log_types, List) and "tensorboard" in modifier.log_types
+        ):
+            logger = TensorboardLogger()
+            loggers.append(logger)
+            expected_loggers.append(logger)
+
         modifier.initialize_loggers(loggers)
-        assert len(loggers) == len(modifier.loggers)
+        assert len(expected_loggers) == len(modifier.loggers)
 
         for logger in loggers:
             assert logger in modifier.loggers

@@ -1,14 +1,14 @@
 import pytest
 
-import yaml
 import torch
 
+from neuralmagicML.utils import ALL_TOKEN
 from neuralmagicML.pytorch.recal import (
     TrainableParamsModifier,
     SetParamModifier,
     GradualParamModifier,
 )
-from neuralmagicML.pytorch.utils import ALL_TOKEN, get_layer_param
+from neuralmagicML.pytorch.utils import get_layer_param
 
 from .test_modifier import (
     ScheduledModifierTest,
@@ -155,7 +155,12 @@ def test_set_lr_yaml():
     """.format(
         params, layers, trainable, params_strict, start_epoch, end_epoch
     )
-    yaml_modifier = yaml.safe_load(yaml_str)  # type: TrainableParamsModifier
+    yaml_modifier = TrainableParamsModifier.load_obj(
+        yaml_str
+    )  # type: TrainableParamsModifier
+    serialized_modifier = TrainableParamsModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: TrainableParamsModifier
     obj_modifier = TrainableParamsModifier(
         params=params,
         layers=layers,
@@ -166,12 +171,28 @@ def test_set_lr_yaml():
     )
 
     assert isinstance(yaml_modifier, TrainableParamsModifier)
-    assert yaml_modifier.params == obj_modifier.params
-    assert yaml_modifier.layers == obj_modifier.layers
-    assert yaml_modifier.trainable == obj_modifier.trainable
-    assert yaml_modifier.params_strict == obj_modifier.params_strict
-    assert yaml_modifier.start_epoch == obj_modifier.start_epoch
-    assert yaml_modifier.end_epoch == obj_modifier.end_epoch
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
+    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
+    assert (
+        yaml_modifier.trainable
+        == serialized_modifier.trainable
+        == obj_modifier.trainable
+    )
+    assert (
+        yaml_modifier.params_strict
+        == serialized_modifier.params_strict
+        == obj_modifier.params_strict
+    )
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
 
 
 ##############################
@@ -264,7 +285,10 @@ def test_set_param_yaml():
         param_strict,
         start_epoch,
     )
-    yaml_modifier = yaml.safe_load(yaml_str)  # type: SetParamModifier
+    yaml_modifier = SetParamModifier.load_obj(yaml_str)  # type: SetParamModifier
+    serialized_modifier = SetParamModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: SetParamModifier
     obj_modifier = SetParamModifier(
         param=DEFAULT_MODEL_LAYER_PARAM,
         layers=[DEFAULT_MODEL_LAYER],
@@ -274,12 +298,24 @@ def test_set_param_yaml():
     )
 
     assert isinstance(yaml_modifier, SetParamModifier)
-    assert yaml_modifier.param == obj_modifier.param
-    assert yaml_modifier.layers == obj_modifier.layers
-    assert yaml_modifier.val == obj_modifier.val
-    assert yaml_modifier.param_strict == obj_modifier.param_strict
-    assert yaml_modifier.start_epoch == obj_modifier.start_epoch
-    assert yaml_modifier.end_epoch == obj_modifier.end_epoch
+    assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
+    assert yaml_modifier.layers == obj_modifier.layers == obj_modifier.layers
+    assert yaml_modifier.val == obj_modifier.val == obj_modifier.val
+    assert (
+        yaml_modifier.param_strict
+        == obj_modifier.param_strict
+        == obj_modifier.param_strict
+    )
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
 
 
 ##############################
@@ -407,7 +443,12 @@ def test_gradual_param_yaml():
         inter_func,
         param_strict,
     )
-    yaml_modifier = yaml.safe_load(yaml_str)  # type: GradualParamModifier
+    yaml_modifier = GradualParamModifier.load_obj(
+        yaml_str
+    )  # type: GradualParamModifier
+    serialized_modifier = GradualParamModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: GradualParamModifier
     obj_modifier = GradualParamModifier(
         param=DEFAULT_MODEL_LAYER_PARAM,
         layers=[DEFAULT_MODEL_LAYER],
@@ -421,12 +462,38 @@ def test_gradual_param_yaml():
     )
 
     assert isinstance(yaml_modifier, GradualParamModifier)
-    assert yaml_modifier.param == obj_modifier.param
-    assert yaml_modifier.layers == obj_modifier.layers
-    assert yaml_modifier.init_val == obj_modifier.init_val
-    assert yaml_modifier.final_val == obj_modifier.final_val
-    assert yaml_modifier.start_epoch == obj_modifier.start_epoch
-    assert yaml_modifier.end_epoch == obj_modifier.end_epoch
-    assert yaml_modifier.update_frequency == obj_modifier.update_frequency
-    assert yaml_modifier.inter_func == obj_modifier.inter_func
-    assert yaml_modifier.param_strict == obj_modifier.param_strict
+    assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
+    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
+    assert (
+        yaml_modifier.init_val == serialized_modifier.init_val == obj_modifier.init_val
+    )
+    assert (
+        yaml_modifier.final_val
+        == serialized_modifier.final_val
+        == obj_modifier.final_val
+    )
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert (
+        yaml_modifier.inter_func
+        == serialized_modifier.inter_func
+        == obj_modifier.inter_func
+    )
+    assert (
+        yaml_modifier.param_strict
+        == serialized_modifier.param_strict
+        == obj_modifier.param_strict
+    )

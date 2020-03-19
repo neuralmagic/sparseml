@@ -10,14 +10,16 @@ from torch import Tensor
 from torch.nn import Module
 from torch.utils.hooks import RemovableHandle
 
+from neuralmagicML.utils import (
+    create_parent_dirs,
+    create_dirs,
+    clean_path,
+)
 from neuralmagicML.pytorch.utils.helpers import (
     tensors_batch_size,
     tensors_to_device,
     tensors_module_forward,
     tensors_export,
-    create_parent_dirs,
-    create_dirs,
-    clean_path,
 )
 
 
