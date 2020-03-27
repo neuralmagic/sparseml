@@ -2,8 +2,10 @@ from typing import Dict, Union, List, Tuple, Callable
 from importlib.machinery import SourceFileLoader
 import inspect
 import os
+import json
 import hashlib
 import errno
+import requests
 from urllib.request import urlopen
 import shutil
 import tempfile
@@ -30,6 +32,8 @@ __all__ = [
     "parallelize_model",
     "device_to_name_ids",
 ]
+
+SIGNATURE_URL = "https://api.neuralmagic.com/models/sign-url"
 
 
 def copy_state_dict_value(
@@ -144,21 +148,34 @@ def load_pretrained_model(
     model: Module,
     pretrained_key: str,
     model_arch: str,
-    model_domain: str = "vision",
-    default_pretrained_key: str = "imagenet/dense",
+    model_domain: str = "cv-classification",
+    default_pretrained_key: str = "imagenet/pytorch/base",
     ignore_tensors: Union[None, List[str]] = None,
 ):
     if not pretrained_key:
         pretrained_key = default_pretrained_key
 
-    url = "https://storage.googleapis.com/models.neuralmagic.com/{}/{}/{}.pth".format(
-        model_domain, model_arch, pretrained_key
-    )
+    with open("token.json") as token_data:
+        nm_token_header = json.loads(token_data.read())["nm_token_header"]
+
+    headers = {"nm-token-header": nm_token_header}
+
+    model_repo_key = f"{model_domain}/{model_arch}/{pretrained_key}"
+    print(model_repo_key)
+
+    model_req_data = {"body": {"redirect_path": f"{model_repo_key}/model.pth"}}
+    model_req_data = json.dumps(model_req_data)
+
+    model_res_data = requests.post(
+        url=SIGNATURE_URL, data=model_req_data, headers=headers
+    ).json()
+
+    model_url = model_res_data["signed_url"]
 
     cache_dir = os.path.join(
         os.path.abspath(os.path.expanduser("~")), ".cache", "nm_models"
     )
-    cache_name = hashlib.md5(url.encode("utf-8")).hexdigest()
+    cache_name = hashlib.md5(model_req_data.encode("utf-8")).hexdigest()
 
     try:
         os.makedirs(cache_dir)
@@ -173,36 +190,13 @@ def load_pretrained_model(
 
     if not os.path.exists(cache_file):
         print("downloading {} for {}".format(model_arch, pretrained_key))
-        connection = urlopen(url)
-        meta = connection.info()
-        content_length = (
-            meta.getheaders("Content-Length")
-            if hasattr(meta, "getheaders")
-            else meta.get_all("Content-Length")
-        )
-        file_size = (
-            int(content_length[0])
-            if content_length is not None and len(content_length) > 0
-            else None
-        )
-        temp = tempfile.NamedTemporaryFile(delete=False)
-
         try:
-            with tqdm(total=file_size) as progress:
-                while True:
-                    buffer = connection.read(8192)
-                    if len(buffer) == 0:
-                        break
-                    temp.write(buffer)
-                    progress.update(len(buffer))
-
-            temp.close()
-            shutil.move(temp.name, cache_file)
-        finally:
-            temp.close()
-
-            if os.path.exists(temp.name):
-                os.remove(temp.name)
+            with open(cache_file, "wb") as file:
+                data = requests.get(model_url)
+                file.write(data.content)
+        except Exception as e:
+            os.remove(cache_file)
+            raise e
 
     model_dict = torch.load(cache_file, map_location="cpu")["state_dict"]
     to_state_dict = model.state_dict()
@@ -213,9 +207,13 @@ def load_pretrained_model(
         for ignore in ignore_tensors:
             # copy over the 'to state dict' values to our current state dict for any tensor we were supposed to ignore
             # only do this though if we can't match the shape and the key exists in 'to state dict'
-            if ignore not in to_state_dict:
+            if ignore not in to_state_dict and ignore in model_dict:
                 del model_dict[ignore]
-            elif to_state_dict[ignore].shape != model_dict[ignore].shape:
+            elif (
+                ignore in to_state_dict
+                and ignore in model_dict
+                and to_state_dict[ignore].shape != model_dict[ignore].shape
+            ):
                 model_dict[ignore] = to_state_dict[ignore]
 
     model.load_state_dict(model_dict, strict=ignore_tensors is None)
@@ -285,7 +283,7 @@ def create_model(
     plugin_paths: Union[None, List[str]] = None,
     plugin_args: Union[None, Dict] = None,
     load_strict: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Module:
     if model_type == "help":
         raise Exception(

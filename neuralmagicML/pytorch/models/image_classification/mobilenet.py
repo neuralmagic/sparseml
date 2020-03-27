@@ -196,7 +196,7 @@ class MobileNet(Module):
             load_pretrained_model(
                 self,
                 pretrained_key,
-                model_arch="mobilenet/1.0",
+                model_arch="mobilenet-v1/1.0",
                 ignore_tensors=None
                 if num_classes == 1000
                 else ["classifier.fc.weight", "classifier.fc.bias"],

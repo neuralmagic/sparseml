@@ -536,7 +536,7 @@ def resnet18(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet/18", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/18", **kwargs)
 
 
 MODEL_MAPPINGS["resnet18"] = resnet18
@@ -558,7 +558,7 @@ def resnet18_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnetv2/18", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/18", **kwargs)
 
 
 MODEL_MAPPINGS["resnet18_v2"] = resnet18_v2
@@ -580,7 +580,7 @@ def resnet34(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet/34", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/34", **kwargs)
 
 
 MODEL_MAPPINGS["resnet34"] = resnet34
@@ -602,7 +602,7 @@ def resnet34_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnetv2/34", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/34", **kwargs)
 
 
 MODEL_MAPPINGS["resnet34_v2"] = resnet34_v2
@@ -640,7 +640,7 @@ def resnet50(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet/50", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/50", **kwargs)
 
 
 MODEL_MAPPINGS["resnet50"] = resnet50
@@ -682,7 +682,7 @@ def resnet50_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnetv2/50", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/50", **kwargs)
 
 
 MODEL_MAPPINGS["resnet50_v2"] = resnet50_v2
@@ -721,7 +721,7 @@ def resnet50_2xwidth(**kwargs) -> ResNet:
     ]
 
     return ResNet(
-        sec_settings=sec_settings, model_arch_tag="resnet/50_2xwidth", **kwargs
+        sec_settings=sec_settings, model_arch_tag="resnet-v1/50-2xwidth", **kwargs
     )
 
 
@@ -802,7 +802,7 @@ def resnet101(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet/101", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/101", **kwargs)
 
 
 MODEL_MAPPINGS["resnet101"] = resnet101
@@ -844,7 +844,7 @@ def resnet101_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet/101", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/101", **kwargs)
 
 
 MODEL_MAPPINGS["resnet101_v2"] = resnet101_v2
@@ -883,7 +883,7 @@ def resnet101_2xwidth(**kwargs) -> ResNet:
     ]
 
     return ResNet(
-        sec_settings=sec_settings, model_arch_tag="resnet/101_2xwidth", **kwargs
+        sec_settings=sec_settings, model_arch_tag="resnet-v1/101-2xwidth", **kwargs
     )
 
 
@@ -964,7 +964,7 @@ def resnet152(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet/152", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/152", **kwargs)
 
 
 MODEL_MAPPINGS["resnet152"] = resnet152
@@ -1006,7 +1006,7 @@ def resnet152_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet/152", **kwargs)
+    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/152", **kwargs)
 
 
 MODEL_MAPPINGS["resnet152_v2"] = resnet152_v2

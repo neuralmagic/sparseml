@@ -349,7 +349,7 @@ def mobilenet_v2(width_mult, model_arch_tag: str, **kwargs) -> MobilenetV2:
 
 
 def mobilenet_v2_100(**kwargs) -> MobilenetV2:
-    return mobilenet_v2(width_mult=1.0, model_arch_tag="mobilenetv2/1.0", **kwargs)
+    return mobilenet_v2(width_mult=1.0, model_arch_tag="mobilenet-v2/1.0", **kwargs)
 
 
 MODEL_MAPPINGS["mobilenet_v2_100"] = mobilenet_v2_100
