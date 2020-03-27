@@ -5,7 +5,6 @@ from tensorflow.contrib.graph_editor.util import ListView
 
 from neuralmagicML.tensorflow.utils.helpers import tf_compat
 
-
 __all__ = [
     "VAR_INDEX_FROM_TRAINABLE",
     "get_op_var_index",
