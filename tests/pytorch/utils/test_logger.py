@@ -5,7 +5,7 @@ import time
 import numpy
 import torch
 
-from neuralmagicML.pytorch.recal import PythonLogger, TensorboardLogger
+from neuralmagicML.pytorch.utils import PythonLogger, TensorboardLogger
 
 
 @pytest.mark.parametrize("logger", [PythonLogger(), TensorboardLogger()])

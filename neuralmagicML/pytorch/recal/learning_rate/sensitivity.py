@@ -19,8 +19,8 @@ from neuralmagicML.pytorch.utils import (
     ModuleTrainer,
     ModuleRunFuncs,
     ModuleRunResults,
+    model_to_device,
 )
-from neuralmagicML.pytorch.models import model_to_device
 
 
 __all__ = ["LRSensitivityProgress", "ModuleLRSensitivityAnalysis"]

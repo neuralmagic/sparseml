@@ -9,7 +9,8 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.recal import BaseManager
-from neuralmagicML.pytorch.recal.logger import ModifierLogger
+from neuralmagicML.utils import create_parent_dirs, clean_path
+from neuralmagicML.pytorch.utils import PytorchLogger
 from neuralmagicML.pytorch.recal.modifier import Modifier, ScheduledModifier
 
 
@@ -59,6 +60,16 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().__init__(modifiers=modifiers)
 
+    def save(self, file_path: str):
+        """
+        :param file_path: the file path to save the yaml config representation to
+        """
+        file_path = clean_path(file_path)
+        create_parent_dirs(file_path)
+
+        with open(file_path, "w") as yaml_file:
+            yaml_file.write(Modifier.list_to_yaml(self.modifiers))
+
     def initialize(self, module: Module, optimizer: Optimizer):
         """
         Handles initializing and setting up the contained modifiers
@@ -72,7 +83,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         for mod in self._modifiers:
             mod.initialize(module, optimizer)
 
-    def initialize_loggers(self, loggers: Union[None, List[ModifierLogger]]):
+    def initialize_loggers(self, loggers: Union[None, List[PytorchLogger]]):
         """
         Handles initializing and setting up the loggers for the contained modifiers
         Called once on construction of the scheduled optimizer

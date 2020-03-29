@@ -19,6 +19,7 @@ from neuralmagicML.pytorch.utils.helpers import (
     tensors_batch_size,
     tensors_module_forward,
 )
+from neuralmagicML.pytorch.utils.logger import PytorchLogger
 from neuralmagicML.pytorch.utils.loss import DEFAULT_LOSS_KEY
 
 
@@ -46,24 +47,25 @@ def def_model_backward(losses: Dict[str, Tensor], model: Module):
 
 
 class ModuleRunHooks(object):
+    """
+    Container for hooks that can be added to module runs like training and testing for different stages
+    of running a batch through a model
+
+    Lifecycle:
+        - data batch size callback
+        - data to device callback
+        - batch start hook
+        - data model forward callback
+        - batch forward hook
+        - loss calculation
+        - batch loss hook
+        - model backward callback
+        - batch backward hook
+        - optimizer / gradient update
+        - batch end hook
+    """
+
     def __init__(self):
-        """
-        Container for hooks that can be added to module runs like training and testing for different stages
-        of running a batch through a model
-        
-        Lifecycle:
-            - data batch size callback
-            - data to device callback
-            - batch start hook
-            - data model forward callback
-            - batch forward hook
-            - loss calculation
-            - batch loss hook
-            - model backward callback
-            - batch backward hook
-            - optimizer / gradient update
-            - batch end hook
-        """
         self._batch_start_hooks = OrderedDict()
         self._batch_forward_hooks = OrderedDict()
         self._batch_loss_hooks = OrderedDict()
@@ -209,24 +211,25 @@ class ModuleRunHooks(object):
 
 
 class ModuleRunFuncs(object):
+    """
+    Functions used as callables to calculate or perform necessary operations for running a model
+    through training or testing.
+
+     Lifecycle:
+        - data batch size callback
+        - data to device callback
+        - batch start hook
+        - data model forward callback
+        - batch forward hook
+        - loss calculation
+        - batch loss hook
+        - model backward callback
+        - batch backward hook
+        - optimizer / gradient update
+        - batch end hook
+    """
+
     def __init__(self):
-        """
-        Functions used as callables to calculate or perform necessary operations for running a model
-         through training or testing.
-         
-         Lifecycle:
-            - data batch size callback
-            - data to device callback
-            - batch start hook
-            - data model forward callback
-            - batch forward hook
-            - loss calculation
-            - batch loss hook
-            - model backward callback
-            - batch backward hook
-            - optimizer / gradient update
-            - batch end hook
-        """
         self._batch_size = tensors_batch_size
         self._to_device = tensors_to_device
         self._model_forward = tensors_module_forward
@@ -322,12 +325,20 @@ class ModuleRunFuncs(object):
 
 
 class ModuleRunResults(object):
+    """
+    Class containing the results / losses from a model run for training or testing
+    Keeps all result values as a dictionary and Tensor containing all values
+    """
+
     def __init__(self):
-        """
-        Class containing the results / losses from a model run for training or testing
-        Keeps all result values as a dictionary and Tensor containing all values
-        """
         self._results = {}
+
+    def __repr__(self):
+        results = [
+            "{}={}".format(key, self.result_mean(key).item()) for key in self._results
+        ]
+
+        return "ModuleRunResults({})".format(", ".join(results))
 
     @property
     def results(self) -> Dict[str, List[Tensor]]:
@@ -386,6 +397,23 @@ class ModuleRunResults(object):
 
 
 class ModuleTrainer(object):
+    """
+    Container for running a module through training over a given data loader for specific settings
+
+    Lifecycle:
+        - data batch size callback
+        - data to device callback
+        - batch start hook
+        - data model forward callback
+        - batch forward hook
+        - loss calculation
+        - batch loss hook
+        - model backward callback
+        - batch backward hook
+        - optimizer / gradient update
+        - batch end hook
+    """
+
     def __init__(
         self,
         module: Module,
@@ -394,29 +422,21 @@ class ModuleTrainer(object):
         optimizer: Optimizer,
         num_accumulated_batches: int = 1,
         optim_closure: Union[None, Callable] = None,
+        loggers: List[PytorchLogger] = None,
+        log_name: str = "Train/",
+        log_batches: bool = True,
     ):
         """
-        Container for running a module through training over a given data loader for specific settings
-
-        Lifecycle:
-            - data batch size callback
-            - data to device callback
-            - batch start hook
-            - data model forward callback
-            - batch forward hook
-            - loss calculation
-            - batch loss hook
-            - model backward callback
-            - batch backward hook
-            - optimizer / gradient update
-            - batch end hook
-
         :param module: the model to run training for
         :param device: the default device to run training on (where data will be copied to)
         :param loss: the loss functions callable used to calculate loss values after executing a forward pass
         :param optimizer: the optimizer used to apply gradient updates with
         :param num_accumulated_batches: number of batches to accumulate before updating the optimizer
         :param optim_closure: a closure passed into the optimizer on step
+        :param loggers: list of loggers to log training results to
+        :param log_name: the key to store all log files under
+        :param log_batches: True to log each batch step,
+                            False to only log the end result (track_results must be True then)
         """
         self._module = module
         self._device = device
@@ -424,6 +444,9 @@ class ModuleTrainer(object):
         self._optimizer = optimizer
         self._num_accumulated_batches = num_accumulated_batches
         self._optim_closure = optim_closure
+        self._loggers = loggers
+        self._log_name = log_name
+        self._log_batches = log_batches
 
         self._run_funcs = ModuleRunFuncs()
         self._run_hooks = ModuleRunHooks()
@@ -504,6 +527,7 @@ class ModuleTrainer(object):
         """
         self._module = self._module.train()
         step_count = 0
+        step_size = -1
         accumulated = 0
         data_iter = (
             enumerate(data_loader)
@@ -516,6 +540,7 @@ class ModuleTrainer(object):
             # setup
             accumulated += 1
             batch_size = self._run_funcs.batch_size(data)  # type: int
+            step_size = max(batch_size, step_size)
             data = self._run_funcs.to_device(data, self._device)
             self._run_hooks.invoke_batch_start(counter, step_count, batch_size, data)
 
@@ -550,8 +575,28 @@ class ModuleTrainer(object):
             )
             step_count += batch_size
 
+            if self._log_batches and self._loggers:
+                previous_steps = (
+                    (counter if counter > -1 else 0) * len(data_loader) * step_size
+                )
+                log_step = previous_steps + step_count
+                for loss, val in losses.items():
+                    for logger in self._loggers:
+                        logger.log_scalar(
+                            "{}{}".format(self._log_name, loss), val.item(), log_step
+                        )
+
             if results is not None:
                 results.append(losses, batch_size)
+
+        if results is not None and not self._log_batches and self._loggers:
+            log_step = counter
+            for loss in results.results.keys():
+                val = results.result_mean(loss)
+                for logger in self._loggers:
+                    logger.log_scalar(
+                        "{}{}".format(self._log_name, loss), val.item(), log_step
+                    )
 
         return results
 
@@ -582,29 +627,44 @@ class ModuleTrainer(object):
 
 
 class ModuleTester(object):
+    """
+    Container for running a module through evaluation over a given data loader for specific settings
+
+    Lifecycle:
+        - data batch size callback
+        - data to device callback
+        - batch start hook
+        - data model forward callback
+        - batch forward hook
+        - loss calculation
+        - batch loss hook
+        - batch end hook
+    """
+
     def __init__(
-        self, module: Module, device: str, loss: Callable[[Any, Any], Dict[str, Tensor]]
+        self,
+        module: Module,
+        device: str,
+        loss: Callable[[Any, Any], Dict[str, Tensor]],
+        loggers: List[PytorchLogger] = None,
+        log_name: str = "Test/",
+        log_batches: bool = False,
     ):
         """
-        Container for running a module through evaluation over a given data loader for specific settings
-
-        Lifecycle:
-            - data batch size callback
-            - data to device callback
-            - batch start hook
-            - data model forward callback
-            - batch forward hook
-            - loss calculation
-            - batch loss hook
-            - batch end hook
-
         :param module: the model to run evaluation for
         :param device: the default device to run evaluation on (where data will be copied to)
         :param loss: the loss functions callable used to calculate loss values after executing a forward pass
+        :param loggers: list of loggers to log training results to
+        :param log_name: the key to store all log files under
+        :param log_batches: True to log each batch step,
+                            False to only log the end result (track_results must be True then)
         """
         self._module = module
         self._device = device
         self._loss = loss
+        self._loggers = loggers
+        self._log_name = log_name
+        self._log_batches = log_batches
 
         self._run_funcs = ModuleRunFuncs()
         self._run_hooks = ModuleRunHooks()
@@ -697,8 +757,30 @@ class ModuleTester(object):
                 )
                 step_count += batch_size
 
+                if self._log_batches and self._loggers:
+                    previous_steps = (
+                        (counter if counter > -1 else 0) * len(data_loader) * batch_size
+                    )
+                    log_step = previous_steps + step_count
+                    for loss, val in losses.items():
+                        for logger in self._loggers:
+                            logger.log_scalar(
+                                "{}{}".format(self._log_name, loss),
+                                val.item(),
+                                log_step,
+                            )
+
                 if results is not None:
                     results.append(losses, batch_size)
+
+        if results is not None and not self._log_batches and self._loggers:
+            log_step = counter
+            for loss in results.results.keys():
+                val = results.result_mean(loss)
+                for logger in self._loggers:
+                    logger.log_scalar(
+                        "{}{}".format(self._log_name, loss), val.item(), log_step
+                    )
 
         return results
 

@@ -5,7 +5,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.pytorch.recal.manager import ScheduledModifierManager
-from neuralmagicML.pytorch.recal.logger import ModifierLogger
+from neuralmagicML.pytorch.utils import PytorchLogger
 
 
 __all__ = ["ScheduledOptimizer"]
@@ -54,9 +54,9 @@ class ScheduledOptimizer(Optimizer):
         self,
         optimizer: Optimizer,
         module: Module,
-        manager: Union[ScheduledModifierManager, List[ScheduledModifierManager]],
+        manager: ScheduledModifierManager,
         steps_per_epoch: int,
-        loggers: Union[List[ModifierLogger], None] = None,
+        loggers: Union[List[PytorchLogger], None] = None,
     ):
         """
         :param module: module to modify
@@ -71,9 +71,7 @@ class ScheduledOptimizer(Optimizer):
         # just a wrapper around the passed in optimizer
         self._optimizer = optimizer
         self._module = module
-        self._managers = (
-            [manager] if isinstance(manager, ScheduledModifierManager) else manager
-        )
+        self._manager = manager
         self._steps_per_epoch = steps_per_epoch
 
         self._steps = 0
@@ -83,9 +81,11 @@ class ScheduledOptimizer(Optimizer):
         self._epoch_started = False
         self._mode = None
 
-        for manager in self._managers:
-            manager.initialize(self._module, self._optimizer)
-            manager.initialize_loggers(loggers)
+        self._manager.initialize(self._module, self._optimizer)
+        self._manager.initialize_loggers(loggers)
+
+    def __del__(self):
+        del self._manager
 
     def __getstate__(self):
         return self._optimizer.__getstate__()
@@ -122,24 +122,6 @@ class ScheduledOptimizer(Optimizer):
     def param_groups(self, value):
         self._optimizer.param_groups = value
 
-    @property
-    def min_epochs(self) -> int:
-        """
-        :return: the minimum epochs required by any of the modifiers under any of the manager(s)
-        """
-        vals = [man.min_epochs for man in self._managers]
-
-        return min(vals) if len(vals) > 0 else -1
-
-    @property
-    def max_epochs(self) -> int:
-        """
-        :return: the maximum number of epochs required by any of the modifiers under any of the manager(s)
-        """
-        vals = [man.min_epochs for man in self._managers]
-
-        return max(vals) if len(vals) > 0 else -1
-
     def state_dict(self):
         self._optimizer.state_dict()
 
@@ -174,23 +156,16 @@ class ScheduledOptimizer(Optimizer):
             raise ValueError("unknown mode of {}".format(self._mode))
 
         self._epoch_steps += 1
-
-        for manager in self._managers:
-            manager.update(
-                self._module, self._optimizer, self._epoch, self._steps_per_epoch
-            )
-
-        for manager in self._managers:
-            manager.optimizer_pre_step(
-                self._module, self._optimizer, self._epoch, self._steps_per_epoch
-            )
-
+        self._manager.update(
+            self._module, self._optimizer, self._epoch, self._steps_per_epoch
+        )
+        self._manager.optimizer_pre_step(
+            self._module, self._optimizer, self._epoch, self._steps_per_epoch
+        )
         self._optimizer.step(closure)
-
-        for manager in self._managers:
-            manager.optimizer_post_step(
-                self._module, self._optimizer, self._epoch, self._steps_per_epoch
-            )
+        self._manager.optimizer_post_step(
+            self._module, self._optimizer, self._epoch, self._steps_per_epoch
+        )
 
     def add_param_group(self, param_group):
         self._optimizer.add_param_group(param_group)
@@ -211,11 +186,9 @@ class ScheduledOptimizer(Optimizer):
         self._epoch_counter += 1
         self._epoch = float(self._epoch_counter)
         self._epoch_steps = 0
-
-        for manager in self._managers:
-            manager.update(
-                self._module, self._optimizer, self._epoch, self._steps_per_epoch
-            )
+        self._manager.update(
+            self._module, self._optimizer, self._epoch, self._steps_per_epoch
+        )
 
     def epoch_end(self):
         """
@@ -227,11 +200,9 @@ class ScheduledOptimizer(Optimizer):
             raise RuntimeError("epoch_start call must happen before epoch_end")
 
         self._epoch = self._epoch_counter - sys.float_info.epsilon
-
-        for manager in self._managers:
-            manager.update(
-                self._module, self._optimizer, self._epoch, self._steps_per_epoch
-            )
+        self._manager.update(
+            self._module, self._optimizer, self._epoch, self._steps_per_epoch
+        )
 
     def loss_update(self, loss: Tensor) -> Tensor:
         """
@@ -242,10 +213,9 @@ class ScheduledOptimizer(Optimizer):
         :param loss: the calculated loss after running a forward pass and loss_fn
         :return: the modified loss tensor
         """
-        for manager in self._managers:
-            loss = manager.loss_update(
-                loss, self._module, self._optimizer, self._epoch, self._steps_per_epoch
-            )
+        loss = self._manager.loss_update(
+            loss, self._module, self._optimizer, self._epoch, self._steps_per_epoch
+        )
 
         return loss
 

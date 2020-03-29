@@ -22,7 +22,7 @@ from neuralmagicML.pytorch.recal.modifier import (
     ScheduledUpdateModifier,
     PytorchModifierYAML,
 )
-from neuralmagicML.pytorch.recal.logger import ModifierLogger
+from neuralmagicML.pytorch.utils.logger import PytorchLogger
 from neuralmagicML.pytorch.recal.kernel.analyzer import ModuleKSAnalyzer
 from neuralmagicML.pytorch.recal.kernel.mask import ModuleParamKSMask
 
@@ -32,7 +32,7 @@ __all__ = ["GradualKSModifier"]
 
 def _log_sparsity(
     analyzers: List[ModuleKSAnalyzer],
-    loggers: List[ModifierLogger],
+    loggers: List[PytorchLogger],
     epoch: float,
     steps_per_epoch: int,
 ):
@@ -57,17 +57,15 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
     Sample yaml:
         !GradualKSModifier
-            param: weight
             layers: __ALL__
             init_sparsity: 0.05
             final_sparsity: 0.8
-            prune_global: False
-            leave_enabled: True
-            inter_func: cubic
-            param_strict: False
             start_epoch: 0.0
             end_epoch: 10.0
             update_frequency: 1.0
+            param: weight
+            leave_enabled: True
+            inter_func: cubic
             log_types: __ALL__
     """
 
@@ -81,7 +79,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         update_frequency: float,
         param: str = "weight",
         leave_enabled: bool = True,
-        inter_func: str = "linear",
+        inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         """

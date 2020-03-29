@@ -16,7 +16,7 @@ from torch.nn import (
 )
 
 from neuralmagicML.pytorch.nn import Swish, SqueezeExcite
-from neuralmagicML.pytorch.models.utils import MODEL_MAPPINGS
+from neuralmagicML.pytorch.utils.model import MODEL_MAPPINGS
 
 
 __all__ = [

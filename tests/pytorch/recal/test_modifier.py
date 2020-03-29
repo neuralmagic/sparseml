@@ -15,6 +15,8 @@ from neuralmagicML.pytorch.recal import (
     Modifier,
     ScheduledModifier,
     ScheduledUpdateModifier,
+)
+from neuralmagicML.pytorch.utils import (
     PythonLogger,
     TensorboardLogger,
 )

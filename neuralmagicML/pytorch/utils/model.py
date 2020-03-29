@@ -1,3 +1,7 @@
+"""
+Code related to interacting with a trained model such as saving, loading, etc
+"""
+
 from typing import Dict, Union, List, Tuple, Callable
 from importlib.machinery import SourceFileLoader
 import inspect
@@ -6,15 +10,13 @@ import json
 import hashlib
 import errno
 import requests
-from urllib.request import urlopen
-import shutil
-import tempfile
-from tqdm import tqdm
 import torch
 from torch import Tensor
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
 from collections import OrderedDict
+
+from neuralmagicML.pytorch.utils.token import get_nm_token
 
 
 __all__ = [
@@ -155,14 +157,8 @@ def load_pretrained_model(
     if not pretrained_key:
         pretrained_key = default_pretrained_key
 
-    with open("token.json") as token_data:
-        nm_token_header = json.loads(token_data.read())["nm_token_header"]
-
-    headers = {"nm-token-header": nm_token_header}
-
+    headers = {"nm-token-header": get_nm_token()}
     model_repo_key = f"{model_domain}/{model_arch}/{pretrained_key}"
-    print(model_repo_key)
-
     model_req_data = {"body": {"redirect_path": f"{model_repo_key}/model.pth"}}
     model_req_data = json.dumps(model_req_data)
 

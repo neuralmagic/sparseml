@@ -11,7 +11,7 @@ from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR, CyclicLR
 
 from neuralmagicML.utils import ALL_TOKEN, convert_to_bool
-from neuralmagicML.pytorch.recal.logger import ModifierLogger
+from neuralmagicML.pytorch.utils.logger import PytorchLogger
 from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
     PytorchModifierYAML,
@@ -43,7 +43,7 @@ def _get_lr(optim: Optimizer) -> float:
 
 
 def _log_lr(
-    cur_lr: float, loggers: List[ModifierLogger], epoch: float, steps_per_epoch: int
+    cur_lr: float, loggers: List[PytorchLogger], epoch: float, steps_per_epoch: int
 ):
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
 

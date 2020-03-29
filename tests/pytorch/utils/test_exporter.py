@@ -39,4 +39,4 @@ def test_exporter_onnx():
 def test_export_batches(batch_size):
     sample_batch = torch.randn(batch_size, 8)
     exporter = ModuleExporter(EXPORT_MODEL, tempfile.gettempdir())
-    exporter.export_batch(sample_batch, export_intermediates=True, export_layers=True)
+    exporter.export_samples([sample_batch])

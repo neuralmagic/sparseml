@@ -67,6 +67,9 @@ class ModuleParamKSMask(object):
         self._setup_param_unmasked()
         self._setup_param_grad()
 
+    def __del__(self):
+        self._delete_hooks()
+
     @property
     def layer(self) -> Module:
         """

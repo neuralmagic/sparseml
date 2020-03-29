@@ -9,13 +9,13 @@ import numpy
 import torch
 from torch.nn import Module
 
-from neuralmagicML.pytorch.models import model_to_device
 from neuralmagicML.pytorch.utils.helpers import (
     tensors_to_precision,
     tensors_batch_size,
     tensors_to_device,
     tensors_module_forward,
 )
+from neuralmagicML.pytorch.utils.model import model_to_device
 
 
 __all__ = ["BatchBenchmarkResults", "ModuleBenchmarker"]

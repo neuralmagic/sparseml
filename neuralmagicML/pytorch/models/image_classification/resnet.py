@@ -14,7 +14,7 @@ from torch.nn import (
 )
 
 from neuralmagicML.pytorch.nn import ReLU
-from neuralmagicML.pytorch.models.utils import load_pretrained_model, MODEL_MAPPINGS
+from neuralmagicML.pytorch.utils.model import load_pretrained_model, MODEL_MAPPINGS
 
 
 __all__ = [

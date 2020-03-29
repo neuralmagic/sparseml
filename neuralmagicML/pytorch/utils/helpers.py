@@ -34,6 +34,7 @@ __all__ = [
     "get_terminal_layers",
     "get_conv_layers",
     "get_linear_layers",
+    "get_prunable_layers",
     "get_layer_param",
 ]
 
@@ -201,76 +202,118 @@ def tensors_module_forward(
     )
 
 
-def tensor_export(tensor: Tensor, export_dir: str, name: str) -> str:
+def tensor_export(
+    tensor: Union[Tensor, Iterable[Tensor]],
+    export_dir: str,
+    name: str,
+    npz: bool = True,
+) -> str:
     """
     :param tensor: tensor to export to a saved numpy array file
     :param export_dir: the directory to export the file in
     :param name: the name of the file, .npy will be appended to it
+    :param npz: True to export as an npz file, False otherwise
     :return: the path of the numpy file the tensor was exported to
     """
     create_dirs(export_dir)
-    export_path = os.path.join(export_dir, "{}.npy".format(name))
-    tensor = tensor.detach().cpu().numpy()
-    numpy.save(export_path, tensor)
+    export_path = os.path.join(
+        export_dir, "{}.{}".format(name, "npz" if npz else "npy")
+    )
+
+    if isinstance(tensor, Tensor):
+        tensor = tensor.detach().cpu().numpy()
+        if npz:
+            numpy.savez_compressed(export_path, tensor)
+        else:
+            numpy.save(export_path, tensor)
+    else:
+        tensor = [tens.detach().cpu().numpy() for tens in tensor]
+        if npz:
+            numpy.savez_compressed(export_path, *tensor)
+        else:
+            numpy.save(export_path, tensor)
 
     return export_path
 
 
 def tensors_export(
-    tensors: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]],
+    tensors: Union[Tensor, Iterable[Tensor]],
     export_dir: str,
     name_prefix: str,
+    counter: int = 0,
+    break_batch: bool = False,
 ) -> List[str]:
     """
     :param tensors: the tensors to export to a saved numpy array file
     :param export_dir: the directory to export the files in
     :param name_prefix: the prefix name for the tensors to save as, will append info about the position of the tensor
                         in a list or dict in addition to the .npy file format
+    :param counter: the current counter to save the tensor at
+    :param break_batch: treat the tensor as a batch and break apart into multiple tensors
     :return: the exported paths
     """
     create_dirs(export_dir)
     exported_paths = []
-    _tensors_export_recursive(
-        tensors, export_dir, name_prefix, name_suffix="", exported_paths=exported_paths
-    )
+    if break_batch:
+        _tensors_export_batch(tensors, export_dir, name_prefix, counter, exported_paths)
+    else:
+        _tensors_export_recursive(
+            tensors, export_dir, name_prefix, counter, exported_paths
+        )
 
     return exported_paths
 
 
 def _tensors_export_recursive(
-    tensors: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]],
+    tensors: Union[Tensor, Iterable[Tensor]],
     export_dir: str,
     name_prefix: str,
-    name_suffix: str,
+    counter: int,
     exported_paths: List[str],
 ):
     if isinstance(tensors, Tensor):
         exported_paths.append(
-            tensor_export(tensors, export_dir, "{}{}".format(name_prefix, name_suffix))
+            tensor_export(tensors, export_dir, "{}-{:04d}".format(name_prefix, counter))
         )
-
-        return
-
-    if isinstance(tensors, Dict):
-        for key, tens in tensors.items():
-            _tensors_export_recursive(
-                tens,
-                export_dir,
-                name_prefix,
-                "{}-{}".format(name_suffix, key),
-                exported_paths,
-            )
 
         return
 
     if isinstance(tensors, Iterable):
         for index, tens in enumerate(tensors):
             _tensors_export_recursive(
-                tens,
-                export_dir,
-                name_prefix,
-                "{}-{}".format(name_suffix, index),
-                exported_paths,
+                tens, export_dir, name_prefix, counter + index, exported_paths,
+            )
+
+        return
+
+    raise ValueError(
+        "unrecognized type for tensors given of {}".format(tensors.__class__.__name__)
+    )
+
+
+def _tensors_export_batch(
+    tensors: Union[Tensor, Iterable[Tensor]],
+    export_dir: str,
+    name_prefix: str,
+    counter: int,
+    exported_paths: List[str],
+):
+    if isinstance(tensors, Tensor):
+        for index, tens in enumerate(tensors):
+            exported_paths.append(
+                tensor_export(
+                    tens, export_dir, "{}-{:04d}".format(name_prefix, counter + index)
+                )
+            )
+
+        return
+
+    if isinstance(tensors, Iterable):
+        for index, tens in enumerate(zip(*tensors)):
+            exported_paths.append(
+                tensor_export(
+                    tens, export_dir, "{}-{:04d}".format(name_prefix, counter + index)
+                )
             )
 
         return
@@ -551,6 +594,20 @@ def get_linear_layers(module: Module) -> Dict[str, Module]:
             linears[name] = mod
 
     return linears
+
+
+def get_prunable_layers(module: Module) -> List[Tuple[str, Module]]:
+    """
+    :param module:
+    :return:
+    """
+    layers = []
+
+    for name, mod in module.named_modules():
+        if isinstance(mod, Linear) or isinstance(mod, _ConvNd):
+            layers.append((name, mod))
+
+    return layers
 
 
 def get_layer_param(param: str, layer: str, module: Module) -> Parameter:

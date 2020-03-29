@@ -16,7 +16,7 @@ from neuralmagicML.recal import (
     BaseScheduled,
     BaseUpdate,
 )
-from neuralmagicML.pytorch.recal.logger import ModifierLogger
+from neuralmagicML.pytorch.utils import PytorchLogger
 
 
 __all__ = [
@@ -107,7 +107,7 @@ class Modifier(BaseModifier):
         """
         self._initialized = True
 
-    def initialize_loggers(self, loggers: Union[None, List[ModifierLogger]]):
+    def initialize_loggers(self, loggers: Union[None, List[PytorchLogger]]):
         """
         :param loggers: the loggers to setup this modifier with for logging important info and milestones to
         """

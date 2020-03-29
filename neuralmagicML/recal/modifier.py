@@ -83,6 +83,7 @@ class ModifierProp(BaseProp):
         restrict_initialized: bool = True,
         restrict_enabled: bool = False,
         restrict_extras: List[str] = None,
+        no_serialize_val: Any = None,
         func_get: Callable = None,
         func_set: Callable = None,
         doc: Callable = None,
@@ -96,6 +97,7 @@ class ModifierProp(BaseProp):
                                  False otherwise. Default False
         :param restrict_extras: extra attributes to check, if any are truthy then keep from being set.
                                 Default None
+        :param no_serialize_val: If prop is equal to this value, will not serialize the prop
         :param func_get: The function getter
         :param func_set: The function setter
         :param doc: The docs function
@@ -104,6 +106,7 @@ class ModifierProp(BaseProp):
         self._func_set = func_set
         self._serializable = serializable
         self._restrictions = []
+        self._no_serialize_val = no_serialize_val
 
         if restrict_initialized:
             self._restrictions.append("_initialized")
@@ -180,6 +183,13 @@ class ModifierProp(BaseProp):
         :return: The attributes to check for restricting when the attribute can be set
         """
         return self._restrictions
+
+    @property
+    def no_serialize_val(self) -> Any:
+        """
+        :return: a value that if the prop is equal to, will not serialize the prop
+        """
+        return self._no_serialize_val
 
     def getter(self, func_get: Callable) -> BaseProp:
         """
@@ -279,6 +289,24 @@ class BaseModifier(BaseObject):
         modifier = yaml.safe_load(yaml_str)
 
         return modifier
+
+    @staticmethod
+    def list_to_yaml(modifiers: List) -> str:
+        yaml_str_lines = ["version: 1.0.0", "", "modifiers:"]
+
+        for mod in modifiers:
+            mod_yaml = str(mod)
+            mod_yaml_lines = mod_yaml.splitlines()
+
+            for index, line in enumerate(mod_yaml_lines):
+                if index == 0:
+                    yaml_str_lines.append("    - {}".format(line))
+                else:
+                    yaml_str_lines.append("    {}".format(line))
+
+            yaml_str_lines.append("")
+
+        return "\n".join(yaml_str_lines)
 
     @staticmethod
     def yaml_key(clazz, framework: Union[str, None] = None):
@@ -388,19 +416,23 @@ class BaseModifier(BaseObject):
 
             func = getattr(self.__class__, attr)
 
-            if (
-                isinstance(func, ModifierProp)
-                and (not only_serializable or func.serializable)
-                and (attr != "log_types" or self.log_types is not None)
+            if not isinstance(func, ModifierProp) or (
+                only_serializable and not func.serializable
             ):
-                val = getattr(self, attr)
+                continue
 
-                if format_str:
-                    props[attr] = str(val) if val is not None else "null"
-                elif format_repr:
-                    props[attr] = repr(val)
-                else:
-                    props[attr] = val
+            val = getattr(self, attr)
+            no_serialize_val = func.no_serialize_val
+
+            if val == no_serialize_val:
+                continue
+
+            if format_str:
+                props[attr] = str(val) if val is not None else "null"
+            elif format_repr:
+                props[attr] = repr(val)
+            else:
+                props[attr] = val
 
         return props
 

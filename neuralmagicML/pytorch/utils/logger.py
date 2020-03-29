@@ -4,18 +4,25 @@ Contains code for loggers that help visualize the information from each modifier
 
 from abc import ABC, abstractmethod
 from typing import Union, Dict
+import os
 import time
 from logging import Logger
 from numpy import ndarray
 
 from torch import Tensor
-from torch.utils.tensorboard import SummaryWriter
+
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except:
+    from tensorboardX import SummaryWriter
+
+from neuralmagicML.utils import create_dirs
 
 
-__all__ = ["ModifierLogger", "PythonLogger", "TensorboardLogger"]
+__all__ = ["PytorchLogger", "PythonLogger", "TensorboardLogger"]
 
 
-class ModifierLogger(ABC):
+class PytorchLogger(ABC):
     """
     Base class that all modifier loggers must implement
     """
@@ -122,7 +129,7 @@ class ModifierLogger(ABC):
         raise NotImplementedError()
 
 
-class PythonLogger(ModifierLogger):
+class PythonLogger(PytorchLogger):
     """
     Modifier logger that handles printing values into a python logger instance
     """
@@ -248,18 +255,39 @@ class PythonLogger(ModifierLogger):
         self._logger.info(msg)
 
 
-class TensorboardLogger(ModifierLogger):
+class TensorboardLogger(PytorchLogger):
     """
     Modifier logger that handles outputting values into a tensorboard log directory for viewing in tensorboard
     """
 
-    def __init__(self, writer: SummaryWriter = None, name: str = "tensorboard"):
+    def __init__(
+        self,
+        log_path: str = None,
+        writer: SummaryWriter = None,
+        name: str = "tensorboard",
+    ):
         """
-        :param writer: the writer to log results to, if none is given creates a new one at the current working dir
+        :param log_path: the path to create a SummaryWriter at. writer must be None to use
+                         if not supplied (and writer is None), will create a tensorboard dir in cwd
+        :param writer: the writer to log results to, if none is given creates a new one at the log_path
         :param name: name given to the logger, used for identification; defaults to tensorboard
         """
         super().__init__(name)
-        self._writer = writer if writer is not None else SummaryWriter()
+
+        if writer and log_path:
+            raise ValueError(
+                (
+                    "log_path given:{} and writer object passed in, "
+                    "to create a writer at the log path set writer=None"
+                ).format(log_path)
+            )
+        elif not writer and not log_path:
+            log_path = os.path.join(".", "tensorboard")
+
+        if log_path:
+            create_dirs(log_path)
+
+        self._writer = writer if writer is not None else SummaryWriter(log_path)
 
     def log_hyperparams(self, params: Dict):
         """

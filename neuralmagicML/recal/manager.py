@@ -5,6 +5,7 @@ ex to create sparsity.
 """
 
 from typing import List, Dict
+import math
 
 from neuralmagicML.recal.modifier import ModifierProp, BaseScheduled, BaseObject
 
@@ -45,9 +46,15 @@ class BaseManager(BaseObject):
         """
         vals = []
         vals.extend(
-            [mod.start_epoch for mod in self._modifiers if mod.start_epoch > -1]
+            [
+                math.floor(mod.start_epoch)
+                for mod in self._modifiers
+                if mod.start_epoch > -1
+            ]
         )
-        vals.extend([mod.end_epoch for mod in self._modifiers if mod.end_epoch > -1])
+        vals.extend(
+            [math.floor(mod.end_epoch) for mod in self._modifiers if mod.end_epoch > -1]
+        )
 
         return min(vals) if len(vals) > 0 else -1
 
@@ -58,8 +65,14 @@ class BaseManager(BaseObject):
         """
         vals = []
         vals.extend(
-            [mod.start_epoch for mod in self._modifiers if mod.start_epoch > -1]
+            [
+                math.ceil(mod.start_epoch)
+                for mod in self._modifiers
+                if mod.start_epoch > -1
+            ]
         )
-        vals.extend([mod.end_epoch for mod in self._modifiers if mod.end_epoch > -1])
+        vals.extend(
+            [math.ceil(mod.end_epoch) for mod in self._modifiers if mod.end_epoch > -1]
+        )
 
         return max(vals) if len(vals) > 0 else -1

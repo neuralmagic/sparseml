@@ -5,8 +5,12 @@ from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import Dataset, DataLoader
 
-from neuralmagicML.pytorch.models import model_to_device
-from neuralmagicML.pytorch.utils import LossWrapper, ModuleTester, ModuleRunResults
+from neuralmagicML.pytorch.utils import (
+    LossWrapper,
+    ModuleTester,
+    ModuleRunResults,
+    model_to_device,
+)
 from neuralmagicML.pytorch.utils import get_layer
 from neuralmagicML.pytorch.recal.activation.fatrelu import convert_relus_to_fat, FATReLU
 from neuralmagicML.pytorch.recal.activation.analyzer import ModuleASAnalyzer

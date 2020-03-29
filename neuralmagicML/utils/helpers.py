@@ -1,3 +1,8 @@
+"""
+General utility helper functions.
+Common functions for interfacing with python primitives and directories/files.
+"""
+
 from typing import Union, Iterable, Any
 import sys
 import os
@@ -14,6 +19,7 @@ __all__ = [
     "clean_path",
     "create_dirs",
     "create_parent_dirs",
+    "create_unique_dir",
 ]
 
 
@@ -159,3 +165,17 @@ def create_parent_dirs(path: str):
     """
     parent = os.path.dirname(path)
     create_dirs(parent)
+
+
+def create_unique_dir(path: str, check_number: int = 0) -> str:
+    """
+    :param path: the file path to create a unique version of (append numbers until one doesn't exist)
+    :param check_number: the number to begin checking for unique versions at
+    :return: the unique directory path
+    """
+    check_path = clean_path("{}-{:04d}".format(path, check_number))
+
+    if not os.path.exists(check_path):
+        return check_path
+
+    return create_unique_dir(path, check_number + 1)

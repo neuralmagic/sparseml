@@ -415,9 +415,26 @@ def test_tensors_module_forward_cuda(module, tensors, check_feat_lab_inp):
         (torch.randn(32, 16, 32, 3), "large"),
     ],
 )
-def test_tensor_export(tensor, name):
-    path = tensor_export(tensor, tempfile.gettempdir(), name)
+def test_tensor_export_npy(tensor, name):
+    path = tensor_export(tensor, tempfile.gettempdir(), name, npz=False)
     exported = numpy.load(path)
+
+    for s1, s2 in zip(exported.shape, tensor.shape):
+        assert s1 == s2
+
+
+@pytest.mark.parametrize(
+    "tensor,name",
+    [
+        (torch.randn(1, 8), "small"),
+        (torch.randn(16, 32), "larger"),
+        (torch.randn(32, 16, 32, 3), "large"),
+    ],
+)
+def test_tensor_export_npy(tensor, name):
+    path = tensor_export(tensor, tempfile.gettempdir(), name, npz=True)
+    exported = numpy.load(path)
+    exported = exported[exported.files[0]]
 
     for s1, s2 in zip(exported.shape, tensor.shape):
         assert s1 == s2
@@ -436,6 +453,7 @@ def test_tensor_export_cuda(tensor, name):
     tensor = tensor.to("cuda")
     path = tensor_export(tensor, tempfile.gettempdir(), name)
     exported = numpy.load(path)
+    exported = exported[exported.files[0]]
 
     for s1, s2 in zip(exported.shape, tensor.shape):
         assert s1 == s2
@@ -446,12 +464,10 @@ def test_tensor_export_cuda(tensor, name):
     [
         ((), "empty_tuple"),
         ([], "empty_list"),
-        ({}, "empty_dict"),
         (torch.randn(1, 8, 16, 32), "small_sing_tens"),
         (torch.randn(8, 8, 16, 32), "large_sing_tens"),
         ((torch.randn(1, 8), torch.randn(8, 8)), "flat_tuple"),
         ([torch.randn(1, 8), torch.randn(8, 8)], "flat_list"),
-        ({"key": torch.randn(1, 8), "key2": torch.randn(8, 8)}, "flat_dict"),
         ([[torch.randn(1, 8)], torch.randn(8, 8)], "nested_list"),
     ],
 )
@@ -460,6 +476,7 @@ def test_tensors_export(tensors, name):
 
     for path in paths:
         exported = numpy.load(path)
+        exported = exported[exported.files[0]]
         assert numpy.sum(exported.shape) > 1
 
 

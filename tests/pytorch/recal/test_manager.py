@@ -1,6 +1,10 @@
 import pytest
 
-from neuralmagicML.pytorch.recal import ScheduledModifierManager, ScheduledModifier
+from neuralmagicML.pytorch.recal import (
+    ScheduledModifierManager,
+    ScheduledModifier,
+    PytorchModifierYAML,
+)
 
 from .test_modifier import (
     ModifierTest,
@@ -24,3 +28,14 @@ from .test_modifier import (
 )
 class TestManagerImpl(ModifierTest):
     pass
+
+
+@PytorchModifierYAML()
+class TestModifierImpl(ScheduledModifier):
+    pass
+
+
+def test_manager_yaml():
+    manager = ScheduledModifierManager([ScheduledModifier()])
+    yaml_str = ScheduledModifierManager.list_to_yaml(manager.modifiers)
+    assert yaml_str

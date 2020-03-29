@@ -1,4 +1,5 @@
 from .efficientnet import *
+from .mnist import *
 from .mobilenet import *
 from .mobilenet_v2 import *
 from .resnet import *
