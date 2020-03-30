@@ -2,222 +2,54 @@
 Code related to interacting with a trained model such as saving, loading, etc
 """
 
-from typing import Dict, Union, List, Tuple, Callable
-from importlib.machinery import SourceFileLoader
-import inspect
-import os
-import json
-import hashlib
-import errno
-import requests
+from typing import Union, List, Tuple
 import torch
-from torch import Tensor
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
 from collections import OrderedDict
 
-from neuralmagicML.pytorch.utils.token import get_nm_token
-
 
 __all__ = [
-    "copy_state_dict_value",
-    "copy_state_dict_linear",
-    "copy_state_dict_conv",
-    "copy_state_dict_batch_norm",
-    "load_pretrained_model",
     "load_model",
     "load_optimizer",
     "save_model",
-    "create_model",
-    "edit_model_plugins",
     "model_to_device",
     "parallelize_model",
     "device_to_name_ids",
 ]
 
-SIGNATURE_URL = "https://api.neuralmagic.com/models/sign-url"
 
-
-def copy_state_dict_value(
-    target_key: str,
-    source_key: str,
-    target: Dict[str, Tensor],
-    source: Dict[str, Tensor],
-    delete_from_source: bool = False,
-):
-    if source_key not in source:
-        raise KeyError("{} not found in source dict".format(source_key))
-
-    target[target_key] = source[source_key]
-
-    if delete_from_source:
-        del source[source_key]
-
-
-def copy_state_dict_linear(
-    target_name: str,
-    source_name: str,
-    target: Dict[str, Tensor],
-    source: Dict[str, Tensor],
-    bias: bool = True,
-    delete_from_source: bool = False,
-):
-    copy_state_dict_value(
-        "{}.weight".format(target_name),
-        "{}.weight".format(source_name),
-        target,
-        source,
-        delete_from_source,
-    )
-
-    if bias:
-        copy_state_dict_value(
-            "{}.bias".format(target_name),
-            "{}.bias".format(source_name),
-            target,
-            source,
-            delete_from_source,
-        )
-
-
-def copy_state_dict_conv(
-    target_name: str,
-    source_name: str,
-    target: Dict[str, Tensor],
-    source: Dict[str, Tensor],
-    bias: bool = True,
-    delete_from_source: bool = False,
-):
-    copy_state_dict_value(
-        "{}.weight".format(target_name),
-        "{}.weight".format(source_name),
-        target,
-        source,
-        delete_from_source,
-    )
-
-    if bias:
-        copy_state_dict_value(
-            "{}.bias".format(target_name),
-            "{}.bias".format(source_name),
-            target,
-            source,
-            delete_from_source,
-        )
-
-
-def copy_state_dict_batch_norm(
-    target_name: str,
-    source_name: str,
-    target: Dict[str, Tensor],
-    source: Dict[str, Tensor],
-    delete_from_source: bool = False,
-):
-    copy_state_dict_value(
-        "{}.weight".format(target_name),
-        "{}.weight".format(source_name),
-        target,
-        source,
-        delete_from_source,
-    )
-    copy_state_dict_value(
-        "{}.bias".format(target_name),
-        "{}.bias".format(source_name),
-        target,
-        source,
-        delete_from_source,
-    )
-    copy_state_dict_value(
-        "{}.running_mean".format(target_name),
-        "{}.running_mean".format(source_name),
-        target,
-        source,
-        delete_from_source,
-    )
-    copy_state_dict_value(
-        "{}.running_var".format(target_name),
-        "{}.running_var".format(source_name),
-        target,
-        source,
-        delete_from_source,
-    )
-
-    if delete_from_source and "{}.num_batches_tracked".format(source_name) in source:
-        del source["{}.num_batches_tracked".format(source_name)]
-
-
-def load_pretrained_model(
+def load_model(
+    path: str,
     model: Module,
-    pretrained_key: str,
-    model_arch: str,
-    model_domain: str = "cv-classification",
-    default_pretrained_key: str = "imagenet/pytorch/base",
-    ignore_tensors: Union[None, List[str]] = None,
+    strict: bool = False,
+    ignore_error_tensors: List[str] = None,
 ):
-    if not pretrained_key:
-        pretrained_key = default_pretrained_key
-
-    headers = {"nm-token-header": get_nm_token()}
-    model_repo_key = f"{model_domain}/{model_arch}/{pretrained_key}"
-    model_req_data = {"body": {"redirect_path": f"{model_repo_key}/model.pth"}}
-    model_req_data = json.dumps(model_req_data)
-
-    model_res_data = requests.post(
-        url=SIGNATURE_URL, data=model_req_data, headers=headers
-    ).json()
-
-    model_url = model_res_data["signed_url"]
-
-    cache_dir = os.path.join(
-        os.path.abspath(os.path.expanduser("~")), ".cache", "nm_models"
-    )
-    cache_name = hashlib.md5(model_req_data.encode("utf-8")).hexdigest()
-
-    try:
-        os.makedirs(cache_dir)
-    except OSError as e:
-        if e.errno == errno.EEXIST:
-            pass
-        else:
-            # Unexpected OSError, re-raise.
-            raise
-
-    cache_file = os.path.join(cache_dir, cache_name)
-
-    if not os.path.exists(cache_file):
-        print("downloading {} for {}".format(model_arch, pretrained_key))
-        try:
-            with open(cache_file, "wb") as file:
-                data = requests.get(model_url)
-                file.write(data.content)
-        except Exception as e:
-            os.remove(cache_file)
-            raise e
-
-    model_dict = torch.load(cache_file, map_location="cpu")["state_dict"]
-    to_state_dict = model.state_dict()
-
-    ignore_tensors = ["classifier.fc.weight", "classifier.fc.bias"]
-
-    if ignore_tensors is not None:
-        for ignore in ignore_tensors:
-            # copy over the 'to state dict' values to our current state dict for any tensor we were supposed to ignore
-            # only do this though if we can't match the shape and the key exists in 'to state dict'
-            if ignore not in to_state_dict and ignore in model_dict:
-                del model_dict[ignore]
-            elif (
-                ignore in to_state_dict
-                and ignore in model_dict
-                and to_state_dict[ignore].shape != model_dict[ignore].shape
-            ):
-                model_dict[ignore] = to_state_dict[ignore]
-
-    model.load_state_dict(model_dict, strict=ignore_tensors is None)
-
-
-def load_model(path: str, model: Module, strict: bool = False):
     model_dict = torch.load(path, map_location="cpu")
-    model.load_state_dict(model_dict["state_dict"], strict)
+    current_dict = model.state_dict()
+
+    if "state_dict" in model_dict:
+        model_dict = model_dict["state_dict"]
+
+    if not ignore_error_tensors:
+        ignore_error_tensors = []
+
+    for ignore in ignore_error_tensors:
+        if ignore not in model_dict and ignore not in current_dict:
+            continue
+
+        if (
+            ignore in model_dict
+            and ignore in current_dict
+            and current_dict[ignore].shape != model_dict[ignore].shape
+        ):
+            model_dict[ignore] = current_dict[ignore]
+        elif ignore not in model_dict and ignore in current_dict:
+            model_dict[ignore] = current_dict[ignore]
+        elif ignore in model_dict and ignore not in current_dict:
+            del model_dict[ignore]
+
+    model.load_state_dict(model_dict, strict)
 
 
 def load_optimizer(path: str, optimizer: Optimizer) -> Union[int, None]:
@@ -268,84 +100,6 @@ class _DataParallel(DataParallel):
 
 def parallelize_model(model: Module, ids: Union[None, List[int]]) -> Module:
     return _DataParallel(model, ids)
-
-
-MODEL_MAPPINGS = {}  # type: Dict[str, Callable]
-
-
-def create_model(
-    model_type: str,
-    model_path: Union[None, str] = None,
-    plugin_paths: Union[None, List[str]] = None,
-    plugin_args: Union[None, Dict] = None,
-    load_strict: bool = True,
-    **kwargs,
-) -> Module:
-    if model_type == "help":
-        raise Exception(
-            "model_type given of help, available models: \n{}".format(
-                list(MODEL_MAPPINGS.keys())
-            )
-        )
-
-    if model_type not in MODEL_MAPPINGS:
-        raise ValueError(
-            "Unsupported model_type given of {}, available models: \n{}".format(
-                model_type, list(MODEL_MAPPINGS.keys())
-            )
-        )
-
-    constructor = MODEL_MAPPINGS[model_type]
-    model = constructor(**kwargs)  # type: Module
-    model = edit_model_plugins(model, False, plugin_paths, plugin_args)
-
-    if model_path:
-        load_model(model_path, model, strict=load_strict)
-
-    model = edit_model_plugins(model, True, plugin_paths, plugin_args)
-
-    return model
-
-
-def edit_model_plugins(
-    model: Module,
-    state_loaded: bool,
-    plugin_paths: Union[None, List[str]] = None,
-    plugin_args: Union[None, Dict] = None,
-) -> Module:
-    if plugin_args is None:
-        plugin_args = {}
-
-    if plugin_paths:
-        for plugin_path in plugin_paths:
-            plugin_path = os.path.abspath(os.path.expanduser(plugin_path))
-            plugin_mod_name, _ = os.path.splitext(os.path.basename(plugin_path))
-            plugin_module = SourceFileLoader(plugin_mod_name, plugin_path).load_module()
-
-            if not hasattr(plugin_module, "edit_model"):
-                raise Exception(
-                    'model plugin at {} must have "edit_model" definition'.format(
-                        plugin_path
-                    )
-                )
-
-            plugin_func = getattr(plugin_module, "edit_model")
-            if len(inspect.signature(plugin_func).parameters) < 2:
-                raise Exception(
-                    "model plugin at {} must take in at least 2 arguments: "
-                    "(model: Module, state_loaded: bool)".format(plugin_path)
-                )
-
-            model = plugin_func(model, state_loaded, **plugin_args)
-
-            if not model or not isinstance(model, Module):
-                raise Exception(
-                    "model plugin at {} must return the model after editing".format(
-                        plugin_path
-                    )
-                )
-
-    return model
 
 
 def model_to_device(

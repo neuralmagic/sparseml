@@ -1,90 +1,63 @@
 import pytest
 
-from neuralmagicML.pytorch.models.image_classification.vgg import (
+from typing import Union, Callable
+import torch
+
+from neuralmagicML.pytorch.models import (
+    ModelRegistry,
     vgg11,
-    vgg11_bn,
+    vgg11bn,
     vgg13,
-    vgg13_bn,
+    vgg13bn,
     vgg16,
-    vgg16_bn,
+    vgg16bn,
     vgg19,
-    vgg19_bn,
+    vgg19bn,
 )
 
-
-def mostly_not_equal(model_1, model_2):
-    for p1, p2 in zip(model_1.parameters(), model_2.parameters()):
-        if p1.data.ne(p2.data).sum() > 0:
-            return True
-
-    return False
+from tests.pytorch.models.utils import compare_model
 
 
-def test_vgg11():
-    default_vgg = vgg11()
-    pretrained_vgg = vgg11(pretrained=True)
+@pytest.mark.parametrize(
+    "key,pretrained,test_input,match_const",
+    [
+        ("vgg11", False, True, vgg11),
+        ("vgg11", True, False, vgg11),
+        ("vgg11bn", False, True, vgg11bn),
+        ("vgg11bn", True, False, vgg11bn),
+        ("vgg13", False, True, vgg13),
+        ("vgg13", True, False, vgg13),
+        ("vgg13bn", False, True, vgg13bn),
+        ("vgg13bn", True, False, vgg13bn),
+        ("vgg16", False, True, vgg16),
+        ("vgg16", True, False, vgg16),
+        ("vgg16", "base", False, vgg16),
+        ("vgg16", "recal", False, vgg16),
+        ("vgg16", "recal-perf", False, vgg16),
+        ("vgg16bn", False, True, vgg16bn),
+        ("vgg16bn", True, False, vgg16bn),
+        ("vgg19", False, True, vgg19),
+        ("vgg19", True, False, vgg19),
+        ("vgg19bn", False, True, vgg19bn),
+        ("vgg19bn", True, False, vgg19bn),
+    ],
+)
+def test_vggs(
+    key: str, pretrained: Union[bool, str], match_const: Callable, test_input: bool
+):
+    model = ModelRegistry.create(key, pretrained)
+    diff_model = match_const()
 
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
+    if pretrained:
+        compare_model(model, diff_model, same=False)
+        match_model = ModelRegistry.create(key, pretrained)
+        compare_model(model, match_model, same=True)
 
-
-def test_vgg11_bn():
-    default_vgg = vgg11_bn()
-    pretrained_vgg = vgg11_bn(pretrained=True)
-
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
-
-
-def test_vgg13():
-    default_vgg = vgg13()
-    pretrained_vgg = vgg13(pretrained=True)
-
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
-
-
-def test_vgg13_bn():
-    default_vgg = vgg13_bn()
-    pretrained_vgg = vgg13_bn(pretrained=True)
-
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
-
-
-def test_vgg16():
-    default_vgg = vgg16()
-    pretrained_vgg = vgg16(pretrained=True)
-
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
-
-
-def test_vgg16_recal():
-    default_vgg = vgg16()
-    pretrained_vgg = vgg16(pretrained="imagenet/pytorch/recal")
-
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
-
-
-def test_vgg16_recal_perf():
-    default_vgg = vgg16()
-    pretrained_vgg = vgg16(pretrained="imagenet/pytorch/recal-perf")
-
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
-
-
-def test_vgg16_bn():
-    default_vgg = vgg16_bn()
-    pretrained_vgg = vgg16_bn(pretrained=True)
-
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
-
-
-def test_vgg19():
-    default_vgg = vgg19()
-    pretrained_vgg = vgg19(pretrained=True)
-
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
-
-
-def test_vgg19_bn():
-    default_vgg = vgg19_bn()
-    pretrained_vgg = vgg19_bn(pretrained=True)
-
-    assert mostly_not_equal(default_vgg, pretrained_vgg)
+    if test_input:
+        input_shape = ModelRegistry.input_shape(key)
+        batch = torch.randn(1, *input_shape)
+        out = model(batch)
+        assert isinstance(out, tuple)
+        for tens in out:
+            assert tens.shape[0] == 1
+            assert tens.shape[1] == 1000

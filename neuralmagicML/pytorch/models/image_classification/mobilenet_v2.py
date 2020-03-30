@@ -15,7 +15,7 @@ from torch.nn import (
 )
 
 from neuralmagicML.pytorch.nn import ReLU6
-from neuralmagicML.pytorch.utils.model import load_pretrained_model, MODEL_MAPPINGS
+from neuralmagicML.pytorch.models.registry import ModelRegistry
 
 
 __all__ = [
@@ -162,6 +162,10 @@ class _Classifier(Module):
 
 
 class MobilenetV2SectionSettings(object):
+    """
+    Settings to describe how to put together a resnet architecture based on different configurations
+    """
+
     def __init__(
         self,
         num_blocks: int,
@@ -173,6 +177,16 @@ class MobilenetV2SectionSettings(object):
         init_section: bool = False,
         width_mult: float = 1.0,
     ):
+        """
+        param num_blocks: the number of inverted bottleneck blocks to put in the section
+        :param in_channels: the number of input channels to the section
+        :param out_channels: the number of output channels from the section
+        :param downsample: True to apply stride 2 for down sampling of the input, False otherwise
+        :param exp_channels: number of channels to expand out to, if not supplied uses exp_ratio
+        :param exp_ratio: the expansion ratio to use for the depthwise convolution
+        :param init_section: True if it is the initial section, False otherwise
+        :param width_mult: The width multiplier to apply to the channel sizes
+        """
         self.num_blocks = num_blocks
         self.in_channels = (
             _make_divisible(in_channels * width_mult, 8)
@@ -193,14 +207,21 @@ class MobilenetV2SectionSettings(object):
 
 
 class MobilenetV2(Module):
+    """
+    Standard MobileNetV2 model https://arxiv.org/abs/1801.04381
+    """
+
     def __init__(
         self,
         sec_settings: List[MobilenetV2SectionSettings],
-        model_arch_tag: str,
         num_classes: int = 1000,
         class_type: str = "single",
-        pretrained: Union[bool, str] = False,
     ):
+        """
+        :param sec_settings: the settings for each section in the mobilenet model
+        :param num_classes: the number of classes to classify
+        :param class_type: one of [single, multi] to support multi class training; default single
+        """
         super().__init__()
         self.sections = Sequential(
             *[MobilenetV2.create_section(settings) for settings in sec_settings]
@@ -225,17 +246,6 @@ class MobilenetV2(Module):
         self.classifier = _Classifier(
             in_channels=1280, num_classes=num_classes, class_type=class_type
         )
-
-        if pretrained:
-            pretrained_key = pretrained if isinstance(pretrained, str) else ""
-            load_pretrained_model(
-                self,
-                pretrained_key,
-                model_arch=model_arch_tag,
-                ignore_tensors=None
-                if num_classes == 1000
-                else ["classifier.fc.weight", "classifier.fc.bias"],
-            )
 
     def forward(self, inp: Tensor):
         out = self.sections(inp)
@@ -278,7 +288,7 @@ class MobilenetV2(Module):
         return Sequential(*blocks)
 
 
-def mobilenet_v2(width_mult, model_arch_tag: str, **kwargs) -> MobilenetV2:
+def mobilenet_v2(width_mult, **kwargs) -> MobilenetV2:
     sec_settings = [
         MobilenetV2SectionSettings(
             num_blocks=1,
@@ -345,11 +355,25 @@ def mobilenet_v2(width_mult, model_arch_tag: str, **kwargs) -> MobilenetV2:
         ),
     ]
 
-    return MobilenetV2(sec_settings, model_arch_tag=model_arch_tag, **kwargs)
+    return MobilenetV2(sec_settings, **kwargs)
 
 
+@ModelRegistry.register(
+    key=[
+        "mobilenet_v2",
+        "mobilenet_v2_100",
+        "mobilenet-v2",
+        "mobilenet-v2-100",
+        "mobilenetv2_1.0",
+    ],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="mobilenet-v2",
+    sub_architecture="1.0",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def mobilenet_v2_100(**kwargs) -> MobilenetV2:
-    return mobilenet_v2(width_mult=1.0, model_arch_tag="mobilenet-v2/1.0", **kwargs)
-
-
-MODEL_MAPPINGS["mobilenet_v2_100"] = mobilenet_v2_100
+    return mobilenet_v2(width_mult=1.0, **kwargs)

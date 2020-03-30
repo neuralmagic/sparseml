@@ -3,6 +3,7 @@ Code related to modifiers for enforcing kernel sparsity (model pruning) on model
 """
 
 from typing import Union, List
+import math
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
@@ -14,11 +15,12 @@ from neuralmagicML.utils import (
     validate_str_iterable,
 )
 from neuralmagicML.pytorch.utils import (
-    get_terminal_layers,
+    get_prunable_layers,
     get_layer,
 )
 from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
+    ScheduledModifier,
     ScheduledUpdateModifier,
     PytorchModifierYAML,
 )
@@ -27,7 +29,7 @@ from neuralmagicML.pytorch.recal.kernel.analyzer import ModuleKSAnalyzer
 from neuralmagicML.pytorch.recal.kernel.mask import ModuleParamKSMask
 
 
-__all__ = ["GradualKSModifier"]
+__all__ = ["ConstantKSModifier", "GradualKSModifier"]
 
 
 def _log_sparsity(
@@ -45,6 +47,176 @@ def _log_sparsity(
                 analyzer.param_sparsity.item(),
                 step,
             )
+
+
+@PytorchModifierYAML()
+class ConstantKSModifier(ScheduledModifier):
+    """
+    Holds the sparsity level and shape for a given param constant while training.
+    Useful for transfer learning use cases.
+
+    Sample yaml:
+        !ConstantKSModifier
+            layers: __ALL__
+            start_epoch: 0.0
+            end_epoch: 10.0
+            param: weight
+            log_types: __ALL__
+    """
+
+    def __init__(
+        self,
+        layers: Union[str, List[str]],
+        start_epoch: float = -1.0,
+        end_epoch: float = -1.0,
+        param: str = "weight",
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+    ):
+        """
+        :param layers: str or list of str for the layers to apply the KS modifier to
+                       can also use the token __ALL__ to specify all layers
+        :param start_epoch: The epoch to start the modifier at
+        :param end_epoch: The epoch to end the modifier at
+        :param param: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
+        :param log_types: The loggers to allow the learning rate to be logged to, default is __ALL__
+        """
+        super().__init__(
+            log_types=log_types,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            end_comparator=-1,
+        )
+        self._layers = validate_str_iterable(
+            layers, "{} for layers".format(self.__class__.__name__)
+        )
+        self._param = param
+        self._module_masks = []  # type: List[ModuleParamKSMask]
+        self._analyzers = None
+        self._last_logged_epoch = None
+
+    def __del__(self):
+        self._module_masks.clear()
+
+    @ModifierProp()
+    def layers(self) -> Union[str, List[str]]:
+        """
+        :return: str or list of str for the layers to apply the KS modifier to
+                 can also use the token __ALL__ to specify all layers
+        """
+        return self._layers
+
+    @layers.setter
+    def layers(self, value: Union[str, List[str]]):
+        """
+        :param value: str or list of str for the layers to apply the KS modifier to
+                      can also use the token __ALL__ to specify all layers
+        """
+        self._layers = validate_str_iterable(
+            value, "{} for layers".format(self.__class__.__name__)
+        )
+
+    @ModifierProp()
+    def param(self) -> str:
+        """
+        :return: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
+        """
+        return self._param
+
+    @param.setter
+    def param(self, value: str):
+        """
+        :param value: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
+        """
+        self._param = value
+
+    def initialize(self, module: Module, optimizer: Optimizer):
+        """
+        Grab the layers' params to control kernel sparsity for
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        """
+        super().initialize(module, optimizer)
+
+        if self._layers == ALL_TOKEN:
+            layers = {name: layer for (name, layer) in get_prunable_layers(module)}
+        else:
+            layers = {name: get_layer(name, module) for name in self._layers}
+
+        self._analyzers = []
+
+        for name, layer in layers.items():
+            found = False
+
+            for param_name, par in layer.named_parameters():
+                if param_name == self._param:
+                    self._module_masks.append(ModuleParamKSMask(layer, self._param))
+                    self._analyzers.append(ModuleKSAnalyzer(layer, name, param_name))
+                    found = True
+                    break
+
+            if not found:
+                raise ValueError(
+                    "Could not find required param {} in layer {} for {}".format(
+                        self._param, layer, self.__class__.__name__
+                    )
+                )
+
+    def update(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Update to enable and disable the mask when chosen
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+
+        if self.start_pending(epoch, steps_per_epoch):
+            for mask in self._module_masks:
+                mask.enabled = True
+
+        if self.end_pending(epoch, steps_per_epoch):
+            for mask in self._module_masks:
+                mask.enabled = False
+
+    def log_update(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Check whether to log an update for the learning rate of the modifier
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        super().log_update(module, optimizer, epoch, steps_per_epoch)
+
+        if self._last_logged_epoch != math.floor(epoch):
+            self._last_logged_epoch = math.floor(epoch)
+            _log_sparsity(self._analyzers, self.loggers, epoch, steps_per_epoch)
+
+    def optimizer_post_step(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Reapply the mask after the optimizer step in case the optimizer has momentum that may have moved weights from 0
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        """
+        super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
+
+        # be sure to apply mask again after optimizer update because weights may have changed
+        # (optimizer with momentum, not masking gradient)
+        for mask in self._module_masks:
+            mask.apply()
 
 
 @PytorchModifierYAML()
@@ -229,12 +401,13 @@ class GradualKSModifier(ScheduledUpdateModifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
-        super(GradualKSModifier, self).initialize(module, optimizer)
-        layers = (
-            get_terminal_layers(module)
-            if self._layers == ALL_TOKEN
-            else {name: get_layer(name, module) for name in self._layers}
-        )
+        super().initialize(module, optimizer)
+
+        if self._layers == ALL_TOKEN:
+            layers = {name: layer for (name, layer) in get_prunable_layers(module)}
+        else:
+            layers = {name: get_layer(name, module) for name in self._layers}
+
         self._analyzers = []
 
         for name, layer in layers.items():
@@ -295,8 +468,6 @@ class GradualKSModifier(ScheduledUpdateModifier):
     ):
         """
         Check whether to log an update for the learning rate of the modifier
-        If constant logging is enabled, then will always log
-        Otherwise checks for a change in the LR before logging
 
         :param module: module to modify
         :param optimizer: optimizer to modify

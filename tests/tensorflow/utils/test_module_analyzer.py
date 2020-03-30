@@ -68,14 +68,25 @@ def resnet_v2_50(init_weights):
 
 @pytest.mark.parametrize(
     "model, init_weights, layer_name, params, zeroed_params, total_flops",
-    [(simple_conv2d_net, np.zeros([20, 8, 1, 64]), "Conv2D", 10240, 10240, 8785920),
-     (simple_conv2d_net, np.ones([20, 8, 1, 64]), "Conv2D", 10240, 0, 8785920),
-     (simple_conv2d_net, _a_sparse_filter([20, 8, 1, 64]), "Conv2D", 10240, 9728, 8785920),
-     (simple_matmul_net, None, "dnn/hidden1/MatMul", 235200, 0, 470400),
-     (simple_matmul_net, None, "dnn/hidden2/MatMul", 30000, 0, 60000),
-     (resnet_v2_50, None, "resnet_v2_50/conv1/Conv2D", 9408, 0, 236027904)]
+    [
+        (simple_conv2d_net, np.zeros([20, 8, 1, 64]), "Conv2D", 10240, 10240, 8785920),
+        (simple_conv2d_net, np.ones([20, 8, 1, 64]), "Conv2D", 10240, 0, 8785920),
+        (
+            simple_conv2d_net,
+            _a_sparse_filter([20, 8, 1, 64]),
+            "Conv2D",
+            10240,
+            9728,
+            8785920,
+        ),
+        (simple_matmul_net, None, "dnn/hidden1/MatMul", 235200, 0, 470400),
+        (simple_matmul_net, None, "dnn/hidden2/MatMul", 30000, 0, 60000),
+        (resnet_v2_50, None, "resnet_v2_50/conv1/Conv2D", 9408, 0, 236027904),
+    ],
 )
-def test_module_analyzer(model, init_weights, layer_name, params, zeroed_params, total_flops):
+def test_module_analyzer(
+    model, init_weights, layer_name, params, zeroed_params, total_flops
+):
     g = model(init_weights)
     with tf.Session(graph=g) as sess:
         sess.run(tf.global_variables_initializer())

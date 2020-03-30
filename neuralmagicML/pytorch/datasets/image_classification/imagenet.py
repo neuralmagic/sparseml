@@ -12,6 +12,10 @@ __all__ = ["ImageNetDataset"]
 
 
 class ImageNetDataset(ImageFolder):
+    """
+    Wrapper for the ImageNet dataset to apply standard transforms
+    """
+
     RGB_MEANS = [0.485, 0.456, 0.406]
     RGB_STDS = [0.229, 0.224, 0.225]
 
@@ -23,13 +27,9 @@ class ImageNetDataset(ImageFolder):
         image_size: int = 224,
     ):
         """
-        Wrapper for the ImageNet dataset to apply standard transforms
-
         :param root: The root folder to find the dataset at, if not found will download here if download=True
         :param train: True if this is for the training distribution, false for the validation
         :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data, False otherwise
-        :param download: True to download the dataset, False otherwise
-                         Base implementation does not support leaving as false if already downloaded
         :param image_size: the size of the image to output from the dataset
         """
         non_rand_resize_scale = 256.0 / 224.0  # standard used

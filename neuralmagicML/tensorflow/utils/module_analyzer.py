@@ -7,8 +7,8 @@ from tensorflow.python.framework import tensor_util
 
 from toposort import toposort
 
-import neuralmagicML.tensorflow.utils.variable as var_utils
-from neuralmagicML.utils import tf_compat as tf_compat
+from neuralmagicML.tensorflow.utils.variable import get_op_input_var
+from neuralmagicML.tensorflow.utils.helpers import tf_compat
 from neuralmagicML.utils import AnalyzedLayerDesc
 
 __all__ = ["analyze_module"]
@@ -18,20 +18,24 @@ def analyze_module(
     session: Optional[tf_compat.Session],
     graph: Optional[tf_compat.Graph],
     op_names: Optional[List[str]] = None,
-    op_types: Optional[List[str]] = ["Conv2D", "MatMul"],
+    op_types: Optional[List[str]] = None,
 ):
     """
     Analyze a module at certain layers
 
     :param session: running session encapsulating the analyzed module
     :param graph: graph of the module; if None then the session is required, and the
-    encapsulated graph is to be analyzed
-    :op_names: list of names of layers to be analyzed; if None then all layers are
-    analyzed for an aggregated result
-
+                  encapsulated graph is to be analyzed
+    :param op_names: list of names of layers to be analyzed; if None then all layers are
+                     analyzed for an aggregated result
+    :param op_types: the operation types that will be analyzed,
+                     default is [Conv2D, MatMul]
     :return A dictionary of descriptions for layers if layer names are specified;
-    otherwise, an instance of AnalyzedLayerDesc for the entired module
+            otherwise, an instance of AnalyzedLayerDesc for the entired module
     """
+    if op_types is None:
+        op_types = ["Conv2D", "MatMul"]
+
     _validate(session, graph)
     ops = [
         o
@@ -152,7 +156,7 @@ def _count_parameters(
     n_params = None
     # For both MatMul and Conv2D we assume the parameters will be
     # the last one of the two inputs
-    weight_tensor = var_utils.get_op_input_var(op)
+    weight_tensor = get_op_input_var(op)
     n_params = int(np.prod(weight_tensor.shape.as_list()))
     if parameter_type == "zeroed":
         tensor_vals = session.run(weight_tensor)
@@ -168,7 +172,7 @@ def _get_parameters_dims(op: tf.Operation) -> Tuple[int, ...]:
     :param op: An operation
     :return List of dimensions
     """
-    weight_tensor = var_utils.get_op_input_var(op)
+    weight_tensor = get_op_input_var(op)
     return tuple(weight_tensor.shape.as_list())
 
 

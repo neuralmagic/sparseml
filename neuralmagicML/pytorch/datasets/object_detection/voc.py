@@ -2,13 +2,17 @@ import os
 from torchvision import transforms
 from torchvision.datasets import VOCSegmentation, VOCDetection
 
-from .utils import DATASET_MAPPINGS
+from neuralmagicML.pytorch.datasets.utils import DATASET_MAPPINGS
 
 
 __all__ = ["VOCSegmentationDataset", "VOCDetectionDataset"]
 
 
 class VOCSegmentationDataset(VOCSegmentation):
+    """
+    Wrapper for the VOCSegmentation dataset to apply standard transforms
+    """
+
     def __init__(
         self,
         root: str,
@@ -19,8 +23,6 @@ class VOCSegmentationDataset(VOCSegmentation):
         image_size: int = 300,
     ):
         """
-        Wrapper for the VOCSegmentation dataset to apply standard transforms
-
         :param root: The root folder to find the dataset at, if not found will download here if download=True
         :param train: True if this is for the training distribution, false for the validation
         :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data, False otherwise
@@ -59,6 +61,10 @@ DATASET_MAPPINGS["voc_segmentation_2012"] = VOCSegmentationDataset, 21
 
 
 class VOCDetectionDataset(VOCDetection):
+    """
+    Wrapper for the VOCDetection dataset to apply standard transforms
+    """
+
     def __init__(
         self,
         root: str,
@@ -69,8 +75,6 @@ class VOCDetectionDataset(VOCDetection):
         image_size: int = 300,
     ):
         """
-        Wrapper for the VOCDetection dataset to apply standard transforms
-
         :param root: The root folder to find the dataset at, if not found will download here if download=True
         :param train: True if this is for the training distribution, false for the validation
         :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data, False otherwise

@@ -8,10 +8,12 @@ __all__ = ["MNISTDataset"]
 
 
 class MNISTDataset(MNIST):
+    """
+    Wrapper for MNIST dataset to apply standard transforms
+    """
+
     def __init__(self, root: str, train: bool = True):
         """
-        Wrapper for MNIST dataset to apply standard transforms
-
         :param root: The root folder to find the dataset at, if not found will download here
         :param train: True if this is for the training distribution, false for the validation
         """

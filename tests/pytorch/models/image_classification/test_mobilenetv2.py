@@ -3,7 +3,7 @@ import pytest
 from typing import Union
 import torch
 
-from neuralmagicML.pytorch.models import ModelRegistry, mobilenet
+from neuralmagicML.pytorch.models import ModelRegistry, mobilenet_v2_100
 
 from tests.pytorch.models.utils import compare_model
 
@@ -11,16 +11,14 @@ from tests.pytorch.models.utils import compare_model
 @pytest.mark.parametrize(
     "key,pretrained,test_input",
     [
-        ("mobilenet", False, True),
-        ("mobilenet", True, False),
-        ("mobilenet", "base", False),
-        ("mobilenet", "recal", False),
-        ("mobilenet", "recal-perf", False),
+        ("mobilenet-v2", False, True),
+        ("mobilenet-v2", True, False),
+        ("mobilenet-v2", "base", False),
     ],
 )
-def test_mobilenets(key: str, pretrained: Union[bool, str], test_input: bool):
+def test_mobilenets_v2(key: str, pretrained: Union[bool, str], test_input: bool):
     model = ModelRegistry.create(key, pretrained)
-    diff_model = mobilenet()
+    diff_model = mobilenet_v2_100()
 
     if pretrained:
         compare_model(model, diff_model, same=False)

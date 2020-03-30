@@ -1,2 +1,3 @@
-from .dlrm import *
-from .ncf import *
+"""
+Models related to recommendations
+"""

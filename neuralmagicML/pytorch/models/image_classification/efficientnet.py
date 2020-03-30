@@ -13,22 +13,21 @@ from torch.nn import (
     Linear,
     Dropout,
     Softmax,
+    Sigmoid,
 )
 
 from neuralmagicML.pytorch.nn import Swish, SqueezeExcite
-from neuralmagicML.pytorch.utils.model import MODEL_MAPPINGS
+from neuralmagicML.pytorch.models.registry import ModelRegistry
 
 
 __all__ = [
     "EfficientNet",
     "EfficientNetSectionSettings",
     "efficientnet_b0",
-    "efficientnet_b0_se_mod",
     "efficientnet_b1",
     "efficientnet_b2",
     "efficientnet_b3",
     "efficientnet_b4",
-    "efficientnet_b4_se_mod",
     "efficientnet_b5",
     "efficientnet_b6",
     "efficientnet_b7",
@@ -157,7 +156,12 @@ class _InvertedBottleneckBlock(Module):
 
 class _Classifier(Module):
     def __init__(
-        self, in_channels: int, out_channels: int, classes: int, dropout: float = 0.0
+        self,
+        in_channels: int,
+        out_channels: int,
+        classes: int,
+        dropout: float,
+        class_type: str,
     ):
         super().__init__()
         self.conv = Conv2d(
@@ -171,7 +175,13 @@ class _Classifier(Module):
         self.pool = AdaptiveAvgPool2d(1)
         self.dropout = Dropout(p=dropout)
         self.fc = Linear(out_channels, classes)
-        self.softmax = Softmax(dim=1)
+
+        if class_type == "single":
+            self.softmax = Softmax(dim=1)
+        elif class_type == "multi":
+            self.softmax = Sigmoid()
+        else:
+            raise ValueError("unknown class_type given of {}".format(class_type))
 
     def forward(self, inp: Tensor) -> Tuple[Tensor, Tensor]:
         out = self.conv(inp)
@@ -193,6 +203,10 @@ class _Classifier(Module):
 
 
 class EfficientNetSectionSettings(object):
+    """
+    Settings to describe how to put together an efficientnet architecture based on different configurations
+    """
+
     def __init__(
         self,
         num_blocks: int,
@@ -227,15 +241,25 @@ class EfficientNetSectionSettings(object):
 
 
 class EfficientNet(Module):
+    """
+    Pytorch efficient net implementation https://arxiv.org/abs/1905.11946
+    """
+
     def __init__(
         self,
         sec_settings: List[EfficientNetSectionSettings],
-        model_arch_tag: str,
         num_classes: int,
         out_channels: int,
         dropout: float = 0.0,
-        pretrained: Union[bool, str] = False,
+        class_type: str = "single",
     ):
+        """
+        :param sec_settings: the settings for each section in the vgg model
+        :param num_classes: the number of classes to classify
+        :param out_channels: the number of output channels in the classifier before the fc
+        :param dropout: the amount of dropout to use while training, default 0.0
+        :param class_type: one of [single, multi] to support multi class training; default single
+        """
         super().__init__()
         self.input = Sequential(
             OrderedDict(
@@ -263,6 +287,7 @@ class EfficientNet(Module):
             out_channels=out_channels,
             classes=num_classes,
             dropout=dropout,
+            class_type=class_type,
         )
 
     def forward(self, inp: Tensor) -> Tuple[Tensor, Tensor]:
@@ -423,143 +448,177 @@ def efficientnet_params(model_name):
     return params_dict[model_name]
 
 
-def efficientnet_b0(**kwargs) -> EfficientNet:
+@ModelRegistry.register(
+    key=["efficientnetb0", "efficientnet_b0", "efficientnet-b0"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet",
+    sub_architecture="b0",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"recal-perf": ("se_mod", True)},
+)
+def efficientnet_b0(se_mod: bool = False, **kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b0")
 
     sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, False, kwargs
+        width_mult, depth_mult, dropout, se_mod, kwargs
     )
 
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b0", **kwargs
-    )
+    return EfficientNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["efficientnet_b0"] = efficientnet_b0
-
-
-def efficientnet_b0_se_mod(**kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b0")
-
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, True, kwargs
-    )
-
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b0", **kwargs
-    )
-
-
-MODEL_MAPPINGS["efficientnet_b0_se_mod"] = efficientnet_b0_se_mod
-
-
-def efficientnet_b1(**kwargs) -> EfficientNet:
+@ModelRegistry.register(
+    key=["efficientnetb1", "efficientnet_b1", "efficientnet-b1"],
+    input_shape=(3, 240, 240),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet",
+    sub_architecture="b1",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"recal-perf": ("se_mod", True)},
+)
+def efficientnet_b1(se_mod: bool = False, **kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b1")
 
     sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, False, kwargs
-    )
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b1", **kwargs
+        width_mult, depth_mult, dropout, se_mod, kwargs
     )
 
+    return EfficientNet(sec_settings=sec_settings, **kwargs)
 
-MODEL_MAPPINGS["efficientnet_b1"] = efficientnet_b1
 
-
-def efficientnet_b2(**kwargs) -> EfficientNet:
+@ModelRegistry.register(
+    key=["efficientnetb2", "efficientnet_b2", "efficientnet-b2"],
+    input_shape=(3, 260, 260),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet",
+    sub_architecture="b2",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"recal-perf": ("se_mod", True)},
+)
+def efficientnet_b2(se_mod: bool = False, **kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b2")
 
     sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, False, kwargs
-    )
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b2", **kwargs
+        width_mult, depth_mult, dropout, se_mod, kwargs
     )
 
+    return EfficientNet(sec_settings=sec_settings, **kwargs)
 
-MODEL_MAPPINGS["efficientnet_b2"] = efficientnet_b2
 
-
-def efficientnet_b3(**kwargs) -> EfficientNet:
+@ModelRegistry.register(
+    key=["efficientnetb3", "efficientnet_b3", "efficientnet-b3"],
+    input_shape=(3, 300, 300),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet",
+    sub_architecture="b3",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"recal-perf": ("se_mod", True)},
+)
+def efficientnet_b3(se_mod: bool = False, **kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b3")
 
     sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, False, kwargs
-    )
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b3", **kwargs
+        width_mult, depth_mult, dropout, se_mod, kwargs
     )
 
+    return EfficientNet(sec_settings=sec_settings, **kwargs)
 
-MODEL_MAPPINGS["efficientnet_b3"] = efficientnet_b3
 
-
-def efficientnet_b4(**kwargs) -> EfficientNet:
+@ModelRegistry.register(
+    key=["efficientnetb4", "efficientnet_b4", "efficientnet-b4"],
+    input_shape=(3, 380, 380),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet",
+    sub_architecture="b4",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"recal-perf": ("se_mod", True)},
+)
+def efficientnet_b4(se_mod: bool = False, **kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b4")
 
     sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, False, kwargs
-    )
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b4", **kwargs
+        width_mult, depth_mult, dropout, se_mod, kwargs
     )
 
-
-MODEL_MAPPINGS["efficientnet_b4"] = efficientnet_b4
-
-
-def efficientnet_b4_se_mod(**kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b4")
-
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, True, kwargs
-    )
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b4", **kwargs
-    )
+    return EfficientNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["efficientnet_b4_se_mod"] = efficientnet_b4_se_mod
-
-
-def efficientnet_b5(**kwargs) -> EfficientNet:
+@ModelRegistry.register(
+    key=["efficientnetb5", "efficientnet_b5", "efficientnet-b5"],
+    input_shape=(3, 456, 456),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet",
+    sub_architecture="b5",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"recal-perf": ("se_mod", True)},
+)
+def efficientnet_b5(se_mod: bool = False, **kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b5")
 
     sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, False, kwargs
-    )
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b5", **kwargs
+        width_mult, depth_mult, dropout, se_mod, kwargs
     )
 
+    return EfficientNet(sec_settings=sec_settings, **kwargs)
 
-MODEL_MAPPINGS["efficientnet_b5"] = efficientnet_b5
 
-
-def efficientnet_b6(**kwargs) -> EfficientNet:
+@ModelRegistry.register(
+    key=["efficientnetb6", "efficientnet_b6", "efficientnet-b6"],
+    input_shape=(3, 528, 528),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet",
+    sub_architecture="b6",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"recal-perf": ("se_mod", True)},
+)
+def efficientnet_b6(se_mod: bool = False, **kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b6")
 
     sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, False, kwargs
-    )
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b6", **kwargs
+        width_mult, depth_mult, dropout, se_mod, kwargs
     )
 
+    return EfficientNet(sec_settings=sec_settings, **kwargs)
 
-MODEL_MAPPINGS["efficientnet_b6"] = efficientnet_b6
 
-
-def efficientnet_b7(**kwargs) -> EfficientNet:
+@ModelRegistry.register(
+    key=["efficientnetb7", "efficientnet_b7", "efficientnet-b7"],
+    input_shape=(3, 600, 600),
+    domain="cv",
+    sub_domain="classification",
+    architecture="efficientnet",
+    sub_architecture="b7",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+    desc_args={"recal-perf": ("se_mod", True)},
+)
+def efficientnet_b7(se_mod: bool = False, **kwargs) -> EfficientNet:
     width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b7")
 
     sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, False, kwargs
-    )
-    return EfficientNet(
-        sec_settings=sec_settings, model_arch_tag="efficientnet/b7", **kwargs
+        width_mult, depth_mult, dropout, se_mod, kwargs
     )
 
-
-MODEL_MAPPINGS["efficientnet_b7"] = efficientnet_b7
+    return EfficientNet(sec_settings=sec_settings, **kwargs)

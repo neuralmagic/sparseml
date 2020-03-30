@@ -430,9 +430,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
         if not self._enabled:
             raise RuntimeError("modifier must be enabled")
 
-        if epoch < self._start_epoch or epoch > self._end_epoch:
-            return
-
         self._scheduled_log_called = True
         self.log_update(module, optimizer, epoch, steps_per_epoch)
         self._scheduled_log_called = False

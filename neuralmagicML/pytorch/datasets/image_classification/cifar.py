@@ -8,10 +8,12 @@ __all__ = ["CIFAR10Dataset", "CIFAR100Dataset"]
 
 
 class CIFAR10Dataset(CIFAR10):
+    """
+    Wrapper for the CIFAR10 dataset to apply standard transforms
+    """
+
     def __init__(self, root: str, train: bool = True, rand_trans: bool = False):
         """
-        Wrapper for the CIFAR10 dataset to apply standard transforms
-
         :param root: The root folder to find the dataset at, if not found will download here
         :param train: True if this is for the training distribution, false for the validation
         :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data, False otherwise
@@ -40,10 +42,12 @@ DATASET_MAPPINGS["cifar10"] = CIFAR10Dataset, 10
 
 
 class CIFAR100Dataset(CIFAR100):
+    """
+    Wrapper for the CIFAR100 dataset to apply standard transforms
+    """
+
     def __init__(self, root: str, train: bool = True, rand_trans: bool = False):
         """
-        Wrapper for the CIFAR100 dataset to apply standard transforms
-
         :param root: The root folder to find the dataset at, if not found will download here
         :param train: True if this is for the training distribution, false for the validation
         :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data, False otherwise

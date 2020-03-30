@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List
 from torch import Tensor
 from torch.nn import (
     Module,
@@ -14,7 +14,7 @@ from torch.nn import (
 )
 
 from neuralmagicML.pytorch.nn import ReLU
-from neuralmagicML.pytorch.utils.model import load_pretrained_model, MODEL_MAPPINGS
+from neuralmagicML.pytorch.models.registry import ModelRegistry
 
 
 __all__ = [
@@ -25,11 +25,11 @@ __all__ = [
     "resnet50",
     "resnet101",
     "resnet152",
-    "resnet18_v2",
-    "resnet34_v2",
-    "resnet50_v2",
-    "resnet101_v2",
-    "resnet152_v2",
+    "resnetv2_18",
+    "resnetv2_34",
+    "resnetv2_50",
+    "resnetv2_101",
+    "resnetv2_152",
     "resnet50_2xwidth",
     "resnet101_2xwidth",
     "resnext50",
@@ -380,6 +380,10 @@ class _Classifier(Module):
 
 
 class ResNetSectionSettings(object):
+    """
+    Settings to describe how to put together a resnet architecture based on different configurations
+    """
+
     def __init__(
         self,
         num_blocks: int,
@@ -424,16 +428,8 @@ class ResNetSectionSettings(object):
 
 
 class ResNet(Module):
-    def __init__(
-        self,
-        sec_settings: List[ResNetSectionSettings],
-        model_arch_tag: str,
-        num_classes: int = 1000,
-        class_type: str = "single",
-        pretrained: Union[bool, str] = False,
-    ):
-        """
-        Standard ResNet model
+    """
+    Standard ResNet model
         https://arxiv.org/abs/1512.03385
 
         ResNet V2 model
@@ -441,13 +437,18 @@ class ResNet(Module):
 
         ResNext model
         https://arxiv.org/abs/1611.05431
+    """
 
-        :param sec_settings: the settings for each section in the resnet model
-        :param model_arch_tag: the architecture tag used for loading pretrained weights: ex resnet/50
+    def __init__(
+        self,
+        sec_settings: List[ResNetSectionSettings],
+        num_classes: int = 1000,
+        class_type: str = "single",
+    ):
+        """
+        :param sec_settings: the settings for each section in the mobilenet model
         :param num_classes: the number of classes to classify
-        :param pretrained: True to load dense, pretrained weights from imagenet, false otherwise
-                           Additionally can specify other available datsets (dataset/dense) and
-                           kernel sparsity models (dataset/sparse, dataset/sparse-perf)
+        :param class_type: one of [single, multi] to support multi class training; default single
         """
         super().__init__()
         self.input = _Input()
@@ -457,17 +458,6 @@ class ResNet(Module):
         self.classifier = _Classifier(
             sec_settings[-1].out_channels, num_classes, class_type
         )
-
-        if pretrained:
-            pretrained_key = pretrained if isinstance(pretrained, str) else ""
-            load_pretrained_model(
-                self,
-                pretrained_key,
-                model_arch=model_arch_tag,
-                ignore_tensors=None
-                if num_classes == 1000
-                else ["classifier.fc.weight", "classifier.fc.bias"],
-            )
 
     def forward(self, inp: Tensor):
         out = self.input(inp)
@@ -520,6 +510,17 @@ class ResNet(Module):
         return Sequential(*blocks)
 
 
+@ModelRegistry.register(
+    key=["resnet18", "resnet_18", "resnet-18", "resnetv1_18", "resnetv1-18"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v1",
+    sub_architecture="18",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnet18(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -536,13 +537,21 @@ def resnet18(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/18", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet18"] = resnet18
-
-
-def resnet18_v2(**kwargs) -> ResNet:
+@ModelRegistry.register(
+    key=["resnetv2_18", "resnetv2-18"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v2",
+    sub_architecture="18",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
+def resnetv2_18(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=2, in_channels=64, out_channels=64, downsample=False, version=2
@@ -558,12 +567,20 @@ def resnet18_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/18", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet18_v2"] = resnet18_v2
-
-
+@ModelRegistry.register(
+    key=["resnet34", "resnet_34", "resnet-34", "resnetv1_34", "resnetv1-34"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v1",
+    sub_architecture="34",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnet34(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -580,13 +597,21 @@ def resnet34(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/34", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet34"] = resnet34
-
-
-def resnet34_v2(**kwargs) -> ResNet:
+@ModelRegistry.register(
+    key=["resnetv2_34", "resnetv2-34"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v2",
+    sub_architecture="34",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
+def resnetv2_34(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3, in_channels=64, out_channels=64, downsample=False, version=2
@@ -602,12 +627,20 @@ def resnet34_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/34", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet34_v2"] = resnet34_v2
-
-
+@ModelRegistry.register(
+    key=["resnet50", "resnet_50", "resnet-50", "resnetv1_50", "resnetv1-50"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v1",
+    sub_architecture="50",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnet50(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -640,13 +673,21 @@ def resnet50(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/50", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet50"] = resnet50
-
-
-def resnet50_v2(**kwargs) -> ResNet:
+@ModelRegistry.register(
+    key=["resnetv2_50", "resnetv2-50"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v2",
+    sub_architecture="50",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
+def resnetv2_50(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -682,12 +723,26 @@ def resnet50_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/50", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet50_v2"] = resnet50_v2
-
-
+@ModelRegistry.register(
+    key=[
+        "resnet50_2xwidth",
+        "resnet_50_2xwidth",
+        "resnet-50-2xwidth",
+        "resnetv1_50_2xwidth",
+        "resnetv1-50-2xwidth",
+    ],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v1",
+    sub_architecture="50-2xwidth",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnet50_2xwidth(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -720,14 +775,20 @@ def resnet50_2xwidth(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(
-        sec_settings=sec_settings, model_arch_tag="resnet-v1/50-2xwidth", **kwargs
-    )
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet50_2xwidth"] = resnet50_2xwidth
-
-
+@ModelRegistry.register(
+    key=["resnext50", "resnext_50", "resnext-50"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnext",
+    sub_architecture="50",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnext50(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -764,12 +825,20 @@ def resnext50(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnext/50", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnext50"] = resnext50
-
-
+@ModelRegistry.register(
+    key=["resnet101", "resnet_101", "resnet-101", "resnetv1_101", "resnetv1-101"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v1",
+    sub_architecture="101",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnet101(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -802,13 +871,21 @@ def resnet101(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/101", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet101"] = resnet101
-
-
-def resnet101_v2(**kwargs) -> ResNet:
+@ModelRegistry.register(
+    key=["resnetv2_101", "resnetv2-101"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v2",
+    sub_architecture="101",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
+def resnetv2_101(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -844,12 +921,26 @@ def resnet101_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/101", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet101_v2"] = resnet101_v2
-
-
+@ModelRegistry.register(
+    key=[
+        "resnet101_2xwidth",
+        "resnet_101_2xwidth",
+        "resnet-101-2xwidth",
+        "resnetv1_101_2xwidth",
+        "resnetv1-101-2xwidth",
+    ],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v1",
+    sub_architecture="101-2xwidth",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnet101_2xwidth(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -882,14 +973,20 @@ def resnet101_2xwidth(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(
-        sec_settings=sec_settings, model_arch_tag="resnet-v1/101-2xwidth", **kwargs
-    )
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet101_2xwidth"] = resnet101_2xwidth
-
-
+@ModelRegistry.register(
+    key=["resnext101", "resnext_101", "resnext-101"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnext",
+    sub_architecture="101",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnext101(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -926,12 +1023,20 @@ def resnext101(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnext/101", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnext101"] = resnext101
-
-
+@ModelRegistry.register(
+    key=["resnet152", "resnet_152", "resnet-152", "resnetv1_152", "resnetv1-152"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v1",
+    sub_architecture="152",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnet152(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -964,13 +1069,21 @@ def resnet152(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v1/152", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet152"] = resnet152
-
-
-def resnet152_v2(**kwargs) -> ResNet:
+@ModelRegistry.register(
+    key=["resnetv2_152", "resnetv2-152"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v2",
+    sub_architecture="152",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
+def resnetv2_152(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -1006,12 +1119,20 @@ def resnet152_v2(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnet-v2/152", **kwargs)
+    return ResNet(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["resnet152_v2"] = resnet152_v2
-
-
+@ModelRegistry.register(
+    key=["resnext152", "resnext_152", "resnext-152"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnext",
+    sub_architecture="152",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def resnext152(**kwargs) -> ResNet:
     sec_settings = [
         ResNetSectionSettings(
@@ -1048,7 +1169,4 @@ def resnext152(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, model_arch_tag="resnext/152", **kwargs)
-
-
-MODEL_MAPPINGS["resnext152"] = resnext152
+    return ResNet(sec_settings=sec_settings, **kwargs)

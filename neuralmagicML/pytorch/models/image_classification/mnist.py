@@ -10,7 +10,7 @@ from torch.nn import (
 )
 
 from neuralmagicML.pytorch.nn import ReLU
-from neuralmagicML.pytorch.utils.model import MODEL_MAPPINGS, load_pretrained_model
+from neuralmagicML.pytorch.models.registry import ModelRegistry
 
 
 __all__ = ["MnistNet", "mnist_net"]
@@ -57,14 +57,11 @@ class _Classifier(Module):
 
 
 class MnistNet(Module):
-    def __init__(
-        self, pretrained: bool = False,
-    ):
-        """
-        A simple convolutional model created for the MNIST dataset
+    """
+    A simple convolutional model created for the MNIST dataset
+    """
 
-        :param pretrained: True to load pretrained weights, false otherwise
-        """
+    def __init__(self):
         super().__init__()
         self.blocks = Sequential(
             _ConvBNRelu(
@@ -82,15 +79,6 @@ class MnistNet(Module):
         )
         self.classifier = _Classifier(in_channels=128)
 
-        if pretrained:
-            pretrained_key = pretrained if isinstance(pretrained, str) else ""
-            load_pretrained_model(
-                self,
-                pretrained_key,
-                model_arch="mnistnet/none",
-                default_pretrained_key="mnist/pytorch/base",
-            )
-
     def forward(self, inp: Tensor):
         out = self.blocks(inp)
         logits, classes = self.classifier(out)
@@ -98,8 +86,15 @@ class MnistNet(Module):
         return logits, classes
 
 
-def mnist_net(**kwargs) -> MnistNet:
-    return MnistNet(**kwargs)
-
-
-MODEL_MAPPINGS["mnist_net"] = mnist_net
+@ModelRegistry.register(
+    key=["mnistnet"],
+    input_shape=(1, 28, 28),
+    domain="cv",
+    sub_domain="classification",
+    architecture="mnistnet",
+    sub_architecture="none",
+    default_dataset="mnist",
+    default_desc="base",
+)
+def mnist_net() -> MnistNet:
+    return MnistNet()

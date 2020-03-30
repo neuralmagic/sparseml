@@ -9,6 +9,7 @@ from neuralmagicML.pytorch.recal import (
     GradualKSModifier,
     ScheduledModifierManager,
 )
+from neuralmagicML.nbutils.helpers import format_html
 
 
 __all__ = [
@@ -17,20 +18,6 @@ __all__ = [
     "PruneLayerWidget",
     "PruningLayersWidget",
 ]
-
-
-def _html(message: str, header: str = None, color: str = None, italic: bool = False):
-    if not message:
-        message = ""
-
-    message = "<i>{}</i>".format(message) if italic else message
-    color = 'style="color: {}"'.format(color) if color else ""
-    html = '<span {}">{}<span>'.format(color, message)
-
-    if header:
-        html = "<{}>{}</{}>".format(header, html, header)
-
-    return html
 
 
 class _Widget(ABC):
@@ -225,7 +212,7 @@ class PruningEpochWidget(_Widget):
 
         return widgets.VBox(
             (
-                widgets.HTML(value=_html("Epochs Setter", header="h3")),
+                widgets.HTML(value=format_html("Epochs Setter", header="h3")),
                 widgets.HBox(
                     (widgets.Label("total training epochs:"), total_epochs_slider)
                 ),
@@ -325,7 +312,7 @@ class PruneLayerWidget(_Widget):
                 disabled=True,
             )
             sens_box = widgets.HBox(
-                (widgets.HTML(_html("loss sensitivity:")), sens_visualization,)
+                (widgets.HTML(format_html("loss sensitivity:")), sens_visualization,)
             )
         else:
             sens_box = widgets.Box()
@@ -335,13 +322,17 @@ class PruneLayerWidget(_Widget):
                 widgets.HBox(
                     (
                         enabled_checkbox,
-                        widgets.HTML(_html("prune {}".format(self._name), header="h5")),
+                        widgets.HTML(
+                            format_html("prune {}".format(self._name), header="h5")
+                        ),
                     )
                 ),
                 widgets.HBox(
                     (
                         spacer,
-                        widgets.HTML(_html(self._desc, color="gray", italic=True)),
+                        widgets.HTML(
+                            format_html(self._desc, color="gray", italic=True)
+                        ),
                     )
                 ),
                 widgets.HBox(
@@ -458,7 +449,7 @@ class PruningLayersWidget(_Widget):
         """
         return widgets.VBox(
             (
-                widgets.HTML(value=_html("Layer Sparsity Setter", header="h3")),
+                widgets.HTML(value=format_html("Layer Sparsity Setter", header="h3")),
                 *[widg.create() for widg in self._layer_widgets],
             )
         )
@@ -504,7 +495,9 @@ class KSWidgetContainer(object):
         """
         return widgets.VBox(
             (
-                widgets.HTML(_html("Pruning Hyperparameters Selector", header="h2")),
+                widgets.HTML(
+                    format_html("Pruning Hyperparameters Selector", header="h2")
+                ),
                 self._epoch_widget.create(),
                 self._layers_widget.create(),
             )

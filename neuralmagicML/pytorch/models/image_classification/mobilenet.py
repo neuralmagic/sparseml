@@ -13,7 +13,7 @@ from torch.nn import (
 )
 
 from neuralmagicML.pytorch.nn import ReLU
-from neuralmagicML.pytorch.utils.model import load_pretrained_model, MODEL_MAPPINGS
+from neuralmagicML.pytorch.models.registry import ModelRegistry
 
 
 __all__ = ["MobileNetSectionSettings", "MobileNet", "mobilenet"]
@@ -151,6 +151,10 @@ class _Classifier(Module):
 
 
 class MobileNetSectionSettings(object):
+    """
+    Settings to describe how to put together a mobilenet architecture based on different configurations
+    """
+
     def __init__(
         self, num_blocks: int, in_channels: int, out_channels: int, downsample: bool
     ):
@@ -158,7 +162,7 @@ class MobileNetSectionSettings(object):
         :param num_blocks: the number of depthwise separable blocks to put in the section
         :param in_channels: the number of input channels to the section
         :param out_channels: the number of output channels from the section
-        :param downsample: True to apply stride 2 for downsampling of the input, False otherwise
+        :param downsample: True to apply stride 2 for down sampling of the input, False otherwise
         """
         self.num_blocks = num_blocks
         self.in_channels = in_channels
@@ -167,20 +171,20 @@ class MobileNetSectionSettings(object):
 
 
 class MobileNet(Module):
+    """
+    Standard MobileNet model https://arxiv.org/abs/1704.04861
+    """
+
     def __init__(
         self,
         sec_settings: List[MobileNetSectionSettings],
         num_classes: int = 1000,
         class_type: str = "single",
-        pretrained: bool = False,
     ):
         """
-        Standard MobileNet model
-        https://arxiv.org/abs/1704.04861
-
         :param sec_settings: the settings for each section in the mobilenet model
         :param num_classes: the number of classes to classify
-        :param pretrained: True to load pretrained weights from imagenet, false otherwise
+        :param class_type: one of [single, multi] to support multi class training; default single
         """
         super().__init__()
         self.input = _Input()
@@ -190,17 +194,6 @@ class MobileNet(Module):
         self.classifier = _Classifier(
             sec_settings[-1].out_channels, num_classes, class_type
         )
-
-        if pretrained:
-            pretrained_key = pretrained if isinstance(pretrained, str) else ""
-            load_pretrained_model(
-                self,
-                pretrained_key,
-                model_arch="mobilenet-v1/1.0",
-                ignore_tensors=None
-                if num_classes == 1000
-                else ["classifier.fc.weight", "classifier.fc.bias"],
-            )
 
     def forward(self, inp: Tensor):
         out = self.input(inp)
@@ -224,6 +217,25 @@ class MobileNet(Module):
         return Sequential(*blocks)
 
 
+@ModelRegistry.register(
+    key=[
+        "mobilenet",
+        "mobilenet_100",
+        "mobilenet-v1",
+        "mobilenet-v1-100",
+        "mobilenet_v1",
+        "mobilenet_v1_100",
+        "mobilenetv1_1.0",
+    ],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="mobilenet-v1",
+    sub_architecture="1.0",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
+)
 def mobilenet(**kwargs) -> MobileNet:
     sec_settings = [
         MobileNetSectionSettings(
@@ -244,6 +256,3 @@ def mobilenet(**kwargs) -> MobileNet:
     ]
 
     return MobileNet(sec_settings, **kwargs)
-
-
-MODEL_MAPPINGS["mobilenet"] = mobilenet

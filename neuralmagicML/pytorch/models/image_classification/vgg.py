@@ -14,17 +14,17 @@ from torch.nn import (
 )
 
 from neuralmagicML.pytorch.nn import ReLU
-from neuralmagicML.pytorch.utils.model import load_pretrained_model, MODEL_MAPPINGS
+from neuralmagicML.pytorch.models.registry import ModelRegistry
 
 __all__ = [
     "VGG",
     "vgg11",
-    "vgg11_bn",
+    "vgg11bn",
     "vgg13",
-    "vgg13_bn",
+    "vgg13bn",
     "vgg16",
-    "vgg16_bn",
-    "vgg19_bn",
+    "vgg16bn",
+    "vgg19bn",
     "vgg19",
 ]
 
@@ -103,6 +103,10 @@ class _Classifier(Module):
 
 
 class VGGSectionSettings(object):
+    """
+    Settings to describe how to put together a vgg architecture based on different configurations
+    """
+
     def __init__(
         self, num_blocks: int, in_channels: int, out_channels: int, use_batchnorm: bool
     ):
@@ -119,24 +123,21 @@ class VGGSectionSettings(object):
 
 
 class VGG(Module):
+    """
+    Standard VGG model
+    https://arxiv.org/abs/1409.1556
+    """
+
     def __init__(
         self,
         sec_settings: List[VGGSectionSettings],
-        model_arch_tag: str,
         num_classes: int = 1000,
         class_type: str = "single",
-        pretrained: bool = False,
     ):
         """
-        Standard VGG model
-        https://arxiv.org/abs/1409.1556
-
         :param sec_settings: the settings for each section in the vgg model
-        :param model_arch_tag: the architecture tag used for loading pretrained weights: ex vgg/16, vgg/16bn
         :param num_classes: the number of classes to classify
-        :param pretrained: True to load dense, pretrained weights from imagenet, false otherwise
-                           Additionally can specify other available datsets (dataset/dense) and
-                           kernel sparsity models (dataset/sparse, dataset/sparse-perf)
+        :param class_type: one of [single, multi] to support multi class training; default single
         """
         super(VGG, self).__init__()
         self.sections = Sequential(
@@ -145,17 +146,6 @@ class VGG(Module):
         self.classifier = _Classifier(
             sec_settings[-1].out_channels, num_classes, class_type
         )
-
-        if pretrained:
-            pretrained_key = pretrained if isinstance(pretrained, str) else ""
-            load_pretrained_model(
-                self,
-                pretrained_key,
-                model_arch=model_arch_tag,
-                ignore_tensors=None
-                if num_classes == 1000
-                else ["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
-            )
 
     def forward(self, inp):
         out = self.sections(inp)
@@ -179,6 +169,17 @@ class VGG(Module):
         return Sequential(*blocks)
 
 
+@ModelRegistry.register(
+    key=["vgg11", "vgg_11", "vgg-11"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="vgg",
+    sub_architecture="11",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
+)
 def vgg11(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(
@@ -198,13 +199,21 @@ def vgg11(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, model_arch_tag="vgg/11", **kwargs)
+    return VGG(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["vgg11"] = vgg11
-
-
-def vgg11_bn(**kwargs) -> VGG:
+@ModelRegistry.register(
+    key=["vgg11bn", "vgg_11bn", "vgg-11bn"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="vgg",
+    sub_architecture="11-bn",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
+)
+def vgg11bn(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(
             num_blocks=1, in_channels=3, out_channels=64, use_batchnorm=True
@@ -223,12 +232,20 @@ def vgg11_bn(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, model_arch_tag="vgg/11-bn", **kwargs)
+    return VGG(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["vgg11_bn"] = vgg11_bn
-
-
+@ModelRegistry.register(
+    key=["vgg13", "vgg_13", "vgg-13"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="vgg",
+    sub_architecture="13",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
+)
 def vgg13(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(
@@ -248,13 +265,21 @@ def vgg13(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, model_arch_tag="vgg/13", **kwargs)
+    return VGG(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["vgg13"] = vgg13
-
-
-def vgg13_bn(**kwargs) -> VGG:
+@ModelRegistry.register(
+    key=["vgg13bn", "vgg_13bn", "vgg-13bn"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="vgg",
+    sub_architecture="13-bn",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
+)
+def vgg13bn(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(
             num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=True
@@ -273,12 +298,20 @@ def vgg13_bn(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, model_arch_tag="vgg/13-bn", **kwargs)
+    return VGG(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["vgg13_bn"] = vgg13_bn
-
-
+@ModelRegistry.register(
+    key=["vgg16", "vgg_16", "vgg-16"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="vgg",
+    sub_architecture="16",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
+)
 def vgg16(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(
@@ -298,13 +331,21 @@ def vgg16(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, model_arch_tag="vgg/16", **kwargs)
+    return VGG(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["vgg16"] = vgg16
-
-
-def vgg16_bn(**kwargs) -> VGG:
+@ModelRegistry.register(
+    key=["vgg16bn", "vgg_16bn", "vgg-16bn"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="vgg",
+    sub_architecture="16-bn",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
+)
+def vgg16bn(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(
             num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=True
@@ -323,12 +364,20 @@ def vgg16_bn(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, model_arch_tag="vgg/16-bn", **kwargs)
+    return VGG(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["vgg16_bn"] = vgg16_bn
-
-
+@ModelRegistry.register(
+    key=["vgg19", "vgg_19", "vgg-19"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="vgg",
+    sub_architecture="19",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
+)
 def vgg19(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(
@@ -348,13 +397,21 @@ def vgg19(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, model_arch_tag="vgg/19", **kwargs)
+    return VGG(sec_settings=sec_settings, **kwargs)
 
 
-MODEL_MAPPINGS["vgg19"] = vgg19
-
-
-def vgg19_bn(**kwargs) -> VGG:
+@ModelRegistry.register(
+    key=["vgg19bn", "vgg_19bn", "vgg-19bn"],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="vgg",
+    sub_architecture="19-bn",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
+)
+def vgg19bn(**kwargs) -> VGG:
     sec_settings = [
         VGGSectionSettings(
             num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=True
@@ -373,7 +430,4 @@ def vgg19_bn(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, model_arch_tag="vgg/19-bn", **kwargs)
-
-
-MODEL_MAPPINGS["vgg19_bn"] = vgg19_bn
+    return VGG(sec_settings=sec_settings, **kwargs)

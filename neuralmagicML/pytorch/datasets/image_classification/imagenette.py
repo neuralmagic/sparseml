@@ -20,6 +20,11 @@ class ImagenetteSize(Enum):
 
 
 class ImagenetteDataset(ImageFolder):
+    """
+    Wrapper for the imagenette (10 class) dataset that fastai created
+    Handles downloading and applying standard transforms
+    """
+
     def __init__(
         self,
         root: str,
@@ -30,9 +35,6 @@ class ImagenetteDataset(ImageFolder):
         download: bool = True,
     ):
         """
-        Wrapper for the imagenette (10 class) dataset that fastai created
-        Handles downloading and applying standard transforms
-
         :param root: The root folder to find the dataset at, if not found will download here if download=True
         :param train: True if this is for the training distribution, false for the validation
         :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data, False otherwise
