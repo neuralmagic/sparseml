@@ -3,7 +3,7 @@ import pytest
 from neuralmagicML.pytorch.recal import (
     ScheduledModifierManager,
     ScheduledModifier,
-    PytorchModifierYAML,
+    PyTorchModifierYAML,
 )
 
 from .test_modifier import (
@@ -30,7 +30,7 @@ class TestManagerImpl(ModifierTest):
     pass
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class TestModifierImpl(ScheduledModifier):
     pass
 

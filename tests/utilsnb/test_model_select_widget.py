@@ -1,4 +1,4 @@
-from neuralmagicML.nbutils import ModelSelectWidgetContainer
+from neuralmagicML.utilsnb import ModelSelectWidgetContainer
 
 
 def test_model_select_widget_container():

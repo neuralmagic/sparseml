@@ -11,10 +11,10 @@ from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR, CyclicLR
 
 from neuralmagicML.utils import ALL_TOKEN, convert_to_bool
-from neuralmagicML.pytorch.utils.logger import PytorchLogger
+from neuralmagicML.pytorch.utils.logger import PyTorchLogger
 from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
-    PytorchModifierYAML,
+    PyTorchModifierYAML,
     ScheduledUpdateModifier,
     ScheduledModifier,
 )
@@ -43,7 +43,7 @@ def _get_lr(optim: Optimizer) -> float:
 
 
 def _log_lr(
-    cur_lr: float, loggers: List[PytorchLogger], epoch: float, steps_per_epoch: int
+    cur_lr: float, loggers: List[PyTorchLogger], epoch: float, steps_per_epoch: int
 ):
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
 
@@ -51,7 +51,7 @@ def _log_lr(
         logger.log_scalar("Modifier LR", cur_lr, step)
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class SetLearningRateModifier(ScheduledModifier):
     """
     Modifier to set the learning rate to a specific value at a certain point in the training process
@@ -189,7 +189,7 @@ class SetLearningRateModifier(ScheduledModifier):
             self._lr_set = True
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class LearningRateModifier(ScheduledUpdateModifier):
     """
     Modifier to set the learning rate to specific values at certain points in the training process between set epochs
@@ -407,7 +407,7 @@ class LearningRateModifier(ScheduledUpdateModifier):
             self._base_lr_set = True
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class CyclicLRModifier(ScheduledUpdateModifier):
     """
     Modifier to set the learning rate based on a cyclic LR schedule between set epochs

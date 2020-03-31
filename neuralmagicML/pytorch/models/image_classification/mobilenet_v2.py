@@ -1,3 +1,8 @@
+"""
+PyTorch MobileNet V2 implementations.
+Further info can be found in the paper `here <https://arxiv.org/abs/1801.04381>`__.
+"""
+
 from typing import List, Union, Dict
 from collections import OrderedDict
 from torch import Tensor
@@ -21,8 +26,8 @@ from neuralmagicML.pytorch.models.registry import ModelRegistry
 __all__ = [
     "MobilenetV2SectionSettings",
     "MobilenetV2",
+    "mobilenet_v2_width",
     "mobilenet_v2",
-    "mobilenet_v2_100",
 ]
 
 
@@ -43,8 +48,6 @@ def _init_linear(linear: Linear):
 def _make_divisible(
     value: float, divisor: int, min_value: Union[int, None] = None
 ) -> int:
-    # taken from the original implementation in tf:
-    # https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
     if min_value is None:
         min_value = divisor
 
@@ -63,9 +66,13 @@ class _InvertedResidualBlock(Module):
         out_channels: int,
         exp_channels: int,
         stride: int,
-        expand_kwargs: Dict = {"kernel_size": 1, "padding": 0, "stride": 1},
+        expand_kwargs: Dict = None,
     ):
         super().__init__()
+
+        if expand_kwargs is None:
+            expand_kwargs = {"kernel_size": 1, "padding": 0, "stride": 1}
+
         self.expand = Sequential(
             OrderedDict(
                 [
@@ -163,7 +170,19 @@ class _Classifier(Module):
 
 class MobilenetV2SectionSettings(object):
     """
-    Settings to describe how to put together a resnet architecture based on different configurations
+    Settings to describe how to put together MobileNet V2 architecture
+    using user supplied configurations.
+
+    :param num_blocks: the number of inverted bottleneck blocks to put in the section
+    :param in_channels: the number of input channels to the section
+    :param out_channels: the number of output channels from the section
+    :param downsample: True to apply stride 2 for down sampling of the input,
+        False otherwise
+    :param exp_channels: number of channels to expand out to,
+        if not supplied uses exp_ratio
+    :param exp_ratio: the expansion ratio to use for the depthwise convolution
+    :param init_section: True if it is the initial section, False otherwise
+    :param width_mult: The width multiplier to apply to the channel sizes
     """
 
     def __init__(
@@ -177,16 +196,6 @@ class MobilenetV2SectionSettings(object):
         init_section: bool = False,
         width_mult: float = 1.0,
     ):
-        """
-        param num_blocks: the number of inverted bottleneck blocks to put in the section
-        :param in_channels: the number of input channels to the section
-        :param out_channels: the number of output channels from the section
-        :param downsample: True to apply stride 2 for down sampling of the input, False otherwise
-        :param exp_channels: number of channels to expand out to, if not supplied uses exp_ratio
-        :param exp_ratio: the expansion ratio to use for the depthwise convolution
-        :param init_section: True if it is the initial section, False otherwise
-        :param width_mult: The width multiplier to apply to the channel sizes
-        """
         self.num_blocks = num_blocks
         self.in_channels = (
             _make_divisible(in_channels * width_mult, 8)
@@ -214,13 +223,14 @@ class MobilenetV2(Module):
     def __init__(
         self,
         sec_settings: List[MobilenetV2SectionSettings],
-        num_classes: int = 1000,
-        class_type: str = "single",
+        num_classes: int,
+        class_type: str,
     ):
         """
         :param sec_settings: the settings for each section in the mobilenet model
         :param num_classes: the number of classes to classify
-        :param class_type: one of [single, multi] to support multi class training; default single
+        :param class_type: one of [single, multi] to support multi class training;
+            default single
         """
         super().__init__()
         self.sections = Sequential(
@@ -288,7 +298,19 @@ class MobilenetV2(Module):
         return Sequential(*blocks)
 
 
-def mobilenet_v2(width_mult, **kwargs) -> MobilenetV2:
+def mobilenet_v2_width(
+    width_mult: float, num_classes: int = 1000, class_type: str = "single"
+) -> MobilenetV2:
+    """
+    Standard MobileNet V2 implementation for a width multiplier;
+    expected input shape is (B, 3, 224, 224)
+
+    :param width_mult: the width multiplier to apply
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         MobilenetV2SectionSettings(
             num_blocks=1,
@@ -355,7 +377,7 @@ def mobilenet_v2(width_mult, **kwargs) -> MobilenetV2:
         ),
     ]
 
-    return MobilenetV2(sec_settings, **kwargs)
+    return MobilenetV2(sec_settings, num_classes, class_type)
 
 
 @ModelRegistry.register(
@@ -375,5 +397,16 @@ def mobilenet_v2(width_mult, **kwargs) -> MobilenetV2:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def mobilenet_v2_100(**kwargs) -> MobilenetV2:
-    return mobilenet_v2(width_mult=1.0, **kwargs)
+def mobilenet_v2(num_classes: int = 1000, class_type: str = "single") -> MobilenetV2:
+    """
+    Standard MobileNet V2 implementation for a width multiplier;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
+    return mobilenet_v2_width(
+        width_mult=1.0, num_classes=num_classes, class_type=class_type
+    )

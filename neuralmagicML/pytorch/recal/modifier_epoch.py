@@ -2,13 +2,13 @@
 Contains code for epoch modifiers
 """
 
-from neuralmagicML.pytorch.recal.modifier import ScheduledModifier, PytorchModifierYAML
+from neuralmagicML.pytorch.recal.modifier import ScheduledModifier, PyTorchModifierYAML
 
 
 __all__ = ["EpochRangeModifier"]
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class EpochRangeModifier(ScheduledModifier):
     """
     Simple modifier to set the range of epochs for running in a scheduled optimizer

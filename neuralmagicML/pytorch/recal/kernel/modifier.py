@@ -22,9 +22,9 @@ from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
     ScheduledModifier,
     ScheduledUpdateModifier,
-    PytorchModifierYAML,
+    PyTorchModifierYAML,
 )
-from neuralmagicML.pytorch.utils.logger import PytorchLogger
+from neuralmagicML.pytorch.utils.logger import PyTorchLogger
 from neuralmagicML.pytorch.recal.kernel.analyzer import ModuleKSAnalyzer
 from neuralmagicML.pytorch.recal.kernel.mask import ModuleParamKSMask
 
@@ -34,7 +34,7 @@ __all__ = ["ConstantKSModifier", "GradualKSModifier"]
 
 def _log_sparsity(
     analyzers: List[ModuleKSAnalyzer],
-    loggers: List[PytorchLogger],
+    loggers: List[PyTorchLogger],
     epoch: float,
     steps_per_epoch: int,
 ):
@@ -49,7 +49,7 @@ def _log_sparsity(
             )
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class ConstantKSModifier(ScheduledModifier):
     """
     Holds the sparsity level and shape for a given param constant while training.
@@ -219,7 +219,7 @@ class ConstantKSModifier(ScheduledModifier):
             mask.apply()
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class GradualKSModifier(ScheduledUpdateModifier):
     """
     Gradually applies kernel sparsity to a given layer or layers from init_sparsity until final_sparsity is reached

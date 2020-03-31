@@ -1,3 +1,7 @@
+"""
+Code for describing layers / operators in ML framework neural networks.
+"""
+
 import json
 from typing import Any, Dict, Tuple
 
@@ -6,7 +10,20 @@ __all__ = ["AnalyzedLayerDesc"]
 
 class AnalyzedLayerDesc(object):
     """
-    Description of a module's layer
+    Description of a neural network layer
+
+    :param name: name of the layer
+    :param type_: type of the layer
+    :param params: number of parameters of the layer
+    :param zeroed_params: number of parameters with values of zero
+    :param prunable_params: number of parameters that could be pruned
+    :param params_dims: dimensions of parameters
+    :param prunable_params_dims: dimensions of prunable parameters
+    :param execution_order: execution order of the layer/operation
+    :param input_shape: shapes of input tensors
+    :param output_shape: shapes of output tensors
+    :param flops: Unused
+    :param total_flops: total number of float operations
     """
 
     def __init__(
@@ -24,20 +41,6 @@ class AnalyzedLayerDesc(object):
         flops: int = 0,
         total_flops: int = 0,
     ):
-        """
-        :param name: name of the layer
-        :param type_: type of the layer
-        :param params: number of parameters of the layer
-        :param zeroed_params: number of parameters with values of zero
-        :param prunable_params: number of parameters that could be pruned
-        :param params_dims: dimensions of parameters
-        :param prunable_params_dims: dimensions of prunable parameters
-        :param execution_order: execution order of the layer/operation
-        :param input_shape: shapes of input tensors
-        :param output_shape: shaps of output tensors
-        :param flops: Unused
-        :param total_flops: total number of float operations
-        """
         self.name = name
         self.type_ = type_
 

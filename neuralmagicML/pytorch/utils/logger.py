@@ -19,10 +19,10 @@ except:
 from neuralmagicML.utils import create_dirs
 
 
-__all__ = ["PytorchLogger", "PythonLogger", "TensorboardLogger"]
+__all__ = ["PyTorchLogger", "PythonLogger", "TensorboardLogger"]
 
 
-class PytorchLogger(ABC):
+class PyTorchLogger(ABC):
     """
     Base class that all modifier loggers must implement
     """
@@ -129,7 +129,7 @@ class PytorchLogger(ABC):
         raise NotImplementedError()
 
 
-class PythonLogger(PytorchLogger):
+class PythonLogger(PyTorchLogger):
     """
     Modifier logger that handles printing values into a python logger instance
     """
@@ -255,7 +255,7 @@ class PythonLogger(PytorchLogger):
         self._logger.info(msg)
 
 
-class TensorboardLogger(PytorchLogger):
+class TensorboardLogger(PyTorchLogger):
     """
     Modifier logger that handles outputting values into a tensorboard log directory for viewing in tensorboard
     """

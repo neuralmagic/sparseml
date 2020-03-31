@@ -9,7 +9,7 @@ from neuralmagicML.utils import (
 from neuralmagicML.tensorflow.utils import tf_compat, VAR_INDEX_FROM_TRAINABLE
 from neuralmagicML.tensorflow.recal.modifier import (
     ModifierProp,
-    TensorflowModifierYAML,
+    TensorFlowModifierYAML,
     ScheduledUpdateModifier,
 )
 from neuralmagicML.tensorflow.recal.kernel.mask import (
@@ -22,7 +22,7 @@ from neuralmagicML.tensorflow.recal.kernel.mask import (
 __all__ = ["GradualKSModifier"]
 
 
-@TensorflowModifierYAML()
+@TensorFlowModifierYAML()
 class GradualKSModifier(ScheduledUpdateModifier):
     """
     Gradually applies kernel sparsity to a given layer or layers from init_sparsity until final_sparsity is reached

@@ -1,3 +1,7 @@
+"""
+Simple PyTorch implementations for the MNIST dataset.
+"""
+
 from torch import Tensor
 from torch.nn import (
     Module,
@@ -7,6 +11,7 @@ from torch.nn import (
     BatchNorm2d,
     Linear,
     Softmax,
+    Sigmoid,
 )
 
 from neuralmagicML.pytorch.nn import ReLU
@@ -41,11 +46,17 @@ class _ConvBNRelu(Module):
 
 
 class _Classifier(Module):
-    def __init__(self, in_channels: int):
+    def __init__(self, in_channels: int, classes: int, class_type: str):
         super().__init__()
         self.avgpool = AdaptiveAvgPool2d(1)
-        self.fc = Linear(in_channels, 10)
-        self.softmax = Softmax(dim=1)
+        self.fc = Linear(in_channels, classes)
+
+        if class_type == "single":
+            self.softmax = Softmax(dim=1)
+        elif class_type == "multi":
+            self.softmax = Sigmoid()
+        else:
+            raise ValueError("unknown class_type given of {}".format(class_type))
 
     def forward(self, inp: Tensor):
         out = self.avgpool(inp)
@@ -59,9 +70,15 @@ class _Classifier(Module):
 class MnistNet(Module):
     """
     A simple convolutional model created for the MNIST dataset
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
     """
 
-    def __init__(self):
+    def __init__(
+        self, num_classes: int = 10, class_type: str = "single",
+    ):
         super().__init__()
         self.blocks = Sequential(
             _ConvBNRelu(
@@ -77,7 +94,9 @@ class MnistNet(Module):
                 in_channels=64, out_channels=128, kernel_size=5, padding=2, stride=2
             ),
         )
-        self.classifier = _Classifier(in_channels=128)
+        self.classifier = _Classifier(
+            in_channels=128, classes=num_classes, class_type=class_type
+        )
 
     def forward(self, inp: Tensor):
         out = self.blocks(inp)
@@ -96,5 +115,13 @@ class MnistNet(Module):
     default_dataset="mnist",
     default_desc="base",
 )
-def mnist_net() -> MnistNet:
-    return MnistNet()
+def mnist_net(num_classes: int = 10, class_type: str = "single") -> MnistNet:
+    """
+    MnistNet implementation; expected input shape is (B, 1, 28, 28)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MnistNet Module
+    """
+    return MnistNet(num_classes, class_type)

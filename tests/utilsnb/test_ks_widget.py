@@ -1,4 +1,4 @@
-from neuralmagicML.nbutils import (
+from neuralmagicML.utilsnb import (
     KSWidgetContainer,
     PruningEpochWidget,
     PruneLayerWidget,

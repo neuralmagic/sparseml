@@ -10,7 +10,7 @@ from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.recal import BaseManager
 from neuralmagicML.utils import create_parent_dirs, clean_path
-from neuralmagicML.pytorch.utils import PytorchLogger
+from neuralmagicML.pytorch.utils import PyTorchLogger
 from neuralmagicML.pytorch.recal.modifier import Modifier, ScheduledModifier
 
 
@@ -83,7 +83,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         for mod in self._modifiers:
             mod.initialize(module, optimizer)
 
-    def initialize_loggers(self, loggers: Union[None, List[PytorchLogger]]):
+    def initialize_loggers(self, loggers: Union[None, List[PyTorchLogger]]):
         """
         Handles initializing and setting up the loggers for the contained modifiers
         Called once on construction of the scheduled optimizer

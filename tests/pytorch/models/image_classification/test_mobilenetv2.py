@@ -3,7 +3,7 @@ import pytest
 from typing import Union
 import torch
 
-from neuralmagicML.pytorch.models import ModelRegistry, mobilenet_v2_100
+from neuralmagicML.pytorch.models import ModelRegistry, mobilenet_v2
 
 from tests.pytorch.models.utils import compare_model
 
@@ -18,7 +18,7 @@ from tests.pytorch.models.utils import compare_model
 )
 def test_mobilenets_v2(key: str, pretrained: Union[bool, str], test_input: bool):
     model = ModelRegistry.create(key, pretrained)
-    diff_model = mobilenet_v2_100()
+    diff_model = mobilenet_v2()
 
     if pretrained:
         compare_model(model, diff_model, same=False)

@@ -1,3 +1,8 @@
+"""
+PyTorch MobileNet implementations.
+Further info can be found in the paper `here <https://arxiv.org/abs/1704.04861>`__.
+"""
+
 from typing import List
 from torch import Tensor
 from torch.nn import (
@@ -152,18 +157,19 @@ class _Classifier(Module):
 
 class MobileNetSectionSettings(object):
     """
-    Settings to describe how to put together a mobilenet architecture based on different configurations
+    Settings to describe how to put together a MobileNet architecture
+    using user supplied configurations.
+
+    :param num_blocks: the number of depthwise separable blocks to put in the section
+    :param in_channels: the number of input channels to the section
+    :param out_channels: the number of output channels from the section
+    :param downsample: True to apply stride 2 for down sampling of the input,
+        False otherwise
     """
 
     def __init__(
         self, num_blocks: int, in_channels: int, out_channels: int, downsample: bool
     ):
-        """
-        :param num_blocks: the number of depthwise separable blocks to put in the section
-        :param in_channels: the number of input channels to the section
-        :param out_channels: the number of output channels from the section
-        :param downsample: True to apply stride 2 for down sampling of the input, False otherwise
-        """
         self.num_blocks = num_blocks
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -172,20 +178,20 @@ class MobileNetSectionSettings(object):
 
 class MobileNet(Module):
     """
-    Standard MobileNet model https://arxiv.org/abs/1704.04861
+    MobileNet implementation
+
+    :param sec_settings: the settings for each section in the MobileNet model
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
     """
 
     def __init__(
         self,
         sec_settings: List[MobileNetSectionSettings],
-        num_classes: int = 1000,
-        class_type: str = "single",
+        num_classes: int,
+        class_type: str,
     ):
-        """
-        :param sec_settings: the settings for each section in the mobilenet model
-        :param num_classes: the number of classes to classify
-        :param class_type: one of [single, multi] to support multi class training; default single
-        """
         super().__init__()
         self.input = _Input()
         self.sections = Sequential(
@@ -236,7 +242,16 @@ class MobileNet(Module):
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def mobilenet(**kwargs) -> MobileNet:
+def mobilenet(num_classes: int = 1000, class_type: str = "single") -> MobileNet:
+    """
+    Standard MobileNet implementation with width=1.0;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         MobileNetSectionSettings(
             num_blocks=1, in_channels=32, out_channels=64, downsample=False
@@ -255,4 +270,4 @@ def mobilenet(**kwargs) -> MobileNet:
         ),
     ]
 
-    return MobileNet(sec_settings, **kwargs)
+    return MobileNet(sec_settings, num_classes, class_type)

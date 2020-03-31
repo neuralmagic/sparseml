@@ -1,3 +1,8 @@
+"""
+PyTorch VGG implementations.
+Further info can be found in the paper `here <https://arxiv.org/abs/1409.1556>`__.
+"""
+
 from typing import List
 from torch import Tensor
 from torch.nn import (
@@ -104,18 +109,18 @@ class _Classifier(Module):
 
 class VGGSectionSettings(object):
     """
-    Settings to describe how to put together a vgg architecture based on different configurations
+    Settings to describe how to put together a VGG architecture
+    using user supplied configurations.
+
+    :param num_blocks: the number of blocks to put in the section (conv [bn] relu)
+    :param in_channels: the number of input channels to the section
+    :param out_channels: the number of output channels from the section
+    :param use_batchnorm: True to put batchnorm after each conv, False otherwise
     """
 
     def __init__(
         self, num_blocks: int, in_channels: int, out_channels: int, use_batchnorm: bool
     ):
-        """
-        :param num_blocks: the number of blocks to put in the section (conv [bn] relu)
-        :param in_channels: the number of input channels to the section
-        :param out_channels: the number of output channels from the section
-        :param use_batchnorm: True to put batchnorm after each conv, False otherwise
-        """
         self.num_blocks = num_blocks
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -124,21 +129,17 @@ class VGGSectionSettings(object):
 
 class VGG(Module):
     """
-    Standard VGG model
-    https://arxiv.org/abs/1409.1556
+    VGG implementation
+
+    :param sec_settings: the settings for each section in the vgg model
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
     """
 
     def __init__(
-        self,
-        sec_settings: List[VGGSectionSettings],
-        num_classes: int = 1000,
-        class_type: str = "single",
+        self, sec_settings: List[VGGSectionSettings], num_classes: int, class_type: str,
     ):
-        """
-        :param sec_settings: the settings for each section in the vgg model
-        :param num_classes: the number of classes to classify
-        :param class_type: one of [single, multi] to support multi class training; default single
-        """
         super(VGG, self).__init__()
         self.sections = Sequential(
             *[VGG.create_section(settings) for settings in sec_settings]
@@ -180,7 +181,15 @@ class VGG(Module):
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
 )
-def vgg11(**kwargs) -> VGG:
+def vgg11(num_classes: int = 1000, class_type: str = "single") -> VGG:
+    """
+    Standard VGG 11; expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         VGGSectionSettings(
             num_blocks=1, in_channels=3, out_channels=64, use_batchnorm=False
@@ -199,7 +208,9 @@ def vgg11(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, **kwargs)
+    return VGG(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -213,7 +224,15 @@ def vgg11(**kwargs) -> VGG:
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
 )
-def vgg11bn(**kwargs) -> VGG:
+def vgg11bn(num_classes: int = 1000, class_type: str = "single") -> VGG:
+    """
+    VGG 11 with batch norm added; expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         VGGSectionSettings(
             num_blocks=1, in_channels=3, out_channels=64, use_batchnorm=True
@@ -232,7 +251,9 @@ def vgg11bn(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, **kwargs)
+    return VGG(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -246,7 +267,15 @@ def vgg11bn(**kwargs) -> VGG:
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
 )
-def vgg13(**kwargs) -> VGG:
+def vgg13(num_classes: int = 1000, class_type: str = "single") -> VGG:
+    """
+    Standard VGG 13; expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         VGGSectionSettings(
             num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=False
@@ -265,7 +294,9 @@ def vgg13(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, **kwargs)
+    return VGG(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -279,7 +310,15 @@ def vgg13(**kwargs) -> VGG:
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
 )
-def vgg13bn(**kwargs) -> VGG:
+def vgg13bn(num_classes: int = 1000, class_type: str = "single") -> VGG:
+    """
+    VGG 13 with batch norm added; expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         VGGSectionSettings(
             num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=True
@@ -298,7 +337,9 @@ def vgg13bn(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, **kwargs)
+    return VGG(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -312,7 +353,15 @@ def vgg13bn(**kwargs) -> VGG:
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
 )
-def vgg16(**kwargs) -> VGG:
+def vgg16(num_classes: int = 1000, class_type: str = "single") -> VGG:
+    """
+    Standard VGG 16; expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         VGGSectionSettings(
             num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=False
@@ -331,7 +380,9 @@ def vgg16(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, **kwargs)
+    return VGG(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -345,7 +396,15 @@ def vgg16(**kwargs) -> VGG:
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
 )
-def vgg16bn(**kwargs) -> VGG:
+def vgg16bn(num_classes: int = 1000, class_type: str = "single") -> VGG:
+    """
+    VGG 16 with batch norm added; expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         VGGSectionSettings(
             num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=True
@@ -364,7 +423,9 @@ def vgg16bn(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, **kwargs)
+    return VGG(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -378,7 +439,15 @@ def vgg16bn(**kwargs) -> VGG:
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
 )
-def vgg19(**kwargs) -> VGG:
+def vgg19(num_classes: int = 1000, class_type: str = "single") -> VGG:
+    """
+    Standard VGG 19; expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         VGGSectionSettings(
             num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=False
@@ -397,7 +466,9 @@ def vgg19(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, **kwargs)
+    return VGG(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -411,7 +482,15 @@ def vgg19(**kwargs) -> VGG:
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
 )
-def vgg19bn(**kwargs) -> VGG:
+def vgg19bn(num_classes: int = 1000, class_type: str = "single") -> VGG:
+    """
+    VGG 19 with batch norm added; expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
     sec_settings = [
         VGGSectionSettings(
             num_blocks=2, in_channels=3, out_channels=64, use_batchnorm=True
@@ -430,4 +509,6 @@ def vgg19bn(**kwargs) -> VGG:
         ),
     ]
 
-    return VGG(sec_settings=sec_settings, **kwargs)
+    return VGG(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )

@@ -1,3 +1,8 @@
+"""
+Imagenet dataset implementations for the image classification field in computer vision.
+More info for the dataset can be found `here <http://www.image-net.org/>`__.
+"""
+
 import os
 import random
 import PIL.Image as Image
@@ -5,19 +10,36 @@ import PIL.Image as Image
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-from neuralmagicML.pytorch.datasets.utils import DATASET_MAPPINGS
+from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
 
 
 __all__ = ["ImageNetDataset"]
 
 
+_RGB_MEANS = [0.485, 0.456, 0.406]
+_RGB_STDS = [0.229, 0.224, 0.225]
+
+
+@DatasetRegistry.register(
+    key=["imagenet"],
+    attributes={
+        "num_classes": 1000,
+        "transform_means": _RGB_MEANS,
+        "transform_stds": _RGB_STDS,
+    },
+)
 class ImageNetDataset(ImageFolder):
     """
-    Wrapper for the ImageNet dataset to apply standard transforms
-    """
+    Wrapper for the ImageNet dataset to apply standard transforms.
 
-    RGB_MEANS = [0.485, 0.456, 0.406]
-    RGB_STDS = [0.229, 0.224, 0.225]
+    :param root: The root folder to find the dataset at, if not found will
+        download here if download=True
+    :param train: True if this is for the training distribution,
+        False for the validation
+    :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data,
+        False otherwise
+    :param image_size: the size of the image to output from the dataset
+    """
 
     def __init__(
         self,
@@ -26,12 +48,6 @@ class ImageNetDataset(ImageFolder):
         rand_trans: bool = False,
         image_size: int = 224,
     ):
-        """
-        :param root: The root folder to find the dataset at, if not found will download here if download=True
-        :param train: True if this is for the training distribution, false for the validation
-        :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data, False otherwise
-        :param image_size: the size of the image to output from the dataset
-        """
         non_rand_resize_scale = 256.0 / 224.0  # standard used
         init_trans = (
             [
@@ -51,9 +67,7 @@ class ImageNetDataset(ImageFolder):
         trans = [
             *init_trans,
             transforms.ToTensor(),
-            transforms.Normalize(
-                mean=ImageNetDataset.RGB_MEANS, std=ImageNetDataset.RGB_STDS
-            ),
+            transforms.Normalize(mean=_RGB_MEANS, std=_RGB_STDS),
         ]
         root = os.path.join(
             os.path.abspath(os.path.expanduser(root)), "train" if train else "val"
@@ -64,6 +78,3 @@ class ImageNetDataset(ImageFolder):
         if train:
             # make sure we don't preserve the folder structure class order
             random.shuffle(self.samples)
-
-
-DATASET_MAPPINGS["imagenet"] = ImageNetDataset, 1000

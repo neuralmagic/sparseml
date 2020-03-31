@@ -7,4 +7,4 @@ from .object_detection import *
 from .recommendation import *
 
 from .generic import *
-from .utils import *
+from .registry import *

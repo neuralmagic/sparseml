@@ -19,7 +19,7 @@ from neuralmagicML.pytorch.utils.helpers import (
     tensors_batch_size,
     tensors_module_forward,
 )
-from neuralmagicML.pytorch.utils.logger import PytorchLogger
+from neuralmagicML.pytorch.utils.logger import PyTorchLogger
 from neuralmagicML.pytorch.utils.loss import DEFAULT_LOSS_KEY
 
 
@@ -422,7 +422,7 @@ class ModuleTrainer(object):
         optimizer: Optimizer,
         num_accumulated_batches: int = 1,
         optim_closure: Union[None, Callable] = None,
-        loggers: List[PytorchLogger] = None,
+        loggers: List[PyTorchLogger] = None,
         log_name: str = "Train/",
         log_batches: bool = True,
     ):
@@ -646,7 +646,7 @@ class ModuleTester(object):
         module: Module,
         device: str,
         loss: Callable[[Any, Any], Dict[str, Tensor]],
-        loggers: List[PytorchLogger] = None,
+        loggers: List[PyTorchLogger] = None,
         log_name: str = "Test/",
         log_batches: bool = False,
     ):

@@ -5,7 +5,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.pytorch.recal.manager import ScheduledModifierManager
-from neuralmagicML.pytorch.utils import PytorchLogger
+from neuralmagicML.pytorch.utils import PyTorchLogger
 
 
 __all__ = ["ScheduledOptimizer"]
@@ -56,7 +56,7 @@ class ScheduledOptimizer(Optimizer):
         module: Module,
         manager: ScheduledModifierManager,
         steps_per_epoch: int,
-        loggers: Union[List[PytorchLogger], None] = None,
+        loggers: Union[List[PyTorchLogger], None] = None,
     ):
         """
         :param module: module to modify

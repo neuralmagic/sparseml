@@ -1,3 +1,8 @@
+"""
+PyTorch EfficientNet implementation
+Further info can be found in the paper `here <https://arxiv.org/abs/1905.11946>`__.
+"""
+
 import math
 
 from collections import OrderedDict
@@ -187,14 +192,8 @@ class _Classifier(Module):
         out = self.conv(inp)
         out = self.bn(out)
         out = self.act(out)
-
-        # TODO: for nm-engine - pattern matches this
         out = self.pool(out)
         out = out.view(out.size(0), -1)
-
-        # TODO: for mxnet-onnx - it cannot parse "concat0", which is why mean(..) is used here instead
-        # out = out.mean(dim=2).mean(dim=2)
-
         out = self.dropout(out)
         logits = self.fc(out)
         classes = self.softmax(logits)
@@ -204,7 +203,20 @@ class _Classifier(Module):
 
 class EfficientNetSectionSettings(object):
     """
-    Settings to describe how to put together an efficientnet architecture based on different configurations
+    Settings to describe how to put together an EfficientNet architecture
+    using user supplied configurations.
+
+    :param num_blocks: the number of blocks to put in the section
+    :param in_channels: the number of input channels to the section
+    :param out_channels: the number of output channels from the section
+    :param kernel_size: the kernel size of the depth-wise convolution
+    :param expansion_ratio: (in_channels * expansion_ratio) is the number of
+        input/output channels of the depth-wise convolution
+    :param stride: the stride of the depth-wise convolution
+    :param se_ratio: (in_channels * se_ratio) is the number of input channels
+        for squeeze-excite
+    :param se_mod: If true, moves squeeze-excite to the end of the block
+        (after last 1x1)
     """
 
     def __init__(
@@ -218,18 +230,6 @@ class EfficientNetSectionSettings(object):
         se_ratio: Union[float, None],
         se_mod: bool,
     ):
-        """
-        :param num_blocks: the number of blocks to put in the section
-        :param in_channels: the number of input channels to the section
-        :param out_channels: the number of output channels from the section
-        :param kernel_size: the kernel size of the depth-wise convolution
-        :param expansion_ratio: (in_channels * expansion_ratio) is the number of input/output channels of
-               the depth-wise convolution
-        :param stride: the stride of the depth-wise convolution
-        :param se_ratio: (in_channels * se_ratio) is the number of input channels for squeeze-excite
-        :param se_mod: If true, moves SE to the end of the block (after last 1x1) so that a 3 stage pyramid can run
-        """
-
         self.num_blocks = num_blocks
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -242,24 +242,24 @@ class EfficientNetSectionSettings(object):
 
 class EfficientNet(Module):
     """
-    Pytorch efficient net implementation https://arxiv.org/abs/1905.11946
+    EfficientNet implementation
+
+    :param sec_settings: the settings for each section in the vgg model
+    :param out_channels: the number of output channels in the classifier before the fc
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
     """
 
     def __init__(
         self,
         sec_settings: List[EfficientNetSectionSettings],
-        num_classes: int,
         out_channels: int,
-        dropout: float = 0.0,
-        class_type: str = "single",
+        num_classes: int,
+        class_type: str,
+        dropout: float,
     ):
-        """
-        :param sec_settings: the settings for each section in the vgg model
-        :param num_classes: the number of classes to classify
-        :param out_channels: the number of output channels in the classifier before the fc
-        :param dropout: the amount of dropout to use while training, default 0.0
-        :param class_type: one of [single, multi] to support multi class training; default single
-        """
         super().__init__()
         self.input = Sequential(
             OrderedDict(
@@ -341,99 +341,86 @@ def _scale_num_blocks(blocks: int, depth_mult: float) -> int:
 
 def _create_section_settings(
     width_mult: float, depth_mult: float, se_mod: bool
-) -> List[EfficientNetSectionSettings]:
-    return [
-        EfficientNetSectionSettings(
-            num_blocks=_scale_num_blocks(1, depth_mult),
-            in_channels=_scale_num_channels(32, width_mult),
-            out_channels=_scale_num_channels(16, width_mult),
-            kernel_size=3,
-            expansion_ratio=1,
-            stride=1,
-            se_ratio=0.25,
-            se_mod=se_mod,
-        ),
-        EfficientNetSectionSettings(
-            num_blocks=_scale_num_blocks(2, depth_mult),
-            in_channels=_scale_num_channels(16, width_mult),
-            out_channels=_scale_num_channels(24, width_mult),
-            kernel_size=3,
-            expansion_ratio=6,
-            stride=2,
-            se_ratio=0.25,
-            se_mod=se_mod,
-        ),
-        EfficientNetSectionSettings(
-            num_blocks=_scale_num_blocks(2, depth_mult),
-            in_channels=_scale_num_channels(24, width_mult),
-            out_channels=_scale_num_channels(40, width_mult),
-            kernel_size=5,
-            expansion_ratio=6,
-            stride=2,
-            se_ratio=0.25,
-            se_mod=se_mod,
-        ),
-        EfficientNetSectionSettings(
-            num_blocks=_scale_num_blocks(3, depth_mult),
-            in_channels=_scale_num_channels(40, width_mult),
-            out_channels=_scale_num_channels(80, width_mult),
-            kernel_size=3,
-            expansion_ratio=6,
-            stride=2,
-            se_ratio=0.25,
-            se_mod=se_mod,
-        ),
-        EfficientNetSectionSettings(
-            num_blocks=_scale_num_blocks(3, depth_mult),
-            in_channels=_scale_num_channels(80, width_mult),
-            out_channels=_scale_num_channels(112, width_mult),
-            kernel_size=5,
-            expansion_ratio=6,
-            stride=1,
-            se_ratio=0.25,
-            se_mod=se_mod,
-        ),
-        EfficientNetSectionSettings(
-            num_blocks=_scale_num_blocks(4, depth_mult),
-            in_channels=_scale_num_channels(112, width_mult),
-            out_channels=_scale_num_channels(192, width_mult),
-            kernel_size=5,
-            expansion_ratio=6,
-            stride=2,
-            se_ratio=0.25,
-            se_mod=se_mod,
-        ),
-        EfficientNetSectionSettings(
-            num_blocks=_scale_num_blocks(1, depth_mult),
-            in_channels=_scale_num_channels(192, width_mult),
-            out_channels=_scale_num_channels(320, width_mult),
-            kernel_size=3,
-            expansion_ratio=6,
-            stride=1,
-            se_ratio=0.25,
-            se_mod=se_mod,
-        ),
-    ]
+) -> Tuple[List[EfficientNetSectionSettings], int]:
+    # return section settings as well as the out channels as tuple
+    return (
+        [
+            EfficientNetSectionSettings(
+                num_blocks=_scale_num_blocks(1, depth_mult),
+                in_channels=_scale_num_channels(32, width_mult),
+                out_channels=_scale_num_channels(16, width_mult),
+                kernel_size=3,
+                expansion_ratio=1,
+                stride=1,
+                se_ratio=0.25,
+                se_mod=se_mod,
+            ),
+            EfficientNetSectionSettings(
+                num_blocks=_scale_num_blocks(2, depth_mult),
+                in_channels=_scale_num_channels(16, width_mult),
+                out_channels=_scale_num_channels(24, width_mult),
+                kernel_size=3,
+                expansion_ratio=6,
+                stride=2,
+                se_ratio=0.25,
+                se_mod=se_mod,
+            ),
+            EfficientNetSectionSettings(
+                num_blocks=_scale_num_blocks(2, depth_mult),
+                in_channels=_scale_num_channels(24, width_mult),
+                out_channels=_scale_num_channels(40, width_mult),
+                kernel_size=5,
+                expansion_ratio=6,
+                stride=2,
+                se_ratio=0.25,
+                se_mod=se_mod,
+            ),
+            EfficientNetSectionSettings(
+                num_blocks=_scale_num_blocks(3, depth_mult),
+                in_channels=_scale_num_channels(40, width_mult),
+                out_channels=_scale_num_channels(80, width_mult),
+                kernel_size=3,
+                expansion_ratio=6,
+                stride=2,
+                se_ratio=0.25,
+                se_mod=se_mod,
+            ),
+            EfficientNetSectionSettings(
+                num_blocks=_scale_num_blocks(3, depth_mult),
+                in_channels=_scale_num_channels(80, width_mult),
+                out_channels=_scale_num_channels(112, width_mult),
+                kernel_size=5,
+                expansion_ratio=6,
+                stride=1,
+                se_ratio=0.25,
+                se_mod=se_mod,
+            ),
+            EfficientNetSectionSettings(
+                num_blocks=_scale_num_blocks(4, depth_mult),
+                in_channels=_scale_num_channels(112, width_mult),
+                out_channels=_scale_num_channels(192, width_mult),
+                kernel_size=5,
+                expansion_ratio=6,
+                stride=2,
+                se_ratio=0.25,
+                se_mod=se_mod,
+            ),
+            EfficientNetSectionSettings(
+                num_blocks=_scale_num_blocks(1, depth_mult),
+                in_channels=_scale_num_channels(192, width_mult),
+                out_channels=_scale_num_channels(320, width_mult),
+                kernel_size=3,
+                expansion_ratio=6,
+                stride=1,
+                se_ratio=0.25,
+                se_mod=se_mod,
+            ),
+        ],
+        _scale_num_channels(1280, width_mult),
+    )
 
 
-def _base_efficientnet_params(
-    width_mult: float, depth_mult: float, dropout: float, se_mod: bool, kwargs: Dict
-) -> Tuple[List[EfficientNetSectionSettings], Dict]:
-    section_settings = _create_section_settings(width_mult, depth_mult, se_mod)
-
-    if "out_channels" not in kwargs:
-        kwargs["out_channels"] = _scale_num_channels(1280, width_mult)
-
-    if "num_classes" not in kwargs:
-        kwargs["num_classes"] = 1000
-
-    if "dropout" not in kwargs:
-        kwargs["dropout"] = dropout
-
-    return section_settings, kwargs
-
-
-def efficientnet_params(model_name):
+def _efficient_net_params(model_name):
     # Coefficients: width, depth, dropout, in_size
     params_dict = {
         "efficientnet_b0": (1.0, 1.0, 0.2, 224),
@@ -460,14 +447,37 @@ def efficientnet_params(model_name):
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"recal-perf": ("se_mod", True)},
 )
-def efficientnet_b0(se_mod: bool = False, **kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b0")
+def efficientnet_b0(
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.2,
+    se_mod: bool = False,
+) -> EfficientNet:
+    """
+    EfficientNet B0 implementation; expected input shape is (B, 3, 224, 224)
 
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, se_mod, kwargs
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
+    :param se_mod: If true, moves squeeze-excite to the end of the block
+            (after last 1x1)
+    :return: The created EfficientNet B0 Module
+    """
+
+    width_mult = 1.0
+    depth_mult = 1.0
+    sec_settings, out_channels = _create_section_settings(
+        width_mult, depth_mult, se_mod
     )
 
-    return EfficientNet(sec_settings=sec_settings, **kwargs)
+    return EfficientNet(
+        sec_settings=sec_settings,
+        out_channels=out_channels,
+        num_classes=num_classes,
+        class_type=class_type,
+        dropout=dropout,
+    )
 
 
 @ModelRegistry.register(
@@ -482,14 +492,37 @@ def efficientnet_b0(se_mod: bool = False, **kwargs) -> EfficientNet:
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"recal-perf": ("se_mod", True)},
 )
-def efficientnet_b1(se_mod: bool = False, **kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b1")
+def efficientnet_b1(
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.2,
+    se_mod: bool = False,
+) -> EfficientNet:
+    """
+    EfficientNet B1 implementation; expected input shape is (B, 3, 240, 240)
 
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, se_mod, kwargs
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
+    :param se_mod: If true, moves squeeze-excite to the end of the block
+            (after last 1x1)
+    :return: The created EfficientNet B0 Module
+    """
+
+    width_mult = 1.0
+    depth_mult = 1.1
+    sec_settings, out_channels = _create_section_settings(
+        width_mult, depth_mult, se_mod
     )
 
-    return EfficientNet(sec_settings=sec_settings, **kwargs)
+    return EfficientNet(
+        sec_settings=sec_settings,
+        out_channels=out_channels,
+        num_classes=num_classes,
+        class_type=class_type,
+        dropout=dropout,
+    )
 
 
 @ModelRegistry.register(
@@ -504,14 +537,37 @@ def efficientnet_b1(se_mod: bool = False, **kwargs) -> EfficientNet:
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"recal-perf": ("se_mod", True)},
 )
-def efficientnet_b2(se_mod: bool = False, **kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b2")
+def efficientnet_b2(
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.3,
+    se_mod: bool = False,
+) -> EfficientNet:
+    """
+    EfficientNet B2 implementation; expected input shape is (B, 3, 260, 260)
 
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, se_mod, kwargs
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
+    :param se_mod: If true, moves squeeze-excite to the end of the block
+            (after last 1x1)
+    :return: The created EfficientNet B0 Module
+    """
+
+    width_mult = 1.1
+    depth_mult = 1.2
+    sec_settings, out_channels = _create_section_settings(
+        width_mult, depth_mult, se_mod
     )
 
-    return EfficientNet(sec_settings=sec_settings, **kwargs)
+    return EfficientNet(
+        sec_settings=sec_settings,
+        out_channels=out_channels,
+        num_classes=num_classes,
+        class_type=class_type,
+        dropout=dropout,
+    )
 
 
 @ModelRegistry.register(
@@ -526,14 +582,37 @@ def efficientnet_b2(se_mod: bool = False, **kwargs) -> EfficientNet:
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"recal-perf": ("se_mod", True)},
 )
-def efficientnet_b3(se_mod: bool = False, **kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b3")
+def efficientnet_b3(
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.3,
+    se_mod: bool = False,
+) -> EfficientNet:
+    """
+    EfficientNet B3 implementation; expected input shape is (B, 3, 300, 300)
 
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, se_mod, kwargs
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
+    :param se_mod: If true, moves squeeze-excite to the end of the block
+            (after last 1x1)
+    :return: The created EfficientNet B0 Module
+    """
+
+    width_mult = 1.2
+    depth_mult = 1.4
+    sec_settings, out_channels = _create_section_settings(
+        width_mult, depth_mult, se_mod
     )
 
-    return EfficientNet(sec_settings=sec_settings, **kwargs)
+    return EfficientNet(
+        sec_settings=sec_settings,
+        out_channels=out_channels,
+        num_classes=num_classes,
+        class_type=class_type,
+        dropout=dropout,
+    )
 
 
 @ModelRegistry.register(
@@ -548,14 +627,37 @@ def efficientnet_b3(se_mod: bool = False, **kwargs) -> EfficientNet:
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"recal-perf": ("se_mod", True)},
 )
-def efficientnet_b4(se_mod: bool = False, **kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b4")
+def efficientnet_b4(
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.4,
+    se_mod: bool = False,
+) -> EfficientNet:
+    """
+    EfficientNet B4 implementation; expected input shape is (B, 3, 380, 380)
 
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, se_mod, kwargs
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
+    :param se_mod: If true, moves squeeze-excite to the end of the block
+            (after last 1x1)
+    :return: The created EfficientNet B0 Module
+    """
+
+    width_mult = 1.4
+    depth_mult = 1.8
+    sec_settings, out_channels = _create_section_settings(
+        width_mult, depth_mult, se_mod
     )
 
-    return EfficientNet(sec_settings=sec_settings, **kwargs)
+    return EfficientNet(
+        sec_settings=sec_settings,
+        out_channels=out_channels,
+        num_classes=num_classes,
+        class_type=class_type,
+        dropout=dropout,
+    )
 
 
 @ModelRegistry.register(
@@ -570,14 +672,37 @@ def efficientnet_b4(se_mod: bool = False, **kwargs) -> EfficientNet:
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"recal-perf": ("se_mod", True)},
 )
-def efficientnet_b5(se_mod: bool = False, **kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b5")
+def efficientnet_b5(
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.4,
+    se_mod: bool = False,
+) -> EfficientNet:
+    """
+    EfficientNet B5 implementation; expected input shape is (B, 3, 456, 456)
 
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, se_mod, kwargs
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
+    :param se_mod: If true, moves squeeze-excite to the end of the block
+            (after last 1x1)
+    :return: The created EfficientNet B0 Module
+    """
+
+    width_mult = 1.6
+    depth_mult = 2.2
+    sec_settings, out_channels = _create_section_settings(
+        width_mult, depth_mult, se_mod
     )
 
-    return EfficientNet(sec_settings=sec_settings, **kwargs)
+    return EfficientNet(
+        sec_settings=sec_settings,
+        out_channels=out_channels,
+        num_classes=num_classes,
+        class_type=class_type,
+        dropout=dropout,
+    )
 
 
 @ModelRegistry.register(
@@ -592,14 +717,37 @@ def efficientnet_b5(se_mod: bool = False, **kwargs) -> EfficientNet:
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"recal-perf": ("se_mod", True)},
 )
-def efficientnet_b6(se_mod: bool = False, **kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b6")
+def efficientnet_b6(
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.5,
+    se_mod: bool = False,
+) -> EfficientNet:
+    """
+    EfficientNet B6 implementation; expected input shape is (B, 3, 528, 528)
 
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, se_mod, kwargs
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
+    :param se_mod: If true, moves squeeze-excite to the end of the block
+            (after last 1x1)
+    :return: The created EfficientNet B0 Module
+    """
+
+    width_mult = 1.8
+    depth_mult = 2.6
+    sec_settings, out_channels = _create_section_settings(
+        width_mult, depth_mult, se_mod
     )
 
-    return EfficientNet(sec_settings=sec_settings, **kwargs)
+    return EfficientNet(
+        sec_settings=sec_settings,
+        out_channels=out_channels,
+        num_classes=num_classes,
+        class_type=class_type,
+        dropout=dropout,
+    )
 
 
 @ModelRegistry.register(
@@ -614,11 +762,34 @@ def efficientnet_b6(se_mod: bool = False, **kwargs) -> EfficientNet:
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
     desc_args={"recal-perf": ("se_mod", True)},
 )
-def efficientnet_b7(se_mod: bool = False, **kwargs) -> EfficientNet:
-    width_mult, depth_mult, dropout, _ = efficientnet_params("efficientnet_b7")
+def efficientnet_b7(
+    num_classes: int = 1000,
+    class_type: str = "single",
+    dropout: float = 0.5,
+    se_mod: bool = False,
+) -> EfficientNet:
+    """
+    EfficientNet B0 implementation; expected input shape is (B, 3, 600, 600)
 
-    sec_settings, kwargs = _base_efficientnet_params(
-        width_mult, depth_mult, dropout, se_mod, kwargs
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :param dropout: the amount of dropout to use while training
+    :param se_mod: If true, moves squeeze-excite to the end of the block
+            (after last 1x1)
+    :return: The created EfficientNet B0 Module
+    """
+
+    width_mult = 2.0
+    depth_mult = 3.1
+    sec_settings, out_channels = _create_section_settings(
+        width_mult, depth_mult, se_mod
     )
 
-    return EfficientNet(sec_settings=sec_settings, **kwargs)
+    return EfficientNet(
+        sec_settings=sec_settings,
+        out_channels=out_channels,
+        num_classes=num_classes,
+        class_type=class_type,
+        dropout=dropout,
+    )

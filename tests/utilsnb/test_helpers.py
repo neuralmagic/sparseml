@@ -1,7 +1,7 @@
 import pytest
 
 
-from neuralmagicML.nbutils import format_html
+from neuralmagicML.utilsnb import format_html
 
 
 @pytest.mark.parametrize("message", ["test message one", "test message two"])

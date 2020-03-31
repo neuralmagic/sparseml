@@ -1,3 +1,9 @@
+"""
+OpenImages dataset implementations for the image classification field in
+computer vision. More info for the dataset can be found
+`here <https://opensource.google/projects/open-images-dataset>`__.
+"""
+
 from typing import Iterator, Tuple, Dict, List, Union
 import os
 import errno
@@ -16,30 +22,90 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.datasets.folder import default_loader
 
-from neuralmagicML.pytorch.datasets.utils import DATASET_MAPPINGS
+from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
 from neuralmagicML.pytorch.utils import MultiDownloader, DownloadResult, ParallelWorker
 
 
 __all__ = ["OpenImagesDataset"]
 
 
+_CLASS_NAMES = "https://storage.googleapis.com/openimages/v5/class-descriptions.csv"
+_TRAINABLE_CLASSES = (
+    "https://storage.googleapis.com/openimages/v5/classes-trainable.txt"
+)
+_TRAIN_IMAGE_IDS = (
+    "https://storage.googleapis.com/openimages/v5/"
+    "train-images-with-labels-with-rotation.csv"
+)
+_TRAIN_HUMAN_LABELS = (
+    "https://storage.googleapis.com/openimages/v5/"
+    "train-annotations-human-imagelabels.csv"
+)
+_TRAIN_MACHINE_LABELS = (
+    "https://storage.googleapis.com/openimages/v5/"
+    "train-annotations-machine-imagelabels.csv"
+)
+
+_VAL_IMAGE_IDS = (
+    "https://storage.googleapis.com/openimages/2018_04/"
+    "validation/validation-images-with-rotation.csv"
+)
+_VAL_HUMAN_LABELS = (
+    "https://storage.googleapis.com/openimages/v5/"
+    "validation-annotations-human-imagelabels.csv"
+)
+_VAL_MACHINE_LABELS = (
+    "https://storage.googleapis.com/openimages/v5/"
+    "validation-annotations-machine-imagelabels.csv"
+)
+
+_TEST_IMAGE_IDS = (
+    "https://storage.googleapis.com/openimages/2018_04/"
+    "test/test-images-with-rotation.csv"
+)
+_TEST_HUMAN_LABELS = (
+    "https://storage.googleapis.com/openimages/v5/"
+    "test-annotations-human-imagelabels.csv"
+)
+_TEST_MACHINE_LABELS = (
+    "https://storage.googleapis.com/openimages/v5/"
+    "test-annotations-machine-imagelabels.csv"
+)
+
+_RGB_MEANS = [0.485, 0.456, 0.406]
+_RGB_STDS = [0.229, 0.224, 0.225]
+
+
+@DatasetRegistry.register(
+    key=["openimages", "open_images"],
+    attributes={
+        "num_classes": 8658,
+        "transform_means": _RGB_MEANS,
+        "transform_stds": _RGB_STDS,
+    },
+)
 class OpenImagesDataset(Dataset):
-    CLASS_NAMES = "https://storage.googleapis.com/openimages/v5/class-descriptions.csv"
-    TRAINABLE_CLASSES = (
-        "https://storage.googleapis.com/openimages/v5/classes-trainable.txt"
-    )
+    """
+    Implementation for the Open Images dataset. Targeted at v5.
 
-    TRAIN_IMAGE_IDS = "https://storage.googleapis.com/openimages/v5/train-images-with-labels-with-rotation.csv"
-    TRAIN_HUMAN_LABELS = "https://storage.googleapis.com/openimages/v5/train-annotations-human-imagelabels.csv"
-    TRAIN_MACHINE_LABELS = "https://storage.googleapis.com/openimages/v5/train-annotations-machine-imagelabels.csv"
-
-    VAL_IMAGE_IDS = "https://storage.googleapis.com/openimages/2018_04/validation/validation-images-with-rotation.csv"
-    VAL_HUMAN_LABELS = "https://storage.googleapis.com/openimages/v5/validation-annotations-human-imagelabels.csv"
-    VAL_MACHINE_LABELS = "https://storage.googleapis.com/openimages/v5/validation-annotations-machine-imagelabels.csv"
-
-    TEST_IMAGE_IDS = "https://storage.googleapis.com/openimages/2018_04/test/test-images-with-rotation.csv"
-    TEST_HUMAN_LABELS = "https://storage.googleapis.com/openimages/v5/test-annotations-human-imagelabels.csv"
-    TEST_MACHINE_LABELS = "https://storage.googleapis.com/openimages/v5/test-annotations-machine-imagelabels.csv"
+    :param root: The root folder to find the dataset at,
+        if not found will download here if download=True
+    :param train: True if this is for the training distribution,
+        False for the validation
+    :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data,
+        False otherwise
+    :param confidence: The confidence level needed from machine labeled images
+        to include in the dataset
+    :param image_size: The image size to output from the dataset
+    :param samples_num_workers: The number of CPU workers to use for creating data
+    :param download_num_workers: The number of CPU workers to use for downloading data
+    :param download_sample_size: If > 0, then will only download this number of images
+        instead of the full dataset
+    :param download_image_size: The size of the images to store locally on the disk
+        after downloading
+    :param download_test_images: True to download the test images, False otherwise.
+        Default is False. (train and validation are automatically downloaded)
+    """
 
     def __init__(
         self,
@@ -55,7 +121,7 @@ class OpenImagesDataset(Dataset):
         download_test_images: bool = False,
     ):
         print("OpenImagesDataset: checking download")
-        OpenImagesDataset.download(
+        OpenImagesDataset._download(
             root,
             download_num_workers,
             download_sample_size,
@@ -80,9 +146,7 @@ class OpenImagesDataset(Dataset):
         trans.extend(
             [
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
+                transforms.Normalize(mean=_RGB_MEANS, std=_RGB_STDS),
             ]
         )
 
@@ -95,7 +159,7 @@ class OpenImagesDataset(Dataset):
 
         split = "train" if train else "validation"
         print("OpenImagesDataset: collecting samples for {}".format(split))
-        self.samples = OpenImagesDataset.get_split_samples(
+        self.samples = OpenImagesDataset._get_split_samples(
             split, root, confidence, samples_num_workers
         )
 
@@ -168,7 +232,7 @@ class OpenImagesDataset(Dataset):
         return fmt_str
 
     @staticmethod
-    def get_split_samples(
+    def _get_split_samples(
         split: str, root: str, confidence: float, num_workers: int
     ) -> List[Tuple[str, str, str]]:
         samples_path = os.path.join(root, split)
@@ -240,7 +304,7 @@ class OpenImagesDataset(Dataset):
         return samples
 
     @staticmethod
-    def download(
+    def _download(
         root_dir: str,
         num_workers: int,
         sample_size: int,
@@ -260,9 +324,10 @@ class OpenImagesDataset(Dataset):
 
         if os.path.exists(downloaded_file_path):
             print(
-                "Open Images already downloaded in {} , delete the folder to redownload".format(
-                    root_dir
-                )
+                (
+                    "Open Images already downloaded in {} , "
+                    "delete the folder to redownload"
+                ).format(root_dir)
             )
 
             return
@@ -289,17 +354,17 @@ class OpenImagesDataset(Dataset):
     @staticmethod
     def _download_supporting_files(meta_dir: str, num_workers: int):
         supporting_sources = [
-            OpenImagesDataset.CLASS_NAMES,
-            OpenImagesDataset.TRAINABLE_CLASSES,
-            OpenImagesDataset.TRAIN_HUMAN_LABELS,
-            OpenImagesDataset.TRAIN_MACHINE_LABELS,
-            OpenImagesDataset.TRAIN_IMAGE_IDS,
-            OpenImagesDataset.VAL_HUMAN_LABELS,
-            OpenImagesDataset.VAL_MACHINE_LABELS,
-            OpenImagesDataset.VAL_IMAGE_IDS,
-            OpenImagesDataset.TEST_HUMAN_LABELS,
-            OpenImagesDataset.TEST_MACHINE_LABELS,
-            OpenImagesDataset.TEST_IMAGE_IDS,
+            _CLASS_NAMES,
+            _TRAINABLE_CLASSES,
+            _TRAIN_HUMAN_LABELS,
+            _TRAIN_MACHINE_LABELS,
+            _TRAIN_IMAGE_IDS,
+            _VAL_HUMAN_LABELS,
+            _VAL_MACHINE_LABELS,
+            _VAL_IMAGE_IDS,
+            _TEST_HUMAN_LABELS,
+            _TEST_MACHINE_LABELS,
+            _TEST_IMAGE_IDS,
         ]
         source_dests = []
 
@@ -342,13 +407,9 @@ class OpenImagesDataset(Dataset):
     ):
         OpenImagesDataset._download_split_images(
             "validation",
-            os.path.join(meta_dir, os.path.basename(OpenImagesDataset.VAL_IMAGE_IDS)),
-            os.path.join(
-                meta_dir, os.path.basename(OpenImagesDataset.VAL_HUMAN_LABELS)
-            ),
-            os.path.join(
-                meta_dir, os.path.basename(OpenImagesDataset.VAL_MACHINE_LABELS)
-            ),
+            os.path.join(meta_dir, os.path.basename(_VAL_IMAGE_IDS)),
+            os.path.join(meta_dir, os.path.basename(_VAL_HUMAN_LABELS)),
+            os.path.join(meta_dir, os.path.basename(_VAL_MACHINE_LABELS)),
             root_dir,
             num_workers,
             sample_size,
@@ -356,13 +417,9 @@ class OpenImagesDataset(Dataset):
         )
         OpenImagesDataset._download_split_images(
             "train",
-            os.path.join(meta_dir, os.path.basename(OpenImagesDataset.TRAIN_IMAGE_IDS)),
-            os.path.join(
-                meta_dir, os.path.basename(OpenImagesDataset.TRAIN_HUMAN_LABELS)
-            ),
-            os.path.join(
-                meta_dir, os.path.basename(OpenImagesDataset.TRAIN_MACHINE_LABELS)
-            ),
+            os.path.join(meta_dir, os.path.basename(_TRAIN_IMAGE_IDS)),
+            os.path.join(meta_dir, os.path.basename(_TRAIN_HUMAN_LABELS)),
+            os.path.join(meta_dir, os.path.basename(_TRAIN_MACHINE_LABELS)),
             root_dir,
             num_workers,
             sample_size,
@@ -372,15 +429,9 @@ class OpenImagesDataset(Dataset):
         if test_images:
             OpenImagesDataset._download_split_images(
                 "test",
-                os.path.join(
-                    meta_dir, os.path.basename(OpenImagesDataset.TEST_IMAGE_IDS)
-                ),
-                os.path.join(
-                    meta_dir, os.path.basename(OpenImagesDataset.TEST_HUMAN_LABELS)
-                ),
-                os.path.join(
-                    meta_dir, os.path.basename(OpenImagesDataset.TEST_MACHINE_LABELS)
-                ),
+                os.path.join(meta_dir, os.path.basename(_TEST_IMAGE_IDS)),
+                os.path.join(meta_dir, os.path.basename(_TEST_HUMAN_LABELS)),
+                os.path.join(meta_dir, os.path.basename(_TEST_MACHINE_LABELS)),
                 root_dir,
                 num_workers,
                 sample_size,
@@ -416,9 +467,6 @@ class OpenImagesDataset(Dataset):
             image_size,
         )
         labeler.label()
-
-
-DATASET_MAPPINGS["openimages"] = OpenImagesDataset, 8658
 
 
 class _ImageDownloader(object):

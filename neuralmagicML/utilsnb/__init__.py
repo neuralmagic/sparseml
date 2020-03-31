@@ -1,5 +1,5 @@
 """
-Utility functions and UIs related to jupyter notebooks stored in this repo
+Utility functions and UIs related to jupyter notebooks
 """
 
 from .helpers import *

@@ -1,3 +1,9 @@
+"""
+Imagewoof dataset implementations for the image classification field in
+computer vision.
+More info for the dataset can be found `here <https://github.com/fastai/imagenette>`__.
+"""
+
 from typing import Union
 import os
 from enum import Enum
@@ -7,22 +13,53 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from torchvision.datasets.utils import download_url
 
-from neuralmagicML.pytorch.datasets.utils import DATASET_MAPPINGS
+from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
 
 
 __all__ = ["ImagewoofSize", "ImagewoofDataset"]
 
 
+_RGB_MEANS = [0.485, 0.456, 0.406]
+_RGB_STDS = [0.229, 0.224, 0.225]
+
+
 class ImagewoofSize(Enum):
+    """
+    Dataset size for Imagewoof.
+    full does not resize the original dataset at all.
+    s320 resizes the images to 320px.
+    s160 resizes the images to 160px.
+    """
+
     full = "full"
     s320 = "s320"
     s160 = "s160"
 
 
+@DatasetRegistry.register(
+    key=["imagewoof"],
+    attributes={
+        "num_classes": 10,
+        "transform_means": _RGB_MEANS,
+        "transform_stds": _RGB_STDS,
+    },
+)
 class ImagewoofDataset(ImageFolder):
     """
-    Wrapper for the imagewoof (10 class) dataset that fastai created
-    Handles downloading and applying standard transforms
+    Wrapper for the imagewoof (10 class) dataset that fastai created.
+    Handles downloading and applying standard transforms.
+    More info for the dataset can be found `here <https://github.com/fastai/imagenette>`
+
+    :param root: The root folder to find the dataset at,
+        if not found will download here if download=True
+    :param train: True if this is for the training distribution,
+        False for the validation
+    :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data,
+        False otherwise
+    :param dataset_size: The size of the dataset to use and download:
+        See :py:func `~ImagewoofSize` for options
+    :param image_size: The image size to output from the dataset
+    :param download: True to download the dataset, False otherwise
     """
 
     def __init__(
@@ -34,14 +71,6 @@ class ImagewoofDataset(ImageFolder):
         image_size: Union[int, None] = None,
         download: bool = True,
     ):
-        """
-        :param root: The root folder to find the dataset at, if not found will download here if download=True
-        :param train: True if this is for the training distribution, false for the validation
-        :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data, False otherwise
-        :param dataset_size: The size of the dataset to use and download: See ImagenetteSize for options
-        :param image_size: The image size to output from the dataset
-        :param download: True to download the dataset, False otherwise
-        """
         root = os.path.abspath(os.path.expanduser(root))
 
         if not os.path.exists(root):
@@ -62,7 +91,7 @@ class ImagewoofDataset(ImageFolder):
                 )
 
             extracted_root = os.path.join(root, extract)
-            self.download(dataset_size, root, extract)
+            self._download(dataset_size, root, extract)
 
         if image_size is None:
             image_size = 160 if dataset_size == ImagewoofSize.s160 else 224
@@ -88,9 +117,7 @@ class ImagewoofDataset(ImageFolder):
         trans.extend(
             [
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
+                transforms.Normalize(mean=_RGB_MEANS, std=_RGB_STDS),
             ]
         )
 
@@ -100,7 +127,7 @@ class ImagewoofDataset(ImageFolder):
         random.shuffle(self.samples)
 
     @staticmethod
-    def download(size: ImagewoofSize, root: str, extract: str):
+    def _download(size: ImagewoofSize, root: str, extract: str):
         if size == ImagewoofSize.full:
             url = "https://s3.amazonaws.com/fast-ai-imageclas/imagewoof.tgz"
         elif size == ImagewoofSize.s320:
@@ -121,6 +148,3 @@ class ImagewoofDataset(ImageFolder):
 
         with tarfile.open(os.path.join(root, filename), "r:gz") as tar:
             tar.extractall(path=root)
-
-
-DATASET_MAPPINGS["imagewoof"] = ImagewoofDataset, 10

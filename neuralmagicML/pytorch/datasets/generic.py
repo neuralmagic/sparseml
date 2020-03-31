@@ -12,13 +12,13 @@ class EarlyStopDataset(Dataset):
     """
     Dataset that handles applying an early stop when iterating through the dataset
     IE will allow indexing between [0, early_stop)
+
+    :param original: the original dataset to apply an early stop to
+    :param early_stop: the total number of data items to run through,
+        if -1 then will go through whole dataset
     """
 
     def __init__(self, original: Dataset, early_stop: int):
-        """
-        :param original: the original dataset to apply an early stop to
-        :param early_stop: the total number of data items to run through, if -1 then will go through whole dataset
-        """
         self._original = original
         self._early_stop = early_stop
 
@@ -48,14 +48,15 @@ class EarlyStopDataset(Dataset):
 
 class NoisyDataset(Dataset):
     """
-    Add random noise from a standard distribution mean(0) and stdev(intensity) on top of a dataset
+    Add random noise from a standard distribution mean(0) and stdev(intensity)
+    on top of a dataset
+
+    :param original: the dataset to add noise on top of
+    :param intensity: the level of noise to add
+        (creates the noise with this standard deviation)
     """
 
     def __init__(self, original: Dataset, intensity: float):
-        """
-        :param original: the dataset to add noise on top of
-        :param intensity: the level of noise to add (creates the noise with this standard deviation)
-        """
         self._original = original
         self._intensity = intensity
 
@@ -73,16 +74,16 @@ class NoisyDataset(Dataset):
 class RandNDataset(Dataset):
     """
     Generates a random dataset
+
+    :param length: the number of random items to create in the dataset
+    :param shape: the shape of the data to create
+    :param normalize: Normalize the data according to imagenet distribution
+        (shape must match 3,x,x)
     """
 
     def __init__(
         self, length: int, shape: Union[int, Tuple[int, ...]], normalize: bool
     ):
-        """
-        :param length: the number of random items to create in the dataset
-        :param shape: the shape of the data to create
-        :param normalize: Normalize the data according to imagenet distribution (must be of shape 3,x,x)
-        """
         if isinstance(shape, int):
             shape = (3, shape, shape)
 
@@ -111,15 +112,14 @@ class RandNDataset(Dataset):
 class CacheableDataset(Dataset):
     """
     Generates a cacheable dataset, ie stores the data in a cache in cpu memory
-    so it doesn't have to be loaded from disk every time
+    so it doesn't have to be loaded from disk every time.
 
     Note, this can only be used with a data loader that has num_workers=0
+
+    :param original: the original dataset to cache
     """
 
     def __init__(self, original: Dataset):
-        """
-        :param original: the original dataset to cache
-        """
         self._original = original
         self._cache = {}
 

@@ -17,7 +17,7 @@ from neuralmagicML.utils import (
 )
 from neuralmagicML.recal import ModifierProp
 from neuralmagicML.pytorch.recal.modifier import (
-    PytorchModifierYAML,
+    PyTorchModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
@@ -30,7 +30,7 @@ from neuralmagicML.pytorch.utils import (
 __all__ = ["TrainableParamsModifier", "SetParamModifier", "GradualParamModifier"]
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class TrainableParamsModifier(ScheduledModifier):
     """
     Modifier to control the params for a given list of layers to apply the trainable or not (requires_grad var)
@@ -210,7 +210,7 @@ class TrainableParamsModifier(ScheduledModifier):
                 param.requires_grad = original
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class SetParamModifier(ScheduledModifier):
     """
     Modifier to set the param values for a given list of layers
@@ -395,7 +395,7 @@ class SetParamModifier(ScheduledModifier):
             )
 
 
-@PytorchModifierYAML()
+@PyTorchModifierYAML()
 class GradualParamModifier(ScheduledUpdateModifier):
     """
     Modifier to set the param values for a given list of layers from a start value through an end value

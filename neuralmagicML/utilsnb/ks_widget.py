@@ -1,3 +1,7 @@
+"""
+Code related to kernel sparsity widget display in a jupyter notebook using ipywidgets
+"""
+
 from abc import ABC, abstractmethod
 from typing import List, Union
 import ipywidgets as widgets
@@ -9,7 +13,7 @@ from neuralmagicML.pytorch.recal import (
     GradualKSModifier,
     ScheduledModifierManager,
 )
-from neuralmagicML.nbutils.helpers import format_html
+from neuralmagicML.utilsnb.helpers import format_html
 
 
 __all__ = [
@@ -35,6 +39,12 @@ class PruningEpochWidget(_Widget):
     Widget used in KS notebooks for setting up pruning epoch hyperparams such as
     start and end epoch for pruning, the frequency to prune,
     and the total epochs to train for
+
+    :param start_epoch: the default epoch to start pruning at
+    :param end_epoch: the default epoch to end pruning at
+    :param total_epochs: the default number of epochs to train for
+    :param max_epochs: the maximum number of epochs that can be used
+    :param update_frequency: the default update frequency for pruning
     """
 
     def __init__(
@@ -45,13 +55,6 @@ class PruningEpochWidget(_Widget):
         max_epochs: int,
         update_frequency: float = 1.0,
     ):
-        """
-        :param start_epoch: the default epoch to start pruning at
-        :param end_epoch: the default epoch to end pruning at
-        :param total_epochs: the default number of epochs to train for
-        :param max_epochs: the maximum number of epochs that can be used
-        :param update_frequency: the default update frequency for pruning
-        """
         self._start_epoch = -1
         self._end_epoch = -1
         self._total_epochs = -1
@@ -66,10 +69,16 @@ class PruningEpochWidget(_Widget):
 
     @property
     def start_epoch(self) -> int:
+        """
+        :return: the epoch to start pruning at
+        """
         return self._start_epoch
 
     @start_epoch.setter
     def start_epoch(self, value: int):
+        """
+        :param value: the epoch to start pruning at
+        """
         if value >= self._end_epoch:
             raise ValueError(
                 "value of {} cannot be greater than or equal to end_epoch {}".format(
@@ -81,10 +90,16 @@ class PruningEpochWidget(_Widget):
 
     @property
     def end_epoch(self) -> int:
+        """
+        :return: the epoch to end pruning at
+        """
         return self._end_epoch
 
     @end_epoch.setter
     def end_epoch(self, value):
+        """
+        :param value: the epoch to end pruning at
+        """
         if value > self._total_epochs:
             raise ValueError(
                 "value of {} cannot be greater than total_epochs {}".format(
@@ -103,10 +118,16 @@ class PruningEpochWidget(_Widget):
 
     @property
     def total_epochs(self) -> int:
+        """
+        :return: the number of epochs to train for
+        """
         return self._total_epochs
 
     @total_epochs.setter
     def total_epochs(self, value: int):
+        """
+        :param value: the number of epochs to train for
+        """
         if value > self._max_epochs:
             raise ValueError(
                 "value of {} cannot be greater than max_epochs {}".format(
@@ -125,10 +146,16 @@ class PruningEpochWidget(_Widget):
 
     @property
     def max_epochs(self) -> int:
+        """
+        :return: the maximum number of epochs that can be used
+        """
         return self._max_epochs
 
     @max_epochs.setter
     def max_epochs(self, value: int):
+        """
+        :param value: the maximum number of epochs that can be used
+        """
         if value < self._max_epochs:
             raise ValueError(
                 "value of {} must be greater than or equal to total_epochs {}".format(
@@ -140,10 +167,16 @@ class PruningEpochWidget(_Widget):
 
     @property
     def update_frequency(self) -> float:
+        """
+        :return: the update frequency for pruning
+        """
         return self._update_frequency
 
     @update_frequency.setter
     def update_frequency(self, value: float):
+        """
+        :param value: the update frequency for pruning
+        """
         self._update_frequency = value
 
     def create(self):
@@ -249,6 +282,16 @@ class PruneLayerWidget(_Widget):
     such as name and description. Also allows pruning for the layer to
     be enabled or disabled. Finally, allows the user to set the desired
     final sparsity for the layer.
+
+    :param name: name of the layer that can be selected for pruning
+    :param desc: optional description of the layer to display for more context
+    :param enabled: optional pre configured settings for enabling pruning on widget
+        display, default True
+    :param end_sparsity: optional pre configured setting for the sparsity to set
+        for each layer
+        on display, by default all layers are set to 0.8
+    :param loss_sens_analysis: optional sensitivity analysis to use to display next
+        to the layers
     """
 
     def __init__(
@@ -375,6 +418,15 @@ class PruningLayersWidget(_Widget):
     Widget used in KS notebooks for setting up pruning hyperparams
     for multiple layers in a model.
     See :py:func `~PruneLayerWidget` for more details
+
+    :param layer_names: names of the layers that can be selected for pruning
+    :param layer_descs: optional descriptions of the layers to display for more context
+    :param layer_enables: optional pre configured settings for which layers to
+        enable on display, by default all layers are enabled
+    :param layer_sparsities: optional pre configured settings for the sparsity to
+        set for each layer on display, by default all layers are set to 0.8
+    :param loss_sens_analysis: optional sensitivity analysis to use to display next
+        to the layers
     """
 
     def __init__(
@@ -385,37 +437,31 @@ class PruningLayersWidget(_Widget):
         layer_sparsities: Union[List[float], None] = None,
         loss_sens_analysis: Union[KSLossSensitivityAnalysis, None] = None,
     ):
-        """
-        :param layer_names: names of the layers that can be selected for pruning
-        :param layer_descs: optional descriptions of the layers to display for more context
-        :param layer_enables: optional pre configured settings for which layers to enable on display,
-                              by default all layers are enabled
-        :param layer_sparsities: optional pre configured settings for the sparsity to set for each layer
-                                 on display, by default all layers are set to 0.8
-        :param loss_sens_analysis: optional sensitivity analysis to use to display next to the layers
-        """
         if not layer_names or len(layer_names) < 1:
             raise ValueError("layer_names must be provided")
 
         if layer_descs is not None and len(layer_descs) != len(layer_names):
             raise ValueError(
-                "layer_descs given of length {}, must match layer_names length {}".format(
-                    len(layer_descs), len(layer_names)
-                )
+                (
+                    "layer_descs given of length {}, "
+                    "must match layer_names length {}"
+                ).format(len(layer_descs), len(layer_names))
             )
 
         if layer_enables is not None and len(layer_enables) != len(layer_names):
             raise ValueError(
-                "layer_enables given of length {}, must match layer_names length {}".format(
-                    len(layer_enables), len(layer_names)
-                )
+                (
+                    "layer_enables given of length {}, "
+                    "must match layer_names length {}"
+                ).format(len(layer_enables), len(layer_names))
             )
 
         if layer_sparsities is not None and len(layer_sparsities) != len(layer_names):
             raise ValueError(
-                "layer_sparsities given of length {}, must match layer_names length {}".format(
-                    len(layer_sparsities), len(layer_names)
-                )
+                (
+                    "layer_sparsities given of length {}, "
+                    "must match layer_names length {}"
+                ).format(len(layer_sparsities), len(layer_names))
             )
 
         if loss_sens_analysis:
@@ -470,16 +516,16 @@ class PruningLayersWidget(_Widget):
 class KSWidgetContainer(object):
     """
     Widget used in KS notebooks for setting up pruning hyperparams.
-    See :py:func `~PruneLayersWidget` and d:py:func `~PruningEpochWidget` for more details
+    See :py:func `~PruneLayersWidget` and :py:func `~PruningEpochWidget`
+    for more details
+
+    :param epoch_widget: the instance of the epoch widget to display
+    :param layers_widget: the instance of the layers widget to display
     """
 
     def __init__(
         self, epoch_widget: PruningEpochWidget, layers_widget: PruningLayersWidget
     ):
-        """
-        :param epoch_widget: the instance of the epoch widget to display
-        :param layers_widget: the instance of the layers widget to display
-        """
         if not epoch_widget:
             raise ValueError("epoch_widget must be supplied")
 

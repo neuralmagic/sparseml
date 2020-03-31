@@ -1,11 +1,12 @@
 """
-Code related to the pytorch model registry
+Code related to the PyTorch model registry for easily creating models.
 """
 
 from typing import Union, List, Callable, Dict, Any, Tuple
+from merge_args import merge_args
 from torch.nn import Module
 
-from neuralmagicML.frameworks import PYTORCH_FRAMEWORK
+from neuralmagicML.utils.frameworks import PYTORCH_FRAMEWORK
 from neuralmagicML.utils import RepoModel
 from neuralmagicML.pytorch.utils import load_model
 
@@ -15,7 +16,7 @@ __all__ = ["ModelRegistry"]
 
 class ModelRegistry(object):
     """
-    Convenience class for getting and creating models
+    Registry class for creating models
     """
 
     _CONSTRUCTORS = {}
@@ -52,7 +53,11 @@ class ModelRegistry(object):
         :return: the instantiated model
         """
         if key not in ModelRegistry._CONSTRUCTORS:
-            raise ValueError("key {} is not in the model registry")
+            raise ValueError(
+                "key {} is not in the model registry; available: {}".format(
+                    key, ModelRegistry._CONSTRUCTORS
+                )
+            )
 
         return ModelRegistry._CONSTRUCTORS[key](
             pretrained=pretrained,
@@ -73,7 +78,11 @@ class ModelRegistry(object):
         :return: the specified input shape for the model
         """
         if key not in ModelRegistry._CONSTRUCTORS:
-            raise ValueError("key {} is not in the model registry")
+            raise ValueError(
+                "key {} is not in the model registry; available: {}".format(
+                    key, ModelRegistry._CONSTRUCTORS
+                )
+            )
 
         return ModelRegistry._INPUT_SHAPES[key]
 
@@ -96,12 +105,18 @@ class ModelRegistry(object):
         :param key: the model key (name) to create
         :param input_shape: the specified input shape for the model
         :param domain: the domain the model belongs to; ex: cv, nlp, etc
-        :param sub_domain: the sub domain the model belongs to; ex: classification, detection, etc
-        :param architecture: the architecture the model belongs to; ex: resnet, mobilenet, etc
-        :param sub_architecture: the sub architecture the model belongs to; ex: 50, 101, etc
-        :param default_dataset: the dataset to use by default for loading pretrained if not supplied
-        :param default_desc: the description to use by default for loading pretrained if not supplied
-        :param def_ignore_error_tensors: tensors to ignore if there are errors in loading
+        :param sub_domain: the sub domain the model belongs to;
+            ex: classification, detection, etc
+        :param architecture: the architecture the model belongs to;
+            ex: resnet, mobilenet, etc
+        :param sub_architecture: the sub architecture the model belongs to;
+            ex: 50, 101, etc
+        :param default_dataset: the dataset to use by default for loading
+            pretrained if not supplied
+        :param default_desc: the description to use by default for loading
+            pretrained if not supplied
+        :param def_ignore_error_tensors: tensors to ignore if there are
+            errors in loading
         :param desc_args: args that should be changed based on the description
         :return: the decorator
         """
@@ -133,6 +148,75 @@ class ModelRegistry(object):
         return decorator
 
     @staticmethod
+    def _get_doc_indent(lines: List[str]) -> str:
+        for line in lines:
+            if not line:
+                continue
+
+            leading_spaces = len(line) - len(line.lstrip())
+
+            return "".join(" " for _ in range(leading_spaces))
+
+        return ""
+
+    @staticmethod
+    def _strip_doc_indent(doc: str) -> List[str]:
+        doc_lines = doc.splitlines()
+        doc_indent = ModelRegistry._get_doc_indent(doc_lines)
+        doc_lines = [
+            line if not line.startswith(doc_indent) else line[len(doc_indent) :]
+            for line in doc_lines
+        ]
+
+        # remove empty lines at beginning and end to make merging cleaner
+        while len(doc_lines) > 0 and not doc_lines[0]:
+            doc_lines.pop(0)
+
+        while len(doc_lines) > 0 and not doc_lines[-1]:
+            doc_lines.pop(-1)
+
+        return doc_lines
+
+    @staticmethod
+    def _doc_merge(wrapped: Callable, wrapper: Callable):
+        stripped_wrapped = ModelRegistry._strip_doc_indent(wrapped.__doc__)
+        stripped_wrapper = ModelRegistry._strip_doc_indent(wrapper.__doc__)
+        merge = []
+
+        # check for return at end of doc string in wrapped
+        if ":return" in stripped_wrapped[-1]:
+            merge.extend(stripped_wrapped[:-1])
+            merge.extend(stripped_wrapper)
+            merge.append(stripped_wrapped[-1])
+        else:
+            merge.extend(stripped_wrapped)
+            merge.extend(stripped_wrapper)
+
+        wrapper.__doc__ = "\n".join(merge)
+
+    @staticmethod
+    def _wrapper_decorator(wrapped: Callable):
+        def decorator(wrapper: Callable):
+            for attr in (
+                "__module__",
+                "__name__",
+                "__qualname__",
+            ):
+                value = getattr(wrapped, attr)
+                setattr(wrapper, attr, value)
+
+            for attr in ("__dict__", "__annotations__"):
+                getattr(wrapper, attr).update(getattr(wrapped, attr))
+
+            ModelRegistry._doc_merge(wrapped, wrapper)
+
+            wrapper.__wrapped__ = wrapped
+
+            return wrapper
+
+        return decorator
+
+    @staticmethod
     def _registered_wrapper(
         const_func: Callable,
         domain: str,
@@ -144,9 +228,11 @@ class ModelRegistry(object):
         def_ignore_error_tensors: List[str] = None,
         desc_args: Dict[str, Tuple[str, Any]] = None,
     ):
+        @merge_args(const_func)
+        @ModelRegistry._wrapper_decorator(const_func)
         def wrapper(
-            pretrained: Union[bool, str] = False,
             pretrained_path: str = None,
+            pretrained: Union[bool, str] = False,
             pretrained_dataset: str = None,
             load_strict: bool = True,
             ignore_error_tensors: List[str] = None,
@@ -155,6 +241,25 @@ class ModelRegistry(object):
             *args,
             **kwargs
         ):
+            """
+            :param pretrained_path: A path to the pretrained weights to load,
+                if provided will override the pretrained param
+            :param pretrained: True to load the default pretrained weights,
+                a string to load a specific pretrained weight
+                (ex: dense, recal, recal-perf),
+                or False to not load any pretrained weights
+            :param pretrained_dataset: The dataset to load pretrained weights for
+                (ex: imagenet, mnist, etc).
+                If not supplied will default to the one preconfigured for the model.
+            :param load_strict: True to raise an error on issues with state dict
+                loading from pretrained_path or pretrained, False to ignore
+            :param ignore_error_tensors: Tensors to ignore while checking the state dict
+                for weights loaded from pretrained_path or pretrained
+            :param pre_load_func: A function to run over the created Model before
+                weights can be loaded
+            :param post_load_func: A function to run over the created Model after
+                weights have been loaded
+            """
             if desc_args and pretrained in desc_args:
                 kwargs[desc_args[pretrained][0]] = desc_args[pretrained[1]]
 

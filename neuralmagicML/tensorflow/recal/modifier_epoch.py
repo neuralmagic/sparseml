@@ -2,13 +2,16 @@
 Contains code for epoch modifiers in tensorflow
 """
 
-from neuralmagicML.tensorflow.recal.modifier import ScheduledModifier, TensorflowModifierYAML
+from neuralmagicML.tensorflow.recal.modifier import (
+    ScheduledModifier,
+    TensorFlowModifierYAML,
+)
 
 
 __all__ = ["EpochRangeModifier"]
 
 
-@TensorflowModifierYAML()
+@TensorFlowModifierYAML()
 class EpochRangeModifier(ScheduledModifier):
     """
     Simple modifier to set the range of epochs to train over for the recalibration process.

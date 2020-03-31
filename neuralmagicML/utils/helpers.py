@@ -52,8 +52,10 @@ def flatten_iterable(li: Iterable):
 
 def convert_to_bool(val: Any):
     """
-    :param val: the value to be converted to a bool, supports logical values as strings ie True, t, false, 0
-    :return: the boolean representation of the value, if it can't be determined, falls back on returning True
+    :param val: the value to be converted to a bool,
+        supports logical values as strings ie True, t, false, 0
+    :return: the boolean representation of the value, if it can't be determined,
+        falls back on returning True
     """
     return (
         bool(val)
@@ -67,8 +69,9 @@ def validate_str_iterable(
 ) -> Union[str, Iterable[str]]:
     """
     :param val: the value to validate, check that it is a list (and flattens it),
-                otherwise checks that it's an ALL string, otherwise raises a ValueError
-    :param error_desc: the description to raise an error with in the event that the val wasn't valid
+        otherwise checks that it's an ALL string, otherwise raises a ValueError
+    :param error_desc: the description to raise an error with in the event that
+        the val wasn't valid
     :return: the validated version of the param
     """
     if isinstance(val, str):
@@ -100,8 +103,10 @@ def interpolate(
     :param x1: the maximum for x to interpolate between
     :param y0: the minimum for y to interpolate between
     :param y1: the maximum for y to interpolate between
-    :param inter_func: the type of function to interpolate with: linear, cubic, inverse_cubic
-    :return: the interpolated value projecting x into y for the given interpolation function
+    :param inter_func: the type of function to interpolate with:
+        linear, cubic, inverse_cubic
+    :return: the interpolated value projecting x into y for the given
+        interpolation function
     """
     if inter_func not in INTERPOLATION_FUNCS:
         raise ValueError(
@@ -110,7 +115,8 @@ def interpolate(
             )
         )
 
-    # convert our x to 0-1 range since equations are designed to fit in (0,0)-(1,1) space
+    # convert our x to 0-1 range since equations are designed to fit in
+    # (0,0)-(1,1) space
     x_per = (x_cur - x0) / (x1 - x0)
 
     # map x to y using the desired function in (0,0)-(1,1) space
@@ -149,6 +155,8 @@ def create_dirs(path: str):
     """
     :param path: the directory path to try and create
     """
+    path = clean_path(path)
+
     try:
         os.makedirs(path)
     except OSError as e:
@@ -169,7 +177,8 @@ def create_parent_dirs(path: str):
 
 def create_unique_dir(path: str, check_number: int = 0) -> str:
     """
-    :param path: the file path to create a unique version of (append numbers until one doesn't exist)
+    :param path: the file path to create a unique version of
+        (append numbers until one doesn't exist)
     :param check_number: the number to begin checking for unique versions at
     :return: the unique directory path
     """

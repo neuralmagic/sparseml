@@ -1,3 +1,13 @@
+"""
+PyTorch ResNet, ResNet V2, ResNext implementations.
+Further info on ResNet can be found in the paper
+`here <https://arxiv.org/abs/1512.03385>`__.
+Further info on ResNet V2 can be found in the paper
+`here <https://arxiv.org/abs/1603.05027>`__.
+Further info on ResNext can be found in the paper
+`here <https://arxiv.org/abs/1611.05431>`__.
+"""
+
 from typing import List
 from torch import Tensor
 from torch.nn import (
@@ -381,7 +391,20 @@ class _Classifier(Module):
 
 class ResNetSectionSettings(object):
     """
-    Settings to describe how to put together a resnet architecture based on different configurations
+    Settings to describe how to put together a ResNet based architecture
+    using user supplied configurations.
+
+    :param num_blocks: the number of blocks to put in the section
+        (ie Basic or Bottleneck blocks)
+    :param in_channels: the number of input channels to the section
+    :param out_channels: the number of output channels from the section
+    :param downsample: True to apply stride 2 for downsampling of the input,
+        False otherwise
+    :param proj_channels: The number of channels in the projection for a
+        bottleneck block, if < 0 then uses basic
+    :param groups: The number of groups to use for each 3x3 conv (ResNext)
+    :param use_se: True to use squeeze excite, False otherwise
+    :param version: 1 for original ResNet model, 2 for ResNet v2 model
     """
 
     def __init__(
@@ -395,17 +418,6 @@ class ResNetSectionSettings(object):
         use_se: bool = False,
         version: int = 1,
     ):
-        """
-        :param num_blocks: the number of blocks to put in the section (ie Basic or Bottleneck blocks)
-        :param in_channels: the number of input channels to the section
-        :param out_channels: the number of output channels from the section
-        :param downsample: True to apply stride 2 for downsampling of the input, False otherwise
-        :param proj_channels: The number of channels in the projection for a bottleneck block, if < 0 then uses basic
-        :param groups: The number of groups to use for each 3x3 conv (resnext)
-        :param use_se: True to use squeeze excite, False otherwise
-        :param version: 1 for original ResNet model, 2 for ResNet v2 model
-        """
-
         if use_se:
             # TODO: add support for squeeze excite
             raise NotImplementedError("squeeze excite not supported yet")
@@ -429,27 +441,20 @@ class ResNetSectionSettings(object):
 
 class ResNet(Module):
     """
-    Standard ResNet model
-        https://arxiv.org/abs/1512.03385
+    ResNet, ResNet V2, ResNext implementations.
 
-        ResNet V2 model
-        https://arxiv.org/abs/1603.05027
-
-        ResNext model
-        https://arxiv.org/abs/1611.05431
+    :param sec_settings: the settings for each section in the ResNet model
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
     """
 
     def __init__(
         self,
         sec_settings: List[ResNetSectionSettings],
-        num_classes: int = 1000,
-        class_type: str = "single",
+        num_classes: int,
+        class_type: str,
     ):
-        """
-        :param sec_settings: the settings for each section in the mobilenet model
-        :param num_classes: the number of classes to classify
-        :param class_type: one of [single, multi] to support multi class training; default single
-        """
         super().__init__()
         self.input = _Input()
         self.sections = Sequential(
@@ -499,7 +504,8 @@ class ResNet(Module):
                 blocks.append(_BasicBlockV2(in_channels, settings.out_channels, stride))
             else:
                 raise ValueError(
-                    "could not figure out which block to use given version:{} and proj_channels:{}".format(
+                    "could not figure out which block to use given "
+                    "version:{} and proj_channels:{}".format(
                         settings.version, settings.proj_channels
                     )
                 )
@@ -521,7 +527,16 @@ class ResNet(Module):
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnet18(**kwargs) -> ResNet:
+def resnet18(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet 18 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=2, in_channels=64, out_channels=64, downsample=False
@@ -537,7 +552,9 @@ def resnet18(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -551,7 +568,16 @@ def resnet18(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnetv2_18(**kwargs) -> ResNet:
+def resnetv2_18(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet V2 18 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=2, in_channels=64, out_channels=64, downsample=False, version=2
@@ -567,7 +593,9 @@ def resnetv2_18(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -581,7 +609,16 @@ def resnetv2_18(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnet34(**kwargs) -> ResNet:
+def resnet34(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet 34 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3, in_channels=64, out_channels=64, downsample=False
@@ -597,7 +634,9 @@ def resnet34(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -611,7 +650,16 @@ def resnet34(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnetv2_34(**kwargs) -> ResNet:
+def resnetv2_34(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet V2 34 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3, in_channels=64, out_channels=64, downsample=False, version=2
@@ -627,7 +675,9 @@ def resnetv2_34(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -641,7 +691,16 @@ def resnetv2_34(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnet50(**kwargs) -> ResNet:
+def resnet50(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet 50 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -673,7 +732,9 @@ def resnet50(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -687,7 +748,16 @@ def resnet50(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnetv2_50(**kwargs) -> ResNet:
+def resnetv2_50(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet V2 50 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -723,7 +793,9 @@ def resnetv2_50(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -743,7 +815,16 @@ def resnetv2_50(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnet50_2xwidth(**kwargs) -> ResNet:
+def resnet50_2xwidth(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    ResNet 50 implementation where channel sizes for 3x3 convolutions are doubled;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -775,7 +856,9 @@ def resnet50_2xwidth(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -789,7 +872,16 @@ def resnet50_2xwidth(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnext50(**kwargs) -> ResNet:
+def resnext50(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNext 50 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -825,7 +917,9 @@ def resnext50(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -839,7 +933,16 @@ def resnext50(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnet101(**kwargs) -> ResNet:
+def resnet101(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet 101 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -871,7 +974,9 @@ def resnet101(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -885,7 +990,16 @@ def resnet101(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnetv2_101(**kwargs) -> ResNet:
+def resnetv2_101(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet V2 101 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -921,7 +1035,9 @@ def resnetv2_101(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -941,7 +1057,16 @@ def resnetv2_101(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnet101_2xwidth(**kwargs) -> ResNet:
+def resnet101_2xwidth(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    ResNet 101 implementation where channel sizes for 3x3 convolutions are doubled;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -973,7 +1098,9 @@ def resnet101_2xwidth(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -987,7 +1114,16 @@ def resnet101_2xwidth(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnext101(**kwargs) -> ResNet:
+def resnext101(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNext 101 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -1023,7 +1159,9 @@ def resnext101(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -1037,7 +1175,16 @@ def resnext101(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnet152(**kwargs) -> ResNet:
+def resnet152(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet 152 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -1069,7 +1216,9 @@ def resnet152(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -1083,7 +1232,16 @@ def resnet152(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnetv2_152(**kwargs) -> ResNet:
+def resnetv2_152(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNet V2 152 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -1119,7 +1277,9 @@ def resnetv2_152(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )
 
 
 @ModelRegistry.register(
@@ -1133,7 +1293,16 @@ def resnetv2_152(**kwargs) -> ResNet:
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
 )
-def resnext152(**kwargs) -> ResNet:
+def resnext152(num_classes: int = 1000, class_type: str = "single") -> ResNet:
+    """
+    Standard ResNext 152 implementation;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created ResNet Module
+    """
     sec_settings = [
         ResNetSectionSettings(
             num_blocks=3,
@@ -1169,4 +1338,6 @@ def resnext152(**kwargs) -> ResNet:
         ),
     ]
 
-    return ResNet(sec_settings=sec_settings, **kwargs)
+    return ResNet(
+        sec_settings=sec_settings, num_classes=num_classes, class_type=class_type
+    )

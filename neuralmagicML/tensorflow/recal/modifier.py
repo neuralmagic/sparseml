@@ -16,7 +16,7 @@ from neuralmagicML.tensorflow.utils import tf_compat
 __all__ = [
     "ModifierProp",
     "TENSORFLOW_FRAMEWORK",
-    "TensorflowModifierYAML",
+    "TensorFlowModifierYAML",
     "Modifier",
     "ScheduledModifier",
     "ScheduledUpdateModifier",
@@ -26,7 +26,7 @@ __all__ = [
 TENSORFLOW_FRAMEWORK = "tensorflow"
 
 
-class TensorflowModifierYAML(ModifierYAML):
+class TensorFlowModifierYAML(ModifierYAML):
     """
     A decorator to handle making a tensorflow modifier class YAML ready.
     IE it can be loaded in through the yaml plugin easily.

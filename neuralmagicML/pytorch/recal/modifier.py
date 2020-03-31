@@ -16,13 +16,13 @@ from neuralmagicML.recal import (
     BaseScheduled,
     BaseUpdate,
 )
-from neuralmagicML.pytorch.utils import PytorchLogger
+from neuralmagicML.pytorch.utils import PyTorchLogger
 
 
 __all__ = [
     "ModifierProp",
     "PYTORCH_FRAMEWORK",
-    "PytorchModifierYAML",
+    "PyTorchModifierYAML",
     "Modifier",
     "ScheduledModifier",
     "ScheduledUpdateModifier",
@@ -32,7 +32,7 @@ __all__ = [
 PYTORCH_FRAMEWORK = "pytorch"
 
 
-class PytorchModifierYAML(ModifierYAML):
+class PyTorchModifierYAML(ModifierYAML):
     """
     A decorator to handle making a pytorch modifier class YAML ready.
     IE it can be loaded in through the yaml plugin easily.
@@ -107,7 +107,7 @@ class Modifier(BaseModifier):
         """
         self._initialized = True
 
-    def initialize_loggers(self, loggers: Union[None, List[PytorchLogger]]):
+    def initialize_loggers(self, loggers: Union[None, List[PyTorchLogger]]):
         """
         :param loggers: the loggers to setup this modifier with for logging important info and milestones to
         """

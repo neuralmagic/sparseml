@@ -1,8 +1,12 @@
+"""
+Code related to model repo selection display in a jupyter notebook using ipywidgets
+"""
+
 from typing import List, Union
 import ipywidgets as widgets
 
 from neuralmagicML.utils import available_models, filter_model, RepoModel
-from neuralmagicML.nbutils.helpers import format_html
+from neuralmagicML.utilsnb.helpers import format_html
 
 
 __all__ = ["ModelSelectWidgetContainer"]
@@ -238,12 +242,11 @@ class _ModelsWidget(object):
 class ModelSelectWidgetContainer(object):
     """
     Widget used in model repo notebooks for selecting a model for download
+
+    :param forced_framework: if provided, will force all models to be of this framework
     """
 
     def __init__(self, forced_framework: str = None):
-        """
-        :param forced_framework: if provided, will force all models to be of this framework
-        """
         self._models = available_models()
         self._models_widget = _ModelsWidget(forced_framework)
         self._filter_widget = _FilterWidget(self._models)
