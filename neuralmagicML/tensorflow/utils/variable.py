@@ -21,13 +21,13 @@ def get_op_var_index(var_index: Union[str, int], op_inputs: ListView) -> int:
     Get the index of the variable input to an operation.
     Ex: getting the index of the weight for a convolutional operator.
 
-    There are a few different modes that this can work as for var_index value:
-    - int given, treats this as the desired index of the weight
-    - string given equal to VAR_INDEX_FROM_TRAINABLE, picks the most likely input based on
-      finding the first trainable variable that is an input. Defaults to the last input
-      (all convs have input as last and most matmuls)
-    - string given, attempts to match the string in any of the inputs name.
-      Uses the first one found, raises an exception if one couldn't be found
+    | There are a few different modes that this can work as for var_index value:
+    |   - int given, treats this as the desired index of the weight
+    |   - string given equal to VAR_INDEX_FROM_TRAINABLE, picks the most likely input
+    |     based on finding the first trainable variable that is an input.
+    |     Defaults to the last input (all convs have input as last and most matmuls)
+    |   - string given, attempts to match the string in any of the inputs name.
+    |     Uses the first one found, raises an exception if one couldn't be found
 
     :param var_index: the index to use for figuring out the proper input
     :param op_inputs: inputs to the operator from graph editor
@@ -42,7 +42,8 @@ def get_op_var_index(var_index: Union[str, int], op_inputs: ListView) -> int:
 
     # check through trainable vars for best fit
     if var_index == "from_trainable":
-        # default to last as this is where tf by default is configured to put the weight variables
+        # default to last as this is where tf by default is configured
+        # to put the weight variables
         weight_index = len(op_inputs) - 1
         trainable_vars = [var.name for var in tf_compat.trainable_variables()]
 
@@ -65,7 +66,8 @@ def get_op_var_index(var_index: Union[str, int], op_inputs: ListView) -> int:
 def get_var_name(var_tens: tf_compat.Tensor) -> str:
     """
     :param var_tens: the tensor to get a variable for
-    :return: the cleaned version of the name for a variable tensor (removes read at the end)
+    :return: the cleaned version of the name for a variable tensor
+        (removes read at the end)
     """
     # remove the 'read' name, if present in the variable
     return re.sub(r"/read:[0-9]+$", "", var_tens.name)
@@ -77,8 +79,8 @@ def get_op_input_var(
 ) -> tf_compat.Tensor:
     """
     Get the input variable for an operation.
-    Ex: the weight for a conv operator
-    See @get_op_var_index for proper values for var_index
+    Ex: the weight for a conv operator.
+    See @get_op_var_index for proper values for var_index.
 
     :param operation: the operation to get the input variable for
     :param var_index: the index to guide which input to grab from the operation

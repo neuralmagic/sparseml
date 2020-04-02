@@ -1,5 +1,5 @@
 """
-generic code related to sensitivity analysis
+Generic code related to sensitivity analysis.
 """
 
 from typing import Tuple, List, Dict, Any, Union
@@ -16,12 +16,19 @@ __all__ = [
     "KSLossSensitivityResult",
     "KSLossSensitivityAnalysis",
     "KSLossSensitivityProgress",
+    "LRLossSensitivityProgress",
 ]
 
 
 class KSLossSensitivityResult(object):
     """
     Sensitivity results for a module's (layer) param
+
+    :param name: name of the module or layer in the parent
+    :param param_name: name of the param that was analyzed
+    :param type_: type of layer; ex: conv, linear, etc
+    :param measured: the measured results, a list of tuples ordered as follows
+        [(sparsity, loss)]
     """
 
     def __init__(
@@ -31,12 +38,6 @@ class KSLossSensitivityResult(object):
         type_: str,
         measured: List[Tuple[float, float]] = None,
     ):
-        """
-        :param name: name of the module or layer in the parent
-        :param param_name: name of the param that was analyzed
-        :param type_: type of layer; ex: conv, linear, etc
-        :param measured: the measured results, a list of tuples ordered as follows [(sparsity, loss)]
-        """
         self.name = name
         self.param_name = param_name
         self.type_ = type_
@@ -48,8 +49,9 @@ class KSLossSensitivityResult(object):
     @property
     def integral(self) -> float:
         """
-        :return: calculate the approximated integral for the sensitivity using the measured results
-                 returns the approximated area under the sparsity vs loss curve
+        :return: calculate the approximated integral for the sensitivity using the
+            measured results. returns the approximated area under the
+            sparsity vs loss curve
         """
         total = 0.0
         total_dist = 0.0
@@ -157,7 +159,8 @@ class KSLossSensitivityAnalysis(object):
 
     def save_json(self, path: str):
         """
-        :param path: the path to save the json file at representing the layer sensitivities
+        :param path: the path to save the json file at representing the layer
+            sensitivities
         """
         if not path.endswith(".json"):
             path += ".json"
@@ -172,7 +175,8 @@ class KSLossSensitivityAnalysis(object):
         self, path: Union[str, None], normalize: bool = True, title: str = None,
     ) -> Union[Tuple[plt.Figure, plt.Axes], Tuple[None, None]]:
         """
-        :param path: the path to save an img version of the chart, None to display the plot
+        :param path: the path to save an img version of the chart,
+            None to display the plot
         :param normalize: normalize the values to a unit distribution (0 mean, 1 std)
         :param title: the title to put on the chart
         :return: the created figure and axes if path is None, otherwise (None, None)
@@ -216,12 +220,24 @@ class KSLossSensitivityAnalysis(object):
 class KSLossSensitivityProgress(object):
     """
     Simple class for tracking the progress of a sensitivity analysis
+
+    :param layer_index: index of the current layer being evaluated, -1 for None
+    :param layer_name: the name of the current layer being evaluated
+    :param layers: a list of the layers that are being evaluated
+    :param sparsity_index: index of the current sparsity level check for the
+        current layer, -1 for None
+    :param sparsity_levels: the sparsity levels to be checked for the current layer
+    :param measurement_step: the current number of items processed for the
+        measurement on the layer and sparsity lev
+    :param samples_per_measurement: number of items to be processed for each
+        layer and sparsity level
     """
 
     @staticmethod
     def standard_update_hook():
         """
-        :return: a hook that will display a tqdm bar for tracking progress of the analysis
+        :return: a hook that will display a tqdm bar for tracking progress
+            of the analysis
         """
         bar = None
         last_layer = None
@@ -271,15 +287,6 @@ class KSLossSensitivityProgress(object):
         measurement_step: int,
         samples_per_measurement: int,
     ):
-        """
-        :param layer_index: index of the current layer being evaluated, -1 for None
-        :param layer_name: the name of the current layer being evaluated
-        :param layers: a list of the layers that are being evaluated
-        :param sparsity_index: index of the current sparsity level check for the current layer, -1 for None
-        :param sparsity_levels: the sparsity levels to be checked for the current layer
-        :param measurement_step: the current number of items processed for the measurement on the layer and sparsity lev
-        :param samples_per_measurement: number of items to be processed for each layer and sparsity level
-        """
         self.layer_index = layer_index
         self.layer_name = layer_name
         self.layers = layers
@@ -290,15 +297,55 @@ class KSLossSensitivityProgress(object):
 
     def __repr__(self):
         return (
-            "{}(layer_index={}, layer_name={}, layers={}, sparsity_index={}, sparsity_levels={},"
-            " measurement_step={}, samples_per_measurement={})".format(
-                self.__class__.__name__,
-                self.layer_index,
-                self.layer_name,
-                self.layers,
-                self.sparsity_index,
-                self.sparsity_levels,
-                self.measurement_step,
-                self.samples_per_measurement,
-            )
+            "{}(layer_index={}, layer_name={}, layers={}, sparsity_index={} ,"
+            "sparsity_levels={}, measurement_step={}, samples_per_measurement={})"
+        ).format(
+            self.__class__.__name__,
+            self.layer_index,
+            self.layer_name,
+            self.layers,
+            self.sparsity_index,
+            self.sparsity_levels,
+            self.measurement_step,
+            self.samples_per_measurement,
+        )
+
+
+class LRLossSensitivityProgress(object):
+    """
+    Simple class for tracking the progress of a sensitivity analysis.
+
+    :param lr_index: the current index of the learning rate being analyzed
+    :param lr: the current learning rate being analyzed
+    :param check_lrs: the list of learning rates to be analyzed in order
+    :param batch: the current batch for the given lr that is being analyzed
+    :param batches_per_measurement: the number of batches to measure per each
+        learning rate
+    """
+
+    def __init__(
+        self,
+        lr_index: int,
+        lr: float,
+        check_lrs: List[float],
+        batch: int,
+        batches_per_measurement: int,
+    ):
+        self.lr_index = lr_index
+        self.lr = lr
+        self.check_lrs = check_lrs
+        self.batch = batch
+        self.batches_per_measurement = batches_per_measurement
+
+    def __repr__(self):
+        return (
+            "{}(lr_index={}, lr={}, check_lrs={}, batch={},"
+            " batches_per_measurement={})"
+        ).format(
+            self.__class__.__name__,
+            self.lr_index,
+            self.lr,
+            self.check_lrs,
+            self.batch,
+            self.batches_per_measurement,
         )

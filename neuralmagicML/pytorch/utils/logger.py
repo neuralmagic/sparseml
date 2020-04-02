@@ -19,18 +19,17 @@ except:
 from neuralmagicML.utils import create_dirs
 
 
-__all__ = ["PyTorchLogger", "PythonLogger", "TensorboardLogger"]
+__all__ = ["PyTorchLogger", "PythonLogger", "TensorBoardLogger"]
 
 
 class PyTorchLogger(ABC):
     """
-    Base class that all modifier loggers must implement
+    Base class that all modifier loggers must implement.
+
+    :param name: name given to the logger, used for identification
     """
 
     def __init__(self, name: str):
-        """
-        :param name: name given to the logger, used for identification
-        """
         self._name = name
 
     @property
@@ -43,8 +42,8 @@ class PyTorchLogger(ABC):
     @abstractmethod
     def log_hyperparams(self, params: Dict):
         """
-        :param params: Each key-value pair in the dictionary is the name of the hyper parameter and
-                       it's corresponding value.
+        :param params: Each key-value pair in the dictionary is the name of the
+            hyper parameter and it's corresponding value.
         """
         raise NotImplementedError()
 
@@ -93,7 +92,8 @@ class PyTorchLogger(ABC):
         """
         :param tag: identifying tag to log the histogram with
         :param values: values to log as a histogram
-        :param bins: the type of bins to use for grouping the values, follows tensorboard terminology
+        :param bins: the type of bins to use for grouping the values,
+            follows tensorboard terminology
         :param max_bins: maximum number of bins to use (default None)
         :param step: global step for when the values were taken
         :param wall_time: global wall time for when the values were taken
@@ -131,14 +131,14 @@ class PyTorchLogger(ABC):
 
 class PythonLogger(PyTorchLogger):
     """
-    Modifier logger that handles printing values into a python logger instance
+    Modifier logger that handles printing values into a python logger instance.
+
+    :param logger: a logger instance to log to, if None then will create it's own
+    :param name: name given to the logger, used for identification;
+        defaults to python
     """
 
     def __init__(self, logger: Logger = None, name: str = "python"):
-        """
-        :param logger: a logger instance to log to, if None then will create it's own
-        :param name: name given to the logger, used for identification; defaults to python
-        """
         super().__init__(name)
         self._logger = (
             logger if logger is not None else Logger("NeuralMagicModifiersLogger")
@@ -146,8 +146,8 @@ class PythonLogger(PyTorchLogger):
 
     def log_hyperparams(self, params: Dict):
         """
-        :param params: Each key-value pair in the dictionary is the name of the hyper parameter and
-                       it's corresponding value.
+        :param params: Each key-value pair in the dictionary is the name of the
+            hyper parameter and it's corresponding value.
         """
         msg = "{}-HYPERPARAMS:\n".format(self.name) + "\n".join(
             "   {}: {}".format(key, value) for key, value in params.items()
@@ -165,7 +165,8 @@ class PythonLogger(PyTorchLogger):
         :param tag: identifying tag to log the value with
         :param value: value to save
         :param step: global step for when the value was taken
-        :param wall_time: global wall time for when the value was taken, defaults to time.time()
+        :param wall_time: global wall time for when the value was taken,
+            defaults to time.time()
         """
         if wall_time is None:
             wall_time = time.time()
@@ -186,7 +187,8 @@ class PythonLogger(PyTorchLogger):
         :param tag: identifying tag to log the values with
         :param values: values to save
         :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken, defaults to time.time()
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
         """
         if wall_time is None:
             wall_time = time.time()
@@ -208,10 +210,12 @@ class PythonLogger(PyTorchLogger):
         """
         :param tag: identifying tag to log the histogram with
         :param values: values to log as a histogram
-        :param bins: the type of bins to use for grouping the values, follows tensorboard terminology
+        :param bins: the type of bins to use for grouping the values,
+            follows tensorboard terminology
         :param max_bins: maximum number of bins to use (default None)
         :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken, defaults to time.time()
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
         """
         if wall_time is None:
             wall_time = time.time()
@@ -244,7 +248,8 @@ class PythonLogger(PyTorchLogger):
         :param bucket_limits: upper value per bucket
         :param bucket_counts: number of values per bucket
         :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken, defaults to time.time()
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
         """
         if wall_time is None:
             wall_time = time.time()
@@ -255,9 +260,18 @@ class PythonLogger(PyTorchLogger):
         self._logger.info(msg)
 
 
-class TensorboardLogger(PyTorchLogger):
+class TensorBoardLogger(PyTorchLogger):
     """
-    Modifier logger that handles outputting values into a tensorboard log directory for viewing in tensorboard
+    Modifier logger that handles outputting values into a TensorBoard log directory
+    for viewing in TensorBoard.
+
+    :param log_path: the path to create a SummaryWriter at. writer must be None
+        to use if not supplied (and writer is None),
+        will create a TensorBoard dir in cwd
+    :param writer: the writer to log results to,
+        if none is given creates a new one at the log_path
+    :param name: name given to the logger, used for identification;
+        defaults to tensorboard
     """
 
     def __init__(
@@ -266,12 +280,6 @@ class TensorboardLogger(PyTorchLogger):
         writer: SummaryWriter = None,
         name: str = "tensorboard",
     ):
-        """
-        :param log_path: the path to create a SummaryWriter at. writer must be None to use
-                         if not supplied (and writer is None), will create a tensorboard dir in cwd
-        :param writer: the writer to log results to, if none is given creates a new one at the log_path
-        :param name: name given to the logger, used for identification; defaults to tensorboard
-        """
         super().__init__(name)
 
         if writer and log_path:
@@ -291,8 +299,8 @@ class TensorboardLogger(PyTorchLogger):
 
     def log_hyperparams(self, params: Dict):
         """
-        :param params: Each key-value pair in the dictionary is the name of the hyper parameter and
-                       it's corresponding value.
+        :param params: Each key-value pair in the dictionary is the name of the
+            hyper parameter and it's corresponding value.
         """
         self._writer.add_hparams(params, {})
 
@@ -307,7 +315,8 @@ class TensorboardLogger(PyTorchLogger):
         :param tag: identifying tag to log the value with
         :param value: value to save
         :param step: global step for when the value was taken
-        :param wall_time: global wall time for when the value was taken, defaults to time.time()
+        :param wall_time: global wall time for when the value was taken,
+            defaults to time.time()
         """
         self._writer.add_scalar(tag, value, step, wall_time)
 
@@ -322,7 +331,8 @@ class TensorboardLogger(PyTorchLogger):
         :param tag: identifying tag to log the values with
         :param values: values to save
         :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken, defaults to time.time()
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
         """
         self._writer.add_scalars(tag, values, step, wall_time)
 
@@ -338,10 +348,12 @@ class TensorboardLogger(PyTorchLogger):
         """
         :param tag: identifying tag to log the histogram with
         :param values: values to log as a histogram
-        :param bins: the type of bins to use for grouping the values, follows tensorboard terminology
+        :param bins: the type of bins to use for grouping the values,
+            follows tensorboard terminology
         :param max_bins: maximum number of bins to use (default None)
         :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken, defaults to time.time()
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
         """
         self._writer.add_histogram(tag, values, step, bins, wall_time, max_bins)
 
@@ -368,7 +380,8 @@ class TensorboardLogger(PyTorchLogger):
         :param bucket_limits: upper value per bucket
         :param bucket_counts: number of values per bucket
         :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken, defaults to time.time()
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
         """
         self._writer.add_histogram_raw(
             tag,

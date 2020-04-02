@@ -1,3 +1,7 @@
+"""
+Sensitivity analysis implementations for learning rate on Modules against loss funcs.
+"""
+
 from typing import List, Tuple, Callable, Dict, Any, Union
 from collections import OrderedDict
 import json
@@ -9,6 +13,7 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.hooks import RemovableHandle
 
+from neuralmagicML.recal import LRLossSensitivityProgress
 from neuralmagicML.utils import (
     clean_path,
     create_parent_dirs,
@@ -23,7 +28,7 @@ from neuralmagicML.pytorch.utils import (
 )
 
 
-__all__ = ["LRSensitivityProgress", "ModuleLRSensitivityAnalysis"]
+__all__ = ["ModuleLRSensitivityAnalysis"]
 
 
 def _measured_data_loader(data_loader: DataLoader, num_yields: int):
@@ -37,46 +42,14 @@ def _measured_data_loader(data_loader: DataLoader, num_yields: int):
                 return
 
 
-class LRSensitivityProgress(object):
-    """
-    Simple class for tracking the progress of a sensitivity analysis
-    """
-
-    def __init__(
-        self,
-        lr_index: int,
-        lr: float,
-        check_lrs: List[float],
-        batch: int,
-        batches_per_measurement: int,
-    ):
-        """
-        :param lr_index: the current index of the learning rate being analyzed
-        :param lr: the current learning rate being analyzed
-        :param check_lrs: the list of learning rates to be analyzed in order
-        :param batch: the current batch for the given lr that is being analyzed
-        :param batches_per_measurement: the number of batches to measure per each learning rate
-        """
-        self.lr_index = lr_index
-        self.lr = lr
-        self.check_lrs = check_lrs
-        self.batch = batch
-        self.batches_per_measurement = batches_per_measurement
-
-    def __repr__(self):
-        return "{}(lr_index={}, lr={}, check_lrs={}, batch={}, batches_per_measurement={})".format(
-            self.__class__.__name__,
-            self.lr_index,
-            self.lr,
-            self.check_lrs,
-            self.batch,
-            self.batches_per_measurement,
-        )
-
-
 class ModuleLRSensitivityAnalysis(object):
     """
-    Class for handling running sensitivity analysis for learning rates on modules
+    Class for handling running sensitivity analysis for learning rates on modules.
+
+    :param module: the module to run the learning rate sensitivity analysis over
+    :param data: the data to run through the module for calculating
+        the sensitivity analysis
+    :param loss_fn: the loss function to use for the sensitivity analysis
     """
 
     @staticmethod
@@ -114,9 +87,12 @@ class ModuleLRSensitivityAnalysis(object):
     ) -> Union[Tuple[plt.Figure, plt.Axes], Tuple[None, None]]:
         """
         :param sensitivities: the learning rate sensitivities to plot
-        :param path: the path for where to save the plot, if not supplied will display it
-        :param plot_loss_key: the loss key to use for plotting, defaults to DEFAULT_LOSS_KEY
-        :param title: the title of the plot to apply, defaults to '{plot_loss_key} LR Sensitivity'
+        :param path: the path for where to save the plot,
+            if not supplied will display it
+        :param plot_loss_key: the loss key to use for plotting,
+            defaults to DEFAULT_LOSS_KEY
+        :param title: the title of the plot to apply,
+            defaults to '{plot_loss_key} LR Sensitivity'
         :return: the figure and axes if the figure was displayed; else None, None
         """
         analysis = [
@@ -158,8 +134,10 @@ class ModuleLRSensitivityAnalysis(object):
         """
         :param init_lr: the initial learning rate in the returned list
         :param final_lr: the final learning rate in the returned list
-        :param lr_mult: the multiplier increase for each step between init_lr and final_lr
-        :return: the list of created lrs that increase exponentially between init_lr and final_lr according to lr_mult
+        :param lr_mult: the multiplier increase for each step between
+            init_lr and final_lr
+        :return: the list of created lrs that increase exponentially between
+            init_lr and final_lr according to lr_mult
         """
         check_lrs = [init_lr]
 
@@ -173,7 +151,8 @@ class ModuleLRSensitivityAnalysis(object):
     def __init__(self, module: Module, data: Dataset, loss_fn: LossWrapper):
         """
         :param module: the module to run the learning rate sensitivity analysis over
-        :param data: the data to run through the module for calculating the sensitivity analysis
+        :param data: the data to run through the module for calculating
+            the sensitivity analysis
         :param loss_fn: the loss function to use for the sensitivity analysis
         """
         self._module = module
@@ -182,7 +161,7 @@ class ModuleLRSensitivityAnalysis(object):
         self._progress_hooks = OrderedDict()
 
     def register_progress_hook(
-        self, hook: Callable[[LRSensitivityProgress], None]
+        self, hook: Callable[[LRLossSensitivityProgress], None]
     ) -> RemovableHandle:
         """
         :param hook: the hook to be called after each progress event
@@ -207,14 +186,19 @@ class ModuleLRSensitivityAnalysis(object):
         """
         :param device: the device to run the analysis on; ex: cpu, cuda, cuda:0,1
         :param batch_size: the batch size to run through them model for the analysis
-        :param batches_per_measurement: the number of batches to run through for the analysis at each LR
-        :param check_lrs: the learning rates to check for analysis (will sort them small to large before running)
-        :param sgd_args: any args to add to the SGD optimizer that will be created for analysis
+        :param batches_per_measurement: the number of batches to run through for
+            the analysis at each LR
+        :param check_lrs: the learning rates to check for analysis
+            (will sort them small to large before running)
+        :param sgd_args: any args to add to the SGD optimizer that
+            will be created for analysis
         :param loader_args: any args to add to the DataLoader
-        :param data_loader_const: a data loader constructor to create the data loader with, default is DataLoader
+        :param data_loader_const: a data loader constructor to create
+            the data loader with, default is DataLoader
         :param trainer_run_funcs: override functions for ModuleTrainer class
-        :return: a list of tuples containing the analyzed learning rate at 0 and the ModuleRunResults in 1,
-                 ModuleRunResults being a collection of all the batch results run through the module at that LR
+        :return: a list of tuples containing the analyzed learning rate at 0
+            and the ModuleRunResults in 1, ModuleRunResults being a collection
+            of all the batch results run through the module at that LR
         """
         if loader_args is None:
             loader_args = {}
@@ -233,7 +217,7 @@ class ModuleLRSensitivityAnalysis(object):
         optim = SGD(module.parameters(), lr=1.0, **sgd_args)
         results = []  # type: List[Tuple[float, ModuleRunResults]]
 
-        progress = LRSensitivityProgress(
+        progress = LRLossSensitivityProgress(
             lr_index=-1,
             lr=-1,
             check_lrs=check_lrs,
@@ -284,6 +268,6 @@ class ModuleLRSensitivityAnalysis(object):
 
         return results
 
-    def _invoke_progress_hooks(self, progress: LRSensitivityProgress):
+    def _invoke_progress_hooks(self, progress: LRLossSensitivityProgress):
         for hook in self._progress_hooks.values():
             hook(progress)

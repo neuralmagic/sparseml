@@ -9,7 +9,7 @@ import shutil
 import os
 import multiprocessing
 
-from neuralmagicML.pytorch.utils.worker import ParallelWorker
+from neuralmagicML.utils.worker import ParallelWorker
 
 
 __all__ = ["DownloadResult", "MultiDownloader"]
@@ -18,14 +18,13 @@ __all__ = ["DownloadResult", "MultiDownloader"]
 class DownloadResult(object):
     """
     A file result from a download
+
+    :param id_: unique id for the file
+    :param source: source url the file was downloaded from
+    :param dest: destination path the file was downloaded to
     """
 
     def __init__(self, id_: str, source: str, dest: str):
-        """
-        :param id_: unique id for the file
-        :param source: source url the file was downloaded from
-        :param dest: destination path the file was downloaded to
-        """
         self.id_ = id_
         self.source = source
         self.dest = dest
@@ -47,12 +46,16 @@ class MultiDownloader(object):
         num_retries: int = 3,
     ):
         """
-        :param source_dests: A list of tuples containing info for downloading the files, tuple is expected to be
-                             of the form: (unique_id, source url, destination path)
-        :param downloaded_callback: a callback function to be called after a download has happened in a worker
-                                    for any additional work needed before the file is completed
-        :param num_workers: number of workers to download files, if < 1 scales to 2x the core count for the machine
-        :param overwrite_files: True to overwrite previous files in the destination, False otherwise
+        :param source_dests: A list of tuples containing info for downloading the files,
+            tuple is expected to be of the form:
+            (unique_id, source url, destination path)
+        :param downloaded_callback: a callback function to be called after a download
+            has happened in a worker for any additional work needed before the file is
+            completed
+        :param num_workers: number of workers to download files,
+            if < 1 scales to 2x the core count for the machine
+        :param overwrite_files: True to overwrite previous files in the destination,
+            False otherwise
         :param num_retries: number of times to retry downloads for workers
         """
         if num_workers < 1:
@@ -84,7 +87,7 @@ class MultiDownloader(object):
         res = DownloadResult(*val)
 
         try:
-            for _ in MultiDownloader.download(
+            for _ in MultiDownloader._download(
                 res.source, res.dest, self._overwrite_files, self._num_retries
             ):
                 pass
@@ -101,7 +104,7 @@ class MultiDownloader(object):
         return res
 
     @staticmethod
-    def download(
+    def _download(
         url_path: str, dest_path: str, overwrite: bool = False, num_retries: int = 3
     ) -> Iterator[float]:
         for _ in range(num_retries):

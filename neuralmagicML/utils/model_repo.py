@@ -1,3 +1,7 @@
+"""
+Code for downloading models from the Neural Magic Repository
+"""
+
 from typing import List, Union
 import os
 import json

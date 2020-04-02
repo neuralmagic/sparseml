@@ -1,5 +1,6 @@
 """
-Contains base code related to modifier managers: modifier managers handle grouping modifiers and running them together
+Contains base code related to modifier managers: modifier managers handle
+grouping modifiers and running them together.
 Also handles loading modifiers from yaml files
 """
 
@@ -21,25 +22,28 @@ class ScheduledModifierManager(BaseManager, Modifier):
     """
     The base modifier manager, handles managing multiple ScheduledModifers.
 
-    Lifecycle:
-        - initialize
-        - initialize_loggers
+    | Lifecycle:
+    |   - initialize
+    |   - initialize_loggers
+    |
+    |   training loop:
+    |       - update_ready
+    |           - scheduled_update
+    |               - update
+    |       - scheduled_log_update
+    |           - log_update
+    |       - loss_update
+    |       - optimizer_pre_step
+    |       - optimizer_post_step
 
-        training loop:
-            - update_ready
-                - scheduled_update
-                    - update
-            - scheduled_log_update
-                - log_update
-            - loss_update
-            - optimizer_pre_step
-            - optimizer_post_step
+    :param modifiers: the modifiers to wrap
     """
 
     @staticmethod
     def from_yaml(file_path: str):
         """
-        Convenience function used to create the manager of multiple modifiers from a yaml file
+        Convenience function used to create the manager of multiple modifiers from a
+        yaml file.
 
         :param file_path: the path to the yaml file to load the modifier from
         :return: ScheduledModifierManager() created from the yaml file
@@ -53,11 +57,6 @@ class ScheduledModifierManager(BaseManager, Modifier):
         return manager
 
     def __init__(self, modifiers: List[ScheduledModifier]):
-        """
-        Convenience wrapper around multiple scheduled modifiers
-
-        :param modifiers: the modifiers to wrap
-        """
         super().__init__(modifiers=modifiers)
 
     def save(self, file_path: str):
@@ -88,7 +87,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
         Handles initializing and setting up the loggers for the contained modifiers
         Called once on construction of the scheduled optimizer
 
-        :param loggers: the loggers to setup this modifier with for logging important info and milestones to
+        :param loggers: the loggers to setup this modifier with for logging important
+            info and milestones to
         """
         super().initialize_loggers(loggers)
 
@@ -105,7 +105,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
 
@@ -127,13 +128,15 @@ class ScheduledModifierManager(BaseManager, Modifier):
         steps_per_epoch: int,
     ) -> Tensor:
         """
-        Optional call that can be made on the optimizer to update the contained modifiers once loss has been calculated
+        Optional call that can be made on the optimizer to update the contained
+        modifiers once loss has been calculated
 
         :param loss: The calculated loss tensor
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         :return: the modified loss tensor
         """
         super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
@@ -150,13 +153,15 @@ class ScheduledModifierManager(BaseManager, Modifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Called before the optimizer step happens (after backward has been called, before optimizer.step)
+        Called before the optimizer step happens (after backward has been called,
+        before optimizer.step)
         Calls into the contained modifiers
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
 
@@ -176,7 +181,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 

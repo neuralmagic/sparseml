@@ -1,3 +1,7 @@
+"""
+General code for parallelizing the workers
+"""
+
 from typing import List, Iterator, Any, Callable
 from queue import Queue, Empty, Full
 from threading import Thread
@@ -8,6 +12,16 @@ __all__ = ["ParallelWorker"]
 
 
 class ParallelWorker(object):
+    """
+    Multi threading worker to parallelize tasks
+
+    :param worker_func: the function to parallelize across multiple tasks
+    :param num_workers: number of workers to use
+    :param indefinite: True to keep the thread pooling running so that
+        more tasks can be added, False to stop after no more tasks are added
+    :param max_source_size: the maximum size for the source queue
+    """
+
     def __init__(
         self,
         worker_func: Callable,
@@ -47,16 +61,27 @@ class ParallelWorker(object):
 
     @property
     def indefinite(self) -> bool:
+        """
+        :return: True to keep the thread pooling running so that
+            more tasks can be added, False to stop after no more tasks are added
+        """
         return not self._indefinite.empty()
 
     @indefinite.setter
     def indefinite(self, value: bool):
+        """
+        :param value: True to keep the thread pooling running so that
+            more tasks can be added, False to stop after no more tasks are added
+        """
         if value and self._indefinite.empty():
             self._indefinite.put(True)
         elif not value and not self._indefinite.empty():
             self._indefinite.get()
 
     def start(self):
+        """
+        Start the workers
+        """
         for _ in range(self._num_workers):
             Thread(
                 target=ParallelWorker._worker,
@@ -70,13 +95,22 @@ class ParallelWorker(object):
             ).start()
 
     def shutdown(self):
+        """
+        Stop the workers
+        """
         self._shutdown.put(True)
 
     def add(self, vals: List[Any]):
+        """
+        :param vals: the values to add for processing work
+        """
         self._pending_count += len(vals)
         ParallelWorker._adder(vals, self._source_queue, self._shutdown)
 
     def add_async(self, vals: List[Any]):
+        """
+        :param vals: the values to add for async workers
+        """
         self._pending_count += len(vals)
         Thread(
             target=ParallelWorker._adder,
@@ -84,12 +118,18 @@ class ParallelWorker(object):
         ).start()
 
     def add_async_generator(self, gen: Iterator[Any]):
+        """
+        :param gen: add an async generator to pull values from for processing
+        """
         Thread(
             target=ParallelWorker._gen_adder,
             args=(gen, self._source_queue, self._shutdown, self._indefinite),
         ).start()
 
     def add_item(self, val: Any):
+        """
+        :param val: add a single item for processing
+        """
         self._pending_count += 1
         self._source_queue.put(val)
 
@@ -143,7 +183,8 @@ class ParallelWorker(object):
                     continue
 
         # give some time for everything to complete since we didn't add to pending count
-        # need to architect this better in the future to get rid of the edge case (last items don't complete in 1 sec)
+        # need to architect this better in the future to get rid of
+        # the edge case (last items don't complete in 1 sec)
         while not source_queue.empty():
             time.sleep(0.1)
 

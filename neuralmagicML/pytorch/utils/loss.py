@@ -31,8 +31,13 @@ DEFAULT_LOSS_KEY = "__loss__"
 
 class LossWrapper(object):
     """
-    Generic loss class for controlling how to feed inputs and compare with predictions for
-    standard loss functions and metrics
+    Generic loss class for controlling how to feed inputs and compare
+    with predictions for standard loss functions and metrics.
+
+    :param loss_fn: the loss function to calculate on forward call of this object,
+        accessible in the returned Dict at DEFAULT_LOSS_KEY
+    :param extras: extras representing other metrics that should be calculated
+        in addition to the loss
     """
 
     def __init__(
@@ -40,11 +45,6 @@ class LossWrapper(object):
         loss_fn: Callable[[Any, Any], Tensor],
         extras: Union[None, Dict[str, Callable]] = None,
     ):
-        """
-        :param loss_fn: the loss function to calculate on forward call of this object,
-                        accessible in the returned Dict at DEFAULT_LOSS_KEY
-        :param extras: extras representing other metrics that should be calculated in addition to the loss
-        """
         super(LossWrapper, self).__init__()
         self._loss_fn = loss_fn
         self._extras = extras
@@ -75,7 +75,8 @@ class LossWrapper(object):
     @property
     def available_losses(self) -> Tuple[str, ...]:
         """
-        :return: a collection of all the loss and metrics keys available for this instance
+        :return: a collection of all the loss and metrics keys available
+            for this instance
         """
         return (DEFAULT_LOSS_KEY, *list(self._extras.keys()))
 
@@ -83,8 +84,8 @@ class LossWrapper(object):
         """
         :param data: the input data to the model, expected to contain the labels
         :param pred: the predicted output from the model
-        :return: a dictionary containing all calculated losses and metrics with the loss from the loss_fn at
-                 DEFAULT_LOSS_KEY
+        :return: a dictionary containing all calculated losses and metrics with
+            the loss from the loss_fn at DEFAULT_LOSS_KEY
         """
         calculated = {
             DEFAULT_LOSS_KEY: self.calc_loss(
@@ -105,12 +106,14 @@ class LossWrapper(object):
 
     def get_inputs(self, data: Any, pred: Any, name: str) -> Any:
         """
-        overridable function that is responsible for extracting the inputs to the model from the
-        input data to the model and the output from the model
+        overridable function that is responsible for extracting the inputs to the model
+        from the input data to the model and the output from the model
 
-        :param data: data from a data loader, expected to contain a tuple of (features, labels)
+        :param data: data from a data loader, expected to contain a tuple of
+            (features, labels)
         :param pred: the predicted output from a model
-        :param name: the name of the loss function that is asking for the information for calculation
+        :param name: the name of the loss function that is asking for the information
+            for calculation
         :return: the input data for the model
         """
         if isinstance(data, Tensor):
@@ -126,11 +129,14 @@ class LossWrapper(object):
 
     def get_preds(self, data: Any, pred: Any, name: str) -> Any:
         """
-        overridable function that is responsible for extracting the predictions from a model's output
+        overridable function that is responsible for extracting the predictions
+        from a model's output
 
         :param data: data from a data loader
-        :param pred: the prediction from the model, if it is a tensor returns this, if it is an iterable returns first
-        :param name: the name of the loss function that is asking for the information for calculation
+        :param pred: the prediction from the model, if it is a tensor returns this,
+            if it is an iterable returns first
+        :param name: the name of the loss function that is asking for the
+            information for calculation
         :return: the predictions from the model for the loss function
         """
         if isinstance(pred, Tensor):
@@ -147,12 +153,14 @@ class LossWrapper(object):
 
     def get_labels(self, data: Any, pred: Any, name: str) -> Any:
         """
-        overridable function that is responsible for extracting the labels for the loss calculation from the
-        input data to the model
+        overridable function that is responsible for extracting the labels
+        for the loss calculation from the input data to the model
 
-        :param data: data from a data loader, expected to contain a tuple of (features, labels)
+        :param data: data from a data loader, expected to contain a tuple of
+            (features, labels)
         :param pred: the predicted output from a model
-        :param name: the name of the loss function that is asking for the information for calculation
+        :param name: the name of the loss function that is asking for the
+            information for calculation
         :return: the label for the data
         """
         if isinstance(data, Iterable) and not isinstance(data, Tensor):
@@ -170,7 +178,8 @@ class LossWrapper(object):
 
     def calc_loss(self, inputs: Any, preds: Any, labels: Any) -> Tensor:
         """
-        overridable function to calculate the default loss function for training the model
+        overridable function to calculate the default loss function
+        for training the model
 
         :param inputs: the inputs to the model, taken from get_inputs
         :param preds: the predictions from the model, taken from get_preds
@@ -182,7 +191,17 @@ class LossWrapper(object):
 
 class KDSettings(object):
     """
-    properties class for settings for applying knowledge distillation as part of the loss calculation
+    properties class for settings for applying knowledge distillation as
+    part of the loss calculation.
+
+    :param teacher: the teacher that provides targets for the student to learn from
+    :param temp_student: temperature coefficient for the student
+    :param temp_teacher: temperature coefficient for the teacher
+    :param weight: the weight for how much of the kd loss to use in proportion
+        with the original loss
+    :param contradict_hinton: in hinton's original paper they included T^2
+        as a scaling factor some implementations dropped this factor
+        so contradicting hinton does not scale by T^2
     """
 
     def __init__(
@@ -193,14 +212,6 @@ class KDSettings(object):
         weight: float = 0.5,
         contradict_hinton: bool = False,
     ):
-        """
-        :param teacher: the teacher that provides targets for the student to learn from
-        :param temp_student: temperature coefficient for the student
-        :param temp_teacher: temperature coefficient for the teacher
-        :param weight: the weight for how much of the kd loss to use in proportion with the original loss
-        :param contradict_hinton: in hinton's original paper they included T^2 as a scaling factor
-                                  some implementations dropped this factor so contradicting hinton does not scale by T^2
-        """
         self._teacher = teacher
         self._temp_student = temp_student
         self._temp_teacher = temp_teacher
@@ -231,7 +242,8 @@ class KDSettings(object):
     @property
     def weight(self) -> float:
         """
-        :return: the weight for how much of the kd loss to use in proportion with the original loss
+        :return: the weight for how much of the kd loss to use in proportion
+            with the original loss
         """
         return self._weight
 
@@ -239,15 +251,24 @@ class KDSettings(object):
     def contradict_hinton(self) -> bool:
         """
         :return: in hinton's original paper they included T^2 as a scaling factor
-                 some implementations dropped this factor so contradicting hinton does not scale by T^2
+            some implementations dropped this factor so contradicting hinton
+            does not scale by T^2
         """
         return self._contradict_hinton
 
 
 class KDLossWrapper(LossWrapper):
     """
-    Special case of the loss wrapper that allows knowledge distillation
-    Makes some assumptions specifically for image classification tasks, so may not work out of the box for everything
+    Special case of the loss wrapper that allows knowledge distillation.
+    Makes some assumptions specifically for image classification tasks,
+    so may not work out of the box for everything.
+
+    :param loss_fn: the loss function to calculate on forward call of this object,
+        accessible in the returned Dict at DEFAULT_LOSS_KEY
+    :param extras: extras representing other metrics that should be
+        calculated in addition to the loss
+    :param kd_settings: the knowledge distillation settings that guide
+        how to calculate the total loss
     """
 
     def __init__(
@@ -256,24 +277,19 @@ class KDLossWrapper(LossWrapper):
         extras: Union[None, Dict[str, Callable]] = None,
         kd_settings: Union[None, KDSettings] = None,
     ):
-        """
-        :param loss_fn: the loss function to calculate on forward call of this object,
-                        accessible in the returned Dict at DEFAULT_LOSS_KEY
-        :param extras: extras representing other metrics that should be calculated in addition to the loss
-        :param kd_settings: the knowledge distillation settings that guide how to calculate the total loss
-        """
         super(KDLossWrapper, self).__init__(loss_fn, extras)
         self._kd_settings = kd_settings  # type: KDSettings
 
     def calc_loss(self, inputs: Any, preds: Any, labels: Any) -> Tensor:
         """
-        override to calculate the knowledge distillation loss if kd_settings is supplied and not None
+        override to calculate the knowledge distillation loss if kd_settings
+        is supplied and not None
 
         :param inputs: the inputs to the model, taken from get_inputs
         :param preds: the predictions from the model, taken from get_preds
         :param labels: the labels for the data, taken from get_labels
-        :return: the resulting calculated loss from the default loss_fn combined with the distillation loss if
-                 kd_settings is not None
+        :return: the resulting calculated loss from the default loss_fn combined
+            with the distillation loss if kd_settings is not None
         """
         loss = super().calc_loss(inputs, preds, labels)
 
@@ -310,7 +326,12 @@ class KDLossWrapper(LossWrapper):
 class BinaryCrossEntropyLossWrapper(KDLossWrapper):
     """
     Convenience class for doing binary cross entropy loss calculations,
-    ie the default loss function is TF.binary_cross_entropy_with_logits
+    ie the default loss function is TF.binary_cross_entropy_with_logits.
+
+    :param extras: extras representing other metrics that should be calculated
+        in addition to the loss
+    :param kd_settings: the knowledge distillation settings that guide how to calculate
+        the total loss if knowledge distillation is desired to be used
     """
 
     def __init__(
@@ -318,11 +339,6 @@ class BinaryCrossEntropyLossWrapper(KDLossWrapper):
         extras: Union[None, Dict] = None,
         kd_settings: Union[None, KDSettings] = None,
     ):
-        """
-        :param extras: extras representing other metrics that should be calculated in addition to the loss
-        :param kd_settings: the knowledge distillation settings that guide how to calculate the total loss if
-                            knowledge distillation is desired to be used
-        """
         super(BinaryCrossEntropyLossWrapper, self).__init__(
             TF.binary_cross_entropy_with_logits, extras, kd_settings
         )
@@ -331,7 +347,12 @@ class BinaryCrossEntropyLossWrapper(KDLossWrapper):
 class CrossEntropyLossWrapper(KDLossWrapper):
     """
     Convenience class for doing cross entropy loss calculations,
-    ie the default loss function is TF.cross_entropy
+    ie the default loss function is TF.cross_entropy.
+
+    :param extras: extras representing other metrics that should be calculated
+        in addition to the loss
+    :param kd_settings: the knowledge distillation settings that guide how
+        to calculate the total loss if knowledge distillation is desired to be used
     """
 
     def __init__(
@@ -339,11 +360,6 @@ class CrossEntropyLossWrapper(KDLossWrapper):
         extras: Union[None, Dict] = None,
         kd_settings: Union[None, KDSettings] = None,
     ):
-        """
-        :param extras: extras representing other metrics that should be calculated in addition to the loss
-        :param kd_settings: the knowledge distillation settings that guide how to calculate the total loss if
-                            knowledge distillation is desired to be used
-        """
         super(CrossEntropyLossWrapper, self).__init__(
             TF.cross_entropy, extras, kd_settings
         )
@@ -351,9 +367,10 @@ class CrossEntropyLossWrapper(KDLossWrapper):
 
 class Accuracy(Module):
     """
-    Class for calculating the accuracy for a given prediction and the labels for comparison
+    Class for calculating the accuracy for a given prediction and the labels
+    for comparison.
     Expects the inputs to be from a range of 0 to 1 and sets a crossing threshold at 0.5
-    the labels are similarly rounded
+    the labels are similarly rounded.
     """
 
     def forward(self, pred: Tensor, lab: Tensor) -> Tensor:
@@ -382,14 +399,13 @@ class Accuracy(Module):
 
 class TopKAccuracy(Module):
     """
-    Class for calculating the top k accuracy for a given prediction and the labels for comparison;
-    ie the top1 or top5 accuracy. top1 is equivalent to the Accuracy class
+    Class for calculating the top k accuracy for a given prediction and the labels for
+    comparison; ie the top1 or top5 accuracy. top1 is equivalent to the Accuracy class
+
+    :param topk: the numbers of buckets the model is considered to be correct within
     """
 
     def __init__(self, topk: int = 1):
-        """
-        :param topk: the numbers of buckets the model is considered to be correct within
-        """
         super(TopKAccuracy, self).__init__()
         self._topk = topk
 

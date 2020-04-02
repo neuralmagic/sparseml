@@ -1,3 +1,9 @@
+"""
+Implementations for Squeeze Excite in PyTorch.
+More information can be found in the paper
+`here <https://arxiv.org/abs/1709.01507>`__.
+"""
+
 from collections import OrderedDict
 
 from torch import Tensor
@@ -10,6 +16,15 @@ __all__ = ["SqueezeExcite"]
 
 
 class SqueezeExcite(Module):
+    """
+    Standard implementation for SqueezeExcite in PyTorch
+
+    :param expanded_channels: the number of channels to expand to in the SE layer
+    :param squeezed_channels: the number of channels to squeeze down to in the SE layer
+    :param act_type: the activation type to use in the SE layer; options:
+        [relu, relu6, prelu, lrelu, swish]
+    """
+
     def __init__(
         self, expanded_channels: int, squeezed_channels: int, act_type: str = "relu"
     ):

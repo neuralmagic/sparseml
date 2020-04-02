@@ -1,3 +1,7 @@
+"""
+ML framework tokens
+"""
+
 __all__ = [
     "ONNX_FRAMEWORK",
     "KERAS_FRAMEWORK",

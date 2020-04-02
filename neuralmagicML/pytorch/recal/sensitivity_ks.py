@@ -1,5 +1,5 @@
 """
-code related to calculating kernel sparsity sensitivity analysis for models
+Sensitivity analysis implementations for kernel sparsity on Modules against loss funcs.
 """
 
 from typing import List, Callable, Dict, Any, Union
@@ -21,8 +21,7 @@ from neuralmagicML.pytorch.utils import (
     get_prunable_layers,
     model_to_device,
 )
-from neuralmagicML.pytorch.utils.module_analyzer import ModuleAnalyzer
-from neuralmagicML.pytorch.recal.kernel.mask import ModuleParamKSMask
+from neuralmagicML.pytorch.recal.mask_ks import ModuleParamKSMask
 
 
 __all__ = [
@@ -45,25 +44,32 @@ def one_shot_ks_loss_sensitivity(
     progress_hook: Union[Callable, None] = None,
 ) -> KSLossSensitivityAnalysis:
     """
-    Run a one shot sensitivity analysis for kernel sparsity
+    Run a one shot sensitivity analysis for kernel sparsity.
     It does not retrain, and instead puts the model to eval mode.
-    Moves layer by layer to calculate the sensitivity analysis for each and resets the previously run layers.
+    Moves layer by layer to calculate the sensitivity analysis for each and
+    resets the previously run layers.
     Note, by default it caches the data.
     This means it is not parallel for data loading and the first run can take longer.
     Subsequent sparsity checks for layers and levels will be much faster.
 
     :param module: the module to run the kernel sparsity sensitivity analysis over
                        will extract all prunable layers out
-    :param data: the data to run through the module for calculating the sensitivity analysis
+    :param data: the data to run through the module for calculating the sensitivity
+        analysis
     :param loss_fn: the loss function to use for the sensitivity analysis
     :param device: the device to run the analysis on; ex: cpu, cuda, cuda:0,1
     :param batch_size: the batch size to run through the model in eval mode
-    :param samples_per_measurement: the number of samples or items to take for each measurement at each sparsity lev
-    :param sparsity_levels: the sparsity levels to check for each layer to calculate sensitivity
+    :param samples_per_measurement: the number of samples or items to take for each
+        measurement at each sparsity lev
+    :param sparsity_levels: the sparsity levels to check for each layer to calculate
+        sensitivity
     :param cache_data: True to cache the data in CPU RAM instead of reloading from disk
-                       False to not cache. Note, num_workers must be 0 for this to work, so first load is slow
-    :param loader_args: the arguments to supply to the DataLoader other than the dataset and batch size
-    :param data_loader_const: the constructor used to create a DataLoader instance, defaults to the regular pytorch
+        False to not cache.
+        Note, num_workers must be 0 for this to work, so first load is slow
+    :param loader_args: the arguments to supply to the DataLoader other than the
+        dataset and batch size
+    :param data_loader_const: the constructor used to create a DataLoader instance,
+        defaults to the regular PyTorch constructor
     :param tester_run_funcs: override functions to use in the ModuleTester that runs
     :param progress_hook: a hook to handle reporting progress updates to
     :return: the sensitivity results for every layer that is prunable
@@ -92,7 +98,6 @@ def one_shot_ks_loss_sensitivity(
         progress_hook = KSLossSensitivityProgress.standard_update_hook()
 
     module, device, device_ids = model_to_device(module, device)
-    analyzer = ModuleAnalyzer(module, enabled=True)
     device_str = (
         device
         if device_ids is None or len(device_ids) < 2
@@ -114,7 +119,6 @@ def one_shot_ks_loss_sensitivity(
         _epoch: int, _step: int, _batch_size: int, _data: Any, _pred: Any, _losses: Any,
     ):
         progress.measurement_step = _step
-        analyzer.enabled = False
         if progress_hook:
             progress_hook(progress)
 
@@ -156,9 +160,10 @@ def one_shot_ks_loss_sensitivity(
         mask.reset()
         del mask
 
-        desc = analyzer.layer_desc(name)
         analysis.results.append(
-            KSLossSensitivityResult(name, "weight", desc.type_, sparsities_loss)
+            KSLossSensitivityResult(
+                name, "weight", layer.__class__.__name__, sparsities_loss
+            )
         )
 
     batch_end_hook.remove()

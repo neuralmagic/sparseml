@@ -1,6 +1,6 @@
 """
 Code related to modifiers that is shared across frameworks.
-Modifiers allow modifying the training process of a model; ex to create sparsity.
+Modifiers allow modifying the training process of a model; ex to perform model pruning.
 """
 
 from abc import ABC, abstractmethod
@@ -73,8 +73,22 @@ class ModifierProp(BaseProp):
     """
     Property used to decorate a modifier.
     Use for creating getters and setters in a modifier.
-    Handles making sure props cannot be changed after a certain point; ex after initialized.
-    Also, marks the properties so they can be easily collected and serialized later
+    Handles making sure props cannot be changed after a certain point;
+    ex after initialized.
+    Also, marks the properties so they can be easily collected and serialized later.
+
+    :param serializable: True if the property should be serialized (ex in yaml),
+        False otherwise. Default True
+    :param restrict_initialized: True to keep the property from being set after
+        initialized, False otherwise. Default True
+    :param restrict_enabled: True to keep the property from being set after enabled,
+        False otherwise. Default False
+    :param restrict_extras: extra attributes to check, if any are truthy then keep
+        from being set. Default None
+    :param no_serialize_val: If prop is equal to this value, will not serialize the prop
+    :param func_get: The function getter
+    :param func_set: The function setter
+    :param doc: The docs function
     """
 
     def __init__(
@@ -88,20 +102,6 @@ class ModifierProp(BaseProp):
         func_set: Callable = None,
         doc: Callable = None,
     ):
-        """
-        :param serializable: True if the property should be serialized (ex in yaml),
-                             False otherwise. Default True
-        :param restrict_initialized: True to keep the property from being set after initialized,
-                                     False otherwise. Default True
-        :param restrict_enabled: True to keep the property from being set after enabled,
-                                 False otherwise. Default False
-        :param restrict_extras: extra attributes to check, if any are truthy then keep from being set.
-                                Default None
-        :param no_serialize_val: If prop is equal to this value, will not serialize the prop
-        :param func_get: The function getter
-        :param func_set: The function setter
-        :param doc: The docs function
-        """
         self._func_get = func_get
         self._func_set = func_set
         self._serializable = serializable
@@ -173,7 +173,7 @@ class ModifierProp(BaseProp):
     @property
     def serializable(self) -> bool:
         """
-        :return: True if the property should be serialized (ex in yaml), False otherwise.
+        :return: True if the property should be serialized (ex in yaml), False otherwise
         """
         return self._serializable
 
@@ -230,7 +230,11 @@ class ModifierProp(BaseProp):
 
 class BaseObject(object):
     """
-    BaseObject to accept kwargs so multiple inheritance will work with the modifier classes
+    BaseObject to accept kwargs so multiple inheritance will work with
+    the modifier classes.
+    kwargs param must be empty by the time this class is called.
+
+    :param kwargs: standard key word args, used to support multi inheritance
     """
 
     def __init__(self, **kwargs):
@@ -238,9 +242,10 @@ class BaseObject(object):
 
         if len(kwargs) != 0:
             raise ValueError(
-                "kwargs must be empty at _BaseObject, extras passed in of {} for {}".format(
-                    kwargs, self.__class__.__name__
-                )
+                (
+                    "kwargs must be empty at _BaseObject, "
+                    "extras passed in of {} for {}"
+                ).format(kwargs, self.__class__.__name__)
             )
 
 
@@ -248,6 +253,9 @@ class BaseModifier(BaseObject):
     """
     Parent class meant to be used for all modifiers.
     Handles base implementations for properties and methods.
+
+    :param log_types: the loggers that can be used by the modifier instance
+    :param kwargs: standard key word args, used to support multi inheritance
     """
 
     @staticmethod
@@ -262,7 +270,7 @@ class BaseModifier(BaseObject):
     @staticmethod
     def load_framework_list(yaml_str: str, framework: str):
         """
-        :param yaml_str: a string representation of the yaml syntax to load modifiers from
+        :param yaml_str: a string representation of the yaml syntax to load modifiers
         :param framework: the framework to load the modifiers for
         :return: the loaded modifiers list
         """
@@ -281,7 +289,7 @@ class BaseModifier(BaseObject):
     @staticmethod
     def load_framework_obj(yaml_str: str, framework: str):
         """
-        :param yaml_str:  a string representation of the yaml syntax to load a modifier from
+        :param yaml_str:  a string representation of the yaml syntax to load a modifier
         :param framework: the framework to load the modifier for
         :return: the loaded modifier object
         """
@@ -314,8 +322,8 @@ class BaseModifier(BaseObject):
         create a key for loading in yaml from the class and the framework
 
         :param clazz: the class representation to create the key for
-        :param framework: the string representing the ML framework the modifier class is for.
-                          default is None.
+        :param framework: the string representing the ML framework the modifier class
+            is for. Default is None.
         :return: the formatted key; ex: !{framework}.{clazz.__name__}
         """
         if framework is None:
@@ -324,9 +332,6 @@ class BaseModifier(BaseObject):
         return "!{}.{}".format(framework, clazz.__name__)
 
     def __init__(self, log_types: Union[str, List[str]], **kwargs):
-        """
-        :param log_types: the loggers that can be used by the modifier instance
-        """
         super().__init__(**kwargs)
         self._log_types = (
             validate_str_iterable(
@@ -339,9 +344,6 @@ class BaseModifier(BaseObject):
         self._enabled = True
 
     def __str__(self):
-        """
-        :return: human readable form of the current modifier instance
-        """
         formatted = [
             "    {}".format("{}: {}".format(key, val))
             for key, val in self.props(only_serializable=True, format_str=True).items()
@@ -352,9 +354,6 @@ class BaseModifier(BaseObject):
         )
 
     def __repr__(self):
-        """
-        :return: unambiguous representation of the current model instance
-        """
         return "{}({})".format(
             self.__class__, self.props(only_serializable=False, format_repr=True),
         )
@@ -369,14 +368,16 @@ class BaseModifier(BaseObject):
     @ModifierProp(serializable=False, restrict_initialized=False)
     def initialized(self) -> bool:
         """
-        :return: True if the modifier has gone through the initialized life cycle, False otherwise
+        :return: True if the modifier has gone through the initialized life cycle,
+            False otherwise
         """
         return self._initialized
 
     @ModifierProp(serializable=False, restrict_initialized=False)
     def enabled(self) -> bool:
         """
-        :return: True if the modifier is currently enabled and making updates, False otherwise
+        :return: True if the modifier is currently enabled and making updates,
+            False otherwise
         """
         return self._enabled
 
@@ -394,12 +395,13 @@ class BaseModifier(BaseObject):
         format_repr: bool = False,
     ) -> Dict[str, Any]:
         """
-        gather all the ModifierProps for the current instance into a dictionary collection
+        Gather all the ModifierProps for the current instance into a dictionary
+        collection.
 
-        :param only_serializable: True if only props marked as serializable should be collected,
-                                  False otherwise
+        :param only_serializable: True if only props marked as serializable should
+            be collected, False otherwise
         :param format_str: True to format the values properly for a str.
-                           ex: None values are formatted to null and otherwise str is called
+            Ex: None values are formatted to null and otherwise str is called
         :param format_repr: True to format the values properly for a repr.
         :return: the collected properties with names mapping to values
         """
@@ -441,7 +443,21 @@ class BaseScheduled(BaseObject):
     """
     Abstract class meant to be used for all scheduled modifiers.
     :py:func `~Modifier` is also meant to be inherited alongside this class.
-    Handles base implementations for scheduled properties and methods to allow a schedule to be enforced.
+    Handles base implementations for scheduled properties and methods to allow
+    a schedule to be enforced.
+
+    :param start_epoch: the epoch to start the scheduled modifier at
+    :param min_start: the minimum value start_epoch can be,
+        otherwise will raise a ValueError
+    :param end_epoch: the epoch to end the scheduled modifier at
+    :param min_end: the minimum value end_epoch can be,
+     otherwise will raise a ValueError
+    :param end_comparator: integer value representing how the end_epoch should be
+        compared to start_epoch.
+        if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
+        if == 0, then end_epoch can be equal to or greater than start_epoch.
+        if == 1, then end_epoch can only be greater than start_epoch.
+    :param kwargs: standard key word args, used to support multi inheritance
     """
 
     def __init__(
@@ -453,16 +469,6 @@ class BaseScheduled(BaseObject):
         end_comparator: int,
         **kwargs,
     ):
-        """
-        :param start_epoch: The epoch to start the modifier at
-        :param min_start: The minimum acceptable value for start_epoch, default -1
-        :param end_epoch: The epoch to end the modifier at
-        :param min_end: The minimum acceptable value for end_epoch, default 0
-        :param end_comparator: integer value representing how the end_epoch should be compared to start_epoch
-                               if == -1, then end_epoch can be less than, equal to, or greater than start_epoch
-                               if == 0, then end_epoch can be equal to or greater than start_epoch
-                               if == 1, then end_epoch can only be greater than start_epoch
-        """
         super().__init__(**kwargs)
         self._start_epoch = start_epoch
         self._min_start = min_start
@@ -474,14 +480,16 @@ class BaseScheduled(BaseObject):
     @ModifierProp()
     def start_epoch(self) -> float:
         """
-        :return: The epoch to start the modifier at (set to -1.0 so it starts immediately)
+        :return: The epoch to start the modifier at
+            (set to -1.0 so it starts immediately)
         """
         return self._start_epoch
 
     @start_epoch.setter
     def start_epoch(self, value: float):
         """
-        :param value: The epoch to start the modifier at (set to -1.0 so it starts immediately)
+        :param value: The epoch to start the modifier at
+            (set to -1.0 so it starts immediately)
         """
         self._start_epoch = value
         self.validate_schedule()
@@ -489,7 +497,8 @@ class BaseScheduled(BaseObject):
     @ModifierProp()
     def end_epoch(self) -> float:
         """
-        :return: The epoch to end the modifier at (set to -1.0 so it never ends)
+        :return: The epoch to end the modifier at
+            (set to -1.0 so it never ends)
         """
         return self._end_epoch
 
@@ -522,9 +531,10 @@ class BaseScheduled(BaseObject):
 
         if self._end_comparator == 0 and self._start_epoch > self._end_epoch:
             raise ValueError(
-                "end_epoch of {} must be greater than or equal to start_epoch of {} for {}".format(
-                    self._end_epoch, self._start_epoch, self.__class__.__name__
-                )
+                (
+                    "end_epoch of {} must be greater than"
+                    " or equal to start_epoch of {} for {}"
+                ).format(self._end_epoch, self._start_epoch, self.__class__.__name__)
             )
 
         if self._end_comparator == 1 and self._start_epoch >= self._end_epoch:
@@ -538,15 +548,19 @@ class BaseScheduled(BaseObject):
 class BaseUpdate(BaseObject):
     """
     Abstract class meant to be used for all update modifiers.
-    :py:func `~Modifier` and :py:func `~ScheduledModifier` are also meant to be inherited alongside this class.
-    Handles base implementations for scheduled properties and methods to allow updates to be enforced.
+    :py:func `~Modifier` and :py:func `~ScheduledModifier` are also meant
+    to be inherited alongside this class.
+    Handles base implementations for scheduled properties and methods
+    to allow updates to be enforced.
+
+    :param update_frequency: The number of epochs or fraction of epochs to
+            update at between start and end
+    :param min_frequency: The minimum acceptable value for update_frequency,
+        default -1
+    :param kwargs: standard key word args, used to support multi inheritance
     """
 
     def __init__(self, update_frequency: float, min_frequency: float, **kwargs):
-        """
-        :param update_frequency: The number of epochs or fraction of epochs to update at between start and end
-        :param min_frequency: The minimum acceptable value for update_frequency, default -1
-        """
         super().__init__(**kwargs)
         self._update_frequency = update_frequency
         self._min_frequency = min_frequency
@@ -555,26 +569,32 @@ class BaseUpdate(BaseObject):
     @ModifierProp()
     def update_frequency(self) -> float:
         """
-        :return: The number of epochs or fraction of epochs to update at between start and end
+        :return: The number of epochs or fraction of epochs to update at between
+            start and end
         """
         return self._update_frequency
 
     @update_frequency.setter
     def update_frequency(self, value: float):
         """
-        :param value: The number of epochs or fraction of epochs to update at between start and end
+        :param value: The number of epochs or fraction of epochs to update at between
+            start and end
         """
         self._update_frequency = value
         self.validate_update()
 
     def validate_update(self):
         """
-        Validate the update schedule values of the params for the current instance are valid
+        Validate the update schedule values of the params for the current instance
+        are valid
         """
 
         if self._update_frequency < self._min_frequency:
             raise ValueError(
-                "update_frequency of {} must be greater than or equal to {} for {}".format(
+                (
+                    "update_frequency of {} must be greater than or "
+                    "equal to {} for {}"
+                ).format(
                     self._update_frequency, self._min_frequency, self.__class__.__name__
                 )
             )
@@ -584,13 +604,12 @@ class ModifierYAML(object):
     """
     A decorator to handle making a modifier class YAML ready.
     IE it can be loaded in through the yaml plugin easily.
+
+    :param framework: the string representing the ML framework the modifier should
+        be stored under
     """
 
     def __init__(self, framework: str):
-        """
-        :param framework: the string representing the ML framework the modifier should be stored under
-        """
-
         if not framework:
             raise ValueError("a framework is required")
 

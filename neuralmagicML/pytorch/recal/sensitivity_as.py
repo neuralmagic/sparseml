@@ -1,8 +1,13 @@
-from typing import Dict, List, Tuple, Union
+"""
+Sensitivity analysis implementations for increasing activation sparsity by using FATReLU
+"""
+
+from typing import Dict, List, Tuple, Union, Callable
 
 import torch
 from torch import Tensor
 from torch.nn import Module
+from torch.utils.hooks import RemovableHandle
 from torch.utils.data import Dataset, DataLoader
 
 from neuralmagicML.pytorch.utils import (
@@ -12,14 +17,145 @@ from neuralmagicML.pytorch.utils import (
     model_to_device,
 )
 from neuralmagicML.pytorch.utils import get_layer
-from neuralmagicML.pytorch.recal.activation.fatrelu import convert_relus_to_fat, FATReLU
-from neuralmagicML.pytorch.recal.activation.analyzer import ModuleASAnalyzer
+from neuralmagicML.pytorch.nn.fatrelu import convert_relus_to_fat, FATReLU
+from neuralmagicML.pytorch.recal.analyzer_as import ModuleASAnalyzer
 
 
-__all__ = ["LayerBoostResults", "ModuleASOneShootBooster"]
+__all__ = ["ASLayerTracker", "LayerBoostResults", "ModuleASOneShootBooster"]
+
+
+class ASLayerTracker(object):
+    """
+    An implementation for tracking activation sparsity properties for a module.
+
+    :param layer: the module to track activation sparsity for
+    :param track_input: track the input sparsity for the module
+    :param track_output: track the output sparsity for the module
+    :param input_func: the function to call on input to the layer
+        and receives the input tensor
+    :param output_func: the function to call on output to the layer
+        and receives the output tensor
+    """
+
+    def __init__(
+        self,
+        layer: Module,
+        track_input: bool = False,
+        track_output: bool = False,
+        input_func: Union[None, Callable] = None,
+        output_func: Union[None, Callable] = None,
+    ):
+        super().__init__()
+        self._layer = layer
+        self._track_input = track_input
+        self._track_output = track_output
+        self._input_func = input_func
+        self._output_func = output_func
+
+        self._enabled = False
+        self._tracked_input = {}
+        self._tracked_output = {}
+        self._hook_handle = None  # type: RemovableHandle
+
+    def __del__(self):
+        self._disable_hooks()
+
+    def enable(self):
+        """
+        Enable the forward hooks to the layer
+        """
+        if not self._enabled:
+            self._enabled = True
+            self._enable_hooks()
+
+        self.clear()
+
+    def disable(self):
+        """
+        Disable the forward hooks for the layer
+        """
+        if self._enabled:
+            self._enabled = False
+            self._disable_hooks()
+
+        self.clear()
+
+    def clear(self):
+        """
+        Clear out current results for the model
+        """
+        self._tracked_input.clear()
+        self._tracked_output.clear()
+
+    @property
+    def tracked_input(self):
+        """
+        :return: the current tracked input results
+        """
+        return self._tracked_input
+
+    @property
+    def tracked_output(self):
+        """
+        :return: the current tracked output results
+        """
+        return self._tracked_output
+
+    def _enable_hooks(self):
+        if self._hook_handle is not None:
+            return
+
+        def _forward_hook(
+            _mod: Module,
+            _inp: Union[Tensor, Tuple[Tensor]],
+            _out: Union[Tensor, Tuple[Tensor]],
+        ):
+            if self._track_input:
+                tracked = _inp
+
+                if self._input_func is not None:
+                    tracked = self._input_func(_inp)
+
+                key = (
+                    "cpu"
+                    if not tracked.is_cuda
+                    else "cuda:{}".format(tracked.get_device())
+                )
+                self._tracked_input[key] = tracked
+
+            if self._track_output:
+                tracked = _out
+
+                if self._output_func is not None:
+                    tracked = self._output_func(_out)
+
+                key = (
+                    "cpu"
+                    if not tracked.is_cuda
+                    else "cuda:{}".format(tracked.get_device())
+                )
+                self._tracked_output[key] = tracked
+
+        self._hook_handle = self._layer.register_forward_hook(_forward_hook)
+
+    def _disable_hooks(self):
+        if self._hook_handle is not None:
+            self._hook_handle.remove()
+            self._hook_handle = None
 
 
 class LayerBoostResults(object):
+    """
+    Results for a specific threshold set in a FATReLU layer.
+
+    :param name: the name of the layer the results are for
+    :param threshold: the threshold used in the FATReLU layer
+    :param boosted_as: the measured activation sparsity after threshold is applied
+    :param boosted_loss: the measured loss after threshold is applied
+    :param baseline_as: the measured activation sparsity before threshold is applied
+    :param baseline_loss: the measured loss before threshold is applied
+    """
+
     def __init__(
         self,
         name: str,
@@ -37,31 +173,64 @@ class LayerBoostResults(object):
         self._baseline_loss = baseline_loss
 
     @property
-    def name(self):
+    def name(self) -> str:
+        """
+        :return: the name of the layer the results are for
+        """
         return self._name
 
     @property
     def threshold(self) -> float:
+        """
+        :return: the threshold used in the FATReLU layer
+        """
         return self._threshold
 
     @property
     def boosted_as(self) -> Tensor:
+        """
+        :return: the measured activation sparsity after threshold is applied
+        """
         return self._boosted_as
 
     @property
     def boosted_loss(self) -> ModuleRunResults:
+        """
+        :return: the measured loss after threshold is applied
+        """
         return self._boosted_loss
 
     @property
     def baseline_as(self) -> Tensor:
+        """
+        :return: the measured activation sparsity before threshold is applied
+        """
         return self._baseline_as
 
     @property
     def baseline_loss(self) -> ModuleRunResults:
+        """
+        :return: the measured loss before threshold is applied
+        """
         return self._baseline_loss
 
 
 class ModuleASOneShootBooster(object):
+    """
+    Implementation class for boosting the activation sparsity in a given module
+    using FATReLUs.
+    Programmatically goes through and figures out the best thresholds to limit loss
+    based on provided parameters.
+
+    :param module: the module to boost
+    :param device: the device to run the analysis on; ex [cpu, cuda, cuda:1]
+    :param dataset: the dataset used to evaluate the boosting on
+    :param batch_size: the batch size to run through the module in test mode
+    :param loss: the loss function to use for calculations
+    :param data_loader_kwargs: any keyword arguments to supply to a the
+        DataLoader constructor
+    """
+
     def __init__(
         self,
         module: Module,
@@ -86,6 +255,21 @@ class ModuleASOneShootBooster(object):
         metric_increases: bool,
         precision: float = 0.001,
     ) -> Dict[str, LayerBoostResults]:
+        """
+        Run the booster for the specified layers.
+
+        :param layers: names of the layers to run boosting on
+        :param max_target_metric_loss: the max loss in the target metric that
+            can happen while boosting
+        :param metric_key: the name of the metric to evaluate while boosting;
+            ex: [__loss__, top1acc, top5acc]. Must exist in the LossWrapper
+        :param metric_increases: True if the metric increases for worse loss such as in
+            a CrossEntropyLoss, False if the metric decreases for worse such as in
+            accuracy
+        :param precision: the precision to check the results to. Larger values here will
+            give less precise results but won't take as long
+        :return: The results for the boosting
+        """
         fat_relus = convert_relus_to_fat(
             self._module, inplace=True
         )  # type: Dict[str, FATReLU]
@@ -93,8 +277,10 @@ class ModuleASOneShootBooster(object):
         for layer in layers:
             if layer not in fat_relus:
                 raise KeyError(
-                    "layer {} was specified in the config but is not a boostable layer in the module "
-                    "(ie not a relu)".format(layer)
+                    (
+                        "layer {} was specified in the config but is not a "
+                        "boostable layer in the module (ie not a relu)"
+                    ).format(layer)
                 )
 
         module, device, device_ids = model_to_device(self._module, self._device)
@@ -234,9 +420,7 @@ class ModuleASOneShootBooster(object):
         as_analyzer = None
 
         if layer:
-            as_analyzer = ModuleASAnalyzer(
-                layer, division=None, track_outputs_sparsity=True
-            )
+            as_analyzer = ModuleASAnalyzer(layer, dim=None, track_outputs_sparsity=True)
             as_analyzer.enable()
 
         tester = ModuleTester(module, device, self._loss)

@@ -1,5 +1,7 @@
 """
-Code related to monitory, analyzing, and reporting the kernel sparsity (model pruning) for a model's layers and params
+Code related to monitoring, analyzing, and reporting the kernel sparsity
+(model pruning) for a model's layers and params.
+More info on kernel sparsity can be found `here <https://arxiv.org/abs/1902.09574>` __.
 """
 
 from typing import List, Union, Tuple
@@ -14,14 +16,21 @@ __all__ = ["ModuleKSAnalyzer"]
 
 class ModuleKSAnalyzer(object):
     """
-    Class for monitoring the kernel sparsity of a given param in a module
+    An analyzer implementation monitoring the kernel sparsity of a given
+    param in a module.
+
+    :param module: the module containing the param to analyze the sparsity for
+    :param name: name of the layer, used for tracking
+    :param param_name: name of the parameter to analyze the sparsity for,
+        defaults to weight
     """
 
     @staticmethod
     def analyze_layers(module: Module, layers: List[str], param_name: str = "weight"):
         """
         :param module: the module to create multiple analyzers for
-        :param layers: the names of the layers to create analyzer for that are in the module
+        :param layers: the names of the layers to create analyzer for that are
+            in the module
         :param param_name: the name of the param to monitor within each layer
         :return: a list of analyzers, one for each layer passed in and in the same order
         """
@@ -39,13 +48,6 @@ class ModuleKSAnalyzer(object):
         return analyzed
 
     def __init__(self, module: Module, name: str, param_name: str = "weight"):
-        """
-        Analyzer to get the sparsity of a given layer's parameter such activation weight
-
-        :param module: the module containing the param to analyze the sparsity for
-        :param name: name of the layer, used for tracking
-        :param param_name: name of the parameter to analyze the sparsity for, defaults to weight
-        """
         self._module = module
         self._name = name
         self._param_name = param_name
@@ -75,7 +77,8 @@ class ModuleKSAnalyzer(object):
     @property
     def tag(self) -> str:
         """
-        :return: combines the layer name and param name in to a single string separated by a period
+        :return: combines the layer name and param name in to a single string
+            separated by a period
         """
         return "{}.{}".format(self.name, self.param_name)
 
@@ -98,6 +101,7 @@ class ModuleKSAnalyzer(object):
     ) -> Tensor:
         """
         :param dim: a dimension(s) to calculate the sparsity over, ex over channels
-        :return: the sparsity of the contained parameter structured according to the dim passed in
+        :return: the sparsity of the contained parameter structured according
+            to the dim passed in
         """
         return tensor_sparsity(self._param.data, dim)

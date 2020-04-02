@@ -1,5 +1,6 @@
 """
-Code related to modifiers for enforcing kernel sparsity (model pruning) on models while pruning
+Modifiers for inducing / enforcing kernel sparsity (model pruning)
+on models while pruning.
 """
 
 from typing import Union, List
@@ -25,8 +26,8 @@ from neuralmagicML.pytorch.recal.modifier import (
     PyTorchModifierYAML,
 )
 from neuralmagicML.pytorch.utils.logger import PyTorchLogger
-from neuralmagicML.pytorch.recal.kernel.analyzer import ModuleKSAnalyzer
-from neuralmagicML.pytorch.recal.kernel.mask import ModuleParamKSMask
+from neuralmagicML.pytorch.recal.analyzer_ks import ModuleKSAnalyzer
+from neuralmagicML.pytorch.recal.mask_ks import ModuleParamKSMask
 
 
 __all__ = ["ConstantKSModifier", "GradualKSModifier"]
@@ -55,13 +56,22 @@ class ConstantKSModifier(ScheduledModifier):
     Holds the sparsity level and shape for a given param constant while training.
     Useful for transfer learning use cases.
 
-    Sample yaml:
-        !ConstantKSModifier
-            layers: __ALL__
-            start_epoch: 0.0
-            end_epoch: 10.0
-            param: weight
-            log_types: __ALL__
+    | Sample yaml:
+    |   !ConstantKSModifier
+    |       layers: __ALL__
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       param: weight
+    |       log_types: __ALL__
+
+    :param layers: str or list of str for the layers to apply the KS modifier to
+        can also use the token __ALL__ to specify all layers
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param param: the name of the parameter to apply pruning to, generally 'weight'
+        for linear and convs
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
     """
 
     def __init__(
@@ -72,14 +82,6 @@ class ConstantKSModifier(ScheduledModifier):
         param: str = "weight",
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
-        """
-        :param layers: str or list of str for the layers to apply the KS modifier to
-                       can also use the token __ALL__ to specify all layers
-        :param start_epoch: The epoch to start the modifier at
-        :param end_epoch: The epoch to end the modifier at
-        :param param: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
-        :param log_types: The loggers to allow the learning rate to be logged to, default is __ALL__
-        """
         super().__init__(
             log_types=log_types,
             start_epoch=start_epoch,
@@ -118,20 +120,22 @@ class ConstantKSModifier(ScheduledModifier):
     @ModifierProp()
     def param(self) -> str:
         """
-        :return: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
+        :return: the name of the parameter to apply pruning to, generally 'weight'
+            for linear and convs
         """
         return self._param
 
     @param.setter
     def param(self, value: str):
         """
-        :param value: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
+        :param value: the name of the parameter to apply pruning to, generally 'weight'
+            for linear and convs
         """
         self._param = value
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
-        Grab the layers' params to control kernel sparsity for
+        Grab the layers' params to control kernel sparsity for.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
@@ -166,12 +170,13 @@ class ConstantKSModifier(ScheduledModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Update to enable and disable the mask when chosen
+        Update to enable and disable the mask when chosen.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
 
@@ -187,12 +192,13 @@ class ConstantKSModifier(ScheduledModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Check whether to log an update for the learning rate of the modifier
+        Check whether to log an update for the learning rate of the modifier.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
@@ -204,17 +210,19 @@ class ConstantKSModifier(ScheduledModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Reapply the mask after the optimizer step in case the optimizer has momentum that may have moved weights from 0
+        Reapply the mask after the optimizer step in case the optimizer
+        has momentum that may have moved weights from 0.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 
-        # be sure to apply mask again after optimizer update because weights may have changed
-        # (optimizer with momentum, not masking gradient)
+        # be sure to apply mask again after optimizer update because
+        # weights may have changed (optimizer with momentum, not masking gradient)
         for mask in self._module_masks:
             mask.apply()
 
@@ -222,23 +230,43 @@ class ConstantKSModifier(ScheduledModifier):
 @PyTorchModifierYAML()
 class GradualKSModifier(ScheduledUpdateModifier):
     """
-    Gradually applies kernel sparsity to a given layer or layers from init_sparsity until final_sparsity is reached
-    over a given amount of time and applied with an interpolated function for each step taken
+    Gradually applies kernel sparsity to a given layer or layers from init_sparsity
+    until final_sparsity is reached over a given amount of time and applied with an
+    interpolated function for each step taken.
 
-    Applies based on magnitude pruning without any structure to the pruning
+    Applies based on magnitude pruning without any structure to the pruning.
 
-    Sample yaml:
-        !GradualKSModifier
-            layers: __ALL__
-            init_sparsity: 0.05
-            final_sparsity: 0.8
-            start_epoch: 0.0
-            end_epoch: 10.0
-            update_frequency: 1.0
-            param: weight
-            leave_enabled: True
-            inter_func: cubic
-            log_types: __ALL__
+    | Sample yaml:
+    |   !GradualKSModifier
+    |       layers: __ALL__
+    |       init_sparsity: 0.05
+    |       final_sparsity: 0.8
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       update_frequency: 1.0
+    |       param: weight
+    |       leave_enabled: True
+    |       inter_func: cubic
+    |       log_types: __ALL__
+
+    :param layers: str or list of str for the layers to apply the KS modifier to
+        can also use the token __ALL__ to specify all layers
+    :param init_sparsity: the initial sparsity for the param to start with at
+        start_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The number of epochs or fraction of epochs to update at
+        between start and end
+    :param param: the name of the parameter to apply pruning to, generally 'weight'
+        for linear and convs
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param inter_func: the type of interpolation function to use:
+        [linear, cubic, inverse_cubic]
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
     """
 
     def __init__(
@@ -254,20 +282,6 @@ class GradualKSModifier(ScheduledUpdateModifier):
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
-        """
-        :param layers: str or list of str for the layers to apply the KS modifier to
-                       can also use the token __ALL__ to specify all layers
-        :param init_sparsity: the initial sparsity for the param to start with at start_epoch
-        :param final_sparsity: the final sparsity for the param to end with at end_epoch
-        :param start_epoch: The epoch to start the modifier at
-        :param end_epoch: The epoch to end the modifier at
-        :param update_frequency: The number of epochs or fraction of epochs to update at between start and end
-        :param param: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
-        :param leave_enabled: True to continue masking the weights after end_epoch, False to stop masking
-                              Should be set to False if exporting the result immediately after or doing some other prune
-        :param inter_func: the type of interpolation function to use: [linear, cubic, inverse_cubic]
-        :param log_types: The loggers to allow the learning rate to be logged to, default is __ALL__
-        """
         super().__init__(
             log_types=log_types,
             start_epoch=start_epoch,
@@ -297,16 +311,16 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def layers(self) -> Union[str, List[str]]:
         """
-        :return: str or list of str for the layers to apply the KS modifier to
-                 can also use the token __ALL__ to specify all layers
+        :return: str or list of str for the layers to apply the KS modifier to.
+            can also use the token __ALL__ to specify all layers
         """
         return self._layers
 
     @layers.setter
     def layers(self, value: Union[str, List[str]]):
         """
-        :param value: str or list of str for the layers to apply the KS modifier to
-                      can also use the token __ALL__ to specify all layers
+        :param value: str or list of str for the layers to apply the KS modifier to.
+            can also use the token __ALL__ to specify all layers
         """
         self._layers = validate_str_iterable(
             value, "{} for layers".format(self.__class__.__name__)
@@ -345,44 +359,50 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def param(self) -> str:
         """
-        :return: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
+        :return: the name of the parameter to apply pruning to,
+            generally 'weight' for linear and convs
         """
         return self._param
 
     @param.setter
     def param(self, value: str):
         """
-        :param value: the name of the parameter to apply pruning to, generally 'weight' for linear and convs
+        :param value: the name of the parameter to apply pruning to,
+            generally 'weight' for linear and convs
         """
         self._param = value
 
     @ModifierProp()
     def leave_enabled(self) -> bool:
         """
-        :return: True to continue masking the weights after end_epoch, False to stop masking
-                 Should be set to False if exporting the result immediately after or doing some other prune
+        :return: True to continue masking the weights after end_epoch,
+            False to stop masking. Note, if set as False, sparsity will not be enforced
+            and the model will likely deviate from the sparse solution
         """
         return self._leave_enabled
 
     @leave_enabled.setter
     def leave_enabled(self, value: bool):
         """
-        :param value: True to continue masking the weights after end_epoch, False to stop masking
-                      Should be set to False if exporting the result immediately after or doing some other prune
+        :param value: True to continue masking the weights after end_epoch,
+            False to stop masking. Note, if set as False, sparsity will not be enforced
+            and the model will likely deviate from the sparse solution
         """
         self._leave_enabled = value
 
     @ModifierProp()
     def inter_func(self) -> str:
         """
-        :return: the type of interpolation function to use: [linear, cubic, inverse_cubic]
+        :return: the type of interpolation function to use:
+            [linear, cubic, inverse_cubic]
         """
         return self._inter_func
 
     @inter_func.setter
     def inter_func(self, value: str):
         """
-        :param value: the type of interpolation function to use: [linear, cubic, inverse_cubic]
+        :param value: the type of interpolation function to use:
+            [linear, cubic, inverse_cubic]
         """
         self._inter_func = value
         self.validate()
@@ -431,14 +451,15 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Update the sparsity mask for the selected parameters
-        If start, enables the masks
-        If end, disables the masks if leave_enabled is False
+        Update the sparsity mask for the selected parameters.
+        If start, enables the masks.
+        If end, disables the masks if leave_enabled is False.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
 
@@ -467,12 +488,13 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Check whether to log an update for the learning rate of the modifier
+        Check whether to log an update for the learning rate of the modifier.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
@@ -484,17 +506,19 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Reapply the mask after the optimizer step in case the optimizer has momentum that may have moved weights from 0
+        Reapply the mask after the optimizer step in case the optimizer has momentum
+        that may have moved weights from 0.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 
-        # be sure to apply mask again after optimizer update because weights may have changed
-        # (optimizer with momentum, not masking gradient)
+        # be sure to apply mask again after optimizer update because weights may
+        # have changed (optimizer with momentum, not masking gradient)
         for mask in self._module_masks:
             mask.apply()
 
@@ -512,9 +536,10 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
         if self._init_sparsity < 0.0 or self._init_sparsity > 1.0:
             raise ValueError(
-                "final_sparsity value must be in the range [0.0, 1.0], given {} for {}".format(
-                    self._init_sparsity, self.__class__.__name__
-                )
+                (
+                    "final_sparsity value must be in the range [0.0, 1.0],"
+                    " given {} for {}"
+                ).format(self._init_sparsity, self.__class__.__name__)
             )
 
         if not isinstance(self._final_sparsity, float):
@@ -526,14 +551,16 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
         if self._final_sparsity < 0.0 or self._final_sparsity > 1.0:
             raise ValueError(
-                "init_sparsity value must be in the range [0.0, 1.0], given {} for {}".format(
-                    self._init_sparsity, self.__class__.__name__
-                )
+                (
+                    "init_sparsity value must be in the range [0.0, 1.0],"
+                    " given {} for {}"
+                ).format(self._init_sparsity, self.__class__.__name__)
             )
 
         if self._inter_func not in INTERPOLATION_FUNCS:
             raise ValueError(
-                "{} is not a supported inter_func in layers_settings, available are {} for {}".format(
-                    self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__
-                )
+                (
+                    "{} is not a supported inter_func in layers_settings,"
+                    " available are {} for {}"
+                ).format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__)
             )

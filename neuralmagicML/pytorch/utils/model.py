@@ -25,6 +25,16 @@ def load_model(
     strict: bool = False,
     ignore_error_tensors: List[str] = None,
 ):
+    """
+    Load the state dict into a model from a given file.
+
+    :param path: the path to the pth file to load the state dict from
+    :param model: the model to load the state dict into
+    :param strict: True to enforce that all tensors match between the model
+        and the file; False otherwise
+    :param ignore_error_tensors: names of tensors to ignore if they are not found
+        in either the model or the file
+    """
     model_dict = torch.load(path, map_location="cpu")
     current_dict = model.state_dict()
 
@@ -53,6 +63,13 @@ def load_model(
 
 
 def load_optimizer(path: str, optimizer: Optimizer) -> Union[int, None]:
+    """
+    Load the state dict into an optimizer from a given file.
+
+    :param path: the path to the pth file to load the state dict from
+    :param optimizer: the optimizer to load the state dict into
+    :return: the epoch saved in the file, if any
+    """
     model_dict = torch.load(path, map_location="cpu")
     optimizer.load_state_dict(model_dict["optimizer"])
 
@@ -68,6 +85,15 @@ def save_model(
     optimizer: Optimizer = None,
     epoch: Union[int, None] = None,
 ):
+    """
+    Save a model's state dict into a file at the given path.
+    Additionally can save an optimizer's state and the current epoch.
+
+    :param path: the path to save the file the states to
+    :param model: the model to save state for
+    :param optimizer: the optimizer, if any, to save state for
+    :param epoch: the epoch to save
+    """
     if isinstance(model, DataParallel):
         model = model.module
 
@@ -99,12 +125,28 @@ class _DataParallel(DataParallel):
 
 
 def parallelize_model(model: Module, ids: Union[None, List[int]]) -> Module:
+    """
+    Data parallelize a model across multiple devices
+
+    :param model: the model to parallelize across multiple devices
+    :param ids: the ides of the devices to parallelize across
+    :return: a parallelized model
+    """
     return _DataParallel(model, ids)
 
 
 def model_to_device(
     model: Module, device: str
 ) -> Tuple[Module, str, Union[None, List[int]]]:
+    """
+    The model to push onto a device or multiple devices.
+
+    :param model: the model to push to a device
+    :param device: the device string to push to; ex: cpu, cuda, cuda:0,1
+    :return: a tuple containing the model on desired device(s),
+        the device name, and the ids for the device
+    """
+
     device, ids = device_to_name_ids(device)
 
     if ids is not None:
@@ -116,6 +158,12 @@ def model_to_device(
 
 
 def device_to_name_ids(device: str) -> Tuple[str, Union[None, List[int]]]:
+    """
+    Split a device string into a device and ids
+
+    :param device: the device string to push to; ex: cpu, cuda, cuda:0,1
+    :return: a tuple containing the device string and devices
+    """
     split = device.split(":")
     name = split[0]
 

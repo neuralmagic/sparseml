@@ -1,6 +1,10 @@
-from typing import Union, Tuple, List, Dict, Any
+"""
+Code related to monitoring, analyzing, and reporting info for Modules in PyTorch.
+Records things like FLOPS, input and output shapes, kernel shapes, etc.
+"""
+
+from typing import Union, Tuple, List
 import numpy
-import json
 
 from torch import Tensor
 from torch.nn import (
@@ -29,111 +33,23 @@ from torch.nn.modules.pooling import _MaxPoolNd, _AvgPoolNd
 from torch.nn.modules.pooling import _AdaptiveMaxPoolNd, _AdaptiveAvgPoolNd
 from torch.utils.hooks import RemovableHandle
 
-from neuralmagicML.utils import (
-    clean_path,
-    create_parent_dirs,
-)
-from neuralmagicML.pytorch.utils import (
-    get_layer,
-    get_conv_layers,
-    get_linear_layers,
-)
+from neuralmagicML.recal import AnalyzedLayerDesc
+from neuralmagicML.pytorch.utils import get_layer, get_prunable_layers
 
 
-__all__ = ["ModuleAnalyzer", "AnalyzedLayerDesc", "model_ks_desc", "save_model_ks_desc"]
-
-
-class AnalyzedLayerDesc(object):
-    def __init__(
-        self,
-        name: str,
-        type_: str,
-        params: int = 0,
-        zeroed_params: int = 0,
-        prunable_params: int = 0,
-        params_dims: Dict[str, Tuple[int, ...]] = None,
-        prunable_params_dims: Dict[str, Tuple[int, ...]] = None,
-        execution_order: int = -1,
-        input_shape: Tuple[Tuple[int, ...], ...] = None,
-        output_shape: Tuple[Tuple[int, ...], ...] = None,
-        flops: int = 0,
-        total_flops: int = 0,
-    ):
-        self.name = name
-        self.type_ = type_
-
-        self.params = params
-        self.prunable_params = prunable_params
-        self.zeroed_params = zeroed_params
-        self.params_dims = params_dims
-        self.prunable_params_dims = prunable_params_dims
-
-        self.execution_order = execution_order
-        self.input_shape = input_shape
-        self.output_shape = output_shape
-        self.flops = flops
-        self.total_flops = total_flops
-
-    def __repr__(self):
-        return "AnalyzedLayerDesc({})".format(self.json())
-
-    @property
-    def terminal(self) -> bool:
-        return self.params_dims is not None
-
-    @property
-    def prunable(self) -> bool:
-        return self.prunable_params > 0
-
-    def dict(self) -> Dict[str, Any]:
-        return {
-            "name": self.name,
-            "type": self.type_,
-            "params": self.params,
-            "zeroed_params": self.zeroed_params,
-            "prunable_params": self.prunable_params,
-            "params_dims": self.params_dims,
-            "prunable_params_dims": self.prunable_params_dims,
-            "execution_order": self.execution_order,
-            "input_shape": self.input_shape,
-            "output_shape": self.output_shape,
-            "flops": self.flops,
-            "total_flops": self.total_flops,
-            "terminal": self.terminal,
-            "prunable": self.prunable,
-        }
-
-    def json(self) -> str:
-        return json.dumps(self.dict())
-
-    @staticmethod
-    def merge_descs(orig, descs):
-        merged = AnalyzedLayerDesc(
-            name=orig.name,
-            type_=orig.type_,
-            params=orig.params,
-            zeroed_params=orig.zeroed_params,
-            prunable_params=orig.prunable_params,
-            params_dims=orig.params_dims,
-            prunable_params_dims=orig.prunable_params_dims,
-            execution_order=orig.execution_order,
-            input_shape=orig.input_shape,
-            output_shape=orig.output_shape,
-            flops=orig.flops,
-            total_flops=orig.total_flops,
-        )
-
-        for desc in descs:
-            merged.flops += desc.flops
-            merged.total_flops += desc.total_flops
-            merged.params += desc.params
-            merged.prunable_params += desc.prunable_params
-            merged.zeroed_params += desc.zeroed_params
-
-        return merged
+__all__ = ["ModuleAnalyzer"]
 
 
 class ModuleAnalyzer(object):
+    """
+    An analyzer implementation for monitoring the execution profile and graph of
+    a Module in PyTorch.
+
+    :param module: the module to analyze
+    :param enabled: True to enable the hooks for analyzing and actively track,
+        False to disable and not track
+    """
+
     def __init__(self, module: Module, enabled: bool = False):
         super(ModuleAnalyzer, self).__init__()
         self._module = module
@@ -148,10 +64,16 @@ class ModuleAnalyzer(object):
 
     @property
     def enabled(self) -> bool:
+        """
+        :return: True if enabled and the hooks for analyzing are active, False otherwise
+        """
         return self._enabled
 
     @enabled.setter
     def enabled(self, value: bool):
+        """
+        :param value: True to enable the hooks for analyzing, False to disable
+        """
         if value and not self._enabled:
             self._create_hooks()
             self._param_grad = None
@@ -162,17 +84,46 @@ class ModuleAnalyzer(object):
 
     @property
     def module(self) -> Module:
+        """
+        :return: The module that is being actively analyzed
+        """
         return self._module
 
     def layer_desc(self, name: Union[str, None] = None) -> AnalyzedLayerDesc:
+        """
+        Get a specific layer's description within the Module.
+        Set to None to get the overall Module's description.
+
+        :param name: name of the layer to get a description for,
+            None for an overall description
+        :return: the analyzed layer description for the given name
+        """
         if not self._forward_called:
             raise RuntimeError(
-                "module must have forward called with sample input before getting a layer desc"
+                "module must have forward called with sample input "
+                "before getting a layer desc"
             )
 
         mod = get_layer(name, self._module) if name is not None else self._module
 
         return ModuleAnalyzer._mod_desc(mod)
+
+    def ks_layer_descs(self) -> List[AnalyzedLayerDesc]:
+        """
+        Get the descriptions for all layers in the module that support kernel sparsity
+        (model pruning). Ex: all convolutions and linear layers.
+
+        :return: a list of descriptions for all layers in the module that support ks
+        """
+        descs = []
+
+        for (name, _) in get_prunable_layers(self._module):
+            desc = self.layer_desc(name)
+            descs.append(desc)
+
+        descs.sort(key=lambda val: val.execution_order)
+
+        return descs
 
     def _create_hooks(self):
         self._delete_hooks()
@@ -508,28 +459,3 @@ class ModuleAnalyzer(object):
         ]  # type: List[AnalyzedLayerDesc]
 
         return AnalyzedLayerDesc.merge_descs(mod._analyzed_layer_desc, merge_descs)
-
-
-def model_ks_desc(analyzer: ModuleAnalyzer) -> List[AnalyzedLayerDesc]:
-    descs = []
-    layers = {}
-    layers.update(get_conv_layers(analyzer.module))
-    layers.update(get_linear_layers(analyzer.module))
-
-    for name, _ in layers.items():
-        desc = analyzer.layer_desc(name)
-        descs.append(desc)
-
-    descs.sort(key=lambda val: val.execution_order)
-
-    return descs
-
-
-def save_model_ks_desc(analyzer: ModuleAnalyzer, path: str):
-    path = clean_path(path)
-    create_parent_dirs(path)
-    ks_descs = model_ks_desc(analyzer)
-    ks_obj = {"layer_descriptions": [desc.dict() for desc in ks_descs]}
-
-    with open(path, "w") as file:
-        json.dump(ks_obj, file)

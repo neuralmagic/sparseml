@@ -1,5 +1,5 @@
 """
-utility / helper functions
+Utility / helper functions
 """
 
 from typing import Union, Tuple, Iterable, Dict, Any, List
@@ -53,17 +53,17 @@ def tensors_batch_size(tensors: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor
 
     Supported use cases:
         - single tensor
-        - Dictionary of
-        -- single tensors
-        -- iterable of tensors
-        -- dictionary of tensors
-        - Iterable of
-        -- single tensors
-        -- iterable of tensors
-        -- dictionary of tensors
+        - Dictionary of single tensors
+        - Dictionary of iterable of tensors
+        - Dictionary of dictionary of tensors
+        - Iterable of single tensors
+        - Iterable of iterable of tensors
+        - Iterable of dictionary of tensors
 
-    :param tensors: the tensor or collection of tensors to get a batch size from, taken from the first found tensor
-    :return: the batch size (0th element of shape) of the first contained tensor in the data
+    :param tensors: the tensor or collection of tensors to get a batch size from,
+        taken from the first found tensor
+    :return: the batch size (0th element of shape) of the first contained
+        tensor in the data
     """
     if isinstance(tensors, Tensor):
         return tensors.shape[0]
@@ -94,17 +94,16 @@ def tensors_to_device(
 
     Supported use cases:
         - single tensor
-        - Dictionary of
-        -- single tensors
-        -- iterable of tensors
-        -- dictionary of tensors
-        - Iterable of
-        -- single tensors
-        -- iterable of tensors
-        -- dictionary of tensors
+        - Dictionary of single tensors
+        - Dictionary of iterable of tensors
+        - Dictionary of dictionary of tensors
+        - Iterable of single tensors
+        - Iterable of iterable of tensors
+        - Iterable of dictionary of tensors
 
     :param tensors: the tensors or collection of tensors to put onto a device
-    :param device: the string representing the device to put the tensors on, ex: 'cpu', 'cuda', 'cuda:1'
+    :param device: the string representing the device to put the tensors on,
+        ex: 'cpu', 'cuda', 'cuda:1'
     :return: the tensors or collection of tensors after being placed on the device
     """
     if isinstance(tensors, Tensor):
@@ -129,7 +128,8 @@ def tensors_to_precision(
 ) -> Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]]:
     """
     :param tensors: the tensors to change the precision of
-    :param full_precision: True for full precision (float 32) and False for half (float 16)
+    :param full_precision: True for full precision (float 32) and
+        False for half (float 16)
     :return: the tensors converted to the desired precision
     """
     if isinstance(tensors, Tensor):
@@ -158,34 +158,31 @@ def tensors_module_forward(
     check_feat_lab_inp: bool = True,
 ) -> Any:
     """
-    Default function for calling into a model with data for a forward execution
-    Returns the model result
-    Note, if an iterable the features to be passed into the model are considered to be at index 0
-     and other indices are for labels
+    Default function for calling into a model with data for a forward execution.
+    Returns the model result.
+    Note, if an iterable the features to be passed into the model are considered
+    to be at index 0 and other indices are for labels.
 
-    Supported use cases:
-        - single tensor
-        - iterable with first tensor taken as the features to pass into the model
-        -- single tensor
-        -- dictionary of tensors (auto expands for the forward call with **)
-        -- iterable of tensors (auto expands for the forward call with *)
+    Supported use cases: single tensor,
+    iterable with first tensor taken as the features to pass into the model
 
-    :param tensors: the data to be passed into the model, if an iterable the features to be passed into the model are
-                    considered to be at index 0 and other indices are for labels
+    :param tensors: the data to be passed into the model, if an iterable the features
+        to be passed into the model are considered to be at index 0 and other indices
+        are for labels
     :param module: the module to pass the data into
-    :param check_feat_lab_inp: True to check if the incoming tensors looks like it's made up of features and labels
-                               ie a tuple or list with 2 items (typical output from a data loader)
-                               and will call into the model with just the first element assuming it's the features
-                               False to not check
-    :return: the result of calling into the model for a foward pass
+    :param check_feat_lab_inp: True to check if the incoming tensors looks like
+        it's made up of features and labels ie a tuple or list with 2 items
+        (typical output from a data loader) and will call into the model with just
+        the first element assuming it's the features False to not check
+    :return: the result of calling into the model for a forward pass
     """
     if (
         (isinstance(tensors, Tuple) or isinstance(tensors, List))
         and len(tensors) == 2
         and check_feat_lab_inp
     ):
-        # assume if this is a list or tuple of 2 items that it is made up of (features, labels)
-        # pass the features into a recursive call for the model
+        # assume if this is a list or tuple of 2 items that it is made up of
+        # (features, labels) pass the features into a recursive call for the model
         return tensors_module_forward(tensors[0], module, check_feat_lab_inp=False)
 
     if isinstance(tensors, Tensor):
@@ -246,10 +243,12 @@ def tensors_export(
     """
     :param tensors: the tensors to export to a saved numpy array file
     :param export_dir: the directory to export the files in
-    :param name_prefix: the prefix name for the tensors to save as, will append info about the position of the tensor
-                        in a list or dict in addition to the .npy file format
+    :param name_prefix: the prefix name for the tensors to save as, will append
+        info about the position of the tensor in a list or dict in addition
+        to the .npy file format
     :param counter: the current counter to save the tensor at
-    :param break_batch: treat the tensor as a batch and break apart into multiple tensors
+    :param break_batch: treat the tensor as a batch and break apart into
+        multiple tensors
     :return: the exported paths
     """
     create_dirs(export_dir)
@@ -328,7 +327,8 @@ def tensor_sparsity(
 ) -> Tensor:
     """
     :param tens: the tensor to calculate the sparsity for
-    :param dim: the dimension(s) to split the calculations over; ex, can split over batch, channels, or combos
+    :param dim: the dimension(s) to split the calculations over;
+        ex, can split over batch, channels, or combos
     :return: the sparsity of the input tens, ie the fraction of numbers that are zero
     """
     if dim is None:
@@ -368,7 +368,8 @@ def tensor_sparsity(
 def tensor_density(tens: Tensor, dim: Union[None, int, Iterable[int]] = None) -> Tensor:
     """
     :param tens: the tensor to calculate the density for
-    :param dim: the dimension(s) to split the calculations over; ex, can split over batch, channels, or combos
+    :param dim: the dimension(s) to split the calculations over; ex, can split over
+        batch, channels, or combos
     :return: the density of the input tens, ie the fraction of numbers that are non zero
     """
     density = (tensor_sparsity(tens, dim) - 1.0) * -1.0
@@ -383,8 +384,10 @@ def tensor_sample(
 ) -> Tensor:
     """
     :param tens: the tensor to grab samples from
-    :param sample_size: the number of samples to grab overall if dim is not supplied or per each dim if it is
-    :param dim: the dimension(s) to split the samples over; ex, can split over batch, channels, or combos
+    :param sample_size: the number of samples to grab overall if dim is not supplied
+        or per each dim if it is
+    :param dim: the dimension(s) to split the samples over;
+        ex, can split over batch, channels, or combos
     :return: the sampled tensor
     """
     if sample_size < 1:
@@ -440,9 +443,11 @@ def tensor_sample(
 
 def abs_threshold_from_sparsity(tens: Tensor, sparsity: float) -> Tensor:
     """
-    :param tens: the tensor to find a value in for which setting abs(all values) < that value will give desired sparsity
+    :param tens: the tensor to find a value in for which setting
+        abs(all values) < that value will give desired sparsity
     :param sparsity: the desired sparsity to apply
-    :return: the threshold to get to the desired sparsity or an empty tensor if it was not possible given the inputs
+    :return: the threshold to get to the desired sparsity or an empty tensor
+        if it was not possible given the inputs
     """
     if tens.numel() < 1 or sparsity <= 0.0 or sparsity > 1.0:
         return tens.new_tensor([])
@@ -461,10 +466,12 @@ def abs_threshold_from_sparsity(tens: Tensor, sparsity: float) -> Tensor:
 def sparsity_mask(tens: Tensor, sparsity: float) -> Tensor:
     """
     :param tens: the tensor to calculate a mask from based on the contained values
-    :param sparsity: the desired sparsity to reach within the mask (decimal fraction of zeros)
-    :return: a mask (0.0 for values that are masked, 1.0 for values that are unmasked) calculated from the tens
-             such that the desired number of zeros matches the sparsity. removes the abs lowest values
-             if there are more zeros in the tens than desired sparsity, then will randomly choose the zeros
+    :param sparsity: the desired sparsity to reach within the mask
+        (decimal fraction of zeros)
+    :return: a mask (0.0 for values that are masked, 1.0 for values that are unmasked)
+        calculated from the tens such that the desired number of zeros
+        matches the sparsity. removes the abs lowest values if there are more zeros
+        in the tens than desired sparsity, then will randomly choose the zeros
     """
     threshold = abs_threshold_from_sparsity(tens, sparsity)
 
@@ -474,7 +481,8 @@ def sparsity_mask(tens: Tensor, sparsity: float) -> Tensor:
     if threshold.item() > 0.0:
         return sparsity_mask_from_abs_threshold(tens, threshold)
 
-    # too many zeros so will go over the already given sparsity and choose which zeros to not keep in mask at random
+    # too many zeros so will go over the already given sparsity
+    # and choose which zeros to not keep in mask at random
     zero_indices = (tens == 0.0).nonzero()
     rand_indices = list(range(zero_indices.shape[0]))
     random.shuffle(rand_indices)
@@ -492,8 +500,9 @@ def sparsity_mask(tens: Tensor, sparsity: float) -> Tensor:
 def sparsity_mask_from_tensor(tens: Tensor) -> Tensor:
     """
     :param tens: the tensor to calculate a mask from the contained values
-    :return: a mask (0.0 for values that are masked, 1.0 for values that are unmasked) calculated from the tens
-             current values of 0.0 are masked and everything else is unmasked
+    :return: a mask (0.0 for values that are masked, 1.0 for values that are unmasked)
+        calculated from the tens current values of 0.0 are masked
+        and everything else is unmasked
     """
     return torch.ne(tens, 0.0).type(tens.type())
 
@@ -503,9 +512,11 @@ def sparsity_mask_from_abs_threshold(
 ) -> Tensor:
     """
     :param tens: the tensor to calculate a mask from based on the contained values
-    :param threshold: a threshold at which to mask abs(values) if they are less than it or equal
-    :return: a mask (0.0 for values that are masked, 1.0 for values that are unmasked) calculated from the tens
-             abs(values) <= threshold are masked, all others are unmasked
+    :param threshold: a threshold at which to mask abs(values) if they are
+        less than it or equal
+    :return: a mask (0.0 for values that are masked, 1.0 for values that are unmasked)
+        calculated from the tens abs(values) <= threshold are masked,
+        all others are unmasked
     """
     return (torch.abs(tens) > threshold).type(tens.type())
 
@@ -550,7 +561,8 @@ def get_layer(name: str, module: Module) -> Module:
 def get_terminal_layers(module: Module) -> Dict[str, Module]:
     """
     :param module: the module to grab all terminal layers for
-    :return: a list of all of the terminal layers in a model (ie not containers; so convs, linears, activations, etc)
+    :return: a list of all of the terminal layers in a model
+        (ie not containers; so convs, linears, activations, etc)
     """
     terminal = {}
 

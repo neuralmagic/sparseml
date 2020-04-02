@@ -1,6 +1,6 @@
 """
-Code related to running a module through training and testing over a dataset
-Allows reporting of progress and override functions and hooks
+Code related to running a module through training and testing over a dataset.
+Allows reporting of progress and override functions and hooks.
 """
 
 from typing import Callable, Any, Dict, Union, List
@@ -48,21 +48,21 @@ def def_model_backward(losses: Dict[str, Tensor], model: Module):
 
 class ModuleRunHooks(object):
     """
-    Container for hooks that can be added to module runs like training and testing for different stages
-    of running a batch through a model
+    Container for hooks that can be added to module runs like training and testing
+    for different stages of running a batch through a model.
 
-    Lifecycle:
-        - data batch size callback
-        - data to device callback
-        - batch start hook
-        - data model forward callback
-        - batch forward hook
-        - loss calculation
-        - batch loss hook
-        - model backward callback
-        - batch backward hook
-        - optimizer / gradient update
-        - batch end hook
+    | Lifecycle:
+    |   - data batch size callback
+    |   - data to device callback
+    |   - batch start hook
+    |   - data model forward callback
+    |   - batch forward hook
+    |   - loss calculation
+    |   - batch loss hook
+    |   - model backward callback
+    |   - batch backward hook
+    |   - optimizer / gradient update
+    |   - batch end hook
     """
 
     def __init__(self):
@@ -78,10 +78,13 @@ class ModuleRunHooks(object):
         """
         Called at the start of a batch with the following info:
         (counter, step_count, batch_size, data)
-        where counter is passed in to the run (ex: epoch), step_count is the number of items run so far,
-        batch_size is the number of elements fed in the batch, data is the data output from the loader
+        where counter is passed in to the run (ex: epoch),
+        step_count is the number of items run so far,
+        batch_size is the number of elements fed in the batch,
+        data is the data output from the loader
 
-        :param hook: the hook to add that is called into when reached in the batch process
+        :param hook: the hook to add that is called into when reached in the
+            batch process
         :return: a removable handle to remove the hook when desired
         """
         handle = RemovableHandle(self._batch_start_hooks)
@@ -95,11 +98,14 @@ class ModuleRunHooks(object):
         """
         Called after forward execution of a batch in the model with the following info:
         (counter, step_count, batch_size, data, pred)
-        where counter is passed in to the run (ex: epoch), step_count is the number of items run so far,
-        batch_size is the number of elements fed in the batch, data is the data output from the loader,
+        where counter is passed in to the run (ex: epoch),
+        step_count is the number of items run so far,
+        batch_size is the number of elements fed in the batch,
+        data is the data output from the loader,
         pred is the result from the model after the forward
 
-        :param hook: the hook to add that is called into when reached in the batch process
+        :param hook: the hook to add that is called into when reached in the
+            batch process
         :return: a removable handle to remove the hook when desired
         """
         handle = RemovableHandle(self._batch_forward_hooks)
@@ -113,11 +119,15 @@ class ModuleRunHooks(object):
         """
         Called after loss calculation of the batch with the following info:
         (counter, step_count, batch_size, data, pred, losses)
-        where counter is passed in to the run (ex: epoch), step_count is the number of items run so far,
-        batch_size is the number of elements fed in the batch, data is the data output from the loader,
-        pred is the result from the model after the forward, losses are the resulting loss dictionary
+        where counter is passed in to the run (ex: epoch),
+        step_count is the number of items run so far,
+        batch_size is the number of elements fed in the batch,
+        data is the data output from the loader,
+        pred is the result from the model after the forward,
+        losses are the resulting loss dictionary
 
-        :param hook: the hook to add that is called into when reached in the batch process
+        :param hook: the hook to add that is called into when reached in the
+            batch process
         :return: a removable handle to remove the hook when desired
         """
         handle = RemovableHandle(self._batch_loss_hooks)
@@ -131,11 +141,15 @@ class ModuleRunHooks(object):
         """
         Called after calling backward on the loss for the batch with the following info:
         (counter, step_count, batch_size, data, pred, losses)
-        where counter is passed in to the run (ex: epoch), step_count is the number of items run so far,
-        batch_size is the number of elements fed in the batch, data is the data output from the loader,
-        pred is the result from the model after the forward, losses are the resulting loss dictionary
+        where counter is passed in to the run (ex: epoch),
+        step_count is the number of items run so far,
+        batch_size is the number of elements fed in the batch,
+        data is the data output from the loader,
+        pred is the result from the model after the forward,
+        losses are the resulting loss dictionary
 
-        :param hook: the hook to add that is called into when reached in the batch process
+        :param hook: the hook to add that is called into when reached in the
+            batch process
         :return: a removable handle to remove the hook when desired
         """
         handle = RemovableHandle(self._batch_backward_hooks)
@@ -149,11 +163,15 @@ class ModuleRunHooks(object):
         """
         Called after all calculations are done for the batch with the following info:
         (counter, step_count, batch_size, data, pred, losses)
-        where counter is passed in to the run (ex: epoch), step_count is the number of items run so far,
-        batch_size is the number of elements fed in the batch, data is the data output from the loader,
-        pred is the result from the model after the forward, losses are the resulting loss dictionary
+        where counter is passed in to the run (ex: epoch),
+        step_count is the number of items run so far,
+        batch_size is the number of elements fed in the batch,
+        data is the data output from the loader,
+        pred is the result from the model after the forward,
+        losses are the resulting loss dictionary
 
-        :param hook: the hook to add that is called into when reached in the batch process
+        :param hook: the hook to add that is called into when reached in the
+            batch process
         :return: a removable handle to remove the hook when desired
         """
         handle = RemovableHandle(self._batch_end_hooks)
@@ -212,21 +230,21 @@ class ModuleRunHooks(object):
 
 class ModuleRunFuncs(object):
     """
-    Functions used as callables to calculate or perform necessary operations for running a model
-    through training or testing.
+    Functions used as callables to calculate or perform necessary operations
+    for running a model through training or testing.
 
-     Lifecycle:
-        - data batch size callback
-        - data to device callback
-        - batch start hook
-        - data model forward callback
-        - batch forward hook
-        - loss calculation
-        - batch loss hook
-        - model backward callback
-        - batch backward hook
-        - optimizer / gradient update
-        - batch end hook
+    | Lifecycle:
+    |   - data batch size callback
+    |   - data to device callback
+    |   - batch start hook
+    |   - data model forward callback
+    |   - batch forward hook
+    |   - loss calculation
+    |   - batch loss hook
+    |   - model backward callback
+    |   - batch backward hook
+    |   - optimizer / gradient update
+    |   - batch end hook
     """
 
     def __init__(self):
@@ -238,57 +256,62 @@ class ModuleRunFuncs(object):
     @property
     def batch_size(self) -> Callable[[Any], int]:
         """
-        Used to calculate the batch size of a given grouping of tensors
-        Expected to be called with the output from a data loader and then return an int representing the batch size
+        :return used to calculate the batch size of a given grouping of tensors.
+            Expected to be called with the output from a data loader and
+            then return an int representing the batch size.
         """
         return self._batch_size
 
     @batch_size.setter
     def batch_size(self, value: Callable[[Any], int]):
         """
-        Used to calculate the batch size of a given grouping of tensors
+        Used to calculate the batch size of a given grouping of tensors.
         Expected to be called with the output from a data loader
-         then return an int representing the batch size
+        then return an int representing the batch size.
 
-        :param value: the callable used to calculate batch size for a grouping of tensors
+        :param value: the callable used to calculate batch size
+            for a grouping of tensors
         """
         self._batch_size = value
 
     @property
     def to_device(self) -> Callable[[Any, str], Any]:
         """
-        Used to place a given grouping of tensors onto the proper device
-        Expected to be called with the output from a data loader and the desired device as a string
-         then return the grouping on the proper device
+        :return used to place a given grouping of tensors onto the proper device.
+            Expected to be called with the output from a data loader and the
+            desired device as a string then return the grouping on the proper device.
         """
         return self._to_device
 
     @to_device.setter
     def to_device(self, value: Callable[[Any, str], Any]):
         """
-        Used to place a given grouping of tensors onto the proper device
-        Expected to be called with the output from a data loader and the desired device as a string
-         then return the grouping on the proper device
+        Used to place a given grouping of tensors onto the proper device.
+        Expected to be called with the output from a data loader and the
+        desired device as a string then return the grouping on the proper device
 
-        :param value: the callable used to place a grouping of tensors onto the proper device
+        :param value: the callable used to place a grouping of tensors onto
+            the proper device
         """
         self._to_device = value
 
     @property
     def model_forward(self) -> Callable[[Any, Module], Any]:
         """
-        Used to propagate a given grouping of tensors through a model and return the result
-        Expected to be called with the model and the output from a data loader
-         then return the result from the model forward pass
+        :return used to propagate a given grouping of tensors through a model and
+            return the result.
+            Expected to be called with the model and the output from a data loader
+            then return the result from the model forward pass.
         """
         return self._model_forward
 
     @model_forward.setter
     def model_forward(self, value: Callable[[Any, Module], Any]):
         """
-        Used to propagate a given grouping of tensors through a model and return the result
+        Used to propagate a given grouping of tensors through a model
+        and return the result.
         Expected to be called with the model and the output from a data loader
-         then return the result from the model forward pass
+        then return the result from the model forward pass.
 
         :param value: the callable used to run a grouping of tensors through a model
         :return: the result of running the data through the model
@@ -298,24 +321,29 @@ class ModuleRunFuncs(object):
     @property
     def model_backward(self) -> Callable[[Dict[str, Tensor], Module], None]:
         """
-        Used to call backward for a given model and the calculated losses
-        Expected to be called with the model and the output from the loss function as a dict mapping of names to tensors
-         returns nothing
+        :return used to call backward for a given model and the calculated losses.
+            Expected to be called with the model and the output from the loss function
+            as a dict mapping of names to tensors returns nothing
         """
         return self._model_backward
 
     @model_backward.setter
     def model_backward(self, value: Callable[[Dict[str, Tensor], Module], None]):
         """
-        Used to call backward for a given model and the calculated losses
-        Expected to be called with the model and the output from the loss function as a dict mapping of names to tensors
-         returns nothing
+        Used to call backward for a given model and the calculated losses.
+        Expected to be called with the model and the output from the loss function
+        as a dict mapping of names to tensors returns nothing
 
         :param value: the callable used to run a backwards pass for the given loss functions
         """
         self._model_backward = value
 
     def copy(self, run_funcs):
+        """
+        Copy the functions from the current instance into a new instance
+
+        :param run_funcs: the instance to copy the functions into
+        """
         run_funcs = run_funcs  # type: ModuleRunFuncs
 
         self._batch_size = run_funcs._batch_size
@@ -345,7 +373,8 @@ class ModuleRunResults(object):
         """
         All of the stored results for the loss functions
 
-        :return: a dictionary containing a mapping of name (str) to a list of tensors that were recorded for that loss
+        :return: a dictionary containing a mapping of name (str) to a list of tensors
+            that were recorded for that loss
         """
         return self._results
 
@@ -373,8 +402,10 @@ class ModuleRunResults(object):
         """
         The standard deviation of the result for a single loss function
 
-        :param key: the name of the loss function to get the standard deviation result for
-        :return: a single tensor containing the standard deviation of all the results for that loss
+        :param key: the name of the loss function to get the standard
+            deviation result for
+        :return: a single tensor containing the standard deviation of all
+            the results for that loss
         """
         res = self.result(key)
 
@@ -398,20 +429,34 @@ class ModuleRunResults(object):
 
 class ModuleTrainer(object):
     """
-    Container for running a module through training over a given data loader for specific settings
+    Container for running a module through training over a given data loader
+    for specific settings.
 
-    Lifecycle:
-        - data batch size callback
-        - data to device callback
-        - batch start hook
-        - data model forward callback
-        - batch forward hook
-        - loss calculation
-        - batch loss hook
-        - model backward callback
-        - batch backward hook
-        - optimizer / gradient update
-        - batch end hook
+    | Lifecycle:
+    |   - data batch size callback
+    |   - data to device callback
+    |   - batch start hook
+    |   - data model forward callback
+    |   - batch forward hook
+    |   - loss calculation
+    |   - batch loss hook
+    |   - model backward callback
+    |   - batch backward hook
+    |   - optimizer / gradient update
+    |   - batch end hook
+
+    :param module: the model to run training for
+    :param device: the default device to run training on (where data will be copied to)
+    :param loss: the loss functions callable used to calculate loss values
+        after executing a forward pass
+    :param optimizer: the optimizer used to apply gradient updates with
+    :param num_accumulated_batches: number of batches to accumulate before
+        updating the optimizer
+    :param optim_closure: a closure passed into the optimizer on step
+    :param loggers: list of loggers to log training results to
+    :param log_name: the key to store all log files under
+    :param log_batches: True to log each batch step,
+        False to only log the end result (track_results must be True then)
     """
 
     def __init__(
@@ -426,18 +471,6 @@ class ModuleTrainer(object):
         log_name: str = "Train/",
         log_batches: bool = True,
     ):
-        """
-        :param module: the model to run training for
-        :param device: the default device to run training on (where data will be copied to)
-        :param loss: the loss functions callable used to calculate loss values after executing a forward pass
-        :param optimizer: the optimizer used to apply gradient updates with
-        :param num_accumulated_batches: number of batches to accumulate before updating the optimizer
-        :param optim_closure: a closure passed into the optimizer on step
-        :param loggers: list of loggers to log training results to
-        :param log_name: the key to store all log files under
-        :param log_batches: True to log each batch step,
-                            False to only log the end result (track_results must be True then)
-        """
         self._module = module
         self._device = device
         self._loss = loss
@@ -468,7 +501,8 @@ class ModuleTrainer(object):
     @property
     def loss(self) -> Callable[[Any, Any], Dict[str, Tensor]]:
         """
-        :return: the loss functions callable used to calculate loss values after executing a forward pass
+        :return: the loss functions callable used to calculate loss values
+            after executing a forward pass
         """
         return self._loss
 
@@ -496,14 +530,16 @@ class ModuleTrainer(object):
     @property
     def run_funcs(self) -> ModuleRunFuncs:
         """
-        :return: functions used while running training of the model as callbacks to do certain stages
+        :return: functions used while running training of the model as
+            callbacks to do certain stages
         """
         return self._run_funcs
 
     @property
     def run_hooks(self) -> ModuleRunHooks:
         """
-        :return: hooks used while running traiiniing of the model to receive intermediate results
+        :return: hooks used while running training of the model to receive
+            intermediate results
         """
         return self._run_hooks
 
@@ -518,11 +554,14 @@ class ModuleTrainer(object):
         """
         Run training over all the data in the given data loader
 
-        :param data_loader: the data loader used to gather batches to be run through the model
+        :param data_loader: the data loader used to gather batches to be
+            run through the model
         :param desc: description used in the progress indicator
-        :param counter: counter passed to the hooks for external state keeping (ex: epoch)
+        :param counter: counter passed to the hooks for external state
+            keeping (ex: epoch)
         :param show_progress: True to show a progress bar, False otherwise
-        :param track_results: True to track and return the results of the training, False to return None
+        :param track_results: True to track and return the results of the training,
+            False to return None
         :return: the results of training if track_results else None
         """
         self._module = self._module.train()
@@ -608,13 +647,15 @@ class ModuleTrainer(object):
         track_results: bool = False,
     ):
         """
-        Convenience function for training over all the data in the given data loader for a specific epoch
-         and making the progress visible
+        Convenience function for training over all the data in the given data loader
+        for a specific epoch and making the progress visible.
 
-        :param data_loader: the data loader used to gather batches to be run through the model
+        :param data_loader: the data loader used to gather batches to be
+            run through the model
         :param epoch: the current training epoch number
         :param show_progress: True to show a progress bar, False otherwise
-        :param track_results: True to track and return the results of the training, False to return None
+        :param track_results: True to track and return the results of the training,
+            False to return None
         :return: the results of training if track_results else None
         """
         return self.run(
@@ -628,17 +669,18 @@ class ModuleTrainer(object):
 
 class ModuleTester(object):
     """
-    Container for running a module through evaluation over a given data loader for specific settings
+    Container for running a module through evaluation over a given data loader
+    for specific settings.
 
-    Lifecycle:
-        - data batch size callback
-        - data to device callback
-        - batch start hook
-        - data model forward callback
-        - batch forward hook
-        - loss calculation
-        - batch loss hook
-        - batch end hook
+    | Lifecycle:
+    |   - data batch size callback
+    |   - data to device callback
+    |   - batch start hook
+    |   - data model forward callback
+    |   - batch forward hook
+    |   - loss calculation
+    |   - batch loss hook
+    |   - batch end hook
     """
 
     def __init__(
@@ -652,12 +694,14 @@ class ModuleTester(object):
     ):
         """
         :param module: the model to run evaluation for
-        :param device: the default device to run evaluation on (where data will be copied to)
-        :param loss: the loss functions callable used to calculate loss values after executing a forward pass
+        :param device: the default device to run evaluation on
+            (where data will be copied to)
+        :param loss: the loss functions callable used to calculate loss values after
+            executing a forward pass
         :param loggers: list of loggers to log training results to
         :param log_name: the key to store all log files under
         :param log_batches: True to log each batch step,
-                            False to only log the end result (track_results must be True then)
+            False to only log the end result (track_results must be True then)
         """
         self._module = module
         self._device = device
@@ -686,21 +730,24 @@ class ModuleTester(object):
     @property
     def loss(self) -> Callable[[Any, Any], Dict[str, Tensor]]:
         """
-        :return: the loss functions callable used to calculate loss values after executing a forward pass
+        :return: the loss functions callable used to calculate loss values
+            after executing a forward pass
         """
         return self._loss
 
     @property
     def run_funcs(self) -> ModuleRunFuncs:
         """
-        :return: functions used while running evaluation of the model as callbacks to do certain stages
+        :return: functions used while running evaluation of the model as
+            callbacks to do certain stages
         """
         return self._run_funcs
 
     @property
     def run_hooks(self) -> ModuleRunHooks:
         """
-        :return: hooks used while running evaluation of the model to receive intermediate results
+        :return: hooks used while running evaluation of the model to
+            receive intermediate results
         """
         return self._run_hooks
 
@@ -715,11 +762,14 @@ class ModuleTester(object):
         """
         Run evaluation over all the data in the given data loader
 
-        :param data_loader: the data loader used to gather batches to be run through the model
+        :param data_loader: the data loader used to gather batches to be
+            run through the model
         :param desc: description used in the progress indicator
-        :param counter: counter passed to the hooks for external state keeping (ex: epoch)
+        :param counter: counter passed to the hooks for external
+            state keeping (ex: epoch)
         :param show_progress: True to show a progress bar, False otherwise
-        :param track_results: True to track and return the results of the evaluation, False to return None
+        :param track_results: True to track and return the results of the evaluation,
+            False to return None
         :return: the results of evaluation if track_results else None
         """
         self._module = self._module.eval()
@@ -792,13 +842,15 @@ class ModuleTester(object):
         track_results: bool = True,
     ):
         """
-        Convenience function for evaluation over all the data in the given data loader for a specific epoch
-         and making the progress visible
+        Convenience function for evaluation over all the data in the given data loader
+        for a specific epoch and making the progress visible.
 
-        :param data_loader: the data loader used to gather batches to be run through the model
+        :param data_loader: the data loader used to gather batches to be run
+            through the model
         :param epoch: the current evaluation epoch number
         :param show_progress: True to show a progress bar, False otherwise
-        :param track_results: True to track and return the results of the training, False to return None
+        :param track_results: True to track and return the results of the training,
+            False to return None
         :return: the results of evaluation if track_results else None
         """
         return self.run(

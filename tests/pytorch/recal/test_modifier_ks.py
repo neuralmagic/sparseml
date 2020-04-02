@@ -5,7 +5,7 @@ from torch.optim import SGD
 
 from neuralmagicML.pytorch.recal import GradualKSModifier, ConstantKSModifier
 
-from ..test_modifier import (
+from tests.pytorch.recal.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
     test_epoch,

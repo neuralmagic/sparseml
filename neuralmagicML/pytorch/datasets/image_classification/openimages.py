@@ -23,7 +23,7 @@ from torchvision import transforms
 from torchvision.datasets.folder import default_loader
 
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
-from neuralmagicML.pytorch.utils import MultiDownloader, DownloadResult, ParallelWorker
+from neuralmagicML.utils import MultiDownloader, DownloadResult, ParallelWorker
 
 
 __all__ = ["OpenImagesDataset"]

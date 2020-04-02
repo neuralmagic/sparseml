@@ -1,13 +1,7 @@
 """
-Code dealing with managers of modifiers that modify the training process (graphs, ops, etc)
-
-Expected flow:
-    create model graph
-    manager.create_ops()
-    manager.create_extras()
-    train graph
-    manager.complete_graph()
-    export graph
+Contains base code related to modifier managers: modifier managers handle
+grouping modifiers and running them together.
+Also handles loading modifiers from yaml files
 """
 
 from typing import List, Tuple, Any
@@ -22,18 +16,29 @@ __all__ = ["ScheduledModifierManager"]
 
 class ScheduledModifierManager(BaseManager, Modifier):
     """
-    The base modifier manager, handles managing multiple ScheduledModifers.
+    The base modifier manager, handles managing multiple ScheduledModifer.
 
-    Modifiers are expected to be able to implement up to 3 different flows to work with tensorflow:
-       - create_ops - inject ops into the graph before the training begins
-       - create_extras - create extras like learning rate controls before training begins
-       - complete_graph - finalize the graph after training has completed
+    | Modifiers are expected to implement up to 3 different functions for TensorFlow:
+    |  - create_ops - inject ops into the graph before the training begins
+    |  - create_extras - create extras like learning rate controls before training
+    |  - complete_graph - finalize the graph after training has completed
+    |
+    | Life cycle:
+    |   - create model graph
+    |   - manager.create_ops()
+    |   - manager.create_extras()
+    |   - train graph
+    |   - manager.complete_graph()
+    |   - export graph
+
+    :param modifiers: the modifiers to wrap
     """
 
     @staticmethod
     def from_yaml(file_path: str):
         """
-        Convenience function used to create the manager of multiple modifiers from a yaml file
+        Convenience function used to create the manager of multiple modifiers
+        from a yaml file.
 
         :param file_path: the path to the yaml file to load the modifier from
         :return: ScheduledModifierManager() created from the yaml file
@@ -50,11 +55,6 @@ class ScheduledModifierManager(BaseManager, Modifier):
     NO_OP_UPDATE = "recal_update"
 
     def __init__(self, modifiers: List[ScheduledModifier]):
-        """
-        Convenience wrapper around multiple scheduled modifiers
-
-        :param modifiers: the modifiers to wrap
-        """
         super().__init__(modifiers=modifiers)
 
     def create_ops(
@@ -71,7 +71,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param graph: the graph to be modified
         :param steps_per_epoch: the number of steps (batches) per training epoch
         :param global_step: the global step used while training
-        :return: a tuple containing the modified graph and extra ops to be run for modifying
+        :return: a tuple containing the modified graph and extra ops
+            to be run for modifying
         """
         graph, ops = super().create_ops(graph, steps_per_epoch, global_step)
 

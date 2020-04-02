@@ -1,3 +1,7 @@
+"""
+Optimizer wrapper for enforcing Modifiers on the training process of a Module.
+"""
+
 from typing import List, Union
 import sys
 from torch import Tensor
@@ -13,41 +17,52 @@ __all__ = ["ScheduledOptimizer"]
 
 class ScheduledOptimizer(Optimizer):
     """
-    An optimizer wrapper to handle applying modifiers according to their schedule to both
-    the passed in optimizer and the module
+    An optimizer wrapper to handle applying modifiers according to their schedule
+    to both the passed in optimizer and the module.
 
-    Overrides the step() function so that this method can call before and after on the modifiers
-    to apply appropriate modifications to both the optimizer and the module
+    Overrides the step() function so that this method can call before and after on the
+    modifiers to apply appropriate modifications to both the optimizer and the module.
 
-    Required to either pass in steps_per_epoch or to call epoch_start() and epoch_end()
-    Doing both is recommended as there are some caveats when only one is used
+    Required to either pass in steps_per_epoch or to call epoch_start() and epoch_end().
+    Doing both is recommended as there are some caveats when only one is used.
 
     Only using steps_per_epoch:
-    using this we estimate when epoch_start and epoch_end are based on how many steps we take
-    can result in inaccurate estimates of starting a new epoch:
-      - varying batch sizes
-      - changes in dataset size
-      - irregular optimization routines
+    using this we estimate when epoch_start and epoch_end are based on how many
+    steps we take.
+    Can result in inaccurate estimates of starting a new epoch:
+    varying batch sizes, changes in dataset size, irregular optimization routines.
 
     Only using epoch_start() and epoch_end():
-    based on this we estimate the steps_per_epoch to give a finer granularity of control after first epoch
-    can result in inaccurate estimates of the current batch within epoch:
-      - info not available until first epoch complete (one cycle of epoch_start() and epoch_end())
-      - changes in dataset size
-      - irregular optimization routines
+    based on this we estimate the steps_per_epoch to give a finer granularity of
+    control after first epoch can result in inaccurate estimates of the current batch
+    within epoch:
+    info not available until first epoch complete
+    (one cycle of epoch_start() and epoch_end()), changes in dataset size,
+    irregular optimization routines.
 
-    Lifecycle:
-    - epoch_start
-    - training
-        - zero_grad
-        - loss_update
-            - modifiers.loss_update
-        - step
-            - modifiers.update
-            - modifiers.optimizer_pre_step
-            - optimizer.step
-            - modifiers.optimizers_post_step
-    - epoch_end
+    | Lifecycle:
+    |   - epoch_start
+    |   - training
+    |       - zero_grad
+    |       - loss_update
+    |           - modifiers.loss_update
+    |       - step
+    |           - modifiers.update
+    |           - modifiers.optimizer_pre_step
+    |           - optimizer.step
+    |           - modifiers.optimizers_post_step
+    |   - epoch_end
+
+    :param module: module to modify
+    :param optimizer: optimizer to modify
+    :param manager: the manager or list of managers used to apply modifications
+    :param steps_per_epoch: the number of steps or batches in each epoch,
+        not strictly required and can be set to -1.
+        used to calculate decimals within the epoch,
+        when not using can result in irregularities
+    :param loggers: loggers to log important info to within the modifiers;
+        ex tensorboard or to the console
+
     """
 
     def __init__(
@@ -58,16 +73,9 @@ class ScheduledOptimizer(Optimizer):
         steps_per_epoch: int,
         loggers: Union[List[PyTorchLogger], None] = None,
     ):
-        """
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param manager: the manager or list of managers used to apply modifications
-        :param steps_per_epoch: the number of steps or batches in each epoch, not strictly required and can be set to -1
-                                used to calculate decimals within the epoch, when not using can result in irregularities
-        :param loggers: loggers to log important info to within the modifiers; ex tensorboard or to the console
-        """
         # do not call into super.__init__()
-        # makes the implementation messier activation this instance is not actually acting activation an optimizer
+        # makes the implementation messier activation this instance
+        # is not actually acting activation an optimizer
         # just a wrapper around the passed in optimizer
         self._optimizer = optimizer
         self._module = module
@@ -99,7 +107,8 @@ class ScheduledOptimizer(Optimizer):
     @property
     def learning_rate(self) -> float:
         """
-        :return: convenience function to get the first learning rate for any of the param groups in the optimizer
+        :return: convenience function to get the first learning rate for any of
+            the param groups in the optimizer
         """
         for param_group in self.param_groups:
             return param_group["lr"]
@@ -109,7 +118,8 @@ class ScheduledOptimizer(Optimizer):
     @learning_rate.setter
     def learning_rate(self, value: float):
         """
-        :param value: the learning rate to set for the optimizer, will set all param groups in the optim to this value
+        :param value: the learning rate to set for the optimizer,
+            will set all param groups in the optim to this value
         """
         for param_group in self.param_groups:
             param_group["lr"] = value
@@ -133,16 +143,18 @@ class ScheduledOptimizer(Optimizer):
 
     def step(self, closure=None):
         """
-        Called to perform a step on the optimizer activation normal
-        Updates the current epoch based on the step count
-        Calls into modifiers before the step happens
-        Calls into modifiers after the step happens
+        Called to perform a step on the optimizer activation normal.
+        Updates the current epoch based on the step count.
+        Calls into modifiers before the step happens.
+        Calls into modifiers after the step happens.
 
-        :param closure: optional closure passed into the contained optimizer for the step
+        :param closure: optional closure passed into the contained optimizer
+            for the step
         """
         if self._mode is None and self._steps_per_epoch <= 0:
             raise RuntimeError(
-                "epoch_start must be called or steps_per_epoch must be supplied in the constructor"
+                "epoch_start must be called or steps_per_epoch must"
+                " be supplied in the constructor"
             )
 
         if self._mode is None:
@@ -172,9 +184,8 @@ class ScheduledOptimizer(Optimizer):
 
     def epoch_start(self):
         """
-        Called before starting an epoch for training
-
-        Calls into the managers to update based on the new epoch that is starting
+        Called before starting an epoch for training.
+        Calls into the managers to update based on the new epoch that is starting.
         """
         if self._mode is not None and self._mode != "start_end":
             raise RuntimeError(
@@ -192,9 +203,8 @@ class ScheduledOptimizer(Optimizer):
 
     def epoch_end(self):
         """
-        Called after an epoch for training has ended
-
-        Calls into the managers to update based on the epoch that just ended
+        Called after an epoch for training has ended.
+        Calls into the managers to update based on the epoch that just ended.
         """
         if self._mode != "start_end":
             raise RuntimeError("epoch_start call must happen before epoch_end")
@@ -206,9 +216,9 @@ class ScheduledOptimizer(Optimizer):
 
     def loss_update(self, loss: Tensor) -> Tensor:
         """
-        Optional call to update modifiers based on the calculated loss
-        Not needed unless one or more of the modifier is using the loss to make a modification
-        or is modifying the loss itself
+        Optional call to update modifiers based on the calculated loss.
+        Not needed unless one or more of the modifier is using the loss
+        to make a modification or is modifying the loss itself.
 
         :param loss: the calculated loss after running a forward pass and loss_fn
         :return: the modified loss tensor

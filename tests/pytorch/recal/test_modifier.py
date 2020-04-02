@@ -18,7 +18,7 @@ from neuralmagicML.pytorch.recal import (
 )
 from neuralmagicML.pytorch.utils import (
     PythonLogger,
-    TensorboardLogger,
+    TensorBoardLogger,
 )
 
 
@@ -103,7 +103,7 @@ class ModifierTest(ABC):
         if modifier.log_types == ALL_TOKEN or (
             isinstance(modifier.log_types, List) and "tensorboard" in modifier.log_types
         ):
-            logger = TensorboardLogger()
+            logger = TensorBoardLogger()
             loggers.append(logger)
             expected_loggers.append(logger)
 

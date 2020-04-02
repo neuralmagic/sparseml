@@ -1,5 +1,5 @@
 """
-Code related to benchmarking pytorch models on a given device for given batches
+Benchmarking PyTorch models on a given device for given batch sizes
 """
 
 from typing import Tuple, List, Any
@@ -23,8 +23,11 @@ __all__ = ["BatchBenchmarkResults", "ModuleBenchmarker"]
 
 class BatchBenchmarkResults(object):
     """
-    Container class for the results of a benchmark run for a given batch size
-    Contains convenience methods for calculating different metrics around the time to run each batch and the items
+    Container class for the results of a benchmark run for a given batch size.
+    Contains convenience methods for calculating different metrics around the time
+    to run each batch and the items.
+
+    :param batch_size: the batch size the results are for
     """
 
     def __init__(self, batch_size: int):
@@ -60,49 +63,103 @@ class BatchBenchmarkResults(object):
 
     @property
     def batch_size(self) -> int:
+        """
+        :return: the batch size the results are for
+        """
         return self._batch_size
 
     @property
     def model_batch_timings(self) -> List[float]:
+        """
+        :return: the overall timings in seconds for each batch to run through the model.
+            Does not include time for transferring data to and from device (if any)
+        """
         return self._batch_model_times
 
     @property
     def e2e_batch_timings(self) -> List[float]:
+        """
+        :return: the overall timings in seconds for each batch to run through the model
+            and the system.
+            Includes model execution time as well as time to transfer the data to and
+            from a device.
+        """
         return self._batch_e2e_times
 
     @property
     def model_batch_seconds(self):
+        """
+        :return: the average time it took to execute the batches through the model.
+            Does not include time for transferring data to and from device (if any)
+        """
         return float(numpy.mean(self.model_batch_timings))
 
     @property
     def model_batches_per_second(self):
+        """
+        :return: inverse of model_batch_seconds
+        """
         return 1.0 / self.model_batch_seconds
 
     @property
     def model_item_seconds(self):
+        """
+        :return: the batch averaged time it took in seconds to execute one item
+            through the model (model_batch_seconds / batch_size).
+            Does not include time for transferring data to and from device (if any)
+        """
         return self.model_batch_seconds / self.batch_size
 
     @property
     def model_items_per_second(self):
+        """
+        :return: inverse of model_items_per_second
+        """
         return 1.0 / self.model_item_seconds
 
     @property
     def e2e_batch_seconds(self):
+        """
+        :return: the average overall time to execute the batches through the model
+            and the system.
+            Includes model execution time as well as time to transfer the data to
+            and from a device.
+        """
         return float(numpy.mean(self.e2e_batch_timings))
 
     @property
     def e2e_batches_per_second(self):
+        """
+        :return: inverse of e2e_batch_seconds
+        """
         return 1.0 / self.e2e_batch_seconds
 
     @property
     def e2e_item_seconds(self):
+        """
+        :return: the batch averaged overall time to execute the batches through the
+            model and the system (e2e_batch_seconds / batch_size).
+            Includes model execution time as well as time to transfer the data to
+            and from a device.
+        """
         return self.e2e_batch_seconds / self.batch_size
 
     @property
     def e2e_items_per_second(self):
+        """
+        :return: inverse of e2e_item_seconds
+        """
         return 1.0 / self.e2e_item_seconds
 
     def add(self, model_sec: float, e2e_sec: float, batch_size: int):
+        """
+        Add a new batch result
+
+        :param model_sec: the seconds it took to execute the model
+        :param e2e_sec: the seconds it took to execute model and transfer to and
+            from device
+        :param batch_size: the size of the batch recorded
+        """
         if batch_size != self._batch_size:
             raise ValueError(
                 "batch_size of {} does not match the original batch_size {}".format(
@@ -116,13 +173,13 @@ class BatchBenchmarkResults(object):
 
 class ModuleBenchmarker(object):
     """
-    Convenience class for benchmarking a model on a given device for given batches at a given precision
+    Convenience class for benchmarking a model on a given device for given batches
+    at a given precision.
+
+    :param module: the module to benchmark
     """
 
     def __init__(self, module: Module):
-        """
-        :param module: the module to benchmark
-        """
         self._module = module
 
     def run_batches_on_device(
@@ -134,7 +191,8 @@ class ModuleBenchmarker(object):
         warmup_size: int = 10,
     ) -> BatchBenchmarkResults:
         """
-        :param batches: the batches to run through the model and benchmark, should all be of the same batch_size
+        :param batches: the batches to run through the model and benchmark,
+            should all be of the same batch_size
         :param device: the device to run the model on, ex: cpu, cuda, cuda:0, cuda:0,1
         :param full_precision: True to run at float32, False to run at float16
         :param test_size: the number of batches to run and calculate timings over
@@ -181,13 +239,6 @@ class ModuleBenchmarker(object):
     def _execute_batch_for_time(
         batch: Any, module: Module, device: str
     ) -> Tuple[float, float, int]:
-        """
-        :param batch: the batch to run and get time for
-        :param module: the module to run the batch through for timing, expected to already be on the correct device and
-                       at the correct precision
-        :param device: the device to transfer the batch to for testing times
-        :return: the batch result times
-        """
         with torch.no_grad():
             batch = tensors_to_device(batch, "cpu")
 

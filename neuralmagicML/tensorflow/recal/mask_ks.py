@@ -1,14 +1,15 @@
 """
-Code related to applying a mask onto a variable to impose kernel sparsity, aka model pruning.
+Code related to applying a mask onto a variable to impose kernel sparsity,
+aka model pruning.
 
-Flow is made up of three steps to properly add the sparsity ops to a graph:
-    1. :py:func:`~create_ks_schedule_ops` or :py:func:`~get_or_create_ks_schedule_ops`
-       creates the sparsity schedule as well as the update checks
-    2. :py:func:`~create_op_pruning`, :py:func:`~create_graph_ops_pruning`,
-       or :py:func:`~get_or_create_graph_ops_pruning`
-       creates the mask and update ops for a specific operation in the graph
-    3. :py:func:`~create_ks_update_op` or :py:func:`~get_or_create_ks_update_op`
-       creates the containing update op that should be run in a session after each batch
+| Flow is made up of three steps to properly add the sparsity ops to a graph:
+|   1. :py:func:`~create_ks_schedule_ops` or :py:func:`~get_or_create_ks_schedule_ops`
+|       creates the sparsity schedule as well as the update checks
+|   2. :py:func:`~create_op_pruning`, :py:func:`~create_graph_ops_pruning`,
+|       or :py:func:`~get_or_create_graph_ops_pruning`
+|       creates the mask and update ops for a specific operation in the graph
+|   3. :py:func:`~create_ks_update_op` or :py:func:`~get_or_create_ks_update_op`
+|       creates the containing update op that should be run in a sess after each batch
 """
 
 from typing import Tuple, List, Union
@@ -36,7 +37,8 @@ __all__ = [
 
 class KSScope(object):
     """
-    Convenience class for dealing with scope and names for kernel sparsity in the tf graph
+    Convenience class for dealing with scope and names for kernel sparsity
+    in the tf graph.
     """
 
     NM_KS = "nm_ks"
@@ -63,7 +65,7 @@ class KSScope(object):
     def general(ks_group: str, additional: str = None, trailing_slash: bool = False):
         """
         Create a general kernel sparsity scope in the tf graph.
-        Use cases are for generic ops like target sparsity, conditional updates, etc
+        Use cases are for generic ops like target sparsity, conditional updates, etc.
 
         :param ks_group: the group identifier the scope should be created under
         :param additional: any additional scope that should be added to the end
@@ -86,8 +88,8 @@ class KSScope(object):
     ) -> str:
         """
         Create a model specific kernel sparsity scope in the tf graph.
-        Use cases are for the specific mask, threshold, etc variables to induce sparsity.
-        Along with the ops to update those vars
+        Use cases are for the specific mask, threshold, etc variables
+        to induce sparsity along with the ops to update those vars.
 
         :param var_tens: the variable tensor to create the scope for
         :param ks_group: the group identifier the scope should be created under
@@ -106,7 +108,8 @@ class KSScope(object):
     @staticmethod
     def collection_name(ks_group: str, name: str) -> str:
         """
-        Create a predictable name for a given variable / op in a group for lookup / storage in a collection
+        Create a predictable name for a given variable / op in a group for lookup /
+        storage in a collection
 
         :param ks_group: the group identifier the name belongs under
         :param name: the name of the op or variable to be stored or retrieved
@@ -150,11 +153,12 @@ def create_ks_schedule_ops(
     :param begin_step: the global step to begin pruning at
     :param end_step: the global step to end pruning at
     :param update_step_freq: the number of global steps between each weight update
-    :param init_sparsity: the starting value for sparsity of a weight tensor to be enforce
+    :param init_sparsity: the starting value for sparsity of a
+        weight tensor to be enforce
     :param final_sparsity: the end value for sparsity for a weight tensor to be enforce
-    :param exponent: the exponent to use for interpolating between init_sparsity and final_sparsity
-                     higher values will lead to larger sparsity steps at the beginning vs the end
-                     ie: linear (1) vs cubic (3)
+    :param exponent: the exponent to use for interpolating between
+        init_sparsity and final_sparsity higher values will lead to larger sparsity
+        steps at the beginning vs the end ie: linear (1) vs cubic (3)
     :param global_step: the global optimizer step for the training graph
     :param ks_group: the group identifier the scope should be created under
     :return: a tuple containing the signal for update_ready and the target sparsity
@@ -220,19 +224,21 @@ def get_or_create_ks_schedule_ops(
     ks_group: str,
 ) -> Tuple[tf_compat.Tensor, tf_compat.Tensor]:
     """
-    gets previous ops if available (ie recalled on the same graph for the same group again)
-    if none, then creates the op
+    Gets previous ops if available
+    (ie recalled on the same graph for the same group again).
+    If none, then creates the op.
 
-    see :py:func:`~create_ks_schedule_ops` for more details
+    see :py:func:`~create_ks_schedule_ops` for more details.
 
     :param begin_step: the global step to begin pruning at
     :param end_step: the global step to end pruning at
     :param update_step_freq: the number of global steps between each weight update
-    :param init_sparsity: the starting value for sparsity of a weight tensor to be enforce
+    :param init_sparsity: the starting value for sparsity of a
+        weight tensor to be enforce
     :param final_sparsity: the end value for sparsity for a weight tensor to be enforce
-    :param exponent: the exponent to use for interpolating between init_sparsity and final_sparsity
-                     higher values will lead to larger sparsity steps at the beginning vs the end
-                     ie: linear (1) vs cubic (3)
+    :param exponent: the exponent to use for interpolating between
+        init_sparsity and final_sparsity higher values will lead to larger sparsity
+        steps at the beginning vs the end ie: linear (1) vs cubic (3)
     :param global_step: the global optimizer step for the training graph
     :param ks_group: the group identifier the scope should be created under
     :return: a tuple containing the signal for update_ready and the target sparsity
@@ -275,10 +281,12 @@ def create_op_pruning(
     apply sparsity to an operators variable.
 
     sparsity should be taken from :py:func:`~create_ks_schedule_ops`
-    the return mask_assign and thresh_assign should be inputs to :py:func:`~create_ks_update_ops`
+    the return mask_assign and thresh_assign should be inputs to
+    :py:func:`~create_ks_update_ops`
 
     :param op: the operation to prune to the given sparsity
-    :param var_index: the index for where the variable is, see :py:func:`~get_op_input_var`
+    :param var_index: the index for where the variable is,
+        see :py:func:`~get_op_input_var`
     :param sparsity: the target sparsity to use for assigning the masks
     :param ks_group: the group identifier the scope should be created under
     :return: a tuple containing the mask assignment op and the threshold assignment op
@@ -379,8 +387,10 @@ def create_graph_ops_pruning(
     See :py:func:`~create_op_pruning` for more details
 
     :param graph: the tf graph to pull the operator out of for applying the pruning to
-    :param op_names: the list of name of the operations in the graph to prune to the given sparsity
-    :param var_index: the index for where the variable is, see :py:func:`~get_op_input_var`
+    :param op_names: the list of name of the operations in the
+        graph to prune to the given sparsity
+    :param var_index: the index for where the variable is,
+        see :py:func:`~get_op_input_var`
     :param sparsity: the target sparsity to use for assigning the masks
     :param ks_group: the group identifier the scope should be created under
     :return: a tuple containing the mask assignment op and the threshold assignment op
@@ -407,14 +417,17 @@ def get_or_create_graph_ops_pruning(
     ks_group: str,
 ) -> Tuple[List[tf_compat.Tensor], List[tf_compat.Tensor]]:
     """
-    gets previous ops if available (ie recalled on the same graph for the same group again)
-    if none, then creates the op
+    Gets previous ops if available
+    (ie recalled on the same graph for the same group again)
+    if none, then creates the op.
 
-    see :py:func:`~create_graph_ops_pruning` for more details
+    See :py:func:`~create_graph_ops_pruning` for more details
 
     :param graph: the tf graph to pull the operator out of for applying the pruning to
-    :param op_names: the list of name of the operations in the graph to prune to the given sparsity
-    :param var_index: the index for where the variable is, see :py:func:`~get_op_input_var`
+    :param op_names: the list of name of the operations in the graph to
+        prune to the given sparsity
+    :param var_index: the index for where the variable is,
+        see :py:func:`~get_op_input_var`
     :param sparsity: the target sparsity to use for assigning the masks
     :param ks_group: the group identifier the scope should be created under
     :return: a tuple containing the mask assignment op and the threshold assignment op
@@ -447,9 +460,9 @@ def create_ks_update_op(
     assign_ops tensors should be pulled from :py:func:`~create_op_pruning`
 
     :param update_ready: the tensor that checks whether an update should happen or not
-                         see :py:func:`~create_ks_schedule_ops`
-    :param assign_ops: the tensors to run to update the mask and threshold assignments for applying ks
-                       see :py:func:`~create_op_pruning`
+        see :py:func:`~create_ks_schedule_ops`
+    :param assign_ops: the tensors to run to update the mask and threshold assignments
+        for applying ks see :py:func:`~create_op_pruning`
     :param ks_group: the group identifier the scope should be created under
     :return: the op to be run in a session after each batch
     """
@@ -481,15 +494,16 @@ def get_or_create_ks_update_op(
     update_ready: tf_compat.Tensor, assign_ops: List[tf_compat.Tensor], ks_group: str
 ) -> tf_compat.Tensor:
     """
-    gets previous ops if available (ie recalled on the same graph for the same group again)
+    gets previous ops if available
+    (ie recalled on the same graph for the same group again)
     if none, then creates the op
 
     see :py:func:`~create_ks_update_op` for more details
 
     :param update_ready: the tensor that checks whether an update should happen or not
-                         see :py:func:`~create_ks_schedule_ops`
-    :param assign_ops: the tensors to run to update the mask and threshold assignments for applying ks
-                       see :py:func:`~create_op_pruning`
+        see :py:func:`~create_ks_schedule_ops`
+    :param assign_ops: the tensors to run to update the mask and threshold assignments
+        for applying ks see :py:func:`~create_op_pruning`
     :param ks_group: the group identifier the scope should be created under
     :return: the op to be run in a session after each batch
     """

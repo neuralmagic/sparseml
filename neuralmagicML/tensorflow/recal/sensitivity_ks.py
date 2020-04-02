@@ -1,6 +1,7 @@
 """
-code related to calculating kernel sparsity sensitivity analysis for models
+Sensitivity analysis implementations for kernel sparsity on Graphs against loss funcs.
 """
+
 from enum import Enum
 import numpy
 from typing import Dict, List, Union, Optional, Callable
@@ -8,7 +9,7 @@ from typing import Dict, List, Union, Optional, Callable
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 
-from neuralmagicML.tensorflow.recal.kernel import KSScope
+from neuralmagicML.tensorflow.recal.mask_ks import KSScope
 
 from neuralmagicML.recal import (
     KSLossSensitivityProgress,
@@ -24,9 +25,10 @@ from neuralmagicML.tensorflow.utils import (
 __all__ = ["one_shot_ks_loss_sensitivity"]
 
 
-_AnalysisStage = Enum(
-    "_AnalysisStage", "START_OPERATION START_SPARSITY_LEVEL END_BATCH"
-)
+class _AnalysisStage(Enum):
+    start_operation = "start_operation"
+    start_sparsity_level = "start_sparsity_level"
+    end_batch = "end_batch"
 
 
 def one_shot_ks_loss_sensitivity(
@@ -43,9 +45,10 @@ def one_shot_ks_loss_sensitivity(
     progress_hook: Optional[Callable] = None,
 ) -> KSLossSensitivityAnalysis:
     """
-    Run a one shot sensitivity analysis for kernel sparsity
+    Run a one shot sensitivity analysis for kernel sparsity.
     It does not retrain, and instead puts the model to eval mode.
-    Moves layer by layer to calculate the sensitivity analysis for each and resets the previously run layers
+    Moves layer by layer to calculate the sensitivity analysis for each and
+    resets the previously run layers.
 
     :param session: the current session
     :param graph: the graph of the current model
@@ -55,9 +58,11 @@ def one_shot_ks_loss_sensitivity(
     :param y_placeholder: placeholder receiving targets
     :total_loss: the loss tensor to be analyzed; if None then the default loss is used
     :param batch_size: the batch size to run through the model in eval mode
-    :param samples_per_measurement: the number of samples or items to take for each measurement at each sparsity lev
-    :param sparsity_levels: the sparsity levels to check for each layer to calculate sensitivity
-    :prgress_hook: hook to process the progress object
+    :param samples_per_measurement: the number of samples or items to take
+        for each measurement at each sparsity lev
+    :param sparsity_levels: the sparsity levels to check for each layer
+        to calculate sensitivity
+    :progress_hook: hook to process the progress object
     :return: the sensitivity results for every operation that is prunable
     """
 
@@ -94,7 +99,7 @@ def one_shot_ks_loss_sensitivity(
     for operation_index, (name, operation) in enumerate(ops.items()):
         progress = _update_progress(
             progress,
-            _AnalysisStage.START_OPERATION,
+            _AnalysisStage.start_operation,
             layer_index=operation_index,
             layer_name=name,
         )
@@ -105,13 +110,14 @@ def one_shot_ks_loss_sensitivity(
         for sparsity_index, sparsity_level in enumerate(sparsity_levels):
             progress = _update_progress(
                 progress,
-                _AnalysisStage.START_SPARSITY_LEVEL,
+                _AnalysisStage.start_sparsity_level,
                 sparsity_index=sparsity_index,
             )
             if progress_hook:
                 progress_hook(progress)
 
-            # Update the mask of the current operation, reset all others to zero sparsity
+            # Update the mask of the current operation,
+            # reset all others to zero sparsity
             _update_pruning_masks(session, ops, operation, sparsity_level)
 
             # Run inference, collecting losses across batches
@@ -130,7 +136,7 @@ def one_shot_ks_loss_sensitivity(
                 results.append(loss)
                 progress = _update_progress(
                     progress,
-                    _AnalysisStage.END_BATCH,
+                    _AnalysisStage.end_batch,
                     measurement_step=measurement_step,
                 )
                 if progress_hook:
@@ -154,7 +160,7 @@ def _update_progress(
     progress: KSLossSensitivityProgress, stage: _AnalysisStage, **kwargs
 ):
     """
-    Update the progress information based on the stage of the analysis
+    Update the progress information based on the stage of the analysis.
 
     :param progress: The object holding the analysis progress information
     :param stage: The stage of the sensitivity analysis
@@ -170,17 +176,17 @@ def _update_progress(
                 if key not in kwargs:
                     raise ValueError("{} required".format(key))
 
-    if stage == _AnalysisStage.START_OPERATION:
+    if stage == _AnalysisStage.start_operation:
         _check_stage_info(["layer_index", "layer_name"])
         progress.layer_index = kwargs["layer_index"]
         progress.layer_name = kwargs["layer_name"]
         progress.sparsity_index = -1
         progress.measurement_step = -1
-    elif stage == _AnalysisStage.START_SPARSITY_LEVEL:
+    elif stage == _AnalysisStage.start_sparsity_level:
         _check_stage_info("sparsity_index")
         progress.sparsity_index = kwargs["sparsity_index"]
         progress.measurement_step = -1
-    elif stage == _AnalysisStage.END_BATCH:
+    elif stage == _AnalysisStage.end_batch:
         _check_stage_info("measurement_step")
         progress.measurement_step = kwargs["measurement_step"]
     return progress
@@ -188,10 +194,11 @@ def _update_progress(
 
 def _create_parameters_pruning_op(op: tf_compat.Operation, ks_group: str):
     """
-    Create the mask and operation to update it, used for pruning purposes
+    Create the mask and operation to update it, used for pruning purposes.
 
     :param op: The current operation whose weights need to be pruned
-    :param ks_group: Name of the group under which the new mask and update operation are created
+    :param ks_group: Name of the group under which the new mask and
+        update operation are created
 
     :return Operations to assign values to the mask
     """
@@ -262,13 +269,17 @@ def _sparsity_feed_dict(
     current_sparsity: float = 0,
 ):
     """
-    Create feed_dict for all sparsity placeholders, used to run the mask assign operations
-    If the current operation and sparsity are provided, then the sparsity is used as value to the
-    corresponding mask assign, and all the other sparsity placeholders are reset to zeros.
+    Create feed_dict for all sparsity placeholders,
+    used to run the mask assign operations.
+    If the current operation and sparsity are provided,
+    then the sparsity is used as value to the corresponding mask assign,
+    and all the other sparsity placeholders are reset to zeros.
 
     :param ops: Dictionary of operations
-    :param current_op: Current operation to set custom sparsity; if None then all sparsities are zeros
-    :param current_sparsity: Sparsity of the current operation if specified; ignored otherwise
+    :param current_op: Current operation to set custom sparsity;
+        if None then all sparsities are zeros
+    :param current_sparsity: Sparsity of the current operation if specified;
+        ignored otherwise
 
     :return A feed dict to be used for running mask assigns
     """
@@ -295,13 +306,16 @@ def _update_pruning_masks(
     current_sparsity: float = 0,
 ):
     """
-    Apply mask assign operations to assign values to mask variables. If a current operation is provided
-    then its sparsity can be set; otherwise, all sparsities are set to zeros
+    Apply mask assign operations to assign values to mask variables.
+    If a current operation is provided then its sparsity can be set;
+    otherwise, all sparsities are set to zeros.
 
     :param session: The current session
     :param ops: Dictionary of operations
-    :param current_op: Current operation to set custom sparsity; if None then all sparsities are zeros
-    :param current_sparsity: Sparsity of the current operation if specified; ignored otherwise
+    :param current_op: Current operation to set custom sparsity;
+        if None then all sparsities are zeros
+    :param current_sparsity: Sparsity of the current operation if specified;
+        ignored otherwise
 
     :return None
     """

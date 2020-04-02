@@ -9,6 +9,8 @@ neuralmagicML/data/*
 neuralmagicML/checkpoints
 neuralmagicML/pruned
 
+*.rst
+
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/

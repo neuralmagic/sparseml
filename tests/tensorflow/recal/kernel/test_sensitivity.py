@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 
 
-from neuralmagicML.tensorflow.recal.kernel import one_shot_ks_loss_sensitivity
+from neuralmagicML.tensorflow.recal.sensitivity_ks import one_shot_ks_loss_sensitivity
 from neuralmagicML.tensorflow.utils import tf_compat
 
 RANDOM_SEED = 2020

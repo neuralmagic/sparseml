@@ -10,7 +10,7 @@ from neuralmagicML.pytorch.recal import (
     CyclicLRModifier,
 )
 
-from ..test_modifier import (
+from tests.pytorch.recal.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
     test_epoch,

@@ -1,3 +1,9 @@
+"""
+Code related to analyzing activation sparsity within PyTorch neural networks.
+More information can be found in the paper
+`here <https://arxiv.org/abs/1705.01626>`__.
+"""
+
 from typing import List, Union, Tuple
 from enum import Enum
 import torch
@@ -12,6 +18,10 @@ __all__ = ["ASResultType", "ModuleASAnalyzer"]
 
 
 class ASResultType(Enum):
+    """
+    Result type to track for activation sparsity.
+    """
+
     inputs_sparsity = "inputs_sparsity"
     inputs_sample = "inputs_sample"
     outputs_sparsity = "outputs_sparsity"
@@ -19,25 +29,52 @@ class ASResultType(Enum):
 
 
 class ModuleASAnalyzer(object):
+    """
+    An analyzer implementation used to monitor the activation sparsity with a module.
+    Generally used to monitor an individual layer.
+
+    :param module: The module to analyze activation sparsity for
+    :param dim: Any dims within the tensor such as across batch,
+        channel, etc. Ex: 0 for batch, 1 for channel, [0, 1] for batch and channel
+    :param track_inputs_sparsity: True to track the input sparsity to the module,
+        False otherwise
+    :param track_outputs_sparsity: True to track the output sparsity to the module,
+        False otherwise
+    :param inputs_sample_size: The number of samples to grab from the input tensor
+        on each forward pass. If <= 0, then will not sample any values.
+    :param outputs_sample_size: The number of samples to grab from the output tensor
+        on each forward pass. If <= 0, then will not sample any values.
+    :param enabled: True to enable the hooks for analyzing and actively track,
+        False to disable and not track
+    """
+
     @staticmethod
     def analyze_layers(
         module: Module,
         layers: List[str],
-        division: Union[None, int, Tuple[int, ...]],
+        dim: Union[None, int, Tuple[int, ...]],
         **kwargs
     ):
+        """
+        :param module: the module to analyze multiple layers activation sparsity in
+        :param layers: the names of the layers to analyze (from module.named_modules())
+        :param dim: Any dims within the tensor such as across batch,
+            channel, etc. Ex: 0 for batch, 1 for channel, [0, 1] for batch and channel
+        :param kwargs: any kwargs to pass to the ModuleASAnalyzer constructor
+        :return: a list of the created analyzers, matches the ordering in layers
+        """
         analyzed = []
 
         for layer_name in layers:
             layer = get_layer(layer_name, module)
-            analyzed.append(ModuleASAnalyzer(layer, division, **kwargs))
+            analyzed.append(ModuleASAnalyzer(layer, dim, **kwargs))
 
         return analyzed
 
     def __init__(
         self,
         module: Module,
-        division: Union[None, int, Tuple[int, ...]],
+        dim: Union[None, int, Tuple[int, ...]],
         track_inputs_sparsity: bool = False,
         track_outputs_sparsity: bool = False,
         inputs_sample_size: int = 0,
@@ -45,7 +82,7 @@ class ModuleASAnalyzer(object):
         enabled: bool = False,
     ):
         self._module = module
-        self._division = division
+        self._dim = dim
         self._track_inputs_sparsity = track_inputs_sparsity
         self._track_outputs_sparsity = track_outputs_sparsity
         self._inputs_sample_size = inputs_sample_size
@@ -66,16 +103,17 @@ class ModuleASAnalyzer(object):
 
     def __str__(self):
         return (
-            "module: {}, division: {}, track_inputs_sparsity: {}, track_outputs_sparsity: {}, "
-            "inputs_sample_size: {}, outputs_sample_size: {}, enabled: {}".format(
-                self._module,
-                self._division,
-                self._track_inputs_sparsity,
-                self._track_outputs_sparsity,
-                self._inputs_sample_size,
-                self._outputs_sample_size,
-                self._enabled,
-            )
+            "module: {}, dim: {}, track_inputs_sparsity: {},"
+            " track_outputs_sparsity: {}, inputs_sample_size: {},"
+            " outputs_sample_size: {}, enabled: {}"
+        ).format(
+            self._module,
+            self._dim,
+            self._track_inputs_sparsity,
+            self._track_outputs_sparsity,
+            self._inputs_sample_size,
+            self._outputs_sample_size,
+            self._enabled,
         )
 
     @property
@@ -83,8 +121,8 @@ class ModuleASAnalyzer(object):
         return self._module
 
     @property
-    def division(self) -> Union[None, int, Tuple[int, ...]]:
-        return self._division
+    def dim(self) -> Union[None, int, Tuple[int, ...]]:
+        return self._dim
 
     @property
     def track_inputs_sparsity(self) -> bool:
@@ -282,12 +320,12 @@ class ModuleASAnalyzer(object):
                 _inp = _inp[0]
 
             if self.track_inputs_sparsity:
-                result = tensor_sparsity(_inp, dim=self.division)
+                result = tensor_sparsity(_inp, dim=self.dim)
                 sparsities = result.detach_().cpu()
                 self._inputs_sparsity.append(sparsities)
 
             if self.inputs_sample_size > 0:
-                result = tensor_sparsity(_inp, dim=self.division)
+                result = tensor_sparsity(_inp, dim=self.dim)
                 samples = result.detach_().cpu()
                 self._inputs_sample.append(samples)
 
@@ -300,14 +338,12 @@ class ModuleASAnalyzer(object):
                 _out = _out[0]
 
             if self.track_outputs_sparsity:
-                result = tensor_sparsity(_out, dim=self.division)
+                result = tensor_sparsity(_out, dim=self.dim)
                 sparsities = result.detach_().cpu()
                 self._outputs_sparsity.append(sparsities)
 
             if self.outputs_sample_size > 0:
-                result = tensor_sample(
-                    _out, self.outputs_sample_size, dim=self.division
-                )
+                result = tensor_sample(_out, self.outputs_sample_size, dim=self.dim)
                 samples = result.detach_().cpu()
                 self._outputs_sample.append(samples)
 

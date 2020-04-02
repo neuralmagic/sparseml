@@ -9,7 +9,7 @@ from toposort import toposort
 
 from neuralmagicML.tensorflow.utils.variable import get_op_input_var
 from neuralmagicML.tensorflow.utils.helpers import tf_compat
-from neuralmagicML.utils import AnalyzedLayerDesc
+from neuralmagicML.recal import AnalyzedLayerDesc
 
 __all__ = ["analyze_module"]
 
@@ -24,14 +24,12 @@ def analyze_module(
     Analyze a module at certain layers
 
     :param session: running session encapsulating the analyzed module
-    :param graph: graph of the module; if None then the session is required, and the
-                  encapsulated graph is to be analyzed
-    :param op_names: list of names of layers to be analyzed; if None then all layers are
-                     analyzed for an aggregated result
-    :param op_types: the operation types that will be analyzed,
-                     default is [Conv2D, MatMul]
-    :return A dictionary of descriptions for layers if layer names are specified;
-            otherwise, an instance of AnalyzedLayerDesc for the entired module
+    :param graph: graph of the module; if None then the session is required,
+        and the encapsulated graph is to be analyzed
+    :param op_names: list of names of layers to be analyzed;
+        if None then all layers are analyzed for an aggregated result
+    :param op_types: the operation types that will be analyzed, default (Conv2D, MatMul)
+    :return: the analyzed layer descriptions or the module description if no op_names
     """
     if op_types is None:
         op_types = ["Conv2D", "MatMul"]

@@ -1,5 +1,5 @@
 """
-Code related to exporting pytorch models on a given device for given batches
+Export PyTorch models to the local device
 """
 
 from typing import List, Any, Iterable
@@ -27,29 +27,27 @@ __all__ = ["ModuleExporter"]
 
 class ModuleExporter(object):
     """
-    An exporter for exporting pytorch modules into onnx format
-    as well as numpy arrays for the input and output tensors
-    additional exports can be numpy arrays for the intermediate activations between layers
-    and param values for each layer as numpy arrays
+    An exporter for exporting PyTorch modules into ONNX format
+    as well as numpy arrays for the input and output tensors.
+
+    :param module: the module to export
+    :param output_dir: the directory to export the module and extras to
     """
 
     def __init__(
         self, module: Module, output_dir: str,
     ):
-        """
-        :param module: the module to export
-        :param output_dir: the directory to export the module and extras to
-        """
         self._module = module.to("cpu").eval()
         self._output_dir = clean_path(output_dir)
 
     def export_onnx(self, sample_batch: Any):
         """
         Export an onnx file for the current module and for a sample batch.
-        Sample batch used to feed through the model to freeze the graph for a particular execution.
+        Sample batch used to feed through the model to freeze the graph for a
+        particular execution.
 
-        :param sample_batch: the batch to export an onnx for, handles creating the static graph for onnx
-                             as well as setting dimensions
+        :param sample_batch: the batch to export an onnx for, handles creating the
+            static graph for onnx as well as setting dimensions
         """
         sample_batch = tensors_to_device(sample_batch, "cpu")
         onnx_path = os.path.join(self._output_dir, "model.onnx")
@@ -86,7 +84,11 @@ class ModuleExporter(object):
 
     def export_pytorch(self, optimizer: Optimizer = None, epoch: int = None):
         """
-        Export the pytorch state dicts into pth file within a pytorch framework directory
+        Export the pytorch state dicts into pth file within a
+        pytorch framework directory.
+
+        :param optimizer: optional optimizer to export along with the module
+        :param epoch: optional epoch to export along with the module
         """
         pytorch_path = os.path.join(self._output_dir, "pytorch")
         pth_path = os.path.join(pytorch_path, "model.pth")

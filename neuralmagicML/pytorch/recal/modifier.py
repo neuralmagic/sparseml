@@ -1,6 +1,8 @@
 """
-Contains base code related to modifiers: objects that modify some aspect of the training process for a model
-For example, learning rate schedules or kernel sparsity (weight pruning) are implemented as modifiers
+Contains base code related to modifiers: objects that modify some aspect
+of the training process for a model.
+For example, learning rate schedules or kernel sparsity (weight pruning)
+are implemented as modifiers.
 """
 
 from typing import Union, List
@@ -8,7 +10,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from neuralmagicML.utils import ALL_TOKEN
+from neuralmagicML.utils import ALL_TOKEN, PYTORCH_FRAMEWORK
 from neuralmagicML.recal import (
     ModifierYAML,
     ModifierProp,
@@ -29,9 +31,6 @@ __all__ = [
 ]
 
 
-PYTORCH_FRAMEWORK = "pytorch"
-
-
 class PyTorchModifierYAML(ModifierYAML):
     """
     A decorator to handle making a pytorch modifier class YAML ready.
@@ -44,25 +43,30 @@ class PyTorchModifierYAML(ModifierYAML):
 
 class Modifier(BaseModifier):
     """
-    The base pytorch modifier implementation, all modifiers must inherit from this class.
+    The base pytorch modifier implementation,
+    all modifiers must inherit from this class.
     It defines common things needed for the lifecycle and implementation of a modifier.
 
-    Lifecycle:
-        - initialize
-        - initialize_loggers
+    | Lifecycle:
+    |   - initialize
+    |   - initialize_loggers
+    |
+    |   training loop:
+    |       - update
+    |       - log_update
+    |       - loss_update
+    |       - optimizer_pre_step
+    |       - optimizer_post_step
 
-        training loop:
-            - update
-            - log_update
-            - loss_update
-            - optimizer_pre_step
-            - optimizer_post_step
+    :param log_types: The loggers that can be used by the modifier instance
+    :param kwargs: standard key word args, used to support multi inheritance
     """
 
     @staticmethod
     def load_list(yaml_str: str):
         """
-        :param yaml_str: a string representation of the yaml syntax to load modifiers from
+        :param yaml_str: a string representation of the yaml syntax to
+            load modifiers from
         :return: the loaded modifiers list
         """
         return Modifier.load_framework_list(yaml_str, PYTORCH_FRAMEWORK)
@@ -70,15 +74,13 @@ class Modifier(BaseModifier):
     @staticmethod
     def load_obj(yaml_str: str):
         """
-        :param yaml_str:  a string representation of the yaml syntax to load a modifier from
+        :param yaml_str:  a string representation of the yaml syntax to
+            load a modifier from
         :return: the loaded modifier object
         """
         return Modifier.load_framework_obj(yaml_str, PYTORCH_FRAMEWORK)
 
     def __init__(self, log_types: Union[str, List[str]] = None, **kwargs):
-        """
-        :param log_types: The loggers that can be used by the modifier instance
-        """
         super().__init__(log_types=log_types, **kwargs)
         self._loggers_initialized = False
         self._loggers = None
@@ -93,14 +95,15 @@ class Modifier(BaseModifier):
     @ModifierProp(serializable=False)
     def loggers(self):
         """
-        :return: loggers to log important info to within for this modifier (filtered by allowed_loggers)
+        :return: loggers to log important info to within for this modifier
+            (filtered by allowed_loggers)
         """
         return self._loggers if self._loggers is not None else []
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
-        Handles initializing and setting up the modifier
-        Called once on construction of the scheduled optimizer
+        Handles initializing and setting up the modifier.
+        Called once on construction of the scheduled optimizer.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
@@ -109,7 +112,8 @@ class Modifier(BaseModifier):
 
     def initialize_loggers(self, loggers: Union[None, List[PyTorchLogger]]):
         """
-        :param loggers: the loggers to setup this modifier with for logging important info and milestones to
+        :param loggers: the loggers to setup this modifier with for logging important
+            info and milestones to
         """
         self._loggers_initialized = True
 
@@ -126,13 +130,14 @@ class Modifier(BaseModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Handles updating the modifier's state, module, or optimizer
-        Called when update_ready() returns True
+        Handles updating the modifier's state, module, or optimizer.
+        Called when update_ready() returns True.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
@@ -144,13 +149,14 @@ class Modifier(BaseModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Handles logging updates for the modifier for better tracking and visualization
-        Should be overriden for logging
+        Handles logging updates for the modifier for better tracking and visualization.
+        Should be overwritten for logging.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
@@ -170,14 +176,16 @@ class Modifier(BaseModifier):
         steps_per_epoch: int,
     ):
         """
-        Optional call that can be made on the optimizer to update the modifiers once the loss has been calculated
-        Called independent of if the modifier is currently active or not
+        Optional call that can be made on the optimizer to update the modifiers
+        once the loss has been calculated.
+        Called independent of if the modifier is currently active or not.
 
         :param loss: The calculated loss tensor
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         :return: the modified loss tensor
         """
         if not self._initialized:
@@ -192,13 +200,15 @@ class Modifier(BaseModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Called before the optimizer step happens (after backward has been called, before optimizer.step)
-        Called independent of if the modifier is currently active or not
+        Called before the optimizer step happens
+        (after backward has been called, before optimizer.step).
+        Called independent of if the modifier is currently active or not.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
@@ -210,13 +220,14 @@ class Modifier(BaseModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Called after the optimizer step happens and weights have updated
-        Called independent of if the modifier is currently active or not
+        Called after the optimizer step happens and weights have updated.
+        Called independent of if the modifier is currently active or not.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
@@ -227,23 +238,38 @@ class Modifier(BaseModifier):
 
 class ScheduledModifier(Modifier, BaseScheduled):
     """
-    The base scheduled modifier implementation, all scheduled modifiers must inherit from this class.
+    The base scheduled modifier implementation,
+    all scheduled modifiers must inherit from this class.
     The difference for this and a Modifier is that these have start and end epochs.
-    It defines common things needed for the lifecycle and implementation of a scheduled modifier.
+    It defines common things needed for the lifecycle and implementation of a
+    scheduled modifier.
 
-    Lifecycle:
-        - initialize
-        - initialize_loggers
+    | Lifecycle:
+    |   - initialize
+    |   - initialize_loggers
+    |
+    |   training loop:
+    |       - update_ready
+    |           - scheduled_update
+    |               - update
+    |       - scheduled_log_update
+    |           - log_update
+    |       - loss_update
+    |       - optimizer_pre_step
+    |       - optimizer_post_step
 
-        training loop:
-            - update_ready
-                - scheduled_update
-                    - update
-            - scheduled_log_update
-                - log_update
-            - loss_update
-            - optimizer_pre_step
-            - optimizer_post_step
+    :param log_types: The loggers that can be used by the modifier instance
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param log_types: The loggers that can be used by the modifier instance
+    :param min_start: The minimum acceptable value for start_epoch, default -1
+    :param min_end: The minimum acceptable value for end_epoch, default 0
+    :param end_comparator: integer value representing how the end_epoch should be
+        compared to start_epoch.
+        if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
+        if == 0, then end_epoch can be equal to or greater than start_epoch.
+        if == 1, then end_epoch can only be greater than start_epoch.
+    :param kwargs: standard key word args, used to support multi inheritance
     """
 
     def __init__(
@@ -256,18 +282,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
         end_comparator: int = 0,
         **kwargs,
     ):
-        """
-        :param log_types: The loggers that can be used by the modifier instance
-        :param start_epoch: The epoch to start the modifier at
-        :param end_epoch: The epoch to end the modifier at
-        :param log_types: The loggers that can be used by the modifier instance
-        :param min_start: The minimum acceptable value for start_epoch, default -1
-        :param min_end: The minimum acceptable value for end_epoch, default 0
-        :param end_comparator: integer value representing how the end_epoch should be compared to start_epoch
-                               if == -1, then end_epoch can be less than, equal to, or greater than start_epoch
-                               if == 0, then end_epoch can be equal to or greater than start_epoch
-                               if == 1, then end_epoch can only be greater than start_epoch
-        """
         super().__init__(
             log_types=log_types,
             start_epoch=start_epoch,
@@ -288,23 +302,26 @@ class ScheduledModifier(Modifier, BaseScheduled):
     @ModifierProp(serializable=False)
     def started(self) -> bool:
         """
-        :return: True if the modifier has been started (ie between the start and end range), False otherwise
+        :return: True if the modifier has been started
+            (ie between the start and end range), False otherwise
         """
         return self._started
 
     @ModifierProp(serializable=False)
     def ended(self) -> bool:
         """
-        :return: True if the modifier has ended (ie after the start and end range), False otherwise
+        :return: True if the modifier has ended (ie after the start and end range),
+            False otherwise
         """
         return self._ended
 
     def start_pending(self, epoch: float, steps_per_epoch: int) -> bool:
         """
-        Base implementation compares current epoch with the start epoch
+        Base implementation compares current epoch with the start epoch.
 
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         :return: True if the modifier is ready to begin modifying, false otherwise
         """
         if not self._initialized:
@@ -323,10 +340,12 @@ class ScheduledModifier(Modifier, BaseScheduled):
 
     def end_pending(self, epoch: float, steps_per_epoch: int) -> bool:
         """
-        Base implementation compares current epoch with the end epoch and that it has been started
+        Base implementation compares current epoch with the end epoch and
+        that it has been started.
 
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         :return: True if the modifier is ready to stop modifying, false otherwise
         """
         if not self._initialized:
@@ -341,10 +360,11 @@ class ScheduledModifier(Modifier, BaseScheduled):
 
     def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
         """
-        Base implementation checks if start_pending() or end_pending()
+        Base implementation checks if start_pending() or end_pending().
 
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         :return: True if the modifier is pending an update and update() should be called
         """
         if not self._initialized:
@@ -369,7 +389,8 @@ class ScheduledModifier(Modifier, BaseScheduled):
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
@@ -393,13 +414,14 @@ class ScheduledModifier(Modifier, BaseScheduled):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Handles updating the modifier's state, module, or optimizer
-        Called when update_ready() returns True
+        Handles updating the modifier's state, module, or optimizer.
+        Called when update_ready() returns True.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         if not self._schedule_called:
             raise RuntimeError(
@@ -410,16 +432,18 @@ class ScheduledModifier(Modifier, BaseScheduled):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Handles checking if a log update should happen
-        IE, is the modifier currently in the range of its start and end epochs
-        No restrictions are placed on it by update_ready in the event that the modifier should log
-        constantly or outside of an update being ready
-        General use case is checking if logs should happen by comparing cached values with updated values
+        Handles checking if a log update should happen.
+        IE, is the modifier currently in the range of its start and end epochs.
+        No restrictions are placed on it by update_ready in the event that the modifier
+        should log constantly or outside of an update being ready.
+        General use case is checking if logs should happen by comparing
+        cached values with updated values.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
@@ -438,40 +462,59 @@ class ScheduledModifier(Modifier, BaseScheduled):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Handles logging updates for the modifier for better tracking and visualization
-        Should be overridden for logging but not called directly, use scheduled_log_update instead
+        Handles logging updates for the modifier for better tracking and visualization.
+        Should be overridden for logging but not called directly,
+        use scheduled_log_update instead.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
         if not self._scheduled_log_called:
             raise RuntimeError(
-                "log_update should not be called directly, call scheduled_log_update instead"
+                "log_update should not be called directly, "
+                "call scheduled_log_update instead"
             )
 
 
 class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     """
-    The base scheduled update modifier implementation, all scheduled update modifiers must inherit from this class.
-    The difference for this and a ScheduledModifier is that these have a certain interval that they update
-    within the start and end ranges.
-    It defines common things needed for the lifecycle and implementation of a scheduled update modifier.
+    The base scheduled update modifier implementation,
+    all scheduled update modifiers must inherit from this class.
+    The difference for this and a ScheduledModifier is that these have a certain
+    interval that they update within the start and end ranges.
+    It defines common things needed for the lifecycle and implementation of a scheduled
+    update modifier.
 
-    Lifecycle:
-        - initialize
-        - initialize_loggers
+    | Lifecycle:
+    |   - initialize
+    |   - initialize_loggers
+    |
+    |   training loop:
+    |       - update_ready
+    |           - scheduled_update
+    |               - update
+    |       - loss_update
+    |       - optimizer_pre_step
+    |       - optimizer_post_step
 
-        training loop:
-            - update_ready
-                - scheduled_update
-                    - update
-            - loss_update
-            - optimizer_pre_step
-            - optimizer_post_step
+    :param log_types: The loggers that can be used by the modifier instance
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param log_types: The loggers that can be used by the modifier instance
+    :param min_start: The minimum acceptable value for start_epoch, default -1
+    :param min_end: The minimum acceptable value for end_epoch, default 0
+    :param end_comparator: integer value representing how the end_epoch should be
+        compared to start_epoch.
+        if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
+        if == 0, then end_epoch can be equal to or greater than start_epoch.
+        if == 1, then end_epoch can only be greater than start_epoch.
+    :param min_frequency: The minimum acceptable value for update_frequency, default -1
+    :param kwargs: standard key word args, used to support multi inheritance
     """
 
     def __init__(
@@ -486,23 +529,6 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
         min_frequency: float = -1.0,
         **kwargs,
     ):
-        """
-        Base class for any update modifier, allows updates to happen every # epochs (or fraction of epochs)
-        Overrides update_ready to return true when update_frequency is reached
-
-        :param log_types: The loggers that can be used by the modifier instance
-        :param start_epoch: The epoch to start the modifier at
-        :param end_epoch: The epoch to end the modifier at
-        :param log_types: The loggers that can be used by the modifier instance
-        :param min_start: The minimum acceptable value for start_epoch, default -1
-        :param min_end: The minimum acceptable value for end_epoch, default 0
-        :param end_comparator: integer value representing how the end_epoch should be compared to start_epoch
-                               if == -1, then end_epoch can be less than, equal to, or greater than start_epoch
-                               if == 0, then end_epoch can be equal to or greater than start_epoch
-                               if == 1, then end_epoch can only be greater than start_epoch
-        :param update_frequency: The number of epochs or fraction of epochs to update at between start and end
-        :param min_frequency: The minimum acceptable value for update_frequency, default -1
-        """
         super().__init__(
             log_types=log_types,
             start_epoch=start_epoch,
@@ -518,11 +544,13 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
 
     def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
         """
-        Calls base implementation to check if start_pending() or end_pending()
-        Additionally checks if an update is ready based on the frequency and current epoch vs last epoch updated
+        Calls base implementation to check if start_pending() or end_pending().
+        Additionally checks if an update is ready based on the frequency and current'
+        epoch vs last epoch updated.
 
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         :return: True if the modifier is pending an update and update() should be called
         """
         if not self._enabled:
@@ -548,13 +576,14 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Handles updating the modifier's state, module, or optimizer
-        Called when update_ready() returns True
+        Handles updating the modifier's state, module, or optimizer.
+        Called when update_ready() returns True.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         self._last_update_epoch = epoch
 

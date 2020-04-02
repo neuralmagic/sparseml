@@ -1,3 +1,8 @@
+"""
+Modifiers for inducing / enforcing kernel sparsity (model pruning)
+on models while pruning.
+"""
+
 from typing import Union, List, Tuple
 import hashlib
 
@@ -12,7 +17,7 @@ from neuralmagicML.tensorflow.recal.modifier import (
     TensorFlowModifierYAML,
     ScheduledUpdateModifier,
 )
-from neuralmagicML.tensorflow.recal.kernel.mask import (
+from neuralmagicML.tensorflow.recal.mask_ks import (
     get_or_create_ks_schedule_ops,
     get_or_create_graph_ops_pruning,
     get_or_create_ks_update_op,
@@ -25,15 +30,43 @@ __all__ = ["GradualKSModifier"]
 @TensorFlowModifierYAML()
 class GradualKSModifier(ScheduledUpdateModifier):
     """
-    Gradually applies kernel sparsity to a given layer or layers from init_sparsity until final_sparsity is reached
-    over a given amount of time and applied with an interpolated function for each step taken
+    Gradually applies kernel sparsity to a given layer or layers from
+    init_sparsity until final_sparsity is reached over a given amount of time and
+    applied with an interpolated function for each step taken.
 
     Applies based on magnitude pruning without any structure to the pruning.
 
-    Modifiers are expected to be able to implement up to 3 different flows to work with tensorflow:
-       - create_ops - inject ops into the graph before the training begins
-       - create_extras - create extras like learning rate controls before training begins
-       - complete_graph - finalize the graph after training has completed
+    | Sample yaml:
+    |   !GradualKSModifier
+    |       layers: __ALL__
+    |       init_sparsity: 0.05
+    |       final_sparsity: 0.8
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       update_frequency: 1.0
+    |       param: from_trainable
+    |       inter_func: cubic
+    |       log_types: __ALL__
+
+    :param layers: List of str for the layers (ops) to apply the KS modifier to
+    :param init_sparsity: The initial sparsity for the param to
+        start with at start_epoch
+    :param final_sparsity: The final sparsity for the param to end with at end_epoch
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The number of epochs or fraction of epochs to
+        update at between start and end
+    :param param: The index to guide which input to grab from the operation.
+        Can be set to an integer representing where the variable is, a string
+        representing a name or portion of the name of the variable, or the default:
+        "from_trainable" which tries to find from the trainable vars in the graph
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param inter_func: The type of interpolation function to use:
+        [linear, cubic, inverse_cubic]
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
     """
 
     def __init__(
@@ -49,23 +82,6 @@ class GradualKSModifier(ScheduledUpdateModifier):
         inter_func: str = "linear",
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
-        """
-        :param layers: List of str for the layers (ops) to apply the KS modifier to
-        :param init_sparsity: The initial sparsity for the param to start with at start_epoch
-        :param final_sparsity: The final sparsity for the param to end with at end_epoch
-        :param start_epoch: The epoch to start the modifier at
-        :param end_epoch: The epoch to end the modifier at
-        :param update_frequency: The number of epochs or fraction of epochs to update at between start and end
-        :param param: The index to guide which input to grab from the operation.
-                      can be set to an integer representing where the variable is,
-                      a string representing a name or portion of the name of the variable,
-                      or the default: "from_trainable" which tries to find from the trainable vars in the graph
-        :param leave_enabled: True to continue masking the weights after end_epoch, False to stop masking
-                              Should be set to False if exporting the result immediately after or doing some other prune
-        :param inter_func: The type of interpolation function to use: [linear, cubic, inverse_cubic]
-        :param log_types: The loggers to allow the learning rate to be logged to, default is __ALL__
-        """
-
         super(GradualKSModifier, self).__init__(
             log_types=log_types,
             start_epoch=start_epoch,
@@ -145,9 +161,10 @@ class GradualKSModifier(ScheduledUpdateModifier):
     def param(self) -> Union[int, str]:
         """
         :return: The index to guide which input to grab from the operation.
-                 can be set to an integer representing where the variable is,
-                 a string representing a name or portion of the name of the variable,
-                 or the default: "from_trainable" which tries to find from the trainable vars in the graph
+            Can be set to an integer representing where the variable is,
+            a string representing a name or portion of the name of the variable,
+            or the default: "from_trainable" which tries to find from
+            the trainable vars in the graph
         """
         return self._param
 
@@ -155,25 +172,28 @@ class GradualKSModifier(ScheduledUpdateModifier):
     def param(self, value: Union[int, str]):
         """
         :param value: The index to guide which input to grab from the operation.
-                      can be set to an integer representing where the variable is,
-                      a string representing a name or portion of the name of the variable,
-                      or the default: "from_trainable" which tries to find from the trainable vars in the graph
+            Can be set to an integer representing where the variable is,
+            a string representing a name or portion of the name of the variable,
+            or the default: "from_trainable" which tries to find from
+            the trainable vars in the graph
         """
         self._param = value
 
     @ModifierProp()
     def leave_enabled(self) -> bool:
         """
-        :return: True to continue masking the weights after end_epoch, False to stop masking
-                 Should be set to False if exporting the result immediately after or doing some other prune
+        :return: True to continue masking the weights after end_epoch,
+            False to stop masking. Should be set to False if exporting
+            the result immediately after or doing some other prune
         """
         return self._leave_enabled
 
     @leave_enabled.setter
     def leave_enabled(self, value: bool):
         """
-        :param value: True to continue masking the weights after end_epoch, False to stop masking
-                      Should be set to False if exporting the result immediately after or doing some other prune
+        :param value: True to continue masking the weights after end_epoch,
+            False to stop masking. Should be set to False if exporting the result
+            immediately after or doing some other prune
         """
         self._leave_enabled = value
         self.validate()
@@ -181,14 +201,16 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def inter_func(self) -> str:
         """
-        :return: The type of interpolation function to use: [linear, cubic, inverse_cubic]
+        :return: The type of interpolation function to use:
+            [linear, cubic, inverse_cubic]
         """
         return self._inter_func
 
     @inter_func.setter
     def inter_func(self, value: str):
         """
-        :param value: The type of interpolation function to use: [linear, cubic, inverse_cubic]
+        :param value: The type of interpolation function to use:
+            [linear, cubic, inverse_cubic]
         """
         self._inter_func = value
         self.validate()
@@ -237,7 +259,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
         :param graph: the graph to be modified
         :param steps_per_epoch: the number of steps (batches) per training epoch
         :param global_step: the global step used while training
-        :return: a tuple containing the modified graph and extra ops to be run for modifying
+        :return: a tuple containing the modified graph and extra ops
+            to be run for modifying
         """
         # TODO: add support for tensorboard and tensorflow logging
         begin_step = round(self._start_epoch * steps_per_epoch)
@@ -272,9 +295,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
         if self._layers == ALL_TOKEN:
             raise ValueError(
-                "layers cannot be set to {} for tensorflow implementation for {}".format(
-                    ALL_TOKEN, self.__class__.__name__
-                )
+                (
+                    "layers cannot be set to {} for" " tensorflow implementation for {}"
+                ).format(ALL_TOKEN, self.__class__.__name__)
             )
 
         if not self._leave_enabled:
@@ -293,9 +316,10 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
         if not 0.0 <= self._init_sparsity <= 1.0:
             raise ValueError(
-                "init_sparsity value must be in the range [0.0, 1.0], given {} for {}".format(
-                    self._init_sparsity, self.__class__.__name__
-                )
+                (
+                    "init_sparsity value must be in the range"
+                    " [0.0, 1.0], given {} for {}"
+                ).format(self._init_sparsity, self.__class__.__name__)
             )
 
         if not isinstance(self._final_sparsity, float):
@@ -307,16 +331,18 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
         if not 0.0 <= self._final_sparsity <= 1.0:
             raise ValueError(
-                "final_sparsity value must be in the range [0.0, 1.0], given {} for {}".format(
-                    self._init_sparsity, self.__class__.__name__
-                )
+                (
+                    "final_sparsity value must be in the range"
+                    " [0.0, 1.0], given {} for {}"
+                ).format(self._init_sparsity, self.__class__.__name__)
             )
 
         interpolation_funcs = ["linear", "cubic", "inverse_cubic"]
 
         if self._inter_func not in interpolation_funcs:
             raise ValueError(
-                "{} is not a supported inter_func in layers_settings, available are {} for {}".format(
-                    self._inter_func, interpolation_funcs, self.__class__.__name__
-                )
+                (
+                    "{} is not a supported inter_func in layers_settings,"
+                    " available are {} for {}"
+                ).format(self._inter_func, interpolation_funcs, self.__class__.__name__)
             )

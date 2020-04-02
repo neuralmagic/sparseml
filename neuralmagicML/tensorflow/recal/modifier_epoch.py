@@ -14,14 +14,15 @@ __all__ = ["EpochRangeModifier"]
 @TensorFlowModifierYAML()
 class EpochRangeModifier(ScheduledModifier):
     """
-    Simple modifier to set the range of epochs to train over for the recalibration process.
+    Simple modifier to set the range of epochs to train over for
+    the recalibration process.
     Note, that if other modifiers exceed the range of this one for min or max epochs,
     this modifier will not have an effect.
 
-    Sample yaml:
-        !EpochRangeModifier:
-            start_epoch: 0
-            end_epoch: 90
+    | Sample yaml:
+    |   !EpochRangeModifier:
+    |       start_epoch: 0
+    |       end_epoch: 90
     """
 
     def __init__(

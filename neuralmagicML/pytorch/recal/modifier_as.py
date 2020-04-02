@@ -1,5 +1,5 @@
 """
-Code related to modifiers for enforcing activation sparsity on models while training
+Modifiers for increasing / enforcing activation sparsity on models while training.
 """
 
 from typing import Union, List, Tuple
@@ -18,7 +18,7 @@ from neuralmagicML.pytorch.utils import (
     get_layer,
 )
 from neuralmagicML.pytorch.recal.modifier import ModifierProp, ScheduledModifier
-from neuralmagicML.pytorch.recal.activation.tracker import ASLayerTracker
+from neuralmagicML.pytorch.recal.sensitivity_as import ASLayerTracker
 
 
 __all__ = ["ASRegModifier", "REG_FUNCTIONS", "REG_TENSORS"]
@@ -30,20 +30,34 @@ REG_TENSORS = ["inp", "out"]
 
 class ASRegModifier(ScheduledModifier):
     """
-    Add a regularizer over the inputs or outputs to given layers (activation regularization)
-    This promotes larger activation sparsity values
+    Add a regularizer over the inputs or outputs to given layers
+    (activation regularization).
+    This promotes larger activation sparsity values.
 
-    Sample yaml:
-        !ASRegModifier
-            start_epoch: 0.0
-            end_epoch: 10.0
-            layers:
-                - layer1
-                -layer2
-            alpha: 0.00001
-            layer_normalized: True
-            reg_func: l1
-            reg_tens: inp
+    | Sample yaml:
+    |   !ASRegModifier
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       layers:
+    |           - layer1
+    |           -layer2
+    |       alpha: 0.00001
+    |       layer_normalized: True
+    |       reg_func: l1
+    |       reg_tens: inp
+
+    :param layers: str or list of str for the layers to apply the AS modifier to
+            can also use the token __ALL__ to specify all layers
+    :param alpha: the weight to use for the regularization,
+        ie cost = loss + alpha * reg
+    :param layer_normalized: True to normalize the values by 1 / L where L
+        is the number of layers
+    :param reg_func: the regularization function to apply to the activations,
+        one of: l1, l2, relu, hs
+    :param reg_tens: the regularization tensor to apply a function to,
+        one of: inp, out
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
     """
 
     def __init__(
@@ -56,16 +70,6 @@ class ASRegModifier(ScheduledModifier):
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
     ):
-        """
-        :param layers: str or list of str for the layers to apply the AS modifier to
-                       can also use the token __ALL__ to specify all layers
-        :param alpha: the weight to use for the regularization, ie cost = loss + alpha * reg
-        :param layer_normalized: True to normalize the values by 1 / L where L is the number of layers
-        :param reg_func: the regularization function to apply to the activations, one of: l1, l2, relu, hs
-        :param reg_tens: the regularization tensor to apply a function to, one of: inp, out
-        :param start_epoch: The epoch to start the modifier at
-        :param end_epoch: The epoch to end the modifier at
-        """
         super().__init__(
             start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
         )
@@ -87,7 +91,7 @@ class ASRegModifier(ScheduledModifier):
     def layers(self) -> Union[str, List[str]]:
         """
         :return: str or list of str for the layers to apply the AS modifier to
-                 can also use the token __ALL__ to specify all layers
+            can also use the token __ALL__ to specify all layers
         """
         return self._layers
 
@@ -95,7 +99,7 @@ class ASRegModifier(ScheduledModifier):
     def layers(self, value: Union[str, List[str]]):
         """
         :param value: str or list of str for the layers to apply the AS modifier to
-                      can also use the token __ALL__ to specify all layers
+            can also use the token __ALL__ to specify all layers
         """
         self._layers = validate_str_iterable(
             value, "{} for layers".format(self.__class__.__name__)
@@ -111,7 +115,8 @@ class ASRegModifier(ScheduledModifier):
     @alpha.setter
     def alpha(self, value: Union[float, List[float]]):
         """
-        :param value: the weight to use for the regularization, ie cost = loss + alpha * reg
+        :param value: the weight to use for the regularization,
+            ie cost = loss + alpha * reg
         """
         self._alpha = value
         self.validate()
@@ -126,7 +131,8 @@ class ASRegModifier(ScheduledModifier):
     @layer_normalized.setter
     def layer_normalized(self, value):
         """
-        :param value: True to normalize the values by 1 / L where L is the number of layers
+        :param value: True to normalize the values by 1 / L
+            where L is the number of layers
         """
         self._layer_normalized = value
         self.validate()
@@ -134,14 +140,16 @@ class ASRegModifier(ScheduledModifier):
     @ModifierProp()
     def reg_func(self) -> str:
         """
-        :return: the regularization function to apply to the activations, one of: l1, l2, relu, hs
+        :return: the regularization function to apply to the activations,
+            one of: l1, l2, relu, hs
         """
         return self._reg_func
 
     @reg_func.setter
     def reg_func(self, value: str):
         """
-        :param value: the regularization function to apply to the activations, one of: l1, l2, relu, hs
+        :param value: the regularization function to apply to the activations,
+            one of: l1, l2, relu, hs
         """
         self._reg_func = value
         self.validate()
@@ -149,7 +157,8 @@ class ASRegModifier(ScheduledModifier):
     @ModifierProp()
     def reg_tens(self) -> str:
         """
-        :return: the regularization tensor to apply a function to, one of: inp, out
+        :return: the regularization tensor to apply a function to,
+            one of: inp, out
         """
         return self._reg_tens
 
@@ -195,7 +204,8 @@ class ASRegModifier(ScheduledModifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
 
@@ -216,13 +226,15 @@ class ASRegModifier(ScheduledModifier):
         steps_per_epoch: int,
     ) -> Tensor:
         """
-        modify the loss to include the norms for the outputs of the layers being modified
+        Modify the loss to include the norms for the outputs of the layers
+        being modified.
 
         :param loss: The calculated loss tensor
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         :return: the modified loss tensor
         """
         loss = super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
@@ -260,7 +272,8 @@ class ASRegModifier(ScheduledModifier):
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch (calculate batch number using this and epoch)
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
         """
         super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 

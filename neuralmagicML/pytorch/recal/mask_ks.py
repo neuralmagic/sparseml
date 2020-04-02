@@ -1,5 +1,6 @@
 """
-Code related to applying a mask onto a parameter to impose kernel sparsity, aka model pruning
+Code related to applying a mask onto a parameter to impose kernel sparsity,
+aka model pruning
 """
 
 from typing import Union, Tuple
@@ -33,11 +34,15 @@ class ModuleParamKSMask(object):
     ):
         """
         :param layer: the layer containing the parameter to mask
-        :param param_name: the name of the parameter to mask in the layer, default is weight
-        :param store_init: store the init weights in a separate variable that can be used and referenced later
-        :param store_unmasked: store the unmasked weights in a separate variable that can be used and referenced later
-        :param track_grad_mom: store the gradient updates to the parameter with a momentum variable
-                               must be in the range [0.0, 1.0), if set to 0.0 then will only keep most recent
+        :param param_name: the name of the parameter to mask in the layer,
+            default is weight
+        :param store_init: store the init weights in a separate variable that can be
+            used and referenced later
+        :param store_unmasked: store the unmasked weights in a separate variable that
+            can be used and referenced later
+        :param track_grad_mom: store the gradient updates to the parameter with a
+            momentum variable must be in the range [0.0, 1.0), if set to 0.0 then will
+            only keep most recent
         """
         self._layer = layer
         self._param_name = param_name
@@ -87,14 +92,16 @@ class ModuleParamKSMask(object):
     @property
     def store_init(self) -> bool:
         """
-        :return: store the init weights in a separate variable that can be used and referenced later
+        :return: store the init weights in a separate variable that can be used and
+            referenced later
         """
         return self._store_init
 
     @property
     def store_unmasked(self) -> bool:
         """
-        :return: store the unmasked weights in a separate variable that can be used and referenced later
+        :return: store the unmasked weights in a separate variable that can be used and
+            referenced later
         """
         return self._store_unmasked
 
@@ -102,7 +109,8 @@ class ModuleParamKSMask(object):
     def track_grad_mom(self) -> float:
         """
         :return: store the gradient updates to the parameter with a momentum variable
-                 must be in the range [0.0, 1.0), if set to 0.0 then will only keep most recent
+            must be in the range [0.0, 1.0), if set to 0.0 then will only
+            keep most recent
         """
         return self._track_grad_mom
 
@@ -151,7 +159,8 @@ class ModuleParamKSMask(object):
     @property
     def param_unmasked(self) -> Union[None, Tensor]:
         """
-        :return: the unmasked value of the parameter (stores the last unmasked value before masking)
+        :return: the unmasked value of the parameter
+            (stores the last unmasked value before masking)
         """
         if self._param_unmasked is None:
             return None
@@ -171,7 +180,8 @@ class ModuleParamKSMask(object):
 
     def set_param_data(self, value: Tensor):
         """
-        :param value: the value to set as the current tensor for the parameter, if enabled the mask will be applied
+        :param value: the value to set as the current tensor for the parameter,
+            if enabled the mask will be applied
         """
         if value is None:
             raise ValueError("param_data cannot be set to None")
@@ -190,7 +200,8 @@ class ModuleParamKSMask(object):
 
     def set_param_mask(self, value: Tensor):
         """
-        :param value: the mask to set and apply as the current tensor, if enabled mask is applied immediately
+        :param value: the mask to set and apply as the current tensor,
+            if enabled mask is applied immediately
         """
         if value is None:
             raise ValueError("mask cannot be set to None")
@@ -206,7 +217,8 @@ class ModuleParamKSMask(object):
 
         if self._param_unmasked is not None:
             # store our unmasked values if they should be tracked
-            # we only want to update our param_masked tensor with the ones that are newly masked
+            # we only want to update our param_masked tensor with the ones
+            # that are newly masked
             self._param_unmasked = (
                 (mask_diff == -1.0).type(self._param.data.type()) * self._param.data
                 + (mask_diff != -1.0).type(self._param.data.type())
@@ -222,7 +234,8 @@ class ModuleParamKSMask(object):
         self, threshold: Union[float, Tensor]
     ) -> Tensor:
         """
-        Convenience function to set the parameter mask such that if a abs(value) <= threshold the it is masked to 0
+        Convenience function to set the parameter mask such that if
+        abs(value) <= threshold the it is masked to 0
 
         :param threshold: the threshold at which all values will be masked to 0
         """
@@ -232,8 +245,9 @@ class ModuleParamKSMask(object):
 
     def set_param_mask_from_sparsity(self, sparsity: float) -> Tensor:
         """
-        Convenience function to set the parameter mask such that it has a specific amount of masked values such that
-        the percentage equals the sparsity amount given. Masks the absolute smallest values up until sparsity is reached
+        Convenience function to set the parameter mask such that it has a specific
+        amount of masked values such that the percentage equals the sparsity amount
+        given. Masks the absolute smallest values up until sparsity is reached.
 
         :param sparsity: the decimal sparsity to set the param mask to
         """
@@ -249,7 +263,8 @@ class ModuleParamKSMask(object):
             return
 
         if self._param.data.device != self._param_mask.device:
-            # param is on a different device, regen values so all tensors are on the same device
+            # param is on a different device, regen values so all tensors
+            # are on the same device
             self._regen_param_vals()
 
         with torch.no_grad():
@@ -257,10 +272,12 @@ class ModuleParamKSMask(object):
 
     def reset(self):
         """
-        resets the current stored tensors such that they will be on the same device and have the proper data
+        resets the current stored tensors such that they will be on the same device
+        and have the proper data
         """
         if self._param.data.device != self._param_mask.device:
-            # param is on a different device, regen values so all tensors are on the same device
+            # param is on a different device, regen values so all tensors are
+            # on the same device
             self._regen_param_vals()
 
         self._param.data.copy_(self._param_init)

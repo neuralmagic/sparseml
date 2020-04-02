@@ -5,10 +5,10 @@ import time
 import numpy
 import torch
 
-from neuralmagicML.pytorch.utils import PythonLogger, TensorboardLogger
+from neuralmagicML.pytorch.utils import PythonLogger, TensorBoardLogger
 
 
-@pytest.mark.parametrize("logger", [PythonLogger(), TensorboardLogger()])
+@pytest.mark.parametrize("logger", [PythonLogger(), TensorBoardLogger()])
 class TestModifierLogger(ABC):
     def test_name(self, logger):
         assert logger.name is not None

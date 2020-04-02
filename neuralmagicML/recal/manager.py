@@ -1,7 +1,7 @@
 """
 Code related to managers that is shared across frameworks.
-Managers control groups of modifiers allow modifying the training process of a model;
-ex to create sparsity.
+Managers control groups of modifiers to allow modifying the training process of a model;
+ex to perform model pruning.
 """
 
 from typing import List, Dict
@@ -17,14 +17,11 @@ class BaseManager(BaseObject):
     """
     Parent class meant to be used for all managers.
     Handles base implementations for properties and methods.
+
+    :param modifiers: the modifiers to wrap
     """
 
     def __init__(self, modifiers: List[BaseScheduled], **kwargs):
-        """
-        Convenience wrapper around multiple scheduled modifiers
-
-        :param modifiers: the modifiers to wrap
-        """
         super().__init__(**kwargs)
         self._modifiers = modifiers
 
@@ -61,7 +58,8 @@ class BaseManager(BaseObject):
     @ModifierProp(serializable=False)
     def max_epochs(self) -> int:
         """
-        :return: the maximum number of epochs required by any of the modifiers under the manager
+        :return: the maximum number of epochs required by any of the modifiers
+            under the manager
         """
         vals = []
         vals.extend(
