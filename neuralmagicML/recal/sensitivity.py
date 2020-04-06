@@ -323,6 +323,110 @@ class LRLossSensitivityProgress(object):
         learning rate
     """
 
+    @staticmethod
+    def standard_update_hook():
+        """
+        :return: a hook that will display a tqdm bar for tracking progress
+            of the analysis
+        """
+        bar = None
+        last_lr = None
+        last_batch = None
+
+        def _update(progress: LRLossSensitivityProgress):
+            nonlocal bar
+            nonlocal last_lr
+            nonlocal last_batch
+
+            if bar is None and last_lr is None and last_batch is None:
+                num_steps = len(progress.check_lrs) * progress.batches_per_measurement
+                print("num_steps: {}".format(num_steps))
+                bar = auto.tqdm(total=num_steps, desc="KS Loss Sensitivity Analysis")
+            elif bar is None:
+                return
+
+            if (
+                (
+                    last_lr is None
+                    or last_lr != progress.lr_index
+                    or last_batch is None
+                    or last_batch != progress.batch
+                )
+                and progress.lr_index >= 0
+                and progress.batch >= 0
+            ):
+                bar.update(1)
+                last_lr = progress.lr_index
+                last_batch = progress.batch
+
+            if (
+                progress.lr_index + 1 == len(progress.check_lrs)
+                and progress.batch + 1 == progress.batches_per_measurement
+            ):
+                bar.close()
+                bar = None
+
+        return _update
+
+    @staticmethod
+    def save_sensitivities_json(sensitivities: List[Tuple[float, float]], path: str):
+        """
+        Save the recorded sensitivity values to a json file at the given path.
+
+        :param sensitivities: the measured sensitivities
+        :param path: the path to save the json file at representing the lr sensitivities
+        """
+        path = clean_path(path)
+        create_parent_dirs(path)
+        sens_object = {"lr_sensitivities": sensitivities}
+
+        with open(path, "w") as file:
+            json.dump(sens_object, file)
+
+    @staticmethod
+    def plot_sensitivities(
+        sensitivities: List[Tuple[float, float]],
+        path: Union[str, None],
+        title: Union[str, None] = "__default__",
+    ) -> Union[Tuple[plt.Figure, plt.Axes], Tuple[None, None]]:
+        """
+        Plot the recorded sensitivity values
+
+        :param sensitivities: the learning rate sensitivities to plot
+        :param path: the path for where to save the plot,
+            if not supplied will display it
+        :param title: the title of the plot to apply,
+            defaults to '{plot_loss_key} LR Sensitivity'
+        :return: the figure and axes if the figure was displayed; else None, None
+        """
+        fig = plt.figure(figsize=(8, 8))
+        ax = fig.add_subplot(111)
+
+        if title is None:
+            title = ""
+        elif title == "__default__":
+            title = "LR Sensitivity"
+
+        ax.set_title(title)
+        ax.set_xlabel("Learning Rate")
+        ax.set_ylabel("Avg Loss")
+        frame = pandas.DataFrame.from_records(
+            sensitivities, columns=["Learning Rate", "Avg Loss"]
+        )
+        frame.plot(x="Learning Rate", y="Avg Loss", marker=".", logx=True, ax=ax)
+
+        if path is None:
+            plt.show()
+
+            return fig, ax
+
+        path = clean_path(path)
+        create_parent_dirs(path)
+        plt.savefig(path)
+        plt.close(fig)
+
+        return None, None
+
     def __init__(
         self,
         lr_index: int,

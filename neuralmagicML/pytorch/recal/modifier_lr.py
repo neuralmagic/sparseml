@@ -88,7 +88,7 @@ class SetLearningRateModifier(ScheduledModifier):
             log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
-            end_comparator=-1,
+            end_comparator=None,
         )
         self._learning_rate = learning_rate
         self._lr_set = False
@@ -169,20 +169,6 @@ class SetLearningRateModifier(ScheduledModifier):
         if self._constant_logging or current_lr != self._last_logged_lr:
             self._last_logged_lr = current_lr
             _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
-
-    def validate_schedule(self):
-        """
-        Validate the schedule values of the params for the current instance are valid
-        """
-
-        super().validate_schedule()
-
-        if self._end_epoch != -1.0:
-            raise ValueError(
-                "end_epoch of {} must be equal to -1.0 for {}".format(
-                    self._end_epoch, self.__class__.__name__
-                )
-            )
 
     def _check_set_lr(self, optimizer: Optimizer, epoch: float):
         if (

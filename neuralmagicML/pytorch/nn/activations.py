@@ -30,7 +30,7 @@ class ReLU(TReLU):
     :param inplace: True to run the operation in place in memory, False otherwise
     """
 
-    def __init__(self, num_channels: int, inplace: bool = False):
+    def __init__(self, num_channels: int = -1, inplace: bool = False):
         super().__init__(inplace=inplace)
         self.num_channels = num_channels
 
@@ -44,7 +44,7 @@ class ReLU6(TReLU6):
     :param inplace: True to run the operation in place in memory, False otherwise
     """
 
-    def __init__(self, num_channels: int, inplace: bool = False):
+    def __init__(self, num_channels: int = -1, inplace: bool = False):
         super().__init__(inplace=inplace)
         self.num_channels = num_channels
 
@@ -70,7 +70,7 @@ class Swish(Module):
     :param num_channels: number of channels for the layer
     """
 
-    def __init__(self, num_channels: int):
+    def __init__(self, num_channels: int = -1):
         super().__init__()
         self.num_channels = num_channels
 

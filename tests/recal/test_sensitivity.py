@@ -113,7 +113,8 @@ def test_ks_loss_sensitivity_analysis_load(
 
 
 @pytest.mark.parametrize(
-    "layer_index,layer_name,layers,sparsity_index,sparsity_levels,measurement_step,samples_per_measurement",
+    "layer_index,layer_name,layers,sparsity_index,sparsity_levels,"
+    "measurement_step,samples_per_measurement",
     [
         (
             0,

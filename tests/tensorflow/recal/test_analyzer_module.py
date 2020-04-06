@@ -5,7 +5,7 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.slim.nets import resnet_v2
 
-from neuralmagicML.tensorflow.utils import analyze_module
+from neuralmagicML.tensorflow.recal import analyze_module
 
 
 def _a_sparse_filter(shape):

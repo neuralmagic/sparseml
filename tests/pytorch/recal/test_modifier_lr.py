@@ -10,13 +10,13 @@ from neuralmagicML.pytorch.recal import (
     CyclicLRModifier,
 )
 
+from tests.pytorch.helpers import LinearNet
 from tests.pytorch.recal.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
     test_epoch,
     test_steps_per_epoch,
     test_loss,
-    def_model,
 )
 
 
@@ -34,14 +34,17 @@ def _get_optim_lr(optim: Optimizer) -> float:
 # SetLearningRateModifier tests
 #
 ##############################
-SET_LR_MODIFIERS = [
-    lambda: SetLearningRateModifier(learning_rate=SET_LR),
-    lambda: SetLearningRateModifier(learning_rate=SET_LR, start_epoch=10.0),
-]
 
 
-@pytest.mark.parametrize("modifier_lambda", SET_LR_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: SetLearningRateModifier(learning_rate=SET_LR),
+        lambda: SetLearningRateModifier(learning_rate=SET_LR, start_epoch=10.0),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
     "optim_lambda",
     [
@@ -54,9 +57,9 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
         assert modifier.applied_learning_rate < 0
         assert _get_optim_lr(optimizer) == INIT_LR
@@ -119,29 +122,33 @@ def test_set_lr_yaml():
 # LearningRateModifier functions
 #
 ##############################
+
 GAMMA = 0.1
 STEP_SIZE = 5
 EPOCH_APPLY_RANGE = 15
-LR_STEP_MODIFIERS = [
-    lambda: LearningRateModifier(
-        lr_class="StepLR",
-        lr_kwargs={"step_size": STEP_SIZE, "gamma": GAMMA},
-        init_lr=SET_LR,
-        start_epoch=0.0,
-        end_epoch=EPOCH_APPLY_RANGE,
-    ),
-    lambda: LearningRateModifier(
-        lr_class="StepLR",
-        lr_kwargs={"step_size": STEP_SIZE, "gamma": GAMMA},
-        init_lr=SET_LR,
-        start_epoch=10.0,
-        end_epoch=10 + EPOCH_APPLY_RANGE,
-    ),
-]
 
 
-@pytest.mark.parametrize("modifier_lambda", LR_STEP_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: LearningRateModifier(
+            lr_class="StepLR",
+            lr_kwargs={"step_size": STEP_SIZE, "gamma": GAMMA},
+            init_lr=SET_LR,
+            start_epoch=0.0,
+            end_epoch=EPOCH_APPLY_RANGE,
+        ),
+        lambda: LearningRateModifier(
+            lr_class="StepLR",
+            lr_kwargs={"step_size": STEP_SIZE, "gamma": GAMMA},
+            init_lr=SET_LR,
+            start_epoch=10.0,
+            end_epoch=10 + EPOCH_APPLY_RANGE,
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
     "optim_lambda",
     [
@@ -154,9 +161,9 @@ class TestLRModifierStepImpl(ScheduledUpdateModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
         assert _get_optim_lr(optimizer) == INIT_LR
 
@@ -257,26 +264,29 @@ def test_lr_modifier_step_yaml():
 
 
 MILESTONES = [5, 9, 12]
-LR_MULTI_STEP_MODIFIERS = [
-    lambda: LearningRateModifier(
-        lr_class="MultiStepLR",
-        lr_kwargs={"milestones": MILESTONES, "gamma": GAMMA},
-        init_lr=SET_LR,
-        start_epoch=0.0,
-        end_epoch=MILESTONES[-1] + 5,
-    ),
-    lambda: LearningRateModifier(
-        lr_class="MultiStepLR",
-        lr_kwargs={"milestones": [m + 10 for m in MILESTONES], "gamma": GAMMA},
-        init_lr=SET_LR,
-        start_epoch=10.0,
-        end_epoch=10 + MILESTONES[-1] + 5,
-    ),
-]
 
 
-@pytest.mark.parametrize("modifier_lambda", LR_MULTI_STEP_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: LearningRateModifier(
+            lr_class="MultiStepLR",
+            lr_kwargs={"milestones": MILESTONES, "gamma": GAMMA},
+            init_lr=SET_LR,
+            start_epoch=0.0,
+            end_epoch=MILESTONES[-1] + 5,
+        ),
+        lambda: LearningRateModifier(
+            lr_class="MultiStepLR",
+            lr_kwargs={"milestones": [m + 10 for m in MILESTONES], "gamma": GAMMA},
+            init_lr=SET_LR,
+            start_epoch=10.0,
+            end_epoch=10 + MILESTONES[-1] + 5,
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
     "optim_lambda",
     [
@@ -289,9 +299,9 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
         assert _get_optim_lr(optimizer) == INIT_LR
 
@@ -388,26 +398,27 @@ def test_lr_modifier_multi_step_yaml():
     assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
 
 
-LR_EXPONENTIAL_MODIFIERS = [
-    lambda: LearningRateModifier(
-        lr_class="ExponentialLR",
-        lr_kwargs={"gamma": GAMMA},
-        init_lr=SET_LR,
-        start_epoch=0.0,
-        end_epoch=15.0,
-    ),
-    lambda: LearningRateModifier(
-        lr_class="ExponentialLR",
-        lr_kwargs={"gamma": GAMMA},
-        init_lr=SET_LR,
-        start_epoch=10.0,
-        end_epoch=25.0,
-    ),
-]
-
-
-@pytest.mark.parametrize("modifier_lambda", LR_EXPONENTIAL_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: LearningRateModifier(
+            lr_class="ExponentialLR",
+            lr_kwargs={"gamma": GAMMA},
+            init_lr=SET_LR,
+            start_epoch=0.0,
+            end_epoch=15.0,
+        ),
+        lambda: LearningRateModifier(
+            lr_class="ExponentialLR",
+            lr_kwargs={"gamma": GAMMA},
+            init_lr=SET_LR,
+            start_epoch=10.0,
+            end_epoch=25.0,
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
     "optim_lambda",
     [
@@ -420,9 +431,9 @@ class TestLRModifierExponentialImpl(ScheduledUpdateModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
         assert _get_optim_lr(optimizer) == INIT_LR
 
@@ -515,32 +526,35 @@ def test_lr_modifier_exponential_yaml():
 ##############################
 CYCLIC_START = 0.001
 CYCLIC_END = 0.1
-LR_CYCLIC_MODIFIERS = [
-    lambda: CyclicLRModifier(
-        lr_kwargs={
-            "base_lr": CYCLIC_START,
-            "max_lr": CYCLIC_END,
-            "step_size_up": 100,
-            "step_size_down": 100,
-        },
-        start_epoch=0.0,
-        end_epoch=15.0,
-    ),
-    lambda: CyclicLRModifier(
-        lr_kwargs={
-            "base_lr": CYCLIC_START,
-            "max_lr": CYCLIC_END,
-            "step_size_up": 100,
-            "step_size_down": 100,
-        },
-        start_epoch=10.0,
-        end_epoch=25.0,
-    ),
-]
 
 
-@pytest.mark.parametrize("modifier_lambda", LR_CYCLIC_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: CyclicLRModifier(
+            lr_kwargs={
+                "base_lr": CYCLIC_START,
+                "max_lr": CYCLIC_END,
+                "step_size_up": 100,
+                "step_size_down": 100,
+            },
+            start_epoch=0.0,
+            end_epoch=15.0,
+        ),
+        lambda: CyclicLRModifier(
+            lr_kwargs={
+                "base_lr": CYCLIC_START,
+                "max_lr": CYCLIC_END,
+                "step_size_up": 100,
+                "step_size_down": 100,
+            },
+            start_epoch=10.0,
+            end_epoch=25.0,
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
     "optim_lambda", [lambda model: SGD(model.parameters(), INIT_LR)], scope="function",
 )
@@ -548,9 +562,9 @@ class TestLRModifierCyclicImpl(ScheduledUpdateModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
         assert _get_optim_lr(optimizer) == INIT_LR
 

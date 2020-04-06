@@ -258,7 +258,7 @@ class SetParamModifier(ScheduledModifier):
         end_epoch: float = -1.0,
     ):
         super().__init__(
-            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
+            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=None
         )
         self._param = param
         self._val = val
@@ -398,19 +398,6 @@ class SetParamModifier(ScheduledModifier):
             for param in self._module_params:
                 new_tens = param.data.new_tensor(self._val)
                 param.data.copy_(new_tens)
-
-    def validate_schedule(self):
-        """
-        Validate the schedule values of the params for the current instance are valid
-        """
-        super().validate_schedule()
-
-        if self._end_epoch != -1.0:
-            raise ValueError(
-                "end_epoch of {} must be equal to -1.0 for {}".format(
-                    self._end_epoch, self.__class__.__name__
-                )
-            )
 
 
 @PyTorchModifierYAML()

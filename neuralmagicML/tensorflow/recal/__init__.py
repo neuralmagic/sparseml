@@ -3,6 +3,7 @@ Recalibration code for the TensorFlow framework.
 Handles things like model pruning and increasing activation sparsity.
 """
 
+from .analyzer_module import *
 from .manager import *
 from .mask_ks import *
 from .modifier import *

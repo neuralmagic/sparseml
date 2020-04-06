@@ -5,7 +5,7 @@ For example, learning rate schedules or kernel sparsity (weight pruning)
 are implemented as modifiers.
 """
 
-from typing import List, Any, Tuple, Union
+from typing import List, Any, Tuple, Union, Dict
 
 from neuralmagicML.recal import (
     ModifierProp,
@@ -106,7 +106,7 @@ class Modifier(BaseModifier):
         graph: tf_compat.Graph,
         steps_per_epoch: int,
         global_step: tf_compat.Variable,
-    ) -> Tuple[tf_compat.Graph, List[Tuple[str, Any]]]:
+    ) -> Tuple[tf_compat.Graph, Dict[str, Any]]:
         """
         Create any extras for modifying the training process of a graph.
         These include anything outside of the ops to be run for modifying.
@@ -118,7 +118,7 @@ class Modifier(BaseModifier):
         """
         self._initialized = True
 
-        return graph, []
+        return graph, {}
 
     def complete_graph(self, graph: tf_compat.GraphDef) -> tf_compat.GraphDef:
         """

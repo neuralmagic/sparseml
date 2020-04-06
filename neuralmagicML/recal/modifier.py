@@ -355,7 +355,8 @@ class BaseModifier(BaseObject):
 
     def __repr__(self):
         return "{}({})".format(
-            self.__class__, self.props(only_serializable=False, format_repr=True),
+            self.__class__.__name__,
+            self.props(only_serializable=False, format_repr=True),
         )
 
     @ModifierProp(serializable=True)
@@ -454,6 +455,7 @@ class BaseScheduled(BaseObject):
      otherwise will raise a ValueError
     :param end_comparator: integer value representing how the end_epoch should be
         compared to start_epoch.
+        if == None, then end_epoch can only be set to what its initial value was.
         if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
         if == 0, then end_epoch can be equal to or greater than start_epoch.
         if == 1, then end_epoch can only be greater than start_epoch.
@@ -466,13 +468,15 @@ class BaseScheduled(BaseObject):
         min_start: float,
         end_epoch: float,
         min_end: float,
-        end_comparator: int,
+        end_comparator: Union[int, None],
         **kwargs,
     ):
         super().__init__(**kwargs)
         self._start_epoch = start_epoch
+        self._init_start = start_epoch
         self._min_start = min_start
         self._end_epoch = end_epoch
+        self._init_end = end_epoch
         self._min_end = min_end
         self._end_comparator = end_comparator
         self.validate_schedule()
@@ -526,6 +530,13 @@ class BaseScheduled(BaseObject):
             raise ValueError(
                 "end_epoch of {} must be greater than or equal to {} for {}".format(
                     self._end_epoch, self._min_end, self.__class__.__name__
+                )
+            )
+
+        if self._end_comparator is None and self._end_epoch != self._init_end:
+            raise ValueError(
+                "end_epoch of {} must be equal the init value of {} for {}".format(
+                    self._end_epoch, self._init_end, self.__class__.__name__
                 )
             )
 

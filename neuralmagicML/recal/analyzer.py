@@ -54,12 +54,14 @@ class AnalyzedLayerDesc(object):
         """
         path = clean_path(path)
 
-        with open(path, "w") as file:
+        with open(path, "r") as file:
             obj = json.load(file)
 
         descs = []
 
         for desc_obj in obj["descriptions"]:
+            desc_obj["type_"] = desc_obj["type"]
+            del desc_obj["type"]
             del desc_obj["terminal"]
             del desc_obj["prunable"]
             descs.append(AnalyzedLayerDesc(**desc_obj))

@@ -1,17 +1,15 @@
 import pytest
 
-from abc import ABC
-from typing import List
-from collections import OrderedDict
+from typing import List, Callable, Union
 import sys
-import torch
 from torch import Tensor
-from torch.nn import Module, Sequential, Linear
-from torch.optim import Adam, SGD
+from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.utils import ALL_TOKEN
 from neuralmagicML.pytorch.recal import (
+    PYTORCH_FRAMEWORK,
+    PyTorchModifierYAML,
     Modifier,
     ScheduledModifier,
     ScheduledUpdateModifier,
@@ -21,55 +19,34 @@ from neuralmagicML.pytorch.utils import (
     TensorBoardLogger,
 )
 
-
-DEFAULT_MODEL_LAYER = "block1.fc1"
-DEFAULT_MODEL_LAYER_PARAM = "bias"
-DEFAULT_MODEL_LAYER_PARAM_SIZE = 16
-
-
-def def_model():
-    return Sequential(
-        OrderedDict(
-            [
-                ("fc1", Linear(8, 16, bias=True)),
-                ("fc2", Linear(16, 32, bias=True)),
-                (
-                    "block1",
-                    Sequential(
-                        OrderedDict(
-                            [
-                                ("fc1", Linear(32, 16, bias=True)),
-                                ("fc2", Linear(16, 8, bias=True)),
-                            ]
-                        )
-                    ),
-                ),
-            ]
-        )
-    )
+from tests.recal import BaseModifierTest, BaseScheduledTest, BaseUpdateTest
+from tests.pytorch.helpers import (
+    test_epoch,
+    test_steps_per_epoch,
+    test_loss,
+    LinearNet,
+    create_optim_sgd,
+    create_optim_adam,
+)
 
 
-def def_optim_sgd(model):
-    return SGD(model.parameters(), lr=0.0001)
+__all__ = [
+    "ModifierTest",
+    "ScheduledModifierTest",
+    "ScheduledUpdateModifierTest",
+    "ModifierImpl",
+    "ScheduledModifierImpl",
+    "ScheduledUpdateModifierImpl",
+]
 
 
-def def_optim_adam(model: Module):
-    return Adam(model.parameters())
-
-
-class ModifierTest(ABC):
-    def create_test_objs(self, modifier_lambda, model_lambda, optim_lambda):
-        modifier = modifier_lambda()
-        model = model_lambda()
-        optim = optim_lambda(model)
-
-        return modifier, model, optim
-
+class ModifierTest(BaseModifierTest):
+    # noinspection PyMethodOverriding
     def initialize_helper(
         self,
         modifier: Modifier,
-        model: Module,
-        optimizer: Optimizer,
+        model: Module = None,
+        optimizer: Optimizer = None,
         log_initialize: bool = True,
     ):
         modifier.initialize(model, optimizer)
@@ -77,18 +54,91 @@ class ModifierTest(ABC):
         if log_initialize:
             modifier.initialize_loggers([PythonLogger()])
 
-    def test_initialize(self, modifier_lambda, model_lambda, optim_lambda):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
+    # noinspection PyMethodOverriding
+    def test_constructor(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+    ):
+        super().test_constructor(modifier_lambda, framework=PYTORCH_FRAMEWORK)
+
+    # noinspection PyMethodOverriding
+    def test_yaml(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+    ):
+        super().test_yaml(modifier_lambda, framework=PYTORCH_FRAMEWORK)
+
+    # noinspection PyMethodOverriding
+    def test_yaml_key(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+    ):
+        super().test_yaml_key(modifier_lambda, framework=PYTORCH_FRAMEWORK)
+
+    # noinspection PyMethodOverriding
+    def test_repr(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+    ):
+        super().test_repr(modifier_lambda, framework=PYTORCH_FRAMEWORK)
+
+    # noinspection PyMethodOverriding
+    def test_props(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+    ):
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        super().test_props(
+            modifier_lambda,
+            framework=PYTORCH_FRAMEWORK,
+            initialize_kwargs={"model": model, "optimizer": optimizer},
         )
+
+    def test_initialize(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         self.initialize_helper(modifier, model, optimizer)
         assert modifier.initialized
 
-    def test_initialize_loggers(self, modifier_lambda, model_lambda, optim_lambda):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+    def test_initialize_loggers(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         loggers = []
         expected_loggers = []
@@ -115,15 +165,15 @@ class ModifierTest(ABC):
 
     def test_update(
         self,
-        modifier_lambda,
-        model_lambda,
-        optim_lambda,
-        test_epoch,
-        test_steps_per_epoch,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.update(model, optimizer, test_epoch, test_steps_per_epoch)
@@ -139,15 +189,15 @@ class ModifierTest(ABC):
 
     def test_log_update(
         self,
-        modifier_lambda,
-        model_lambda,
-        optim_lambda,
-        test_epoch,
-        test_steps_per_epoch,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
@@ -168,16 +218,16 @@ class ModifierTest(ABC):
 
     def test_loss_update(
         self,
-        modifier_lambda,
-        model_lambda,
-        optim_lambda,
-        test_loss,
-        test_epoch,
-        test_steps_per_epoch,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+        test_loss: Tensor,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.loss_update(
@@ -193,15 +243,15 @@ class ModifierTest(ABC):
 
     def test_optimizer_pre_step(
         self,
-        modifier_lambda,
-        model_lambda,
-        optim_lambda,
-        test_epoch,
-        test_steps_per_epoch,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.optimizer_pre_step(
@@ -221,15 +271,15 @@ class ModifierTest(ABC):
 
     def test_optimizer_post_step(
         self,
-        modifier_lambda,
-        model_lambda,
-        optim_lambda,
-        test_epoch,
-        test_steps_per_epoch,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.optimizer_post_step(
@@ -248,16 +298,43 @@ class ModifierTest(ABC):
         modifier.optimizer_post_step(model, optimizer, test_epoch, test_steps_per_epoch)
 
 
-class ScheduledModifierTest(ModifierTest):
+class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
     def start_helper(self, modifier: Modifier, model: Module, optimizer: Optimizer):
         modifier._started = True
 
-    def test_start_pending(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+    # noinspection PyMethodOverriding
+    def test_props_start(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        super().test_props_start(modifier_lambda, framework=PYTORCH_FRAMEWORK)
+
+    # noinspection PyMethodOverriding
+    def test_props_end(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+    ):
+        super().test_props_end(modifier_lambda, framework=PYTORCH_FRAMEWORK)
+
+    def test_start_pending(
+        self,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.start_pending(0.0, test_steps_per_epoch)
@@ -274,11 +351,16 @@ class ScheduledModifierTest(ModifierTest):
             assert modifier.start_pending(modifier.start_epoch, test_steps_per_epoch)
 
     def test_end_pending(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.end_pending(0.0, test_steps_per_epoch)
@@ -297,11 +379,16 @@ class ScheduledModifierTest(ModifierTest):
             assert modifier.end_pending(modifier.end_epoch, test_steps_per_epoch)
 
     def test_update_ready(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.update_ready(0.0, test_steps_per_epoch)
@@ -322,11 +409,16 @@ class ScheduledModifierTest(ModifierTest):
             assert modifier.update_ready(modifier.end_epoch, test_steps_per_epoch)
 
     def test_scheduled_update(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.scheduled_update(model, optimizer, 0.0, test_steps_per_epoch)
@@ -357,11 +449,11 @@ class ScheduledModifierTest(ModifierTest):
 
     def test_update(
         self,
-        modifier_lambda,
-        model_lambda,
-        optim_lambda,
-        test_epoch,
-        test_steps_per_epoch,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
         with pytest.raises(RuntimeError):
             super().test_update(
@@ -373,11 +465,16 @@ class ScheduledModifierTest(ModifierTest):
             )
 
     def test_scheduled_log_update(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
@@ -399,11 +496,11 @@ class ScheduledModifierTest(ModifierTest):
 
     def test_log_update(
         self,
-        modifier_lambda,
-        model_lambda,
-        optim_lambda,
-        test_epoch,
-        test_steps_per_epoch,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
         with pytest.raises(RuntimeError):
             super().test_log_update(
@@ -415,7 +512,18 @@ class ScheduledModifierTest(ModifierTest):
             )
 
 
-class ScheduledUpdateModifierTest(ScheduledModifierTest):
+class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
+    # noinspection PyMethodOverriding
+    def test_props_frequency(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
+    ):
+        super().test_props_frequency(modifier_lambda, framework=PYTORCH_FRAMEWORK)
+
     def start_helper(
         self, modifier: ScheduledUpdateModifier, model: Module, optimizer: Optimizer
     ):
@@ -423,14 +531,23 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest):
         modifier._last_update_epoch = modifier.start_epoch
 
     def test_update_ready(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda: Callable[[], ScheduledUpdateModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
         super().test_update_ready(
-            modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+            modifier_lambda,
+            model_lambda,
+            optim_lambda,
+            test_epoch,
+            test_steps_per_epoch,
         )
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
         self.start_helper(modifier, model, optimizer)
         min_update_freq = 1.0 / float(test_steps_per_epoch)
@@ -448,14 +565,23 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest):
             )
 
     def test_scheduled_update(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda: Callable[[], ScheduledUpdateModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: float,
     ):
         super().test_scheduled_update(
-            modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+            modifier_lambda,
+            model_lambda,
+            optim_lambda,
+            test_epoch,
+            test_steps_per_epoch,
         )
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
         self.start_helper(modifier, model, optimizer)
         min_update_freq = 1.0 / float(test_steps_per_epoch)
@@ -484,47 +610,59 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest):
             )
 
 
-@pytest.fixture
-def test_epoch():
-    return 0.0
+@PyTorchModifierYAML()
+class ModifierImpl(Modifier):
+    def __init__(self, log_types: Union[str, List[str]] = ["python"]):
+        super().__init__(log_types)
 
 
-@pytest.fixture
-def test_steps_per_epoch():
-    return 100
-
-
-@pytest.fixture
-def test_loss():
-    return torch.tensor(0.0)
-
-
-@pytest.mark.parametrize("modifier_lambda", [lambda: Modifier()], scope="function")
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
+@pytest.mark.parametrize("modifier_lambda", [ModifierImpl], scope="function")
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
-    "optim_lambda", [def_optim_sgd, def_optim_adam], scope="function"
+    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function"
 )
 class TestModifierImpl(ModifierTest):
     pass
 
 
+@PyTorchModifierYAML()
+class ScheduledModifierImpl(ScheduledModifier):
+    def __init__(
+        self,
+        log_types: Union[str, List[str]] = ["python"],
+        end_epoch: float = -1.0,
+        start_epoch: float = -1.0,
+    ):
+        super().__init__(log_types)
+
+
+@pytest.mark.parametrize("modifier_lambda", [ScheduledModifierImpl], scope="function")
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
-    "modifier_lambda", [lambda: ScheduledModifier()], scope="function"
-)
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
-@pytest.mark.parametrize(
-    "optim_lambda", [def_optim_sgd, def_optim_adam], scope="function"
+    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function"
 )
 class TestScheduledModifierImpl(ScheduledModifierTest):
     pass
 
 
+@PyTorchModifierYAML()
+class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
+    def __init__(
+        self,
+        log_types: Union[str, List[str]] = ["python"],
+        end_epoch: float = -1.0,
+        start_epoch: float = -1.0,
+        update_frequency: float = -1,
+    ):
+        super().__init__(log_types)
+
+
 @pytest.mark.parametrize(
-    "modifier_lambda", [lambda: ScheduledUpdateModifier()], scope="function"
+    "modifier_lambda", [ScheduledUpdateModifierImpl], scope="function"
 )
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
-    "optim_lambda", [def_optim_sgd, def_optim_adam], scope="function"
+    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function"
 )
 class TestScheduledUpdateModifierImpl(ScheduledUpdateModifierTest):
     pass

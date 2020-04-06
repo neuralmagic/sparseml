@@ -53,7 +53,7 @@ def one_shot_ks_loss_sensitivity(
     Subsequent sparsity checks for layers and levels will be much faster.
 
     :param module: the module to run the kernel sparsity sensitivity analysis over
-                       will extract all prunable layers out
+        will extract all prunable layers out
     :param data: the data to run through the module for calculating the sensitivity
         analysis
     :param loss_fn: the loss function to use for the sensitivity analysis

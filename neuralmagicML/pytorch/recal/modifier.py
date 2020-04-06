@@ -266,6 +266,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
     :param min_end: The minimum acceptable value for end_epoch, default 0
     :param end_comparator: integer value representing how the end_epoch should be
         compared to start_epoch.
+        if == None, then end_epoch can only be set to what its initial value was.
         if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
         if == 0, then end_epoch can be equal to or greater than start_epoch.
         if == 1, then end_epoch can only be greater than start_epoch.
@@ -279,7 +280,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         min_start: float = -1.0,
         end_epoch: float = -1.0,
         min_end: float = -1.0,
-        end_comparator: int = 0,
+        end_comparator: Union[int, None] = 0,
         **kwargs,
     ):
         super().__init__(
@@ -510,6 +511,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     :param min_end: The minimum acceptable value for end_epoch, default 0
     :param end_comparator: integer value representing how the end_epoch should be
         compared to start_epoch.
+        if == None, then end_epoch can only be set to what its initial value was.
         if == -1, then end_epoch can be less than, equal, or greater than start_epoch.
         if == 0, then end_epoch can be equal to or greater than start_epoch.
         if == 1, then end_epoch can only be greater than start_epoch.
@@ -524,7 +526,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
         min_start: float = -1.0,
         end_epoch: float = -1.0,
         min_end: float = -1.0,
-        end_comparator: int = 0,
+        end_comparator: Union[int, None] = 0,
         update_frequency: float = -1.0,
         min_frequency: float = -1.0,
         **kwargs,

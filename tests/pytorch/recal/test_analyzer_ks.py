@@ -7,15 +7,7 @@ from neuralmagicML.pytorch.recal import ModuleKSAnalyzer
 from neuralmagicML.pytorch.utils import get_layer
 
 
-TEST_MODULE = Sequential(
-    Linear(8, 16),
-    ReLU(),
-    Linear(16, 32),
-    ReLU(),
-    Sequential(Linear(32, 64), ReLU(), Linear(64, 64), ReLU()),
-    Linear(64, 1),
-    ReLU(),
-)
+from tests.pytorch.helpers import LinearNet
 
 
 def _test_const(module, name, param_name):
@@ -31,10 +23,10 @@ def _test_const(module, name, param_name):
 @pytest.mark.parametrize(
     "module,name,param_name",
     [
-        (TEST_MODULE, "0", "weight"),
-        (TEST_MODULE, "0", "bias"),
-        (TEST_MODULE, "4.0", "weight"),
-        (TEST_MODULE, "4.2", "bias"),
+        (LinearNet(), LinearNet.layer_descs()[0].name, "weight"),
+        (LinearNet(), LinearNet.layer_descs()[0].name, "bias"),
+        (LinearNet(), LinearNet.layer_descs()[2].name, "weight"),
+        (LinearNet(), LinearNet.layer_descs()[2].name, "bias"),
     ],
 )
 def test_const(module, name, param_name):
@@ -44,10 +36,10 @@ def test_const(module, name, param_name):
 @pytest.mark.parametrize(
     "module,name,param_name",
     [
-        (TEST_MODULE, "0", "weight"),
-        (TEST_MODULE, "0", "bias"),
-        (TEST_MODULE, "4.0", "weight"),
-        (TEST_MODULE, "4.2", "bias"),
+        (LinearNet(), LinearNet.layer_descs()[0].name, "weight"),
+        (LinearNet(), LinearNet.layer_descs()[0].name, "bias"),
+        (LinearNet(), LinearNet.layer_descs()[2].name, "weight"),
+        (LinearNet(), LinearNet.layer_descs()[2].name, "bias"),
     ],
 )
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
@@ -59,10 +51,18 @@ def test_const_cuda(module, name, param_name):
 @pytest.mark.parametrize(
     "module,layers,param_name",
     [
-        (TEST_MODULE, ["0", "2", "4.2"], "weight"),
-        (TEST_MODULE, ["0"], "bias"),
-        (TEST_MODULE, ["4.2"], "weight"),
-        (TEST_MODULE, ["0", "2", "4.2"], "bias"),
+        (
+            LinearNet(),
+            [LinearNet.layer_descs()[0].name, LinearNet.layer_descs()[2].name],
+            "weight",
+        ),
+        (
+            LinearNet(),
+            [LinearNet.layer_descs()[0].name, LinearNet.layer_descs()[2].name],
+            "bias",
+        ),
+        (LinearNet(), [LinearNet.layer_descs()[2].name], "weight"),
+        (LinearNet(), [LinearNet.layer_descs()[2].name], "bias"),
     ],
 )
 def test_analyze_layers(module, layers, param_name):
@@ -74,10 +74,18 @@ def test_analyze_layers(module, layers, param_name):
 @pytest.mark.parametrize(
     "module,layers,param_name",
     [
-        (TEST_MODULE, ["0", "2", "4.2"], "weight"),
-        (TEST_MODULE, ["0"], "bias"),
-        (TEST_MODULE, ["4.2"], "weight"),
-        (TEST_MODULE, ["0", "2", "4.2"], "bias"),
+        (
+            LinearNet(),
+            [LinearNet.layer_descs()[0].name, LinearNet.layer_descs()[2].name],
+            "weight",
+        ),
+        (
+            LinearNet(),
+            [LinearNet.layer_descs()[0].name, LinearNet.layer_descs()[2].name],
+            "bias",
+        ),
+        (LinearNet(), [LinearNet.layer_descs()[2].name], "weight"),
+        (LinearNet(), [LinearNet.layer_descs()[2].name], "bias"),
     ],
 )
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
@@ -91,34 +99,35 @@ def test_analyze_layers_cuda(module, layers, param_name):
 @pytest.mark.parametrize(
     "module,name,param_name,param_data,expected_sparsity",
     [
-        (TEST_MODULE, "0", "weight", torch.zeros(16, 8), 1.0),
-        (TEST_MODULE, "0", "weight", torch.ones(16, 8), 0.0),
-        (TEST_MODULE, "0", "weight", torch.randn(16, 8), 0.0),
         (
-            TEST_MODULE,
-            "0",
-            "bias",
-            torch.tensor(
-                [
-                    0.0,
-                    1.0,
-                    3.0,
-                    0.0,
-                    5.0,
-                    3.0,
-                    1.0,
-                    0.0,
-                    7.0,
-                    1.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                    4.0,
-                    0.0,
-                    0.0,
-                ]
+            LinearNet(),
+            LinearNet.layer_descs()[0].name,
+            "weight",
+            torch.zeros(
+                LinearNet.layer_descs()[0].input_size[0],
+                LinearNet.layer_descs()[0].output_size[0],
             ),
-            0.4375,
+            1.0,
+        ),
+        (
+            LinearNet(),
+            LinearNet.layer_descs()[0].name,
+            "weight",
+            torch.ones(
+                LinearNet.layer_descs()[0].input_size[0],
+                LinearNet.layer_descs()[0].output_size[0],
+            ),
+            0.0,
+        ),
+        (
+            LinearNet(),
+            LinearNet.layer_descs()[0].name,
+            "weight",
+            torch.randn(
+                LinearNet.layer_descs()[0].input_size[0],
+                LinearNet.layer_descs()[0].output_size[0],
+            ),
+            0.0,
         ),
     ],
 )

@@ -11,16 +11,19 @@ from neuralmagicML.utils import (
     validate_str_iterable,
     convert_to_bool,
 )
-from neuralmagicML.tensorflow.utils import tf_compat, VAR_INDEX_FROM_TRAINABLE
+from neuralmagicML.tensorflow.utils import (
+    tf_compat,
+    VAR_INDEX_FROM_TRAINABLE,
+    get_prunable_ops,
+)
 from neuralmagicML.tensorflow.recal.modifier import (
     ModifierProp,
     TensorFlowModifierYAML,
     ScheduledUpdateModifier,
 )
 from neuralmagicML.tensorflow.recal.mask_ks import (
-    get_or_create_ks_schedule_ops,
-    get_or_create_graph_ops_pruning,
-    get_or_create_ks_update_op,
+    get_or_create_ks_scheduled_graph_ops,
+    PruningOpVars,
 )
 
 
@@ -71,7 +74,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
     def __init__(
         self,
-        layers: List[str],
+        layers: Union[str, List[str]],
         init_sparsity: float,
         final_sparsity: float,
         start_epoch: float,
@@ -79,7 +82,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         update_frequency: float,
         param: Union[int, str] = VAR_INDEX_FROM_TRAINABLE,
         leave_enabled: bool = True,
-        inter_func: str = "linear",
+        inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(GradualKSModifier, self).__init__(
@@ -100,17 +103,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._final_sparsity = final_sparsity
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
+        self._prune_op_vars = None
 
-        self._check_setup()
-        self._ks_group = self._create_group()
-        self._exponent = None
-
-        if self._inter_func == "linear":
-            self._exponent = 1
-        elif self._inter_func == "cubic":
-            self._exponent = 3
-        elif self._inter_func == "inverse_cubic":
-            self._exponent = 1 / 3.0
+        self.validate()
 
     @ModifierProp()
     def layers(self) -> Union[str, List[str]]:
@@ -178,6 +173,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
             the trainable vars in the graph
         """
         self._param = value
+        self.validate()
 
     @ModifierProp()
     def leave_enabled(self) -> bool:
@@ -246,6 +242,14 @@ class GradualKSModifier(ScheduledUpdateModifier):
             "unrecognized value given for inter_func of {}".format(self._inter_func)
         )
 
+    @property
+    def prune_op_vars(self) -> Union[None, List[PruningOpVars]]:
+        """
+        :return: the created pruning op vars in the graph if create_ops has been called,
+            else None
+        """
+        return self._prune_op_vars
+
     def create_ops(
         self,
         graph: tf_compat.Graph,
@@ -262,27 +266,36 @@ class GradualKSModifier(ScheduledUpdateModifier):
         :return: a tuple containing the modified graph and extra ops
             to be run for modifying
         """
-        # TODO: add support for tensorboard and tensorflow logging
+        graph, update_ops = super().create_ops(graph, steps_per_epoch, global_step)
+
         begin_step = round(self._start_epoch * steps_per_epoch)
         end_step = round(self._end_epoch * steps_per_epoch)
         update_step_freq = round(self._update_frequency * steps_per_epoch)
-        update_ready, sparsity = get_or_create_ks_schedule_ops(
-            begin_step,
-            end_step,
-            update_step_freq,
-            self._init_sparsity,
-            self._final_sparsity,
-            self._exponent,
-            global_step,
-            self._ks_group,
+        layers = (
+            self._layers
+            if self._layers != ALL_TOKEN
+            else [op[0] for op in get_prunable_ops(graph)]
         )
-        mask_assign_ops, thresh_assign_ops = get_or_create_graph_ops_pruning(
-            graph, self._layers, self._param, sparsity, self._ks_group
-        )
-        assign_ops = [*mask_assign_ops, *thresh_assign_ops]
-        update_op = get_or_create_ks_update_op(update_ready, assign_ops, self._ks_group)
 
-        return graph, [update_op]
+        with graph.as_default():
+            update_op, prune_op_vars = get_or_create_ks_scheduled_graph_ops(
+                graph,
+                global_step,
+                layers,
+                self._param,
+                begin_step,
+                end_step,
+                update_step_freq,
+                self._init_sparsity,
+                self._final_sparsity,
+                self.exponent,
+                self.ks_group,
+            )
+
+        update_ops.append(update_op)
+        self._prune_op_vars = prune_op_vars
+
+        return graph, update_ops
 
     def complete_graph(self, graph: tf_compat.GraphDef) -> tf_compat.GraphDef:
         # TODO: fill out as needed for export to onnx support in the future
@@ -292,13 +305,6 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         Validate the values of the params for the current instance are valid
         """
-
-        if self._layers == ALL_TOKEN:
-            raise ValueError(
-                (
-                    "layers cannot be set to {} for" " tensorflow implementation for {}"
-                ).format(ALL_TOKEN, self.__class__.__name__)
-            )
 
         if not self._leave_enabled:
             raise ValueError(

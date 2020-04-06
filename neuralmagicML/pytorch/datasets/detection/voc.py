@@ -38,6 +38,7 @@ class VOCSegmentationDataset(VOCSegmentation):
     :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data,
         False otherwise
     :param download: True to download the dataset, False otherwise.
+    :param year: The dataset year, supports years 2007 to 2012.
     :param image_size: the size of the image to output from the dataset
     """
 

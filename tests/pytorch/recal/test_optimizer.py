@@ -12,15 +12,7 @@ from neuralmagicML.pytorch.recal import (
     ScheduledModifierManager,
 )
 
-from .test_modifier import (
-    ModifierTest,
-    def_model,
-    def_optim_sgd,
-    def_optim_adam,
-    test_loss,
-    test_epoch,
-    test_steps_per_epoch,
-)
+from tests.pytorch.helpers import MLPNet
 
 
 class FakeOptim(SGD):
@@ -44,7 +36,7 @@ class FakeManager(ScheduledModifierManager):
 
 
 def test_optim_all_info():
-    model = def_model()
+    model = MLPNet()
     optim = FakeOptim(model.parameters(), 0.1)
     steps_per_epoch = 100
     manager = FakeManager()
@@ -68,7 +60,7 @@ def test_optim_all_info():
 
 
 def test_optim_size_only():
-    model = def_model()
+    model = MLPNet()
     optim = FakeOptim(model.parameters(), 0.1)
     steps_per_epoch = 100
     manager = FakeManager()
@@ -91,7 +83,7 @@ def test_optim_size_only():
 
 
 def test_optim_start_end_only():
-    model = def_model()
+    model = MLPNet()
     optim = FakeOptim(model.parameters(), 0.1)
     steps_per_epoch = 100
     manager = FakeManager()

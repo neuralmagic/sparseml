@@ -1,12 +1,12 @@
 import pytest
 
-from collections import OrderedDict
 import sys
 import numpy
 import torch
-from torch.nn import Sequential, Linear
 
 from neuralmagicML.pytorch.utils import BatchBenchmarkResults, ModuleBenchmarker
+
+from tests.pytorch.helpers import MLPNet
 
 
 def test_results_const():
@@ -81,27 +81,6 @@ def test_results_props_single_batch_size(batch_size, timings, avg):
     assert results.model_batch_seconds == 0.0
 
 
-BENCHMARK_MODEL = Sequential(
-    OrderedDict(
-        [
-            ("fc1", Linear(8, 16, bias=True)),
-            ("fc2", Linear(16, 32, bias=True)),
-            (
-                "block1",
-                Sequential(
-                    OrderedDict(
-                        [
-                            ("fc1", Linear(32, 16, bias=True)),
-                            ("fc2", Linear(16, 8, bias=True)),
-                        ]
-                    )
-                ),
-            ),
-        ]
-    )
-)
-
-
 def _results_sanity_check(
     results: BatchBenchmarkResults, test_size: int, batch_size: int
 ):
@@ -121,7 +100,7 @@ def _results_sanity_check(
 
 @pytest.mark.parametrize("batch_size", [1, 64])
 def test_benchmark_cpu(batch_size):
-    benchmarker = ModuleBenchmarker(BENCHMARK_MODEL)
+    benchmarker = ModuleBenchmarker(MLPNet())
     batches = [torch.rand(batch_size, 8) for _ in range(10)]
     warmup_size = 5
     test_size = 30
@@ -139,7 +118,7 @@ def test_benchmark_cpu(batch_size):
 @pytest.mark.parametrize("batch_size", [1, 64])
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
 def test_benchmark_cuda_full(batch_size):
-    benchmarker = ModuleBenchmarker(BENCHMARK_MODEL)
+    benchmarker = ModuleBenchmarker(MLPNet())
     batches = [torch.rand(batch_size, 8) for _ in range(10)]
     warmup_size = 5
     test_size = 30
@@ -157,7 +136,7 @@ def test_benchmark_cuda_full(batch_size):
 @pytest.mark.parametrize("batch_size", [1, 64])
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
 def test_benchmark_cuda_full(batch_size):
-    benchmarker = ModuleBenchmarker(BENCHMARK_MODEL)
+    benchmarker = ModuleBenchmarker(MLPNet())
     batches = [torch.rand(batch_size, 8) for _ in range(10)]
     warmup_size = 5
     test_size = 30

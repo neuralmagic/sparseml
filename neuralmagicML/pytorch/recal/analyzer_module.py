@@ -130,10 +130,11 @@ class ModuleAnalyzer(object):
         self._forward_called = False
         self._call_count = -1
         self._hooks = []
-        self._hooks.append(self._create_hook(self._module, None))
 
         for name, mod in self._module.named_modules():
-            self._hooks.append(self._create_hook(mod, name))
+            self._hooks.extend(
+                self._create_mod_hooks(mod, name if mod != self._module else None)
+            )
 
     def _delete_hooks(self):
         if self._hooks is not None:
@@ -142,26 +143,23 @@ class ModuleAnalyzer(object):
 
             self._hooks.clear()
 
-    def _create_hook(self, mod: Module, name: str) -> RemovableHandle:
+    def _create_mod_hooks(self, mod: Module, name: str) -> List[RemovableHandle]:
         mod._analyzed_layer_desc = None
         mod._analyzed_layer_name = name
 
+        forward_pre_hook = mod.register_forward_pre_hook(self._forward_pre_hook)
+
         if isinstance(mod, _ConvNd):
-            return mod.register_forward_hook(self._conv_hook)
-
-        if isinstance(mod, Linear):
-            return mod.register_forward_hook(self._linear_hook)
-
-        if isinstance(mod, _BatchNorm):
-            return mod.register_forward_hook(self._bn_hook)
-
-        if isinstance(mod, _MaxPoolNd) or isinstance(mod, _AvgPoolNd):
-            return mod.register_forward_hook(self._pool_hook)
-
-        if isinstance(mod, _AdaptiveAvgPoolNd) or isinstance(mod, _AdaptiveMaxPoolNd):
-            return mod.register_forward_hook(self._adaptive_pool_hook)
-
-        if (
+            forward_hook = mod.register_forward_hook(self._conv_hook)
+        elif isinstance(mod, Linear):
+            forward_hook = mod.register_forward_hook(self._linear_hook)
+        elif isinstance(mod, _BatchNorm):
+            forward_hook = mod.register_forward_hook(self._bn_hook)
+        elif isinstance(mod, _MaxPoolNd) or isinstance(mod, _AvgPoolNd):
+            forward_hook = mod.register_forward_hook(self._pool_hook)
+        elif isinstance(mod, _AdaptiveAvgPoolNd) or isinstance(mod, _AdaptiveMaxPoolNd):
+            forward_hook = mod.register_forward_hook(self._adaptive_pool_hook)
+        elif (
             isinstance(mod, Threshold)
             or isinstance(mod, ReLU)
             or isinstance(mod, ReLU6)
@@ -177,12 +175,48 @@ class ModuleAnalyzer(object):
             or isinstance(mod, Sigmoid)
             or isinstance(mod, LogSigmoid)
         ):
-            return mod.register_forward_hook(self._activation_hook)
+            forward_hook = mod.register_forward_hook(self._activation_hook)
+        elif isinstance(mod, Softmax) or isinstance(mod, Softmax2d):
+            forward_hook = mod.register_forward_hook(self._softmax_hook)
+        else:
+            forward_hook = mod.register_forward_hook(self._module_hook)
 
-        if isinstance(mod, Softmax) or isinstance(mod, Softmax2d):
-            return mod.register_forward_hook(self._softmax_hook)
+        return [forward_pre_hook, forward_hook]
 
-        return mod.register_forward_hook(self._module_hook)
+    def _forward_pre_hook(
+        self, mod: Module, inp: Union[Tuple[Tensor, ...], Tensor],
+    ):
+        self._call_count += 1
+
+        mod._analyzed_layer_desc = AnalyzedLayerDesc(
+            name=mod._analyzed_layer_name,
+            type_=mod.__class__.__name__,
+            execution_order=self._call_count,
+        )
+
+    def _init_forward_hook(
+        self,
+        mod: Module,
+        inp: Union[Tuple[Tensor, ...], Tensor],
+        out: Union[Tuple[Tensor, ...], Tensor],
+    ) -> Tuple[AnalyzedLayerDesc, Tuple[Tensor, ...], Tuple[Tensor, ...]]:
+        self._forward_called = True
+
+        if isinstance(inp, Tensor):
+            inp = (inp,)
+
+        if isinstance(out, Tensor):
+            out = (out,)
+
+        desc = mod._analyzed_layer_desc
+        desc.input_shape = tuple(
+            tuple(ii for ii in i.shape) for i in inp if isinstance(i, Tensor)
+        )
+        desc.output_shape = tuple(
+            tuple(oo for oo in o.shape) for o in out if isinstance(o, Tensor)
+        )
+
+        return desc, inp, out
 
     def _module_hook(
         self,
@@ -190,8 +224,7 @@ class ModuleAnalyzer(object):
         inp: Union[Tuple[Tensor, ...], Tensor],
         out: Union[Tuple[Tensor, ...], Tensor],
     ):
-        desc, inp, out = self._init_hook(mod, "any", inp, out)
-        desc.params = sum(param.numel() for param in mod.parameters())
+        desc, inp, out = self._init_forward_hook(mod, inp, out)
 
     def _conv_hook(
         self,
@@ -199,7 +232,7 @@ class ModuleAnalyzer(object):
         inp: Union[Tuple[Tensor, ...], Tensor],
         out: Union[Tuple[Tensor, ...], Tensor],
     ):
-        desc, inp, out = self._init_hook(mod, "conv", inp, out)
+        desc, inp, out = self._init_forward_hook(mod, inp, out)
 
         params = (
             {"weight": mod.weight}
@@ -224,7 +257,8 @@ class ModuleAnalyzer(object):
         add_per_out_pix = 1 if mod.bias is not None else 0
         out_pix = float(numpy.prod(out[0].shape[1:]))
 
-        # total flops counts the cost of summing the multiplications together activation well
+        # total flops counts the cost of summing the
+        # multiplications together as well
         # most implementations and papers do not include this cost
         desc.flops = (mult_per_out_pix + add_per_out_pix) * out_pix
         desc.total_flops = (mult_per_out_pix * 2 + add_per_out_pix) * out_pix
@@ -235,7 +269,7 @@ class ModuleAnalyzer(object):
         inp: Union[Tuple[Tensor, ...], Tensor],
         out: Union[Tuple[Tensor, ...], Tensor],
     ):
-        desc, inp, out = self._init_hook(mod, "linear", inp, out)
+        desc, inp, out = self._init_forward_hook(mod, inp, out)
 
         params = (
             {"weight": mod.weight}
@@ -260,7 +294,8 @@ class ModuleAnalyzer(object):
         add_per_out_pix = 1 if mod.bias is not None else 0
         out_pix = float(numpy.prod(out[0].shape[1:]))
 
-        # total flops counts the cost of summing the multiplications together activation well
+        # total flops counts the cost of summing the
+        # multiplications together as well
         # most implementations and papers do not include this cost
         desc.flops = (mult_per_out_pix + add_per_out_pix) * out_pix
         desc.total_flops = (mult_per_out_pix * 2 + add_per_out_pix) * out_pix
@@ -271,7 +306,7 @@ class ModuleAnalyzer(object):
         inp: Union[Tuple[Tensor, ...], Tensor],
         out: Union[Tuple[Tensor, ...], Tensor],
     ):
-        desc, inp, out = self._init_hook(mod, "batch_norm", inp, out)
+        desc, inp, out = self._init_forward_hook(mod, inp, out)
 
         params = (
             {"weight": mod.weight}
@@ -302,7 +337,7 @@ class ModuleAnalyzer(object):
         inp: Union[Tuple[Tensor, ...], Tensor],
         out: Union[Tuple[Tensor, ...], Tensor],
     ):
-        desc, inp, out = self._init_hook(mod, "pool", inp, out)
+        desc, inp, out = self._init_forward_hook(mod, inp, out)
 
         params = {key: val for key, val in mod.named_parameters()}
         prunable_params = {}
@@ -331,7 +366,7 @@ class ModuleAnalyzer(object):
         inp: Union[Tuple[Tensor, ...], Tensor],
         out: Union[Tuple[Tensor, ...], Tensor],
     ):
-        desc, inp, out = self._init_hook(mod, "global_pool", inp, out)
+        desc, inp, out = self._init_forward_hook(mod, inp, out)
 
         params = {key: val for key, val in mod.named_parameters()}
         prunable_params = {}
@@ -367,7 +402,7 @@ class ModuleAnalyzer(object):
         inp: Union[Tuple[Tensor, ...], Tensor],
         out: Union[Tuple[Tensor, ...], Tensor],
     ):
-        desc, inp, out = self._init_hook(mod, "act", inp, out)
+        desc, inp, out = self._init_forward_hook(mod, inp, out)
 
         params = {key: val for key, val in mod.named_parameters()}
         prunable_params = {}
@@ -384,7 +419,8 @@ class ModuleAnalyzer(object):
             key: tuple(s for s in val.shape) for key, val in prunable_params.items()
         }
 
-        # making assumption that flops spent is one per element (so swish is counted the same activation ReLU)
+        # making assumption that flops spent is one per element
+        # (so swish is counted the same activation ReLU)
         desc.flops = float(numpy.prod(out[0].shape[1:]))
         desc.total_flops = desc.flops
 
@@ -394,7 +430,7 @@ class ModuleAnalyzer(object):
         inp: Union[Tuple[Tensor, ...], Tensor],
         out: Union[Tuple[Tensor, ...], Tensor],
     ):
-        desc, inp, out = self._init_hook(mod, "softmax", inp, out)
+        desc, inp, out = self._init_forward_hook(mod, inp, out)
 
         params = {key: val for key, val in mod.named_parameters()}
         prunable_params = {}
@@ -417,45 +453,11 @@ class ModuleAnalyzer(object):
         desc.flops = flops_per_channel * out[0].shape[1]
         desc.total_flops = desc.flops
 
-    def _init_hook(
-        self,
-        mod: Module,
-        type_: str,
-        inp: Union[Tuple[Tensor, ...], Tensor],
-        out: Union[Tuple[Tensor, ...], Tensor],
-    ) -> Tuple[AnalyzedLayerDesc, Tuple[Tensor, ...], Tuple[Tensor, ...]]:
-        self._forward_called = True
-        self._call_count += 1
-
-        if isinstance(inp, Tensor):
-            inp = (inp,)
-
-        if isinstance(out, Tensor):
-            out = (out,)
-
-        mod._analyzed_layer_desc = AnalyzedLayerDesc(
-            name=mod._analyzed_layer_name,
-            type_=type_,
-            execution_order=self._call_count,
-            input_shape=tuple(
-                tuple(ii for ii in i.shape) for i in inp if isinstance(i, Tensor)
-            ),
-            output_shape=tuple(
-                tuple(oo for oo in o.shape) for o in out if isinstance(o, Tensor)
-            ),
-        )
-
-        return mod._analyzed_layer_desc, inp, out
-
     @staticmethod
     def _mod_desc(mod: Module) -> AnalyzedLayerDesc:
-        children = []
-        for _, child in mod.named_modules():
+        child_descs = []
+        for _, child in mod.named_children():
             if child != mod:
-                children.append(child)
+                child_descs.append(ModuleAnalyzer._mod_desc(child))
 
-        merge_descs = [
-            ModuleAnalyzer._mod_desc(child) for child in children
-        ]  # type: List[AnalyzedLayerDesc]
-
-        return AnalyzedLayerDesc.merge_descs(mod._analyzed_layer_desc, merge_descs)
+        return AnalyzedLayerDesc.merge_descs(mod._analyzed_layer_desc, child_descs)

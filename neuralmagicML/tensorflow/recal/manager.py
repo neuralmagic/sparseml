@@ -16,7 +16,7 @@ __all__ = ["ScheduledModifierManager"]
 
 class ScheduledModifierManager(BaseManager, Modifier):
     """
-    The base modifier manager, handles managing multiple ScheduledModifer.
+    The base modifier manager, handles managing multiple ScheduledModifier.
 
     | Modifiers are expected to implement up to 3 different functions for TensorFlow:
     |  - create_ops - inject ops into the graph before the training begins

@@ -10,18 +10,21 @@ from neuralmagicML.pytorch.recal import (
 )
 from neuralmagicML.pytorch.utils import get_layer_param
 
-from .test_modifier import (
-    ScheduledModifierTest,
-    ScheduledUpdateModifierTest,
-    def_model,
-    def_optim_sgd,
-    DEFAULT_MODEL_LAYER,
-    DEFAULT_MODEL_LAYER_PARAM,
-    DEFAULT_MODEL_LAYER_PARAM_SIZE,
+from tests.pytorch.helpers import (
     test_epoch,
     test_steps_per_epoch,
     test_loss,
+    LinearNet,
+    create_optim_sgd,
+    create_optim_adam,
 )
+from tests.pytorch.recal.test_modifier import (
+    ScheduledModifierTest,
+    ScheduledUpdateModifierTest,
+)
+
+
+MODEL_TEST_LAYER_INDEX = 3
 
 
 ##############################
@@ -52,7 +55,7 @@ TRAINABLE_MODIFIERS = [
     ),
     lambda: TrainableParamsModifier(
         params=["weight"],
-        layers=[DEFAULT_MODEL_LAYER],
+        layers=[LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name],
         trainable=False,
         start_epoch=10.0,
     ),
@@ -60,15 +63,15 @@ TRAINABLE_MODIFIERS = [
 
 
 @pytest.mark.parametrize("modifier_lambda", TRAINABLE_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
-@pytest.mark.parametrize("optim_lambda", [def_optim_sgd], scope="function")
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
 class TestTrainableParamsModifierImpl(ScheduledModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
 
         for param in model.parameters():
             param.requires_grad = not modifier.trainable
@@ -137,24 +140,22 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
                         assert param.requires_grad != modifier.trainable
 
 
-def test_set_lr_yaml():
+def test_trainable_params_yaml():
     params = ALL_TOKEN
     layers = ALL_TOKEN
     trainable = False
     params_strict = False
     start_epoch = 10.0
     end_epoch = 20.0
-    yaml_str = """
+    yaml_str = f"""
     !TrainableParamsModifier
-        params: {}
-        layers: {}
-        trainable: {}
-        params_strict: {}
-        start_epoch: {}
-        end_epoch: {}
-    """.format(
-        params, layers, trainable, params_strict, start_epoch, end_epoch
-    )
+        params: {params}
+        layers: {layers}
+        trainable: {trainable}
+        params_strict: {params_strict}
+        start_epoch: {start_epoch}
+        end_epoch: {end_epoch}
+    """
     yaml_modifier = TrainableParamsModifier.load_obj(
         yaml_str
     )  # type: TrainableParamsModifier
@@ -200,33 +201,38 @@ def test_set_lr_yaml():
 # SetParamModifier tests
 #
 ##############################
-SET_PARAM_VAL = [0 for _ in range(DEFAULT_MODEL_LAYER_PARAM_SIZE)]
+assert LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].bias  # testing bias below
+SET_PARAM_MOD_VAL = [
+    0 for _ in range(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].output_size[0])
+]
+SET_PARAM_MOD_PARAM = "bias"
+SET_PARAM_MOD_LAYERS = [LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name]
 SET_PARAM_MODIFIERS = [
     lambda: SetParamModifier(
-        param=DEFAULT_MODEL_LAYER_PARAM,
-        layers=[DEFAULT_MODEL_LAYER],
-        val=SET_PARAM_VAL,
+        param="bias",
+        layers=SET_PARAM_MOD_LAYERS,
+        val=SET_PARAM_MOD_VAL,
         start_epoch=0.0,
     ),
     lambda: SetParamModifier(
-        param=DEFAULT_MODEL_LAYER_PARAM,
-        layers=[DEFAULT_MODEL_LAYER],
-        val=SET_PARAM_VAL,
+        param="bias",
+        layers=SET_PARAM_MOD_LAYERS,
+        val=SET_PARAM_MOD_VAL,
         start_epoch=10.0,
     ),
 ]
 
 
 @pytest.mark.parametrize("modifier_lambda", SET_PARAM_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
-@pytest.mark.parametrize("optim_lambda", [def_optim_sgd], scope="function")
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
 class TestSetParamModifierImpl(ScheduledModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         self._lifecycle_helper(modifier, model, optimizer)
 
     @pytest.mark.skipif(
@@ -235,14 +241,14 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
     def test_lifecycle_cuda(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         model = model.to("cuda")
         self._lifecycle_helper(modifier, model, optimizer)
 
     def _lifecycle_helper(self, modifier, model, optimizer):
-        param = get_layer_param(DEFAULT_MODEL_LAYER_PARAM, DEFAULT_MODEL_LAYER, model)
+        param = get_layer_param(modifier.param, modifier.layers[0], model)
         self.initialize_helper(modifier, model, optimizer)
 
         for set_val, param_val in zip(modifier.val, param.data):
@@ -270,29 +276,22 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
 def test_set_param_yaml():
     param_strict = False
     start_epoch = 10.0
-    yaml_str = """
+    yaml_str = f"""
     !SetParamModifier
-        param: {}
-        layers:
-            - {}
-        val: {}
-        param_strict: {}
-        start_epoch: {}
-    """.format(
-        DEFAULT_MODEL_LAYER_PARAM,
-        DEFAULT_MODEL_LAYER,
-        SET_PARAM_VAL,
-        param_strict,
-        start_epoch,
-    )
+        param: {SET_PARAM_MOD_PARAM}
+        layers: {SET_PARAM_MOD_LAYERS}
+        val: {SET_PARAM_MOD_VAL}
+        param_strict: {param_strict}
+        start_epoch: {start_epoch}
+    """
     yaml_modifier = SetParamModifier.load_obj(yaml_str)  # type: SetParamModifier
     serialized_modifier = SetParamModifier.load_obj(
         str(yaml_modifier)
     )  # type: SetParamModifier
     obj_modifier = SetParamModifier(
-        param=DEFAULT_MODEL_LAYER_PARAM,
-        layers=[DEFAULT_MODEL_LAYER],
-        val=SET_PARAM_VAL,
+        param=SET_PARAM_MOD_PARAM,
+        layers=SET_PARAM_MOD_LAYERS,
+        val=SET_PARAM_MOD_VAL,
         param_strict=param_strict,
         start_epoch=start_epoch,
     )
@@ -323,14 +322,23 @@ def test_set_param_yaml():
 # GradualParamModifier tests
 #
 ##############################
-GRADUAL_PARAM_INIT = [0.1 * (c + 1) for c in range(DEFAULT_MODEL_LAYER_PARAM_SIZE)]
-GRADUAL_PARAM_FINAL = [1.0 * (c + 1) for c in range(DEFAULT_MODEL_LAYER_PARAM_SIZE)]
+assert LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].bias  # testing bias below
+GRADUAL_PARAM_MOD_INIT_VAL = [
+    0.1 * (c + 1)
+    for c in range(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].output_size[0])
+]
+GRADUAL_PARAM_MOD_FINAL_VAL = [
+    1.0 * (c + 1)
+    for c in range(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].output_size[0])
+]
+GRADUAL_PARAM_MOD_PARAM = "bias"
+GRADUAL_PARAM_MOD_LAYERS = [LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name]
 GRADUAL_PARAM_MODIFIERS = [
     lambda: GradualParamModifier(
-        param=DEFAULT_MODEL_LAYER_PARAM,
-        layers=[DEFAULT_MODEL_LAYER],
-        init_val=GRADUAL_PARAM_INIT,
-        final_val=GRADUAL_PARAM_FINAL,
+        param=GRADUAL_PARAM_MOD_PARAM,
+        layers=GRADUAL_PARAM_MOD_LAYERS,
+        init_val=GRADUAL_PARAM_MOD_INIT_VAL,
+        final_val=GRADUAL_PARAM_MOD_FINAL_VAL,
         start_epoch=0.0,
         end_epoch=10.0,
         update_frequency=1.0,
@@ -338,10 +346,10 @@ GRADUAL_PARAM_MODIFIERS = [
         param_strict=True,
     ),
     lambda: GradualParamModifier(
-        param=DEFAULT_MODEL_LAYER_PARAM,
-        layers=[DEFAULT_MODEL_LAYER],
-        init_val=GRADUAL_PARAM_INIT,
-        final_val=GRADUAL_PARAM_FINAL,
+        param=GRADUAL_PARAM_MOD_PARAM,
+        layers=GRADUAL_PARAM_MOD_LAYERS,
+        init_val=GRADUAL_PARAM_MOD_INIT_VAL,
+        final_val=GRADUAL_PARAM_MOD_FINAL_VAL,
         start_epoch=10.0,
         end_epoch=20.0,
         update_frequency=1.0,
@@ -352,15 +360,15 @@ GRADUAL_PARAM_MODIFIERS = [
 
 
 @pytest.mark.parametrize("modifier_lambda", GRADUAL_PARAM_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [def_model], scope="function")
-@pytest.mark.parametrize("optim_lambda", [def_optim_sgd], scope="function")
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
 class TestGradualParamModifierImpl(ScheduledUpdateModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         self._lifecycle_helper(modifier, model, optimizer)
 
     @pytest.mark.skipif(
@@ -369,14 +377,14 @@ class TestGradualParamModifierImpl(ScheduledUpdateModifierTest):
     def test_lifecycle_cuda(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
-        modifier, model, optimizer = self.create_test_objs(
-            modifier_lambda, model_lambda, optim_lambda
-        )
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
         model = model.to("cuda")
         self._lifecycle_helper(modifier, model, optimizer)
 
     def _lifecycle_helper(self, modifier, model, optimizer):
-        param = get_layer_param(DEFAULT_MODEL_LAYER_PARAM, DEFAULT_MODEL_LAYER, model)
+        param = get_layer_param(modifier.param, modifier.layers[0], model)
         self.initialize_helper(modifier, model, optimizer)
 
         for set_val, param_val in zip(modifier.init_val, param.data):
@@ -420,29 +428,18 @@ def test_gradual_param_yaml():
     end_epoch = 20.0
     update_frequency = 1.0
     inter_func = "linear"
-    yaml_str = """
+    yaml_str = f"""
     !GradualParamModifier
-        param: {}
-        layers:
-            - {}
-        init_val: {}
-        final_val: {}
-        start_epoch: {}
-        end_epoch: {}
-        update_frequency: {}
-        inter_func: {}
-        param_strict: {}
-    """.format(
-        DEFAULT_MODEL_LAYER_PARAM,
-        DEFAULT_MODEL_LAYER,
-        GRADUAL_PARAM_INIT,
-        GRADUAL_PARAM_FINAL,
-        start_epoch,
-        end_epoch,
-        update_frequency,
-        inter_func,
-        param_strict,
-    )
+        param: {GRADUAL_PARAM_MOD_PARAM}
+        layers: {GRADUAL_PARAM_MOD_LAYERS}
+        init_val: {GRADUAL_PARAM_MOD_INIT_VAL}
+        final_val: {GRADUAL_PARAM_MOD_FINAL_VAL}
+        start_epoch: {start_epoch}
+        end_epoch: {end_epoch}
+        update_frequency: {update_frequency}
+        inter_func: {inter_func}
+        param_strict: {param_strict}
+    """
     yaml_modifier = GradualParamModifier.load_obj(
         yaml_str
     )  # type: GradualParamModifier
@@ -450,10 +447,10 @@ def test_gradual_param_yaml():
         str(yaml_modifier)
     )  # type: GradualParamModifier
     obj_modifier = GradualParamModifier(
-        param=DEFAULT_MODEL_LAYER_PARAM,
-        layers=[DEFAULT_MODEL_LAYER],
-        init_val=GRADUAL_PARAM_INIT,
-        final_val=GRADUAL_PARAM_FINAL,
+        param=GRADUAL_PARAM_MOD_PARAM,
+        layers=GRADUAL_PARAM_MOD_LAYERS,
+        init_val=GRADUAL_PARAM_MOD_INIT_VAL,
+        final_val=GRADUAL_PARAM_MOD_FINAL_VAL,
         start_epoch=start_epoch,
         end_epoch=end_epoch,
         update_frequency=update_frequency,

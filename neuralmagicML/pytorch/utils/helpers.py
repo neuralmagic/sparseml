@@ -610,8 +610,9 @@ def get_linear_layers(module: Module) -> Dict[str, Module]:
 
 def get_prunable_layers(module: Module) -> List[Tuple[str, Module]]:
     """
-    :param module:
-    :return:
+    :param module: the module to get the prunable layers from
+    :return: a list containing the names and modules of the prunable layers
+        (Linear, ConvNd)
     """
     layers = []
 

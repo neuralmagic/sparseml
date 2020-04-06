@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, List, Tuple
 import re
 import tensorflow.contrib.graph_editor as ge
 from tensorflow.contrib.graph_editor.util import ListView
@@ -10,6 +10,7 @@ __all__ = [
     "get_op_var_index",
     "get_var_name",
     "get_op_input_var",
+    "get_prunable_ops",
 ]
 
 
@@ -90,3 +91,20 @@ def get_op_input_var(
     var_index = get_op_var_index(var_index, op_sgv.inputs)
 
     return op_sgv.inputs[var_index]
+
+
+def get_prunable_ops(graph: tf_compat.Graph) -> List[Tuple[str, tf_compat.Operation]]:
+    """
+    Get the prunable operations from a TensorFlow graph.
+
+    :param graph: the graph to get the prunable operations from
+    :return: a list containing the names and ops of the prunable operations
+        (MatMul, Conv1D, Conv2D, Conv3D)
+    """
+    ops = []
+
+    for op in graph.get_operations():
+        if op.type in ["MatMul", "Conv1D", "Conv2D", "Conv3D"]:
+            ops.append((op.name, op))
+
+    return ops
