@@ -8,7 +8,7 @@ import sys
 import math
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
-from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR, CyclicLR
+from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR
 
 from neuralmagicML.utils import ALL_TOKEN, convert_to_bool
 from neuralmagicML.pytorch.utils.logger import PyTorchLogger
@@ -20,7 +20,7 @@ from neuralmagicML.pytorch.recal.modifier import (
 )
 
 
-__all__ = ["SetLearningRateModifier", "LearningRateModifier", "CyclicLRModifier"]
+__all__ = ["SetLearningRateModifier", "LearningRateModifier"]
 
 
 CONSTRUCTORS = {
@@ -197,7 +197,6 @@ class LearningRateModifier(ScheduledUpdateModifier):
     |   !LearningRateModifier
     |       start_epoch: 0.0
     |       end_epoch: 10.0
-    |       update_frequency: 1.0
     |       lr_class: ExponentialLR
     |       lr_kwargs:
     |           gamma: 0.95
@@ -216,11 +215,7 @@ class LearningRateModifier(ScheduledUpdateModifier):
         False to only log on an LR change, default True
     :param start_epoch: The epoch to start the modifier at
         (set to -1.0 so it starts immediately)
-    :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends)
-    :param update_frequency: The number of epochs or fraction of epochs to update at
-        between start and end
-    :param shift_milestones: If milestones are supplied,
-        True to shift them back by start_epoch, False for no shift
+    :param update_frequency: unused and should not be set
     """
 
     def __init__(
@@ -232,14 +227,13 @@ class LearningRateModifier(ScheduledUpdateModifier):
         constant_logging: bool = True,
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
-        update_frequency: float = 1.0,
-        shift_milestones: bool = True,
+        update_frequency: float = -1.0,
     ):
         super().__init__(
             log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
-            update_frequency=update_frequency,
+            update_frequency=-1.0,
             end_comparator=-1,
         )
         self._lr_class = lr_class
@@ -249,14 +243,8 @@ class LearningRateModifier(ScheduledUpdateModifier):
         self._base_lr_set = False
         self._last_scheduler_epoch = math.floor(start_epoch)
         self._constant_logging = convert_to_bool(constant_logging)
-        self._shift_milestones = convert_to_bool(shift_milestones)
-        self._last_logged_lr = None
-
-        if "milestones" in self._lr_kwargs and self._shift_milestones:
-            self._lr_kwargs["milestones"] = [
-                mile - self._start_epoch for mile in self._lr_kwargs["milestones"]
-            ]
-            self._shift_milestones = False
+        self._double_step = False
+        self.validate()
 
     @ModifierProp()
     def lr_class(self) -> str:
@@ -321,26 +309,6 @@ class LearningRateModifier(ScheduledUpdateModifier):
         """
         self._constant_logging = value
 
-    @ModifierProp()
-    def shift_milestones(self) -> bool:
-        """
-        :return: If milestones are supplied, True to shift them back by start_epoch,
-            False for no shift
-        """
-        return self._shift_milestones
-
-    def initialize(self, module: Module, optimizer: Optimizer):
-        """
-        Create the lr_scheduler using the optimizer and the provided lr_kwargs
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        """
-        super(LearningRateModifier, self).initialize(module, optimizer)
-        self._lr_scheduler = CONSTRUCTORS[self._lr_class](
-            optimizer=optimizer, **self._lr_kwargs
-        )
-
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -355,17 +323,18 @@ class LearningRateModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
-        self._check_setup_base_lrs(optimizer, epoch)
+        self._check_init_lr(optimizer)
 
-        if epoch < sys.float_info.epsilon or (
-            epoch < self.start_epoch
-            and abs(epoch - self.start_epoch) > sys.float_info.epsilon
-        ):
+        if epoch <= sys.float_info.epsilon:
+            self._double_step = True
             return
 
-        if math.floor(epoch) != self._last_scheduler_epoch:
+        if not self._check_setup_lr_scheduler(optimizer, steps_per_epoch):
             self._lr_scheduler.step()
-            self._last_scheduler_epoch = math.floor(epoch)
+
+        if self._double_step:
+            self._lr_scheduler.step()
+            self._double_step = False
 
     def log_update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -385,7 +354,6 @@ class LearningRateModifier(ScheduledUpdateModifier):
         current_lr = _get_lr(optimizer)
 
         if self._constant_logging or current_lr != self._last_logged_lr:
-            self._last_logged_lr = current_lr
             _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
 
     def validate(self):
@@ -393,203 +361,65 @@ class LearningRateModifier(ScheduledUpdateModifier):
         Validate the values of the params for the current instance are valid
         """
 
-        if self._lr_class not in CONSTRUCTORS:
-            raise ValueError(
-                "lr_class cannot be set to {} must be one of {} for {}".format(
-                    self._lr_class, CONSTRUCTORS, self.__class__.__name__
-                )
-            )
+        if self._lr_class == "ExponentialLR":
+            if "gamma" not in self._lr_kwargs:
+                raise ValueError("gamma must be in lr_kwargs for ExponentialLR")
+        elif self._lr_class == "StepLR":
+            if "gamma" not in self._lr_kwargs:
+                raise ValueError("gamma must be in lr_kwargs for StepLR")
+            if "step_size" not in self._lr_kwargs:
+                raise ValueError("step_size must be in lr_kwargs for StepLR")
+        elif self._lr_class == "MultiStepLR":
+            if "gamma" not in self._lr_kwargs:
+                raise ValueError("gamma must be in lr_kwargs for MultiStepLR")
+            if "milestones" not in self._lr_kwargs:
+                raise ValueError("milestones must be in lr_kwargs for MultiStepLR")
+            for mile in self._lr_kwargs["milestones"]:
+                if mile <= self._start_epoch:
+                    raise ValueError(
+                        "milestones {} all must be greater than start_epoch {}".format(
+                            self._lr_kwargs["milestones"], self._start_epoch
+                        )
+                    )
+                if mile >= self._end_epoch:
+                    raise ValueError(
+                        "milestones {} all must be less than end_epoch {}".format(
+                            self._lr_kwargs["milestones"], self._end_epoch
+                        )
+                    )
+        else:
+            raise ValueError("unknown lr_class given of {}".format(self._lr_class))
 
-    def _check_setup_base_lrs(self, optimizer: Optimizer, epoch: float):
-        if (
-            self.start_epoch < 0.0
-            or (self.start_epoch - epoch) < sys.float_info.epsilon
-        ) and not self._base_lr_set:
-            if self._init_lr is not None:
-                self._lr_scheduler.base_lrs = list(
-                    map(lambda group: self._init_lr, optimizer.param_groups)
-                )
-
-                _set_lr(self._init_lr, optimizer)
-            else:
-                self._lr_scheduler.base_lrs = list(
-                    map(lambda group: group["lr"], optimizer.param_groups)
-                )
-
-            self._base_lr_set = True
-
-
-@PyTorchModifierYAML()
-class CyclicLRModifier(ScheduledUpdateModifier):
-    """
-    Modifier to set the learning rate based on a cyclic LR schedule between set epochs.
-    Any time an update point is reached,
-    the LR is updated for the parameters in the optimizer.
-    Builds on top of the builtin cyclic LR scheduler in PyTorch.
-
-    | Sample yaml:
-    |   !CyclicLRModifier
-    |       start_epoch: 0.0
-    |       end_epoch: 10.0
-    |       base_lr: 0.0001
-    |       max_lr: 0.01
-    |       log_types: __ALL__
-    |       constant_logging: True
-
-    :param lr_kwargs: The dictionary of keyword arguments to pass to the
-            constructor for the lr_class
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param constant_logging: True to constantly log on every step,
-        False to only log on an LR change, default True
-    :param start_epoch: The epoch to start the modifier at
-        (set to -1.0 so it starts immediately)
-    :param end_epoch: The epoch to end the modifier at
-        (set to -1.0 so it never ends)
-    :param update_frequency: unused and should not be set
-    """
-
-    def __init__(
-        self,
-        lr_kwargs: Dict,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        constant_logging: bool = True,
-        start_epoch: float = -1.0,
-        end_epoch: float = -1.0,
-        update_frequency: float = -1.0,
-    ):
-        super().__init__(
-            log_types=log_types,
-            start_epoch=start_epoch,
-            end_epoch=end_epoch,
-            update_frequency=update_frequency,
-            end_comparator=-1,
-        )
-        self._lr_kwargs = lr_kwargs
-        self._lr_scheduler = None
-        self._lr_set = False
-        self._constant_logging = convert_to_bool(constant_logging)
-        self._last_logged_lr = None
-
-    @ModifierProp()
-    def lr_kwargs(self) -> Dict:
-        """
-        :return: the key word args that are passed to the cyclic scheduler class,
-            includes most of the params given in the constructor
-        """
-        return self._lr_kwargs
-
-    @lr_kwargs.setter
-    def lr_kwargs(self, value: Dict):
-        """
-        :param value: the key word args that are passed to the cyclic scheduler class,
-            includes most of the params given in the constructor
-        """
-        self._lr_kwargs = value
-
-    @ModifierProp()
-    def constant_logging(self) -> bool:
-        """
-        :return: True to constantly log on every step,
-            False to only log on an LR change, default True
-        """
-        return self._constant_logging
-
-    @constant_logging.setter
-    def constant_logging(self, value: bool):
-        """
-        :param value: True to constantly log on every step,
-            False to only log on an LR change, default True
-        """
-        self._constant_logging = value
-
-    def initialize(self, module: Module, optimizer: Optimizer):
-        """
-        Create the lr_scheduler using the optimizer and the provided lr_kwargs.
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        """
-        super(CyclicLRModifier, self).initialize(module, optimizer)
-        init_lrs = [g["lr"] for g in optimizer.param_groups]
-        self._lr_scheduler = CyclicLR(optimizer=optimizer, **self._lr_kwargs)
-        for group, init_lr in zip(optimizer.param_groups, init_lrs):
-            group["lr"] = init_lr
-
-    def update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
-    ):
-        """
-        Calls into the lr scheduler to step for each batch.
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch
-            (calculate batch number using this and epoch)
-        """
-        super().update(module, optimizer, epoch, steps_per_epoch)
-        self._check_set_lr(optimizer, epoch)
-
-        if epoch < sys.float_info.epsilon or (
-            epoch < self.start_epoch
-            and abs(epoch - self.start_epoch) > sys.float_info.epsilon
-        ):
+    def _check_init_lr(self, optimizer: Optimizer):
+        if self._lr_scheduler is not None:
             return
 
-        batch_count = round(epoch * steps_per_epoch)
-        self._lr_scheduler.step(batch_count)
+        if self._init_lr:
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = self._init_lr
 
-    def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
-    ):
-        """
-        Check whether to log an update for the learning rate of the modifier.
-        If constant logging is enabled, then will always log.
-        Otherwise checks for a change in the LR before logging.
+    def _check_setup_lr_scheduler(self, optimizer: Optimizer, steps_per_epoch: int):
+        if self._lr_scheduler is not None:
+            return False
 
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch
-            (calculate batch number using this and epoch)
-        """
-        super().log_update(module, optimizer, epoch, steps_per_epoch)
-        current_lr = _get_lr(optimizer)
+        if self._lr_class == "ExponentialLR":
+            self._lr_kwargs["step_size"] = 1.0
+            self._lr_class = "StepLR"
 
-        if self._constant_logging or current_lr != self._last_logged_lr:
-            self._last_logged_lr = current_lr
-            _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
-
-    def validate(self):
-        """
-        Validate the values of the params for the current instance are valid.
-        """
-
-        if "base_lr" not in self._lr_kwargs:
-            raise ValueError(
-                "lr_kwargs must contain base_lr for {}".format(self.__class__.__name__)
+        if self._lr_class == "StepLR":
+            self._lr_kwargs["step_size"] = round(
+                self._lr_kwargs["step_size"] * steps_per_epoch
             )
+        elif self._lr_class == "MultiStepLR":
+            self._lr_kwargs["milestones"] = [
+                round((mile - self._start_epoch) * steps_per_epoch)
+                for mile in self._lr_kwargs["milestones"]
+            ]
+        else:
+            raise ValueError("unrecognized lr_class given of {}".format(self._lr_class))
 
-        if "max_lr" not in self._lr_kwargs:
-            raise ValueError(
-                "lr_kwargs must contain max_lr for {}".format(self.__class__.__name__)
-            )
+        self._lr_scheduler = CONSTRUCTORS[self._lr_class](
+            optimizer=optimizer, **self._lr_kwargs
+        )
 
-    def validate_schedule(self):
-        super().validate_schedule()
-
-        if self._update_frequency != -1.0:
-            raise ValueError(
-                "update_frequency of {} must be equal to -1.0 for {}".format(
-                    self._update_frequency, self.__class__.__name__
-                )
-            )
-
-    def _check_set_lr(self, optimizer: Optimizer, epoch: float):
-        if (
-            self.start_epoch < 0.0
-            or (self.start_epoch - epoch) < sys.float_info.epsilon
-        ) and not self._lr_set:
-            _set_lr(self.lr_kwargs["base_lr"], optimizer)
-            self._lr_set = True
+        return True

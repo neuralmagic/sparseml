@@ -16,12 +16,11 @@ def _validate_mnist(dataset: Dataset):
 
 
 def test_mnist():
-    datasets_path = os.path.join(tempfile.gettempdir(), "datasets")
-    train_dataset = MNISTDataset(datasets_path, train=True)
+    train_dataset = MNISTDataset(train=True)
     _validate_mnist(train_dataset)
 
-    val_dataset = MNISTDataset(datasets_path, train=False)
+    val_dataset = MNISTDataset(train=False)
     _validate_mnist(val_dataset)
 
-    reg_dataset = DatasetRegistry.create("mnist", datasets_path, train=False)
+    reg_dataset = DatasetRegistry.create("mnist", train=False)
     _validate_mnist(reg_dataset)

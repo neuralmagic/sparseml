@@ -2,72 +2,110 @@
 Sensitivity analysis implementations for kernel sparsity on Graphs against loss funcs.
 """
 
-from enum import Enum
+from typing import Dict, List, Union, Callable
+from collections import namedtuple
 import numpy
-from typing import Dict, List, Union, Optional, Callable
-
-import tensorflow as tf
-import tensorflow.contrib.graph_editor as ge
-
-from neuralmagicML.tensorflow.recal.mask_ks import KSScope
 
 from neuralmagicML.recal import (
     KSLossSensitivityProgress,
     KSLossSensitivityResult,
     KSLossSensitivityAnalysis,
 )
+from neuralmagicML.tensorflow.utils import tf_compat
+from neuralmagicML.tensorflow.utils import get_prunable_ops, VAR_INDEX_FROM_TRAINABLE
+from neuralmagicML.tensorflow.recal.mask_ks import KSScope, create_op_pruning
 
-from neuralmagicML.tensorflow.utils import (
-    tf_compat,
-    get_op_input_var,
-)
+__all__ = [
+    "SparsePruningOpVars",
+    "ks_loss_sensitivity_op_vars",
+    "one_shot_ks_loss_sensitivity",
+]
 
-__all__ = ["one_shot_ks_loss_sensitivity"]
+
+SparsePruningOpVars = namedtuple("SparsePruningOpVars", ("op_vars", "sparsity"))
 
 
-class _AnalysisStage(Enum):
-    start_operation = "start_operation"
-    start_sparsity_level = "start_sparsity_level"
-    end_batch = "end_batch"
+def ks_loss_sensitivity_op_vars(
+    graph: tf_compat.Graph = None,
+    var_index: Union[int, str] = VAR_INDEX_FROM_TRAINABLE,
+) -> List[SparsePruningOpVars]:
+    """
+    Edit the graph for to inject pruning ops and vars to allow for a ks loss
+    sensitivity analysis.
+
+    Note: this must be run outside of a session for it to take effect.
+
+    :param graph: the graph to inject pruning ops and vars into,
+        if not supplied uses get_default_graph()
+    :param var_index: the index for how to find the input variables into
+        the prunable ops
+    :return: the created pruning op vars to be used in one_shot_ks_loss_sensitivity
+    """
+
+    if not graph:
+        graph = tf_compat.get_default_graph()
+
+    ks_group = one_shot_ks_loss_sensitivity.__name__
+    prunable_ops = get_prunable_ops(graph)
+    op_vars = []
+
+    with graph.as_default():
+        for op_index, (prune_name, prune_op) in enumerate(prunable_ops):
+            with tf_compat.name_scope(
+                KSScope.model(prune_op, ks_group, trailing_slash=True)
+            ):
+                sparsity = tf_compat.placeholder(
+                    dtype=tf_compat.float32, name="sparsity_placeholder"
+                )
+                update = tf_compat.constant(True, tf_compat.bool)
+
+            prune_op_var = create_op_pruning(
+                prune_op, var_index, sparsity, update, ks_group
+            )
+            op_vars.append(SparsePruningOpVars(prune_op_var, sparsity))
+
+    return op_vars
 
 
 def one_shot_ks_loss_sensitivity(
-    session: tf_compat.Session,
-    graph: tf_compat.Graph,
-    X: numpy.array,
-    y: numpy.array,
-    X_placeholder: tf_compat.placeholder,
-    y_placeholder: tf_compat.placeholder,
-    total_loss: Optional[tf_compat.Tensor],
-    batch_size: int,
+    op_vars: List[SparsePruningOpVars],
+    loss_tensor: tf_compat.Tensor,
     samples_per_measurement: int,
+    add_ops_creator: Callable[[int], List[tf_compat.Tensor]] = None,
+    feed_dict_creator: Callable[[int], Dict[str, tf_compat.Tensor]] = None,
+    sess: tf_compat.Session = None,
     sparsity_levels: List[int] = None,
-    progress_hook: Optional[Callable] = None,
-) -> KSLossSensitivityAnalysis:
+    progress_hook: Callable = None,
+):
     """
     Run a one shot sensitivity analysis for kernel sparsity.
     It does not retrain, and instead puts the model to eval mode.
-    Moves layer by layer to calculate the sensitivity analysis for each and
+    Moves operation by operation to calculate the sensitivity analysis for each and
     resets the previously run layers.
+    Subsequent sparsity checks for layers and levels will be much faster.
 
-    :param session: the current session
-    :param graph: the graph of the current model
-    :param X: input features, shape (n_samples, n_features)
-    :param y: targets, shape (n_samples,)
-    :param X_placeholder: placeholder receiving input data
-    :param y_placeholder: placeholder receiving targets
-    :total_loss: the loss tensor to be analyzed; if None then the default loss is used
-    :param batch_size: the batch size to run through the model in eval mode
-    :param samples_per_measurement: the number of samples or items to take
-        for each measurement at each sparsity lev
-    :param sparsity_levels: the sparsity levels to check for each layer
-        to calculate sensitivity
-    :progress_hook: hook to process the progress object
-    :return: the sensitivity results for every operation that is prunable
+    Note: this should be run once a session has been created and
+    the variables have been created for the model.
+
+    Note: the graph should be recreated for later training as this creates
+    extra ops in the graph that should be reused before continuing in the system.
+
+    :param op_vars: the created pruning op vars from ks_loss_sensitivity_op_vars
+    :param loss_tensor: the loss tensor in the model to measure for the sensitivity
+    :param samples_per_measurement: the number of session.run calls to run through
+        for each sparsity level on each layer
+    :param add_ops_creator: a callback to create an op/tens list to be run through
+        the session for each measurement. Called for each measurement
+    :param feed_dict_creator: a callback to create a feed dict to be run through
+        the session for each measurement. Called for each measurement
+    :param sess: the session to use
+    :param sparsity_levels:
+    :param progress_hook:
+    :return: the sensitivity results for every op that is prunable
     """
 
-    if batch_size > samples_per_measurement:
-        raise ValueError("Batch size must not be greater than samples per measurement")
+    if not sess:
+        sess = tf_compat.get_default_session()
 
     if sparsity_levels is None:
         sparsity_levels = [0.05, 0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.99]
@@ -75,258 +113,69 @@ def one_shot_ks_loss_sensitivity(
     if progress_hook is None:
         progress_hook = KSLossSensitivityProgress.standard_update_hook()
 
-    ops = {}
-    ops.update({op.name: op for op in graph.get_operations() if op.type == "Conv2D"})
-    ops.update({op.name: op for op in graph.get_operations() if op.type == "MatMul"})
-    total_loss = (
-        total_loss if total_loss is not None else tf_compat.losses.get_total_loss()
-    )
-
-    for op_name, op in ops.items():
-        _create_parameters_pruning_op(op, _ks_group(op))
-
     progress = KSLossSensitivityProgress(
         layer_index=-1,
         layer_name="",
-        layers=list(ops.keys()),
+        layers=[var.op_vars.op.name for var in op_vars],
         sparsity_index=-1,
         sparsity_levels=sparsity_levels,
         measurement_step=-1,
         samples_per_measurement=samples_per_measurement,
     )
-
     analysis = KSLossSensitivityAnalysis()
-    for operation_index, (name, operation) in enumerate(ops.items()):
-        progress = _update_progress(
-            progress,
-            _AnalysisStage.start_operation,
-            layer_index=operation_index,
-            layer_name=name,
-        )
+    sess.run(tf_compat.variables_initializer([var.op_vars.mask for var in op_vars]))
+
+    for op_index, sparse_op_vars in enumerate(op_vars):
+        progress.layer_index = op_index
+        progress.layer_name = sparse_op_vars.op_vars.op.name
+        progress.sparsity_index = -1
+        progress.measurement_step = -1
         if progress_hook:
             progress_hook(progress)
 
         sparsities_loss = []
+
         for sparsity_index, sparsity_level in enumerate(sparsity_levels):
-            progress = _update_progress(
-                progress,
-                _AnalysisStage.start_sparsity_level,
-                sparsity_index=sparsity_index,
-            )
+            progress.sparsity_index = sparsity_index
+            progress.measurement_step = -1
             if progress_hook:
                 progress_hook(progress)
 
-            # Update the mask of the current operation,
-            # reset all others to zero sparsity
-            _update_pruning_masks(session, ops, operation, sparsity_level)
+            sess.run(
+                sparse_op_vars.op_vars.update,
+                feed_dict={sparse_op_vars.sparsity: sparsity_level},
+            )
+            measured = []
 
-            # Run inference, collecting losses across batches
-            measurement_step = 0
-            results = []
-            for idx in range(len(X) // batch_size):
-                start_idx = idx * batch_size
-                end_idx = min(len(X) - 1, start_idx + batch_size)
-                measurement_step += end_idx - start_idx
-                if measurement_step > samples_per_measurement:
-                    break
-                X_batch, y_batch = X[start_idx:end_idx], y[start_idx:end_idx]
-                loss = total_loss.eval(
-                    feed_dict={X_placeholder: X_batch, y_placeholder: y_batch}
-                )
-                results.append(loss)
-                progress = _update_progress(
-                    progress,
-                    _AnalysisStage.end_batch,
-                    measurement_step=measurement_step,
-                )
+            for step in range(samples_per_measurement):
+                progress.measurement_step = step
                 if progress_hook:
                     progress_hook(progress)
-            sparsities_loss.append((sparsity_level, numpy.mean(results)))
+
+                ops = [loss_tensor]
+                add_ops = add_ops_creator(step) if add_ops_creator else None
+                feed_dict = feed_dict_creator(step) if feed_dict_creator else None
+
+                if add_ops:
+                    ops.extend(add_ops)
+
+                values = sess.run(ops, feed_dict=feed_dict)
+                loss = values[0]
+                measured.append(loss)
+
+            loss_mean = numpy.mean(measured).item()
+            sparsities_loss.append((sparsity_level, loss_mean))
+
         analysis.results.append(
-            KSLossSensitivityResult(name, "weight", operation.type, sparsities_loss)
+            KSLossSensitivityResult(
+                sparse_op_vars.op_vars.op.name,
+                sparse_op_vars.op_vars.op_input.name,
+                sparse_op_vars.op_vars.op.type,
+                sparsities_loss,
+            )
         )
-    # Reset all masks to zero sparsity level
-    _update_pruning_masks(session, ops)
+        sess.run(
+            sparse_op_vars.op_vars.update, feed_dict={sparse_op_vars.sparsity: 0.0}
+        )
 
     return analysis
-
-
-def _ks_group(op: tf.Operation) -> str:
-    """ Name of the sensitivity related ops/variables for a given operation """
-    return "{}/sensitivity".format(op.name)
-
-
-def _update_progress(
-    progress: KSLossSensitivityProgress, stage: _AnalysisStage, **kwargs
-):
-    """
-    Update the progress information based on the stage of the analysis.
-
-    :param progress: The object holding the analysis progress information
-    :param stage: The stage of the sensitivity analysis
-
-    :return The updated progress object
-    """
-
-    def _check_stage_info(keys: Union[str, List[str]]):
-        if isinstance(keys, str):
-            _check_stage_info([keys])
-        else:
-            for key in keys:
-                if key not in kwargs:
-                    raise ValueError("{} required".format(key))
-
-    if stage == _AnalysisStage.start_operation:
-        _check_stage_info(["layer_index", "layer_name"])
-        progress.layer_index = kwargs["layer_index"]
-        progress.layer_name = kwargs["layer_name"]
-        progress.sparsity_index = -1
-        progress.measurement_step = -1
-    elif stage == _AnalysisStage.start_sparsity_level:
-        _check_stage_info("sparsity_index")
-        progress.sparsity_index = kwargs["sparsity_index"]
-        progress.measurement_step = -1
-    elif stage == _AnalysisStage.end_batch:
-        _check_stage_info("measurement_step")
-        progress.measurement_step = kwargs["measurement_step"]
-    return progress
-
-
-def _create_parameters_pruning_op(op: tf_compat.Operation, ks_group: str):
-    """
-    Create the mask and operation to update it, used for pruning purposes.
-
-    :param op: The current operation whose weights need to be pruned
-    :param ks_group: Name of the group under which the new mask and
-        update operation are created
-
-    :return Operations to assign values to the mask
-    """
-    op_sgv = ge.sgv(op)
-    op_var_tens = get_op_input_var(op)
-
-    sparsity = tf_compat.placeholder(
-        tf.float32, shape=(), name="{}/sparsity".format(ks_group)
-    )
-
-    with tf_compat.variable_scope(ks_group):
-        mask = tf_compat.get_variable(
-            KSScope.VAR_MASK,
-            op_var_tens.get_shape(),
-            initializer=tf_compat.ones_initializer(),
-            trainable=False,
-            dtype=op_var_tens.dtype,
-        )
-
-        # create the masked operation and assign as the new input to the op
-        masked = tf_compat.math.multiply(mask, op_var_tens, KSScope.OP_MASKED_VAR)
-        op_swapped_inputs = [
-            inp if inp != op_var_tens else masked for inp in op_sgv.inputs
-        ]
-        ge.swap_inputs(op, op_swapped_inputs)
-
-        # create the update ops using the target sparsity tensor
-        abs_var = tf_compat.abs(op_var_tens)
-        sparse_index = (
-            tf_compat.cast(
-                tf_compat.math.round(
-                    tf_compat.cast(tf_compat.size(abs_var), tf_compat.dtypes.float32)
-                    * (1.0 - sparsity)
-                ),
-                tf_compat.dtypes.int32,
-            )
-            - 1
-        )
-        sorted_vals, _ = tf_compat.math.top_k(
-            tf_compat.reshape(abs_var, [-1]), k=tf_compat.size(abs_var)
-        )
-        new_threshold = tf_compat.gather(sorted_vals, sparse_index)
-        new_mask = tf_compat.cast(
-            tf_compat.greater(abs_var, new_threshold), tf_compat.dtypes.float32
-        )
-        mask_assign = tf_compat.assign(mask, new_mask, name=KSScope.OP_MASK_ASSIGN)
-
-    # add return state to collections
-    tf_compat.add_to_collection(
-        KSScope.collection_name(ks_group, KSScope.OPS_SPARSITY), sparsity
-    )
-    tf_compat.add_to_collection(
-        KSScope.collection_name(ks_group, KSScope.VAR_MASK), mask
-    )
-    tf_compat.add_to_collection(
-        KSScope.collection_name(ks_group, KSScope.OP_MASKED_VAR), masked
-    )
-    tf_compat.add_to_collection(
-        KSScope.collection_name(ks_group, KSScope.OP_MASK_ASSIGN), mask_assign
-    )
-
-    return mask_assign
-
-
-def _sparsity_feed_dict(
-    ops: Dict[str, tf.Operation],
-    current_op: Optional[tf.Operation] = None,
-    current_sparsity: float = 0,
-):
-    """
-    Create feed_dict for all sparsity placeholders,
-    used to run the mask assign operations.
-    If the current operation and sparsity are provided,
-    then the sparsity is used as value to the corresponding mask assign,
-    and all the other sparsity placeholders are reset to zeros.
-
-    :param ops: Dictionary of operations
-    :param current_op: Current operation to set custom sparsity;
-        if None then all sparsities are zeros
-    :param current_sparsity: Sparsity of the current operation if specified;
-        ignored otherwise
-
-    :return A feed dict to be used for running mask assigns
-    """
-    feed_dict = {}
-    for (op_name, op) in ops.items():
-        ks_group = _ks_group(op)
-        sparsity_holders = tf_compat.get_collection(
-            KSScope.collection_name(ks_group, KSScope.OPS_SPARSITY)
-        )
-        assert len(sparsity_holders) == 1
-        sparsity = (
-            current_sparsity
-            if current_op is not None and op_name == current_op.name
-            else 0
-        )
-        feed_dict[sparsity_holders[0]] = sparsity
-    return feed_dict
-
-
-def _update_pruning_masks(
-    session: tf_compat.Session,
-    ops: Dict[str, tf.Operation],
-    current_op: Optional[tf.Operation] = None,
-    current_sparsity: float = 0,
-):
-    """
-    Apply mask assign operations to assign values to mask variables.
-    If a current operation is provided then its sparsity can be set;
-    otherwise, all sparsities are set to zeros.
-
-    :param session: The current session
-    :param ops: Dictionary of operations
-    :param current_op: Current operation to set custom sparsity;
-        if None then all sparsities are zeros
-    :param current_sparsity: Sparsity of the current operation if specified;
-        ignored otherwise
-
-    :return None
-    """
-    all_mask_assigns = []
-    for (op_name, op) in ops.items():
-        ks_group = _ks_group(op)
-        mask_assigns = tf_compat.get_collection(
-            KSScope.collection_name(ks_group, KSScope.OP_MASK_ASSIGN)
-        )
-        assert len(mask_assigns) == 1
-        all_mask_assigns.append(mask_assigns[0])
-
-    sparsity_feed_dict = _sparsity_feed_dict(ops, current_op, current_sparsity)
-    session.run(all_mask_assigns, feed_dict=sparsity_feed_dict)

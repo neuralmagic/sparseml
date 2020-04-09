@@ -3,7 +3,7 @@ Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
 """
 
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Dict, Any
 import hashlib
 
 from neuralmagicML.utils import (
@@ -17,12 +17,14 @@ from neuralmagicML.tensorflow.utils import (
     get_prunable_ops,
 )
 from neuralmagicML.tensorflow.recal.modifier import (
+    EXTRAS_KEY_SUMMARIES,
     ModifierProp,
     TensorFlowModifierYAML,
     ScheduledUpdateModifier,
 )
 from neuralmagicML.tensorflow.recal.mask_ks import (
     get_or_create_ks_scheduled_graph_ops,
+    create_summaries_pruning,
     PruningOpVars,
 )
 
@@ -104,6 +106,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
         self._prune_op_vars = None
+        self._update_ready = None
+        self._sparsity = None
 
         self.validate()
 
@@ -250,25 +254,41 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         return self._prune_op_vars
 
+    @property
+    def update_ready(self):
+        """
+        :return: the created update_ready tensor for setting the pruning ops
+            if create_ops has been called, else None
+        """
+        return self._update_ready
+
+    @property
+    def sparsity(self) -> Union[None, tf_compat.Tensor]:
+        """
+        :return: the created sparsity tensor for setting the pruning ops
+            if create_ops has been called, else None
+        """
+        return self._sparsity
+
     def create_ops(
         self,
-        graph: tf_compat.Graph,
         steps_per_epoch: int,
-        global_step: tf_compat.Variable,
-    ) -> Tuple[tf_compat.Graph, List[tf_compat.Operation]]:
+        global_step: tf_compat.Tensor,
+        graph: tf_compat.Graph,
+    ) -> Tuple[List[Union[tf_compat.Tensor, tf_compat.Operation]], Dict[str, Any]]:
         """
         Create the sparsity ops to modify the training graph according to the settings
         for the current instance.
 
-        :param graph: the graph to be modified
         :param steps_per_epoch: the number of steps (batches) per training epoch
         :param global_step: the global step used while training
-        :return: a tuple containing the modified graph and extra ops
-            to be run for modifying
+        :param graph: the graph to be modified
+        :return: a tuple (list of ops, dict of named ops / tensors)
+            to be run or used for modifying the training process.
         """
-        graph, update_ops = super().create_ops(graph, steps_per_epoch, global_step)
+        mod_ops, mod_extras = super().create_ops(graph, steps_per_epoch, global_step)
 
-        begin_step = round(self._start_epoch * steps_per_epoch)
+        begin_step = round(self._start_epoch * steps_per_epoch) + 1
         end_step = round(self._end_epoch * steps_per_epoch)
         update_step_freq = round(self._update_frequency * steps_per_epoch)
         layers = (
@@ -278,7 +298,12 @@ class GradualKSModifier(ScheduledUpdateModifier):
         )
 
         with graph.as_default():
-            update_op, prune_op_vars = get_or_create_ks_scheduled_graph_ops(
+            (
+                update_op,
+                prune_op_vars,
+                update_ready,
+                sparsity,
+            ) = get_or_create_ks_scheduled_graph_ops(
                 graph,
                 global_step,
                 layers,
@@ -292,13 +317,31 @@ class GradualKSModifier(ScheduledUpdateModifier):
                 self.ks_group,
             )
 
-        update_ops.append(update_op)
+            if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:
+                mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(
+                    prune_op_vars, self.ks_group
+                )
+
+        mod_ops.append(update_op)
         self._prune_op_vars = prune_op_vars
+        self._update_ready = update_ready
+        self._sparsity = sparsity
 
-        return graph, update_ops
+        return mod_ops, mod_extras
 
-    def complete_graph(self, graph: tf_compat.GraphDef) -> tf_compat.GraphDef:
-        # TODO: fill out as needed for export to onnx support in the future
+    def initialize_session(self, sess: tf_compat.Session):
+        """
+        Initialize the mask variables for pruning.
+
+        :param sess: the session to use for initializing
+        """
+        super().initialize_session(sess)
+        masks = [op_vars.mask for op_vars in self._prune_op_vars]
+
+        if masks:
+            sess.run(tf_compat.variables_initializer(masks))
+
+    def complete_graph(self, graph: tf_compat.Graph) -> tf_compat.Graph:
         return super().complete_graph(graph)
 
     def validate(self):

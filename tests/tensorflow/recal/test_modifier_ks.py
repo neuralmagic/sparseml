@@ -3,36 +3,76 @@ import pytest
 from typing import Callable
 import numpy
 
-from neuralmagicML.tensorflow.utils import VAR_INDEX_FROM_TRAINABLE, tf_compat
-from neuralmagicML.tensorflow.recal import GradualKSModifier
+from neuralmagicML.tensorflow.utils import (
+    VAR_INDEX_FROM_TRAINABLE,
+    tf_compat,
+    eval_tensor_sparsity,
+    batch_cross_entropy_loss,
+)
+from neuralmagicML.tensorflow.recal import (
+    GradualKSModifier,
+    ScheduledModifierManager,
+    EXTRAS_KEY_SUMMARIES,
+)
 
 from tests.tensorflow.helpers import mlp_net
-from tests.tensorflow.recal.test_modifier import ScheduledModifierTest
+from tests.tensorflow.recal.test_modifier import (
+    ScheduledModifierTest,
+    mlp_graph_lambda,
+    conv_graph_lambda,
+)
 
 
 @pytest.mark.parametrize(
-    "modifier_lambda",
+    "graph_lambda,modifier_lambda",
     [
-        lambda: GradualKSModifier(
-            layers=["mlp_net/fc1/matmul"],
-            init_sparsity=0.05,
-            final_sparsity=0.8,
-            start_epoch=0.0,
-            end_epoch=20.0,
-            update_frequency=1.0,
+        (
+            mlp_graph_lambda,
+            lambda: GradualKSModifier(
+                layers=["mlp_net/fc1/matmul"],
+                init_sparsity=0.05,
+                final_sparsity=0.8,
+                start_epoch=0.0,
+                end_epoch=20.0,
+                update_frequency=1.0,
+            ),
         ),
-        lambda: GradualKSModifier(
-            layers="__ALL__",
-            init_sparsity=0.05,
-            final_sparsity=0.8,
-            start_epoch=0.0,
-            end_epoch=20.0,
-            update_frequency=1.0,
+        (
+            mlp_graph_lambda,
+            lambda: GradualKSModifier(
+                layers="__ALL__",
+                init_sparsity=0.05,
+                final_sparsity=0.6,
+                start_epoch=5.0,
+                end_epoch=25.0,
+                update_frequency=1.0,
+            ),
+        ),
+        (
+            conv_graph_lambda,
+            lambda: GradualKSModifier(
+                layers="__ALL__",
+                init_sparsity=0.05,
+                final_sparsity=0.8,
+                start_epoch=0.0,
+                end_epoch=20.0,
+                update_frequency=1.0,
+            ),
+        ),
+        (
+            conv_graph_lambda,
+            lambda: GradualKSModifier(
+                layers=["conv_net/conv1/conv"],
+                init_sparsity=0.05,
+                final_sparsity=0.6,
+                start_epoch=5.0,
+                end_epoch=25.0,
+                update_frequency=1.0,
+            ),
         ),
     ],
     scope="function",
 )
-@pytest.mark.parametrize("graph_lambda", [mlp_net], scope="function")
 @pytest.mark.parametrize("steps_per_epoch", [100], scope="function")
 class TestGradualKSModifierImpl(ScheduledModifierTest):
     def test_lifecycle(
@@ -48,36 +88,124 @@ class TestGradualKSModifierImpl(ScheduledModifierTest):
             step_placeholder = tf_compat.placeholder(dtype=tf_compat.int64, name="step")
             global_assign = global_step.assign(step_placeholder)
 
-        graph, ops = modifier.create_ops(graph, steps_per_epoch, global_step)
-        assert len(ops) == 1
-        assert ops[0] is not None
-        assert modifier.prune_op_vars
-        assert len(modifier.prune_op_vars) > 0
+            inp = graph.get_tensor_by_name("inp:0")
+            out = graph.get_tensor_by_name("out:0")
+
+            mod_ops, mod_extras = modifier.create_ops(
+                steps_per_epoch, global_step, graph
+            )
+            assert len(mod_ops) == 1
+            assert mod_ops[0] is not None
+            assert len(mod_extras) == 1
+            assert EXTRAS_KEY_SUMMARIES in mod_extras
+            assert modifier.prune_op_vars
+            assert len(modifier.prune_op_vars) > 0
+            last_sparsities = [0.0 for _ in range(len(modifier.prune_op_vars))]
+
+            with tf_compat.Session(graph=graph) as sess:
+                sess.run(tf_compat.global_variables_initializer())
+                modifier.initialize_session(sess)
+                step_counter = 0
+                inp_arr = numpy.random.random((1, *inp.shape[1:]))
+
+                for epoch in range(int(modifier.end_epoch + 5.0)):
+                    for step in range(steps_per_epoch):
+                        res = sess.run(out, feed_dict={inp: inp_arr})
+                        assert res.sum() > 0
+
+                        step_counter += 1
+                        sess.run(
+                            global_assign, feed_dict={step_placeholder: step_counter}
+                        )
+
+                        sess.run(mod_ops)
+                        update_ready_val = sess.run(modifier.update_ready)
+                        sparsity_val = sess.run(modifier.sparsity)
+
+                        for index, op_vars in enumerate(modifier.prune_op_vars):
+                            mask_sparsity = eval_tensor_sparsity(op_vars.mask)
+                            masked_sparsity = eval_tensor_sparsity(op_vars.masked)
+
+                            assert abs(mask_sparsity - masked_sparsity) < 1e-5
+
+                            if epoch < modifier.start_epoch:
+                                assert masked_sparsity < 1e-2
+                                assert not update_ready_val
+                            elif epoch >= modifier.end_epoch:
+                                assert (
+                                    abs(masked_sparsity - modifier.final_sparsity)
+                                    < 1e-2
+                                )
+                                assert not update_ready_val
+                            else:
+                                assert masked_sparsity >= last_sparsities[index] - 1e-2
+                                last_sparsities[index] = masked_sparsity
+
+
+def test_gradual_ks_training_with_manager():
+    modifier = GradualKSModifier(
+        layers=["mlp_net/fc1/matmul", "mlp_net/fc3/matmul"],
+        init_sparsity=0.05,
+        final_sparsity=0.8,
+        start_epoch=2.0,
+        end_epoch=7.0,
+        update_frequency=1.0,
+    )
+    sec_modifier = GradualKSModifier(
+        layers=["mlp_net/fc2/matmul"],
+        init_sparsity=0.05,
+        final_sparsity=0.8,
+        start_epoch=2.0,
+        end_epoch=7.0,
+        update_frequency=1.0,
+    )
+    manager = ScheduledModifierManager([modifier, sec_modifier])
+    steps_per_epoch = 5
+    batch_size = 2
+
+    with tf_compat.Graph().as_default() as graph:
+        logits, inputs = mlp_net()
+        labels = tf_compat.placeholder(tf_compat.float32, [None, *logits.shape[1:]])
+        loss = batch_cross_entropy_loss(logits, labels)
+
+        global_step = tf_compat.train.get_or_create_global_step()
+        train_op = tf_compat.train.AdamOptimizer(learning_rate=1e-4).minimize(
+            loss, global_step=global_step
+        )
+
+        mod_ops, mod_extras = manager.create_ops(steps_per_epoch)
         last_sparsities = [0.0 for _ in range(len(modifier.prune_op_vars))]
 
         with tf_compat.Session(graph=graph) as sess:
             sess.run(tf_compat.global_variables_initializer())
-            step_counter = 0
+            modifier.initialize_session(sess)
+            batch_lab = numpy.random.random((batch_size, *logits.shape[1:]))
+            batch_inp = numpy.random.random((batch_size, *inputs.shape[1:]))
 
-            for epoch in range(int(modifier.end_epoch + 5.0)):
+            for epoch in range(int(modifier.end_epoch + 2.0)):
                 for step in range(steps_per_epoch):
-                    step_counter += 1
-                    sess.run(global_assign, feed_dict={step_placeholder: step_counter})
-                    sess.run(ops[0])
+                    sess.run(train_op, feed_dict={inputs: batch_inp, labels: batch_lab})
+                    step_counter = sess.run(global_step)
+
+                    sess.run(mod_ops)
+                    update_ready_val = sess.run(modifier.update_ready)
+                    sparsity_val = sess.run(modifier.sparsity)
 
                     for index, op_vars in enumerate(modifier.prune_op_vars):
-                        mask_val = sess.run(op_vars.mask)
-                        num_nonzeros = numpy.count_nonzero(mask_val)
-                        calc_density = float(num_nonzeros) / float(mask_val.size)
-                        calc_sparsity = 1.0 - calc_density
+                        mask_sparsity = eval_tensor_sparsity(op_vars.mask)
+                        masked_sparsity = eval_tensor_sparsity(op_vars.masked)
+
+                        assert abs(mask_sparsity - masked_sparsity) < 1e-5
 
                         if epoch < modifier.start_epoch:
-                            assert calc_sparsity == 0.0
-                        elif epoch > modifier.end_epoch:
-                            assert abs(calc_sparsity - modifier.final_sparsity) < 1e-2
+                            assert masked_sparsity < 1e-2
+                            assert not update_ready_val
+                        elif epoch >= modifier.end_epoch:
+                            assert abs(masked_sparsity - modifier.final_sparsity) < 1e-2
+                            assert not update_ready_val
                         else:
-                            assert calc_sparsity >= last_sparsities[index]
-                            last_sparsities[index] = calc_sparsity
+                            assert masked_sparsity >= last_sparsities[index] - 1e-2
+                            last_sparsities[index] = masked_sparsity
 
 
 def test_gradual_ks_yaml():

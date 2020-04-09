@@ -15,7 +15,7 @@ from neuralmagicML.utils.frameworks import (
     PYTORCH_FRAMEWORK,
     TENSORFLOW_FRAMEWORK,
 )
-from neuralmagicML.utils import create_parent_dirs
+from neuralmagicML.utils import create_parent_dirs, clean_path
 
 __all__ = [
     "models_sign_url",
@@ -59,26 +59,26 @@ def models_sign_url(path: str) -> str:
     return model_res_data["signed_url"]
 
 
-def models_download_file(path: str, overwrite: bool, overwrite_path: str = None) -> str:
+def models_download_file(path: str, overwrite: bool, save_dir: str = None) -> str:
     """
     Download the given file from models.neuralmagic.com repo
 
     :param path: the path for the file to download
     :param overwrite: True to overwrite the file if it exists, False otherwise
-    :param overwrite_path: The path to use instead of the default cache path
+    :param save_dir: The directory to save the model files to
+        instead of the default cache dir
     :return: the local path to the downloaded file
     """
+    file_dir = "/".join(path.split("/")[:-1])
+    file_name = path.split("/")[-1]
     url = models_sign_url(path)
 
-    if not overwrite_path:
-        save_dir = os.path.join(
-            os.path.abspath(os.path.expanduser("~")), ".cache", "nm_models"
-        )
-        save_name = hashlib.md5(path.encode("utf-8")).hexdigest()
-        save_file = os.path.join(save_dir, save_name)
-    else:
-        save_file = overwrite_path
+    if not save_dir:
+        save_name = hashlib.md5(file_dir.encode("utf-8")).hexdigest()
+        save_dir = os.path.join("~", ".cache", "nm_models", save_name)
 
+    save_dir = clean_path(save_dir)
+    save_file = os.path.join(save_dir, file_name)
     create_parent_dirs(save_file)
 
     if overwrite and os.path.exists(save_file):
@@ -235,43 +235,53 @@ class RepoModel(object):
         return "{}/{}".format(self.root_path, "model.onnx")
 
     @property
-    def framework_file_path(self):
+    def framework_file_paths(self) -> List[str]:
         """
         :return: path the framework specific file for the model will be found at in
             models.neuralmagic.com
         """
         if self.framework == ONNX_FRAMEWORK:
-            return self.onnx_file_path
+            return []
 
         if self.framework == PYTORCH_FRAMEWORK:
-            return "{}/{}".format(self.root_path, "model.pth")
+            return ["{}/{}".format(self.root_path, "model.pth")]
 
         if self.framework == TENSORFLOW_FRAMEWORK:
-            return "{}/{}".format(self.root_path, "model.pb")
+            return [
+                "{}/{}".format(self.root_path, "model.pb"),
+                "{}/{}".format(self.root_path, "model.meta"),
+                "{}/{}".format(self.root_path, "model.index"),
+                "{}/{}".format(self.root_path, "model.data-00000-of-00001"),
+            ]
 
         raise ValueError("unsupported framework given of {}".format(self.framework))
 
-    def download_onnx_file(
-        self, overwrite: bool = False, overwrite_path: str = None
-    ) -> str:
+    def download_onnx_file(self, overwrite: bool = False, save_dir: str = None) -> str:
         """
         :param overwrite: True to overwrite any previous downloads,
             False to not redownload if it exists (default)
-        :param overwrite_path: The path to use instead of the default cache path
+        :param save_dir: The directory to save the model files to
+            instead of the default cache dir
         :return: the path to the local, downloaded file
         """
-        return models_download_file(self.onnx_file_path, overwrite, overwrite_path)
+        return models_download_file(self.onnx_file_path, overwrite, save_dir)
 
-    def download_framework_file(
-        self, overwrite: bool = False, overwrite_path: str = None
-    ) -> str:
+    def download_framework_files(
+        self, overwrite: bool = False, save_dir: str = None
+    ) -> List[str]:
         """
         :param overwrite: True to overwrite any previous downloads,
             False to not redownload if it exists (default)
-        :param overwrite_path: The path to use instead of the default cache path
+        :param save_dir: The directory to save the model files to
+            instead of the default cache dir
         :return: the path to the local, downloaded file
         """
-        return models_download_file(self.framework_file_path, overwrite, overwrite_path)
+        paths = []
+
+        for framework_path in self.framework_file_paths:
+            paths.append(models_download_file(framework_path, overwrite, save_dir))
+
+        return paths
 
 
 _AVAILABLE_MODELS = None

@@ -80,7 +80,7 @@ def fat_pw_relu(
     out = fat_relu(tens, x_offset, inplace)
 
     # calculate the compression region values
-    comp_mask = ((tens < threshold) * tens > x_offset).float()
+    comp_mask = ((tens < threshold).float() * tens > x_offset).float()
     comp_tens = compression * (out - x_offset)
 
     # reassign the compression values in the output

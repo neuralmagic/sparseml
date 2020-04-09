@@ -1,5 +1,3 @@
-import os
-import tempfile
 from torch.utils.data import Dataset
 
 from neuralmagicML.pytorch.datasets import (
@@ -20,48 +18,11 @@ def _validate_imagenette(dataset: Dataset, size: int):
 
 
 def test_imagenette_160():
-    datasets_path = os.path.join(tempfile.gettempdir(), "datasets")
-    train_dataset = ImagenetteDataset(datasets_path, train=True)
+    train_dataset = ImagenetteDataset(train=True)
     _validate_imagenette(train_dataset, 160)
 
-    val_dataset = ImagenetteDataset(datasets_path, train=False)
+    val_dataset = ImagenetteDataset(train=False)
     _validate_imagenette(val_dataset, 160)
 
-    reg_dataset = DatasetRegistry.create("imagenette", datasets_path, train=False)
+    reg_dataset = DatasetRegistry.create("imagenette", train=False)
     _validate_imagenette(reg_dataset, 160)
-
-
-def test_imagenette_320():
-    datasets_path = os.path.join(tempfile.gettempdir(), "datasets")
-    train_dataset = ImagenetteDataset(
-        datasets_path, train=True, dataset_size=ImagenetteSize.s320
-    )
-    _validate_imagenette(train_dataset, 224)
-
-    val_dataset = ImagenetteDataset(
-        datasets_path, train=False, dataset_size=ImagenetteSize.s320
-    )
-    _validate_imagenette(val_dataset, 224)
-
-    reg_dataset = DatasetRegistry.create(
-        "imagenette", datasets_path, train=False, dataset_size=ImagenetteSize.s320
-    )
-    _validate_imagenette(reg_dataset, 224)
-
-
-def test_imagenette_full():
-    datasets_path = os.path.join(tempfile.gettempdir(), "datasets")
-    train_dataset = ImagenetteDataset(
-        datasets_path, train=True, dataset_size=ImagenetteSize.full
-    )
-    _validate_imagenette(train_dataset, 224)
-
-    val_dataset = ImagenetteDataset(
-        datasets_path, train=False, dataset_size=ImagenetteSize.full
-    )
-    _validate_imagenette(val_dataset, 224)
-
-    reg_dataset = DatasetRegistry.create(
-        "imagenette", datasets_path, train=False, dataset_size=ImagenetteSize.full
-    )
-    _validate_imagenette(reg_dataset, 224)

@@ -10,6 +10,7 @@ from torchvision import transforms
 from torchvision.datasets import VOCSegmentation, VOCDetection
 
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
+from neuralmagicML.pytorch.datasets.generic import default_dataset_path
 
 
 __all__ = ["VOCSegmentationDataset", "VOCDetectionDataset"]
@@ -44,7 +45,7 @@ class VOCSegmentationDataset(VOCSegmentation):
 
     def __init__(
         self,
-        root: str,
+        root: str = default_dataset_path("voc-segmentation"),
         train: bool = True,
         rand_trans: bool = False,
         download: bool = True,
@@ -101,7 +102,7 @@ class VOCDetectionDataset(VOCDetection):
 
     def __init__(
         self,
-        root: str,
+        root: str = default_dataset_path("voc-detection"),
         train: bool = True,
         rand_trans: bool = False,
         download: bool = True,

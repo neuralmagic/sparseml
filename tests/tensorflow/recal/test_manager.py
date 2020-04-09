@@ -5,8 +5,12 @@ from typing import Callable
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.recal import ScheduledModifierManager, Modifier
 
-from tests.tensorflow.helpers import mlp_net
-from tests.tensorflow.recal.test_modifier import ModifierTest, ScheduledModifierImpl
+from tests.tensorflow.recal.test_modifier import (
+    ModifierTest,
+    ScheduledModifierImpl,
+    mlp_graph_lambda,
+    conv_graph_lambda,
+)
 
 
 @pytest.mark.parametrize(
@@ -14,7 +18,9 @@ from tests.tensorflow.recal.test_modifier import ModifierTest, ScheduledModifier
     [lambda: ScheduledModifierManager([ScheduledModifierImpl()])],
     scope="function",
 )
-@pytest.mark.parametrize("graph_lambda", [mlp_net], scope="function")
+@pytest.mark.parametrize(
+    "graph_lambda", [mlp_graph_lambda, conv_graph_lambda], scope="function"
+)
 @pytest.mark.parametrize("steps_per_epoch", [100], scope="function")
 class TestManagerImpl(ModifierTest):
     def test_yaml(

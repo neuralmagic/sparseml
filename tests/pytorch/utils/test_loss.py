@@ -20,15 +20,15 @@ from neuralmagicML.pytorch.utils import (
 
 
 def default_loss_fn(pred: Tensor, lab: Tensor):
-    return torch.norm(pred - lab, dim=0)
+    return torch.norm(pred - lab.float(), dim=0)
 
 
 def default_metric_one(pred: Tensor, lab: Tensor):
-    return torch.sum(pred == lab, dim=0)
+    return torch.sum(pred == lab.float(), dim=0)
 
 
 def default_metric_two(pred: Tensor, lab: Tensor):
-    return torch.sum(pred != lab, dim=0)
+    return torch.sum(pred != lab.float(), dim=0)
 
 
 def default_kd_parent():
@@ -105,7 +105,10 @@ class LossWrapperTest(ABC):
         else:
             assert (
                 torch.sum(
-                    (data[1] - wrapper.get_labels(data, pred, DEFAULT_LOSS_KEY)).abs()
+                    (
+                        data[1].float()
+                        - wrapper.get_labels(data, pred, DEFAULT_LOSS_KEY).float()
+                    ).abs()
                 )
                 < 0.00001
             )

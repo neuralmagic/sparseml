@@ -8,6 +8,7 @@ from torchvision.datasets import CIFAR10, CIFAR100
 from torchvision import transforms
 
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
+from neuralmagicML.pytorch.datasets.generic import default_dataset_path
 
 
 __all__ = ["CIFAR10Dataset", "CIFAR100Dataset"]
@@ -36,7 +37,12 @@ class CIFAR10Dataset(CIFAR10):
         False otherwise
     """
 
-    def __init__(self, root: str, train: bool = True, rand_trans: bool = False):
+    def __init__(
+        self,
+        root: str = default_dataset_path("cifar10"),
+        train: bool = True,
+        rand_trans: bool = False,
+    ):
         if rand_trans:
             trans = [
                 transforms.RandomResizedCrop(32),
@@ -78,7 +84,12 @@ class CIFAR100Dataset(CIFAR100):
         False otherwise
     """
 
-    def __init__(self, root: str, train: bool = True, rand_trans: bool = False):
+    def __init__(
+        self,
+        root: str = default_dataset_path("cifar100"),
+        train: bool = True,
+        rand_trans: bool = False,
+    ):
         normalize = transforms.Normalize(
             mean=_CIFAR100_RGB_MEANS, std=_CIFAR100_RGB_STDS
         )

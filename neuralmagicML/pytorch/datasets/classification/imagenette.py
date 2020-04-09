@@ -14,6 +14,7 @@ from torchvision.datasets import ImageFolder
 from torchvision.datasets.utils import download_url
 
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
+from neuralmagicML.pytorch.datasets.generic import default_dataset_path
 
 
 __all__ = ["ImagenetteSize", "ImagenetteDataset"]
@@ -63,7 +64,7 @@ class ImagenetteDataset(ImageFolder):
 
     def __init__(
         self,
-        root: str,
+        root: str = default_dataset_path("imagenette"),
         train: bool = True,
         rand_trans: bool = False,
         dataset_size: ImagenetteSize = ImagenetteSize.s160,

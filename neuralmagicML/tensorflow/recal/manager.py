@@ -4,9 +4,10 @@ grouping modifiers and running them together.
 Also handles loading modifiers from yaml files
 """
 
-from typing import List, Tuple, Any
+from typing import List, Any, Union, Dict, Tuple
 
 from neuralmagicML.recal import BaseManager
+from neuralmagicML.utils import clean_path, create_parent_dirs
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.recal.modifier import Modifier, ScheduledModifier
 
@@ -52,80 +53,104 @@ class ScheduledModifierManager(BaseManager, Modifier):
         return manager
 
     NM_RECAL = "nm_recal"
-    NO_OP_UPDATE = "recal_update"
+    RECAL_UPDATE = "recal_update"
 
     def __init__(self, modifiers: List[ScheduledModifier]):
         super().__init__(modifiers=modifiers)
 
+    def save(self, file_path: str):
+        """
+        :param file_path: the file path to save the yaml config representation to
+        """
+        file_path = clean_path(file_path)
+        create_parent_dirs(file_path)
+
+        with open(file_path, "w") as yaml_file:
+            yaml_file.write(Modifier.list_to_yaml(self.modifiers))
+
     def create_ops(
         self,
-        graph: tf_compat.Graph,
         steps_per_epoch: int,
-        global_step: tf_compat.Variable,
-    ) -> Tuple[tf_compat.Graph, List[tf_compat.Operation]]:
+        global_step: tf_compat.Tensor = None,
+        graph: tf_compat.Graph = None,
+    ) -> Tuple[List[Union[tf_compat.Tensor, tf_compat.Operation]], Dict[str, Any]]:
         """
-        Create modifying operations in the graph.
-        Returns any ops needed to be run for modifying the training process.
-        Additionally returns a modified graph, if not modified returns the original
+        Create modifying operations and tensors in the graph.
 
-        :param graph: the graph to be modified
+        | Returns a tuple containing:
+        |   - modifying ops that should be run in a session on each global step.
+        |   - named extras (ops / tensors) created in the graph that can be used
+        |     by other ops such as a learning rate for the optimizer
+
         :param steps_per_epoch: the number of steps (batches) per training epoch
-        :param global_step: the global step used while training
-        :return: a tuple containing the modified graph and extra ops
-            to be run for modifying
+        :param global_step: the global step used while training.
+            if not supplied, then will use get_or_create_global_step()
+        :param graph: the graph to be modified,
+            if not supplied, then will use the default graph
+        :return: a tuple (list of ops, dict of named ops / tensors)
+            to be run or used for modifying the training process
         """
-        graph, ops = super().create_ops(graph, steps_per_epoch, global_step)
+        if not graph:
+            graph = tf_compat.get_default_graph()
+
+        if not global_step:
+            with graph.as_default():
+                global_step = tf_compat.train.get_or_create_global_step()
+
+        mod_ops, mod_extras = super().create_ops(steps_per_epoch, global_step, graph)
+        tmp_ops = []
 
         for mod in self.modifiers:
-            graph, mod_ops = mod.create_ops(graph, steps_per_epoch, global_step)
+            ops, extras = mod.create_ops(steps_per_epoch, global_step, graph)
 
-            if mod_ops:
-                ops.extend(mod_ops)
+            if ops:
+                tmp_ops.extend(ops)
 
-        return_ops = []
+            if extras:
+                for key, val in extras.items():
+                    if key not in mod_extras:
+                        mod_extras[key] = []
+
+                    if isinstance(val, List):
+                        mod_extras[key].extend(val)
+                    else:
+                        mod_extras[key].append(val)
 
         with tf_compat.name_scope(ScheduledModifierManager.NM_RECAL):
-            with tf_compat.control_dependencies(ops):
-                return_ops.append(
-                    tf_compat.no_op(ScheduledModifierManager.NO_OP_UPDATE)
-                )
+            mod_ops.append(
+                tf_compat.group(tmp_ops, name=ScheduledModifierManager.RECAL_UPDATE)
+            )
 
-        return graph, return_ops
+        return mod_ops, mod_extras
 
-    def create_extras(
-        self,
-        graph: tf_compat.Graph,
-        steps_per_epoch: int,
-        global_step: tf_compat.Variable,
-    ) -> Tuple[tf_compat.Graph, List[Tuple[str, Any]]]:
+    def initialize_session(self, sess: tf_compat.Session = None):
         """
-        Create any extras for modifying the training process of a graph.
-        These include anything outside of the ops to be run for modifying.
+        Initialize any state for a session such as variables.
+        This is an optional call, only needed if global_variables_initializer
+        is not used.
 
-        :param graph: the graph to be modified
-        :param steps_per_epoch: the number of steps (batches) per training epoch
-        :param global_step: the global step used while training
-        :return: a tuple containing the modified graph and extras to help modifying
+        :param sess: the session to use for initializing
         """
-        graph, extras = super().create_extras(graph, steps_per_epoch, global_step)
+        if not sess:
+            sess = tf_compat.get_default_session()
+
+        super().initialize_session(sess)
 
         for mod in self.modifiers:
-            graph, mod_extras = mod.create_ops(graph, steps_per_epoch, global_step)
+            mod.initialize_session(sess)
 
-            if mod_extras:
-                extras.extend(mod_extras)
-
-        return graph, extras
-
-    def complete_graph(self, graph: tf_compat.GraphDef) -> tf_compat.GraphDef:
+    def complete_graph(self, graph: tf_compat.Graph = None):
         """
         Complete modifying the graph. Should be called after modifying is complete.
         Cleans up any ops that should be removed or reordered.
 
-        :param graph: the modified graph that should be completed and cleaned
-        :return: the cleaned graph
+        :param graph: the modified graph,
+            if not supplied, then will use the default graph
         """
-        graph = super().complete_graph(graph)
+        super().complete_graph(graph)
+
+        if not graph:
+            graph = tf_compat.get_default_graph()
 
         for mod in self.modifiers:
             graph = mod.complete_graph(graph)

@@ -5,7 +5,7 @@ For example, learning rate schedules or kernel sparsity (weight pruning)
 are implemented as modifiers.
 """
 
-from typing import List, Any, Tuple, Union, Dict
+from typing import List, Any, Union, Dict, Tuple
 
 from neuralmagicML.recal import (
     ModifierProp,
@@ -18,6 +18,7 @@ from neuralmagicML.utils import TENSORFLOW_FRAMEWORK
 from neuralmagicML.tensorflow.utils import tf_compat
 
 __all__ = [
+    "EXTRAS_KEY_SUMMARIES",
     "ModifierProp",
     "TENSORFLOW_FRAMEWORK",
     "TensorFlowModifierYAML",
@@ -25,6 +26,9 @@ __all__ = [
     "ScheduledModifier",
     "ScheduledUpdateModifier",
 ]
+
+
+EXTRAS_KEY_SUMMARIES = "summaries"
 
 
 class TensorFlowModifierYAML(ModifierYAML):
@@ -82,45 +86,39 @@ class Modifier(BaseModifier):
 
     def create_ops(
         self,
-        graph: tf_compat.Graph,
         steps_per_epoch: int,
-        global_step: tf_compat.Variable,
-    ) -> Tuple[tf_compat.Graph, List[tf_compat.Operation]]:
+        global_step: tf_compat.Tensor,
+        graph: tf_compat.Graph,
+    ) -> Tuple[List[Union[tf_compat.Tensor, tf_compat.Operation]], Dict[str, Any]]:
         """
-        Create modifying operations in the graph.
-        Returns any ops needed to be run for modifying the training process.
-        Additionally returns a modified graph, if not modified returns the original.
+        Create modifying operations and tensors in the graph.
+        Returns a tuple containing:
+            - modifying ops that should be run in a session on each global step.
+            - named extras (ops / tensors) created in the graph that can be used
+                by other ops such as a learning rate for the optimizer
 
-        :param graph: the graph to be modified
         :param steps_per_epoch: the number of steps (batches) per training epoch
         :param global_step: the global step used while training
-        :return: a tuple containing the modified graph and extra ops to be
-            run for modifying
+        :param graph: the graph to be modified
+        :return: a tuple (list of ops, dict of named ops / tensors)
+            to be run or used for modifying the training process
         """
         self._initialized = True
 
-        return graph, []
+        return [], {}
 
-    def create_extras(
-        self,
-        graph: tf_compat.Graph,
-        steps_per_epoch: int,
-        global_step: tf_compat.Variable,
-    ) -> Tuple[tf_compat.Graph, Dict[str, Any]]:
+    def initialize_session(self, sess: tf_compat.Session):
         """
-        Create any extras for modifying the training process of a graph.
-        These include anything outside of the ops to be run for modifying.
+        Initialize any state for a session such as variables.
 
-        :param graph: the graph to be modified
-        :param steps_per_epoch: the number of steps (batches) per training epoch
-        :param global_step: the global step used while training
-        :return: a tuple containing the modified graph and extras to help modifying
+        :param sess: the session to use for initializing
         """
-        self._initialized = True
+        if not self._initialized:
+            raise RuntimeError(
+                "create_ops for modifier must be called before initialize_session"
+            )
 
-        return graph, {}
-
-    def complete_graph(self, graph: tf_compat.GraphDef) -> tf_compat.GraphDef:
+    def complete_graph(self, graph: tf_compat.Graph):
         """
         Complete modifying the graph. Should be called after modifying is complete.
         Cleans up any ops that should be removed or reordered.
@@ -128,7 +126,10 @@ class Modifier(BaseModifier):
         :param graph: the modified graph that should be completed and cleaned
         :return: the cleaned graph
         """
-        return graph
+        if not self._initialized:
+            raise RuntimeError(
+                "create_ops for modifier must be called before complete_graph"
+            )
 
 
 class ScheduledModifier(Modifier, BaseScheduled):

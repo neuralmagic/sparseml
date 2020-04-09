@@ -43,30 +43,28 @@ def _fc(name, x_tens, in_chan, out_chan, add_relu=True):
 
 
 def mlp_net():
-    graph = tf_compat.Graph()
+    inp = tf_compat.placeholder(tf_compat.float32, [None, 16], name="inp")
 
-    with graph.as_default():
-        with tf_compat.name_scope("mlp_net"):
-            inp = tf_compat.placeholder(tf_compat.float32, [None, 8], name="inp")
-            fc1 = _fc("fc1", inp, 8, 16)
-            fc2 = _fc("fc2", fc1, 16, 32)
-            fc3 = _fc("fc3", fc2, 32, 64, add_relu=False)
-            out = tf_compat.sigmoid(fc3, name="sig")
+    with tf_compat.name_scope("mlp_net"):
+        fc1 = _fc("fc1", inp, 16, 32)
+        fc2 = _fc("fc2", fc1, 32, 64)
+        fc3 = _fc("fc3", fc2, 64, 64, add_relu=False)
 
-    return graph
+    out = tf_compat.sigmoid(fc3, name="out")
+
+    return out, inp
 
 
 def conv_net():
-    graph = tf_compat.Graph()
+    inp = tf_compat.placeholder(tf_compat.float32, [None, 28, 28, 1], name="inp")
 
-    with graph.as_default():
-        with tf_compat.name_scope("conv_net"):
-            inp = tf_compat.placeholder(tf_compat.float32, [None, 28, 28, 1])
-            conv1 = _conv("conv1", inp, 1, 16, 3, 2, "SAME")
-            conv2 = _conv("conv2", conv1, 16, 32, 3, 2, "SAME")
-            avg_pool = tf_compat.reduce_mean(conv2, axis=[1, 2])
-            reshape = tf_compat.reshape(avg_pool, [-1, 32])
-            mlp = _fc("mlp", reshape, 32, 10, add_relu=False)
-            sig = tf_compat.sigmoid(mlp)
+    with tf_compat.name_scope("conv_net"):
+        conv1 = _conv("conv1", inp, 1, 32, 3, 2, "SAME")
+        conv2 = _conv("conv2", conv1, 32, 32, 3, 2, "SAME")
+        avg_pool = tf_compat.reduce_mean(conv2, axis=[1, 2])
+        reshape = tf_compat.reshape(avg_pool, [-1, 32])
+        mlp = _fc("mlp", reshape, 32, 10, add_relu=False)
 
-    return graph
+    out = tf_compat.sigmoid(mlp, name="out")
+
+    return out, inp

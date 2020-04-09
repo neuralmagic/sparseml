@@ -1,5 +1,6 @@
 from typing import Union, List, Tuple
 import re
+import numpy
 import tensorflow.contrib.graph_editor as ge
 from tensorflow.contrib.graph_editor.util import ListView
 
@@ -8,9 +9,11 @@ from neuralmagicML.tensorflow.utils.helpers import tf_compat
 __all__ = [
     "VAR_INDEX_FROM_TRAINABLE",
     "get_op_var_index",
-    "get_var_name",
+    "clean_tensor_name",
     "get_op_input_var",
     "get_prunable_ops",
+    "eval_tensor_density",
+    "eval_tensor_sparsity",
 ]
 
 
@@ -64,14 +67,17 @@ def get_op_var_index(var_index: Union[str, int], op_inputs: ListView) -> int:
     raise ValueError("unknown value given for var_index of {}".format(var_index))
 
 
-def get_var_name(var_tens: tf_compat.Tensor) -> str:
+def clean_tensor_name(var_tens: Union[str, tf_compat.Tensor]) -> str:
     """
     :param var_tens: the tensor to get a variable for
     :return: the cleaned version of the name for a variable tensor
-        (removes read at the end)
+        (removes read and indices at the end)
     """
-    # remove the 'read' name, if present in the variable
-    return re.sub(r"/read:[0-9]+$", "", var_tens.name)
+    name = var_tens if isinstance(var_tens, str) else var_tens.name
+    name = re.sub(r"/read:[0-9]+$", "", name)
+    name = re.sub(r":[0-9]+$", "", name)
+
+    return name
 
 
 def get_op_input_var(
@@ -93,18 +99,63 @@ def get_op_input_var(
     return op_sgv.inputs[var_index]
 
 
-def get_prunable_ops(graph: tf_compat.Graph) -> List[Tuple[str, tf_compat.Operation]]:
+def get_prunable_ops(
+    graph: tf_compat.Graph = None,
+) -> List[Tuple[str, tf_compat.Operation]]:
     """
     Get the prunable operations from a TensorFlow graph.
 
-    :param graph: the graph to get the prunable operations from
+    :param graph: the graph to get the prunable operations from.
+        If not supplied, then will use the default graph
     :return: a list containing the names and ops of the prunable operations
         (MatMul, Conv1D, Conv2D, Conv3D)
     """
+    if not graph:
+        graph = tf_compat.get_default_graph()
+
     ops = []
 
     for op in graph.get_operations():
-        if op.type in ["MatMul", "Conv1D", "Conv2D", "Conv3D"]:
+        if (
+            op.type in ["MatMul", "Conv1D", "Conv2D", "Conv3D"]
+            and "gradients/" not in op.name
+            and "_grad/" not in op.name
+        ):
             ops.append((op.name, op))
 
     return ops
+
+
+def eval_tensor_density(
+    tens: tf_compat.Tensor, sess: tf_compat.Session = None
+) -> float:
+    """
+    Get the density (fraction of non zero values) in a tensor
+
+    :param tens: the tensor to get the density for
+    :param sess: the session to use for evaluating the tensor,
+        if not supplied will use the default session
+    :return: the density of the tensor
+    """
+    if not sess:
+        sess = tf_compat.get_default_session()
+
+    val_array = sess.run(tens)
+    num_nonzeros = numpy.count_nonzero(val_array)
+    density = float(num_nonzeros) / float(val_array.size)
+
+    return density
+
+
+def eval_tensor_sparsity(
+    tens: tf_compat.Tensor, sess: tf_compat.Session = None
+) -> float:
+    """
+    Get the sparsity (fraction of zero values) in a tensor
+
+    :param tens: the tensor to get the sparsity for
+    :param sess: the session to use for evaluating the tensor,
+        if not supplied will use the default session
+    :return: the sparsity of the tensor
+    """
+    return 1.0 - eval_tensor_density(tens, sess)

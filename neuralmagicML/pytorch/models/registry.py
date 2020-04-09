@@ -7,7 +7,7 @@ from merge_args import merge_args
 from torch.nn import Module
 
 from neuralmagicML.utils.frameworks import PYTORCH_FRAMEWORK
-from neuralmagicML.utils import RepoModel
+from neuralmagicML.utils import RepoModel, wrapper_decorator
 from neuralmagicML.pytorch.utils import load_model
 
 
@@ -32,7 +32,6 @@ class ModelRegistry(object):
         ignore_error_tensors: List[str] = None,
         pre_load_func: Callable[[Module], Module] = None,
         post_load_func: Callable[[Module], Module] = None,
-        *args,
         **kwargs
     ) -> Module:
         """
@@ -40,15 +39,14 @@ class ModelRegistry(object):
 
         :param key: the model key (name) to create
         :param pretrained: True to load pretrained weights; to load a specific version
-                           give input a string with the name of the version, default None
+            give input a string with the name of the version, default None
         :param pretrained_path: A model file path to load into the created model
         :param pretrained_dataset: The dataset to load for the model
-        :param load_strict: True to make sure all states are found in and loaded in model,
-                            False otherwise; default True
+        :param load_strict: True to make sure all states are found in and
+            loaded in model, False otherwise; default True
         :param ignore_error_tensors: tensors to ignore if there are errors in loading
         :param pre_load_func: a function to run before loading the pretrained weights
         :param post_load_func: a function to run after loading the pretrained weights
-        :param args: any args to supply to the model constructor
         :param kwargs: any keyword args to supply to the model constructor
         :return: the instantiated model
         """
@@ -67,7 +65,6 @@ class ModelRegistry(object):
             ignore_error_tensors=ignore_error_tensors,
             pre_load_func=pre_load_func,
             post_load_func=post_load_func,
-            *args,
             **kwargs
         )
 
@@ -148,75 +145,6 @@ class ModelRegistry(object):
         return decorator
 
     @staticmethod
-    def _get_doc_indent(lines: List[str]) -> str:
-        for line in lines:
-            if not line:
-                continue
-
-            leading_spaces = len(line) - len(line.lstrip())
-
-            return "".join(" " for _ in range(leading_spaces))
-
-        return ""
-
-    @staticmethod
-    def _strip_doc_indent(doc: str) -> List[str]:
-        doc_lines = doc.splitlines()
-        doc_indent = ModelRegistry._get_doc_indent(doc_lines)
-        doc_lines = [
-            line if not line.startswith(doc_indent) else line[len(doc_indent) :]
-            for line in doc_lines
-        ]
-
-        # remove empty lines at beginning and end to make merging cleaner
-        while len(doc_lines) > 0 and not doc_lines[0]:
-            doc_lines.pop(0)
-
-        while len(doc_lines) > 0 and not doc_lines[-1]:
-            doc_lines.pop(-1)
-
-        return doc_lines
-
-    @staticmethod
-    def _doc_merge(wrapped: Callable, wrapper: Callable):
-        stripped_wrapped = ModelRegistry._strip_doc_indent(wrapped.__doc__)
-        stripped_wrapper = ModelRegistry._strip_doc_indent(wrapper.__doc__)
-        merge = []
-
-        # check for return at end of doc string in wrapped
-        if ":return" in stripped_wrapped[-1]:
-            merge.extend(stripped_wrapped[:-1])
-            merge.extend(stripped_wrapper)
-            merge.append(stripped_wrapped[-1])
-        else:
-            merge.extend(stripped_wrapped)
-            merge.extend(stripped_wrapper)
-
-        wrapper.__doc__ = "\n".join(merge)
-
-    @staticmethod
-    def _wrapper_decorator(wrapped: Callable):
-        def decorator(wrapper: Callable):
-            for attr in (
-                "__module__",
-                "__name__",
-                "__qualname__",
-            ):
-                value = getattr(wrapped, attr)
-                setattr(wrapper, attr, value)
-
-            for attr in ("__dict__", "__annotations__"):
-                getattr(wrapper, attr).update(getattr(wrapped, attr))
-
-            ModelRegistry._doc_merge(wrapped, wrapper)
-
-            wrapper.__wrapped__ = wrapped
-
-            return wrapper
-
-        return decorator
-
-    @staticmethod
     def _registered_wrapper(
         const_func: Callable,
         domain: str,
@@ -229,7 +157,7 @@ class ModelRegistry(object):
         desc_args: Dict[str, Tuple[str, Any]] = None,
     ):
         @merge_args(const_func)
-        @ModelRegistry._wrapper_decorator(const_func)
+        @wrapper_decorator(const_func)
         def wrapper(
             pretrained_path: str = None,
             pretrained: Union[bool, str] = False,
@@ -289,12 +217,12 @@ class ModelRegistry(object):
                     desc,
                 )
                 try:
-                    path = repo_model.download_framework_file()
-                    load_model(path, model, load_strict, ignore)
+                    paths = repo_model.download_framework_files()
+                    load_model(paths[0], model, load_strict, ignore)
                 except Exception as ex:
                     # try one more time with overwrite on in case file was corrupted
-                    path = repo_model.download_framework_file(overwrite=True)
-                    load_model(path, model, load_strict, ignore)
+                    paths = repo_model.download_framework_files(overwrite=True)
+                    load_model(paths[0], model, load_strict, ignore)
 
             if post_load_func:
                 model = post_load_func(model)

@@ -19,9 +19,10 @@ def test_available_models_downloads(mod: RepoModel, overwrite: bool):
     assert path
     assert os.path.exists(path)
 
-    path = mod.download_framework_file(overwrite)
-    assert path
-    assert os.path.exists(path)
+    paths = mod.download_framework_files(overwrite)
+    for path in paths:
+        assert path
+        assert os.path.exists(path)
 
 
 @pytest.mark.parametrize(

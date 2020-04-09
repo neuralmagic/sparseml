@@ -2,8 +2,11 @@ import pytest
 
 from neuralmagicML.tensorflow.recal import EpochRangeModifier
 
-from tests.tensorflow.helpers import mlp_net
-from tests.tensorflow.recal.test_modifier import ScheduledModifierTest
+from tests.tensorflow.recal.test_modifier import (
+    ScheduledModifierTest,
+    mlp_graph_lambda,
+    conv_graph_lambda,
+)
 
 
 @pytest.mark.parametrize(
@@ -11,7 +14,9 @@ from tests.tensorflow.recal.test_modifier import ScheduledModifierTest
     [lambda: EpochRangeModifier(0.0, 10.0), lambda: EpochRangeModifier(5.0, 15.0)],
     scope="function",
 )
-@pytest.mark.parametrize("graph_lambda", [mlp_net], scope="function")
+@pytest.mark.parametrize(
+    "graph_lambda", [mlp_graph_lambda, conv_graph_lambda], scope="function"
+)
 @pytest.mark.parametrize("steps_per_epoch", [100], scope="function")
 class TestEpochRangeModifierImpl(ScheduledModifierTest):
     pass

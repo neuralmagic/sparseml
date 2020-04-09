@@ -7,6 +7,7 @@ from typing import Union, Iterable, Any
 import sys
 import os
 import errno
+import fnmatch
 
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "create_dirs",
     "create_parent_dirs",
     "create_unique_dir",
+    "path_file_count",
 ]
 
 
@@ -188,3 +190,16 @@ def create_unique_dir(path: str, check_number: int = 0) -> str:
         return check_path
 
     return create_unique_dir(path, check_number + 1)
+
+
+def path_file_count(path: str, pattern: str = "*") -> int:
+    """
+    Return the number of files that match the given pattern under the given path
+
+    :param path: the path to the directory to look for files under
+    :param pattern: the pattern the files must match to be counted
+    :return: the number of files matching the pattern under the directory
+    """
+    path = clean_path(path)
+
+    return len(fnmatch.filter(os.listdir(path), pattern))

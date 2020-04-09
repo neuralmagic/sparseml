@@ -7,6 +7,7 @@ from torchvision.datasets import MNIST
 from torchvision import transforms
 
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
+from neuralmagicML.pytorch.datasets.generic import default_dataset_path
 
 
 __all__ = ["MNISTDataset"]
@@ -30,7 +31,7 @@ class MNISTDataset(MNIST):
         False for the validation
     """
 
-    def __init__(self, root: str, train: bool = True):
+    def __init__(self, root: str = default_dataset_path("mnist"), train: bool = True):
         transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]
         )

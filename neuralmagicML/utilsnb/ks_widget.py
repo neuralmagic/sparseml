@@ -9,9 +9,15 @@ import ipywidgets as widgets
 from neuralmagicML.recal import KSLossSensitivityAnalysis
 from neuralmagicML.pytorch.recal import (
     PYTORCH_FRAMEWORK,
-    EpochRangeModifier,
-    GradualKSModifier,
-    ScheduledModifierManager,
+    EpochRangeModifier as EpochRangeModifier_pt,
+    GradualKSModifier as GradualKSModifier_pt,
+    ScheduledModifierManager as ScheduledModifierManager_pt,
+)
+from neuralmagicML.tensorflow.recal import (
+    TENSORFLOW_FRAMEWORK,
+    EpochRangeModifier as EpochRangeModifier_tf,
+    GradualKSModifier as GradualKSModifier_tf,
+    ScheduledModifierManager as ScheduledModifierManager_tf,
 )
 from neuralmagicML.utilsnb.helpers import format_html
 
@@ -270,7 +276,10 @@ class PruningEpochWidget(_Widget):
         :return: the list of modifiers for the given config settings
         """
         if framework == PYTORCH_FRAMEWORK:
-            return [EpochRangeModifier(start_epoch=0.0, end_epoch=self.total_epochs)]
+            return [EpochRangeModifier_pt(start_epoch=0.0, end_epoch=self.total_epochs)]
+
+        if framework == TENSORFLOW_FRAMEWORK:
+            return [EpochRangeModifier_tf(start_epoch=0.0, end_epoch=self.total_epochs)]
 
         raise ValueError("unknown framework given of {}".format(framework))
 
@@ -400,7 +409,19 @@ class PruneLayerWidget(_Widget):
 
         if framework == PYTORCH_FRAMEWORK:
             return [
-                GradualKSModifier(
+                GradualKSModifier_pt(
+                    layers=[self._name],
+                    init_sparsity=0.05,
+                    final_sparsity=self._end_sparsity,
+                    start_epoch=0.0,
+                    end_epoch=1.0,
+                    update_frequency=1.0,
+                )
+            ]
+
+        if framework == TENSORFLOW_FRAMEWORK:
+            return [
+                GradualKSModifier_tf(
                     layers=[self._name],
                     init_sparsity=0.05,
                     final_sparsity=self._end_sparsity,
@@ -566,6 +587,9 @@ class KSWidgetContainer(object):
         modifiers.extend(layers_modifiers)
 
         if framework == PYTORCH_FRAMEWORK:
-            return ScheduledModifierManager(modifiers)
+            return ScheduledModifierManager_pt(modifiers)
+
+        if framework == TENSORFLOW_FRAMEWORK:
+            return ScheduledModifierManager_tf(modifiers)
 
         raise ValueError("unknown framework given of {}".format(framework))

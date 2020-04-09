@@ -1,11 +1,8 @@
-import os
-import tempfile
 from torch.utils.data import Dataset
 
 from neuralmagicML.pytorch.datasets import (
     DatasetRegistry,
     ImagewoofDataset,
-    ImagewoofSize,
 )
 
 
@@ -20,48 +17,11 @@ def _validate_imagewoof(dataset: Dataset, size: int):
 
 
 def test_imagewoof_160():
-    datasets_path = os.path.join(tempfile.gettempdir(), "datasets")
-    train_dataset = ImagewoofDataset(datasets_path, train=True)
+    train_dataset = ImagewoofDataset(train=True)
     _validate_imagewoof(train_dataset, 160)
 
-    val_dataset = ImagewoofDataset(datasets_path, train=False)
+    val_dataset = ImagewoofDataset(train=False)
     _validate_imagewoof(val_dataset, 160)
 
-    reg_dataset = DatasetRegistry.create("imagewoof", datasets_path, train=False)
+    reg_dataset = DatasetRegistry.create("imagewoof", train=False)
     _validate_imagewoof(reg_dataset, 160)
-
-
-def test_imagewoof_320():
-    datasets_path = os.path.join(tempfile.gettempdir(), "datasets")
-    train_dataset = ImagewoofDataset(
-        datasets_path, train=True, dataset_size=ImagewoofSize.s320
-    )
-    _validate_imagewoof(train_dataset, 224)
-
-    val_dataset = ImagewoofDataset(
-        datasets_path, train=False, dataset_size=ImagewoofSize.s320
-    )
-    _validate_imagewoof(val_dataset, 224)
-
-    reg_dataset = DatasetRegistry.create(
-        "imagewoof", datasets_path, train=False, dataset_size=ImagewoofSize.s320
-    )
-    _validate_imagewoof(reg_dataset, 224)
-
-
-def test_imagewoof_full():
-    datasets_path = os.path.join(tempfile.gettempdir(), "datasets")
-    train_dataset = ImagewoofDataset(
-        datasets_path, train=True, dataset_size=ImagewoofSize.full
-    )
-    _validate_imagewoof(train_dataset, 224)
-
-    val_dataset = ImagewoofDataset(
-        datasets_path, train=False, dataset_size=ImagewoofSize.full
-    )
-    _validate_imagewoof(val_dataset, 224)
-
-    reg_dataset = DatasetRegistry.create(
-        "imagewoof", datasets_path, train=False, dataset_size=ImagewoofSize.full
-    )
-    _validate_imagewoof(reg_dataset, 224)

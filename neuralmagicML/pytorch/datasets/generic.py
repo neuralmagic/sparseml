@@ -1,11 +1,30 @@
 from typing import Union, Tuple
+import os
 import re
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+from neuralmagicML.utils import clean_path
 
-__all__ = ["EarlyStopDataset", "NoisyDataset", "RandNDataset", "CacheableDataset"]
+
+__all__ = [
+    "default_dataset_path",
+    "EarlyStopDataset",
+    "NoisyDataset",
+    "RandNDataset",
+    "CacheableDataset",
+]
+
+
+def default_dataset_path(name: str) -> str:
+    """
+    :param name: name of the dataset to get a path for
+    :return: the default path to save the dataset at
+    """
+    path = os.path.join("~", ".cache", "nm_models", name)
+
+    return clean_path(path)
 
 
 class EarlyStopDataset(Dataset):

@@ -1,5 +1,3 @@
-import os
-import tempfile
 from torch.utils.data import Dataset
 
 from neuralmagicML.pytorch.datasets import (
@@ -20,24 +18,22 @@ def _validate_cifar(dataset: Dataset, num_classes: int):
 
 
 def test_cifar_10():
-    datasets_path = os.path.join(tempfile.gettempdir(), "datasets")
-    train_dataset = CIFAR10Dataset(datasets_path, train=True)
+    train_dataset = CIFAR10Dataset(train=True)
     _validate_cifar(train_dataset, 10)
 
-    val_dataset = CIFAR10Dataset(datasets_path, train=False)
+    val_dataset = CIFAR10Dataset(train=False)
     _validate_cifar(val_dataset, 10)
 
-    reg_dataset = DatasetRegistry.create("cifar10", datasets_path, train=False)
+    reg_dataset = DatasetRegistry.create("cifar10", train=False)
     _validate_cifar(reg_dataset, 10)
 
 
 def test_cifar_100():
-    datasets_path = os.path.join(tempfile.gettempdir(), "datasets")
-    train_dataset = CIFAR100Dataset(datasets_path, train=True)
+    train_dataset = CIFAR100Dataset(train=True)
     _validate_cifar(train_dataset, 100)
 
-    val_dataset = CIFAR100Dataset(datasets_path, train=False)
+    val_dataset = CIFAR100Dataset(train=False)
     _validate_cifar(val_dataset, 100)
 
-    reg_dataset = DatasetRegistry.create("cifar100", datasets_path, train=False)
+    reg_dataset = DatasetRegistry.create("cifar100", train=False)
     _validate_cifar(reg_dataset, 100)

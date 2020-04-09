@@ -1,5 +1,5 @@
 """
-Code for creating and loading models in pytorch
+Code for creating and loading models in PyTorch
 """
 
 from .classification import *

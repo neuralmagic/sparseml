@@ -16,7 +16,25 @@ from tests.recal.test_modifier import (
     BaseScheduledTest,
     BaseUpdateTest,
 )
-from tests.tensorflow.helpers import mlp_net
+from tests.tensorflow.helpers import mlp_net, conv_net
+
+
+def mlp_graph_lambda():
+    graph = tf_compat.Graph()
+
+    with graph.as_default():
+        mlp_net()
+
+    return graph
+
+
+def conv_graph_lambda():
+    graph = tf_compat.Graph()
+
+    with graph.as_default():
+        conv_net()
+
+    return graph
 
 
 class ModifierTest(BaseModifierTest):
@@ -75,16 +93,17 @@ class ModifierTest(BaseModifierTest):
         graph = graph_lambda()
         with graph.as_default():
             global_step = tf_compat.train.get_or_create_global_step()
+            mod_ops, mod_extras = modifier.create_ops(
+                steps_per_epoch, global_step, graph
+            )
 
-        graph, ops = modifier.create_ops(graph, steps_per_epoch, global_step)
-
-        assert graph
-        assert isinstance(graph, tf_compat.Graph)
-        assert ops is not None
-        assert isinstance(ops, List)
+        assert mod_ops is not None
+        assert isinstance(mod_ops, List)
+        assert mod_extras is not None
+        assert isinstance(mod_extras, Dict)
         assert modifier.initialized
 
-    def test_create_extras(
+    def test_initialize_session(
         self,
         modifier_lambda: Callable[[], Modifier],
         graph_lambda: Callable[[], tf_compat.Graph],
@@ -95,13 +114,16 @@ class ModifierTest(BaseModifierTest):
         with graph.as_default():
             global_step = tf_compat.train.get_or_create_global_step()
 
-        graph, extras = modifier.create_extras(graph, steps_per_epoch, global_step)
+            with tf_compat.Session() as sess:
+                with pytest.raises(RuntimeError):
+                    modifier.initialize_session(sess)
 
-        assert graph
-        assert isinstance(graph, tf_compat.Graph)
-        assert extras is not None
-        assert isinstance(extras, Dict)
-        assert modifier.initialized
+            mod_ops, mod_extras = modifier.create_ops(
+                steps_per_epoch, global_step, graph
+            )
+
+            with tf_compat.Session() as sess:
+                modifier.initialize_session(sess)
 
     def test_complete_graph(
         self,
@@ -113,13 +135,11 @@ class ModifierTest(BaseModifierTest):
         graph = graph_lambda()
         with graph.as_default():
             global_step = tf_compat.train.get_or_create_global_step()
+            mod_ops, mod_extras = modifier.create_ops(
+                steps_per_epoch, global_step, graph
+            )
 
-        graph, ops = modifier.create_ops(graph, steps_per_epoch, global_step)
-        graph, extras = modifier.create_ops(graph, steps_per_epoch, global_step)
-        graph = modifier.complete_graph(graph)
-
-        assert graph
-        assert isinstance(graph, tf_compat.Graph)
+        modifier.complete_graph(graph)
 
 
 class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
@@ -160,7 +180,9 @@ class ModifierImpl(Modifier):
 
 
 @pytest.mark.parametrize("modifier_lambda", [ModifierImpl], scope="function")
-@pytest.mark.parametrize("graph_lambda", [mlp_net], scope="function")
+@pytest.mark.parametrize(
+    "graph_lambda", [mlp_graph_lambda, conv_graph_lambda], scope="function"
+)
 @pytest.mark.parametrize("steps_per_epoch", [100], scope="function")
 class TestModifierImpl(ModifierTest):
     pass
@@ -178,7 +200,9 @@ class ScheduledModifierImpl(ScheduledModifier):
 
 
 @pytest.mark.parametrize("modifier_lambda", [ScheduledModifierImpl], scope="function")
-@pytest.mark.parametrize("graph_lambda", [mlp_net], scope="function")
+@pytest.mark.parametrize(
+    "graph_lambda", [mlp_graph_lambda, conv_graph_lambda], scope="function"
+)
 @pytest.mark.parametrize("steps_per_epoch", [100], scope="function")
 class TestScheduledModifierImpl(ScheduledModifierTest):
     pass
@@ -199,7 +223,9 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
 @pytest.mark.parametrize(
     "modifier_lambda", [ScheduledUpdateModifierImpl], scope="function"
 )
-@pytest.mark.parametrize("graph_lambda", [mlp_net], scope="function")
+@pytest.mark.parametrize(
+    "graph_lambda", [mlp_graph_lambda, conv_graph_lambda], scope="function"
+)
 @pytest.mark.parametrize("steps_per_epoch", [100], scope="function")
 class TestScheduledUpdateModifierImpl(ScheduledUpdateModifierTest):
     pass

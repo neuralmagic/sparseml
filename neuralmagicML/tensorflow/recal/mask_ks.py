@@ -10,7 +10,7 @@ import tensorflow.contrib.graph_editor as ge
 from neuralmagicML.tensorflow.utils import (
     tf_compat,
     tf_compat_div,
-    get_var_name,
+    clean_tensor_name,
     get_op_input_var,
 )
 
@@ -21,13 +21,16 @@ __all__ = [
     "create_op_pruning",
     "create_graph_ops_pruning",
     "get_or_create_graph_ops_pruning",
+    "create_summaries_pruning",
     "create_ks_schedule_ops",
     "get_or_create_ks_schedule_ops",
     "get_or_create_ks_scheduled_graph_ops",
 ]
 
 
-PruningOpVars = namedtuple("PruningOpVars", ["assign", "mask", "thresh", "masked"])
+PruningOpVars = namedtuple(
+    "PruningOpVars", ["op", "op_input", "update", "mask", "masked"]
+)
 
 
 class KSScope(object):
@@ -40,6 +43,7 @@ class KSScope(object):
     NM_KS_OPS = "nm_ks_ops"
 
     OPS_UPDATE = "update_ops"
+    OPS_SUMMARY = "summary_ops"
     OPS_SCHEDULE = "schedule_ops"
     OPS_SPARSITY = "sparsity_ops"
 
@@ -48,11 +52,9 @@ class KSScope(object):
     OP_UPDATE_READY = "nm_update_ready"
     OP_MASKED_VAR = "nm_masked_var"
     OP_MASK_ASSIGN = "nm_mask_assign"
-    OP_THRESH_ASSIGN = "nm_threshold_assign"
     OP_PRUNE_VARS_ASSIGN = "nm_prune_vars_assign"
-
-    NO_OP_MASK_UPDATE = "nm_mask_update"
-    NO_OP_MASK_NO_UPDATE = "nm_mask_no_update"
+    OP_MASK_UPDATE_NO_OP = "nm_mask_update_no_op"
+    OP_MASK_UPDATE = "nm_mask_update"
 
     VAR_MASK = "nm_mask"
     VAR_THRESHOLD = "nm_threshold"
@@ -77,7 +79,7 @@ class KSScope(object):
 
     @staticmethod
     def model(
-        var_tens: tf_compat.Tensor,
+        op_tens: tf_compat.Tensor,
         ks_group: str,
         additional: str = None,
         trailing_slash: bool = False,
@@ -87,14 +89,14 @@ class KSScope(object):
         Use cases are for the specific mask, threshold, etc variables
         to induce sparsity along with the ops to update those vars.
 
-        :param var_tens: the variable tensor to create the scope for
+        :param op_tens: the op tensor to create the scope for
         :param ks_group: the group identifier the scope should be created under
         :param additional: any additional scope that should be added to the end
         :param trailing_slash: include a trailing forward slash if True, else False
         :return: the proper scope
         """
-        var_name = get_var_name(var_tens)
-        scope = KSScope._format("{}_{}".format(var_name, KSScope.NM_KS), ks_group)
+        op_name = clean_tensor_name(op_tens)
+        scope = KSScope._format("{}_{}".format(op_name, KSScope.NM_KS), ks_group)
         scope = KSScope._format(
             scope, additional=additional, trailing_slash=trailing_slash
         )
@@ -132,6 +134,7 @@ def create_op_pruning(
     op: tf_compat.Operation,
     var_index: Union[int, str],
     sparsity: tf_compat.Tensor,
+    update_ready: tf_compat.Tensor,
     ks_group: str,
 ) -> PruningOpVars:
     """
@@ -145,6 +148,8 @@ def create_op_pruning(
     :param var_index: the index for where the variable is,
         see :py:func:`~get_op_input_var`
     :param sparsity: the target sparsity to use for assigning the masks
+    :param update_ready: the tensor where if true will update the mask from sparsity,
+        if false will not update the mask
     :param ks_group: the group identifier the scope should be created under
     :return: a named tuple containing the assignment op, mask variable,
         threshold tensor, and masked tensor
@@ -154,7 +159,7 @@ def create_op_pruning(
 
     # create the necessary variables first
     with tf_compat.variable_scope(
-        KSScope.model(op_var_tens, ks_group), reuse=tf_compat.AUTO_REUSE
+        KSScope.model(op, ks_group), reuse=tf_compat.AUTO_REUSE
     ):
         mask = tf_compat.get_variable(
             KSScope.VAR_MASK,
@@ -163,58 +168,74 @@ def create_op_pruning(
             trainable=False,
             dtype=op_var_tens.dtype,
         )
+    tf_compat.add_to_collection(
+        KSScope.collection_name(ks_group, KSScope.VAR_MASK), mask
+    )
 
     # create the masked operation and assign as the new input to the op
-    with tf_compat.name_scope(
-        KSScope.model(op_var_tens, ks_group, trailing_slash=True)
-    ):
+    with tf_compat.name_scope(KSScope.model(op, ks_group, trailing_slash=True)):
         masked = tf_compat.math.multiply(mask, op_var_tens, KSScope.OP_MASKED_VAR)
         op_swapped_inputs = [
             inp if inp != op_var_tens else masked for inp in op_sgv.inputs
         ]
         ge.swap_inputs(op, op_swapped_inputs)
-
-    # create the update ops using the target sparsity tensor
-    with tf_compat.name_scope(
-        KSScope.model(
-            op_var_tens, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True
-        )
-    ):
-        abs_var = tf_compat.abs(op_var_tens)
-        sparse_index = tf_compat.cast(
-            tf_compat.math.round(
-                tf_compat.cast(tf_compat.size(abs_var), tf_compat.dtypes.float32)
-                * (1.0 - sparsity)
-            ),
-            tf_compat.dtypes.int32,
-        )
-        sparse_index = tf_compat.maximum(sparse_index - 1, 0)
-        sorted_vals, _ = tf_compat.math.top_k(
-            tf_compat.reshape(abs_var, [-1]), k=tf_compat.size(abs_var)
-        )
-        threshold = tf_compat.gather(
-            sorted_vals, sparse_index, name=KSScope.VAR_THRESHOLD
-        )
-        new_mask = tf_compat.cast(
-            tf_compat.greater(abs_var, threshold), tf_compat.dtypes.float32
-        )
-        mask_assign = tf_compat.assign(mask, new_mask, name=KSScope.OP_MASK_ASSIGN)
-
-    # add return state to collections
-    tf_compat.add_to_collection(
-        KSScope.collection_name(ks_group, KSScope.OP_MASK_ASSIGN), mask_assign
-    )
-    tf_compat.add_to_collection(
-        KSScope.collection_name(ks_group, KSScope.VAR_MASK), mask
-    )
-    tf_compat.add_to_collection(
-        KSScope.collection_name(ks_group, KSScope.VAR_THRESHOLD), threshold
-    )
     tf_compat.add_to_collection(
         KSScope.collection_name(ks_group, KSScope.OP_MASKED_VAR), masked
     )
 
-    return PruningOpVars(mask_assign, mask, threshold, masked)
+    def _update():
+        # create the update ops using the target sparsity tensor
+        with tf_compat.name_scope(
+            KSScope.model(
+                op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,
+            )
+        ):
+            abs_var = tf_compat.abs(op_var_tens)
+            sparse_index = tf_compat.cast(
+                tf_compat.math.round(
+                    tf_compat.cast(tf_compat.size(abs_var), tf_compat.dtypes.float32)
+                    * (1.0 - sparsity)
+                ),
+                tf_compat.dtypes.int32,
+            )
+            sparse_index = tf_compat.minimum(
+                tf_compat.maximum(sparse_index, 0), tf_compat.size(op_var_tens) - 1
+            )
+            sorted_vals, _ = tf_compat.math.top_k(
+                tf_compat.reshape(abs_var, [-1]), k=tf_compat.size(abs_var)
+            )
+            threshold = tf_compat.gather(
+                sorted_vals, sparse_index, name=KSScope.VAR_THRESHOLD
+            )
+            new_mask = tf_compat.cast(
+                tf_compat.greater(abs_var, threshold), tf_compat.dtypes.float32
+            )
+
+            return tf_compat.assign(mask, new_mask, name=KSScope.OP_MASK_ASSIGN)
+
+    def _no_update():
+        with tf_compat.name_scope(
+            KSScope.model(
+                op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,
+            )
+        ):
+            return tf_compat.constant(
+                0.0, dtype=op_var_tens.dtype, name=KSScope.OP_MASK_UPDATE_NO_OP
+            )
+
+    with tf_compat.name_scope(
+        KSScope.model(op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,)
+    ):
+        mask_update = tf_compat.cond(
+            update_ready, _update, _no_update, name=KSScope.OP_MASK_UPDATE
+        )
+
+    # add return state to collections
+    tf_compat.add_to_collection(
+        KSScope.collection_name(ks_group, KSScope.OP_MASK_UPDATE), mask_update
+    )
+
+    return PruningOpVars(op, op_var_tens, mask_update, mask, masked)
 
 
 def create_graph_ops_pruning(
@@ -222,6 +243,7 @@ def create_graph_ops_pruning(
     op_names: List[str],
     var_index: Union[int, str],
     sparsity: tf_compat.Tensor,
+    update_ready: tf_compat.Tensor,
     ks_group: str,
 ) -> List[PruningOpVars]:
     """
@@ -237,6 +259,8 @@ def create_graph_ops_pruning(
     :param var_index: the index for where the variable is,
         see :py:func:`~get_op_input_var`
     :param sparsity: the target sparsity to use for assigning the masks
+    :param update_ready: the tensor where if true will update the mask from sparsity,
+        if false will not update the mask
     :param ks_group: the group identifier the scope should be created under
     :return: a list of the created named tuples each containing the
         assignment op, mask variable, threshold tensor, and masked tensor
@@ -245,7 +269,7 @@ def create_graph_ops_pruning(
 
     for op_name in op_names:
         op = graph.get_operation_by_name(op_name)
-        op_vars = create_op_pruning(op, var_index, sparsity, ks_group)
+        op_vars = create_op_pruning(op, var_index, sparsity, update_ready, ks_group)
         pruning_op_vars.append(op_vars)
 
     return pruning_op_vars
@@ -256,6 +280,7 @@ def get_or_create_graph_ops_pruning(
     op_names: List[str],
     var_index: Union[int, str],
     sparsity: tf_compat.Tensor,
+    update_ready: tf_compat.Tensor,
     ks_group: str,
 ) -> List[PruningOpVars]:
     """
@@ -271,41 +296,58 @@ def get_or_create_graph_ops_pruning(
     :param var_index: the index for where the variable is,
         see :py:func:`~get_op_input_var`
     :param sparsity: the target sparsity to use for assigning the masks
+    :param update_ready: the tensor where if true will update the mask from sparsity,
+        if false will not update the mask
     :param ks_group: the group identifier the scope should be created under
     :return: a list of the created or retrieved named tuples each containing the
         assignment op, mask variable, threshold tensor, and masked tensor
     """
-    mask_assigns = tf_compat.get_collection(
-        KSScope.collection_name(ks_group, KSScope.OP_MASK_ASSIGN)
+    mask_updates = tf_compat.get_collection(
+        KSScope.collection_name(ks_group, KSScope.OP_MASK_UPDATE)
     )
     masks = tf_compat.get_collection(
         KSScope.collection_name(ks_group, KSScope.VAR_MASK)
-    )
-    thresholds = tf_compat.get_collection(
-        KSScope.collection_name(ks_group, KSScope.VAR_THRESHOLD)
     )
     maskeds = tf_compat.get_collection(
         KSScope.collection_name(ks_group, KSScope.OP_MASKED_VAR)
     )
 
-    if (
-        len(mask_assigns) < 1
-        or len(masks) < 1
-        or len(thresholds) < 1
-        or len(maskeds) < 1
-    ):
+    if len(mask_updates) < 1 or len(masks) < 1 or len(maskeds) < 1:
         pruning_op_vars = create_graph_ops_pruning(
-            graph, op_names, var_index, sparsity, ks_group
+            graph, op_names, var_index, sparsity, update_ready, ks_group
         )
     else:
         pruning_op_vars = []
+        ops = [graph.get_operation_by_name(op_name) for op_name in op_names]
+        op_inps = [get_op_input_var(op, var_index) for op in ops]
 
-        for mask_assign, mask, threshold, masked in zip(
-            mask_assigns, masks, thresholds, maskeds
+        for op, op_inp, mask_update, mask, masked in zip(
+            ops, op_inps, mask_updates, masks, maskeds
         ):
-            pruning_op_vars.append(PruningOpVars(mask_assign, mask, threshold, masked))
+            pruning_op_vars.append(PruningOpVars(op, op_inp, mask_update, mask, masked))
 
     return pruning_op_vars
+
+
+def create_summaries_pruning(pruning_op_vars: List[PruningOpVars], ks_group: str):
+    summaries = []
+
+    for op_vars in pruning_op_vars:
+        with tf_compat.name_scope(
+            KSScope.model(
+                op_vars.op,
+                ks_group,
+                additional=KSScope.OPS_SUMMARY,
+                trailing_slash=True,
+            )
+        ):
+            sum_op = tf_compat.summary.scalar(
+                "Modifier KS/{}".format(clean_tensor_name(op_vars.op)),
+                tf_compat.math.zero_fraction(op_vars.masked),
+            )
+            summaries.append(sum_op)
+
+    return summaries
 
 
 def create_ks_schedule_ops(
@@ -340,49 +382,61 @@ def create_ks_schedule_ops(
     :return: a tuple containing the signal for update_ready and the target sparsity
     """
 
-    # create the scheduling ops first
+    # create the scheduling ops first and the sparsity ops
     with tf_compat.name_scope(
         KSScope.general(ks_group, additional=KSScope.OPS_SCHEDULE, trailing_slash=True)
     ):
+        sched_before = tf_compat.less(global_step, begin_step)
+        sched_start = tf_compat.equal(global_step, begin_step)
+        sched_end = tf_compat.equal(global_step, end_step)
         sched_active = tf_compat.logical_and(
-            tf_compat.greater_equal(global_step, begin_step),
-            tf_compat.less_equal(global_step, end_step),
+            tf_compat.greater(global_step, begin_step),
+            tf_compat.less(global_step, end_step),
         )
-        sched_start_end = tf_compat.logical_or(
-            tf_compat.equal(global_step, begin_step),
-            tf_compat.equal(global_step, end_step),
+        sched_active_inclusive = tf_compat.logical_or(
+            sched_active, tf_compat.logical_or(sched_start, sched_end)
         )
-        sched_update = tf_compat.logical_or(
-            tf_compat.equal(
+        sched_update = tf_compat.cond(
+            tf_compat.less_equal(update_step_freq, 0),
+            lambda: tf_compat.constant(True),
+            lambda: tf_compat.equal(
                 tf_compat.mod((global_step - begin_step), update_step_freq), 0
             ),
-            tf_compat.less_equal(update_step_freq, 0),
+        )
+        sched_update_ready = tf_compat.logical_or(
+            tf_compat.logical_or(sched_start, sched_end), sched_update
         )
 
-    # create the update ready tensor
+        percentage = tf_compat.minimum(
+            1.0,
+            tf_compat.maximum(
+                0.0,
+                tf_compat_div(
+                    tf_compat.cast(global_step - begin_step, tf_compat.dtypes.float32),
+                    end_step - begin_step,
+                ),
+            ),
+        )
+        exp_percentage = tf_compat.pow(percentage, 1 / exponent)
+        calc_sparsity = (
+            tf_compat.multiply(final_sparsity - init_sparsity, exp_percentage)
+            + init_sparsity
+        )
+
+    # create the update ready tensor and sparsity tensor
     with tf_compat.name_scope(KSScope.general(ks_group, trailing_slash=True)):
         update_ready = tf_compat.logical_and(
-            sched_active,
-            tf_compat.logical_or(sched_start_end, sched_update),
-            name=KSScope.OP_UPDATE_READY,
+            sched_active_inclusive, sched_update_ready, name=KSScope.OP_UPDATE_READY,
         )
-
-    # create the sparsity ops
-    with tf_compat.name_scope(
-        KSScope.general(ks_group, additional=KSScope.OPS_SPARSITY, trailing_slash=True)
-    ):
-        percentage = tf_compat_div(
-            tf_compat.cast(global_step - begin_step, tf_compat.dtypes.float32),
-            end_step - begin_step,
+        sparsity = tf_compat.case(
+            [
+                (sched_before, lambda: tf_compat.constant(0.0)),
+                (sched_start, lambda: tf_compat.constant(init_sparsity)),
+                (sched_active, lambda: calc_sparsity),
+            ],
+            default=lambda: tf_compat.constant(final_sparsity),
+            name=KSScope.OP_SPARSITY,
         )
-        percentage = tf_compat.minimum(1.0, percentage)
-        percentage = tf_compat.maximum(0.0, percentage)
-        exp = tf_compat.pow(percentage, 1.0 / exponent)
-        sparsity = tf_compat.multiply(final_sparsity - init_sparsity, exp)
-
-    # create the sparsity tensor
-    with tf_compat.name_scope(KSScope.general(ks_group, trailing_slash=True)):
-        sparsity = tf_compat.add(sparsity, init_sparsity, name=KSScope.OP_SPARSITY)
 
     # add return state to collections
     tf_compat.add_to_collection(
@@ -464,7 +518,7 @@ def get_or_create_ks_scheduled_graph_ops(
     final_sparsity: float,
     exponent: float,
     ks_group: str,
-) -> Tuple[tf_compat.Tensor, List[PruningOpVars]]:
+) -> Tuple[tf_compat.Tensor, List[PruningOpVars], tf_compat.Tensor, tf_compat.Tensor]:
     """
     Gets or creates model pruning (kernel sparsity) ops and vars in the graph
     to be applied over a specific schedule.
@@ -488,7 +542,9 @@ def get_or_create_ks_scheduled_graph_ops(
         steps at the beginning vs the end ie: linear (1) vs cubic (3)
     :param ks_group: the group identifier the scope should be created under
     :return: a tuple containing the update operation to run in a session,
-        and a list of the pruning ops and vars for each desired op in the graph
+        a list of the pruning ops and vars for each desired op in the graph,
+        the tensor containing the update_ready signal for the pruning ops,
+        the tensor containing the set sparsity for the pruning ops
     """
     update_ready, sparsity = get_or_create_ks_schedule_ops(
         global_step,
@@ -500,45 +556,21 @@ def get_or_create_ks_scheduled_graph_ops(
         exponent,
         ks_group,
     )
+    pruning_op_vars = get_or_create_graph_ops_pruning(
+        graph, op_names, var_index, sparsity, update_ready, ks_group
+    )
 
     update_op = tf_compat.get_collection(
         KSScope.collection_name(ks_group, KSScope.OP_COND_UPDATE)
     )
     update_op = update_op[0] if len(update_op) > 0 else None
 
-    if update_op is not None:
-        pruning_op_vars = get_or_create_graph_ops_pruning(
-            graph, op_names, var_index, sparsity, ks_group
-        )
-    else:
-        pruning_op_vars = []
-
-        def _update_ops_wrapper():
-            pruning_op_vars.extend(
-                get_or_create_graph_ops_pruning(
-                    graph, op_names, var_index, sparsity, ks_group
-                )
-            )
-
-            with tf_compat.control_dependencies(
-                [op_var.assign for op_var in pruning_op_vars]
-            ):
-                return tf_compat.no_op(KSScope.NO_OP_MASK_UPDATE)
-
-        def _no_update_ops_wrapper():
-            return tf_compat.no_op(KSScope.NO_OP_MASK_NO_UPDATE)
-
-        with tf_compat.name_scope(KSScope.general(ks_group, trailing_slash=True)):
-            update_op = tf_compat.cond(
-                update_ready,
-                _update_ops_wrapper,
-                _no_update_ops_wrapper,
-                name=KSScope.OP_COND_UPDATE,
-            )
+    if update_op is None:
+        update_op = tf_compat.group(*[op_var.update for op_var in pruning_op_vars])
 
         # add return state to collections
         tf_compat.add_to_collection(
             KSScope.collection_name(ks_group, KSScope.OP_COND_UPDATE), update_op
         )
 
-    return update_op, pruning_op_vars
+    return update_op, pruning_op_vars, update_ready, sparsity
