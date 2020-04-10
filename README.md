@@ -19,7 +19,7 @@ neuralmagicml
 ```
 
 ## Installation and Requirements
-Python 3.5.0 or higher is required on the system. 
+Python 3.6.0 or higher is required on the system. 
 General instructions for doing this are found [here](https://realpython.com/installing-python/).
 
 Additionally, it is recommended to work within a virtual environment. 
@@ -31,7 +31,7 @@ source ./venv/bin/activate
 ```
 
 ### Supported ML Frameworks
-- PyTorch supported versions: `1.X.X`
+- PyTorch supported versions: >= `1.1.0`
 - TensorFlow supported versions: `1.X.X` (TensorFlow >= `2.X` is not currently supported)
 
 ### Installation

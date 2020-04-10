@@ -2,7 +2,26 @@
 Helper functions for jupyter notebooks
 """
 
-__all__ = ["format_html"]
+__all__ = ["check_notebook_setup", "format_html"]
+
+
+def check_notebook_setup():
+    try:
+        import torch
+        import tensorflow
+
+        from neuralmagicML.tensorflow.utils import tf_compat
+        tf_compat.logging.set_verbosity(tf_compat.logging.ERROR)
+
+        import tensorboard
+    except Exception:
+        raise ModuleNotFoundError(
+            "please install all requirements for neuralmagicML before continuing, "
+            "these are listed in the requirements.txt folder and can be installed "
+            "using the setup.py or pip -r ./requirements.txt"
+        )
+
+    print("notebook setup check complete!")
 
 
 def format_html(

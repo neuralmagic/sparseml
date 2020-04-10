@@ -102,15 +102,15 @@ class _FilterWidget(object):
 
 
 class _ModelsWidget(object):
-    def __init__(self, forced_framework: Union[str, None]):
-        self._forced_framework = forced_framework
+    def __init__(self, forced_frameworks: Union[None, List[str]]):
+        self._forced_frameworks = forced_frameworks
         self._architecture_selector = widgets.Select(
             options=[], description="Networks:"
         )
         self._dataset_selector = widgets.Select(options=[], description="Dataset:")
         self._framework_selector = (
             widgets.Select(options=[], description="ML Framework:")
-            if not self._forced_framework
+            if not self._forced_frameworks or len(self._forced_frameworks) > 1
             else widgets.Box()
         )
         self._desc_selector = widgets.Select(options=[], description="Type:")
@@ -161,8 +161,8 @@ class _ModelsWidget(object):
         dataset = self._dataset_selector.value
         framework = (
             self._framework_selector.value
-            if not self._forced_framework
-            else self._forced_framework
+            if not self._forced_frameworks or len(self._forced_frameworks) > 1
+            else self._forced_frameworks[0]
         )
         desc = self._desc_selector.value
 
@@ -186,7 +186,7 @@ class _ModelsWidget(object):
         self._dataset_selector.options = datasets
         self._dataset_selector.value = dataset
 
-        if self._forced_framework is None:
+        if self._forced_frameworks is None:
             frameworks = {
                 mod.framework
                 for mod in self._filtered
@@ -224,8 +224,8 @@ class _ModelsWidget(object):
             matches_arch = mod.arch_display == self._architecture_selector.value
             matches_dataset = mod.dataset == self._dataset_selector.value
             matches_framework = (
-                (self._forced_framework and mod.framework == self._forced_framework)
-                or not self._forced_framework
+                (self._forced_frameworks and mod.framework in self._forced_frameworks)
+                or not self._forced_frameworks
                 and (
                     mod.framework == self._framework_selector.value
                     or self._framework_selector.value == "onnx"
@@ -243,12 +243,20 @@ class ModelSelectWidgetContainer(object):
     """
     Widget used in model repo notebooks for selecting a model for download
 
-    :param forced_framework: if provided, will force all models to be of this framework
+    :param filter_frameworks: if provided, will force all models
+        to be one of these frameworks
+    :param filter_datasets: if provided, will force all models
+        to be trained on one of these datasets
     """
 
-    def __init__(self, forced_framework: str = None):
-        self._models = available_models()
-        self._models_widget = _ModelsWidget(forced_framework)
+    def __init__(
+        self, filter_frameworks: List[str] = None, filter_datasets: List[str] = None
+    ):
+        self._models = available_models(
+            frameworks=filter_frameworks if filter_frameworks else None,
+            datasets=filter_datasets if filter_datasets else None,
+        )
+        self._models_widget = _ModelsWidget(filter_frameworks)
         self._filter_widget = _FilterWidget(self._models)
 
     @property

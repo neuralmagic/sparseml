@@ -428,4 +428,4 @@ def test_get_or_create_ks_scheduled_graph_ops(
                         last_update_sparsity = masked_sparsity
 
                 res = sess.run(out, feed_dict={inp: inp_arr})
-                assert res.sum() > 0.0
+                assert res.sum() >= 0.0
