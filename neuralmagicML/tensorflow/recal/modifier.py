@@ -118,12 +118,13 @@ class Modifier(BaseModifier):
                 "create_ops for modifier must be called before initialize_session"
             )
 
-    def complete_graph(self, graph: tf_compat.Graph):
+    def complete_graph(self, graph: tf_compat.Graph, sess: tf_compat.Session):
         """
         Complete modifying the graph. Should be called after modifying is complete.
         Cleans up any ops that should be removed or reordered.
 
         :param graph: the modified graph that should be completed and cleaned
+        :param sess: the session to use for completing the modified graph
         :return: the cleaned graph
         """
         if not self._initialized:

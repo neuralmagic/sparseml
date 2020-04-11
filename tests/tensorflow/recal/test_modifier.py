@@ -135,11 +135,18 @@ class ModifierTest(BaseModifierTest):
         graph = graph_lambda()
         with graph.as_default():
             global_step = tf_compat.train.get_or_create_global_step()
+
+            with pytest.raises(RuntimeError):
+                modifier.complete_graph(graph, None)
+
             mod_ops, mod_extras = modifier.create_ops(
                 steps_per_epoch, global_step, graph
             )
 
-        modifier.complete_graph(graph)
+            with tf_compat.Session() as sess:
+                sess.run(tf_compat.global_variables_initializer())
+                modifier.initialize_session(sess)
+                modifier.complete_graph(graph, sess)
 
 
 class ScheduledModifierTest(ModifierTest, BaseScheduledTest):

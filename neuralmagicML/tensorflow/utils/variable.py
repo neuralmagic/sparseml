@@ -11,6 +11,7 @@ __all__ = [
     "get_op_var_index",
     "clean_tensor_name",
     "get_op_input_var",
+    "get_tensor_var",
     "get_prunable_ops",
     "eval_tensor_density",
     "eval_tensor_sparsity",
@@ -52,7 +53,7 @@ def get_op_var_index(var_index: Union[str, int], op_inputs: ListView) -> int:
         trainable_vars = [var.name for var in tf_compat.trainable_variables()]
 
         for index, inp in enumerate(op_inputs):
-            expected_name = re.sub(r"/read:[0-9]+$", "", inp.name)
+            expected_name = "{}:0".format(clean_tensor_name(inp.name))
 
             if expected_name in trainable_vars:
                 return index
@@ -97,6 +98,25 @@ def get_op_input_var(
     var_index = get_op_var_index(var_index, op_sgv.inputs)
 
     return op_sgv.inputs[var_index]
+
+
+def get_tensor_var(tens: tf_compat.Tensor) -> tf_compat.Variable:
+    """
+    Get the variable associated with a given tensor.
+    Raises a ValueError if not found
+
+    :param tens: the tensor to find a variable for
+    :return: the found variable matching the given tensor
+    """
+    expected_name = "{}:0".format(clean_tensor_name(tens))
+
+    for var in tf_compat.trainable_variables():
+        if expected_name == var.name:
+            return var
+
+    raise ValueError(
+        "could not find a trainable variable that matched the tensor {}".format(tens)
+    )
 
 
 def get_prunable_ops(

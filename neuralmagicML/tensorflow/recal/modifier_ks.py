@@ -26,6 +26,7 @@ from neuralmagicML.tensorflow.recal.mask_ks import (
     get_or_create_ks_scheduled_graph_ops,
     create_summaries_pruning,
     PruningOpVars,
+    apply_op_vars_masks,
 )
 
 
@@ -319,7 +320,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
             if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:
                 mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(
-                    prune_op_vars, self.ks_group
+                    prune_op_vars
                 )
 
         mod_ops.append(update_op)
@@ -341,8 +342,24 @@ class GradualKSModifier(ScheduledUpdateModifier):
         if masks:
             sess.run(tf_compat.variables_initializer(masks))
 
-    def complete_graph(self, graph: tf_compat.Graph) -> tf_compat.Graph:
-        return super().complete_graph(graph)
+    def complete_graph(
+        self, graph: tf_compat.Graph, sess: tf_compat.Session
+    ):
+        """
+        Complete modifying the graph.
+        Resets the pruned op's variables using the created masks to zero out
+        the pruned weights for saving.
+
+        :param graph: the modified graph that should be completed and cleaned.
+            if not supplied, then will use the default graph
+        :param sess: the session to use for completing the modified graph.
+            if not supplied, then will use the default session
+        :return: the cleaned graph
+        """
+        super().complete_graph(graph, sess)
+
+        with graph.as_default():
+            apply_op_vars_masks(self.prune_op_vars, self.ks_group, sess)
 
     def validate(self):
         """

@@ -12,7 +12,7 @@ neuralmagicml
     neuralmagicML - The Python API Code
     notebooks - Tutorial Notebooks for using the Python API
     scripts - Functional scripts for working with the Python API
-    tf2onnx - API for converting TensorFlow models to ONNX
+    tensorflow-onnx - API for converting TensorFlow models to ONNX
     README.md - readme file
     requirements.txt - requirements for the Python API
     setup.py - setuptools install script
@@ -36,7 +36,7 @@ source ./venv/bin/activate
 
 ### Installation
 1. Navigate to the parent directory of the `neuralmagicml` code base.
-2. Use pip install to run the setup.py file in the repo: `pip install neuralmagicml/`
+2. Use pip install to run the setup.py file in the repo: `pip install neuralmagicML-python/`
 3. Import neuralmagicML library in your code: `import neuralmagicML`
 
 Note: If you run into issues with TensorFlow / PyTorch imports (specifically GPU vs. CPU support), 
@@ -44,7 +44,6 @@ you can edit the `requirements.txt` file at the root of the repo for the desired
 
 
 ## Tutorials
-.
 Tutorials, which are implemented as Jupyter notebooks for easy consumption and editing, 
 are provided under the `notebooks` directory. 
 To run one of the tutorials, start a Jupyter session in the `notebooks` directory.
@@ -64,12 +63,88 @@ A tutorial for pruning models in PyTorch using an Adam optimizer.
 A step-by-step process, along with simple UIs, is given to make the process easier and more intuitive. 
 It is used to increase the performance of models when executing in the Neural Magic Inference Engine.
 
+### pruning_adam_tensorflow.ipynb
+A tutorial for pruning models in TensorFlow using an Adam optimizer. 
+A step-by-step process, along with simple UIs, is given to make the process easier and more intuitive. 
+It is used to increase the performance of models when executing in the Neural Magic Inference Engine.
+
 ### transfer_learning_pytorch.ipynb
 A tutorial for transfer learning from a model in the [Model Repository](#model-repository) 
 within PyTorch using an Adam optimizer.
 The main use case is transfer learning from a previously pruned model. 
 In this way, you can limit the training time needed as well as the potential complexity of 
 the pruning process while keeping the performance.
+
+## Exporting to ONNX
+[ONNX](https://onnx.ai/) is a generic format for storing Neural Networks that is supported natively or by
+3rd party extensions in all major deep learning frameworks such as PyTorch, TensorFlow, Keras.
+Due to this flexibility, the Neural Magic Inference Engine uses the ONNX format.
+Below instructions for exporting in the popular frameworks are included below.
+
+### PyTorch ONNX
+[ONNX support](https://pytorch.org/docs/stable/onnx.html) is natively built in to PyTorch.
+To enable ease of use, a high level API, `ModuleExporter`, is also included in the `neuralmagicML.pytorch` package.
+To run the export for a model, a sample batch must be provided. 
+The sample batch is run through the model to freeze the execution graph into an ONNX format.
+
+Example code:
+```python
+import os
+import torch
+from neuralmagicML.pytorch.models import mnist_net
+from neuralmagicML.pytorch.utils import ModuleExporter
+
+model = mnist_net()
+export_dir = os.path.join(".", "mnist-export")
+exporter = ModuleExporter(model, output_dir=export_dir)
+print("exporting to onnx...")
+exporter.export_onnx(sample_batch=torch.randn(1, 1, 28, 28))
+print("exported onnx file in {}".format(export_dir))
+```
+
+### TensorFlow ONNX
+ONNX support is not natively built in to TensorFlow.
+However, a third party library is maintained for the conversion to ONNX 
+named [tf2onnx](https://github.com/onnx/tensorflow-onnx).
+This pathway converts native protobuf graph definitions from TensorFlow into their equivalent ONNX representation.
+A version of tf2onnx that has been tested and verified to work with Neural Magic
+is included as the sub folder `tensorflow-onnx`. 
+
+Installation:
+From the root of the directory containing the neuralmagicML-python code, run the following command:
+```
+pip install ./tensorflow-onnx
+```
+
+Example code:
+```python
+import os
+from neuralmagicML.tensorflow.utils import tf_compat, GraphExporter
+from neuralmagicML.tensorflow.models import mnist_net
+
+exporter = GraphExporter(output_dir=os.path.join(".", "mnist-tf-export"))
+
+with tf_compat.Graph().as_default() as graph:
+    inputs = tf_compat.placeholder(
+        tf_compat.float32, [None, 28, 28, 1], name="inputs"
+    )
+    logits = mnist_net(inputs)
+    input_names = [inputs.name]
+    output_names = [logits.name]
+    
+    with tf_compat.Session() as sess:
+        sess.run(tf_compat.global_variables_initializer())
+        exporter.export_pb(outputs=[logits])
+        
+        print("exporting to pb...")
+        exporter.export_pb(outputs=[logits])
+        print("exported pb file to {}".format(exporter.pb_path))
+
+print("exporting to onnx...")
+exporter.export_onnx(inputs=input_names, outputs=output_names)
+print("exported onnx file to {}".format(exporter.onnx_path))
+```
+
 
 ## Model Repository
 A number of pre-trained models are available in this API.

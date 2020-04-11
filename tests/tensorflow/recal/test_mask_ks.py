@@ -13,6 +13,7 @@ from neuralmagicML.tensorflow.recal import (
     create_op_pruning,
     get_or_create_graph_ops_pruning,
     get_or_create_ks_scheduled_graph_ops,
+    apply_op_vars_masks,
 )
 
 from tests.tensorflow.helpers import mlp_net, conv_net
@@ -198,6 +199,53 @@ def test_get_or_create_graph_ops_pruning(
 
                 res = sess.run(out, feed_dict={inp: inp_arr})
                 assert res.sum() > 0.0
+
+
+@pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
+@pytest.mark.parametrize(
+    "net_const,inp_arr,ops",
+    [
+        (
+            mlp_net,
+            numpy.random.random((4, 16)),
+            ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+        ),
+        (
+            conv_net,
+            numpy.random.random((4, 28, 28, 1)),
+            ["conv_net/conv1/conv", "conv_net/conv2/conv", "conv_net/mlp/matmul"],
+        ),
+    ],
+)
+def test_apply_op_vars_masks(
+    sparsity_val: float, net_const: Callable, inp_arr: numpy.ndarray, ops: List[str]
+):
+    group = "test-group"
+
+    with tf_compat.Graph().as_default() as graph:
+        out, inp = net_const()
+        sparsity = tf_compat.placeholder(
+            dtype=tf_compat.float32, name="sparsity_placeholder"
+        )
+        update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
+        pruning_op_vars = get_or_create_graph_ops_pruning(
+            graph, ops, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group
+        )
+
+        with tf_compat.Session() as sess:
+            sess.run(tf_compat.global_variables_initializer())
+
+            for op_vars in pruning_op_vars:
+                sess.run(
+                    op_vars.update,
+                    feed_dict={sparsity: sparsity_val, update_ready: True},
+                )
+
+            apply_op_vars_masks(pruning_op_vars, group, sess)
+
+            for op_vars in pruning_op_vars:
+                var_sparsity = eval_tensor_sparsity(op_vars.op_input)
+                assert abs(var_sparsity - sparsity_val) < 1e-2
 
 
 @pytest.mark.parametrize(

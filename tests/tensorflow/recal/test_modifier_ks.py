@@ -141,6 +141,17 @@ class TestGradualKSModifierImpl(ScheduledModifierTest):
                                 assert masked_sparsity >= last_sparsities[index] - 1e-2
                                 last_sparsities[index] = masked_sparsity
 
+                modifier.complete_graph(graph, sess)
+
+                for op_vars in modifier.prune_op_vars:
+                    assert (
+                        abs(
+                            modifier.final_sparsity
+                            - eval_tensor_sparsity(op_vars.op_input)
+                        )
+                        < 1e-2
+                    )
+
 
 def test_gradual_ks_training_with_manager():
     modifier = GradualKSModifier(
@@ -178,7 +189,7 @@ def test_gradual_ks_training_with_manager():
 
         with tf_compat.Session(graph=graph) as sess:
             sess.run(tf_compat.global_variables_initializer())
-            modifier.initialize_session(sess)
+            manager.initialize_session(sess)
             batch_lab = numpy.random.random((batch_size, *logits.shape[1:]))
             batch_inp = numpy.random.random((batch_size, *inputs.shape[1:]))
 
@@ -206,6 +217,16 @@ def test_gradual_ks_training_with_manager():
                         else:
                             assert masked_sparsity >= last_sparsities[index] - 1e-2
                             last_sparsities[index] = masked_sparsity
+
+            manager.complete_graph()
+
+            for op_vars in modifier.prune_op_vars:
+                assert (
+                    abs(
+                        modifier.final_sparsity - eval_tensor_sparsity(op_vars.op_input)
+                    )
+                    < 1e-2
+                )
 
 
 def test_gradual_ks_yaml():

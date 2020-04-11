@@ -139,20 +139,26 @@ class ScheduledModifierManager(BaseManager, Modifier):
         for mod in self.modifiers:
             mod.initialize_session(sess)
 
-    def complete_graph(self, graph: tf_compat.Graph = None):
+    def complete_graph(
+        self, graph: tf_compat.Graph = None, sess: tf_compat.Session = None
+    ):
         """
         Complete modifying the graph. Should be called after modifying is complete.
         Cleans up any ops that should be removed or reordered.
 
-        :param graph: the modified graph,
+        :param graph: the modified graph that should be completed and cleaned.
             if not supplied, then will use the default graph
+        :param sess: the session to use for completing the modified graph.
+            if not supplied, then will use the default session
+        :return: the cleaned graph
         """
-        super().complete_graph(graph)
+        super().complete_graph(graph, sess)
 
         if not graph:
             graph = tf_compat.get_default_graph()
 
-        for mod in self.modifiers:
-            graph = mod.complete_graph(graph)
+        if not sess:
+            sess = tf_compat.get_default_session()
 
-        return graph
+        for mod in self.modifiers:
+            mod.complete_graph(graph, sess)

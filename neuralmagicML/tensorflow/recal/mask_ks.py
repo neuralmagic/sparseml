@@ -12,6 +12,8 @@ from neuralmagicML.tensorflow.utils import (
     tf_compat_div,
     clean_tensor_name,
     get_op_input_var,
+    get_tensor_var,
+    eval_tensor_sparsity,
 )
 
 
@@ -21,6 +23,7 @@ __all__ = [
     "create_op_pruning",
     "create_graph_ops_pruning",
     "get_or_create_graph_ops_pruning",
+    "apply_op_vars_masks",
     "create_summaries_pruning",
     "create_ks_schedule_ops",
     "get_or_create_ks_schedule_ops",
@@ -55,6 +58,7 @@ class KSScope(object):
     OP_PRUNE_VARS_ASSIGN = "nm_prune_vars_assign"
     OP_MASK_UPDATE_NO_OP = "nm_mask_update_no_op"
     OP_MASK_UPDATE = "nm_mask_update"
+    OP_SAVE = "nm_save"
 
     VAR_MASK = "nm_mask"
     VAR_THRESHOLD = "nm_threshold"
@@ -329,25 +333,45 @@ def get_or_create_graph_ops_pruning(
     return pruning_op_vars
 
 
-def create_summaries_pruning(pruning_op_vars: List[PruningOpVars], ks_group: str):
+def create_summaries_pruning(pruning_op_vars: List[PruningOpVars]):
+    """
+    Create TensorBoard summary ops in the current graph for the
+    given list of PruningOpVars.
+
+    :param pruning_op_vars: the list of named tuples containing the masked input to the
+        pruned op to record sparsity for in TensorBoard.
+    :return: the created summaries for the pruned op vars
+    """
     summaries = []
 
     for op_vars in pruning_op_vars:
-        with tf_compat.name_scope(
-            KSScope.model(
-                op_vars.op,
-                ks_group,
-                additional=KSScope.OPS_SUMMARY,
-                trailing_slash=True,
-            )
-        ):
-            sum_op = tf_compat.summary.scalar(
-                "Modifier KS/{}".format(clean_tensor_name(op_vars.op)),
-                tf_compat.math.zero_fraction(op_vars.masked),
-            )
-            summaries.append(sum_op)
+        sum_op = tf_compat.summary.scalar(
+            "Modifier KS/{}".format(clean_tensor_name(op_vars.op)),
+            tf_compat.math.zero_fraction(op_vars.masked),
+        )
+        summaries.append(sum_op)
 
     return summaries
+
+
+def apply_op_vars_masks(
+    pruning_op_vars: List[PruningOpVars], ks_group: str, sess: tf_compat.Session
+):
+    """
+    Apply the masks to the original ops input var so that it can be saved
+    with the desired sparsity for later.
+
+    :param pruning_op_vars: the list of named tuples containing the sparse mask
+        and the op variable to apply the sparse mask to
+    :param ks_group: the group to create the assign ops under
+    :param sess: the session to use to run the assign
+    """
+    for op_vars in pruning_op_vars:
+        with tf_compat.name_scope(KSScope.model(op_vars.op, ks_group, KSScope.OP_SAVE)):
+            masked_var = tf_compat.math.multiply(op_vars.op_input, op_vars.mask)
+            input_var = get_tensor_var(op_vars.op_input)
+            assign = tf_compat.assign(input_var, masked_var)
+            sess.run(assign)
 
 
 def create_ks_schedule_ops(

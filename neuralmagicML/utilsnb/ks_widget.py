@@ -339,11 +339,11 @@ class PruneLayerWidget(_Widget):
         )
 
         def _on_enabled_change(change):
-            self.enabled = change["new"]
-            end_sparsity_slider.disabled = not self.enabled
+            self._enabled = change["new"]
+            end_sparsity_slider.disabled = not self._enabled
 
         def _on_end_sparsity_changed(change):
-            self.end_sparsity = change["new"]
+            self._end_sparsity = change["new"]
 
         enabled_checkbox.observe(_on_enabled_change, names="value")
         end_sparsity_slider.observe(_on_end_sparsity_changed, names="value")
@@ -581,6 +581,7 @@ class KSWidgetContainer(object):
         for mod in layers_modifiers:
             mod.end_epoch = self._epoch_widget.end_epoch
             mod.start_epoch = self._epoch_widget.start_epoch
+            mod.update_frequency = self._epoch_widget.update_frequency
 
         modifiers = []
         modifiers.extend(epoch_modifiers)
