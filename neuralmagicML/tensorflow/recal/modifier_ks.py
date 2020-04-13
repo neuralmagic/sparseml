@@ -342,9 +342,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         if masks:
             sess.run(tf_compat.variables_initializer(masks))
 
-    def complete_graph(
-        self, graph: tf_compat.Graph, sess: tf_compat.Session
-    ):
+    def complete_graph(self, graph: tf_compat.Graph, sess: tf_compat.Session):
         """
         Complete modifying the graph.
         Resets the pruned op's variables using the created masks to zero out

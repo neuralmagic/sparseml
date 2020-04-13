@@ -63,7 +63,7 @@ class ModuleASAnalyzer(object):
         :param module: the module to analyze multiple layers activation sparsity in
         :param layers: the names of the layers to analyze (from module.named_modules())
         :param dim: Any dims within the tensor such as across batch,
-        channel, etc. Ex: 0 for batch, 1 for channel, [0, 1] for batch and channel
+            channel, etc. Ex: 0 for batch, 1 for channel, [0, 1] for batch and channel
         :param track_inputs_sparsity: True to track the input sparsity to the module,
             False otherwise
         :param track_outputs_sparsity: True to track the output sparsity to the module,

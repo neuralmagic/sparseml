@@ -5,8 +5,6 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from neuralmagicML.utils import clean_path
-
 
 __all__ = [
     "default_dataset_path",
@@ -24,7 +22,7 @@ def default_dataset_path(name: str) -> str:
     """
     path = os.path.join("~", ".cache", "nm_models", name)
 
-    return clean_path(path)
+    return path
 
 
 class EarlyStopDataset(Dataset):

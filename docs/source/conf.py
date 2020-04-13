@@ -24,7 +24,7 @@ author = "Neural Magic"
 
 # The full version, including alpha/beta/rc tags
 version = ""
-release = "1.0.0"
+release = "1.0.9"
 
 
 # -- General configuration ---------------------------------------------------

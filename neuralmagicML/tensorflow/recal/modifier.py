@@ -92,10 +92,11 @@ class Modifier(BaseModifier):
     ) -> Tuple[List[Union[tf_compat.Tensor, tf_compat.Operation]], Dict[str, Any]]:
         """
         Create modifying operations and tensors in the graph.
-        Returns a tuple containing:
-            - modifying ops that should be run in a session on each global step.
-            - named extras (ops / tensors) created in the graph that can be used
-                by other ops such as a learning rate for the optimizer
+
+        | Returns a tuple containing:
+        |   - modifying ops that should be run in a session on each global step.
+        |   - named extras (ops / tensors) created in the graph that can be used
+        |     by other ops such as a learning rate for the optimizer
 
         :param steps_per_epoch: the number of steps (batches) per training epoch
         :param global_step: the global step used while training

@@ -11,6 +11,7 @@ def check_notebook_setup():
         import tensorflow
 
         from neuralmagicML.tensorflow.utils import tf_compat
+
         tf_compat.logging.set_verbosity(tf_compat.logging.ERROR)
 
         import tensorboard

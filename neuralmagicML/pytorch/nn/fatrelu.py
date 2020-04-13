@@ -120,7 +120,7 @@ def fat_exp_relu(tens: Tensor, threshold: Tensor, compression: Tensor) -> Tensor
     Create a piecewise separable exp approximated FATReLU function to a tensor
     (forced activation threshold):
     f(x, t, c) = 0 if x <= 0; = x if x >= t;
-     = x * e^(c(x-t)) if x > 0 and x < t
+    = x * e^(c(x-t)) if x > 0 and x < t
 
     Note: there is no option for inplace with this function
 
