@@ -31,10 +31,10 @@ class _FilterWidget(object):
             (
                 widgets.HTML(format_html("Filters", header="h4")),
                 widgets.HBox(
-                    (widgets.HTML(format_html("Domains:")), self._domains_dropdown,)
+                    (widgets.HTML(format_html("Domains:")), self._domains_dropdown)
                 ),
                 widgets.HBox(
-                    (widgets.HTML(format_html("Datasets:")), self._datasets_dropdown,)
+                    (widgets.HTML(format_html("Datasets:")), self._datasets_dropdown)
                 ),
                 widgets.HBox(
                     (
@@ -47,8 +47,10 @@ class _FilterWidget(object):
         self.filtered_callback = None
 
     def _init_domains(self):
-        domains = [mod.domain_display for mod in self._all_models]
-        domains = list(dict.fromkeys(domains))
+        self._domains_mappings = {
+            mod.domain_display: (mod.domain, mod.sub_domain) for mod in self._all_models
+        }
+        domains = list(self._domains_mappings.keys())
         domains.sort()
         domains.insert(0, "all domains")
 
@@ -68,8 +70,11 @@ class _FilterWidget(object):
                 self._domains_dropdown.value
                 and self._domains_dropdown.value != "all domains"
             ):
-                domains = [self._domains_dropdown.value.split(" ")[0]]
-                sub_domains = [self._domains_dropdown.value.split(" ")[1]]
+                domain, sub_domain = self._domains_mappings[
+                    self._domains_dropdown.value
+                ]
+                domains = [domain]
+                sub_domains = [sub_domain]
             else:
                 domains = None
                 sub_domains = None

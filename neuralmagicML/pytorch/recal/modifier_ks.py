@@ -97,6 +97,9 @@ class ConstantKSModifier(ScheduledModifier):
         self._last_logged_epoch = None
 
     def __del__(self):
+        for mask in self._module_masks:
+            del mask
+
         self._module_masks.clear()
 
     @ModifierProp()
@@ -306,6 +309,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self.validate()
 
     def __del__(self):
+        for mask in self._module_masks:
+            del mask
+
         self._module_masks.clear()
 
     @ModifierProp()

@@ -193,6 +193,8 @@ class ModuleParamKSMask(object):
                 )
             )
 
+        value = self._check_regen_value(value)
+        self._check_regen_param_vals()
         self._param.data.copy_(value)
         self._param_unmasked = None
         self._setup_param_unmasked()
@@ -213,6 +215,8 @@ class ModuleParamKSMask(object):
                 )
             )
 
+        value = self._check_regen_value(value)
+        self._check_regen_param_vals()
         mask_diff = mask_difference(self._param_mask, value)
 
         if self._param_unmasked is not None:
@@ -262,10 +266,7 @@ class ModuleParamKSMask(object):
         if not self._enabled:
             return
 
-        if self._param.data.device != self._param_mask.device:
-            # param is on a different device, regen values so all tensors
-            # are on the same device
-            self._regen_param_vals()
+        self._check_regen_param_vals()
 
         with torch.no_grad():
             self._param.data.mul_(self._param_mask)
@@ -275,29 +276,43 @@ class ModuleParamKSMask(object):
         resets the current stored tensors such that they will be on the same device
         and have the proper data
         """
-        if self._param.data.device != self._param_mask.device:
-            # param is on a different device, regen values so all tensors are
-            # on the same device
-            self._regen_param_vals()
-
+        self._check_regen_param_vals()
         self._param.data.copy_(self._param_init)
 
-    def _regen_param_vals(self):
-        self._param_mask = ModuleParamKSMask._detach_tens(
-            torch.empty_like(self._param.data).copy_(self._param_mask)
-        )
+    def _check_regen_value(self, val: Tensor) -> Tensor:
+        if self._param.data.device != val.device:
+            val = ModuleParamKSMask._detach_tens(
+                torch.empty_like(self._param.data).copy_(val)
+            )
 
-        if self._param_init is not None:
+        return val
+
+    def _check_regen_param_vals(self):
+        if self._param.data.device != self._param_mask.device:
+            self._param_mask = ModuleParamKSMask._detach_tens(
+                torch.empty_like(self._param.data).copy_(self._param_mask)
+            )
+
+        if (
+            self._param_init is not None
+            and self._param.data.device != self._param_init.device
+        ):
             self._param_init = ModuleParamKSMask._detach_tens(
                 torch.empty_like(self._param.data).copy_(self._param_init)
             )
 
-        if self._param_unmasked is not None:
+        if (
+            self._param_unmasked is not None
+            and self._param.data.device != self._param_unmasked.device
+        ):
             self._param_unmasked = ModuleParamKSMask._detach_tens(
                 torch.empty_like(self._param.data).copy_(self._param_unmasked)
             )
 
-        if self._param_grad is not None:
+        if (
+            self._param_grad is not None
+            and self._param.data.device != self._param_grad.device
+        ):
             self._param_grad = ModuleParamKSMask._detach_tens(
                 torch.empty_like(self._param.data).copy_(self._param_grad)
             )

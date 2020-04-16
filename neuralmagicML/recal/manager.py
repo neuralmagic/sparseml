@@ -26,6 +26,9 @@ class BaseManager(BaseObject):
         self._modifiers = modifiers
 
     def __del__(self):
+        for mod in self._modifiers:
+            del mod
+
         self._modifiers.clear()
 
     @ModifierProp()
