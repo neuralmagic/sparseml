@@ -14,6 +14,7 @@ from neuralmagicML.tensorflow.utils import (
     get_op_input_var,
     get_tensor_var,
     eval_tensor_sparsity,
+    non_zero_mask_initializer,
 )
 
 
@@ -168,7 +169,7 @@ def create_op_pruning(
         mask = tf_compat.get_variable(
             KSScope.VAR_MASK,
             op_var_tens.get_shape(),
-            initializer=tf_compat.ones_initializer(),
+            initializer=non_zero_mask_initializer(op_var_tens),
             trainable=False,
             dtype=op_var_tens.dtype,
         )
