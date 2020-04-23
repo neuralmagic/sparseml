@@ -129,6 +129,43 @@ def test_create_op_pruning_conv(sparsity_val: float):
             assert res.sum() > 0.0
 
 
+@pytest.mark.parametrize("sparsity_val", [0.6])
+def test_create_op_pruning_decrease_sparsity(sparsity_val):
+    group = "test-group"
+
+    with tf_compat.Graph().as_default() as graph:
+        inp = tf_compat.placeholder(tf_compat.float32, [None, 64])
+
+        with tf_compat.name_scope("fc"):
+            weights = tf_compat.Variable(
+                tf_compat.zeros([64, 64]), name="weights"
+            )
+            bias = tf_compat.Variable(tf_compat.zeros([64]), name="bias")
+            matmul = tf_compat.matmul(inp, weights, name="matmul")
+            add = tf_compat.add(matmul, bias, name="bias_add")
+            relu = tf_compat.nn.relu(add, name="relu")
+
+        sparsity = tf_compat.placeholder(
+            dtype=tf_compat.float32, name="sparsity_placeholder"
+        )
+        update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
+
+        matmul_op = graph.get_operation_by_name("fc/matmul")
+        pruning_op_vars = create_op_pruning(
+            matmul_op, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group
+        )
+
+        with tf_compat.Session() as sess:
+            sess.run(tf_compat.global_variables_initializer())
+            sess.run(
+                pruning_op_vars.update,
+                feed_dict={sparsity: sparsity_val, update_ready: True},
+            )
+
+            mask_sparsity = eval_tensor_sparsity(pruning_op_vars.mask)
+            assert abs(mask_sparsity - sparsity_val) < 1e-3
+
+
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
     "net_const,inp_arr,ops",
@@ -353,6 +390,8 @@ def test_get_or_create_ks_schedule_ops(
         (25, 199, 1, 0.05, 0.8, 3.0),
         (0, 99, 5, 0.05, 0.8, 3.0),
         (25, 199, 5, 0.05, 0.8, 3.0),
+        (0, 99, 1, 0.8, 0.05, 1.0),
+        (25, 199, 5, 0.8, 0.05, 1.0),
     ],
 )
 @pytest.mark.parametrize(
@@ -470,6 +509,10 @@ def test_get_or_create_ks_scheduled_graph_ops(
                     elif step > end_step:
                         assert not update_ready_val
                         assert abs(masked_sparsity - final_sparsity) < 1e-2
+                    elif init_sparsity > final_sparsity:
+                        assert masked_sparsity <= last_update_sparsity + 1e-2
+                        assert sparsity_val <= last_update_sparsity + 1e-2
+                        last_update_sparsity = masked_sparsity
                     else:
                         assert masked_sparsity >= last_update_sparsity - 1e-2
                         assert sparsity_val >= last_update_sparsity - 1e-2

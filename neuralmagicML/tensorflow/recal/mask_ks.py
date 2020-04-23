@@ -196,26 +196,29 @@ def create_op_pruning(
             )
         ):
             abs_var = tf_compat.abs(op_var_tens)
-            sparse_index = tf_compat.cast(
+            sparse_threshold_index = tf_compat.cast(
                 tf_compat.math.round(
                     tf_compat.cast(tf_compat.size(abs_var), tf_compat.dtypes.float32)
-                    * (1.0 - sparsity)
+                    * sparsity
                 ),
                 tf_compat.dtypes.int32,
             )
-            sparse_index = tf_compat.minimum(
-                tf_compat.maximum(sparse_index, 0), tf_compat.size(op_var_tens) - 1
+            sparse_threshold_index = tf_compat.minimum(
+                tf_compat.maximum(sparse_threshold_index, 0),
+                tf_compat.size(op_var_tens) - 1
             )
-            sorted_vals, _ = tf_compat.math.top_k(
-                tf_compat.reshape(abs_var, [-1]), k=tf_compat.size(abs_var)
+            # produce tensor where each element is the index in sorted order of abs_var
+            abs_var_flat = tf_compat.reshape(abs_var, [-1])
+            element_ranks_flat = tf_compat.scatter_nd(
+                tf_compat.expand_dims(tf_compat.argsort(abs_var_flat), 1),
+                tf_compat.range(abs_var_flat.get_shape()[0].value),
+                abs_var_flat.get_shape()
             )
-            threshold = tf_compat.gather(
-                sorted_vals, sparse_index, name=KSScope.VAR_THRESHOLD
-            )
+            element_ranks = tf_compat.reshape(element_ranks_flat, abs_var.get_shape())
             new_mask = tf_compat.cast(
-                tf_compat.greater(abs_var, threshold), tf_compat.dtypes.float32
+                tf_compat.greater(element_ranks, sparse_threshold_index),
+                tf_compat.dtypes.float32
             )
-
             return tf_compat.assign(mask, new_mask, name=KSScope.OP_MASK_ASSIGN)
 
     def _no_update():
