@@ -4,13 +4,18 @@ grouping modifiers and running them together.
 Also handles loading modifiers from yaml files
 """
 
+import collections
+import itertools
 from typing import List, Any, Union, Dict, Tuple
 
 from neuralmagicML.recal import BaseManager
 from neuralmagicML.utils import clean_path, create_parent_dirs
 from neuralmagicML.tensorflow.utils import tf_compat
-from neuralmagicML.tensorflow.recal.modifier import Modifier, ScheduledModifier
-
+from neuralmagicML.tensorflow.recal.modifier import (
+    NM_RECAL,
+    Modifier,
+    ScheduledModifier,
+)
 
 __all__ = ["ScheduledModifierManager"]
 
@@ -52,11 +57,42 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
         return manager
 
-    NM_RECAL = "nm_recal"
     RECAL_UPDATE = "recal_update"
 
+    def _group_modifiers(
+        self, modifiers: List[ScheduledModifier]
+    ) -> List[ScheduledModifier]:
+        # List of individial modifiers which stay separately
+        self._non_group_mods = []
+
+        # Each set of modifiers in a group is cached based on the group class name
+        # The resulting container modifier will be cached as the first element of
+        # the 2-element list below. We need it in order to restore individial
+        # modifier's log type before saving the modifiers
+        self._group_mods = collections.defaultdict(lambda: [None, []])
+
+        for mod in modifiers:
+            group_cls = mod.get_group()
+            if group_cls is None:
+                self._non_group_mods.append(mod)
+            else:
+                # Add this modifier into the list. The container modifier
+                # is added later into the first slot.
+                self._group_mods[group_cls.__name__][1].append(mod)
+        res = self._non_group_mods
+        for group_cls_name, (_, mod_list) in self._group_mods.items():
+            constructor = mod_list[0].get_group()
+            new_group_mod = constructor(mod_list)
+            # Add the resulting container modifier into the slot for caching
+            self._group_mods[group_cls_name][0] = new_group_mod
+            res.append(new_group_mod)
+        return res
+
     def __init__(self, modifiers: List[ScheduledModifier]):
-        super().__init__(modifiers=modifiers)
+        self._non_group_mods = None
+        self._group_mods = None
+        grouped_modifiers = self._group_modifiers(modifiers)
+        super().__init__(modifiers=grouped_modifiers)
 
     def save(self, file_path: str):
         """
@@ -65,8 +101,16 @@ class ScheduledModifierManager(BaseManager, Modifier):
         file_path = clean_path(file_path)
         create_parent_dirs(file_path)
 
+        # Recover the original modifiers before saving
+        orig_mods = self._non_group_mods
+        for group_cls_name, (grouped_mod, mod_list) in self._group_mods.items():
+            for mod in mod_list:
+                # Force individual modifier's log types to be that of the
+                # container modifier
+                mod.log_types = grouped_mod.log_types
+                orig_mods.append(mod)
         with open(file_path, "w") as yaml_file:
-            yaml_file.write(Modifier.list_to_yaml(self.modifiers))
+            yaml_file.write(Modifier.list_to_yaml(orig_mods))
 
     def create_ops(
         self,
@@ -97,31 +141,51 @@ class ScheduledModifierManager(BaseManager, Modifier):
             with graph.as_default():
                 global_step = tf_compat.train.get_or_create_global_step()
 
-        mod_ops, mod_extras = super().create_ops(steps_per_epoch, global_step, graph)
-        tmp_ops = []
+        ops, extras = super().create_ops(steps_per_epoch, global_step, graph)
 
-        for mod in self.modifiers:
-            ops, extras = mod.create_ops(steps_per_epoch, global_step, graph)
+        mod_ops_extras = [
+            mod.create_ops(steps_per_epoch, global_step, graph)
+            for mod in self.modifiers
+        ]  # List[Tuple[List, Dict]]
 
-            if ops:
-                tmp_ops.extend(ops)
+        merged_ops = list(
+            itertools.chain.from_iterable(
+                [_ops for (_ops, _) in mod_ops_extras if _ops]
+            )
+        )
 
-            if extras:
-                for key, val in extras.items():
-                    if key not in mod_extras:
-                        mod_extras[key] = []
+        mod_extras = [
+            _extras for (_, _extras) in mod_ops_extras
+        ]  # List[Dict[str, Any]]
 
+        extras = {}
+        for _extras in mod_extras:
+            for key, val in _extras.items():
+                if key not in extras:
                     if isinstance(val, List):
-                        mod_extras[key].extend(val)
+                        extras[key] = [val]
                     else:
-                        mod_extras[key].append(val)
+                        extras[key] = val
+                else:
+                    # This key exists before either as a list or a single value
+                    if not isinstance(extras[key], List):
+                        raise ValueError(
+                            "extras[{}] has been recorded with unique "
+                            "value and cannot be merged".format(key)
+                        )
+                    if not isinstance(val, List):
+                        raise ValueError(
+                            "extras[{}] has been recorded as list, "
+                            "requiring new list to merge".format(key)
+                        )
+                    extras[key].extend(val)
 
-        with tf_compat.name_scope(ScheduledModifierManager.NM_RECAL):
-            mod_ops.append(
-                tf_compat.group(tmp_ops, name=ScheduledModifierManager.RECAL_UPDATE)
+        with tf_compat.name_scope(NM_RECAL):
+            ops.append(
+                tf_compat.group(merged_ops, name=ScheduledModifierManager.RECAL_UPDATE)
             )
 
-        return mod_ops, mod_extras
+        return ops, extras
 
     def initialize_session(self, sess: tf_compat.Session = None):
         """
@@ -162,3 +226,5 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
         for mod in self.modifiers:
             mod.complete_graph(graph, sess)
+
+        return graph

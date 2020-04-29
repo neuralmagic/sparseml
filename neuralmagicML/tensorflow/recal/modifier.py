@@ -18,7 +18,9 @@ from neuralmagicML.utils import TENSORFLOW_FRAMEWORK
 from neuralmagicML.tensorflow.utils import tf_compat
 
 __all__ = [
+    "EXTRAS_KEY_LEARNING_RATE",
     "EXTRAS_KEY_SUMMARIES",
+    "NM_RECAL",
     "ModifierProp",
     "TENSORFLOW_FRAMEWORK",
     "TensorFlowModifierYAML",
@@ -28,7 +30,10 @@ __all__ = [
 ]
 
 
+EXTRAS_KEY_LEARNING_RATE = "learning_rate"
 EXTRAS_KEY_SUMMARIES = "summaries"
+
+NM_RECAL = "nm_recal"
 
 
 class TensorFlowModifierYAML(ModifierYAML):
@@ -83,6 +88,17 @@ class Modifier(BaseModifier):
 
     def __init__(self, log_types: Union[str, List[str]] = None, **kwargs):
         super().__init__(log_types=log_types, **kwargs)
+
+    def get_group(self) -> Any:
+        """
+        Function to be override by a subclass indicating the modifier container
+        into which the subclass should be combined
+        As an example, the two learning rate modifier classes SetLearningRateModifier
+        and LearningRateModifier return GroupLearningRateModifier, meaning that
+        a sequence of those LR modifier instances are grouped into the
+        GroupLearningRateModifier, which is where the final learning rate is computed
+        """
+        return None
 
     def create_ops(
         self,

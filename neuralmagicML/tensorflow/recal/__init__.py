@@ -8,5 +8,6 @@ from .manager import *
 from .mask_ks import *
 from .modifier import *
 from .modifier_epoch import *
+from .modifier_lr import *
 from .modifier_ks import *
 from .sensitivity_ks import *
