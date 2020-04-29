@@ -28,11 +28,7 @@ import numpy as np
 import onnxruntime as rt
 from tensorflow.contrib import slim
 
-from neuralmagicML.tensorflow.utils import(
-    GraphExporter,
-    nets_utils,
-    tf_compat as tf
-)
+from neuralmagicML.tensorflow.utils import GraphExporter, nets_utils, tf_compat as tf
 
 
 _HELP_TEXT = """
@@ -64,13 +60,27 @@ def get_args_and_exporter():
         help="[Optional] Comma separated list of variables to be passed to the models"
         " arg_scope function.  ex --arg_scope_vars weight_decay=.01,std=.2",
     )
-    parser.add_argument("--num_classes", help="number of model classes, default=1000")
     parser.add_argument(
-        "--num_image_dims", help="Dimensions of input image, default=2 for a 2-d image."
+        "--num_classes",
+        help="number of model classes",
+        type=int,
+        default=1000
+    )
+    parser.add_argument(
+        "--num_image_dims",
+        help="Dimensions of input image, default=2 for a 2-d image.",
+        type=int,
+        default=2,
     )
     parser.add_argument(
         "--save_old_sample_inputs_outputs",
         help="Add flag if old sample inputs and outputs should not be overwritten",
+    )
+    parser.add_argument(
+        "--num_samples",
+        help="The number of sample inputs and outputs to generate",
+        type=int,
+        default=100,
     )
     args = parser.parse_args()
     args.inputs = args.inputs.split(",")
@@ -80,11 +90,6 @@ def get_args_and_exporter():
         args.arg_scope_vars = {var[0]: var[1] for var in args.arg_scope_vars}
     else:
         args.arg_scope_vars = {}
-    if args.num_classes is None:
-        args.num_classes = 1000
-    if args.num_image_dims is None:
-        args.num_image_dims = 2
-    args.num_image_dims = int(args.num_image_dims)
 
     # make model subdirectory if it does not exist and set output_dir to it
     output_sub_dirs = os.listdir(args.output_dir)
@@ -151,7 +156,10 @@ def freeze_test_model(
 
 
 def save_sample_inputs_and_outputs(
-    input_node_names: List[str], output_node_names: List[str], exporter: GraphExporter,
+    input_node_names: List[str],
+    output_node_names: List[str],
+    exporter: GraphExporter,
+    num_samples: int,
 ):
     # Load frozen graph
     with tf.gfile.GFile(exporter.pb_path, "rb") as f:
@@ -177,13 +185,14 @@ def save_sample_inputs_and_outputs(
             1 / (np.prod(shape) - 1)
         )
 
-    # Generate sample inputs and outputs
-    sample_inputs = [
-        get_sample_input_data(input_tensor) for input_tensor in input_tensors
-    ]
-    # sample_feed_dict = dict(zip(input_tensors, sample_inputs))
-    sess = tf.Session(graph=graph)
-    exporter.export_samples(input_tensors, sample_inputs, output_tensors, sess)
+    for i in range(num_samples):
+        # Generate sample inputs and outputs
+        sample_inputs = [
+            get_sample_input_data(input_tensor) for input_tensor in input_tensors
+        ]
+        # sample_feed_dict = dict(zip(input_tensors, sample_inputs))
+        sess = tf.Session(graph=graph)
+        exporter.export_samples(input_tensors, sample_inputs, output_tensors, sess)
 
 
 def convert_to_onnx(
@@ -192,13 +201,14 @@ def convert_to_onnx(
     exporter.export_onnx(input_node_names, output_node_names)
 
 
-def run_sample_onnxrumtime(exporter: GraphExporter):
+def run_sample_onnxrumtime(exporter: GraphExporter, sample_number: int = 0):
     # Load onnx model and get input and output names
     sess = rt.InferenceSession(exporter.onnx_path)
     input_names = [input.name for input in sess.get_inputs()]
     output_names = [output.name for output in sess.get_outputs()]
     # Generate sample data
-    sample_inputs = np.load(os.path.join(exporter.sample_inputs_path, "inp-0000.npz"))
+    sample_name = "inp-{:04}.npz".format(sample_number)
+    sample_inputs = np.load(os.path.join(exporter.sample_inputs_path, sample_name))
     sample_inputs = [
         np.expand_dims(sample_input.astype(np.float32), 0)
         for sample_input in sample_inputs.values()
@@ -209,13 +219,16 @@ def run_sample_onnxrumtime(exporter: GraphExporter):
     return onnx_outputs
 
 
-def compare_tf_onnx_outputs(onnx_outputs: List[np.ndarray], exporter: GraphExporter):
+def compare_tf_onnx_outputs(
+    onnx_outputs: List[np.ndarray], exporter: GraphExporter, sample_number: int = 0
+):
     """
     Compares the output arrays from running the sample inputs on the onnx
     runtime versus tensorflow.  Raises an error if the maximum absolute error
     is greater than 1e-4
     """
-    sample_outputs = np.load(os.path.join(exporter.sample_outputs_path, "out-0000.npz"))
+    sample_name = "out-{:04}.npz".format(sample_number)
+    sample_outputs = np.load(os.path.join(exporter.sample_outputs_path, sample_name))
     tf_outputs = [np.expand_dims(arr, 0) for arr in sample_outputs.values()]
     for onnx_output, tf_output in zip(onnx_outputs, tf_outputs):
         if np.max(np.abs(onnx_output - tf_output)) >= 1e-4:
@@ -233,6 +246,7 @@ def generate_test_model(
     num_image_dims: int,
     arg_scope_vars: Dict,
     checkpoint_file: str,
+    num_samples: int,
 ):
     """
     Loads a freezes a TF model.  Saves frozen model with its checkpoint.
@@ -248,6 +262,7 @@ def generate_test_model(
     :param num_image_dims: the number of dimensions in input images (ie 2 or 3)
     :param arg_scope_vars: dictionary of optional variables for nets_factory
     :param checkpoint_file: path to .ckpt file of model weights
+    :param num_samples: number of sample inputs and outputs to generate
     """
     freeze_test_model(
         model_name,
@@ -259,11 +274,12 @@ def generate_test_model(
         arg_scope_vars=arg_scope_vars,
     )
     tf.reset_default_graph()
-    save_sample_inputs_and_outputs(inputs, outputs, exporter)
-    tf.reset_default_graph()
     convert_to_onnx(inputs, outputs, exporter)
-    onnx_outputs = run_sample_onnxrumtime(exporter)
-    compare_tf_onnx_outputs(onnx_outputs, exporter)
+    tf.reset_default_graph()
+    save_sample_inputs_and_outputs(inputs, outputs, exporter, num_samples)
+    for i in range(num_samples):
+        onnx_outputs = run_sample_onnxrumtime(exporter, sample_number=i)
+        compare_tf_onnx_outputs(onnx_outputs, exporter, sample_number=i)
 
 
 def main():
@@ -277,6 +293,7 @@ def main():
         num_image_dims=args.num_image_dims,
         arg_scope_vars=args.arg_scope_vars,
         checkpoint_file=args.checkpoint_file,
+        num_samples=args.num_samples,
     )
 
 
