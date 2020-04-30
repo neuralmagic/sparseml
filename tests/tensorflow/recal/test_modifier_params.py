@@ -119,10 +119,9 @@ def test_trainable_params_modifier_with_training():
 
         mod_ops, mod_extras = manager.create_ops(steps_per_epoch)
         assert len(tf_compat.trainable_variables()) < num_trainable_variabls_init
-
-        non_trainable_var = mod_extras[EXTRAS_KEY_VAR_LIST][0]
-        trainable_var = tf_compat.trainable_variables()[0]
-
+        # Get the variables returned by the trainable_params modifier
+        non_trainable_vars = mod_extras[EXTRAS_KEY_VAR_LIST][0]
+        trainable_vars = tf_compat.trainable_variables()
         train_op = tf_compat.train.AdamOptimizer(learning_rate=1e-4).minimize(
             loss, global_step=global_step
         )
@@ -130,8 +129,10 @@ def test_trainable_params_modifier_with_training():
         with tf_compat.Session(graph=graph) as sess:
             sess.run(tf_compat.global_variables_initializer())
             manager.initialize_session(sess)
-            non_trainable_var_value_init = non_trainable_var.eval(session=sess)
-            trainable_var_value_init = trainable_var.eval(session=sess)
+            init_non_trainable_vars = [
+                var.eval(session=sess) for var in non_trainable_vars
+            ]
+            init_trainable_vars = [var.eval(session=sess) for var in trainable_vars]
             batch_lab = numpy.random.random((batch_size, *logits.shape[1:]))
             batch_inp = numpy.random.random((batch_size, *inputs.shape[1:]))
 
@@ -139,15 +140,15 @@ def test_trainable_params_modifier_with_training():
                 for step in range(steps_per_epoch):
                     sess.run(train_op, feed_dict={inputs: batch_inp, labels: batch_lab})
                     step_counter = sess.run(global_step)
-
-            non_trainable_var_value_final = non_trainable_var.eval(session=sess)
-            trainable_var_value_final = trainable_var.eval(session=sess)
-            assert numpy.array_equal(
-                non_trainable_var_value_init, non_trainable_var_value_final
-            )
-            assert not numpy.array_equal(
-                trainable_var_value_init, trainable_var_value_final
-            )
+            # Compare initial and final variable values
+            for idx, init_non_trainable_var in enumerate(init_non_trainable_vars):
+                final_non_trainable_var = non_trainable_vars[idx].eval(session=sess)
+                assert numpy.array_equal(
+                    init_non_trainable_var, final_non_trainable_var
+                )
+            for idx, init_trainable_var in enumerate(init_trainable_vars):
+                final_trainable_var = trainable_vars[idx].eval(session=sess)
+                assert not numpy.array_equal(init_trainable_var, final_trainable_var)
             manager.complete_graph()
 
 
