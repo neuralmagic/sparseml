@@ -10,4 +10,5 @@ from .modifier import *
 from .modifier_epoch import *
 from .modifier_lr import *
 from .modifier_ks import *
+from .modifier_params import *
 from .sensitivity_ks import *

@@ -72,7 +72,7 @@ class TrainableParamsModifier(ScheduledModifier):
         layers: Union[str, List[str]],
         trainable: bool,
         params_strict: bool = True,
-        start_epoch: float = 0.0,
+        start_epoch: float = -1.0,
         end_epoch: float = -1.0,
     ):
         super().__init__(

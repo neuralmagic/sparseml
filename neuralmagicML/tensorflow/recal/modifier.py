@@ -20,6 +20,7 @@ from neuralmagicML.tensorflow.utils import tf_compat
 __all__ = [
     "EXTRAS_KEY_LEARNING_RATE",
     "EXTRAS_KEY_SUMMARIES",
+    "EXTRAS_KEY_VAR_LIST",
     "NM_RECAL",
     "ModifierProp",
     "TENSORFLOW_FRAMEWORK",
@@ -32,6 +33,7 @@ __all__ = [
 
 EXTRAS_KEY_LEARNING_RATE = "learning_rate"
 EXTRAS_KEY_SUMMARIES = "summaries"
+EXTRAS_KEY_VAR_LIST = "var_list"
 
 NM_RECAL = "nm_recal"
 
