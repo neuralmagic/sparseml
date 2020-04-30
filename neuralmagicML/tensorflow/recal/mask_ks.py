@@ -23,6 +23,7 @@ __all__ = [
     "KSScope",
     "create_op_pruning",
     "create_graph_ops_pruning",
+    "create_ks_scheduled_constant_graph_ops",
     "get_or_create_graph_ops_pruning",
     "apply_op_vars_masks",
     "create_summaries_pruning",
@@ -135,26 +136,17 @@ class KSScope(object):
         return scope
 
 
-def create_op_pruning(
-    op: tf_compat.Operation,
-    var_index: Union[int, str],
-    sparsity: tf_compat.Tensor,
-    update_ready: tf_compat.Tensor,
-    ks_group: str,
+def create_op_pruning_no_update(
+    op: tf_compat.Operation, var_index: Union[int, str], ks_group: str,
 ) -> PruningOpVars:
     """
     Creates the necessary variables and operators to gradually
-    apply sparsity to an operators variable.
-
-    Handles setting a mask on an operator to the given sparsity.
-    Sets the mask based on pruning away the lowest absolute magnitude weights.
+    apply sparsity to an operators variable without returning a
+    PruningOpVars.update value.
 
     :param op: the operation to prune to the given sparsity
     :param var_index: the index for where the variable is,
         see :py:func:`~get_op_input_var`
-    :param sparsity: the target sparsity to use for assigning the masks
-    :param update_ready: the tensor where if true will update the mask from sparsity,
-        if false will not update the mask
     :param ks_group: the group identifier the scope should be created under
     :return: a named tuple containing the assignment op, mask variable,
         threshold tensor, and masked tensor
@@ -187,6 +179,38 @@ def create_op_pruning(
     tf_compat.add_to_collection(
         KSScope.collection_name(ks_group, KSScope.OP_MASKED_VAR), masked
     )
+    return PruningOpVars(op, op_var_tens, None, mask, masked)
+
+
+def create_op_pruning(
+    op: tf_compat.Operation,
+    var_index: Union[int, str],
+    sparsity: tf_compat.Tensor,
+    update_ready: tf_compat.Tensor,
+    ks_group: str,
+) -> PruningOpVars:
+    """
+    Creates the necessary variables and operators to gradually
+    apply sparsity to an operators variable.
+
+    Handles setting a mask on an operator to the given sparsity.
+    Sets the mask based on pruning away the lowest absolute magnitude weights.
+
+    :param op: the operation to prune to the given sparsity
+    :param var_index: the index for where the variable is,
+        see :py:func:`~get_op_input_var`
+    :param sparsity: the target sparsity to use for assigning the masks
+    :param update_ready: the tensor where if true will update the mask from sparsity,
+        if false will not update the mask
+    :param ks_group: the group identifier the scope should be created under
+    :return: a named tuple containing the assignment op, mask variable,
+        threshold tensor, and masked tensor
+    """
+    initial_vars = create_op_pruning_no_update(op, var_index, ks_group)
+    op = initial_vars.op
+    op_var_tens = initial_vars.op_input
+    mask = initial_vars.mask
+    masked = initial_vars.masked
 
     def _update():
         # create the update ops using the target sparsity tensor
@@ -205,19 +229,19 @@ def create_op_pruning(
             )
             sparse_threshold_index = tf_compat.minimum(
                 tf_compat.maximum(sparse_threshold_index, 0),
-                tf_compat.size(op_var_tens) - 1
+                tf_compat.size(op_var_tens) - 1,
             )
             # produce tensor where each element is the index in sorted order of abs_var
             abs_var_flat = tf_compat.reshape(abs_var, [-1])
             element_ranks_flat = tf_compat.scatter_nd(
                 tf_compat.expand_dims(tf_compat.argsort(abs_var_flat), 1),
                 tf_compat.range(abs_var_flat.get_shape()[0].value),
-                abs_var_flat.get_shape()
+                abs_var_flat.get_shape(),
             )
             element_ranks = tf_compat.reshape(element_ranks_flat, abs_var.get_shape())
             new_mask = tf_compat.cast(
                 tf_compat.greater(element_ranks, sparse_threshold_index),
-                tf_compat.dtypes.float32
+                tf_compat.dtypes.float32,
             )
             return tf_compat.assign(mask, new_mask, name=KSScope.OP_MASK_ASSIGN)
 
@@ -243,6 +267,33 @@ def create_op_pruning(
         KSScope.collection_name(ks_group, KSScope.OP_MASK_UPDATE), mask_update
     )
 
+    return PruningOpVars(op, op_var_tens, mask_update, mask, masked)
+
+
+def create_constant_op_pruning(
+    op: tf_compat.Operation, var_index: Union[int, str], ks_group: str,
+) -> PruningOpVars:
+    """
+    Creates PruningOpVars with constants mask for the given operation
+
+    :param op: the operation to prune to the given sparsity
+    :param var_index: the index for where the variable is,
+        see :py:func:`~get_op_input_var`
+    :param ks_group: the group identifier the scope should be created under
+    :return: a named tuple containing the assignment op, mask variable,
+        threshold tensor, and masked tensor
+    """
+    initial_vars = create_op_pruning_no_update(op, var_index, ks_group)
+    op = initial_vars.op
+    op_var_tens = initial_vars.op_input
+    mask = initial_vars.mask
+    masked = initial_vars.masked
+    with tf_compat.name_scope(
+        KSScope.model(op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,)
+    ):
+        mask_update = tf_compat.constant(
+            0.0, dtype=op_var_tens.dtype, name=KSScope.OP_MASK_UPDATE_NO_OP
+        )
     return PruningOpVars(op, op_var_tens, mask_update, mask, masked)
 
 
@@ -530,8 +581,43 @@ def get_or_create_ks_schedule_ops(
             exponent,
             ks_group,
         )
+        # add return state to collections
+        tf_compat.add_to_collection(
+            KSScope.collection_name(ks_group, KSScope.OP_UPDATE_READY), update_ready
+        )
+        tf_compat.add_to_collection(
+            KSScope.collection_name(ks_group, KSScope.OP_SPARSITY), sparsity
+        )
 
     return update_ready, sparsity
+
+
+def get_scheduled_update_op(
+    pruning_op_vars: List[PruningOpVars], ks_group: str,
+):
+    """
+    Creates model pruning (kernel sparsity) ops and vars in the graph
+    to be applied over a specific schedule.
+    Creates them for the op_names in the graph such that they follow the given schedule.
+
+    :param pruning_op_vars: List of tuples of operation tensors and masks.
+    :param ks_group: the group identifier the scope should be created under
+    :return: the update operation to run in a session
+    """
+    update_op = tf_compat.get_collection(
+        KSScope.collection_name(ks_group, KSScope.OP_COND_UPDATE)
+    )
+    update_op = update_op[0] if len(update_op) > 0 else None
+
+    if update_op is None:
+        update_op = tf_compat.group(*[op_var.update for op_var in pruning_op_vars])
+
+        # add return state to collections
+        tf_compat.add_to_collection(
+            KSScope.collection_name(ks_group, KSScope.OP_COND_UPDATE), update_op
+        )
+
+    return update_op
 
 
 def get_or_create_ks_scheduled_graph_ops(
@@ -587,18 +673,33 @@ def get_or_create_ks_scheduled_graph_ops(
     pruning_op_vars = get_or_create_graph_ops_pruning(
         graph, op_names, var_index, sparsity, update_ready, ks_group
     )
-
-    update_op = tf_compat.get_collection(
-        KSScope.collection_name(ks_group, KSScope.OP_COND_UPDATE)
-    )
-    update_op = update_op[0] if len(update_op) > 0 else None
-
-    if update_op is None:
-        update_op = tf_compat.group(*[op_var.update for op_var in pruning_op_vars])
-
-        # add return state to collections
-        tf_compat.add_to_collection(
-            KSScope.collection_name(ks_group, KSScope.OP_COND_UPDATE), update_op
-        )
-
+    update_op = get_scheduled_update_op(pruning_op_vars, ks_group)
     return update_op, pruning_op_vars, update_ready, sparsity
+
+
+def create_ks_scheduled_constant_graph_ops(
+    graph: tf_compat.Graph,
+    op_names: List[str],
+    var_index: Union[int, str],
+    ks_group: str,
+) -> Tuple[tf_compat.Tensor, List[PruningOpVars]]:
+    """
+    Creates constant model pruning ops.  Does not modify the graph.
+
+    :param graph: the tf graph to pull the operator out of for applying the pruning to
+    :param op_names: the list of name of the operations in the graph to
+        prune to the given sparsity
+    :param var_index: the index for where the variable is,
+        see :py:func:`~get_op_input_var`
+    :param ks_group: the group identifier the scope should be created under
+    :return: a tuple containing the update operation to run in a session,
+        a list of the pruning ops and vars for each desired op in the graph
+    """
+    pruning_op_vars = []
+    for op_name in op_names:
+        op = graph.get_operation_by_name(op_name)
+        op_vars = create_constant_op_pruning(op, var_index, ks_group)
+        pruning_op_vars.append(op_vars)
+
+    update_op = get_scheduled_update_op(pruning_op_vars, ks_group)
+    return update_op, pruning_op_vars

@@ -20,17 +20,209 @@ from neuralmagicML.tensorflow.recal.modifier import (
     EXTRAS_KEY_SUMMARIES,
     ModifierProp,
     TensorFlowModifierYAML,
+    ScheduledModifier,
     ScheduledUpdateModifier,
 )
 from neuralmagicML.tensorflow.recal.mask_ks import (
     get_or_create_ks_scheduled_graph_ops,
+    create_ks_scheduled_constant_graph_ops,
     create_summaries_pruning,
     PruningOpVars,
     apply_op_vars_masks,
 )
 
 
-__all__ = ["GradualKSModifier"]
+__all__ = ["ConstantKSModifier", "GradualKSModifier"]
+
+
+@TensorFlowModifierYAML()
+class ConstantKSModifier(ScheduledModifier):
+    """
+    Holds the sparsity level and shape for a given param constant while training.
+    Useful for transfer learning use cases.
+
+    | Sample yaml:
+    |   !ConstantKSModifier
+    |       layers: __ALL__
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       param: weight
+    |       log_types: __ALL__
+
+    :param layers: str or list of str for the layers to apply the KS modifier to
+        can also use the token __ALL__ to specify all layers
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param param: The index to guide which input to grab from the operation.
+        Can be set to an integer representing where the variable is, a string
+        representing a name or portion of the name of the variable, or the default:
+        "from_trainable" which tries to find from the trainable vars in the graph
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    """
+
+    def __init__(
+        self,
+        layers: Union[str, List[str]],
+        start_epoch: float,
+        end_epoch: float,
+        param: Union[int, str] = VAR_INDEX_FROM_TRAINABLE,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+    ):
+        super(ConstantKSModifier, self).__init__(
+            log_types=log_types,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            end_comparator=1,
+        )
+        self._param = param
+        self._layers = validate_str_iterable(
+            layers, "{} for layers".format(self.__class__.__name__)
+        )  # type: List[str]
+        self._prune_op_vars = None
+        self._update_ready = None
+        self._sparsity = None
+
+    @ModifierProp()
+    def layers(self) -> Union[str, List[str]]:
+        """
+        :return: List of str for the layers (ops) to apply the KS modifier to
+        """
+        return self._layers
+
+    @layers.setter
+    def layers(self, value: Union[str, List[str]]):
+        """
+        :param value: List of str for the layers (ops) to apply the KS modifier to
+        """
+        self._layers = value
+
+    @ModifierProp()
+    def param(self) -> Union[int, str]:
+        """
+        :return: The index to guide which input to grab from the operation.
+            Can be set to an integer representing where the variable is,
+            a string representing a name or portion of the name of the variable,
+            or the default: "from_trainable" which tries to find from
+            the trainable vars in the graph
+        """
+        return self._param
+
+    @param.setter
+    def param(self, value: Union[int, str]):
+        """
+        :param value: The index to guide which input to grab from the operation.
+            Can be set to an integer representing where the variable is,
+            a string representing a name or portion of the name of the variable,
+            or the default: "from_trainable" which tries to find from
+            the trainable vars in the graph
+        """
+        self._param = value
+
+    @ModifierProp(serializable=False)
+    def ks_group(self) -> str:
+        """
+        :return: a hashed representation of the settings that identify this instance
+        """
+        props = self.props(only_serializable=True, format_str=False)
+        props = ["{}={}".format(key, val) for key, val in props.items()]
+        props.sort()
+        props = "&".join(props)
+
+        return "{}".format(hashlib.md5(bytes(props, encoding="utf8")).hexdigest())
+
+    @property
+    def prune_op_vars(self) -> Union[None, List[PruningOpVars]]:
+        """
+        :return: the created pruning op vars in the graph if create_ops has been called,
+            else None
+        """
+        return self._prune_op_vars
+
+    @property
+    def update_ready(self):
+        """
+        :return: the created update_ready tensor for setting the pruning ops
+            if create_ops has been called, else None
+        """
+        return self._update_ready
+
+    @property
+    def sparsity(self) -> Union[None, tf_compat.Tensor]:
+        """
+        :return: the created sparsity tensor for setting the pruning ops
+            if create_ops has been called, else None
+        """
+        return self._sparsity
+
+    def create_ops(
+        self,
+        steps_per_epoch: int,
+        global_step: tf_compat.Tensor,
+        graph: tf_compat.Graph,
+    ) -> Tuple[List[Union[tf_compat.Tensor, tf_compat.Operation]], Dict[str, Any]]:
+        """
+        Create the sparsity ops to modify the training graph according to the settings
+        for the current instance.
+
+        :param steps_per_epoch: the number of steps (batches) per training epoch
+        :param global_step: the global step used while training
+        :param graph: the graph to be modified
+        :return: a tuple (list of ops, dict of named ops / tensors)
+            to be run or used for modifying the training process.
+        """
+        mod_ops, mod_extras = super().create_ops(graph, None, None)
+
+        layers = (
+            self._layers
+            if self._layers != ALL_TOKEN
+            else [op[0] for op in get_prunable_ops(graph)]
+        )
+
+        with graph.as_default():
+            update_op, prune_op_vars = create_ks_scheduled_constant_graph_ops(
+                graph, layers, self._param, self.ks_group,
+            )
+
+            if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:
+                mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(
+                    prune_op_vars
+                )
+
+        mod_ops.append(update_op)
+        self._prune_op_vars = prune_op_vars
+        # self._update_ready = tf_compat.constant(False, name="nm_update_ready")
+
+        return mod_ops, mod_extras
+
+    def initialize_session(self, sess: tf_compat.Session):
+        """
+        Initialize the mask variables for pruning.
+
+        :param sess: the session to use for initializing
+        """
+        super().initialize_session(sess)
+        masks = [op_vars.mask for op_vars in self._prune_op_vars]
+
+        if masks:
+            sess.run(tf_compat.variables_initializer(masks))
+
+    def complete_graph(self, graph: tf_compat.Graph, sess: tf_compat.Session):
+        """
+        Complete modifying the graph.
+        Resets the pruned op's variables using the created masks to zero out
+        the pruned weights for saving.
+
+        :param graph: the modified graph that should be completed and cleaned.
+            if not supplied, then will use the default graph
+        :param sess: the session to use for completing the modified graph.
+            if not supplied, then will use the default session
+        :return: the cleaned graph
+        """
+        super().complete_graph(graph, sess)
+
+        with graph.as_default():
+            apply_op_vars_masks(self.prune_op_vars, self.ks_group, sess)
 
 
 @TensorFlowModifierYAML()

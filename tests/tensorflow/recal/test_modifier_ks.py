@@ -10,6 +10,7 @@ from neuralmagicML.tensorflow.utils import (
     batch_cross_entropy_loss,
 )
 from neuralmagicML.tensorflow.recal import (
+    ConstantKSModifier,
     GradualKSModifier,
     ScheduledModifierManager,
     EXTRAS_KEY_SUMMARIES,
@@ -21,6 +22,115 @@ from tests.tensorflow.recal.test_modifier import (
     mlp_graph_lambda,
     conv_graph_lambda,
 )
+
+
+@pytest.mark.parametrize(
+    "graph_lambda,modifier_lambda",
+    [
+        (
+            mlp_graph_lambda,
+            lambda: ConstantKSModifier(
+                layers=["mlp_net/fc1/matmul"], start_epoch=0.0, end_epoch=20.0,
+            ),
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("steps_per_epoch", [100], scope="function")
+class TestConstantKSModifierImpl(ScheduledModifierTest):
+    def test_lifecycle(
+        self,
+        modifier_lambda: Callable[[], GradualKSModifier],
+        graph_lambda: Callable[[], tf_compat.Graph],
+        steps_per_epoch: int,
+    ):
+        modifier = modifier_lambda()
+        graph = graph_lambda()
+        with graph.as_default():
+            global_step = tf_compat.train.get_or_create_global_step()
+            step_placeholder = tf_compat.placeholder(dtype=tf_compat.int64, name="step")
+            global_assign = global_step.assign(step_placeholder)
+
+            inp = graph.get_tensor_by_name("inp:0")
+            out = graph.get_tensor_by_name("out:0")
+
+            mod_ops, mod_extras = modifier.create_ops(
+                steps_per_epoch, global_step, graph
+            )
+            assert len(mod_ops) == 1
+            assert mod_ops[0] is not None
+            assert len(mod_extras) == 1
+            assert EXTRAS_KEY_SUMMARIES in mod_extras
+            assert modifier.prune_op_vars
+            assert len(modifier.prune_op_vars) > 0
+            last_sparsities = [0.0 for _ in range(len(modifier.prune_op_vars))]
+
+            with tf_compat.Session(graph=graph) as sess:
+                sess.run(tf_compat.global_variables_initializer())
+                modifier.initialize_session(sess)
+                step_counter = 0
+                inp_arr = numpy.random.random((1, *inp.shape[1:]))
+
+                for epoch in range(int(modifier.end_epoch + 5.0)):
+                    for step in range(steps_per_epoch):
+                        res = sess.run(out, feed_dict={inp: inp_arr})
+                        assert res.sum() > 0
+
+                        step_counter += 1
+                        sess.run(
+                            global_assign, feed_dict={step_placeholder: step_counter}
+                        )
+                        sess.run(mod_ops)
+
+                        for index, op_vars in enumerate(modifier.prune_op_vars):
+                            mask_sparsity = eval_tensor_sparsity(op_vars.mask)
+                            masked_sparsity = eval_tensor_sparsity(op_vars.masked)
+
+                            assert abs(mask_sparsity - masked_sparsity) < 1e-5
+
+                            if epoch < modifier.start_epoch:
+                                assert masked_sparsity < 1e-2
+                                assert not update_ready_val
+                            else:
+                                assert masked_sparsity == last_sparsities[index]
+                                last_sparsities[index] = masked_sparsity
+
+                modifier.complete_graph(graph, sess)
+
+
+def test_constant_ks_yaml():
+    layers = "__ALL__"
+    start_epoch = 5.0
+    end_epoch = 15.0
+    param = VAR_INDEX_FROM_TRAINABLE
+    yaml_str = f"""
+    !ConstantKSModifier
+        layers: {layers}
+        start_epoch: {start_epoch}
+        end_epoch: {end_epoch}
+        param: {param}
+    """
+    yaml_modifier = ConstantKSModifier.load_obj(yaml_str)  # type: ConstantKSModifier
+    serialized_modifier = ConstantKSModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: ConstantKSModifier
+    obj_modifier = ConstantKSModifier(
+        layers=layers, start_epoch=start_epoch, end_epoch=end_epoch, param=param
+    )
+
+    assert isinstance(yaml_modifier, ConstantKSModifier)
+    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
 
 
 @pytest.mark.parametrize(
