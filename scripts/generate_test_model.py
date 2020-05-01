@@ -22,7 +22,7 @@ from __future__ import unicode_literals
 
 import argparse
 import os
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 import onnxruntime as rt
@@ -61,10 +61,7 @@ def get_args_and_exporter():
         " arg_scope function.  ex --arg_scope_vars weight_decay=.01,std=.2",
     )
     parser.add_argument(
-        "--num_classes",
-        help="number of model classes",
-        type=int,
-        default=1000
+        "--num_classes", help="number of model classes", type=int, default=1000
     )
     parser.add_argument(
         "--num_image_dims",
@@ -82,9 +79,17 @@ def get_args_and_exporter():
         type=int,
         default=100,
     )
+    parser.add_argument(
+        "--input_shape",
+        help="Comma separated shape of input tensor to network without batch dimension",
+    )
     args = parser.parse_args()
     args.inputs = args.inputs.split(",")
     args.outputs = args.outputs.split(",")
+    if args.input_shape is not None:
+        args.input_shape = tuple([int(d) for d in args.input_shape.split(",")])
+        if len(args.input_shape) == 0:
+            args.input_shape = None
     if args.arg_scope_vars:
         args.arg_scope_vars = [var.split("=") for var in args.arg_scope_vars.split(",")]
         args.arg_scope_vars = {var[0]: var[1] for var in args.arg_scope_vars}
@@ -126,6 +131,7 @@ def freeze_test_model(
     num_image_dims: int = 2,
     checkpoint_file: str = None,
     arg_scope_vars: Dict = {},
+    input_shape: Tuple[int] = None,
 ):
     # Load graph
     graph = tf.get_default_graph()
@@ -133,12 +139,13 @@ def freeze_test_model(
         model_name, num_classes, arg_scope_vars=arg_scope_vars
     )
     # Freeze graph
-    image_dims_shape = [network_fn.default_image_size] * num_image_dims
-    placeholder = tf.placeholder(
-        "float", name="input", shape=(None, *image_dims_shape, 3)
-    )
-    _, end_points = network_fn(placeholder)
-    graph_def = graph.as_graph_def()
+    if input_shape is None:
+        image_dims_shape = [network_fn.default_image_size] * num_image_dims
+        input_shape = (None, *image_dims_shape, 3)
+    else:
+        input_shape = (None, *input_shape)
+    placeholder = tf.placeholder("float", name="input", shape=input_shape)
+    _, _ = network_fn(placeholder)
     output_nodes = [name.split(":")[0] for name in output_node_names]
 
     sess = tf.Session()
@@ -231,9 +238,11 @@ def compare_tf_onnx_outputs(
     sample_outputs = np.load(os.path.join(exporter.sample_outputs_path, sample_name))
     tf_outputs = [np.expand_dims(arr, 0) for arr in sample_outputs.values()]
     for onnx_output, tf_output in zip(onnx_outputs, tf_outputs):
-        if np.max(np.abs(onnx_output - tf_output)) >= 1e-4:
+        error = np.max(np.abs(onnx_output - tf_output))
+        if error >= 1e-4:
             raise Exception(
-                "Absolute maximum error between tf and onnx" " greater than 1e-4."
+                "Absolute maximum error between tf and onnx ="
+                " {} > 1e-4.  Sample number: {}.".format(error, sample_number)
             )
 
 
@@ -247,6 +256,7 @@ def generate_test_model(
     arg_scope_vars: Dict,
     checkpoint_file: str,
     num_samples: int,
+    input_shape: Tuple[int],
 ):
     """
     Loads a freezes a TF model.  Saves frozen model with its checkpoint.
@@ -263,6 +273,7 @@ def generate_test_model(
     :param arg_scope_vars: dictionary of optional variables for nets_factory
     :param checkpoint_file: path to .ckpt file of model weights
     :param num_samples: number of sample inputs and outputs to generate
+    :param input_shape: input shape to network without batch dimension
     """
     freeze_test_model(
         model_name,
@@ -272,6 +283,7 @@ def generate_test_model(
         num_image_dims=num_image_dims,
         checkpoint_file=checkpoint_file,
         arg_scope_vars=arg_scope_vars,
+        input_shape=input_shape,
     )
     tf.reset_default_graph()
     convert_to_onnx(inputs, outputs, exporter)
@@ -294,6 +306,7 @@ def main():
         arg_scope_vars=args.arg_scope_vars,
         checkpoint_file=args.checkpoint_file,
         num_samples=args.num_samples,
+        input_shape=args.input_shape,
     )
 
 

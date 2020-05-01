@@ -11,9 +11,16 @@ from typing import Callable, Dict
 
 from neuralmagicML.tensorflow.utils import tf_compat as tf
 
-from nets import nets_factory
+from nets import nets_factory, dcgan, cyclegan
 from tensorflow.contrib import slim
 from tensorflow.contrib import layers as contrib_layers
+
+
+gans = {
+    "cyclegan": cyclegan.cyclegan_generator_resnet,
+    "dcgan_generator": dcgan.generator,
+    "dcgan_discriminator": dcgan.discriminator,
+}
 
 
 def get_network_fn(
@@ -48,6 +55,8 @@ def get_network_fn(
      the caller to do this or not.
     :raise: ValueError If network `name` is not recognized.
   """
+    if "gan" in name.lower():
+        return get_gan_network_fn(name, is_training)
     if name not in nets_factory.networks_map:
         raise ValueError("Name of network unknown %s" % name)
     func = nets_factory.networks_map[name]
@@ -62,6 +71,29 @@ def get_network_fn(
 
     if hasattr(func, "default_image_size"):
         network_fn.default_image_size = func.default_image_size
+
+    return network_fn
+
+
+def get_gan_network_fn(
+    name: str, is_training: bool = False,
+):
+    """
+    Returns network_fn for a GAN sub-model
+
+    :param name: The name of the network.
+    :param is_training: `True` if the model is being used for training otherwise `False`
+    :return network_fn: Function that will run a gan sub-model
+    :raise: ValueError If network `name` is not recognized.
+  """
+    if name not in gans:
+        raise ValueError("Name of GAN network unknown %s" % name)
+    func = gans[name]
+
+    def network_fn(inputs, **kwargs):
+        if name == "dcgan_generator":
+            kwargs["final_size"] = 16
+        return func(inputs, is_training=is_training, **kwargs)
 
     return network_fn
 
