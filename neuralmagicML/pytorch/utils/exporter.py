@@ -4,6 +4,8 @@ Export PyTorch models to the local device
 
 from typing import List, Any, Iterable
 import os
+from collections import OrderedDict
+
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -118,6 +120,11 @@ class ModuleExporter(object):
                     counter=exp_counter,
                     break_batch=True,
                 )
+                if isinstance(out, dict):
+                    new_out = []
+                    for key in out:
+                        new_out.append(out[key])
+                    out = new_out
                 exported_output = tensors_export(
                     out,
                     outputs_dir,

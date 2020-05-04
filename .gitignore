@@ -11,6 +11,9 @@ neuralmagicML/notebooks/logs/*
 neuralmagicML/data/*
 neuralmagicML/checkpoints
 neuralmagicML/pruned
+tensorboard/*
+onnx/*
+repos/*
 
 *.rst
 

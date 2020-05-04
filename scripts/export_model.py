@@ -4,10 +4,14 @@ import os
 import json
 
 from torch.utils.data import DataLoader
-import torchvision.models as models
+import torchvision.models as classificiation_models
+import torchvision.models.segmentation as segmentation_models
+import torchvision.models.detection as detection_models
+import torchvision.models.video as video_models
 
-from neuralmagicML.pytorch.datasets import ImageNetDataset
-from neuralmagicML.pytorch.datasets import MNISTDataset
+# from neuralmagicML.pytorch.datasets -import ImageNetDataset
+# from neuralmagicML.pytorch.datasets import MNISTDataset
+from neuralmagicML.pytorch.datasets import DatasetRegistry
 from neuralmagicML.pytorch.models import ModelRegistry
 from neuralmagicML.pytorch.utils import ModuleExporter
 
@@ -27,6 +31,7 @@ def export_model(
     dataset_path: str,
     dataset_type: str,
     from_zoo: bool,
+    zoo_model_domain: str,
 ):
     # fix for exporting FATReLU's
     # fix_onnx_threshold_export()
@@ -37,6 +42,16 @@ def export_model(
     export_dir = os.path.abspath(os.path.expanduser(export_dir))
 
     if from_zoo:
+        if zoo_model_domain == "classification":
+            models = classificiation_models
+        elif zoo_model_domain == "segmentation":
+            models = segmentation_models
+        elif zoo_model_domain == "detection":
+            models = detection_models
+        elif zoo_model_domain == "video":
+            models = video_models
+        else:
+            raise Exception("Not using a valid zoo model domain type")
         model = getattr(models, model_type)(pretrained=True)
     else:
         model = ModelRegistry.create(
@@ -181,6 +196,13 @@ def main():
         "--from-zoo", action="store_true", help="Download model from zoo"
     )
 
+    parser.add_argument(
+        "--zoo-model-domain",
+        default="classification",
+        type=str,
+        help="The domain of zoo model, defaults to classification",
+    )
+
     args = parser.parse_args()
     export_model(
         args.model_type,
@@ -197,6 +219,7 @@ def main():
         args.dataset_path,
         args.dataset_type,
         args.from_zoo,
+        args.zoo_model_domain,
     )
 
 
