@@ -55,8 +55,7 @@ class _InvertedBottleneckBlock(Module):
         self._out_channels = out_channels
         self._stride = stride
         self._se_mod = se_mod
-        expanded_channels = in_channels * expansion_ratio
-
+        expanded_channels = int(in_channels * expansion_ratio)
         self.expand = (
             Sequential(
                 OrderedDict(
@@ -317,6 +316,7 @@ class EfficientNet(Module):
                     se_mod=settings.se_mod,
                 )
             )
+            in_channels = settings.out_channels
 
         return Sequential(*blocks)
 

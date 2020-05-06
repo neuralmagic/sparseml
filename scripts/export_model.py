@@ -3,12 +3,13 @@ import argparse
 import os
 import json
 
-from neuralmagicML.pytorch.models import create_model
-from neuralmagicML.pytorch.utils import (
-    ModelExporter,
-    fix_onnx_threshold_export,
-    convert_to_bool,
-)
+from torch.utils.data import DataLoader
+import torchvision.models as models
+
+from neuralmagicML.pytorch.datasets import ImageNetDataset
+from neuralmagicML.pytorch.datasets import MNISTDataset
+from neuralmagicML.pytorch.models import ModelRegistry
+from neuralmagicML.pytorch.utils import ModuleExporter
 
 
 def export_model(
@@ -23,23 +24,24 @@ def export_model(
     export_layers: bool,
     model_plugin_paths: Union[None, List[str]],
     model_plugin_args: Union[None, Dict],
+    dataset_path: str,
+    dataset_type: str,
+    from_zoo: bool,
 ):
     # fix for exporting FATReLU's
-    fix_onnx_threshold_export()
+    # fix_onnx_threshold_export()
 
     if export_dir is None:
         export_dir = os.path.join(".", "onnx", model_type)
 
     export_dir = os.path.abspath(os.path.expanduser(export_dir))
 
-    model = create_model(
-        model_type,
-        model_path,
-        plugin_paths=model_plugin_paths,
-        plugin_args=model_plugin_args,
-        pretrained=pretrained,
-        num_classes=num_classes,
-    )
+    if from_zoo:
+        model = getattr(models, model_type)(pretrained=True)
+    else:
+        model = ModelRegistry.create(
+            key=model_type, pretrained=pretrained, pretrained_path=model_path
+        )
     print(
         "Created model of type {} with num_classes:{}, pretrained:{} / model_path:{}, and plugins:{}".format(
             model_type, num_classes, pretrained, model_path, model_plugin_paths
@@ -64,15 +66,21 @@ def export_model(
         )
     )
 
-    exporter = ModelExporter(model, export_input_sizes, export_dir)
-    exporter.export_onnx()
+    if dataset_type == "imagenet":
+        dataset = ImageNetDataset(root=dataset_path)
+    elif dataset_type == "mnist":
+        dataset = MNISTDataset(root=dataset_path)
+    else:
+        raise ValueError(f"Unsupported dataset type {dataset_type}")
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 
-    for batch_size in export_batch_sizes:
-        exporter.export_batch(
-            batch_size,
-            export_intermediates=export_intermediates,
-            export_layers=export_layers,
-        )
+    data_iter = iter(dataloader)
+    samples = [next(data_iter)[0] for i in range(100)]
+
+    exporter = ModuleExporter(model, export_dir)
+    exporter.export_onnx(sample_batch=samples[1])
+    exporter.export_pytorch()
+    exporter.export_samples(samples)
 
     print("Completed")
 
@@ -106,7 +114,7 @@ def main():
     parser.add_argument(
         "--num-classes",
         type=int,
-        required=True,
+        required=False,
         help="The number of classes to create the model for",
     )
 
@@ -158,6 +166,21 @@ def main():
         help="json string containing the args to pass to the model plugins when executing",
     )
 
+    parser.add_argument(
+        "--dataset-path", type=str, required=True, help="The path to dataset",
+    )
+
+    parser.add_argument(
+        "--dataset-type",
+        type=str,
+        required=True,
+        help="The type of dataset the model was trained with",
+    )
+
+    parser.add_argument(
+        "--from-zoo", action="store_true", help="Download model from zoo"
+    )
+
     args = parser.parse_args()
     export_model(
         args.model_type,
@@ -167,10 +190,13 @@ def main():
         args.export_dir,
         args.export_batch_sizes,
         args.export_input_sizes,
-        convert_to_bool(args.export_intermediates),
-        convert_to_bool(args.export_layers),
+        args.export_intermediates,
+        args.export_layers,
         args.model_plugin_paths,
         args.model_plugin_args,
+        args.dataset_path,
+        args.dataset_type,
+        args.from_zoo,
     )
 
 

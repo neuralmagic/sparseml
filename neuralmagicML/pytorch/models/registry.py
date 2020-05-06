@@ -189,7 +189,7 @@ class ModelRegistry(object):
                 weights have been loaded
             """
             if desc_args and pretrained in desc_args:
-                kwargs[desc_args[pretrained][0]] = desc_args[pretrained[1]]
+                kwargs[desc_args[pretrained][0]] = desc_args[pretrained]
 
             model = const_func(*args, **kwargs)
             ignore = []
