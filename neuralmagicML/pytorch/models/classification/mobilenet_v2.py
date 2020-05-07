@@ -382,6 +382,7 @@ def mobilenet_v2_width(
 
 @ModelRegistry.register(
     key=[
+        "mobilenetv2",
         "mobilenet_v2",
         "mobilenet_v2_100",
         "mobilenet-v2",

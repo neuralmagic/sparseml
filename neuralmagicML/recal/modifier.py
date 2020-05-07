@@ -261,9 +261,7 @@ class BaseModifier(BaseObject):
     @staticmethod
     def _convert_to_framework_modifiers(yaml_str: str, framework: str) -> str:
         pattern = re.compile(r"!(?P<mod_class>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+)")
-        yaml_str = pattern.sub(
-            r"!{}.\g<mod_class>".format(framework), yaml_str
-        )
+        yaml_str = pattern.sub(r"!{}.\g<mod_class>".format(framework), yaml_str)
 
         return yaml_str
 

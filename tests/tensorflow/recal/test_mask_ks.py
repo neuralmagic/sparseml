@@ -137,9 +137,7 @@ def test_create_op_pruning_decrease_sparsity(sparsity_val):
         inp = tf_compat.placeholder(tf_compat.float32, [None, 64])
 
         with tf_compat.name_scope("fc"):
-            weights = tf_compat.Variable(
-                tf_compat.zeros([64, 64]), name="weights"
-            )
+            weights = tf_compat.Variable(tf_compat.zeros([64, 64]), name="weights")
             bias = tf_compat.Variable(tf_compat.zeros([64]), name="bias")
             matmul = tf_compat.matmul(inp, weights, name="matmul")
             add = tf_compat.add(matmul, bias, name="bias_add")

@@ -174,7 +174,7 @@ class GraphExporter(object):
         inp_vals: List[numpy.ndarray],
         out_tensors: List[tf_compat.Tensor],
         sess: tf_compat.Session,
-    ):
+    ) -> List[tf_compat.Tensor]:
         """
         Export sample tensors for the model to the local system.
         Executes the inputs through the model using a session to get the outputs.
@@ -197,6 +197,8 @@ class GraphExporter(object):
             [(tens, val) for tens, val in zip(out_tensors, out_vals)]
         )
         self.export_named_samples(inp_dict, out_dict)
+
+        return out_vals
 
     def export_named_samples(
         self,

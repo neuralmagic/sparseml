@@ -29,8 +29,12 @@ from tests.pytorch.models.utils import compare_model
     "key,pretrained,test_input,match_const",
     [
         ("resnet18", False, True, resnet18),
+        ("resnet18", True, True, resnet18),
+        ("resnet18", "base", True, resnet18),
         ("resnetv2_18", False, True, resnetv2_18),
         ("resnet34", False, True, resnet34),
+        ("resnet34", True, True, resnet34),
+        ("resnet34", "base", True, resnet34),
         ("resnetv2_34", False, True, resnetv2_34),
         ("resnet50", False, True, resnet50),
         ("resnet50", True, False, resnet50),

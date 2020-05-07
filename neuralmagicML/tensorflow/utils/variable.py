@@ -110,12 +110,12 @@ def get_tensor_var(tens: tf_compat.Tensor) -> tf_compat.Variable:
     """
     expected_name = "{}:0".format(clean_tensor_name(tens))
 
-    for var in tf_compat.trainable_variables():
+    for var in tf_compat.global_variables():
         if expected_name == var.name:
             return var
 
     raise ValueError(
-        "could not find a trainable variable that matched the tensor {}".format(tens)
+        "could not find a global variable that matched the tensor {}".format(tens)
     )
 
 

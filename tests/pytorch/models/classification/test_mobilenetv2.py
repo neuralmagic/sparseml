@@ -11,9 +11,9 @@ from tests.pytorch.models.utils import compare_model
 @pytest.mark.parametrize(
     "key,pretrained,test_input",
     [
-        ("mobilenet-v2", False, True),
-        ("mobilenet-v2", True, False),
-        ("mobilenet-v2", "base", False),
+        ("mobilenetv2", False, True),
+        ("mobilenetv2", True, False),
+        ("mobilenetv2", "base", False),
     ],
 )
 def test_mobilenets_v2(key: str, pretrained: Union[bool, str], test_input: bool):

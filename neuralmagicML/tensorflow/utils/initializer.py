@@ -4,9 +4,7 @@ Initializer functions for Tensors.
 
 from typing import Any
 
-from neuralmagicML.tensorflow.utils import (
-    tf_compat,
-)
+from neuralmagicML.tensorflow.utils import tf_compat
 
 
 __all__ = ["non_zero_mask_initializer"]
