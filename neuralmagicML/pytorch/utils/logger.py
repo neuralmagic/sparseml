@@ -13,7 +13,7 @@ from torch import Tensor
 
 try:
     from torch.utils.tensorboard import SummaryWriter
-except:
+except ModuleNotFoundError:
     from tensorboardX import SummaryWriter
 
 from neuralmagicML.utils import create_dirs
@@ -302,7 +302,12 @@ class TensorBoardLogger(PyTorchLogger):
         :param params: Each key-value pair in the dictionary is the name of the
             hyper parameter and it's corresponding value.
         """
-        self._writer.add_hparams(params, {})
+        try:
+            self._writer.add_hparams(params, {})
+        except Exception as ex:
+            # fall back incase add_hparams isn't available, log as scalars
+            for name, val in params.items():
+                self.log_scalar(name, val)
 
     def log_scalar(
         self,

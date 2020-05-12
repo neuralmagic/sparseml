@@ -7,7 +7,13 @@ PascalVOC_IJCV2009.pdf>`__.
 
 import os
 from torchvision import transforms
-from torchvision.datasets import VOCSegmentation, VOCDetection
+
+try:
+    from torchvision.datasets import VOCSegmentation, VOCDetection
+except ModuleNotFoundError:
+    # older version of pytorch, VOC not available
+    VOCSegmentation = object
+    VOCDetection = object
 
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
 from neuralmagicML.utils.datasets import (
@@ -52,6 +58,11 @@ class VOCSegmentationDataset(VOCSegmentation):
         year: str = "2012",
         image_size: int = 300,
     ):
+        if VOCSegmentation == object:
+            raise ValueError(
+                "VOC is unsupported on this PyTorch version, please upgrade to use"
+            )
+
         root = os.path.abspath(os.path.expanduser(root))
         trans = (
             [
@@ -109,6 +120,11 @@ class VOCDetectionDataset(VOCDetection):
         year: str = "2012",
         image_size: int = 300,
     ):
+        if VOCDetection == object:
+            raise ValueError(
+                "VOC is unsupported on this PyTorch version, please upgrade to use"
+            )
+
         root = os.path.abspath(os.path.expanduser(root))
         trans = (
             [
