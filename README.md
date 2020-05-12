@@ -11,7 +11,7 @@ The easy-to-use codebase is designed for machine learning engineers.
 neuralmagicml
     neuralmagicML - The Python API Code
     notebooks - Tutorial Notebooks for using the Python API
-    scripts - Functional scripts for working with the Python API
+    scripts - Functional scripts for working with the Python API (to be added in future releases)
     tensorflow-onnx - API for converting TensorFlow models to ONNX
     README.md - readme file
     requirements.txt - requirements for the Python API
@@ -161,21 +161,23 @@ Possible types are:
 |  Architecture      | Dataset  | Available Types         | Frameworks                 | Validation Baseline Metric |
 | ------------------ | -------- | ----------------------- | -------------------------- | -------------------------- |
 | MnistNet           | mnist    | base                    | onnx, PyTorch, TensorFlow  | ~99% top1 accuracy         |
-| MobileNet V1       | imagenet | base, recal, recal-perf | onnx, PyTorch              | 70.9% top1 accuracy        |
-| MobileNet V2       | imagenet | base                    | onnx, PyTorch              | 71.88% top1 accuracy       |
-| ResNet 50          | imagenet | base, recal, recal-perf | onnx, PyTorch              | 76.1% top1 accuracy        |
+| EfficientNet B0    | imagenet | base, recal-perf        | onnx, PyTorch              | 77.3% top1 accuracy        |
+| EfficientNet B4    | imagenet | base, recal-perf        | onnx, PyTorrch             | 83.0% top1 accuracy        |
+| MobileNet V1       | imagenet | base, recal, recal-perf | onnx, PyTorch, TensorFlow  | 70.9% top1 accuracy        |
+| MobileNet V2       | imagenet | base                    | onnx, PyTorch, TensorFlow  | 71.88% top1 accuracy       |
+| ResNet 50          | imagenet | base, recal, recal-perf | onnx, PyTorch, TensorFlow  | 76.1% top1 accuracy        |
 | ResNet 50 2xwidth  | imagenet | base                    | onnx, PyTorch              | 78.51% top1 accuracy       |
-| ResNet 101         | imagenet | base                    | onnx, PyTorch              | 77.37% top1 accuracy       |
+| ResNet 101         | imagenet | base                    | onnx, PyTorch, TensorFlow  | 77.37% top1 accuracy       |
 | ResNet 101 2xwidth | imagenet | base                    | onnx, PyTorch              | 78.84% top1 accuracy       |
-| ResNet 152         | imagenet | base                    | onnx, PyTorch              | 78.31% top1 accuracy       |
-| VGG 11             | imagenet | base                    | onnx, PyTorch              | 69.02% top1 accuracy       |
-| VGG 11bn           | imagenet | base                    | onnx, PyTorch              | 70.38% top1 accuracy       |
-| VGG 13             | imagenet | base                    | onnx, PyTorch              | 69.93% top1 accuracy       |
-| VGG 13bn           | imagenet | base                    | onnx, PyTorch              | 71.55% top1 accuracy       |
-| VGG 16             | imagenet | base, recal, recal-perf | onnx, PyTorch              | 71.59% top1 accuracy       |
-| VGG 16bn           | imagenet | base                    | onnx, PyTorch              | 71.55% top1 accuracy       |
-| VGG 19             | imagenet | base                    | onnx, PyTorch              | 72.38% top1 accuracy       |
-| VGG 19bn           | imagenet | base                    | onnx, PyTorch              | 74.24% top1 accuracy       |
+| ResNet 152         | imagenet | base                    | onnx, PyTorch, TensorFlow  | 78.31% top1 accuracy       |
+| VGG 11             | imagenet | base                    | onnx, PyTorch, TensorFlow  | 69.02% top1 accuracy       |
+| VGG 11bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 70.38% top1 accuracy       |
+| VGG 13             | imagenet | base                    | onnx, PyTorch, TensorFlow  | 69.93% top1 accuracy       |
+| VGG 13bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
+| VGG 16             | imagenet | base, recal, recal-perf | onnx, PyTorch, TensorFlow  | 71.59% top1 accuracy       |
+| VGG 16bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
+| VGG 19             | imagenet | base                    | onnx, PyTorch, TensorFlow  | 72.38% top1 accuracy       |
+| VGG 19bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 74.24% top1 accuracy       |
 
 ### Downloading and Usage
 Tutorial notebooks are provided for easily integrating and using the models in the Neural Magic Model Repo. 
@@ -333,28 +335,15 @@ The `ConstantKSModifier` enforces the sparsity structure and level for an alread
 The modifier is used for transfer learning from an already pruned model.
 The weights are allowed to make updates to enable transferring to a new task, however the sparsity is unchanged.
 
-Note, currently unsupported in TensorFlow.
-
 Required Parameters:
  - `layers`: The layers in the model to prune. 
    It can be set to a string containing `__ALL__` to prune all layers or a list to specify the targeted layers.
    Ex: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
- - `init_sparsity`: The decimal value for the initial sparsity to start pruning with.
- - `start_epoch`: [Optional] The epoch to start the pruning at (0 indexed).
-   It supports floating-point values to enable starting pruning between epochs.
-   Defaults to -1 meaning that it starts immediately.
- - `end_epoch`: [Optional] The epoch to stop pruning before.
-   It supports floating-point values to enable stopping pruning between epochs.
-   It defaults to -1, meaning that it never ends.
    
 Example:
 ```yaml
     - !ConstantKSModifier
         layers: __ALL__
-        start_epoch: 0.0
-        end_epoch: 10.0
-        param: weight
-        log_types: __ALL__
 ```
 
 ##### GradualKSModifier
@@ -404,8 +393,6 @@ The learning rate modifiers sets the learning rate for an optimizer during train
 If you are using an Adam optimizer, then generally, these are not useful.
 If you are using a standard stochastic gradient descent optimizer, then these give a convenient way to control the LR.
 
-Note, currently unsupported in TensorFlow.
-
 ##### SetLearningRateModifier
 The `SetLearningRateModifier` sets the learning rate for the optimizer to a specific value at a specific point
 in the training process.
@@ -422,7 +409,7 @@ Example:
         learning_rate: 0.1
 ```
 
-#### LearningRateModifier
+##### LearningRateModifier
 The `LearningRateModifier` sets schedules for controlling the learning rate for an optimizer during training.
 If you are using an Adam optimizer, then generally these are not useful.
 If you are using a standard stochastic gradient descent optimizer, then these give a convenient way to control the LR.
@@ -458,6 +445,29 @@ Required Parameters:
             milestones: [2.0, 5.5, 10.0]
         init_lr: 0.1
  ```
+ 
+#### Params / Variables Modifiers
+
+##### TrainableParamsModifier
+The `TrainableParamsModifier` controls the params that are marked as trainable for the current optimizer.
+This is generally useful when transfer learning to easily mark which layers should or should not be frozen / trained.
+
+Required Parameters:
+ - `params`: The parameter names under the layers to mark as trainable or not.
+    Can be set to a string containing `__ALL__` for all params under each layer.
+ - `layers`: The layers in the model to mark as trainable or not. 
+   Can be set to a string containing `__ALL__` for all layers or a list to specify the targeted layers.
+   Ex: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
+   
+Example:
+```yaml
+    - !TrainableParamsModifier
+      params:
+        - weight
+        - bias
+      layers: __ALL__
+```
+ 
 
 ### Recalibrating in PyTorch
 The recalibration tooling for PyTorch is located under `neuralmagicML.pytorch.recal`.
@@ -477,6 +487,7 @@ at the start and end of each epoch respectively.
 
 Example:
 ```python
+import math
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 import torch.nn.functional as TF
@@ -489,9 +500,9 @@ optimizer = Adam(model.parameters(), lr=1e-4)
 train_data = MNISTDataset(train=True)
 batch_size = 1024
 
-config_path = "/Users/markkurtz/code/neuralmagic/Shared/neuralmagicml/config.yaml"
+config_path = "/PATH/TO/config.yaml"
 manager = ScheduledModifierManager.from_yaml(config_path)
-optimizer = ScheduledOptimizer(optimizer, model, manager, steps_per_epoch=len(train_data))
+optimizer = ScheduledOptimizer(optimizer, model, manager, steps_per_epoch=math.ceil(len(train_data) / batch_size))
 
 for epoch in range(manager.max_epochs):
     optimizer.epoch_start()
@@ -540,6 +551,7 @@ This will clean up the modified graph properly for saving and export.
 
 Example:
 ```python
+import math
 from tensorflow.examples.tutorials.mnist import input_data
 from neuralmagicML.tensorflow.utils import tf_compat, batch_cross_entropy_loss
 from neuralmagicML.tensorflow.models import mnist_net
@@ -559,7 +571,7 @@ with tf_compat.Graph().as_default() as graph:
 
     global_step = tf_compat.train.get_or_create_global_step()
     manager = ScheduledModifierManager.from_yaml("/PATH/TO/config.yaml")
-    mod_ops, mod_extras = manager.create_ops(steps_per_epoch=len(dataset.train.images))
+    mod_ops, mod_extras = manager.create_ops(steps_per_epoch=math.ceil(len(dataset.train.images) / batch_size))
     
     train_op = tf_compat.train.AdamOptimizer(learning_rate=1e-4).minimize(
         loss, global_step=global_step
@@ -584,6 +596,26 @@ Example:
 from neuralmagicML.tensorflow.recal import EXTRAS_KEY_SUMMARIES
 
 summary_ops = mod_extras[EXTRAS_KEY_SUMMARIES]
+```
+
+Note: if you are using any learning rate modifiers, then the learning rate tensor will need to be passed
+from the `manager.create_ops()` function to your optimizer.
+Example:
+```python
+from neuralmagicML.tensorflow.recal import EXTRAS_KEY_LEARNING_RATE
+
+learning_rate = mod_extras[EXTRAS_KEY_LEARNING_RATE]
+train_op = tf_compat.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(
+    loss, global_step=global_step
+)
+```
+
+Note: if you are using any trainable params modifiers, then the trainable vars in TensorFlow must be collected
+and passed to your optimizer in place of the default.
+```python
+train_op = tf_compat.train.AdamOptimizer(learning_rate=1e-4).minimize(
+    loss, global_step=global_step, var_list=tf_compat.trainable_variables()
+)
 ```
 
 ## Licenses and Agreements
