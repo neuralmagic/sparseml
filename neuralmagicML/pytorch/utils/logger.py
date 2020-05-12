@@ -15,6 +15,8 @@ try:
     from torch.utils.tensorboard import SummaryWriter
 except ModuleNotFoundError:
     from tensorboardX import SummaryWriter
+except ImportError:
+    from tensorboardX import SummaryWriter
 
 from neuralmagicML.utils import create_dirs
 
