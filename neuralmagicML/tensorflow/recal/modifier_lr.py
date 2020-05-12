@@ -68,6 +68,7 @@ class GroupLearningRateModifier(ScheduledModifier):
         :return: a tuple (list of empty ops, dict of named ops/tensors for learning
             rate and summaries as extras)
         """
+        mod_ops, mod_extras = super().create_ops(graph, steps_per_epoch, global_step)
         lr_switch_case = None
         name_scope = "{}/{}".format(NM_RECAL, self.__class__.__name__)
         with graph.as_default():
@@ -106,16 +107,14 @@ class GroupLearningRateModifier(ScheduledModifier):
                     pred_fn_pairs.append((pred, make_fn(i)))
                 lr_switch_case = tf_compat.case(pred_fn_pairs)
 
-            mod_extras = {}
-
             if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:
-                mod_extras[EXTRAS_KEY_SUMMARIES] = tf_compat.summary.scalar(
-                    "learning_rate", lr_switch_case
-                )
+                mod_extras[EXTRAS_KEY_SUMMARIES] = [
+                    tf_compat.summary.scalar("learning_rate", lr_switch_case)
+                ]
 
             mod_extras[EXTRAS_KEY_LEARNING_RATE] = lr_switch_case
 
-        return ([], mod_extras)
+        return (mod_ops, mod_extras)
 
 
 @TensorFlowModifierYAML()
