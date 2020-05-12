@@ -1,3 +1,4 @@
+import os
 import pytest
 
 from typing import Union, Callable
@@ -25,6 +26,10 @@ from neuralmagicML.pytorch.models import (
 from tests.pytorch.models.utils import compare_model
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_MODEL_TESTS", False),
+    reason="Skipping model tests",
+)
 @pytest.mark.parametrize(
     "key,pretrained,test_input,match_const",
     [

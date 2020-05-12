@@ -1,3 +1,6 @@
+import os
+import pytest
+
 from torch.utils.data import Dataset
 
 from neuralmagicML.pytorch.datasets import (
@@ -16,6 +19,10 @@ def _validate_coco(dataset: Dataset, size: int):
     assert len(item[1]) > 0
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
+)
 def test_coco_detection():
     # TODO: disabling for 1.0 release
     pass

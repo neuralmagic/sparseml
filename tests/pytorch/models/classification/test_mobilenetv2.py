@@ -1,3 +1,4 @@
+import os
 import pytest
 
 from typing import Union
@@ -8,6 +9,10 @@ from neuralmagicML.pytorch.models import ModelRegistry, mobilenet_v2
 from tests.pytorch.models.utils import compare_model
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_MODEL_TESTS", False),
+    reason="Skipping model tests",
+)
 @pytest.mark.parametrize(
     "key,pretrained,test_input",
     [

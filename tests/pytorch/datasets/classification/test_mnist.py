@@ -1,4 +1,6 @@
 import os
+import pytest
+
 import tempfile
 from torch.utils.data import Dataset
 
@@ -15,6 +17,10 @@ def _validate_mnist(dataset: Dataset):
     assert item[1] < 10
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
+)
 def test_mnist():
     train_dataset = MNISTDataset(train=True)
     _validate_mnist(train_dataset)

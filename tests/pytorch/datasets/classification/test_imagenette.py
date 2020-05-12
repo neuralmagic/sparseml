@@ -1,3 +1,6 @@
+import os
+import pytest
+
 from torch.utils.data import Dataset
 
 from neuralmagicML.pytorch.datasets import (
@@ -17,6 +20,10 @@ def _validate(dataset: Dataset, size: int):
     assert item[1] < 10
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
+)
 def test_imagenette_160():
     train_dataset = ImagenetteDataset(train=True)
     _validate(train_dataset, 160)
@@ -28,6 +35,10 @@ def test_imagenette_160():
     _validate(reg_dataset, 160)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
+)
 def test_imagewoof_160():
     train_dataset = ImagewoofDataset(train=True)
     _validate(train_dataset, 160)

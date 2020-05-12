@@ -1,3 +1,6 @@
+import os
+import pytest
+
 from torch.utils.data import Dataset
 
 from neuralmagicML.pytorch.datasets import (
@@ -17,6 +20,10 @@ def _validate_cifar(dataset: Dataset, num_classes: int):
     assert item[1] < num_classes
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
+)
 def test_cifar_10():
     train_dataset = CIFAR10Dataset(train=True)
     _validate_cifar(train_dataset, 10)
@@ -28,6 +35,10 @@ def test_cifar_10():
     _validate_cifar(reg_dataset, 10)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
+)
 def test_cifar_100():
     train_dataset = CIFAR100Dataset(train=True)
     _validate_cifar(train_dataset, 100)
