@@ -3,6 +3,7 @@ Code related to the PyTorch model registry for easily creating models.
 """
 
 from typing import Union, List, Callable, Any, Dict
+import re
 
 from neuralmagicML.utils import TENSORFLOW_FRAMEWORK
 from neuralmagicML.utils import RepoModel
@@ -22,6 +23,8 @@ class _ModelAttributes(object):
         sub_architecture: str,
         default_dataset: str,
         default_desc: str,
+        base_name_scope: str,
+        tl_ignore_tens: List[str],
     ):
         self.input_shape = input_shape
         self.domain = domain
@@ -30,6 +33,8 @@ class _ModelAttributes(object):
         self.sub_architecture = sub_architecture
         self.default_dataset = default_dataset
         self.default_desc = default_desc
+        self.base_name_scope = base_name_scope
+        self.tl_ignore_tens = tl_ignore_tens
 
 
 class ModelRegistry(object):
@@ -65,6 +70,7 @@ class ModelRegistry(object):
         pretrained: Union[bool, str] = True,
         pretrained_dataset: str = None,
         pretrained_path: str = None,
+        remove_dynamic_tl_vars: bool = False,
         sess: tf_compat.Session = None,
         saver: tf_compat.train.Saver = None,
     ):
@@ -83,13 +89,17 @@ class ModelRegistry(object):
             If not supplied will default to the one preconfigured for the model.
         :param pretrained_path: A path to the pretrained variables to load,
             if provided will override the pretrained param
+        :param remove_dynamic_tl_vars: True to remove the vars that are used for
+            transfer learning (have a different shape and should not be restored),
+            False to keep all vars in the Saver.
+            Only used if saver is None
         :param sess: The session to load the model variables into
             if pretrained_path or pretrained is supplied.
             If not supplied and required, then will use the default session
         :param saver: The Saver instance to use to restore the variables
             for the graph if pretrained_path or pretrained is supplied.
             If not supplied and required, then will create one using the
-            TRAINABLE_VARIABLES collection
+            ModelRegistry.saver function
         """
         if key not in ModelRegistry._CONSTRUCTORS:
             raise ValueError(
@@ -104,9 +114,7 @@ class ModelRegistry(object):
             sess = tf_compat.get_default_session()
 
         if not saver and (pretrained_path or pretrained):
-            saver = tf_compat.train.Saver(
-                tf_compat.get_collection(tf_compat.GraphKeys.TRAINABLE_VARIABLES)
-            )
+            saver = ModelRegistry.saver(key, remove_dynamic_tl_vars)
 
         if pretrained_path:
             saver.restore(sess, pretrained_path)
@@ -162,6 +170,58 @@ class ModelRegistry(object):
         return ModelRegistry._ATTRIBUTES[key].input_shape
 
     @staticmethod
+    def saver(key: str, remove_dynamic_tl_vars: bool = False) -> tf_compat.train.Saver:
+        """
+        Get a tf compat saver that contains only the variables for the desired
+        architecture specified by key.
+        Note, the architecture must have been created in the current graph already
+        to work.
+
+        :param key: the model key (name) to get a saver instance for
+        :param remove_dynamic_tl_vars: True to remove the vars that are used for
+            transfer learning (have a different shape and should not be restored),
+            False to keep all vars in the Saver
+        :return: a Saver object with the appropriate vars for the model to restore
+        """
+        if key not in ModelRegistry._CONSTRUCTORS:
+            raise ValueError(
+                "key {} is not in the model registry; available: {}".format(
+                    key, ModelRegistry._CONSTRUCTORS
+                )
+            )
+
+        base_name = ModelRegistry._ATTRIBUTES[key].base_name_scope
+        saver_vars = [
+            var
+            for var in tf_compat.get_collection(tf_compat.GraphKeys.TRAINABLE_VARIABLES)
+            if base_name in var.name
+        ]
+        saver_vars.extend(
+            [
+                var
+                for var in tf_compat.global_variables()
+                if ("moving_mean" in var.name or "moving_variance" in var.name)
+                and base_name in var.name
+            ]
+        )
+
+        if remove_dynamic_tl_vars:
+            tl_ignore_tens = ModelRegistry._ATTRIBUTES[key].tl_ignore_tens
+
+            def _check_ignore(var: tf_compat.Variable) -> bool:
+                for ignore in tl_ignore_tens:
+                    if re.match(ignore, var.name):
+                        return True
+
+                return False
+
+            saver_vars = [var for var in saver_vars if not _check_ignore(var)]
+
+        saver = tf_compat.train.Saver(saver_vars)
+
+        return saver
+
+    @staticmethod
     def register(
         key: Union[str, List[str]],
         input_shape: Any,
@@ -171,6 +231,8 @@ class ModelRegistry(object):
         sub_architecture: str,
         default_dataset: str,
         default_desc: str,
+        base_name_scope: str,
+        tl_ignore_tens: List[str],
     ):
         """
         Register a model with the registry. Should be used as a decorator
@@ -188,6 +250,9 @@ class ModelRegistry(object):
             pretrained if not supplied
         :param default_desc: the description to use by default for loading
             pretrained if not supplied
+        :param base_name_scope: the base string used to create the graph under
+        :param tl_ignore_tens: a list of tensors to ignore restoring for
+            if transfer learning
         :return: the decorator
         """
         if not isinstance(key, List):
@@ -207,6 +272,8 @@ class ModelRegistry(object):
                     sub_architecture,
                     default_dataset,
                     default_desc,
+                    base_name_scope,
+                    tl_ignore_tens,
                 )
 
             return const_func

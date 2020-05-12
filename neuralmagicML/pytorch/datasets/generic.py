@@ -1,5 +1,4 @@
 from typing import Union, Tuple
-import os
 import re
 import torch
 from torch.utils.data import Dataset
@@ -7,22 +6,11 @@ from torchvision import transforms
 
 
 __all__ = [
-    "default_dataset_path",
     "EarlyStopDataset",
     "NoisyDataset",
     "RandNDataset",
     "CacheableDataset",
 ]
-
-
-def default_dataset_path(name: str) -> str:
-    """
-    :param name: name of the dataset to get a path for
-    :return: the default path to save the dataset at
-    """
-    path = os.path.join("~", ".cache", "nm_models", name)
-
-    return path
 
 
 class EarlyStopDataset(Dataset):

@@ -21,6 +21,9 @@ __all__ = [
 ]
 
 
+BASE_NAME_SCOPE = "resnet"
+
+
 def _input(
     x_tens: tf_compat.Tensor,
     training: Union[bool, tf_compat.Tensor],
@@ -368,7 +371,7 @@ def resnet_const(
     :param gamma_initializer: Initializer to use for the batch norm gama variables
     :return: the output tensor from the created graph
     """
-    with tf_compat.variable_scope("resnet", reuse=tf_compat.AUTO_REUSE):
+    with tf_compat.variable_scope(BASE_NAME_SCOPE, reuse=tf_compat.AUTO_REUSE):
         out = _input(
             x_tens,
             training,
@@ -412,6 +415,8 @@ def resnet_const(
     sub_architecture="18",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
 def resnet18(
     inputs: tf_compat.Tensor,
@@ -469,6 +474,8 @@ def resnet18(
     sub_architecture="34",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
 def resnet34(
     inputs: tf_compat.Tensor,
@@ -526,6 +533,8 @@ def resnet34(
     sub_architecture="50",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
 def resnet50(
     inputs: tf_compat.Tensor,
@@ -591,6 +600,8 @@ def resnet50(
     sub_architecture="101",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
 def resnet101(
     inputs: tf_compat.Tensor,
@@ -656,6 +667,8 @@ def resnet101(
     sub_architecture="152",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
 def resnet152(
     inputs: tf_compat.Tensor,

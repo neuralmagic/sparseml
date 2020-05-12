@@ -10,23 +10,24 @@ import PIL.Image as Image
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
+from neuralmagicML.utils import clean_path
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
-from neuralmagicML.pytorch.datasets.generic import default_dataset_path
+from neuralmagicML.utils.datasets import (
+    default_dataset_path,
+    IMAGENET_RGB_MEANS,
+    IMAGENET_RGB_STDS,
+)
 
 
 __all__ = ["ImageNetDataset"]
-
-
-_RGB_MEANS = [0.485, 0.456, 0.406]
-_RGB_STDS = [0.229, 0.224, 0.225]
 
 
 @DatasetRegistry.register(
     key=["imagenet"],
     attributes={
         "num_classes": 1000,
-        "transform_means": _RGB_MEANS,
-        "transform_stds": _RGB_STDS,
+        "transform_means": IMAGENET_RGB_MEANS,
+        "transform_stds": IMAGENET_RGB_STDS,
     },
 )
 class ImageNetDataset(ImageFolder):
@@ -49,6 +50,7 @@ class ImageNetDataset(ImageFolder):
         rand_trans: bool = False,
         image_size: int = 224,
     ):
+        root = clean_path(root)
         non_rand_resize_scale = 256.0 / 224.0  # standard used
         init_trans = (
             [
@@ -68,7 +70,7 @@ class ImageNetDataset(ImageFolder):
         trans = [
             *init_trans,
             transforms.ToTensor(),
-            transforms.Normalize(mean=_RGB_MEANS, std=_RGB_STDS),
+            transforms.Normalize(mean=IMAGENET_RGB_MEANS, std=IMAGENET_RGB_STDS),
         ]
         root = os.path.join(
             os.path.abspath(os.path.expanduser(root)), "train" if train else "val"

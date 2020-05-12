@@ -23,7 +23,11 @@ from torchvision import transforms
 from torchvision.datasets.folder import default_loader
 
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
-from neuralmagicML.pytorch.datasets.generic import default_dataset_path
+from neuralmagicML.utils.datasets import (
+    default_dataset_path,
+    IMAGENET_RGB_MEANS,
+    IMAGENET_RGB_STDS,
+)
 from neuralmagicML.utils import MultiDownloader, DownloadResult, ParallelWorker
 
 
@@ -73,16 +77,13 @@ _TEST_MACHINE_LABELS = (
     "test-annotations-machine-imagelabels.csv"
 )
 
-_RGB_MEANS = [0.485, 0.456, 0.406]
-_RGB_STDS = [0.229, 0.224, 0.225]
-
 
 @DatasetRegistry.register(
     key=["openimages", "open_images"],
     attributes={
         "num_classes": 8658,
-        "transform_means": _RGB_MEANS,
-        "transform_stds": _RGB_STDS,
+        "transform_means": IMAGENET_RGB_MEANS,
+        "transform_stds": IMAGENET_RGB_STDS,
     },
 )
 class OpenImagesDataset(Dataset):
@@ -147,7 +148,7 @@ class OpenImagesDataset(Dataset):
         trans.extend(
             [
                 transforms.ToTensor(),
-                transforms.Normalize(mean=_RGB_MEANS, std=_RGB_STDS),
+                transforms.Normalize(mean=IMAGENET_RGB_MEANS, std=IMAGENET_RGB_STDS),
             ]
         )
 

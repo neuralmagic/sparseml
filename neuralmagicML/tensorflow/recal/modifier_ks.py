@@ -51,8 +51,8 @@ class ConstantKSModifier(ScheduledModifier):
 
     :param layers: str or list of str for the layers to apply the KS modifier to
         can also use the token __ALL__ to specify all layers
-    :param start_epoch: The epoch to start the modifier at
-    :param end_epoch: The epoch to end the modifier at
+    :param start_epoch: Unsupported for this modifier
+    :param end_epoch: Unsupported for this modifier
     :param param: The index to guide which input to grab from the operation.
         Can be set to an integer representing where the variable is, a string
         representing a name or portion of the name of the variable, or the default:
@@ -64,8 +64,8 @@ class ConstantKSModifier(ScheduledModifier):
     def __init__(
         self,
         layers: Union[str, List[str]],
-        start_epoch: float,
-        end_epoch: float,
+        start_epoch: float = -1,
+        end_epoch: float = -1,
         param: Union[int, str] = VAR_INDEX_FROM_TRAINABLE,
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
@@ -73,7 +73,7 @@ class ConstantKSModifier(ScheduledModifier):
             log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
-            end_comparator=1,
+            end_comparator=None,
         )
         self._param = param
         self._layers = validate_str_iterable(

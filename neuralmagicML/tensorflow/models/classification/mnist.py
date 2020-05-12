@@ -6,6 +6,9 @@ from neuralmagicML.tensorflow.models.registry import ModelRegistry
 __all__ = ["mnist_net"]
 
 
+BASE_NAME_SCOPE = "mnist_net"
+
+
 @ModelRegistry.register(
     key=["mnistnet"],
     input_shape=(28, 28, 1),
@@ -15,6 +18,8 @@ __all__ = ["mnist_net"]
     sub_architecture="none",
     default_dataset="mnist",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[],
 )
 def mnist_net(
     inputs: tf_compat.Tensor, num_classes: int = 10, act: str = None
@@ -31,7 +36,7 @@ def mnist_net(
     if act not in [None, "sigmoid", "softmax"]:
         raise ValueError("unsupported value for act given of {}".format(act))
 
-    with tf_compat.variable_scope("mnist_net", reuse=tf_compat.AUTO_REUSE):
+    with tf_compat.variable_scope(BASE_NAME_SCOPE, reuse=tf_compat.AUTO_REUSE):
         with tf_compat.variable_scope("blocks", reuse=tf_compat.AUTO_REUSE):
             x_tens = conv2d(
                 name="conv0",

@@ -3,11 +3,11 @@ from torch.utils.data import Dataset
 from neuralmagicML.pytorch.datasets import (
     DatasetRegistry,
     ImagenetteDataset,
-    ImagenetteSize,
+    ImagewoofDataset,
 )
 
 
-def _validate_imagenette(dataset: Dataset, size: int):
+def _validate(dataset: Dataset, size: int):
     assert len(dataset) > 0
     item = dataset[0]
     assert isinstance(item, tuple)
@@ -19,10 +19,21 @@ def _validate_imagenette(dataset: Dataset, size: int):
 
 def test_imagenette_160():
     train_dataset = ImagenetteDataset(train=True)
-    _validate_imagenette(train_dataset, 160)
+    _validate(train_dataset, 160)
 
     val_dataset = ImagenetteDataset(train=False)
-    _validate_imagenette(val_dataset, 160)
+    _validate(val_dataset, 160)
 
     reg_dataset = DatasetRegistry.create("imagenette", train=False)
-    _validate_imagenette(reg_dataset, 160)
+    _validate(reg_dataset, 160)
+
+
+def test_imagewoof_160():
+    train_dataset = ImagewoofDataset(train=True)
+    _validate(train_dataset, 160)
+
+    val_dataset = ImagewoofDataset(train=False)
+    _validate(val_dataset, 160)
+
+    reg_dataset = DatasetRegistry.create("imagewoof", train=False)
+    _validate(reg_dataset, 160)

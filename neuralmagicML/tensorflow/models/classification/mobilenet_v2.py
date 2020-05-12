@@ -22,6 +22,9 @@ __all__ = [
 ]
 
 
+BASE_NAME_SCOPE = "mobilenet_v2"
+
+
 def _make_divisible(
     value: float, divisor: int, min_value: Union[int, None] = None
 ) -> int:
@@ -329,7 +332,7 @@ def mobilenet_v2_const(
     :return: the output tensor from the created graph
     """
 
-    with tf_compat.variable_scope("mobilenet_v2", reuse=tf_compat.AUTO_REUSE):
+    with tf_compat.variable_scope(BASE_NAME_SCOPE, reuse=tf_compat.AUTO_REUSE):
         out = x_tens
 
         for sec_index, section in enumerate(sec_settings):
@@ -489,6 +492,8 @@ def mobilenet_v2_width(
     sub_architecture="1.0",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
 def mobilenet_v2(
     inputs: tf_compat.Tensor,

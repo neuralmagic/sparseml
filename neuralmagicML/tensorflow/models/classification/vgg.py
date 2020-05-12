@@ -23,6 +23,9 @@ __all__ = [
 ]
 
 
+BASE_NAME_SCOPE = "vgg"
+
+
 def _classifier(
     x_tens: tf_compat.Tensor,
     training: Union[bool, tf_compat.Tensor],
@@ -194,7 +197,7 @@ def vgg_const(
     """
     out = x_tens
 
-    with tf_compat.variable_scope("vgg", reuse=tf_compat.AUTO_REUSE):
+    with tf_compat.variable_scope(BASE_NAME_SCOPE, reuse=tf_compat.AUTO_REUSE):
         for sec_index, section in enumerate(sec_settings):
             out = section.create(
                 name="section_{}".format(sec_index),
@@ -229,6 +232,8 @@ def vgg_const(
     sub_architecture="11",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
 def vgg11(
     inputs: tf_compat.Tensor,
@@ -287,6 +292,8 @@ def vgg11(
     sub_architecture="11-bn",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
 def vgg11bn(
     inputs: tf_compat.Tensor,
@@ -345,6 +352,8 @@ def vgg11bn(
     sub_architecture="13",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
 def vgg13(
     inputs: tf_compat.Tensor,
@@ -403,6 +412,8 @@ def vgg13(
     sub_architecture="13-bn",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
 def vgg13bn(
     inputs: tf_compat.Tensor,
@@ -461,6 +472,8 @@ def vgg13bn(
     sub_architecture="16",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
 def vgg16(
     inputs: tf_compat.Tensor,
@@ -519,6 +532,8 @@ def vgg16(
     sub_architecture="16-bn",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
 def vgg16bn(
     inputs: tf_compat.Tensor,
@@ -577,6 +592,8 @@ def vgg16bn(
     sub_architecture="19",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
 def vgg19(
     inputs: tf_compat.Tensor,
@@ -635,6 +652,8 @@ def vgg19(
     sub_architecture="19-bn",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
 def vgg19bn(
     inputs: tf_compat.Tensor,

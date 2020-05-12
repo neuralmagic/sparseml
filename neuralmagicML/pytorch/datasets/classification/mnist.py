@@ -8,7 +8,7 @@ from torchvision.datasets import MNIST
 from torchvision import transforms
 
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
-from neuralmagicML.pytorch.datasets.generic import default_dataset_path
+from neuralmagicML.utils.datasets import default_dataset_path
 
 
 __all__ = ["MNISTDataset"]

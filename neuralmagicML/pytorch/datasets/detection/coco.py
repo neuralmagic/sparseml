@@ -3,7 +3,11 @@ from torchvision import transforms
 from torchvision.datasets import CocoDetection
 
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
-from neuralmagicML.pytorch.datasets.generic import default_dataset_path
+from neuralmagicML.utils.datasets import (
+    default_dataset_path,
+    IMAGENET_RGB_MEANS,
+    IMAGENET_RGB_STDS,
+)
 
 import urllib.request as request
 import zipfile
@@ -12,17 +16,16 @@ import zipfile
 __all__ = ["CocoDetectionDataset"]
 
 
-_RGB_MEANS = [0.485, 0.456, 0.406]
-_RGB_STDS = [0.229, 0.224, 0.225]
-
-
 COCO_IMAGE_ZIP_ROOT = "http://images.cocodataset.org/zips"
 COCO_ANNOTATION_ZIP_ROOT = "http://images.cocodataset.org/annotations"
 
 
 @DatasetRegistry.register(
     key=["coco_detection", "coco"],
-    attributes={"transform_means": _RGB_MEANS, "transform_stds": _RGB_STDS},
+    attributes={
+        "transform_means": IMAGENET_RGB_MEANS,
+        "transform_stds": IMAGENET_RGB_STDS,
+    },
 )
 class CocoDetectionDataset(CocoDetection):
     """
@@ -94,7 +97,7 @@ class CocoDetectionDataset(CocoDetection):
         trans.extend(
             [
                 transforms.ToTensor(),
-                transforms.Normalize(mean=_RGB_MEANS, std=_RGB_STDS),
+                transforms.Normalize(mean=IMAGENET_RGB_MEANS, std=IMAGENET_RGB_STDS),
             ]
         )
         super().__init__(

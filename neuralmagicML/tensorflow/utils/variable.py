@@ -137,7 +137,7 @@ def get_prunable_ops(
 
     for op in graph.get_operations():
         if (
-            op.type in ["MatMul", "Conv1D", "Conv2D", "Conv3D"]
+            op.type in ["MatMul", "Conv1D", "Conv2D", "Conv3D", "DepthwiseConv2dNative"]
             and "gradients/" not in op.name
             and "_grad/" not in op.name
         ):

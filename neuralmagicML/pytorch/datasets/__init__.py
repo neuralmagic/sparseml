@@ -1,5 +1,5 @@
 """
-Code for creating and loading datasets in pytorch
+Code for creating and loading datasets in PyTorch
 """
 
 from .classification import *

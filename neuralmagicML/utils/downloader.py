@@ -3,16 +3,122 @@ Code related to efficiently downloading multiple files with parallel workers
 """
 
 from typing import List, Tuple, Iterator, Callable
-from urllib.request import urlopen
-import tempfile
-import shutil
 import os
 import multiprocessing
+import requests
+from tqdm import auto
 
 from neuralmagicML.utils.worker import ParallelWorker
+from neuralmagicML.utils.helpers import clean_path, create_parent_dirs
 
 
-__all__ = ["DownloadResult", "MultiDownloader"]
+__all__ = [
+    "PreviouslyDownloadedError",
+    "download_file",
+    "DownloadResult",
+    "MultiDownloader",
+]
+
+
+class PreviouslyDownloadedError(Exception):
+    """
+    Error raised when a file has already been downloaded and overwrite is False
+    """
+
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
+
+def _download(
+    url_path: str, dest_path: str, show_progress: bool, progress_title: str,
+):
+    request = requests.get(url_path, stream=True)
+    request.raise_for_status()
+    content_length = request.headers.get("content-length")
+
+    try:
+        content_length = int(content_length)
+    except Exception:
+        content_length = None
+
+    progress = (
+        auto.tqdm(
+            total=content_length,
+            desc=progress_title if progress_title else "downloading...",
+        )
+        if show_progress and content_length and content_length > 0
+        else None
+    )
+
+    try:
+        with open(dest_path, "wb") as file:
+            for chunk in request.iter_content(chunk_size=1024):
+                if not chunk:
+                    continue
+
+                file.write(chunk)
+                file.flush()
+
+                if progress:
+                    progress.update(n=len(chunk))
+    except Exception as err:
+        os.remove(dest_path)
+        raise err
+
+    if progress:
+        progress.close()
+
+
+def download_file(
+    url_path: str,
+    dest_path: str,
+    overwrite: bool,
+    num_retries: int = 3,
+    show_progress: bool = True,
+    progress_title: str = None,
+):
+    """
+    Download a file from the given url to the desired local path
+
+    :param url_path: the source url to download the file from
+    :param dest_path: the local file path to save the downloaded file to
+    :param overwrite: True to overwrite any previous files if they exist,
+        False to not overwrite and raise an error if a file exists
+    :param num_retries: number of times to retry the download if it fails
+    :param show_progress: True to show a progress bar for the download,
+        False otherwise
+    :param progress_title: The title to show with the progress bar
+    :raise PreviouslyDownloadedError: raised if file already exists at dest_path
+        nad overwrite is False
+    """
+    dest_path = clean_path(dest_path)
+    create_parent_dirs(dest_path)
+
+    if not overwrite and os.path.exists(dest_path):
+        raise PreviouslyDownloadedError()
+
+    if os.path.exists(dest_path):
+        try:
+            os.remove(dest_path)
+        except OSError as err:
+            print(
+                "warning, error encountered when removing older "
+                "cache_file at {}: {}".format(dest_path, err)
+            )
+
+    retry_err = None
+
+    for _ in range(num_retries + 1):
+        try:
+            _download(url_path, dest_path, show_progress, progress_title)
+            break
+        except PreviouslyDownloadedError as err:
+            raise err
+        except Exception as err:
+            retry_err = err
+
+    if retry_err is not None:
+        raise retry_err
 
 
 class DownloadResult(object):
@@ -87,13 +193,14 @@ class MultiDownloader(object):
         res = DownloadResult(*val)
 
         try:
-            for _ in MultiDownloader._download(
-                res.source, res.dest, self._overwrite_files, self._num_retries
-            ):
-                pass
-
-            res.downloaded = True
-        except _PreviouslyDownloadedError:
+            download_file(
+                res.source,
+                res.dest,
+                self._overwrite_files,
+                self._num_retries,
+                show_progress=False,
+            )
+        except PreviouslyDownloadedError:
             res.downloaded = False
         except Exception as err:
             res.err = err
@@ -102,70 +209,3 @@ class MultiDownloader(object):
             self._download_callback(res)
 
         return res
-
-    @staticmethod
-    def _download(
-        url_path: str, dest_path: str, overwrite: bool = False, num_retries: int = 3
-    ) -> Iterator[float]:
-        for _ in range(num_retries):
-            try:
-                for val in MultiDownloader._download_helper(
-                    url_path, dest_path, overwrite
-                ):
-                    yield val
-            except _PreviouslyDownloadedError as err:
-                raise err
-            except Exception:
-                continue
-
-            return
-
-    @staticmethod
-    def _download_helper(
-        url_path: str, dest_path: str, overwrite: bool
-    ) -> Iterator[float]:
-        if not overwrite and os.path.exists(dest_path):
-            raise _PreviouslyDownloadedError()
-
-        with urlopen(url_path) as connection:
-            meta = connection.info()
-            content_length = (
-                meta.getheaders("Content-Length")
-                if hasattr(meta, "getheaders")
-                else meta.get_all("Content-Length")
-            )
-            file_size = (
-                int(content_length[0])
-                if content_length is not None and len(content_length) > 0
-                else None
-            )
-            downloaded_size = 0.0
-            temp = tempfile.NamedTemporaryFile(delete=False)
-
-            try:
-                while True:
-                    buffer = connection.read(8192)
-                    if len(buffer) == 0:
-                        break
-                    temp.write(buffer)
-                    downloaded_size += len(buffer)
-
-                    if file_size is not None and file_size > 0:
-                        yield float(downloaded_size) / float(file_size)
-
-                temp.close()
-
-                if os.path.exists(dest_path):
-                    os.remove(dest_path)
-
-                shutil.move(temp.name, dest_path)
-            finally:
-                temp.close()
-
-                if os.path.exists(temp.name):
-                    os.remove(temp.name)
-
-
-class _PreviouslyDownloadedError(Exception):
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)

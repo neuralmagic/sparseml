@@ -1,24 +1,20 @@
-"""
-Imagenette and Imagewoof dataset implementations for the image classification field in
-computer vision.
-More info for the dataset can be found `here <https://github.com/fastai/imagenette>`__.
-"""
-
 from typing import Union
-import random
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
 
 from neuralmagicML.utils.datasets import (
     default_dataset_path,
-    IMAGENET_RGB_MEANS,
-    IMAGENET_RGB_STDS,
     ImagenetteDownloader,
     ImagewoofDownloader,
     ImagenetteSize,
+    IMAGENET_RGB_MEANS,
+    IMAGENET_RGB_STDS,
 )
-from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
-
+from neuralmagicML.tensorflow.utils import tf_compat
+from neuralmagicML.tensorflow.datasets.registry import DatasetRegistry
+from neuralmagicML.tensorflow.datasets.dataset import (
+    ImageFolderDataset,
+    random_scaling_crop,
+    center_square_crop,
+)
 
 __all__ = ["ImagenetteSize", "ImagenetteDataset", "ImagewoofDataset"]
 
@@ -31,7 +27,7 @@ __all__ = ["ImagenetteSize", "ImagenetteDataset", "ImagewoofDataset"]
         "transform_stds": IMAGENET_RGB_STDS,
     },
 )
-class ImagenetteDataset(ImageFolder, ImagenetteDownloader):
+class ImagenetteDataset(ImageFolderDataset, ImagenetteDownloader):
     """
     Wrapper for the imagenette (10 class) dataset that fastai created.
     Handles downloading and applying standard transforms.
@@ -58,33 +54,33 @@ class ImagenetteDataset(ImageFolder, ImagenetteDownloader):
         download: bool = True,
     ):
         ImagenetteDownloader.__init__(self, root, dataset_size, download)
+        self._train = train
 
         if image_size is None:
             image_size = 160 if dataset_size == ImagenetteSize.s160 else 224
 
         if rand_trans:
-            trans = [
-                transforms.RandomResizedCrop(image_size),
-                transforms.RandomHorizontalFlip(),
+            transforms = [
+                random_scaling_crop(),
+                tf_compat.image.random_flip_left_right,
+                tf_compat.image.random_flip_up_down,
             ]
         else:
-            resize_scale = 256.0 / 224.0  # standard used
-            trans = [
-                transforms.Resize(round(resize_scale * image_size)),
-                transforms.CenterCrop(image_size),
-            ]
+            transforms = [center_square_crop()]
 
-        trans.extend(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(mean=IMAGENET_RGB_MEANS, std=IMAGENET_RGB_STDS),
-            ]
+        super().__init__(
+            self.split_root(train),
+            image_size,
+            transforms,
+            IMAGENET_RGB_MEANS,
+            IMAGENET_RGB_STDS,
         )
 
-        ImageFolder.__init__(self, self.split_root(train), transforms.Compose(trans))
-
-        # make sure we don't preserve the folder structure class order
-        random.shuffle(self.samples)
+    def name_scope(self) -> str:
+        """
+        :return: the name scope the dataset should be built under in the graph
+        """
+        return "Imagenette_{}".format("train" if self._train else "val")
 
 
 @DatasetRegistry.register(
@@ -95,7 +91,7 @@ class ImagenetteDataset(ImageFolder, ImagenetteDownloader):
         "transform_stds": IMAGENET_RGB_STDS,
     },
 )
-class ImagewoofDataset(ImageFolder, ImagewoofDownloader):
+class ImagewoofDataset(ImageFolderDataset, ImagewoofDownloader):
     """
     Wrapper for the imagewoof (10 class) dataset that fastai created.
     Handles downloading and applying standard transforms.
@@ -123,30 +119,30 @@ class ImagewoofDataset(ImageFolder, ImagewoofDownloader):
         download: bool = True,
     ):
         ImagewoofDownloader.__init__(self, root, dataset_size, download)
+        self._train = train
 
         if image_size is None:
             image_size = 160 if dataset_size == ImagenetteSize.s160 else 224
 
         if rand_trans:
-            trans = [
-                transforms.RandomResizedCrop(image_size),
-                transforms.RandomHorizontalFlip(),
+            transforms = [
+                random_scaling_crop(),
+                tf_compat.image.random_flip_left_right,
+                tf_compat.image.random_flip_up_down,
             ]
         else:
-            resize_scale = 256.0 / 224.0  # standard used
-            trans = [
-                transforms.Resize(round(resize_scale * image_size)),
-                transforms.CenterCrop(image_size),
-            ]
+            transforms = [center_square_crop()]
 
-        trans.extend(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(mean=IMAGENET_RGB_MEANS, std=IMAGENET_RGB_STDS),
-            ]
+        super().__init__(
+            self.split_root(train),
+            image_size,
+            transforms,
+            IMAGENET_RGB_MEANS,
+            IMAGENET_RGB_STDS,
         )
 
-        ImageFolder.__init__(self, self.split_root(train), transforms.Compose(trans))
-
-        # make sure we don't preserve the folder structure class order
-        random.shuffle(self.samples)
+    def name_scope(self) -> str:
+        """
+        :return: the name scope the dataset should be built under in the graph
+        """
+        return "Imagenette_{}".format("train" if self._train else "val")

@@ -8,14 +8,13 @@ import json
 import requests
 import hashlib
 import copy
-from tqdm import auto
 
 from neuralmagicML.utils.frameworks import (
     ONNX_FRAMEWORK,
     PYTORCH_FRAMEWORK,
     TENSORFLOW_FRAMEWORK,
 )
-from neuralmagicML.utils import create_parent_dirs, clean_path
+from neuralmagicML.utils import clean_path, download_file
 
 __all__ = [
     "models_sign_url",
@@ -79,7 +78,6 @@ def models_download_file(path: str, overwrite: bool, save_dir: str = None) -> st
 
     save_dir = clean_path(save_dir)
     save_file = os.path.join(save_dir, file_name)
-    create_parent_dirs(save_file)
 
     if overwrite and os.path.exists(save_file):
         try:
@@ -90,39 +88,10 @@ def models_download_file(path: str, overwrite: bool, save_dir: str = None) -> st
                 "cache_file at {}: {}".format(save_file, err)
             )
 
-    if not os.path.exists(save_file):
-        request = requests.get(url, stream=True)
-        request.raise_for_status()
-        content_length = request.headers.get("content-length")
-
-        try:
-            content_length = int(content_length)
-        except Exception:
-            content_length = None
-
-        progress = (
-            auto.tqdm(total=content_length, desc="downloading {}".format(path))
-            if content_length and content_length > 0
-            else None
+    if not os.path.exists(save_file) or overwrite:
+        download_file(
+            url, save_file, overwrite, progress_title="downloading {}".format(path)
         )
-
-        try:
-            with open(save_file, "wb") as file:
-                for chunk in request.iter_content(chunk_size=1024):
-                    if not chunk:
-                        continue
-
-                    file.write(chunk)
-                    file.flush()
-
-                    if progress:
-                        progress.update(n=len(chunk))
-        except Exception as e:
-            os.remove(save_file)
-            raise e
-
-        if progress:
-            progress.close()
 
     return save_file
 

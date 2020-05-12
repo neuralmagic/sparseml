@@ -21,6 +21,9 @@ __all__ = [
 ]
 
 
+BASE_NAME_SCOPE = "mobilenet"
+
+
 def _input(
     x_tens: tf_compat.Tensor,
     training: Union[bool, tf_compat.Tensor],
@@ -216,7 +219,7 @@ def mobilenet_const(
     :param gamma_initializer: Initializer to use for the batch norm gama variables
     :return: the output tensor from the created graph
     """
-    with tf_compat.variable_scope("mobilenet", reuse=tf_compat.AUTO_REUSE):
+    with tf_compat.variable_scope(BASE_NAME_SCOPE, reuse=tf_compat.AUTO_REUSE):
         out = _input(
             x_tens, training, kernel_initializer, bias_initializer, gamma_initializer
         )
@@ -263,6 +266,8 @@ def mobilenet_const(
     sub_architecture="1.0",
     default_dataset="imagenet",
     default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
 def mobilenet(
     inputs: tf_compat.Tensor,
