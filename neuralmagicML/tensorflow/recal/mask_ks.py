@@ -496,7 +496,7 @@ def create_ks_schedule_ops(
                 ),
             ),
         )
-        exp_percentage = tf_compat.pow(percentage, 1 / exponent)
+        exp_percentage = 1 - tf_compat.pow(1 - percentage, exponent)
         calc_sparsity = (
             tf_compat.multiply(final_sparsity - init_sparsity, exp_percentage)
             + init_sparsity

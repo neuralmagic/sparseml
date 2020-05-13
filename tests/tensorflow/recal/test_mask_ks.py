@@ -377,6 +377,19 @@ def test_get_or_create_ks_schedule_ops(
                         assert not update_ready_val
 
 
+def _expected_sparsity(
+    steps_count: int,
+    steps_range: int,
+    init_sparsity: float,
+    final_sparsity: float,
+    exponent: float,
+):
+    percentage = steps_count / steps_range
+    return init_sparsity + (1 - (1 - percentage) ** exponent) * (
+        final_sparsity - init_sparsity
+    )
+
+
 @pytest.mark.parametrize(
     "begin_step,end_step,update_step_freq,init_sparsity,final_sparsity,exponent",
     [
@@ -515,6 +528,17 @@ def test_get_or_create_ks_scheduled_graph_ops(
                         assert masked_sparsity >= last_update_sparsity - 1e-2
                         assert sparsity_val >= last_update_sparsity - 1e-2
                         last_update_sparsity = masked_sparsity
+                        if step < end_step and update_ready_val:
+                            steps_count = sess.run(global_step) - begin_step
+                            steps_range = end_step - begin_step
+                            expected = _expected_sparsity(
+                                steps_count,
+                                steps_range,
+                                init_sparsity,
+                                final_sparsity,
+                                exponent,
+                            )
+                            assert abs(sparsity_val - expected) < 1e-5
 
                 res = sess.run(out, feed_dict={inp: inp_arr})
                 assert res.sum() >= 0.0
