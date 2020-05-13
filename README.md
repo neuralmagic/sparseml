@@ -32,7 +32,7 @@ source ./venv/bin/activate
 
 ### Supported ML Frameworks
 - PyTorch supported versions: >= `1.1.0`
-- TensorFlow supported versions: `1.X.X` (TensorFlow >= `2.X` is not currently supported)
+- TensorFlow supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
 
 ### Installation
 1. Navigate to the parent directory of the `neuralmagicml` code base.
@@ -52,7 +52,14 @@ cd notebooks
 jupyter notebook
 ```
 
+Additionally, the notebooks make use of the [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) package.
+You may need to enable the Jupyter extension to properly see the UIs.
+Use the following command to do so: `jupyter nbextension enable --py widgetsnbextension`.
+If Jupyter was already running, please restart after running the command.
+
 Once the Jupyter session has started, you can open the desired notebooks.
+Note, the notebooks are tested with TensorFlow version ~= 1.15.0. 
+For best results, please make sure your system matches that.
 
 ### model_repo.ipynb
 A tutorial for exploring and downloading from the [Model Repository](#model-repository). 

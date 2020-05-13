@@ -2,7 +2,6 @@ import collections
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 
-import tensorflow as tf
 from tensorflow.python.framework import tensor_util
 
 from toposort import toposort
@@ -63,7 +62,7 @@ def _validate(session: tf_compat.Session, graph: tf_compat.Graph):
 
 
 def _analyze_ops(
-    session: tf_compat.Session, graph: tf_compat.Graph, ops: List[tf.Operation]
+    session: tf_compat.Session, graph: tf_compat.Graph, ops: List[tf_compat.Operation]
 ) -> Dict[str, AnalyzedLayerDesc]:
     """
     Analyze operations for their properties
@@ -77,7 +76,7 @@ def _analyze_ops(
     exec_orders = _op_exec_order(graph)
     ops_desc = {}
     for op in ops:
-        assert type(op) == tf.Operation
+        assert type(op) == tf_compat.Operation
         desc = AnalyzedLayerDesc(op.name, op.type)
         desc.params = _count_parameters(session, op)
         desc.zeroed_params = _count_parameters(session, op, "zeroed")
@@ -101,7 +100,9 @@ def _analyze_ops(
     return ops_desc
 
 
-def _profile_flops(graph: tf.Graph, ops: List[tf.Operation]) -> Dict[str, int]:
+def _profile_flops(
+    graph: tf_compat.Graph, ops: List[tf_compat.Operation]
+) -> Dict[str, int]:
     """
     Using TF Profiling to get FLOPS of operations
 
@@ -111,7 +112,7 @@ def _profile_flops(graph: tf.Graph, ops: List[tf.Operation]) -> Dict[str, int]:
     :return A dictionary of FLOPS for each operation name
     """
     gdef = graph.as_graph_def()
-    new_graph = tf.Graph()
+    new_graph = tf_compat.Graph()
 
     with new_graph.as_default():
         # Modify the graph to work around a bug before running tf.profile
@@ -139,7 +140,7 @@ def _profile_flops(graph: tf.Graph, ops: List[tf.Operation]) -> Dict[str, int]:
 
 
 def _count_parameters(
-    session: tf_compat.Session, op: tf.Operation, parameter_type: str = "all"
+    session: tf_compat.Session, op: tf_compat.Operation, parameter_type: str = "all"
 ) -> int:
     """
     Count the number of parameters of input weight tensor of an operation
@@ -163,7 +164,7 @@ def _count_parameters(
     return n_params
 
 
-def _get_parameters_dims(op: tf.Operation) -> Tuple[int, ...]:
+def _get_parameters_dims(op: tf_compat.Operation) -> Tuple[int, ...]:
     """
     Get the dimensions of an operation
 
@@ -174,7 +175,7 @@ def _get_parameters_dims(op: tf.Operation) -> Tuple[int, ...]:
     return tuple(weight_tensor.shape.as_list())
 
 
-def _from_tensor_shape(shape: tf.TensorShape) -> List[int]:
+def _from_tensor_shape(shape: tf_compat.TensorShape) -> List[int]:
     """
     Convert from TensorShape with potentially incomplete to list.
     Incomplete dimension is encoded by -1
@@ -198,17 +199,19 @@ def _replace_incomplete_shape_placeholers(gdef, import_prefix_name="NM_IMPORT"):
     placeholders = [o for o in gdef.node if o.op == "Placeholder"]
     input_map = {}
     for pl in placeholders:
-        dtype = tf.as_dtype(pl.attr["dtype"].type)
+        dtype = tf_compat.as_dtype(pl.attr["dtype"].type)
         shape = tensor_util.TensorShapeProtoToList(pl.attr["shape"].shape)
         new_shape = [1 if d == -1 else d for d in shape]
         new_pl = tf_compat.placeholder(
             dtype, shape=new_shape, name="new_{}".format(pl.name)
         )
         input_map[pl.name] = new_pl
-    tf.graph_util.import_graph_def(gdef, input_map=input_map, name=import_prefix_name)
+    tf_compat.graph_util.import_graph_def(
+        gdef, input_map=input_map, name=import_prefix_name
+    )
 
 
-def _op_exec_order(g: tf.Graph):
+def _op_exec_order(g: tf_compat.Graph):
     """
     Get execution order of operations in a graph
 

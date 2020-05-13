@@ -480,10 +480,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
             to be run or used for modifying the training process.
         """
         mod_ops, mod_extras = super().create_ops(graph, steps_per_epoch, global_step)
-
-        begin_step = round(self._start_epoch * steps_per_epoch) + 1
-        end_step = round(self._end_epoch * steps_per_epoch)
-        update_step_freq = round(self._update_frequency * steps_per_epoch)
+        start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=True)
+        update_frequency_step = self.update_frequency_steps(steps_per_epoch)
         layers = (
             self._layers
             if self._layers != ALL_TOKEN
@@ -501,9 +499,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
                 global_step,
                 layers,
                 self._param,
-                begin_step,
+                start_step,
                 end_step,
-                update_step_freq,
+                update_frequency_step,
                 self._init_sparsity,
                 self._final_sparsity,
                 self.exponent,

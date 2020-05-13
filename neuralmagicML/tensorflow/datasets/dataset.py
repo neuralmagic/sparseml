@@ -329,8 +329,8 @@ class ImageFolderDataset(Dataset):
         :return: a tuple containing the processed image and label
         """
         with tf_compat.name_scope("img_to_tensor"):
-            img = tf_compat.io.read_file(file_path)
-            img = tf_compat.io.decode_image(img)
+            img = tf_compat.read_file(file_path)
+            img = tf_compat.image.decode_image(img)
             img = tf_compat.cast(img, dtype=tf_compat.float32)
 
         with tf_compat.name_scope("transforms"):
@@ -340,7 +340,12 @@ class ImageFolderDataset(Dataset):
                         img = trans(img)
 
         with tf_compat.name_scope("resize"):
-            img = tf_compat.image.resize(img, [self._image_size, self._image_size])
+            try:
+                img = tf_compat.image.resize(img, [self._image_size, self._image_size])
+            except Exception:
+                img = tf_compat.image.resize_images(
+                    img, [self._image_size, self._image_size]
+                )
 
         with tf_compat.name_scope("normalize"):
             img = tf_compat_div(img, 255.0)

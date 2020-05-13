@@ -11,6 +11,7 @@ from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR
 
 from neuralmagicML.utils import ALL_TOKEN, convert_to_bool
+from neuralmagicML.recal import LearningRate, SetLearningRate
 from neuralmagicML.pytorch.utils.logger import PyTorchLogger
 from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
@@ -52,7 +53,7 @@ def _log_lr(
 
 
 @PyTorchModifierYAML()
-class SetLearningRateModifier(ScheduledModifier):
+class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
     """
     Modifier to set the learning rate to a specific value at a certain point in the
     training process.
@@ -85,30 +86,16 @@ class SetLearningRateModifier(ScheduledModifier):
         constant_logging: bool = True,
     ):
         super().__init__(
+            learning_rate=learning_rate,
             log_types=log_types,
             start_epoch=start_epoch,
-            end_epoch=end_epoch,
+            end_epoch=-1,
             end_comparator=None,
         )
-        self._learning_rate = learning_rate
         self._lr_set = False
         self._applied = -1.0
         self._constant_logging = convert_to_bool(constant_logging)
         self._last_logged_lr = None
-
-    @ModifierProp()
-    def learning_rate(self) -> float:
-        """
-        :return: The learning rate to use once this modifier starts
-        """
-        return self._learning_rate
-
-    @learning_rate.setter
-    def learning_rate(self, value: str):
-        """
-        :param value: The learning rate to use once this modifier starts
-        """
-        self._learning_rate = value
 
     @ModifierProp()
     def constant_logging(self) -> bool:
@@ -185,7 +172,7 @@ class SetLearningRateModifier(ScheduledModifier):
 
 
 @PyTorchModifierYAML()
-class LearningRateModifier(ScheduledUpdateModifier):
+class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
     """
     Modifier to set the learning rate to specific values at certain points in the
     training process between set epochs.
@@ -209,89 +196,44 @@ class LearningRateModifier(ScheduledUpdateModifier):
     :param lr_kwargs: The dictionary of keyword arguments to pass to the constructor
         for the lr_class
     :param init_lr: The initial learning rate to use once this modifier starts
+    :param start_epoch: The epoch to start the modifier at
+        (set to -1.0 so it starts immediately)
+    :param end_epoch: The epoch to end the modifier at,
+        (set to -1.0 so it doesn't end)
+    :param update_frequency: unused and should not be set
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param constant_logging: True to constantly log on every step,
         False to only log on an LR change, default True
-    :param start_epoch: The epoch to start the modifier at
-        (set to -1.0 so it starts immediately)
-    :param update_frequency: unused and should not be set
     """
 
     def __init__(
         self,
         lr_class: str,
         lr_kwargs: Dict,
-        init_lr: Union[float, None] = None,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        constant_logging: bool = True,
-        start_epoch: float = -1.0,
+        init_lr: float,
+        start_epoch: float,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        constant_logging: bool = True,
     ):
         super().__init__(
+            lr_class=lr_class,
+            lr_kwargs=lr_kwargs,
+            init_lr=init_lr,
             log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1.0,
             end_comparator=-1,
         )
-        self._lr_class = lr_class
-        self._lr_kwargs = lr_kwargs
-        self._init_lr = init_lr
         self._lr_scheduler = None
         self._base_lr_set = False
         self._last_scheduler_epoch = math.floor(start_epoch)
         self._constant_logging = convert_to_bool(constant_logging)
         self._double_step = False
         self.validate()
-
-    @ModifierProp()
-    def lr_class(self) -> str:
-        """
-        :return: The name of the lr scheduler class to use:
-            [StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau]
-        """
-        return self._lr_class
-
-    @lr_class.setter
-    def lr_class(self, value: str):
-        """
-        :param value: The name of the lr scheduler class to use:
-            [StepLR, MultiStepLR, ExponentialLR, ReduceLROnPlateau]
-        """
-        self._lr_class = value
-        self.validate()
-
-    @ModifierProp()
-    def lr_kwargs(self) -> Dict:
-        """
-        :return: The dictionary of keyword arguments to pass to the constructor
-            for the lr_class
-        """
-        return self._lr_kwargs
-
-    @lr_kwargs.setter
-    def lr_kwargs(self, value: Dict):
-        """
-        :param value: The dictionary of keyword arguments to pass to the constructor
-            for the lr_class
-        """
-        self._lr_kwargs = value
-
-    @ModifierProp()
-    def init_lr(self) -> Union[float, None]:
-        """
-        :return: The initial learning rate to use once this modifier starts
-        """
-        return self._init_lr
-
-    @init_lr.setter
-    def init_lr(self, value: Union[float, None]):
-        """
-        :param value: The initial learning rate to use once this modifier starts
-        """
-        self._init_lr = value
 
     @ModifierProp()
     def constant_logging(self) -> bool:
@@ -329,6 +271,13 @@ class LearningRateModifier(ScheduledUpdateModifier):
             self._double_step = True
             return
 
+        if (
+            abs(self.end_epoch - epoch) <= sys.float_info.epsilon
+            and self.end_epoch >= 0.0
+        ):
+            # no cleanup step for LR, so exit before adding another LR step
+            return
+
         if not self._check_setup_lr_scheduler(optimizer, steps_per_epoch):
             self._lr_scheduler.step()
 
@@ -361,34 +310,8 @@ class LearningRateModifier(ScheduledUpdateModifier):
         Validate the values of the params for the current instance are valid
         """
 
-        if self._lr_class == "ExponentialLR":
-            if "gamma" not in self._lr_kwargs:
-                raise ValueError("gamma must be in lr_kwargs for ExponentialLR")
-        elif self._lr_class == "StepLR":
-            if "gamma" not in self._lr_kwargs:
-                raise ValueError("gamma must be in lr_kwargs for StepLR")
-            if "step_size" not in self._lr_kwargs:
-                raise ValueError("step_size must be in lr_kwargs for StepLR")
-        elif self._lr_class == "MultiStepLR":
-            if "gamma" not in self._lr_kwargs:
-                raise ValueError("gamma must be in lr_kwargs for MultiStepLR")
-            if "milestones" not in self._lr_kwargs:
-                raise ValueError("milestones must be in lr_kwargs for MultiStepLR")
-            for mile in self._lr_kwargs["milestones"]:
-                if mile <= self._start_epoch:
-                    raise ValueError(
-                        "milestones {} all must be greater than start_epoch {}".format(
-                            self._lr_kwargs["milestones"], self._start_epoch
-                        )
-                    )
-                if mile >= self._end_epoch:
-                    raise ValueError(
-                        "milestones {} all must be less than end_epoch {}".format(
-                            self._lr_kwargs["milestones"], self._end_epoch
-                        )
-                    )
-        else:
-            raise ValueError("unknown lr_class given of {}".format(self._lr_class))
+        if self.update_frequency != -1.0:
+            raise ValueError("update_frequency must be kept at -1.0")
 
     def _check_init_lr(self, optimizer: Optimizer):
         if self._lr_scheduler is not None:
@@ -402,24 +325,9 @@ class LearningRateModifier(ScheduledUpdateModifier):
         if self._lr_scheduler is not None:
             return False
 
-        if self._lr_class == "ExponentialLR":
-            self._lr_kwargs["step_size"] = 1.0
-            self._lr_class = "StepLR"
-
-        if self._lr_class == "StepLR":
-            self._lr_kwargs["step_size"] = round(
-                self._lr_kwargs["step_size"] * steps_per_epoch
-            )
-        elif self._lr_class == "MultiStepLR":
-            self._lr_kwargs["milestones"] = [
-                round((mile - self._start_epoch) * steps_per_epoch)
-                for mile in self._lr_kwargs["milestones"]
-            ]
-        else:
-            raise ValueError("unrecognized lr_class given of {}".format(self._lr_class))
-
-        self._lr_scheduler = CONSTRUCTORS[self._lr_class](
-            optimizer=optimizer, **self._lr_kwargs
+        lr_class, lr_kwargs = self.corrected_lr_info(
+            steps_per_epoch, self.start_epoch, self.end_epoch
         )
+        self._lr_scheduler = CONSTRUCTORS[lr_class](optimizer=optimizer, **lr_kwargs)
 
         return True

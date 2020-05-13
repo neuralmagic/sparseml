@@ -207,6 +207,36 @@ class ScheduledModifier(Modifier, BaseScheduled):
             **kwargs
         )
 
+    def start_end_steps(
+        self, steps_per_epoch: int, after_optim: bool
+    ) -> Tuple[int, int]:
+        """
+        Calculate the start and end steps for this modifier given a certain
+        amount of steps per epoch
+
+        :param steps_per_epoch: the number of steps (or batches) taken per epoch
+        :param after_optim: True if the start and end are for an operation after
+            the optimizer update step has run, False for before
+        :return: a tuple containing (the converted start step,
+            the converted end step)
+        """
+        start_step = (
+            round(self._start_epoch * steps_per_epoch) if self.start_epoch >= 0.0 else 0
+        )
+        end_step = (
+            round(self._end_epoch * steps_per_epoch) - 1
+            if self.end_epoch >= 0.0
+            else -1
+        )
+
+        if after_optim:
+            start_step += 1
+
+            if end_step > -1:
+                end_step += 1
+
+        return start_step, end_step
+
 
 class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     """
@@ -267,6 +297,19 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
             min_frequency=min_frequency,
             **kwargs
         )
+
+    def update_frequency_steps(self, steps_per_epoch: int) -> int:
+        """
+        Calculate the update frequency steps for this modifier given a certain
+        amount of steps per epoch
+
+        :param steps_per_epoch: the number of steps (or batches) taken per epoch
+        :return: a tuple containing (the converted start step,
+            the converted end step)
+        """
+        update_frequency_steps = round(self._update_frequency * steps_per_epoch)
+
+        return update_frequency_steps
 
 
 def epoch_to_steps(epoch: float, steps_per_epoch: int, min_epoch: float = 0.0) -> int:

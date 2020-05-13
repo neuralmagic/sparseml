@@ -171,7 +171,7 @@ def create_op_pruning_no_update(
 
     # create the masked operation and assign as the new input to the op
     with tf_compat.name_scope(KSScope.model(op, ks_group, trailing_slash=True)):
-        masked = tf_compat.math.multiply(mask, op_var_tens, KSScope.OP_MASKED_VAR)
+        masked = tf_compat.multiply(mask, op_var_tens, KSScope.OP_MASKED_VAR)
         op_swapped_inputs = [
             inp if inp != op_var_tens else masked for inp in op_sgv.inputs
         ]
@@ -221,27 +221,39 @@ def create_op_pruning(
         ):
             abs_var = tf_compat.abs(op_var_tens)
             sparse_threshold_index = tf_compat.cast(
-                tf_compat.math.round(
-                    tf_compat.cast(tf_compat.size(abs_var), tf_compat.dtypes.float32)
+                tf_compat.round(
+                    tf_compat.cast(tf_compat.size(abs_var), tf_compat.float32)
                     * sparsity
                 ),
-                tf_compat.dtypes.int32,
+                tf_compat.int32,
             )
             sparse_threshold_index = tf_compat.minimum(
                 tf_compat.maximum(sparse_threshold_index, 0),
                 tf_compat.size(op_var_tens) - 1,
             )
+
+            try:
+                argsort = tf_compat.argsort
+            except Exception:
+                try:
+                    argsort = tf_compat.contrib.framework.argsort
+                except Exception:
+                    raise RuntimeError(
+                        "cannot find argsort function in tensorflow, "
+                        "currently unsupported"
+                    )
+
             # produce tensor where each element is the index in sorted order of abs_var
             abs_var_flat = tf_compat.reshape(abs_var, [-1])
             element_ranks_flat = tf_compat.scatter_nd(
-                tf_compat.expand_dims(tf_compat.argsort(abs_var_flat), 1),
+                tf_compat.expand_dims(argsort(abs_var_flat), 1),
                 tf_compat.range(abs_var_flat.get_shape()[0].value),
                 abs_var_flat.get_shape(),
             )
             element_ranks = tf_compat.reshape(element_ranks_flat, abs_var.get_shape())
             new_mask = tf_compat.cast(
                 tf_compat.greater(element_ranks, sparse_threshold_index),
-                tf_compat.dtypes.float32,
+                tf_compat.float32,
             )
             return tf_compat.assign(mask, new_mask, name=KSScope.OP_MASK_ASSIGN)
 
@@ -400,9 +412,24 @@ def create_summaries_pruning(pruning_op_vars: List[PruningOpVars]):
     summaries = []
 
     for op_vars in pruning_op_vars:
+        try:
+            zero_fraction = tf_compat.zero_fraction
+        except Exception as ex:
+
+            def zero_fraction(inp: tf_compat.Tensor):
+                nonzero = tf_compat.cast(
+                    tf_compat.reduce_sum(
+                        tf_compat.cast(tf_compat.not_equal(inp, 0), tf_compat.int64)
+                    ),
+                    tf_compat.float32,
+                )
+                size = tf_compat.size(inp, out_type=tf_compat.float32)
+
+                return tf_compat_div(nonzero, size)
+
         sum_op = tf_compat.summary.scalar(
             "Modifier KS/{}".format(clean_tensor_name(op_vars.op)),
-            tf_compat.math.zero_fraction(op_vars.masked),
+            zero_fraction(op_vars.masked),
         )
         summaries.append(sum_op)
 
@@ -423,7 +450,7 @@ def apply_op_vars_masks(
     """
     for op_vars in pruning_op_vars:
         with tf_compat.name_scope(KSScope.model(op_vars.op, ks_group, KSScope.OP_SAVE)):
-            masked_var = tf_compat.math.multiply(op_vars.op_input, op_vars.mask)
+            masked_var = tf_compat.multiply(op_vars.op_input, op_vars.mask)
             input_var = get_tensor_var(op_vars.op_input)
             assign = tf_compat.assign(input_var, masked_var)
             sess.run(assign)
@@ -491,7 +518,7 @@ def create_ks_schedule_ops(
             tf_compat.maximum(
                 0.0,
                 tf_compat_div(
-                    tf_compat.cast(global_step - begin_step, tf_compat.dtypes.float32),
+                    tf_compat.cast(global_step - begin_step, tf_compat.float32),
                     end_step - begin_step,
                 ),
             ),

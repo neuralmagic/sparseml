@@ -20,12 +20,12 @@ def non_zero_mask_initializer(weights: tf_compat.Tensor):
 
     def non_zero_mask_initializer(
         shape: tf_compat.TensorShape,
-        dtype: tf_compat.dtypes.DType = tf_compat.dtypes.float32,
+        dtype: tf_compat.DType = tf_compat.float32,
         partition_info: Any = None,  # unsued variable for compatability
     ):
-        dtype = tf_compat.dtypes.as_dtype(dtype)
-        if not dtype.is_numpy_compatible or dtype == tf_compat.dtypes.string:
+        dtype = tf_compat.as_dtype(dtype)
+        if not dtype.is_numpy_compatible or dtype == tf_compat.string:
             raise ValueError("Expected numeric or boolean dtype, got %s." % dtype)
-        return tf_compat.cast(tf_compat.math.not_equal(weights, 0.0), dtype=dtype)
+        return tf_compat.cast(tf_compat.not_equal(weights, 0.0), dtype=dtype)
 
     return non_zero_mask_initializer
