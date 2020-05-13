@@ -21,8 +21,7 @@ def _validate(dataset: Dataset, size: int):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
-    reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_imagenette_160():
     train_dataset = ImagenetteDataset(train=True)
@@ -36,8 +35,7 @@ def test_imagenette_160():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
-    reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_imagewoof_160():
     train_dataset = ImagewoofDataset(train=True)

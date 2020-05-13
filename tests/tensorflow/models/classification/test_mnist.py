@@ -1,3 +1,4 @@
+import os
 import pytest
 
 from typing import Union
@@ -7,6 +8,9 @@ from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.models import ModelRegistry, mnist_net
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",
+)
 def test_mnist():
     with tf_compat.Graph().as_default() as graph:
         inputs = tf_compat.placeholder(
@@ -22,6 +26,9 @@ def test_mnist():
             assert out.sum() != 0
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",
+)
 @pytest.mark.parametrize(
     "key,pretrained,test_input",
     [

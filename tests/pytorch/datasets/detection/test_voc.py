@@ -1,5 +1,6 @@
 import os
 import pytest
+from packaging import version
 
 import torch
 from torch.utils.data import Dataset
@@ -9,13 +10,6 @@ from neuralmagicML.pytorch.datasets import (
     VOCSegmentationDataset,
     VOCDetectionDataset,
 )
-
-
-def pytorch_version_valid():
-    pytorch_version = [int(version) for version in torch.__version__.split(".")[:2]]
-    return pytorch_version[0] > 1 or (
-        pytorch_version[0] == 1 and pytorch_version[1] >= 2
-    )
 
 
 def _validate_voc(dataset: Dataset, size: int):
@@ -29,11 +23,11 @@ def _validate_voc(dataset: Dataset, size: int):
 
 
 @pytest.mark.skipif(
-    not pytorch_version_valid(), reason="Must install pytorch version 1.2 or greater"
+    version.parse(torch.__version__) < version.parse("1.2"),
+    reason="Must install pytorch version 1.2 or greater",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
-    reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_voc_detection():
     # TODO: disabling for 1.0 release
@@ -49,11 +43,11 @@ def test_voc_detection():
 
 
 @pytest.mark.skipif(
-    not pytorch_version_valid(), reason="Must install pytorch version 1.2 or greater"
+    version.parse(torch.__version__) < version.parse("1.2"),
+    reason="Must install pytorch version 1.2 or greater",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
-    reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_voc_segmentation():
     pass

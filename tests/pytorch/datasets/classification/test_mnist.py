@@ -18,8 +18,7 @@ def _validate_mnist(dataset: Dataset):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
-    reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_mnist():
     train_dataset = MNISTDataset(train=True)

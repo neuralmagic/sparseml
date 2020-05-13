@@ -35,7 +35,7 @@ package:
 
 version_testing:
 	@source .venv/bin/activate;
-	for tensorflow_version in 1.13 1.14 1.15; do \
+	for tensorflow_version in 1.8 1.9 1.10 1.11 1.12 1.13 1.14 1.15; do \
 		tensorflow="tensorflow==$$tensorflow_version.*"; \
 		pip3 install "$$tensorflow"; \
 		$(MAKE) run_tests; \
@@ -63,4 +63,5 @@ run_tests:
 clean:
 	rm -f $(PACKAGE);
 	rm -rf __pycache__ .pytest_cache .venv test_logs;
-	rm -rf .vscode build dist neuralmagicML.egg-info
+	rm -rf .vscode build dist neuralmagicML.egg-info;
+	

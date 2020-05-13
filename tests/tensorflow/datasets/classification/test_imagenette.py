@@ -1,3 +1,9 @@
+import os
+
+from packaging import version
+import tensorflow
+import pytest
+
 from neuralmagicML.tensorflow.datasets import (
     DatasetRegistry,
     ImagenetteDataset,
@@ -5,6 +11,7 @@ from neuralmagicML.tensorflow.datasets import (
     ImageFolderDataset,
     create_split_iterators_handle,
 )
+
 from neuralmagicML.tensorflow.utils import tf_compat
 
 
@@ -49,6 +56,13 @@ def _validate(dataset: ImageFolderDataset, size: int):
                 assert batch_lab.shape[1] == 10
 
 
+@pytest.mark.skipif(
+    version.parse(tensorflow.__version__) < version.parse("1.3"),
+    reason="Must install tensorflow version 1.3 or greater",
+)
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+)
 def test_imagenette_160():
     train_dataset = ImagenetteDataset(train=True)
     _validate(train_dataset, 160)
@@ -60,6 +74,13 @@ def test_imagenette_160():
     _validate(reg_dataset, 160)
 
 
+@pytest.mark.skipif(
+    version.parse(tensorflow.__version__) < version.parse("1.3"),
+    reason="Must install tensorflow version 1.3 or greater",
+)
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+)
 def test_imagewoof_160():
     train_dataset = ImagewoofDataset(train=True)
     _validate(train_dataset, 160)

@@ -20,8 +20,7 @@ def _validate_coco(dataset: Dataset, size: int):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
-    reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_coco_detection():
     # TODO: disabling for 1.0 release
