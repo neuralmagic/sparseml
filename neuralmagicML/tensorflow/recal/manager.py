@@ -162,10 +162,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         for _extras in mod_extras:
             for key, val in _extras.items():
                 if key not in extras:
-                    if isinstance(val, List):
-                        extras[key] = [val]
-                    else:
-                        extras[key] = val
+                    extras[key] = val
                 else:
                     # This key exists before either as a list or a single value
                     if not isinstance(extras[key], List):

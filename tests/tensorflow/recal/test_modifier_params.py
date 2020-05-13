@@ -120,7 +120,7 @@ def test_trainable_params_modifier_with_training():
         mod_ops, mod_extras = manager.create_ops(steps_per_epoch)
         assert len(tf_compat.trainable_variables()) < num_trainable_variabls_init
         # Get the variables returned by the trainable_params modifier
-        non_trainable_vars = mod_extras[EXTRAS_KEY_VAR_LIST][0]
+        non_trainable_vars = mod_extras[EXTRAS_KEY_VAR_LIST]
         trainable_vars = tf_compat.trainable_variables()
         train_op = tf_compat.train.AdamOptimizer(learning_rate=1e-4).minimize(
             loss, global_step=global_step
