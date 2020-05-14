@@ -13,7 +13,6 @@ from neuralmagicML.tensorflow.utils import (
     clean_tensor_name,
     get_op_input_var,
     get_tensor_var,
-    eval_tensor_sparsity,
     non_zero_mask_initializer,
 )
 
@@ -414,7 +413,7 @@ def create_summaries_pruning(pruning_op_vars: List[PruningOpVars]):
     for op_vars in pruning_op_vars:
         try:
             zero_fraction = tf_compat.zero_fraction
-        except Exception as ex:
+        except Exception:
 
             def zero_fraction(inp: tf_compat.Tensor):
                 nonzero = tf_compat.cast(
@@ -425,7 +424,7 @@ def create_summaries_pruning(pruning_op_vars: List[PruningOpVars]):
                 )
                 size = tf_compat.size(inp, out_type=tf_compat.float32)
 
-                return tf_compat_div(nonzero, size)
+                return 1 - tf_compat_div(nonzero, size)
 
         sum_op = tf_compat.summary.scalar(
             "Modifier KS/{}".format(clean_tensor_name(op_vars.op)),
