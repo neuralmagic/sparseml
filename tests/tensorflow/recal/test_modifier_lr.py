@@ -728,7 +728,7 @@ class TestGroupLearningRateImpl(ScheduledModifierTest):
         with tf_compat.Session(graph=graph) as sess:
             sess.run(tf_compat.global_variables_initializer())
 
-            for epoch in range(int(max(modifier.start_epoch, modifier.end_epoch)) + 5):
+            for epoch in range(int(max(modifier.start_epoch, modifier.end_epoch)) + 10):
                 # for now hardcoding the tests to get out the door
                 if epoch < 5:
                     expected = 0.1
@@ -779,6 +779,8 @@ def test_lrs_with_manager(optim_lambda):
             ),
         ]
     )
+    assert manager.max_epochs == 20
+    assert manager.min_epochs == 0
     graph = mlp_graph_lambda()
     steps_per_epoch = 100
 

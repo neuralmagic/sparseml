@@ -49,8 +49,10 @@ class GroupLearningRateModifier(ScheduledModifier):
 
     def __init__(self, lr_modifiers: List[ScheduledModifier]):
         assert len(lr_modifiers) > 0
+        lr_modifiers = deepcopy(lr_modifiers)
+        lr_modifiers = sorted(lr_modifiers, key=lambda m: m.start_epoch, reverse=True)
         start_epoch = min(*[mod.start_epoch for mod in lr_modifiers])
-        end_epoch = min(*[mod.end_epoch for mod in lr_modifiers])
+        end_epoch = max(*[mod.end_epoch for mod in lr_modifiers])
         log_types = None
 
         for mod in lr_modifiers:
@@ -65,8 +67,6 @@ class GroupLearningRateModifier(ScheduledModifier):
             end_comparator=-1,
         )
 
-        lr_modifiers = deepcopy(lr_modifiers)
-        lr_modifiers = sorted(lr_modifiers, key=lambda m: m.start_epoch, reverse=True)
         self._lr_modifiers = lr_modifiers
 
     def create_ops(
@@ -98,19 +98,16 @@ class GroupLearningRateModifier(ScheduledModifier):
                         _, child_extras = child.create_ops(
                             steps_per_epoch, global_step, graph
                         )
+                        child_lr = child_extras[EXTRAS_KEY_LEARNING_RATE]
                         child_start_step, _ = child.start_end_steps(
                             steps_per_epoch, after_optim=False
                         )
                         child_select = tf_compat.greater_equal(
-                            tf_compat.constant(child_start_step, tf_compat.int64),
                             global_step,
+                            tf_compat.constant(child_start_step, tf_compat.int64),
+                            name="active",
                         )
-                        pred_fn_pairs.append(
-                            (
-                                child_select,
-                                lambda: child_extras[EXTRAS_KEY_LEARNING_RATE],
-                            )
-                        )
+                        pred_fn_pairs.append((child_select, lambda lr=child_lr: lr))
 
                 learning_rate = tf_compat.case(pred_fn_pairs)
                 _add_lr_extras(mod_extras, learning_rate, self.log_types)
@@ -181,7 +178,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         with graph.as_default():
             with tf_compat.name_scope(name_scope):
                 learning_rate = tf_compat.constant(
-                    self.learning_rate, tf_compat.float32
+                    self.learning_rate, tf_compat.float32, name="learning_rate"
                 )
 
             _add_lr_extras(mod_extras, learning_rate, self.log_types)
