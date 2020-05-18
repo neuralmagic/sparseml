@@ -298,6 +298,14 @@ def _tensors_export_batch(
     exported_paths: List[str],
 ):
     if isinstance(tensors, Tensor):
+        if len(tensors.shape) == 1:
+            exported_paths.append(
+                tensor_export(
+                    tensors, export_dir, "{}-{:04d}".format(name_prefix, counter)
+                )
+            )
+            return
+
         for index, tens in enumerate(tensors):
             exported_paths.append(
                 tensor_export(
