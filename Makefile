@@ -1,6 +1,6 @@
 BUILDDIR := $(PWD)
 DOCDIR := docs
-PACKAGE := neuralmagicML.tar.gz
+PACKAGE := neuralmagicML-python.tar.gz
 LOGSDIR := test_logs
 .ONESHELL:
 SHELL := /bin/bash
@@ -24,14 +24,7 @@ doc:
 package:
 	$(MAKE) doc;
 	git submodule update;
-	for file in $$(find . -print | \
-		grep "docs\|neuralmagicML\|notebooks\|scripts\|tensorflow-onnx\|requirements.txt\|setup.py" | \
-		grep -v ".git\|.venv\|.pyc\|tests"); \
-	do \
-		if [ -f $$file ]; then \
-			[ -f $$file ] && tar -rvf $(PACKAGE) $$file || tar -cvf $(PACKAGE) $$file; \
-		fi; \
-	done;
+	python3 --tar-name $$PACKAGE;
 
 version_testing:
 	@source .venv/bin/activate;
