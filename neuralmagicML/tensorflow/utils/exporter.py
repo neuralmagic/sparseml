@@ -55,6 +55,78 @@ class GraphExporter(object):
     def sample_outputs_path(self) -> str:
         return os.path.join(self._output_dir, "_sample-outputs")
 
+    @staticmethod
+    def pb_to_onnx(
+        inputs: List[Union[str, tf_compat.Tensor]],
+        outputs: List[Union[str, tf_compat.Tensor]],
+        pb_path: str,
+        onnx_path: str,
+        opset: int = 11,
+        custom_op_handlers=None,
+        extra_opset=None,
+        shape_override: Dict[str, List] = None,
+    ):
+        """
+        Export an ONNX format for the graph from PB format.
+        Should not be called within an active graph or session.
+
+        :param inputs: the inputs the graph should be created for,
+            can be either a list of names or a list of tensors
+        :param outputs: the outputs the graph should be created for,
+            can be either a list of names or a list of tensors
+        :param pb_path: path to the existing PB file
+        :param onnx_path: path to the output ONNX file
+        :param opset: ONNX opset
+        :param custom_op_handlers: dictionary of custom op handlers
+        :param extra_opset: list of extra opset's
+        :param shape_override: new shape to override
+        """
+        try:
+            from tf2onnx.tfonnx import process_tf_graph, tf_optimize
+            from tf2onnx import constants, loader, utils, optimizer
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "tf2onnx must be installed on the system before using export_onnx"
+            )
+
+        pb_path = clean_path(pb_path)
+
+        if not os.path.exists(pb_path):
+            raise FileNotFoundError(
+                (
+                    "no pb file for the model found at {}"
+                ).format(pb_path)
+            )
+
+        inputs = [inp if isinstance(inp, str) else inp.name for inp in inputs]
+        outputs = [out if isinstance(out, str) else out.name for out in outputs]
+
+        graph_def, inputs, outputs = loader.from_graphdef(pb_path, inputs, outputs)
+        graph_def = tf_optimize(inputs, outputs, graph_def, fold_constant=True)
+
+        with tf_compat.Graph().as_default() as tf_graph:
+            tf_compat.import_graph_def(graph_def, name="")
+
+        with tf_compat.Session(graph=tf_graph):
+            graph = process_tf_graph(
+                tf_graph,
+                continue_on_error=False,
+                target=",".join(constants.DEFAULT_TARGET),
+                opset=opset,
+                custom_op_handlers=custom_op_handlers,
+                extra_opset=extra_opset,
+                shape_override=shape_override,
+                input_names=inputs,
+                output_names=outputs,
+            )
+
+        onnx_graph = optimizer.optimize_graph(graph)
+        model_proto = onnx_graph.make_model("converted from {}".format(pb_path))
+
+        onnx_path = clean_path(onnx_path)
+        create_parent_dirs(onnx_path)
+        utils.save_protobuf(onnx_path, model_proto)
+
     def export_checkpoint(
         self, saver: tf_compat.train.Saver = None, sess: tf_compat.Session = None
     ):
@@ -115,58 +187,34 @@ class GraphExporter(object):
         self,
         inputs: List[Union[str, tf_compat.Tensor]],
         outputs: List[Union[str, tf_compat.Tensor]],
+        opset: int = 11,
+        custom_op_handlers=None,
+        extra_opset=None,
+        shape_override: Dict[str, List] = None,
     ):
         """
-        Export an ONNX format for the graph
+        Export an ONNX format for the graph from the PB format.
+        Should not be called within an active graph or session.
 
         :param inputs: the inputs the graph should be created for,
             can be either a list of names or a list of tensors
         :param outputs: the outputs the graph should be created for,
             can be either a list of names or a list of tensors
+        :param opset: ONNX opset
+        :param custom_op_handlers: dictionary of custom op handlers
+        :param extra_opset: list of extra opset's
+        :param shape_override: new shape to override
         """
-        inputs = [inp if isinstance(inp, str) else inp.name for inp in inputs]
-        outputs = [out if isinstance(out, str) else out.name for out in outputs]
-
-        try:
-            from tf2onnx.tfonnx import process_tf_graph, tf_optimize
-            from tf2onnx import constants, loader, utils, optimizer
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "tf2onnx must be installed on the system before using export_onnx"
-            )
-
-        if not os.path.exists(self.pb_path):
-            raise FileNotFoundError(
-                (
-                    "export_pb must be called first, "
-                    "no pb file for the model found at {}"
-                ).format(self.pb_path)
-            )
-
-        graph_def, inputs, outputs = loader.from_graphdef(self.pb_path, inputs, outputs)
-        graph_def = tf_optimize(inputs, outputs, graph_def, True)
-
-        with tf_compat.Graph().as_default() as tf_graph:
-            tf_compat.import_graph_def(graph_def, name="")
-
-        with tf_compat.Session(graph=tf_graph):
-            graph = process_tf_graph(
-                tf_graph,
-                continue_on_error=False,
-                target=",".join(constants.DEFAULT_TARGET),
-                opset=11,
-                custom_op_handlers={},
-                extra_opset=[],
-                shape_override=None,
-                input_names=inputs,
-                output_names=outputs,
-            )
-
-        onnx_graph = optimizer.optimize_graph(graph)
-        model_proto = onnx_graph.make_model("converted from {}".format(self.pb_path))
-
-        create_parent_dirs(self.onnx_path)
-        utils.save_protobuf(self.onnx_path, model_proto)
+        GraphExporter.pb_to_onnx(
+            inputs,
+            outputs,
+            self.pb_path,
+            self.onnx_path,
+            opset=opset,
+            custom_op_handlers=custom_op_handlers,
+            extra_opset=extra_opset,
+            shape_override=shape_override,
+        )
 
     def export_samples(
         self,
