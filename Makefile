@@ -53,6 +53,15 @@ version_testing:
 run_tests:
 	pytest . 2>&1 | tee "$(LOGSDIR)/$$(pip3 freeze | grep tensorflow==)_$$(pip3 freeze | grep torch==)_$$(pip3 freeze | grep torchvision==).log";
 	
+python_version_testing:
+	@for python_version in $$(pyenv install --list | grep "3\.[678]" ); do \
+		[ -z $$(pyenv versions | grep "$$python_version") ] && pyenv install "$$python_version"; \
+		[ -d "$$HOME/.pyenv/versions/pyenv_$$python_version" ] || pyenv virtualenv "$$python_version" "pyenv_$$python_version"; \
+		source "$$HOME/.pyenv/versions/pyenv_$$python_version/bin/activate"; \
+		pip3 install .; \
+		pytest . 2>&1 | tee "$(LOGSDIR)/python==$$python_version.log"; \
+	done;
+
 clean:
 	rm -f $(PACKAGE);
 	rm -rf __pycache__ .pytest_cache .venv test_logs;
