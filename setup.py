@@ -18,4 +18,8 @@ setup(
     packages=packages,
     package_data={},
     install_requires=install_reqs,
+    author="Neural Magic",
+    author_email="support@neuralmagic.com",
+    url="https://neuralmagic.com/",
+    license_file="LICENSE",
 )
