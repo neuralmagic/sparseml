@@ -1,5 +1,7 @@
 import pytest
 
+import os
+
 from typing import Callable, Dict, List, Union
 
 from neuralmagicML.tensorflow.utils import tf_compat
@@ -37,6 +39,9 @@ def conv_graph_lambda():
     return graph
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 class ModifierTest(BaseModifierTest):
     # noinspection PyMethodOverriding
     def test_constructor(
@@ -149,6 +154,9 @@ class ModifierTest(BaseModifierTest):
                 modifier.complete_graph(graph, sess)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
     # noinspection PyMethodOverriding
     def test_props_start(
@@ -169,6 +177,9 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         super().test_props_end(modifier_lambda, framework=TENSORFLOW_FRAMEWORK)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
     # noinspection PyMethodOverriding
     def test_props_frequency(
@@ -186,6 +197,9 @@ class ModifierImpl(Modifier):
         super().__init__(log_types)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize("modifier_lambda", [ModifierImpl], scope="function")
 @pytest.mark.parametrize(
     "graph_lambda", [mlp_graph_lambda, conv_graph_lambda], scope="function"
@@ -227,6 +241,9 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
         super().__init__(log_types)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda", [ScheduledUpdateModifierImpl], scope="function"
 )

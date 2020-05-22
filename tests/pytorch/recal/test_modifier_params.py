@@ -1,5 +1,6 @@
 import pytest
 
+import os
 import torch
 
 from neuralmagicML.utils import ALL_TOKEN
@@ -62,6 +63,9 @@ TRAINABLE_MODIFIERS = [
 ]
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("modifier_lambda", TRAINABLE_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
@@ -140,6 +144,9 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
                         assert param.requires_grad != modifier.trainable
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_trainable_params_yaml():
     params = ALL_TOKEN
     layers = ALL_TOKEN
@@ -223,6 +230,9 @@ SET_PARAM_MODIFIERS = [
 ]
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("modifier_lambda", SET_PARAM_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
@@ -273,6 +283,9 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
                 assert set_val == param_val.cpu()
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_set_param_yaml():
     param_strict = False
     start_epoch = 10.0
@@ -359,6 +372,9 @@ GRADUAL_PARAM_MODIFIERS = [
 ]
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("modifier_lambda", GRADUAL_PARAM_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
@@ -422,6 +438,9 @@ class TestGradualParamModifierImpl(ScheduledUpdateModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_gradual_param_yaml():
     param_strict = False
     start_epoch = 10.0

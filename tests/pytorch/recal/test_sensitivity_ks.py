@@ -1,5 +1,6 @@
 import pytest
 
+import os
 import torch
 import torch.nn.functional as TF
 
@@ -20,6 +21,9 @@ def _test_one_shot_ks_loss_sensitivity_helper(
         assert res.integral > 0.0
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "model,dataset,loss_fn,batch_size,samples_per_measurement",
     [
@@ -35,6 +39,9 @@ def test_module_ks_sensitivity_analysis_one_shot(
     )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "model,dataset,loss_fn,batch_size,samples_per_measurement",
     [

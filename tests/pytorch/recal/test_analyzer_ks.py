@@ -1,4 +1,5 @@
 import pytest
+import os
 
 import torch
 from torch.nn import Parameter, Sequential, Linear, ReLU
@@ -10,6 +11,9 @@ from neuralmagicML.pytorch.utils import get_layer
 from tests.pytorch.helpers import LinearNet
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def _test_const(module, name, param_name):
     layer = get_layer(name, module)
     analyzer = ModuleKSAnalyzer(layer, name, param_name)
@@ -20,6 +24,9 @@ def _test_const(module, name, param_name):
     assert isinstance(analyzer.param, Parameter)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "module,name,param_name",
     [
@@ -33,6 +40,9 @@ def test_const(module, name, param_name):
     _test_const(module, name, param_name)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "module,name,param_name",
     [
@@ -48,6 +58,9 @@ def test_const_cuda(module, name, param_name):
     _test_const(module, name, param_name)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "module,layers,param_name",
     [
@@ -71,6 +84,9 @@ def test_analyze_layers(module, layers, param_name):
     assert isinstance(analyzers[-1], ModuleKSAnalyzer)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "module,layers,param_name",
     [
@@ -96,6 +112,9 @@ def test_analyze_layers_cuda(module, layers, param_name):
     assert isinstance(analyzers[-1], ModuleKSAnalyzer)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "module,name,param_name,param_data,expected_sparsity",
     [

@@ -1,9 +1,15 @@
+import pytest
+
+import os
 import torch
 from torch import Tensor
 
 from neuralmagicML.pytorch.nn import SqueezeExcite
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_squeeze_excite():
     channels = 64
     x_tens = torch.randn(1, channels, 24, 24)

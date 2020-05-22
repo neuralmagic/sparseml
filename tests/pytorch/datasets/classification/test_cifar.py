@@ -21,6 +21,9 @@ def _validate_cifar(dataset: Dataset, num_classes: int):
 
 
 @pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
+@pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_cifar_10():
@@ -34,6 +37,9 @@ def test_cifar_10():
     _validate_cifar(reg_dataset, 10)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )

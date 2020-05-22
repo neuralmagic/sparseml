@@ -1,5 +1,6 @@
 import pytest
 
+import os
 from abc import ABC
 import time
 import numpy
@@ -8,6 +9,9 @@ import torch
 from neuralmagicML.pytorch.utils import PythonLogger, TensorBoardLogger
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("logger", [PythonLogger(), TensorBoardLogger()])
 class TestModifierLogger(ABC):
     def test_name(self, logger):

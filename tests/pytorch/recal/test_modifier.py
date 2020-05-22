@@ -2,6 +2,7 @@ import pytest
 
 from typing import List, Callable, Union
 import sys
+import os
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -40,6 +41,9 @@ __all__ = [
 ]
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 class ModifierTest(BaseModifierTest):
     # noinspection PyMethodOverriding
     def initialize_helper(
@@ -298,6 +302,9 @@ class ModifierTest(BaseModifierTest):
         modifier.optimizer_post_step(model, optimizer, test_epoch, test_steps_per_epoch)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
     def start_helper(self, modifier: Modifier, model: Module, optimizer: Optimizer):
         modifier._started = True
@@ -512,6 +519,9 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
             )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
     # noinspection PyMethodOverriding
     def test_props_frequency(
@@ -616,6 +626,9 @@ class ModifierImpl(Modifier):
         super().__init__(log_types)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("modifier_lambda", [ModifierImpl], scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
@@ -636,6 +649,9 @@ class ScheduledModifierImpl(ScheduledModifier):
         super().__init__(log_types)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("modifier_lambda", [ScheduledModifierImpl], scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
@@ -657,6 +673,9 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
         super().__init__(log_types)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda", [ScheduledUpdateModifierImpl], scope="function"
 )

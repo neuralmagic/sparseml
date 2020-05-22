@@ -1,4 +1,5 @@
 import pytest
+import os
 
 from torch.optim import SGD
 
@@ -16,6 +17,9 @@ from tests.pytorch.recal.test_modifier import (
 )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
@@ -59,6 +63,9 @@ class TestConstantKSModifier(ScheduledModifierTest):
                 assert not modifier.update_ready(epoch, test_steps_per_epoch)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_constant_ks_yaml():
     layers = "__ALL__"
     start_epoch = 5.0
@@ -94,6 +101,9 @@ def test_constant_ks_yaml():
     assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
@@ -161,6 +171,9 @@ class TestGradualKSModifier(ScheduledUpdateModifierTest):
             assert modifier.applied_sparsity == modifier.final_sparsity
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_gradual_ks_yaml():
     layers = "__ALL__"
     init_sparsity = 0.05

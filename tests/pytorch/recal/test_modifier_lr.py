@@ -1,5 +1,6 @@
 import pytest
 
+import os
 import sys
 import math
 from torch.optim import SGD, Adam
@@ -37,6 +38,9 @@ def _get_optim_lr(optim: Optimizer) -> float:
 ##############################
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
@@ -100,6 +104,9 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
                 ), "Failed at epoch:{} step:{}".format(epoch, step)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_set_lr_yaml():
     start_epoch = 10.0
     yaml_str = """
@@ -142,6 +149,9 @@ GAMMA = 0.1
 EPOCH_APPLY_RANGE = 15
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
@@ -221,6 +231,9 @@ class TestLRModifierExponentialImpl(ScheduledUpdateModifierTest):
                 ), "Failed at epoch:{} step:{}".format(epoch, step)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_lr_modifier_exponential_yaml():
     lr_class = "ExponentialLR"
     lr_kwargs = {"gamma": GAMMA}
@@ -278,6 +291,9 @@ def test_lr_modifier_exponential_yaml():
     assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
@@ -366,6 +382,9 @@ class TestLRModifierStepImpl(ScheduledUpdateModifierTest):
                 ), "Failed at epoch:{} step:{}".format(epoch, step)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_lr_modifier_step_yaml():
     lr_class = "StepLR"
     lr_kwargs = {"step_size": 1.0, "gamma": GAMMA}
@@ -426,6 +445,9 @@ def test_lr_modifier_step_yaml():
 MILESTONES = [5, 9, 12]
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
@@ -502,6 +524,9 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
                 ), "Failed at epoch:{} step:{}".format(epoch, step)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_lr_modifier_multi_step_yaml():
     lr_class = "MultiStepLR"
     lr_kwargs = {"milestones": MILESTONES, "gamma": GAMMA}

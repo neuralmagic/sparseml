@@ -21,6 +21,9 @@ def _validate(dataset: Dataset, size: int):
 
 
 @pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
+@pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_imagenette_160():
@@ -34,6 +37,9 @@ def test_imagenette_160():
     _validate(reg_dataset, 160)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )

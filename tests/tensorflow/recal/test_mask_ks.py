@@ -1,5 +1,7 @@
 import pytest
 
+import os
+
 from typing import Callable, List
 import numpy
 
@@ -19,6 +21,9 @@ from neuralmagicML.tensorflow.recal import (
 from tests.tensorflow.helpers import mlp_net, conv_net
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 def test_create_op_pruning_fc(sparsity_val):
     group = "test-group"
@@ -73,6 +78,9 @@ def test_create_op_pruning_fc(sparsity_val):
             assert res.sum() > 0.0
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 def test_create_op_pruning_conv(sparsity_val: float):
     group = "test-group"
@@ -129,6 +137,9 @@ def test_create_op_pruning_conv(sparsity_val: float):
             assert res.sum() > 0.0
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize("sparsity_val", [0.6])
 def test_create_op_pruning_decrease_sparsity(sparsity_val):
     group = "test-group"
@@ -164,6 +175,9 @@ def test_create_op_pruning_decrease_sparsity(sparsity_val):
             assert abs(mask_sparsity - sparsity_val) < 1e-3
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
     "net_const,inp_arr,ops",
@@ -236,6 +250,9 @@ def test_get_or_create_graph_ops_pruning(
                 assert res.sum() > 0.0
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
     "net_const,inp_arr,ops",
@@ -283,6 +300,9 @@ def test_apply_op_vars_masks(
                 assert abs(var_sparsity - sparsity_val) < 1e-2
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "begin_step,end_step,update_step_freq,init_sparsity,final_sparsity,exponent",
     [
@@ -390,6 +410,9 @@ def _expected_sparsity(
     )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "begin_step,end_step,update_step_freq,init_sparsity,final_sparsity,exponent",
     [

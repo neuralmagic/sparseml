@@ -1,6 +1,8 @@
 from typing import List
 import pytest
 
+import os
+
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.recal import (
     step_lr_schedule,
@@ -8,6 +10,9 @@ from neuralmagicML.tensorflow.recal import (
 )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "start_step,end_step,init_lr,step_size,gamma",
     [
@@ -41,6 +46,9 @@ def test_step_lr_schedule(
                 assert abs(measured - expected) < 1e-5
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "start_step,milestone_steps,init_lr,gamma",
     [

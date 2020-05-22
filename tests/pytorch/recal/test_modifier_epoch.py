@@ -1,4 +1,5 @@
 import pytest
+import os
 
 from neuralmagicML.pytorch.recal import EpochRangeModifier
 
@@ -11,6 +12,9 @@ from tests.pytorch.recal.test_modifier import (
 )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [lambda: EpochRangeModifier(0.0, 10.0), lambda: EpochRangeModifier(5.0, 15.0)],
@@ -24,6 +28,9 @@ class TestEpochRangeModifierImpl(ScheduledModifierTest):
     pass
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_epoch_range_yaml():
     start_epoch = 5.0
     end_epoch = 15.0

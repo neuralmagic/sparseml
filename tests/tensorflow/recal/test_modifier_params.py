@@ -1,5 +1,7 @@
 import pytest
 
+import os
+
 from typing import Callable
 import numpy
 
@@ -21,6 +23,9 @@ from tests.tensorflow.recal.test_modifier import (
 )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
     [
@@ -98,6 +103,9 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
                         assert var not in tf_compat.trainable_variables()
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_trainable_params_modifier_with_training():
     modifier = TrainableParamsModifier(
         params=["weight"],
@@ -152,6 +160,9 @@ def test_trainable_params_modifier_with_training():
             manager.complete_graph()
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_trainable_params_yaml():
     params = ALL_TOKEN
     layers = ALL_TOKEN

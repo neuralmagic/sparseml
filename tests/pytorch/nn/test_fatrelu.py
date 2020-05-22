@@ -1,3 +1,6 @@
+import pytest
+
+import os
 import torch
 
 from neuralmagicML.pytorch.nn import (
@@ -13,6 +16,9 @@ from neuralmagicML.pytorch.nn import (
 from tests.pytorch.helpers import MLPNet
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_fat_relu():
     x_tens = torch.randn(1, 8, 64, 64)
     threshold = 0.1
@@ -32,6 +38,9 @@ def test_fat_relu():
     assert (x_tens - out).sum() < 0.1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_fat_pw_relu():
     x_tens = torch.randn(1, 8, 64, 64)
     threshold = torch.tensor(0.1)
@@ -44,6 +53,9 @@ def test_fat_pw_relu():
     assert (x_tens - out).sum() < 0.1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_fat_sig_relu():
     x_tens = torch.randn(1, 8, 64, 64)
     threshold = torch.tensor(0.1)
@@ -56,6 +68,9 @@ def test_fat_sig_relu():
     assert (x_tens - out).sum() < 0.1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_fat_exp_relu():
     x_tens = torch.randn(1, 8, 64, 64)
     threshold = torch.tensor(0.1)
@@ -63,6 +78,9 @@ def test_fat_exp_relu():
     out = fat_exp_relu(x_tens, threshold, compression)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_convert_relus_to_fat():
     model = MLPNet()
     convert_relus_to_fat(model)
@@ -72,6 +90,9 @@ def test_convert_relus_to_fat():
             assert isinstance(mod, FATReLU)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_set_relu_to_fat():
     model = MLPNet()
     layer_desc = MLPNet.layer_descs()[1]

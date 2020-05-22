@@ -1,4 +1,5 @@
 import pytest
+import os
 
 import sys
 import torch
@@ -18,6 +19,9 @@ def _test_constructor(layer, param_name):
     assert not mask.enabled
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name",
     [
@@ -31,6 +35,9 @@ def test_constructor(layer, param_name):
     _test_constructor(layer, param_name)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name",
     [
@@ -44,12 +51,18 @@ def test_constructor_cuda(layer, param_name):
     _test_constructor(layer, param_name)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def _test_set_param_data(layer, param_name, data):
     mask = ModuleParamKSMask(layer, param_name)
     mask.set_param_data(data)
     assert torch.sum((mask.param_data - data).abs()) < sys.float_info.epsilon
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name,data",
     [
@@ -71,6 +84,9 @@ def test_set_param_data(layer, param_name, data):
     _test_set_param_data(layer, param_name, data)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name,data",
     [
@@ -95,6 +111,9 @@ def random_mask(*size, threshold):
     return (mask <= threshold).type(torch.float32)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def _test_set_param_mask(layer, param_name, param_mask):
     mask = ModuleParamKSMask(layer, param_name)
     result = mask.set_param_mask(param_mask)
@@ -115,6 +134,9 @@ def _test_set_param_mask(layer, param_name, param_mask):
     assert torch.sum((param_data_zeros - mask_zeros).abs()) < sys.float_info.epsilon
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name,param_mask",
     [
@@ -146,6 +168,9 @@ def test_set_param_mask(layer, param_name, param_mask):
     _test_set_param_data(layer, param_name, param_mask)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name,param_mask",
     [
@@ -180,6 +205,9 @@ def test_set_param_mask_cuda(layer, param_name, param_mask):
     _test_set_param_data(layer, param_name, param_mask)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def _test_set_param_mask_from_abs_threshold(
     layer, param_name, param, threshold, expected_sparsity
 ):
@@ -190,6 +218,9 @@ def _test_set_param_mask_from_abs_threshold(
     assert (sparsity - expected_sparsity).abs() < 0.01
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name,param,threshold,expected_sparsity",
     [
@@ -245,6 +276,9 @@ def test_set_param_mask_from_abs_threshold(
     )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name,param,threshold,expected_sparsity",
     [
@@ -311,6 +345,9 @@ def _test_set_param_mask_from_sparsity(layer, param_name, param, sparsity):
     assert (measured - sparsity).abs() < 0.01
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name,param,sparsity",
     [
@@ -356,6 +393,9 @@ def test_set_param_mask_from_sparsity(layer, param_name, param, sparsity):
     _test_set_param_mask_from_sparsity(layer, param_name, param, sparsity)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "layer,param_name,param,sparsity",
     [

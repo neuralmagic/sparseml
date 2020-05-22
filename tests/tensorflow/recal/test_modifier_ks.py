@@ -1,5 +1,7 @@
 import pytest
 
+import os
+
 from typing import Callable
 import numpy
 
@@ -24,6 +26,9 @@ from tests.tensorflow.recal.test_modifier import (
 )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
     [
@@ -98,6 +103,9 @@ class TestConstantKSModifierImpl(ScheduledModifierTest):
                 modifier.complete_graph(graph, sess)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_constant_ks_yaml():
     layers = "__ALL__"
     start_epoch = 5.0
@@ -133,6 +141,9 @@ def test_constant_ks_yaml():
     assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
     [
@@ -263,6 +274,9 @@ class TestGradualKSModifierImpl(ScheduledModifierTest):
                     )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_gradual_ks_training_with_manager():
     modifier = GradualKSModifier(
         layers=["mlp_net/fc1/matmul", "mlp_net/fc3/matmul"],
@@ -339,6 +353,9 @@ def test_gradual_ks_training_with_manager():
                 )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_gradual_ks_yaml():
     layers = "__ALL__"
     init_sparsity = 0.05

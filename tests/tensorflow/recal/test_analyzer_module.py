@@ -1,4 +1,6 @@
 import pytest
+
+import os
 import numpy as np
 
 import tensorflow.contrib.slim as slim
@@ -70,6 +72,9 @@ def resnet_v2_50(init_weights):
         return tf_compat.get_default_graph()
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "model, init_weights, layer_name, params, zeroed_params, total_flops",
     [

@@ -9,6 +9,9 @@ from neuralmagicML.tensorflow.models import ModelRegistry, mnist_net
 
 
 @pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
+@pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",
 )
 def test_mnist():
@@ -26,6 +29,9 @@ def test_mnist():
             assert out.sum() != 0
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",
 )

@@ -57,6 +57,9 @@ def _validate(dataset: ImageFolderDataset, size: int):
 
 
 @pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
+@pytest.mark.skipif(
     version.parse(tensorflow.__version__) < version.parse("1.3"),
     reason="Must install tensorflow version 1.3 or greater",
 )
@@ -74,6 +77,9 @@ def test_imagenette_160():
     _validate(reg_dataset, 160)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.skipif(
     version.parse(tensorflow.__version__) < version.parse("1.3"),
     reason="Must install tensorflow version 1.3 or greater",

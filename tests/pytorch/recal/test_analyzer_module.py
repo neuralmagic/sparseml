@@ -1,4 +1,5 @@
 import pytest
+import os
 
 from typing import Tuple
 import torch
@@ -10,6 +11,9 @@ from neuralmagicML.pytorch.recal import ModuleAnalyzer
 from tests.pytorch.helpers import MLPNet, ConvNet
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "model,input_shape,name,params,prunable_params,execution_order,flops,total_flops",
     [

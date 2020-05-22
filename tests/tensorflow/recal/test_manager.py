@@ -1,5 +1,7 @@
 import pytest
 
+import os
+
 from typing import Callable
 
 from neuralmagicML.tensorflow.utils import tf_compat
@@ -13,6 +15,9 @@ from tests.tensorflow.recal.test_modifier import (
 )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [lambda: ScheduledModifierManager([ScheduledModifierImpl()])],
@@ -33,6 +38,9 @@ class TestManagerImpl(ModifierTest):
         return
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_manager_yaml():
     manager = ScheduledModifierManager([ScheduledModifierImpl()])
     yaml_str = ScheduledModifierManager.list_to_yaml(manager.modifiers)

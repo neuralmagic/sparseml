@@ -1,5 +1,7 @@
 import pytest
 
+import os
+
 from typing import Callable
 import numpy
 
@@ -12,6 +14,9 @@ from neuralmagicML.tensorflow.utils import tf_compat, batch_cross_entropy_loss
 from tests.tensorflow.helpers import mlp_net
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "net_const,inp_arr,labs_arr",
     [(mlp_net, numpy.random.random((8, 16)), numpy.random.random((8, 64)))],

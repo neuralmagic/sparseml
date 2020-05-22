@@ -23,6 +23,9 @@ def _validate_voc(dataset: Dataset, size: int):
 
 
 @pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
+@pytest.mark.skipif(
     version.parse(torch.__version__) < version.parse("1.2"),
     reason="Must install pytorch version 1.2 or greater",
 )
@@ -42,6 +45,9 @@ def test_voc_detection():
     # _validate_voc(reg_dataset, 300)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.skipif(
     version.parse(torch.__version__) < version.parse("1.2"),
     reason="Must install pytorch version 1.2 or greater",

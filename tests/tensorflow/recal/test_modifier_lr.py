@@ -1,5 +1,7 @@
 from typing import Callable
 import pytest
+
+import os
 import math
 import numpy as np
 
@@ -32,6 +34,9 @@ EPSILON = 1e-7
 ##############################
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
     [
@@ -106,6 +111,9 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
                     )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_set_lr_yaml():
     start_epoch = 10.0
     set_lr = 0.1
@@ -146,6 +154,9 @@ def test_set_lr_yaml():
 ##############################
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
     [
@@ -247,6 +258,9 @@ class TestLRModifierExponentialImpl(ScheduledModifierTest):
                     )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_lr_modifier_exponential_yaml():
     gamma = 0.9
     lr_class = "ExponentialLR"
@@ -305,6 +319,9 @@ def test_lr_modifier_exponential_yaml():
     assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
     [
@@ -415,6 +432,9 @@ class TestLRModifierStepImpl(ScheduledModifierTest):
                     )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_lr_modifier_step_yaml():
     gamma = 0.9
     lr_class = "StepLR"
@@ -473,6 +493,9 @@ def test_lr_modifier_step_yaml():
     assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
     [
@@ -575,6 +598,9 @@ class TestLRModifierMultiStepImpl(ScheduledModifierTest):
                     )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_lr_modifier_multi_step_yaml():
     milestones = [1, 3, 4]
     gamma = 0.9
@@ -641,6 +667,9 @@ def test_lr_modifier_multi_step_yaml():
 ##############################
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
     [
@@ -755,6 +784,9 @@ class TestGroupLearningRateImpl(ScheduledModifierTest):
 ##############################
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "optim_lambda",
     [tf_compat.train.GradientDescentOptimizer, tf_compat.train.AdamOptimizer],

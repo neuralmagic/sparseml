@@ -1,3 +1,4 @@
+import os
 from typing import Callable
 
 import pytest
@@ -23,6 +24,9 @@ from tests.pytorch.helpers import (
 from tests.pytorch.recal.test_modifier import ModifierTest, ScheduledModifierImpl
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "modifier_lambda",
     [lambda: ScheduledModifierManager([ScheduledModifierImpl()])],
@@ -45,6 +49,9 @@ class TestManagerImpl(ModifierTest):
         return
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_manager_yaml():
     manager = ScheduledModifierManager([ScheduledModifierImpl()])
     yaml_str = ScheduledModifierManager.list_to_yaml(manager.modifiers)

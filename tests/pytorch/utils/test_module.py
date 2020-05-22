@@ -1,5 +1,6 @@
 import pytest
 
+import os
 import math
 import torch
 import torch.nn.functional as TF
@@ -31,12 +32,18 @@ def default_calcs_for_backwards():
     return out
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_def_model_backward():
     losses = {DEFAULT_LOSS_KEY: default_calcs_for_backwards()}
     module = Sequential(Linear(8, 8), ReLU())
     def_model_backward(losses, module)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
 def test_def_model_backward_cuda():
     def _run_calcs():
@@ -52,6 +59,9 @@ def test_def_model_backward_cuda():
     def_model_backward(losses, module)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_hooks_batch_start():
     call_counter = 0
 
@@ -69,6 +79,9 @@ def test_run_hooks_batch_start():
     assert call_counter == 1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_hooks_batch_forward():
     call_counter = 0
 
@@ -86,6 +99,9 @@ def test_run_hooks_batch_forward():
     assert call_counter == 1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_hooks_batch_loss():
     call_counter = 0
 
@@ -103,6 +119,9 @@ def test_run_hooks_batch_loss():
     assert call_counter == 1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_hooks_batch_backward():
     call_counter = 0
 
@@ -120,6 +139,9 @@ def test_run_hooks_batch_backward():
     assert call_counter == 1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_hooks_batch_end():
     call_counter = 0
 
@@ -137,18 +159,27 @@ def test_run_hooks_batch_end():
     assert call_counter == 1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_funcs_batch_size():
     funcs = ModuleRunFuncs()
     assert funcs.batch_size.__name__ == tensors_batch_size.__name__
     assert funcs.batch_size(torch.randn(8, 4)) == 8
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_funcs_to_device():
     funcs = ModuleRunFuncs()
     assert funcs.to_device.__name__ == tensors_to_device.__name__
     assert not funcs.to_device(torch.randn(8, 4), "cpu").is_cuda
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_funcs_model_forward():
     funcs = ModuleRunFuncs()
     assert funcs.model_forward.__name__ == tensors_module_forward.__name__
@@ -157,6 +188,9 @@ def test_run_funcs_model_forward():
     assert out.shape[1] == 8
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_funcs_model_backward():
     funcs = ModuleRunFuncs()
     assert funcs.model_backward.__name__ == def_model_backward.__name__
@@ -165,6 +199,9 @@ def test_run_funcs_model_backward():
     funcs.model_backward(losses, module)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_run_funcs_copy():
     funcs = ModuleRunFuncs()
     funcs.batch_size = None
@@ -180,6 +217,9 @@ def test_run_funcs_copy():
     assert copy_funcs.model_backward is None
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "name,loss_tensors,batch_size,expected_mean,expected_std",
     [
@@ -226,6 +266,9 @@ class DatasetImpl(Dataset):
         return self._length
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def _train_helper(model, dataset, loss, optimizer, batch_size, device):
     model.to(device)
     counters = {"start": 0, "forward": 0, "loss": 0, "backward": 0, "end": 0}
@@ -281,6 +324,9 @@ def _train_helper(model, dataset, loss, optimizer, batch_size, device):
             assert not loss.is_cuda
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "model,dataset,loss,optimizer,batch_size",
     [
@@ -304,6 +350,9 @@ def test_module_trainer(model, dataset, loss, optimizer, batch_size):
     _train_helper(model, dataset, loss, optimizer, batch_size, "cpu")
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "model,dataset,loss,optimizer,batch_size",
     [
@@ -328,6 +377,9 @@ def test_module_trainer_cuda(model, dataset, loss, optimizer, batch_size):
     _train_helper(model.to("cuda"), dataset, loss, optimizer, batch_size, "cuda")
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def _test_helper(model, dataset, loss, batch_size, device):
     model.to(device)
     counters = {"start": 0, "forward": 0, "loss": 0, "end": 0}
@@ -387,6 +439,9 @@ def _test_helper(model, dataset, loss, batch_size, device):
             assert not loss.is_cuda
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size",
     [
@@ -398,6 +453,9 @@ def test_module_tester(model, dataset, loss, batch_size):
     _test_helper(model, dataset, loss, batch_size, "cpu")
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size",
     [

@@ -1,5 +1,6 @@
 import pytest
 
+import os
 from typing import Iterable, Dict
 import sys
 import tempfile
@@ -26,6 +27,9 @@ from neuralmagicML.pytorch.utils import (
 )
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensors,expected",
     [
@@ -45,6 +49,9 @@ def test_tensors_batch_size(tensors, expected):
     assert batch_size == expected
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensors",
     [
@@ -74,6 +81,9 @@ def test_tensors_to_device_cpu(tensors):
                 assert not tens.is_cuda
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensors",
     [
@@ -104,6 +114,9 @@ def test_tensors_to_device_cuda(tensors):
                 assert tens.is_cuda
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensors",
     [
@@ -133,6 +146,9 @@ def test_tensors_to_precision_full_cpu(tensors):
                 assert tens.dtype == torch.float32
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensors",
     [
@@ -162,6 +178,9 @@ def test_tensors_to_precision_half_cpu(tensors):
                 assert tens.dtype == torch.float16
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensors",
     [
@@ -193,6 +212,9 @@ def test_tensors_to_precision_full_cuda(tensors):
                 assert tens.dtype == torch.float32
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensors",
     [
@@ -224,6 +246,9 @@ def test_tensors_to_precision_half_cuda(tensors):
                 assert tens.dtype == torch.float16
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 class SimpleModule(Module):
     def __init__(self, input_size: int):
         super().__init__()
@@ -290,6 +315,9 @@ class ComplexModule(Module):
         return torch.randn(batch_size, 32)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "module,tensors,check_feat_lab_inp",
     [
@@ -347,6 +375,9 @@ def test_tensors_module_forward(module, tensors, check_feat_lab_inp):
     out = tensors_module_forward(tensors, module, check_feat_lab_inp)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "module,tensors,check_feat_lab_inp",
     [
@@ -407,6 +438,9 @@ def test_tensors_module_forward_cuda(module, tensors, check_feat_lab_inp):
     out = tensors_module_forward(tensors, module, check_feat_lab_inp)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,name",
     [
@@ -423,6 +457,9 @@ def test_tensor_export_npy(tensor, name):
         assert s1 == s2
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,name",
     [
@@ -440,6 +477,9 @@ def test_tensor_export_npy(tensor, name):
         assert s1 == s2
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,name",
     [
@@ -459,6 +499,9 @@ def test_tensor_export_cuda(tensor, name):
         assert s1 == s2
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensors,name",
     [
@@ -480,6 +523,9 @@ def test_tensors_export(tensors, name):
         assert numpy.sum(exported.shape) > 1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,dim,expected_sparsity",
     [
@@ -514,6 +560,9 @@ def test_tensor_sparsity(tensor, dim, expected_sparsity):
     assert torch.sum((sparsity - expected_sparsity).abs()) < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,dim,expected_sparsity",
     [
@@ -541,6 +590,9 @@ def test_tensor_sparsity_cuda(tensor, dim, expected_sparsity):
     assert torch.sum((sparsity.detach().cpu() - expected_sparsity).abs()) < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,dim,expected_density",
     [
@@ -575,6 +627,9 @@ def test_tensor_density(tensor, dim, expected_density):
     assert torch.sum((density - expected_density).abs()) < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,dim,expected_density",
     [
@@ -598,6 +653,9 @@ def test_tensor_density_cuda(tensor, dim, expected_density):
     assert torch.sum((density.detach().cpu() - expected_density).abs()) < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,size,dim,expected_shape",
     [
@@ -619,6 +677,9 @@ def test_tensor_sample(tensor, size, dim, expected_shape):
         assert s1 == s2
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,size,dim,expected_shape",
     [
@@ -642,6 +703,9 @@ def test_tensor_sample_cuda(tensor, size, dim, expected_shape):
         assert s1 == s2
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,sparsity,expected_thresh",
     [
@@ -668,6 +732,9 @@ def test_abs_threshold_from_sparsity(tensor, sparsity, expected_thresh):
         assert numpy.sum(thresh.shape) < 1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,sparsity,expected_thresh",
     [
@@ -689,6 +756,9 @@ def test_abs_threshold_from_sparsity_cuda(tensor, sparsity, expected_thresh):
         assert numpy.sum(thresh.shape) < 1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,sparsity,expected_mask",
     [
@@ -729,6 +799,9 @@ def test_sparsity_mask(tensor, sparsity, expected_mask):
     assert torch.sum((mask - expected_mask).abs()) < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,sparsity,expected_mask",
     [
@@ -770,6 +843,9 @@ def test_sparsity_mask_cuda(tensor, sparsity, expected_mask):
     assert torch.sum((mask - expected_mask).abs()) < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,expected_mask",
     [
@@ -787,6 +863,9 @@ def test_sparsity_mask_from_tensor(tensor: Tensor, expected_mask):
     assert torch.sum((mask - expected_mask).abs()) < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,expected_mask",
     [
@@ -806,6 +885,9 @@ def test_sparsity_mask_from_tensor_cuda(tensor: Tensor, expected_mask):
     assert torch.sum((mask.detach().cpu() - expected_mask).abs()) < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,threshold,expected_mask",
     [
@@ -847,6 +929,9 @@ def test_sparsity_mask_from_abs_threshold(tensor, threshold, expected_mask):
     assert torch.sum(mask - expected_mask).abs() < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "tensor,threshold,expected_mask",
     [
@@ -865,6 +950,9 @@ def test_sparsity_mask_from_abs_threshold_cuda(tensor, threshold, expected_mask)
     assert torch.sum(mask.detach().cpu() - expected_mask).abs() < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "old_mask,new_mask,expected_diff",
     [

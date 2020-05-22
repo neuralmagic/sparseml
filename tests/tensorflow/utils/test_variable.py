@@ -1,5 +1,7 @@
 import pytest
 
+import os
+
 from typing import List
 
 from neuralmagicML.tensorflow.utils import (
@@ -12,6 +14,9 @@ from neuralmagicML.tensorflow.utils import (
 from tests.tensorflow.helpers import mlp_net, conv_net
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_op_var_name():
     graph = tf_compat.Graph()
 
@@ -23,6 +28,9 @@ def test_op_var_name():
         assert name == "test_var_name"
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 def test_op_input_var():
     with tf_compat.Graph().as_default() as graph:
         mlp_net()
@@ -34,6 +42,9 @@ def test_op_input_var():
             assert isinstance(inp, tf_compat.Tensor)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
 @pytest.mark.parametrize(
     "net_const,expected_ops",
     [

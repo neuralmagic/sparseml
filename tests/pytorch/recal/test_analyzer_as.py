@@ -1,3 +1,6 @@
+import pytest
+
+import os
 import torch
 from torch import Tensor
 from neuralmagicML.pytorch.recal import ModuleASAnalyzer
@@ -5,6 +8,9 @@ from neuralmagicML.pytorch.recal import ModuleASAnalyzer
 from tests.pytorch.helpers import MLPNet
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_as_analyzer():
     model = MLPNet()
     layer_descs = [MLPNet.layer_descs()[1], MLPNet.layer_descs()[3]]

@@ -1,5 +1,6 @@
 import pytest
 
+import os
 from typing import Optional, Callable
 import sys
 import torch
@@ -35,6 +36,9 @@ class FakeManager(ScheduledModifierManager):
         self.last_called_epoch = epoch
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_optim_all_info():
     model = MLPNet()
     optim = FakeOptim(model.parameters(), 0.1)
@@ -59,6 +63,9 @@ def test_optim_all_info():
         optim.epoch_end()
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_optim_size_only():
     model = MLPNet()
     optim = FakeOptim(model.parameters(), 0.1)
@@ -82,6 +89,9 @@ def test_optim_size_only():
         optim.epoch_end()
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_optim_start_end_only():
     model = MLPNet()
     optim = FakeOptim(model.parameters(), 0.1)

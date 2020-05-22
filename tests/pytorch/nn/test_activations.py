@@ -1,4 +1,7 @@
+import pytest
+
 import sys
+import os
 import torch
 import torch.nn.functional as TF
 from torch.nn import ReLU as TReLU
@@ -18,6 +21,9 @@ from neuralmagicML.pytorch.nn import (
 from tests.pytorch.helpers import MLPNet
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_relu():
     x_tens = torch.randn(16, 1, 64, 64)
     comp_one = ReLU(num_channels=1)(x_tens)
@@ -26,6 +32,9 @@ def test_relu():
     assert (comp_one - comp_two).abs().sum() < sys.float_info.epsilon
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_relu6():
     x_tens = torch.randn(16, 1, 64, 64)
     comp_one = ReLU6(num_channels=1)(x_tens)
@@ -34,6 +43,9 @@ def test_relu6():
     assert (comp_one - comp_two).abs().sum() < sys.float_info.epsilon
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_swish():
     x_tens = torch.randn(16, 1, 64, 64)
     comp_one = swish(x_tens)
@@ -44,6 +56,9 @@ def test_swish():
     assert (comp_one - comp_three).abs().sum() < sys.float_info.epsilon
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_replace_activation():
     model = MLPNet()
     layer_desc = MLPNet.layer_descs()[1]
@@ -52,6 +67,9 @@ def test_replace_activation():
     assert isinstance(act, ReLU6)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_create_activation():
     act = create_activation("relu", inplace=True, num_channels=1)
     assert isinstance(act, ReLU)
@@ -69,6 +87,9 @@ def test_create_activation():
     assert isinstance(act, Swish)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_is_activation():
     assert is_activation(ReLU())
     assert is_activation(ReLU6())

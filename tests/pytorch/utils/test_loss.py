@@ -1,5 +1,6 @@
 import pytest
 
+import os
 from abc import ABC
 from typing import Dict, Iterable
 import torch
@@ -48,6 +49,9 @@ DEFAULT_METRICS = {"one": default_metric_one, "two": default_metric_two}
 DEFAULT_KD_SETTINGS = KDSettings(teacher=default_kd_parent())
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 class LossWrapperTest(ABC):
     def test_available_losses(self, wrapper, metrics, data, pred):
         assert wrapper.available_losses == (DEFAULT_LOSS_KEY, *metrics.keys())
@@ -152,6 +156,9 @@ class LossWrapperTest(ABC):
             assert key in losses
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "wrapper,metrics",
     [(LossWrapper(default_loss_fn, DEFAULT_METRICS), DEFAULT_METRICS)],
@@ -165,6 +172,9 @@ class TestLossWrapperImpl(LossWrapperTest):
     pass
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "wrapper,metrics",
     [
@@ -185,6 +195,9 @@ class TestKDLossWrapperImpl(LossWrapperTest):
     pass
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "wrapper,metrics",
     [
@@ -205,6 +218,9 @@ class TestBinaryCrossEntropyLossWrapperImpl(LossWrapperTest):
     pass
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "wrapper,metrics", [(CrossEntropyLossWrapper(DEFAULT_METRICS), DEFAULT_METRICS)]
 )
@@ -216,6 +232,9 @@ class TestCrossEntropyLossWrapperImpl(LossWrapperTest):
     pass
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "pred,lab,expected_acc",
     [
@@ -235,6 +254,9 @@ def test_accuracy(pred, lab, expected_acc):
     assert torch.sum((expected_acc - acc).abs()) < 0.001
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize(
     "pred,lab,topk,expected_acc",
     [

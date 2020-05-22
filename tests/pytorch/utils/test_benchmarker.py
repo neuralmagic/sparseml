@@ -1,5 +1,6 @@
 import pytest
 
+import os
 import sys
 import numpy
 import torch
@@ -9,6 +10,9 @@ from neuralmagicML.pytorch.utils import BatchBenchmarkResults, ModuleBenchmarker
 from tests.pytorch.helpers import MLPNet
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_results_const():
     batch_size = 1
     results = BatchBenchmarkResults(batch_size)
@@ -17,6 +21,9 @@ def test_results_const():
     assert len(results.e2e_batch_timings) < 1
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 def test_results_add():
     batch_size = 1
     results = BatchBenchmarkResults(batch_size)
@@ -29,6 +36,9 @@ def test_results_add():
         results.add(1.0, 1.0, 8)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("batch_size", [1, 64])
 @pytest.mark.parametrize(
     "timings,avg",
@@ -98,6 +108,9 @@ def _results_sanity_check(
     assert results.e2e_items_per_second > 0.0
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("batch_size", [1, 64])
 def test_benchmark_cpu(batch_size):
     benchmarker = ModuleBenchmarker(MLPNet())
@@ -115,6 +128,9 @@ def test_benchmark_cpu(batch_size):
     _results_sanity_check(results, test_size, batch_size)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("batch_size", [1, 64])
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
 def test_benchmark_cuda_full(batch_size):
@@ -133,6 +149,9 @@ def test_benchmark_cuda_full(batch_size):
     _results_sanity_check(results, test_size, batch_size)
 
 
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
 @pytest.mark.parametrize("batch_size", [1, 64])
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
 def test_benchmark_cuda_full(batch_size):
