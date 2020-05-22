@@ -6,8 +6,10 @@ from typing import List, Union
 import os
 import json
 import requests
+from requests.exceptions import HTTPError
 import hashlib
 import copy
+from tarfile import TarFile
 
 from neuralmagicML.utils.frameworks import (
     ONNX_FRAMEWORK,
@@ -204,6 +206,18 @@ class RepoModel(object):
         return "{}/{}".format(self.root_path, "model.onnx")
 
     @property
+    def data_file_paths(self) -> List[str]:
+        """
+        :return: path the data files for the model will be found at in
+            models.neuralmagic.com
+        """
+        return [
+            "{}/{}".format(self.root_path, "_sample-inputs.tar"),
+            "{}/{}".format(self.root_path, "_sample-outputs.tar"),
+            "{}/{}".format(self.root_path, "_sample-labels.tar"),
+        ]
+
+    @property
     def framework_file_paths(self) -> List[str]:
         """
         :return: path the framework specific file for the model will be found at in
@@ -250,6 +264,27 @@ class RepoModel(object):
         for framework_path in self.framework_file_paths:
             paths.append(models_download_file(framework_path, overwrite, save_dir))
 
+        return paths
+
+    def download_data_files(
+        self, overwrite: bool = False, save_dir: str = None
+    ) -> List[str]:
+        """
+        :param overwrite: True to overwrite any previous downloads,
+            False to not redownload if it exists (default)
+        :param save_dir: The directory to save the model files to
+            instead of the default cache dir
+        :return: the path to the local, downloaded file
+        """
+        paths = []
+
+        for data_path in self.data_file_paths:
+            try:
+                paths.append(models_download_file(data_path, overwrite, save_dir))
+                with TarFile(paths[-1]) as tar:
+                    tar.extractall(save_dir)
+            except HTTPError:
+                print(f"Could not download {data_path}")
         return paths
 
 
