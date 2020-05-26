@@ -14,6 +14,7 @@ __all__ = [
     "ResNetSection",
     "resnet_const",
     "resnet18",
+    "resnet20",
     "resnet34",
     "resnet50",
     "resnet101",
@@ -31,24 +32,37 @@ def _input(
     bias_initializer,
     beta_initializer,
     gamma_initializer,
+    simplified_arch: bool = False,
 ) -> tf_compat.Tensor:
-    out = conv2d_block(
-        "input",
-        x_tens,
-        training,
-        channels=64,
-        kernel_size=7,
-        stride=2,
-        padding=3,
-        kernel_initializer=kernel_initializer,
-        bias_initializer=bias_initializer,
-        beta_initializer=beta_initializer,
-        gamma_initializer=gamma_initializer,
-    )
-    out = pool2d(
-        name="pool", x_tens=out, type_="max", pool_size=3, strides=2, padding=1
-    )
-
+    if not simplified_arch:
+        out = conv2d_block(
+            "input",
+            x_tens,
+            training,
+            channels=64,
+            kernel_size=7,
+            stride=2,
+            padding=3,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            beta_initializer=beta_initializer,
+            gamma_initializer=gamma_initializer,
+        )
+        out = pool2d(
+            name="pool", x_tens=out, type_="max", pool_size=3, strides=2, padding=1
+        )
+    else:
+        out = conv2d_block(
+            "input",
+            x_tens,
+            training,
+            channels=16,
+            kernel_size=3,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            beta_initializer=beta_initializer,
+            gamma_initializer=gamma_initializer,
+        )
     return out
 
 
@@ -353,6 +367,7 @@ def resnet_const(
     bias_initializer,
     beta_initializer,
     gamma_initializer,
+    simplified_arch: bool = False,
 ) -> tf_compat.Tensor:
     """
     Graph constructor for ResNet implementation.
@@ -369,6 +384,8 @@ def resnet_const(
     :param bias_initializer: Initializer to use for the bias in the fully connected
     :param beta_initializer: Initializer to use for the batch norm beta variables
     :param gamma_initializer: Initializer to use for the batch norm gama variables
+    :param simplified_arch: Whether the network is a simplified version for the
+        Cifar10/100 dataset
     :return: the output tensor from the created graph
     """
     with tf_compat.variable_scope(BASE_NAME_SCOPE, reuse=tf_compat.AUTO_REUSE):
@@ -379,6 +396,7 @@ def resnet_const(
             bias_initializer,
             beta_initializer,
             gamma_initializer,
+            simplified_arch=simplified_arch,
         )
 
         for sec_index, section in enumerate(sec_settings):
@@ -463,6 +481,51 @@ def resnet18(
         beta_initializer,
         gamma_initializer,
     )
+
+
+@ModelRegistry.register(
+    key=["resnet20", "resnet_20", "resnet-20", "resnetv1_20", "resnetv1-20"],
+    input_shape=(32, 32, 3),
+    domain="cv",
+    sub_domain="classification",
+    architecture="resnet-v1",
+    sub_architecture="20",
+    default_dataset="Cifar10",
+    default_desc="base",
+    base_name_scope=BASE_NAME_SCOPE,
+    tl_ignore_tens=[".+/classifier/dense/fc/.+"],
+)
+def resnet20(
+    inputs: tf_compat.Tensor,
+    training: Union[bool, tf_compat.Tensor] = True,
+    num_classes: int = 10,
+    class_type: str = "single",
+    kernel_initializer=tf_compat.glorot_uniform_initializer(),
+    bias_initializer=tf_compat.zeros_initializer(),
+    beta_initializer=tf_compat.zeros_initializer(),
+    gamma_initializer=tf_compat.ones_initializer(),
+) -> tf_compat.Tensor:
+
+    with tf_compat.variable_scope("resnet20", reuse=tf_compat.AUTO_REUSE):
+        sec_settings = [
+            ResNetSection(num_blocks=2, out_channels=16, downsample=False),
+            ResNetSection(num_blocks=2, out_channels=32, downsample=True),
+            ResNetSection(num_blocks=2, out_channels=64, downsample=True),
+        ]
+        net = resnet_const(
+            inputs,
+            training,
+            sec_settings,
+            num_classes,
+            class_type=class_type,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            beta_initializer=beta_initializer,
+            gamma_initializer=gamma_initializer,
+            simplified_arch=True,
+        )
+
+    return net
 
 
 @ModelRegistry.register(

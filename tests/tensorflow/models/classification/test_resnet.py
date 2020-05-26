@@ -8,6 +8,7 @@ from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.models import (
     ModelRegistry,
     resnet18,
+    resnet20,
     resnet34,
     resnet50,
     resnet101,
@@ -24,6 +25,7 @@ from neuralmagicML.tensorflow.models import (
         ("resnet18", False, True, resnet18),
         ("resnet18", True, True, resnet18),
         ("resnet18", "base", True, resnet18),
+        ("resnet20", False, True, resnet20),
         ("resnet34", False, True, resnet34),
         ("resnet34", True, True, resnet34),
         ("resnet34", "base", True, resnet34),
@@ -43,10 +45,11 @@ from neuralmagicML.tensorflow.models import (
 def test_resnets(
     key: str, pretrained: Union[bool, str], test_input: bool, const: Callable
 ):
+    input_shape = ModelRegistry.input_shape(key)
     # test out the stand alone constructor
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         inputs = tf_compat.placeholder(
-            tf_compat.float32, [None, 224, 224, 3], name="inputs"
+            tf_compat.float32, [None, *input_shape], name="inputs"
         )
         logits = const(inputs, training=False)
 
@@ -54,14 +57,14 @@ def test_resnets(
             with tf_compat.Session() as sess:
                 sess.run(tf_compat.global_variables_initializer())
                 out = sess.run(
-                    logits, feed_dict={inputs: numpy.random.random((1, 224, 224, 3))}
+                    logits, feed_dict={inputs: numpy.random.random((1, *input_shape))}
                 )
                 assert out.sum() != 0
 
     # test out the registry
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         inputs = tf_compat.placeholder(
-            tf_compat.float32, [None, 224, 224, 3], name="inputs"
+            tf_compat.float32, [None, *input_shape], name="inputs"
         )
         logits = ModelRegistry.create(key, inputs, training=False)
 
@@ -69,7 +72,7 @@ def test_resnets(
             if test_input:
                 sess.run(tf_compat.global_variables_initializer())
                 out = sess.run(
-                    logits, feed_dict={inputs: numpy.random.random((1, 224, 224, 3))}
+                    logits, feed_dict={inputs: numpy.random.random((1, *input_shape))}
                 )
                 assert out.sum() != 0
 
@@ -79,6 +82,6 @@ def test_resnets(
                 if test_input:
                     out = sess.run(
                         logits,
-                        feed_dict={inputs: numpy.random.random((1, 224, 224, 3))},
+                        feed_dict={inputs: numpy.random.random((1, *input_shape))},
                     )
                     assert out.sum() != 0
