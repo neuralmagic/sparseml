@@ -30,6 +30,10 @@ from neuralmagicML.tensorflow.recal.mask_ks import (
     PruningOpVars,
     apply_op_vars_masks,
 )
+from neuralmagicML.tensorflow.recal.sparsity_mask import(
+    SparsityMaskCreator,
+    load_mask_creator,
+)
 
 
 __all__ = ["ConstantKSModifier", "GradualKSModifier"]
@@ -245,6 +249,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
     |       param: from_trainable
     |       inter_func: cubic
     |       log_types: __ALL__
+    |       mask_type: unstructured
 
     :param layers: List of str for the layers (ops) to apply the KS modifier to
     :param init_sparsity: The initial sparsity for the param to
@@ -265,6 +270,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
         [linear, cubic, inverse_cubic]
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'channel', 'filter']), List to define block shape of a parameter's in and out
+        channels, or a SparsityMaskCreator object. default is 'unstructured'
     """
 
     def __init__(
@@ -279,6 +287,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
+        mask_type: Union[str, List[int], SparsityMaskCreator] = 'unstructured',
     ):
         super(GradualKSModifier, self).__init__(
             log_types=log_types,
@@ -298,6 +307,10 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._final_sparsity = final_sparsity
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
+        self._mask_type = mask_type
+        self._mask_creator = mask_type
+        if not isinstance(mask_type, SparsityMaskCreator):
+            self._mask_creator = load_mask_creator(mask_type)
         self._prune_op_vars = None
         self._update_ready = None
         self._sparsity = None
@@ -408,6 +421,23 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._inter_func = value
         self.validate()
 
+    @ModifierProp()
+    def mask_type(self) -> Union[str, List[int], SparsityMaskCreator]:
+        """
+        :return: the SparsityMaskCreator object used
+        """
+        return self._mask_type
+
+    @mask_type.setter
+    def mask_type(self, value: Union[str, List[int], SparsityMaskCreator]):
+        """
+        :param value: the SparsityMaskCreator object to use
+        """
+        self._mask_type = value
+        self._mask_creator = value
+        if not isinstance(value, SparsityMaskCreator):
+            self._mask_creator = load_mask_creator(value)
+
     @ModifierProp(serializable=False)
     def ks_group(self) -> str:
         """
@@ -506,6 +536,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
                 self._final_sparsity,
                 self.exponent,
                 self.ks_group,
+                self._mask_creator,
             )
 
             if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:

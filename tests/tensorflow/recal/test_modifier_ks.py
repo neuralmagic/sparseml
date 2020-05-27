@@ -16,6 +16,8 @@ from neuralmagicML.tensorflow.recal import (
     GradualKSModifier,
     ScheduledModifierManager,
     EXTRAS_KEY_SUMMARIES,
+    DimensionSparsityMaskCreator,
+    BlockSparsityMaskCreator,
 )
 
 from tests.tensorflow.helpers import mlp_net
@@ -167,6 +169,18 @@ def test_constant_ks_yaml():
                 start_epoch=5.0,
                 end_epoch=25.0,
                 update_frequency=1.0,
+            ),
+        ),
+        (
+            mlp_graph_lambda,
+            lambda: GradualKSModifier(
+                layers="__ALL__",
+                init_sparsity=0.05,
+                final_sparsity=0.6,
+                start_epoch=5.0,
+                end_epoch=25.0,
+                update_frequency=1.0,
+                mask_type=BlockSparsityMaskCreator([4, 1]),
             ),
         ),
         (
@@ -365,6 +379,7 @@ def test_gradual_ks_yaml():
     update_frequency = 1.0
     param = VAR_INDEX_FROM_TRAINABLE
     inter_func = "cubic"
+    mask_type = "channel"
     yaml_str = f"""
     !GradualKSModifier
         layers: {layers}
@@ -375,6 +390,7 @@ def test_gradual_ks_yaml():
         update_frequency: {update_frequency}
         param: {param}
         inter_func: {inter_func}
+        mask_type: {mask_type}
     """
     yaml_modifier = GradualKSModifier.load_obj(yaml_str)  # type: GradualKSModifier
     serialized_modifier = GradualKSModifier.load_obj(
@@ -389,6 +405,7 @@ def test_gradual_ks_yaml():
         update_frequency=update_frequency,
         param=param,
         inter_func=inter_func,
+        mask_type=mask_type,
     )
 
     assert isinstance(yaml_modifier, GradualKSModifier)
@@ -423,4 +440,9 @@ def test_gradual_ks_yaml():
         yaml_modifier.inter_func
         == serialized_modifier.inter_func
         == obj_modifier.inter_func
+    )
+    assert (
+        str(yaml_modifier.mask_type)
+        == str(serialized_modifier.mask_type)
+        == str(obj_modifier.mask_type)
     )

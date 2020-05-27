@@ -16,6 +16,11 @@ from neuralmagicML.tensorflow.recal import (
     get_or_create_graph_ops_pruning,
     get_or_create_ks_scheduled_graph_ops,
     apply_op_vars_masks,
+    SparsityMaskCreator,
+    GroupedSparsityMaskCreator,
+    UnstructuredSparsityMaskCreator,
+    DimensionSparsityMaskCreator,
+    BlockSparsityMaskCreator,
 )
 
 from tests.tensorflow.helpers import mlp_net, conv_net
@@ -47,7 +52,8 @@ def test_create_op_pruning_fc(sparsity_val):
 
         matmul_op = graph.get_operation_by_name("fc/matmul")
         pruning_op_vars = create_op_pruning(
-            matmul_op, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group
+            matmul_op, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group,
+            UnstructuredSparsityMaskCreator(),
         )
 
         with tf_compat.Session() as sess:
@@ -82,9 +88,19 @@ def test_create_op_pruning_fc(sparsity_val):
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
-def test_create_op_pruning_conv(sparsity_val: float):
+@pytest.mark.parametrize(
+    "mask_creator",
+    [
+        UnstructuredSparsityMaskCreator(),
+        DimensionSparsityMaskCreator(2),
+        DimensionSparsityMaskCreator([2, 3]),
+        BlockSparsityMaskCreator([4, 1]),
+        BlockSparsityMaskCreator([2, 2]),
+    ],
+)
+def test_create_op_pruning_conv(sparsity_val: float, mask_creator: SparsityMaskCreator):
     group = "test-group"
-
+    is_grouped_mask = isinstance(mask_creator, GroupedSparsityMaskCreator)
     with tf_compat.Graph().as_default() as graph:
         inp = tf_compat.placeholder(tf_compat.float32, [None, 8, 8, 64])
 
@@ -106,7 +122,12 @@ def test_create_op_pruning_conv(sparsity_val: float):
 
         conv_op = graph.get_operation_by_name("conv/conv")
         pruning_op_vars = create_op_pruning(
-            conv_op, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group
+            conv_op,
+            VAR_INDEX_FROM_TRAINABLE,
+            sparsity,
+            update_ready,
+            group,
+            mask_creator=mask_creator,
         )
 
         with tf_compat.Session() as sess:
@@ -116,11 +137,13 @@ def test_create_op_pruning_conv(sparsity_val: float):
                 feed_dict={sparsity: sparsity_val, update_ready: False},
             )
 
+            err_threshold = 1e-3 if not is_grouped_mask else 0.05
+
             mask_sparsity = eval_tensor_sparsity(pruning_op_vars.mask)
-            assert mask_sparsity < 1e-3
+            assert mask_sparsity < err_threshold
 
             masked_sparsity = eval_tensor_sparsity(pruning_op_vars.masked)
-            assert masked_sparsity < 1e-3
+            assert masked_sparsity < err_threshold
 
             sess.run(
                 pruning_op_vars.update,
@@ -128,13 +151,26 @@ def test_create_op_pruning_conv(sparsity_val: float):
             )
 
             mask_sparsity = eval_tensor_sparsity(pruning_op_vars.mask)
-            assert abs(mask_sparsity - sparsity_val) < 1e-3
+            assert abs(mask_sparsity - sparsity_val) < err_threshold
 
             masked_sparsity = eval_tensor_sparsity(pruning_op_vars.masked)
-            assert abs(masked_sparsity - sparsity_val) < 1e-3
+            assert abs(masked_sparsity - sparsity_val) < err_threshold
 
             res = sess.run(relu, feed_dict={inp: numpy.random.random((4, 8, 8, 64))})
             assert res.sum() > 0.0
+
+            if is_grouped_mask:
+                # Check that every value in the mask_creator grouping
+                # is the same within the mask.  Assumes grouping applies
+                # an absolte mean to each grouping
+                grouped_mask = mask_creator._group_tensor(pruning_op_vars.mask)
+                mask_vals_are_grouped = tf_compat.reduce_all(
+                    tf_compat.logical_or(
+                        tf_compat.equal(grouped_mask, 0.0),
+                        tf_compat.equal(grouped_mask, 1.0),
+                    )
+                )
+                assert sess.run(mask_vals_are_grouped)
 
 
 @pytest.mark.skipif(
@@ -161,7 +197,8 @@ def test_create_op_pruning_decrease_sparsity(sparsity_val):
 
         matmul_op = graph.get_operation_by_name("fc/matmul")
         pruning_op_vars = create_op_pruning(
-            matmul_op, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group
+            matmul_op, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group,
+            UnstructuredSparsityMaskCreator(),
         )
 
         with tf_compat.Session() as sess:
@@ -180,22 +217,40 @@ def test_create_op_pruning_decrease_sparsity(sparsity_val):
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
-    "net_const,inp_arr,ops",
+    "net_const,inp_arr,ops,mask_creator",
     [
         (
             mlp_net,
             numpy.random.random((4, 16)),
             ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+            UnstructuredSparsityMaskCreator(),
+        ),
+        (
+            mlp_net,
+            numpy.random.random((4, 16)),
+            ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+            DimensionSparsityMaskCreator(0),
+        ),
+        (
+            mlp_net,
+            numpy.random.random((4, 16)),
+            ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+            BlockSparsityMaskCreator([4, 1]),
         ),
         (
             conv_net,
             numpy.random.random((4, 28, 28, 1)),
             ["conv_net/conv1/conv", "conv_net/conv2/conv", "conv_net/mlp/matmul"],
+            UnstructuredSparsityMaskCreator(),
         ),
     ],
 )
 def test_get_or_create_graph_ops_pruning(
-    sparsity_val: float, net_const: Callable, inp_arr: numpy.ndarray, ops: List[str]
+    sparsity_val: float,
+    net_const: Callable,
+    inp_arr: numpy.ndarray,
+    ops: List[str],
+    mask_creator: SparsityMaskCreator,
 ):
     group = "test-group"
 
@@ -206,12 +261,24 @@ def test_get_or_create_graph_ops_pruning(
         )
         update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
         pruning_op_vars = get_or_create_graph_ops_pruning(
-            graph, ops, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group
+            graph,
+            ops,
+            VAR_INDEX_FROM_TRAINABLE,
+            sparsity,
+            update_ready,
+            group,
+            mask_creator,
         )
         pruning_op_vars_sec = get_or_create_graph_ops_pruning(
-            graph, ops, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group
+            graph,
+            ops,
+            VAR_INDEX_FROM_TRAINABLE,
+            sparsity,
+            update_ready,
+            group,
+            mask_creator,
         )
-
+        is_grouped_mask = isinstance(mask_creator, GroupedSparsityMaskCreator)
         assert len(pruning_op_vars) == len(ops)
 
         for op_vars, op_vars_sec in zip(pruning_op_vars, pruning_op_vars_sec):
@@ -222,18 +289,19 @@ def test_get_or_create_graph_ops_pruning(
 
         with tf_compat.Session() as sess:
             sess.run(tf_compat.global_variables_initializer())
-
             for op_vars in pruning_op_vars:
                 sess.run(
                     op_vars.update,
                     feed_dict={sparsity: sparsity_val, update_ready: False},
                 )
-
+                print(op_vars.mask.shape)
+                # When we reduce the values a mask can take, there can be higher error
+                err_threshold = 1e-2 if not is_grouped_mask else 1e-1
                 mask_sparsity = eval_tensor_sparsity(op_vars.mask)
-                assert mask_sparsity < 1e-2
+                assert mask_sparsity < err_threshold
 
                 masked_sparsity = eval_tensor_sparsity(op_vars.masked)
-                assert masked_sparsity < 1e-2
+                assert masked_sparsity < err_threshold
 
                 sess.run(
                     op_vars.update,
@@ -241,13 +309,26 @@ def test_get_or_create_graph_ops_pruning(
                 )
 
                 mask_sparsity = eval_tensor_sparsity(op_vars.mask)
-                assert abs(mask_sparsity - sparsity_val) < 1e-2
+                assert abs(mask_sparsity - sparsity_val) < err_threshold
 
                 masked_sparsity = eval_tensor_sparsity(op_vars.masked)
-                assert abs(masked_sparsity - sparsity_val) < 1e-2
+                assert abs(masked_sparsity - sparsity_val) < err_threshold
 
                 res = sess.run(out, feed_dict={inp: inp_arr})
                 assert res.sum() > 0.0
+
+                if is_grouped_mask:
+                    # Check that every value in the mask_creator grouping
+                    # is the same within the mask.  Assumes grouping applies
+                    # an absolte mean to each grouping
+                    grouped_mask = mask_creator._group_tensor(op_vars.mask)
+                    mask_vals_are_grouped = tf_compat.reduce_all(
+                        tf_compat.logical_or(
+                            tf_compat.equal(grouped_mask, 0.0),
+                            tf_compat.equal(grouped_mask, 1.0),
+                        )
+                    )
+                    assert sess.run(mask_vals_are_grouped)
 
 
 @pytest.mark.skipif(
@@ -281,7 +362,8 @@ def test_apply_op_vars_masks(
         )
         update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
         pruning_op_vars = get_or_create_graph_ops_pruning(
-            graph, ops, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group
+            graph, ops, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group,
+            UnstructuredSparsityMaskCreator(),
         )
 
         with tf_compat.Session() as sess:
@@ -480,6 +562,7 @@ def test_get_or_create_ks_scheduled_graph_ops(
             final_sparsity,
             exponent,
             group,
+            UnstructuredSparsityMaskCreator(),
         )
         (
             update_op_sec,
@@ -498,6 +581,7 @@ def test_get_or_create_ks_scheduled_graph_ops(
             final_sparsity,
             exponent,
             group,
+            UnstructuredSparsityMaskCreator(),
         )
 
         assert update_op == update_op_sec

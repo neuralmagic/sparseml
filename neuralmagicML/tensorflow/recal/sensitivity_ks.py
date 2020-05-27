@@ -14,6 +14,11 @@ from neuralmagicML.recal import (
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.utils import get_prunable_ops, VAR_INDEX_FROM_TRAINABLE
 from neuralmagicML.tensorflow.recal.mask_ks import KSScope, create_op_pruning
+from neuralmagicML.tensorflow.recal.sparsity_mask import (
+    SparsityMaskCreator,
+    load_mask_creator,
+)
+
 
 __all__ = [
     "SparsePruningOpVars",
@@ -28,6 +33,7 @@ SparsePruningOpVars = namedtuple("SparsePruningOpVars", ("op_vars", "sparsity"))
 def ks_loss_sensitivity_op_vars(
     graph: tf_compat.Graph = None,
     var_index: Union[int, str] = VAR_INDEX_FROM_TRAINABLE,
+    mask_type: Union[str, List[int], SparsityMaskCreator] = 'unstructured',
 ) -> List[SparsePruningOpVars]:
     """
     Edit the graph for to inject pruning ops and vars to allow for a ks loss
@@ -39,11 +45,18 @@ def ks_loss_sensitivity_op_vars(
         if not supplied uses get_default_graph()
     :param var_index: the index for how to find the input variables into
         the prunable ops
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'channel', 'filter']), List to define block shape of a parameter's in and out
+        channels, or a SparsityMaskCreator object. default is 'unstructured'
     :return: the created pruning op vars to be used in one_shot_ks_loss_sensitivity
     """
 
     if not graph:
         graph = tf_compat.get_default_graph()
+
+    mask_creator = mask_type
+    if not isinstance(mask_type, SparsityMaskCreator):
+        mask_creator = load_mask_creator(mask_type)
 
     ks_group = one_shot_ks_loss_sensitivity.__name__
     prunable_ops = get_prunable_ops(graph)
@@ -60,7 +73,7 @@ def ks_loss_sensitivity_op_vars(
                 update = tf_compat.constant(True, tf_compat.bool)
 
             prune_op_var = create_op_pruning(
-                prune_op, var_index, sparsity, update, ks_group
+                prune_op, var_index, sparsity, update, ks_group, mask_creator,
             )
             op_vars.append(SparsePruningOpVars(prune_op_var, sparsity))
 
