@@ -11,10 +11,12 @@ from neuralmagicML.utils.datasets import (
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.datasets.registry import DatasetRegistry
 from neuralmagicML.tensorflow.datasets.dataset import (
-    ImageFolderDataset,
     random_scaling_crop,
     center_square_crop,
+    ImageFolderDataset,
 )
+
+from neuralmagicML.tensorflow.datasets.classification import imagenet_normalizer
 
 __all__ = ["ImagenetteSize", "ImagenetteDataset", "ImagewoofDataset"]
 
@@ -69,11 +71,7 @@ class ImagenetteDataset(ImageFolderDataset, ImagenetteDownloader):
             transforms = [center_square_crop()]
 
         super().__init__(
-            self.split_root(train),
-            image_size,
-            transforms,
-            IMAGENET_RGB_MEANS,
-            IMAGENET_RGB_STDS,
+            self.split_root(train), image_size, transforms, imagenet_normalizer
         )
 
     def name_scope(self) -> str:
@@ -134,11 +132,7 @@ class ImagewoofDataset(ImageFolderDataset, ImagewoofDownloader):
             transforms = [center_square_crop()]
 
         super().__init__(
-            self.split_root(train),
-            image_size,
-            transforms,
-            IMAGENET_RGB_MEANS,
-            IMAGENET_RGB_STDS,
+            self.split_root(train), image_size, transforms, imagenet_normalizer
         )
 
     def name_scope(self) -> str:

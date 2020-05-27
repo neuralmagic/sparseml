@@ -2,7 +2,7 @@
 General dataset implementations for TensorFlow
 """
 
-from typing import Iterable, Callable, Tuple, Any, List
+from typing import Callable, Iterable, Tuple, Any, List
 from abc import abstractmethod, ABCMeta
 import os
 import glob
@@ -10,7 +10,7 @@ import random
 import numpy
 
 from neuralmagicML.utils import clean_path
-from neuralmagicML.tensorflow.utils import tf_compat, tf_compat_div
+from neuralmagicML.tensorflow.utils import tf_compat
 
 
 __all__ = [
@@ -175,7 +175,7 @@ class Dataset(metaclass=ABCMeta):
             otherwise the size of the buffer to use for buffering
         :param num_parallel_calls: the number of parallel calls to run the
             processor function with
-        :return:
+        :return: a tf.data.Dataset instance
         """
         with tf_compat.name_scope(self.name_scope()):
             dataset = self.creator()
@@ -237,24 +237,20 @@ class ImageFolderDataset(Dataset):
     :param root: the root location for the dataset's images to load
     :param image_size: the size of the image to reshape to
     :param transforms: any additional transforms to apply to the images
-    :param normalize_means: the means to apply to the images to normalize them
-    :param normalize_stds: the standard deviations to apply to the images
-        to normalize them
+    :param normalizer: the function to normalize images
     """
 
     def __init__(
         self,
         root: str,
-        image_size: int,
+        image_size: int = None,
         transforms: Iterable[Callable] = None,
-        normalize_means: Tuple[int, ...] = (0.5, 0.5, 0.5),
-        normalize_stds: Tuple[int, ...] = (1.0, 1.0, 1.0),
+        normalizer: Callable = None,
     ):
         self._root = clean_path(root)
         self._image_size = image_size
         self._transforms = transforms
-        self._normalize_means = normalize_means
-        self._normalize_stds = normalize_stds
+        self._normalizer = normalizer
         self._num_examples = None
         self._length = None
 
@@ -277,6 +273,13 @@ class ImageFolderDataset(Dataset):
         return self._root
 
     @property
+    def image_size(self) -> int:
+        """
+        :return: the size of the images to resize to
+        """
+        return self._image_size
+
+    @property
     def transforms(self) -> Iterable[Callable]:
         """
         :return: any additional transforms to apply to the images
@@ -284,18 +287,45 @@ class ImageFolderDataset(Dataset):
         return self._transforms
 
     @property
-    def normalize_means(self) -> Tuple[int, ...]:
+    def normalizer(self) -> Callable:
         """
-        :return: the means to apply to the images to normalize them
+        :return: the normalizer to apply to the images
         """
-        return self._normalize_means
+        return self._normalizer
 
-    @property
-    def normalize_stds(self) -> Tuple[int, ...]:
+    def processor(self, file_path: tf_compat.Tensor, label: tf_compat.Tensor):
         """
-        :return: the standard deviations to apply to the images to normalize them
+        :param file_path: the path to the file to load an image from
+        :param label: the label for the given image
+        :return: a tuple containing the processed image and label
         """
-        return self._normalize_stds
+        with tf_compat.name_scope("img_to_tensor"):
+            img = tf_compat.read_file(file_path)
+            img = tf_compat.image.decode_image(img)
+            img = tf_compat.cast(img, dtype=tf_compat.float32)
+
+        if self._transforms:
+            with tf_compat.name_scope("transforms"):
+                for index, trans in enumerate(self._transforms):
+                    with tf_compat.name_scope(str(index)):
+                        img = trans(img)
+
+        if self._image_size is not None:
+            with tf_compat.name_scope("resize"):
+                try:
+                    img = tf_compat.image.resize(
+                        img, [self._image_size, self._image_size]
+                    )
+                except Exception:
+                    img = tf_compat.image.resize_images(
+                        img, [self._image_size, self._image_size]
+                    )
+
+        if self._normalizer is not None:
+            with tf_compat.name_scope("normalize"):
+                img = self._normalizer(img)
+
+        return img, label
 
     def creator(self):
         """
@@ -321,39 +351,6 @@ class ImageFolderDataset(Dataset):
         labels = tf_compat.constant(labels)
 
         return tf_compat.data.Dataset.from_tensor_slices((files, labels))
-
-    def processor(self, file_path: tf_compat.Tensor, label: tf_compat.Tensor):
-        """
-        :param file_path: the path to the file to load an image from
-        :param label: the label for the given image
-        :return: a tuple containing the processed image and label
-        """
-        with tf_compat.name_scope("img_to_tensor"):
-            img = tf_compat.read_file(file_path)
-            img = tf_compat.image.decode_image(img)
-            img = tf_compat.cast(img, dtype=tf_compat.float32)
-
-        with tf_compat.name_scope("transforms"):
-            if self._transforms:
-                for index, trans in enumerate(self._transforms):
-                    with tf_compat.name_scope(str(index)):
-                        img = trans(img)
-
-        with tf_compat.name_scope("resize"):
-            try:
-                img = tf_compat.image.resize(img, [self._image_size, self._image_size])
-            except Exception:
-                img = tf_compat.image.resize_images(
-                    img, [self._image_size, self._image_size]
-                )
-
-        with tf_compat.name_scope("normalize"):
-            img = tf_compat_div(img, 255.0)
-            means = tf_compat.constant(self.normalize_means, dtype=tf_compat.float32)
-            stds = tf_compat.constant(self.normalize_stds, dtype=tf_compat.float32)
-            img = tf_compat_div(tf_compat.subtract(img, means), stds)
-
-        return img, label
 
     def name_scope(self) -> str:
         """
