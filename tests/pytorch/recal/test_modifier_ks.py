@@ -3,7 +3,12 @@ import os
 
 from torch.optim import SGD
 
-from neuralmagicML.pytorch.recal import GradualKSModifier, ConstantKSModifier
+from neuralmagicML.pytorch.recal import (
+    GradualKSModifier,
+    ConstantKSModifier,
+    DimensionSparsityMaskCreator,
+    BlockSparsityMaskCreator,
+)
 
 from tests.pytorch.helpers import LinearNet
 from tests.pytorch.recal.test_modifier import (
@@ -126,6 +131,16 @@ def test_constant_ks_yaml():
             update_frequency=1.0,
             inter_func="cubic",
         ),
+        lambda: GradualKSModifier(
+            layers=[LinearNet.layer_descs()[2].name],
+            init_sparsity=0.05,
+            final_sparsity=0.95,
+            start_epoch=10.0,
+            end_epoch=25.0,
+            update_frequency=1.0,
+            inter_func="cubic",
+            mask_type=[1, 4],
+        ),
     ],
     scope="function",
 )
@@ -183,6 +198,7 @@ def test_gradual_ks_yaml():
     update_frequency = 1.0
     param = "weight"
     inter_func = "cubic"
+    mask_type = 'filter'
     yaml_str = f"""
     !GradualKSModifier
         layers: {layers}
@@ -193,6 +209,7 @@ def test_gradual_ks_yaml():
         update_frequency: {update_frequency}
         param: {param}
         inter_func: {inter_func}
+        mask_type: {mask_type}
     """
     yaml_modifier = GradualKSModifier.load_obj(yaml_str)  # type: GradualKSModifier
     serialized_modifier = GradualKSModifier.load_obj(
@@ -207,6 +224,7 @@ def test_gradual_ks_yaml():
         update_frequency=update_frequency,
         param=param,
         inter_func=inter_func,
+        mask_type=mask_type,
     )
 
     assert isinstance(yaml_modifier, GradualKSModifier)
@@ -241,4 +259,9 @@ def test_gradual_ks_yaml():
         yaml_modifier.inter_func
         == serialized_modifier.inter_func
         == obj_modifier.inter_func
+    )
+    assert (
+        str(yaml_modifier.mask_type)
+        == str(serialized_modifier.mask_type)
+        == str(obj_modifier.mask_type)
     )

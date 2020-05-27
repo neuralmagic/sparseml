@@ -25,6 +25,10 @@ from neuralmagicML.pytorch.recal.modifier import (
     ScheduledUpdateModifier,
     PyTorchModifierYAML,
 )
+from neuralmagicML.pytorch.recal.sparsity_mask import (
+    SparsityMaskCreator,
+    load_mask_creator,
+)
 from neuralmagicML.pytorch.utils.logger import PyTorchLogger
 from neuralmagicML.pytorch.recal.analyzer_ks import ModuleKSAnalyzer
 from neuralmagicML.pytorch.recal.mask_ks import ModuleParamKSMask
@@ -251,6 +255,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
     |       leave_enabled: True
     |       inter_func: cubic
     |       log_types: __ALL__
+    |       mask_type: unstructured
 
     :param layers: str or list of str for the layers to apply the KS modifier to
         can also use the token __ALL__ to specify all layers
@@ -270,6 +275,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
         [linear, cubic, inverse_cubic]
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'channel', 'filter']), List to define block shape of a parameter's in and out
+        channels, or a SparsityMaskCreator object. default is 'unstructured'
     """
 
     def __init__(
@@ -284,6 +292,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
+        mask_type: Union[str, List[int], SparsityMaskCreator] = 'unstructured',
     ):
         super().__init__(
             log_types=log_types,
@@ -301,6 +310,10 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._param = param
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
+        self._mask_type = mask_type
+        self._mask_creator = mask_type
+        if not isinstance(mask_type, SparsityMaskCreator):
+            self._mask_creator = load_mask_creator(mask_type)
         self._module_masks = []  # type: List[ModuleParamKSMask]
         self._applied_sparsity = None
         self._last_logged_sparsity = None
@@ -413,6 +426,23 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._inter_func = value
         self.validate()
 
+    @ModifierProp()
+    def mask_type(self) -> Union[str, List[int], SparsityMaskCreator]:
+        """
+        :return: the SparsityMaskCreator object used
+        """
+        return self._mask_type
+
+    @mask_type.setter
+    def mask_type(self, value: Union[str, List[int], SparsityMaskCreator]):
+        """
+        :param value: the SparsityMaskCreator object to use
+        """
+        self._mask_type = value
+        self._mask_creator = value
+        if not isinstance(value, SparsityMaskCreator):
+            self._mask_creator = load_mask_creator(value)
+
     @ModifierProp(serializable=False)
     def applied_sparsity(self) -> float:
         """
@@ -441,7 +471,11 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
             for param_name, par in layer.named_parameters():
                 if param_name == self._param:
-                    self._module_masks.append(ModuleParamKSMask(layer, self._param))
+                    self._module_masks.append(
+                        ModuleParamKSMask(
+                            layer, self._param, mask_creator=self._mask_creator,
+                        )
+                    )
                     self._analyzers.append(ModuleKSAnalyzer(layer, name, param_name))
                     found = True
                     break

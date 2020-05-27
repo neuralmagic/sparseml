@@ -18,3 +18,4 @@ from .optimizer import *
 from .sensitivity_ks import *
 from .sensitivity_lr import *
 from .sensitivity_as import *
+from .sparsity_mask import *

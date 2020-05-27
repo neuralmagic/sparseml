@@ -25,10 +25,6 @@ __all__ = [
     "tensor_density",
     "tensor_sparsity",
     "tensor_sample",
-    "abs_threshold_from_sparsity",
-    "sparsity_mask_from_abs_threshold",
-    "sparsity_mask",
-    "sparsity_mask_from_tensor",
     "mask_difference",
     "get_layer",
     "get_terminal_layers",
@@ -447,86 +443,6 @@ def tensor_sample(
     samples = samples.view(*(tens.shape[ind] for ind in dim), sample_size)
 
     return samples
-
-
-def abs_threshold_from_sparsity(tens: Tensor, sparsity: float) -> Tensor:
-    """
-    :param tens: the tensor to find a value in for which setting
-        abs(all values) < that value will give desired sparsity
-    :param sparsity: the desired sparsity to apply
-    :return: the threshold to get to the desired sparsity or an empty tensor
-        if it was not possible given the inputs
-    """
-    if tens.numel() < 1 or sparsity <= 0.0 or sparsity > 1.0:
-        return tens.new_tensor([])
-
-    sorted_vals, _ = torch.sort(tens.abs().view(-1))
-    lookup_index = round(sparsity * (tens.numel() - 1))
-
-    if lookup_index < 0:
-        lookup_index = 0
-    elif lookup_index > tens.numel():
-        lookup_index = tens.numel()
-
-    return sorted_vals[lookup_index]
-
-
-def sparsity_mask(tens: Tensor, sparsity: float) -> Tensor:
-    """
-    :param tens: the tensor to calculate a mask from based on the contained values
-    :param sparsity: the desired sparsity to reach within the mask
-        (decimal fraction of zeros)
-    :return: a mask (0.0 for values that are masked, 1.0 for values that are unmasked)
-        calculated from the tens such that the desired number of zeros
-        matches the sparsity. removes the abs lowest values if there are more zeros
-        in the tens than desired sparsity, then will randomly choose the zeros
-    """
-    threshold = abs_threshold_from_sparsity(tens, sparsity)
-
-    if threshold.numel() < 1:
-        return tens.new_ones(tens.shape)
-
-    if threshold.item() > 0.0:
-        return sparsity_mask_from_abs_threshold(tens, threshold)
-
-    # too many zeros so will go over the already given sparsity
-    # and choose which zeros to not keep in mask at random
-    zero_indices = (tens == 0.0).nonzero()
-    rand_indices = list(range(zero_indices.shape[0]))
-    random.shuffle(rand_indices)
-    num_elem = tens.numel()
-    num_mask = int(num_elem * sparsity)
-    rand_indices = rand_indices[:num_mask]
-    rand_indices = tens.new_tensor(rand_indices, dtype=torch.int64)
-    zero_indices = zero_indices[rand_indices, :]
-    mask = tens.new_ones(tens.shape).type(tens.type())
-    mask[zero_indices.split(1, dim=1)] = 0
-
-    return mask.type(tens.type())
-
-
-def sparsity_mask_from_tensor(tens: Tensor) -> Tensor:
-    """
-    :param tens: the tensor to calculate a mask from the contained values
-    :return: a mask (0.0 for values that are masked, 1.0 for values that are unmasked)
-        calculated from the tens current values of 0.0 are masked
-        and everything else is unmasked
-    """
-    return torch.ne(tens, 0.0).type(tens.type())
-
-
-def sparsity_mask_from_abs_threshold(
-    tens: Tensor, threshold: Union[float, Tensor]
-) -> Tensor:
-    """
-    :param tens: the tensor to calculate a mask from based on the contained values
-    :param threshold: a threshold at which to mask abs(values) if they are
-        less than it or equal
-    :return: a mask (0.0 for values that are masked, 1.0 for values that are unmasked)
-        calculated from the tens abs(values) <= threshold are masked,
-        all others are unmasked
-    """
-    return (torch.abs(tens) > threshold).type(tens.type())
 
 
 def mask_difference(old_mask: Tensor, new_mask: Tensor) -> Tensor:

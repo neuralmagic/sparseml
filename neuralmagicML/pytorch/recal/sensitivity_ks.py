@@ -22,6 +22,7 @@ from neuralmagicML.pytorch.utils import (
     model_to_device,
 )
 from neuralmagicML.pytorch.recal.mask_ks import ModuleParamKSMask
+from neuralmagicML.pytorch.recal.sparsity_mask import UnstructuredSparsityMaskCreator
 
 
 __all__ = [
@@ -138,7 +139,7 @@ def one_shot_ks_loss_sensitivity(
             progress_hook(progress)
 
         sparsities_loss = []
-        mask = ModuleParamKSMask(layer, store_init=True)
+        mask = ModuleParamKSMask(layer, store_init=True, mask_creator=UnstructuredSparsityMaskCreator())
         mask.enabled = True
 
         for sparsity_index, sparsity_level in enumerate(sparsity_levels):

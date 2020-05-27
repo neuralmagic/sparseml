@@ -8,11 +8,10 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from neuralmagicML.pytorch.utils import (
-    sparsity_mask_from_tensor,
-    sparsity_mask_from_abs_threshold,
-    sparsity_mask,
-    mask_difference,
+from neuralmagicML.pytorch.utils import mask_difference
+from neuralmagicML.pytorch.recal.sparsity_mask import (
+    SparsityMaskCreator,
+    UnstructuredSparsityMaskCreator,
 )
 
 
@@ -31,6 +30,7 @@ class ModuleParamKSMask(object):
         store_init: bool = False,
         store_unmasked: bool = False,
         track_grad_mom: float = -1.0,
+        mask_creator: SparsityMaskCreator = UnstructuredSparsityMaskCreator(),
     ):
         """
         :param layer: the layer containing the parameter to mask
@@ -43,12 +43,14 @@ class ModuleParamKSMask(object):
         :param track_grad_mom: store the gradient updates to the parameter with a
             momentum variable must be in the range [0.0, 1.0), if set to 0.0 then will
             only keep most recent
+        :param mask_creator: object to define sparisty mask creation, default is unstructured mask
         """
         self._layer = layer
         self._param_name = param_name
         self._store_init = store_init
         self._store_unmasked = store_unmasked
         self._track_grad_mom = track_grad_mom
+        self._mask_creator = mask_creator
 
         self._enabled = False
         self._forward_hook = None
@@ -63,7 +65,9 @@ class ModuleParamKSMask(object):
                 )
             )
 
-        self._param_mask = sparsity_mask_from_tensor(self._param)  # type: Tensor
+        self._param_mask = self._mask_creator.create_sparsity_mask_from_tensor(
+            self._param
+        )
         self._param_init = None  # type: Tensor
         self._param_unmasked = None  # type: Tensor
         self._param_grad = None  # type: Tensor
@@ -113,6 +117,13 @@ class ModuleParamKSMask(object):
             keep most recent
         """
         return self._track_grad_mom
+
+    @property
+    def mask_creator(self) -> SparsityMaskCreator:
+        """
+        :return: SparsityMaskCreator object used to generate masks
+        """
+        return self._mask_creator
 
     @property
     def enabled(self) -> bool:
@@ -243,7 +254,9 @@ class ModuleParamKSMask(object):
 
         :param threshold: the threshold at which all values will be masked to 0
         """
-        value = sparsity_mask_from_abs_threshold(self._param.data, threshold)
+        value = self._mask_creator.create_sparsity_mask_from_abs_threshold(
+            self._param.data, threshold
+        )
 
         return self.set_param_mask(value)
 
@@ -255,7 +268,7 @@ class ModuleParamKSMask(object):
 
         :param sparsity: the decimal sparsity to set the param mask to
         """
-        value = sparsity_mask(self._param.data, sparsity)
+        value = self._mask_creator.create_sparsity_mask(self._param.data, sparsity)
 
         return self.set_param_mask(value)
 
