@@ -15,7 +15,7 @@ from neuralmagicML.utils import (
     validate_str_iterable,
 )
 from neuralmagicML.pytorch.utils import (
-    get_layers_names_and_param_names_by_regex,
+    get_named_layers_and_params_by_regex,
 )
 from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
@@ -131,12 +131,12 @@ class ConstantKSModifier(ScheduledModifier):
             if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
             else [".*"]
         )
-        layers_names_and_params = get_layers_names_and_param_names_by_regex(
+        named_layers_and_params = get_named_layers_and_params_by_regex(
             module, param_names
         )
 
         self._analyzers = []
-        for layer, layer_name, param_name in layers_names_and_params:
+        for layer_name, layer, param_name, _ in named_layers_and_params:
             self._module_masks.append(ModuleParamKSMask(layer, param_name))
             self._analyzers.append(ModuleKSAnalyzer(layer, layer_name, param_name))
 
@@ -417,12 +417,12 @@ class GradualKSModifier(ScheduledUpdateModifier):
             if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
             else [".*"]
         )
-        layers_names_and_params = get_layers_names_and_param_names_by_regex(
+        named_layers_and_params = get_named_layers_and_params_by_regex(
             module, param_names
         )
 
         self._analyzers = []
-        for layer, layer_name, param_name in layers_names_and_params:
+        for layer_name, layer, param_name, _ in named_layers_and_params:
             self._module_masks.append(ModuleParamKSMask(
                 layer, param_name, mask_creator=self._mask_creator
             ))

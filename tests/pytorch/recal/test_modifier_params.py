@@ -1,6 +1,7 @@
 import pytest
 
 import os
+import re
 import torch
 
 from neuralmagicML.utils import ALL_TOKEN
@@ -9,7 +10,7 @@ from neuralmagicML.pytorch.recal import (
     SetParamModifier,
     GradualParamModifier,
 )
-from neuralmagicML.pytorch.utils import get_layer_param
+from neuralmagicML.pytorch.utils import get_named_layers_and_params_by_regex
 
 from tests.pytorch.helpers import (
     test_epoch,
@@ -35,28 +36,25 @@ MODEL_TEST_LAYER_INDEX = 3
 ##############################
 TRAINABLE_MODIFIERS = [
     lambda: TrainableParamsModifier(
-        params=ALL_TOKEN, layers=ALL_TOKEN, trainable=False, start_epoch=0.0
+        params=ALL_TOKEN, trainable=False, start_epoch=0.0
     ),
     lambda: TrainableParamsModifier(
-        params=ALL_TOKEN, layers=ALL_TOKEN, trainable=True, start_epoch=0.0
+        params=ALL_TOKEN, trainable=True, start_epoch=0.0
     ),
     lambda: TrainableParamsModifier(
         params=ALL_TOKEN,
-        layers=ALL_TOKEN,
         trainable=False,
         start_epoch=0.0,
         end_epoch=15.0,
     ),
     lambda: TrainableParamsModifier(
         params=ALL_TOKEN,
-        layers=ALL_TOKEN,
         trainable=True,
         start_epoch=10.0,
         end_epoch=25.0,
     ),
     lambda: TrainableParamsModifier(
-        params=["weight"],
-        layers=[LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name],
+        params=[".*weight"],
         trainable=False,
         start_epoch=10.0,
     ),
@@ -93,11 +91,9 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
         assert modifier.update_ready(epoch, test_steps_per_epoch)
         modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
         for name, param in model.named_parameters():
-            layer_name = ".".join(name.split(".")[:-1])
-            param_name = name.split(".")[-1]
-
-            if (modifier.layers == ALL_TOKEN or layer_name in modifier.layers) and (
-                modifier.params == ALL_TOKEN or param_name in modifier.params
+            if (
+                modifier.params == ALL_TOKEN
+                or any(re.match(regex, name) for regex in modifier.params)
             ):
                 assert param.requires_grad == modifier.trainable
             else:
@@ -115,13 +111,9 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
 
             if modifier.end_epoch > 0:
                 for name, param in model.named_parameters():
-                    layer_name = ".".join(name.split(".")[:-1])
-                    param_name = name.split(".")[-1]
-
                     if (
-                        modifier.layers == ALL_TOKEN or layer_name in modifier.layers
-                    ) and (
-                        modifier.params == ALL_TOKEN or param_name in modifier.params
+                            modifier.params == ALL_TOKEN
+                            or any(re.match(regex, name) for regex in modifier.params)
                     ):
                         assert param.requires_grad == modifier.trainable
                     else:
@@ -149,7 +141,6 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
 )
 def test_trainable_params_yaml():
     params = ALL_TOKEN
-    layers = ALL_TOKEN
     trainable = False
     params_strict = False
     start_epoch = 10.0
@@ -157,7 +148,6 @@ def test_trainable_params_yaml():
     yaml_str = f"""
     !TrainableParamsModifier
         params: {params}
-        layers: {layers}
         trainable: {trainable}
         params_strict: {params_strict}
         start_epoch: {start_epoch}
@@ -171,7 +161,6 @@ def test_trainable_params_yaml():
     )  # type: TrainableParamsModifier
     obj_modifier = TrainableParamsModifier(
         params=params,
-        layers=layers,
         trainable=trainable,
         params_strict=params_strict,
         start_epoch=start_epoch,
@@ -180,7 +169,6 @@ def test_trainable_params_yaml():
 
     assert isinstance(yaml_modifier, TrainableParamsModifier)
     assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
-    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
     assert (
         yaml_modifier.trainable
         == serialized_modifier.trainable
@@ -212,18 +200,17 @@ assert LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].bias  # testing bias belo
 SET_PARAM_MOD_VAL = [
     0 for _ in range(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].output_size[0])
 ]
-SET_PARAM_MOD_PARAM = "bias"
-SET_PARAM_MOD_LAYERS = [LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name]
+SET_PARAM_MOD_PARAMS = [
+    "{}.{}".format(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name, 'bias')
+]
 SET_PARAM_MODIFIERS = [
     lambda: SetParamModifier(
-        param="bias",
-        layers=SET_PARAM_MOD_LAYERS,
+        params=SET_PARAM_MOD_PARAMS,
         val=SET_PARAM_MOD_VAL,
         start_epoch=0.0,
     ),
     lambda: SetParamModifier(
-        param="bias",
-        layers=SET_PARAM_MOD_LAYERS,
+        params=SET_PARAM_MOD_PARAMS,
         val=SET_PARAM_MOD_VAL,
         start_epoch=10.0,
     ),
@@ -258,9 +245,16 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
         self._lifecycle_helper(modifier, model, optimizer)
 
     def _lifecycle_helper(self, modifier, model, optimizer):
-        param = get_layer_param(modifier.param, modifier.layers[0], model)
+        param_regex = (
+            modifier.params
+            if modifier.params != ALL_TOKEN
+            else [".*"]
+        )
+        named_layers_and_params = get_named_layers_and_params_by_regex(
+            model, param_regex
+        )
+        _, _, _, param = named_layers_and_params[0]
         self.initialize_helper(modifier, model, optimizer)
-
         for set_val, param_val in zip(modifier.val, param.data):
             assert set_val != param_val.cpu()
 
@@ -287,14 +281,13 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_set_param_yaml():
-    param_strict = False
+    params_strict = False
     start_epoch = 10.0
     yaml_str = f"""
     !SetParamModifier
-        param: {SET_PARAM_MOD_PARAM}
-        layers: {SET_PARAM_MOD_LAYERS}
+        params: {SET_PARAM_MOD_PARAMS}
         val: {SET_PARAM_MOD_VAL}
-        param_strict: {param_strict}
+        params_strict: {params_strict}
         start_epoch: {start_epoch}
     """
     yaml_modifier = SetParamModifier.load_obj(yaml_str)  # type: SetParamModifier
@@ -302,21 +295,19 @@ def test_set_param_yaml():
         str(yaml_modifier)
     )  # type: SetParamModifier
     obj_modifier = SetParamModifier(
-        param=SET_PARAM_MOD_PARAM,
-        layers=SET_PARAM_MOD_LAYERS,
+        params=SET_PARAM_MOD_PARAMS,
         val=SET_PARAM_MOD_VAL,
-        param_strict=param_strict,
+        params_strict=params_strict,
         start_epoch=start_epoch,
     )
 
     assert isinstance(yaml_modifier, SetParamModifier)
-    assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
-    assert yaml_modifier.layers == obj_modifier.layers == obj_modifier.layers
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
     assert yaml_modifier.val == obj_modifier.val == obj_modifier.val
     assert (
-        yaml_modifier.param_strict
-        == obj_modifier.param_strict
-        == obj_modifier.param_strict
+        yaml_modifier.params_strict
+        == obj_modifier.params_strict
+        == obj_modifier.params_strict
     )
     assert (
         yaml_modifier.start_epoch
@@ -344,30 +335,29 @@ GRADUAL_PARAM_MOD_FINAL_VAL = [
     1.0 * (c + 1)
     for c in range(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].output_size[0])
 ]
-GRADUAL_PARAM_MOD_PARAM = "bias"
-GRADUAL_PARAM_MOD_LAYERS = [LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name]
+GRADUAL_PARAM_MOD_PARAMS = [
+    "{}.{}".format(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name, "bias")
+]
 GRADUAL_PARAM_MODIFIERS = [
     lambda: GradualParamModifier(
-        param=GRADUAL_PARAM_MOD_PARAM,
-        layers=GRADUAL_PARAM_MOD_LAYERS,
+        params=GRADUAL_PARAM_MOD_PARAMS,
         init_val=GRADUAL_PARAM_MOD_INIT_VAL,
         final_val=GRADUAL_PARAM_MOD_FINAL_VAL,
         start_epoch=0.0,
         end_epoch=10.0,
         update_frequency=1.0,
         inter_func="linear",
-        param_strict=True,
+        params_strict=True,
     ),
     lambda: GradualParamModifier(
-        param=GRADUAL_PARAM_MOD_PARAM,
-        layers=GRADUAL_PARAM_MOD_LAYERS,
+        params=GRADUAL_PARAM_MOD_PARAMS,
         init_val=GRADUAL_PARAM_MOD_INIT_VAL,
         final_val=GRADUAL_PARAM_MOD_FINAL_VAL,
         start_epoch=10.0,
         end_epoch=20.0,
         update_frequency=1.0,
         inter_func="linear",
-        param_strict=True,
+        params_strict=True,
     ),
 ]
 
@@ -400,7 +390,15 @@ class TestGradualParamModifierImpl(ScheduledUpdateModifierTest):
         self._lifecycle_helper(modifier, model, optimizer)
 
     def _lifecycle_helper(self, modifier, model, optimizer):
-        param = get_layer_param(modifier.param, modifier.layers[0], model)
+        param_regex = (
+            modifier.params
+            if modifier.params != ALL_TOKEN
+            else [".*"]
+        )
+        named_layers_and_params = get_named_layers_and_params_by_regex(
+            model, param_regex
+        )
+        _, _, _, param = named_layers_and_params[0]
         self.initialize_helper(modifier, model, optimizer)
 
         for set_val, param_val in zip(modifier.init_val, param.data):
@@ -442,22 +440,21 @@ class TestGradualParamModifierImpl(ScheduledUpdateModifierTest):
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_gradual_param_yaml():
-    param_strict = False
+    params_strict = False
     start_epoch = 10.0
     end_epoch = 20.0
     update_frequency = 1.0
     inter_func = "linear"
     yaml_str = f"""
     !GradualParamModifier
-        param: {GRADUAL_PARAM_MOD_PARAM}
-        layers: {GRADUAL_PARAM_MOD_LAYERS}
+        params: {GRADUAL_PARAM_MOD_PARAMS}
         init_val: {GRADUAL_PARAM_MOD_INIT_VAL}
         final_val: {GRADUAL_PARAM_MOD_FINAL_VAL}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
         update_frequency: {update_frequency}
         inter_func: {inter_func}
-        param_strict: {param_strict}
+        params_strict: {params_strict}
     """
     yaml_modifier = GradualParamModifier.load_obj(
         yaml_str
@@ -466,20 +463,18 @@ def test_gradual_param_yaml():
         str(yaml_modifier)
     )  # type: GradualParamModifier
     obj_modifier = GradualParamModifier(
-        param=GRADUAL_PARAM_MOD_PARAM,
-        layers=GRADUAL_PARAM_MOD_LAYERS,
+        params=GRADUAL_PARAM_MOD_PARAMS,
         init_val=GRADUAL_PARAM_MOD_INIT_VAL,
         final_val=GRADUAL_PARAM_MOD_FINAL_VAL,
         start_epoch=start_epoch,
         end_epoch=end_epoch,
         update_frequency=update_frequency,
         inter_func=inter_func,
-        param_strict=param_strict,
+        params_strict=params_strict,
     )
 
     assert isinstance(yaml_modifier, GradualParamModifier)
-    assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
-    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
     assert (
         yaml_modifier.init_val == serialized_modifier.init_val == obj_modifier.init_val
     )
@@ -509,7 +504,7 @@ def test_gradual_param_yaml():
         == obj_modifier.inter_func
     )
     assert (
-        yaml_modifier.param_strict
-        == serialized_modifier.param_strict
-        == obj_modifier.param_strict
+        yaml_modifier.params_strict
+        == serialized_modifier.params_strict
+        == obj_modifier.params_strict
     )

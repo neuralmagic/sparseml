@@ -30,7 +30,7 @@ from tests.pytorch.recal.test_modifier import (
     [
         lambda: ConstantKSModifier(params=[".*weight"],),
         lambda: ConstantKSModifier(
-            params=["seq\.fc1\.weight"], start_epoch=10.0, end_epoch=25.0,
+            params=[r"seq\.fc1\.weight"], start_epoch=10.0, end_epoch=25.0,
         ),
     ],
     scope="function",
@@ -119,7 +119,7 @@ def test_constant_ks_yaml():
             inter_func="linear",
         ),
         lambda: GradualKSModifier(
-            params=["seq\.block1.*weight"],
+            params=[f"seq\.block1.*weight"],
             init_sparsity=0.05,
             final_sparsity=0.95,
             start_epoch=10.0,
@@ -128,7 +128,7 @@ def test_constant_ks_yaml():
             inter_func="cubic",
         ),
         lambda: GradualKSModifier(
-            params=["seq\.fc1\.weight", "seq\.fc2\.weight"],
+            params=[f"seq\.fc1\.weight", f"seq\.fc2\.weight"],
             init_sparsity=0.05,
             final_sparsity=0.95,
             start_epoch=10.0,
