@@ -5,6 +5,7 @@ Utility / helper functions
 from typing import Union, Tuple, Iterable, Dict, Any, List
 import os
 import random
+import re
 import numpy
 
 import torch
@@ -31,6 +32,7 @@ __all__ = [
     "get_conv_layers",
     "get_linear_layers",
     "get_prunable_layers",
+    "get_layers_names_and_param_names_by_regex",
     "get_layer_param",
 ]
 
@@ -558,3 +560,24 @@ def get_layer_param(param: str, layer: str, module: Module) -> Parameter:
     param = layer.__getattr__(param)  # type: Parameter
 
     return param
+
+
+def get_layers_names_and_param_names_by_regex(
+    module: Module,
+    param_names: List[str],
+) -> List[Tuple[Module, str, str]]:
+    """
+    :param module: the module to get the matching layers and params from
+    :param param_names: a list of regex patterns to match with full parameter paths
+    :return: a list of layers, layer names, and parameter names whose full parameter
+        names in the given module match one of the given regex patterns
+    """
+    layers_names_and_params = []
+    for layer_name, layer in module.named_modules():
+        for param_name, _ in layer.named_parameters():
+            if '.' in param_name:  # skip parameters of nested layers
+                continue
+            full_param_name = "{}.{}".format(layer_name, param_name)
+            if any(re.match(regex, full_param_name) for regex in param_names):
+                layers_names_and_params.append((layer, layer_name, param_name))
+    return layers_names_and_params
