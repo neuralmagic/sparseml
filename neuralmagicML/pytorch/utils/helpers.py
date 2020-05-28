@@ -5,6 +5,7 @@ Utility / helper functions
 from typing import Union, Tuple, Iterable, Dict, Any, List
 import os
 import random
+import re
 import numpy
 
 import torch
@@ -31,6 +32,7 @@ __all__ = [
     "get_conv_layers",
     "get_linear_layers",
     "get_prunable_layers",
+    "get_named_layers_and_params_by_regex",
     "get_layer_param",
 ]
 
@@ -558,3 +560,46 @@ def get_layer_param(param: str, layer: str, module: Module) -> Parameter:
     param = layer.__getattr__(param)  # type: Parameter
 
     return param
+
+
+def get_named_layers_and_params_by_regex(
+    module: Module,
+    param_names: List[str],
+) -> List[Tuple[str, Module, str, Parameter]]:
+    """
+    :param module: the module to get the matching layers and params from
+    :param param_names: a list of names or regex patterns to match with full parameter
+        paths. Regex patterns must be specified with the prefix 're:'
+    :return: a list of layers, layer names, and parameter names whose full parameter
+        names in the given module match one of the given regex patterns
+    """
+    named_layers_and_params = []
+    for layer_name, layer in module.named_modules():
+        for param_name, param in layer.named_parameters():
+            if '.' in param_name:  # skip parameters of nested layers
+                continue
+            full_param_name = "{}.{}".format(layer_name, param_name)
+            if any_str_or_regex_matches_param_name(full_param_name, param_names):
+                named_layers_and_params.append((layer_name, layer, param_name, param))
+    return named_layers_and_params
+
+
+def any_str_or_regex_matches_param_name(
+    param_name: str,
+    name_or_regex_patterns: List[str],
+) -> bool:
+    """
+    :param param_name: The name of a parameter
+    :param name_or_regex_patterns: List of full param names to match to the input or
+        regex patterns to match with that should be prefixed with 're:'
+    :return: True if any given str or regex pattern matches the given name
+    """
+    for name_or_regex in name_or_regex_patterns:
+        if name_or_regex[:3] == 're:':
+            pattern = name_or_regex[3:]
+            if re.match(pattern, param_name):
+                return True
+        else:
+            if param_name == name_or_regex:
+                return True
+    return False

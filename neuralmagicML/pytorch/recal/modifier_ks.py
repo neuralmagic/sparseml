@@ -2,7 +2,6 @@
 Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
 """
-
 from typing import Union, List
 import math
 from torch.nn import Module
@@ -16,8 +15,7 @@ from neuralmagicML.utils import (
     validate_str_iterable,
 )
 from neuralmagicML.pytorch.utils import (
-    get_prunable_layers,
-    get_layer,
+    get_named_layers_and_params_by_regex,
 )
 from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
@@ -57,33 +55,30 @@ def _log_sparsity(
 @PyTorchModifierYAML()
 class ConstantKSModifier(ScheduledModifier):
     """
-    Holds the sparsity level and shape for a given param constant while training.
+    Holds the sparsity level and shape for a given parameter(s) constant while training.
     Useful for transfer learning use cases.
 
     | Sample yaml:
     |   !ConstantKSModifier
-    |       layers: __ALL__
     |       start_epoch: 0.0
     |       end_epoch: 10.0
-    |       param: weight
+    |       params: ['re:.*weight']
     |       log_types: __ALL__
 
-    :param layers: str or list of str for the layers to apply the KS modifier to
-        can also use the token __ALL__ to specify all layers
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
-    :param param: the name of the parameter to apply pruning to, generally 'weight'
-        for linear and convs
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     """
 
     def __init__(
         self,
-        layers: Union[str, List[str]],
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
-        param: str = "weight",
+        params: Union[str, List[str]] = ["re:.*weight"],
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super().__init__(
@@ -92,10 +87,9 @@ class ConstantKSModifier(ScheduledModifier):
             end_epoch=end_epoch,
             end_comparator=-1,
         )
-        self._layers = validate_str_iterable(
-            layers, "{} for layers".format(self.__class__.__name__)
+        self._params = validate_str_iterable(
+            params, "{} for params".format(self.__class__.__name__)
         )
-        self._param = param
         self._module_masks = []  # type: List[ModuleParamKSMask]
         self._analyzers = None
         self._last_logged_epoch = None
@@ -107,71 +101,54 @@ class ConstantKSModifier(ScheduledModifier):
         self._module_masks.clear()
 
     @ModifierProp()
-    def layers(self) -> Union[str, List[str]]:
+    def params(self) -> str:
         """
-        :return: str or list of str for the layers to apply the KS modifier to
-                 can also use the token __ALL__ to specify all layers
+        :return: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
-        return self._layers
+        return self._params
 
-    @layers.setter
-    def layers(self, value: Union[str, List[str]]):
+    @params.setter
+    def params(self, value: str):
         """
-        :param value: str or list of str for the layers to apply the KS modifier to
-                      can also use the token __ALL__ to specify all layers
+        :params value: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
-        self._layers = validate_str_iterable(
-            value, "{} for layers".format(self.__class__.__name__)
+        self._params = validate_str_iterable(
+            value, "{} for params".format(self.__class__.__name__)
         )
-
-    @ModifierProp()
-    def param(self) -> str:
-        """
-        :return: the name of the parameter to apply pruning to, generally 'weight'
-            for linear and convs
-        """
-        return self._param
-
-    @param.setter
-    def param(self, value: str):
-        """
-        :param value: the name of the parameter to apply pruning to, generally 'weight'
-            for linear and convs
-        """
-        self._param = value
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
-        Grab the layers' params to control kernel sparsity for.
+        Grab the params to control kernel sparsity for.
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
         super().initialize(module, optimizer)
 
-        if self._layers == ALL_TOKEN:
-            layers = {name: layer for (name, layer) in get_prunable_layers(module)}
-        else:
-            layers = {name: get_layer(name, module) for name in self._layers}
+        param_names = (
+            self._params
+            if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
+            else ["re:.*"]
+        )
+        named_layers_and_params = get_named_layers_and_params_by_regex(
+            module, param_names
+        )
 
         self._analyzers = []
+        for layer_name, layer, param_name, _ in named_layers_and_params:
+            self._module_masks.append(ModuleParamKSMask(layer, param_name))
+            self._analyzers.append(ModuleKSAnalyzer(layer, layer_name, param_name))
 
-        for name, layer in layers.items():
-            found = False
-
-            for param_name, par in layer.named_parameters():
-                if param_name == self._param:
-                    self._module_masks.append(ModuleParamKSMask(layer, self._param))
-                    self._analyzers.append(ModuleKSAnalyzer(layer, name, param_name))
-                    found = True
-                    break
-
-            if not found:
-                raise ValueError(
-                    "Could not find required param {} in layer {} for {}".format(
-                        self._param, layer, self.__class__.__name__
-                    )
+        if len(self._analyzers) == 0:
+            raise ValueError(
+                "Could not find any params matching {} in {}".format(
+                    self._params, self.__class__.__name__
                 )
+            )
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -237,28 +214,25 @@ class ConstantKSModifier(ScheduledModifier):
 @PyTorchModifierYAML()
 class GradualKSModifier(ScheduledUpdateModifier):
     """
-    Gradually applies kernel sparsity to a given layer or layers from init_sparsity
-    until final_sparsity is reached over a given amount of time and applied with an
-    interpolated function for each step taken.
+    Gradually applies kernel sparsity to a given parameter or parameters from
+    init_sparsity until final_sparsity is reached over a given amount of time
+    and applied with an interpolated function for each step taken.
 
-    Applies based on magnitude pruning without any structure to the pruning.
+    Applies based on magnitude pruning unless otherwise specified by mask_type.
 
     | Sample yaml:
     |   !GradualKSModifier
-    |       layers: __ALL__
     |       init_sparsity: 0.05
     |       final_sparsity: 0.8
     |       start_epoch: 0.0
     |       end_epoch: 10.0
     |       update_frequency: 1.0
-    |       param: weight
+    |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
     |       log_types: __ALL__
     |       mask_type: unstructured
 
-    :param layers: str or list of str for the layers to apply the KS modifier to
-        can also use the token __ALL__ to specify all layers
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
     :param final_sparsity: the final sparsity for the param to end with at end_epoch
@@ -266,8 +240,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to update at
         between start and end
-    :param param: the name of the parameter to apply pruning to, generally 'weight'
-        for linear and convs
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -282,13 +257,12 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
     def __init__(
         self,
-        layers: Union[str, List[str]],
         init_sparsity: float,
         final_sparsity: float,
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
-        param: str = "weight",
+        params: Union[str, List[str]] = ["re:.*weight"],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
@@ -302,12 +276,11 @@ class GradualKSModifier(ScheduledUpdateModifier):
             min_end=0.0,
             end_comparator=1,
         )
-        self._layers = validate_str_iterable(
-            layers, "{} for layers".format(self.__class__.__name__)
-        )
         self._init_sparsity = init_sparsity
         self._final_sparsity = final_sparsity
-        self._param = param
+        self._params = validate_str_iterable(
+            params, "{} for params".format(self.__class__.__name__)
+        )
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
         self._mask_type = mask_type
@@ -326,24 +299,6 @@ class GradualKSModifier(ScheduledUpdateModifier):
             del mask
 
         self._module_masks.clear()
-
-    @ModifierProp()
-    def layers(self) -> Union[str, List[str]]:
-        """
-        :return: str or list of str for the layers to apply the KS modifier to.
-            can also use the token __ALL__ to specify all layers
-        """
-        return self._layers
-
-    @layers.setter
-    def layers(self, value: Union[str, List[str]]):
-        """
-        :param value: str or list of str for the layers to apply the KS modifier to.
-            can also use the token __ALL__ to specify all layers
-        """
-        self._layers = validate_str_iterable(
-            value, "{} for layers".format(self.__class__.__name__)
-        )
 
     @ModifierProp()
     def init_sparsity(self) -> float:
@@ -376,20 +331,24 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self.validate()
 
     @ModifierProp()
-    def param(self) -> str:
+    def params(self) -> str:
         """
-        :return: the name of the parameter to apply pruning to,
-            generally 'weight' for linear and convs
+        :return: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
-        return self._param
+        return self._params
 
-    @param.setter
-    def param(self, value: str):
+    @params.setter
+    def params(self, value: str):
         """
-        :param value: the name of the parameter to apply pruning to,
-            generally 'weight' for linear and convs
+        :param value: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
-        self._param = value
+        self._params = validate_str_iterable(
+            value, "{} for params".format(self.__class__.__name__)
+        )
 
     @ModifierProp()
     def leave_enabled(self) -> bool:
@@ -452,40 +411,35 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
-        Grab the layers' params to control kernel sparsity for
+        Grab the params to control kernel sparsity for
 
         :param module: module to modify
         :param optimizer: optimizer to modify
         """
         super().initialize(module, optimizer)
 
-        if self._layers == ALL_TOKEN:
-            layers = {name: layer for (name, layer) in get_prunable_layers(module)}
-        else:
-            layers = {name: get_layer(name, module) for name in self._layers}
+        param_names = (
+            self._params
+            if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
+            else ["re:.*"]
+        )
+        named_layers_and_params = get_named_layers_and_params_by_regex(
+            module, param_names
+        )
 
         self._analyzers = []
+        for layer_name, layer, param_name, _ in named_layers_and_params:
+            self._module_masks.append(ModuleParamKSMask(
+                layer, param_name, mask_creator=self._mask_creator
+            ))
+            self._analyzers.append(ModuleKSAnalyzer(layer, layer_name, param_name))
 
-        for name, layer in layers.items():
-            found = False
-
-            for param_name, par in layer.named_parameters():
-                if param_name == self._param:
-                    self._module_masks.append(
-                        ModuleParamKSMask(
-                            layer, self._param, mask_creator=self._mask_creator,
-                        )
-                    )
-                    self._analyzers.append(ModuleKSAnalyzer(layer, name, param_name))
-                    found = True
-                    break
-
-            if not found:
-                raise ValueError(
-                    "Could not find required param {} in layer {} for {}".format(
-                        self._param, layer, self.__class__.__name__
-                    )
+        if len(self._analyzers) == 0:
+            raise ValueError(
+                "Could not find any params matching {} in {}".format(
+                    self._params, self.__class__.__name__
                 )
+            )
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
