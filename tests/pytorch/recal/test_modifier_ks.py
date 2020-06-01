@@ -28,9 +28,9 @@ from tests.pytorch.recal.test_modifier import (
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
-        lambda: ConstantKSModifier(params=[".*weight"],),
+        lambda: ConstantKSModifier(params=["re:.*weight"],),
         lambda: ConstantKSModifier(
-            params=[r"seq\.fc1\.weight"], start_epoch=10.0, end_epoch=25.0,
+            params=["seq.fc1.weight"], start_epoch=10.0, end_epoch=25.0,
         ),
     ],
     scope="function",
@@ -74,7 +74,7 @@ class TestConstantKSModifier(ScheduledModifierTest):
 def test_constant_ks_yaml():
     start_epoch = 5.0
     end_epoch = 15.0
-    params = [".*weight"]
+    params = ["re:.*weight"]
     yaml_str = f"""
     !ConstantKSModifier
         start_epoch: {start_epoch}
@@ -115,11 +115,11 @@ def test_constant_ks_yaml():
             start_epoch=0.0,
             end_epoch=15.0,
             update_frequency=1.0,
-            params=[".*weight"],
+            params=["re:.*weight"],
             inter_func="linear",
         ),
         lambda: GradualKSModifier(
-            params=[f"seq\.block1.*weight"],
+            params=["re:seq.block1.*weight"],
             init_sparsity=0.05,
             final_sparsity=0.95,
             start_epoch=10.0,
@@ -128,7 +128,7 @@ def test_constant_ks_yaml():
             inter_func="cubic",
         ),
         lambda: GradualKSModifier(
-            params=[f"seq\.fc1\.weight", f"seq\.fc2\.weight"],
+            params=["seq.fc1.weight", "seq.fc2.weight"],
             init_sparsity=0.05,
             final_sparsity=0.95,
             start_epoch=10.0,
@@ -191,7 +191,7 @@ def test_gradual_ks_yaml():
     start_epoch = 5.0
     end_epoch = 15.0
     update_frequency = 1.0
-    params = [".*weight"]
+    params = ["re:.*weight"]
     inter_func = "cubic"
     mask_type = 'filter'
     yaml_str = f"""

@@ -10,7 +10,7 @@ from neuralmagicML.pytorch.recal import (
     SetParamModifier,
     GradualParamModifier,
 )
-from neuralmagicML.pytorch.utils import get_named_layers_and_params_by_regex
+from neuralmagicML.pytorch.utils import get_named_layers_and_params_by_regex, any_str_or_regex_matches_param_name
 
 from tests.pytorch.helpers import (
     test_epoch,
@@ -54,7 +54,7 @@ TRAINABLE_MODIFIERS = [
         end_epoch=25.0,
     ),
     lambda: TrainableParamsModifier(
-        params=[".*weight"],
+        params=["re:.*weight"],
         trainable=False,
         start_epoch=10.0,
     ),
@@ -93,7 +93,7 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
         for name, param in model.named_parameters():
             if (
                 modifier.params == ALL_TOKEN
-                or any(re.match(regex, name) for regex in modifier.params)
+                or any_str_or_regex_matches_param_name(name, modifier.params)
             ):
                 assert param.requires_grad == modifier.trainable
             else:
@@ -113,7 +113,7 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
                 for name, param in model.named_parameters():
                     if (
                             modifier.params == ALL_TOKEN
-                            or any(re.match(regex, name) for regex in modifier.params)
+                            or any_str_or_regex_matches_param_name(name, modifier.params)
                     ):
                         assert param.requires_grad == modifier.trainable
                     else:
@@ -248,7 +248,7 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
         param_regex = (
             modifier.params
             if modifier.params != ALL_TOKEN
-            else [".*"]
+            else ["re:.*"]
         )
         named_layers_and_params = get_named_layers_and_params_by_regex(
             model, param_regex
@@ -393,7 +393,7 @@ class TestGradualParamModifierImpl(ScheduledUpdateModifierTest):
         param_regex = (
             modifier.params
             if modifier.params != ALL_TOKEN
-            else [".*"]
+            else ["re:.*"]
         )
         named_layers_and_params = get_named_layers_and_params_by_regex(
             model, param_regex

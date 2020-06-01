@@ -51,9 +51,9 @@ class TrainableParamsModifier(ScheduledModifier):
     |       start_epoch: 0
     |       end_epoch: 10
 
-    :param params: A list of regex patterns or full parameter names to of parameters
-        to apply the trainable modifier can also use the token __ALL__ to specify
-        params
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
     :param trainable: True if the param(s) should be made trainable,
         False to make them non-trainable
     :param params_strict: True if every regex pattern in params must match at least
@@ -88,16 +88,18 @@ class TrainableParamsModifier(ScheduledModifier):
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
         """
-        :return: str or list of str for the params to apply the trainable modifier to.
-            Can also use the token __ALL__ to specify all params
+        :return: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         return self._params
 
     @params.setter
     def params(self, value: Union[str, List[str]]):
         """
-        :param value: str or list of str for the params to apply the trainable modifier
-            to.Can also use the token __ALL__ to specify all params
+        :params value: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -148,7 +150,7 @@ class TrainableParamsModifier(ScheduledModifier):
         param_names = (
             self._params
             if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
-            else [".*"]
+            else ["re:.*"]
         )
         layers_names_and_params = get_named_layers_and_params_by_regex(
             module, param_names
@@ -161,7 +163,11 @@ class TrainableParamsModifier(ScheduledModifier):
 
         # Check for params_strict
         def found_match(regex: str) -> bool:
+            if regex[:3] != 're:':
+                return True
+            regex = regex[3:]
             return any(re.match(regex, name) for name in found_params)
+
         if (
             self._params_strict
             and self._params != ALL_TOKEN
@@ -210,13 +216,14 @@ class SetParamModifier(ScheduledModifier):
 
     | Sample yaml:
     |   !SetParamModifier:
-    |       params: [".*bias"]
+    |       params: ["re:.*bias"]
     |       val: [0.1, 0.1, ...]
     |       params_strict: False
     |       start_epoch: 0
 
-    :param params: A list of regex patterns or full parameter names to of parameters
-        to apply given val to can also use the token __ALL__ to specify params
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
     :param val: The value to set for the given param in the given layers at start_epoch
     :param params_strict: True if every regex pattern in params must match at least
         one parameter name in the module
@@ -247,16 +254,18 @@ class SetParamModifier(ScheduledModifier):
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
         """
-        :return: A list of regex patterns or full parameter names to of parameters
-        to apply given val to can also use the token __ALL__ to specify params
+        :return: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         return self._params
 
     @params.setter
     def params(self, value: Union[str, List[str]]):
         """
-        :param value: A list of regex patterns or full parameter names to of parameters
-        to apply given val to can also use the token __ALL__ to specify params
+        :param value: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -313,7 +322,7 @@ class SetParamModifier(ScheduledModifier):
         param_names = (
             self._params
             if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
-            else [".*"]
+            else ["re:.*"]
         )
         layers_names_and_params = get_named_layers_and_params_by_regex(
             module, param_names
@@ -333,6 +342,9 @@ class SetParamModifier(ScheduledModifier):
 
         # Check for params_strict
         def found_match(regex: str) -> bool:
+            if regex[:3] != 're:':
+                return True
+            regex = regex[3:]
             return any(re.match(regex, name) for name in found_params)
 
         if (
@@ -378,7 +390,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
 
     | Sample YAML:
     |   !GradualParamModifier
-    |       params: [".*bias"]
+    |       params: ["re:.*bias"]
     |       init_val: [0.0, 0.0, ...]
     |       final_val: [1.0, 1.0, ...]
     |       inter_func: linear
@@ -400,8 +412,9 @@ class GradualParamModifier(ScheduledUpdateModifier):
         params_strict: bool = True,
     ):
         """
-        :param params: A list of regex patterns or full parameter names to of parameters
-        to apply given val to can also use the token __ALL__ to specify params
+        :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         :param init_val: The initial value to set for the given param in the
             given layers at start_epoch
         :param final_val: The final value to set for the given param in the
@@ -439,16 +452,18 @@ class GradualParamModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
         """
-        :return: A list of regex patterns or full parameter names to of parameters
-        to apply given val to can also use the token __ALL__ to specify params
+        :return: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         return self._params
 
     @params.setter
     def params(self, value: Union[str, List[str]]):
         """
-        :param value: A list of regex patterns or full parameter names to of parameters
-        to apply given val to can also use the token __ALL__ to specify params
+        :param value: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -543,7 +558,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
         param_names = (
             self._params
             if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
-            else [".*"]
+            else ["re:.*"]
         )
         layers_names_and_params = get_named_layers_and_params_by_regex(
             module, param_names
@@ -562,6 +577,9 @@ class GradualParamModifier(ScheduledUpdateModifier):
 
         # Check for params_strict
         def found_match(regex: str) -> bool:
+            if regex[:3] != 're:':
+                return True
+            regex = regex[3:]
             return any(re.match(regex, name) for name in found_params)
 
         if (

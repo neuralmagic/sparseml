@@ -34,6 +34,7 @@ __all__ = [
     "get_prunable_layers",
     "get_named_layers_and_params_by_regex",
     "get_layer_param",
+    "any_str_or_regex_matches_param_name",
 ]
 
 
@@ -568,7 +569,8 @@ def get_named_layers_and_params_by_regex(
 ) -> List[Tuple[str, Module, str, Parameter]]:
     """
     :param module: the module to get the matching layers and params from
-    :param param_names: a list of regex patterns to match with full parameter paths
+    :param param_names: a list of names or regex patterns to match with full parameter
+        paths. Regex patterns must be specified with the prefix 're:'
     :return: a list of layers, layer names, and parameter names whose full parameter
         names in the given module match one of the given regex patterns
     """
@@ -578,6 +580,27 @@ def get_named_layers_and_params_by_regex(
             if '.' in param_name:  # skip parameters of nested layers
                 continue
             full_param_name = "{}.{}".format(layer_name, param_name)
-            if any(re.match(regex, full_param_name) for regex in param_names):
+            if any_str_or_regex_matches_param_name(full_param_name, param_names):
                 named_layers_and_params.append((layer_name, layer, param_name, param))
     return named_layers_and_params
+
+
+def any_str_or_regex_matches_param_name(
+    param_name: str,
+    name_or_regex_patterns: List[str],
+) -> bool:
+    """
+    :param param_name: The name of a parameter
+    :param name_or_regex_patterns: List of full param names to match to the input or
+        regex patterns to match with that should be prefixed with 're:'
+    :return: True if any given str or regex pattern matches the given name
+    """
+    for name_or_regex in name_or_regex_patterns:
+        if name_or_regex[:3] == 're:':
+            pattern = name_or_regex[3:]
+            if re.match(pattern, param_name):
+                return True
+        else:
+            if param_name == name_or_regex:
+                return True
+    return False

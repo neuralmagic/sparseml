@@ -62,13 +62,14 @@ class ConstantKSModifier(ScheduledModifier):
     |   !ConstantKSModifier
     |       start_epoch: 0.0
     |       end_epoch: 10.0
-    |       params: ['.*weight']
+    |       params: ['re:.*weight']
     |       log_types: __ALL__
 
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
-    :param params: A list of regex patterns or full parameter names to of parameters
-        to apply pruning to.  __ALL__ will match to all parameters.
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     """
@@ -77,7 +78,7 @@ class ConstantKSModifier(ScheduledModifier):
         self,
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
-        params: Union[str, List[str]] = [".*weight"],
+        params: Union[str, List[str]] = ["re:.*weight"],
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super().__init__(
@@ -102,16 +103,18 @@ class ConstantKSModifier(ScheduledModifier):
     @ModifierProp()
     def params(self) -> str:
         """
-        :return: A list of regex patterns or full parameter names to of parameters
-        to apply pruning to.  __ALL__ will match to all parameters.
+        :return: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         return self._params
 
     @params.setter
     def params(self, value: str):
         """
-        :params value: A list of regex patterns or full parameter names to of parameters
-        to apply pruning to.  __ALL__ will match to all parameters.
+        :params value: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -129,7 +132,7 @@ class ConstantKSModifier(ScheduledModifier):
         param_names = (
             self._params
             if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
-            else [".*"]
+            else ["re:.*"]
         )
         named_layers_and_params = get_named_layers_and_params_by_regex(
             module, param_names
@@ -224,7 +227,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
     |       start_epoch: 0.0
     |       end_epoch: 10.0
     |       update_frequency: 1.0
-    |       params: [".*weight"]
+    |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
     |       log_types: __ALL__
@@ -237,8 +240,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to update at
         between start and end
-    :param params: A list of regex patterns or full parameter names to of parameters
-        to apply pruning to.  __ALL__ will match to all parameters.
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -258,7 +262,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
-        params: Union[str, List[str]] = [".*weight"],
+        params: Union[str, List[str]] = ["re:.*weight"],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
@@ -329,16 +333,18 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def params(self) -> str:
         """
-        :return: A list of regex patterns or full parameter names to of parameters
-        to apply pruning to.  __ALL__ will match to all parameters.
+        :return: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         return self._params
 
     @params.setter
     def params(self, value: str):
         """
-        :param value: A list of regex patterns or full parameter names to of parameters
-        to apply pruning to.  __ALL__ will match to all parameters.
+        :param value: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -415,7 +421,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         param_names = (
             self._params
             if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
-            else [".*"]
+            else ["re:.*"]
         )
         named_layers_and_params = get_named_layers_and_params_by_regex(
             module, param_names
