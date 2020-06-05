@@ -9,6 +9,7 @@ from neuralmagicML.tensorflow.utils import (
     tf_compat,
     VAR_INDEX_FROM_TRAINABLE,
     eval_tensor_sparsity,
+    get_op_input_var,
 )
 from neuralmagicML.tensorflow.recal import (
     get_or_create_ks_schedule_ops,
@@ -51,8 +52,9 @@ def test_create_op_pruning_fc(sparsity_val):
         update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
 
         matmul_op = graph.get_operation_by_name("fc/matmul")
+        matmul_op_input = get_op_input_var(matmul_op, VAR_INDEX_FROM_TRAINABLE)
         pruning_op_vars = create_op_pruning(
-            matmul_op, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group,
+            matmul_op, matmul_op_input, sparsity, update_ready, group,
             UnstructuredSparsityMaskCreator(),
         )
 
@@ -121,13 +123,9 @@ def test_create_op_pruning_conv(sparsity_val: float, mask_creator: SparsityMaskC
         update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
 
         conv_op = graph.get_operation_by_name("conv/conv")
+        conv_op_input = get_op_input_var(conv_op, VAR_INDEX_FROM_TRAINABLE)
         pruning_op_vars = create_op_pruning(
-            conv_op,
-            VAR_INDEX_FROM_TRAINABLE,
-            sparsity,
-            update_ready,
-            group,
-            mask_creator=mask_creator,
+            conv_op, conv_op_input, sparsity, update_ready, group, mask_creator
         )
 
         with tf_compat.Session() as sess:
@@ -196,8 +194,9 @@ def test_create_op_pruning_decrease_sparsity(sparsity_val):
         update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
 
         matmul_op = graph.get_operation_by_name("fc/matmul")
+        matmul_op_input = get_op_input_var(matmul_op, VAR_INDEX_FROM_TRAINABLE)
         pruning_op_vars = create_op_pruning(
-            matmul_op, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group,
+            matmul_op, matmul_op_input, sparsity, update_ready, group,
             UnstructuredSparsityMaskCreator(),
         )
 
@@ -217,30 +216,30 @@ def test_create_op_pruning_decrease_sparsity(sparsity_val):
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
-    "net_const,inp_arr,ops,mask_creator",
+    "net_const,inp_arr,var_names,mask_creator",
     [
         (
             mlp_net,
             numpy.random.random((4, 16)),
-            ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+            ["re:mlp_net/.*/weight"],
             UnstructuredSparsityMaskCreator(),
         ),
         (
             mlp_net,
             numpy.random.random((4, 16)),
-            ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+            ["re:mlp_net/.*/weight"],
             DimensionSparsityMaskCreator(0),
         ),
         (
             mlp_net,
             numpy.random.random((4, 16)),
-            ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+            ["re:mlp_net/.*/weight"],
             BlockSparsityMaskCreator([4, 1]),
         ),
         (
             conv_net,
             numpy.random.random((4, 28, 28, 1)),
-            ["conv_net/conv1/conv", "conv_net/conv2/conv", "conv_net/mlp/matmul"],
+            ["conv_net/conv1/weight", "conv_net/conv2/weight", "conv_net/mlp/weight"],
             UnstructuredSparsityMaskCreator(),
         ),
     ],
@@ -249,10 +248,11 @@ def test_get_or_create_graph_ops_pruning(
     sparsity_val: float,
     net_const: Callable,
     inp_arr: numpy.ndarray,
-    ops: List[str],
+    var_names: List[str],
     mask_creator: SparsityMaskCreator,
 ):
     group = "test-group"
+    is_grouped_mask = isinstance(mask_creator, GroupedSparsityMaskCreator)
 
     with tf_compat.Graph().as_default() as graph:
         out, inp = net_const()
@@ -261,25 +261,14 @@ def test_get_or_create_graph_ops_pruning(
         )
         update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
         pruning_op_vars = get_or_create_graph_ops_pruning(
-            graph,
-            ops,
-            VAR_INDEX_FROM_TRAINABLE,
-            sparsity,
-            update_ready,
-            group,
-            mask_creator,
+            graph, var_names, sparsity, update_ready, group, mask_creator
         )
         pruning_op_vars_sec = get_or_create_graph_ops_pruning(
-            graph,
-            ops,
-            VAR_INDEX_FROM_TRAINABLE,
-            sparsity,
-            update_ready,
-            group,
-            mask_creator,
+            graph, var_names, sparsity, update_ready, group, mask_creator
         )
-        is_grouped_mask = isinstance(mask_creator, GroupedSparsityMaskCreator)
-        assert len(pruning_op_vars) == len(ops)
+
+        assert len(pruning_op_vars) >= len(var_names)  # get at least 1 match per regex
+        assert len(pruning_op_vars) == len(pruning_op_vars_sec)
 
         for op_vars, op_vars_sec in zip(pruning_op_vars, pruning_op_vars_sec):
             assert op_vars.op == op_vars_sec.op
@@ -336,22 +325,25 @@ def test_get_or_create_graph_ops_pruning(
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
-    "net_const,inp_arr,ops",
+    "net_const,inp_arr,var_names",
     [
         (
             mlp_net,
             numpy.random.random((4, 16)),
-            ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+            ["mlp_net/fc1/weight", "mlp_net/fc2/weight", "mlp_net/fc3/weight"],
         ),
         (
             conv_net,
             numpy.random.random((4, 28, 28, 1)),
-            ["conv_net/conv1/conv", "conv_net/conv2/conv", "conv_net/mlp/matmul"],
+            ["conv_net/conv1/weight", "conv_net/conv2/weight", "conv_net/mlp/weight"],
         ),
     ],
 )
 def test_apply_op_vars_masks(
-    sparsity_val: float, net_const: Callable, inp_arr: numpy.ndarray, ops: List[str]
+    sparsity_val: float,
+    net_const: Callable,
+    inp_arr: numpy.ndarray,
+    var_names: List[str],
 ):
     group = "test-group"
 
@@ -362,7 +354,7 @@ def test_apply_op_vars_masks(
         )
         update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
         pruning_op_vars = get_or_create_graph_ops_pruning(
-            graph, ops, VAR_INDEX_FROM_TRAINABLE, sparsity, update_ready, group,
+            graph, var_names, sparsity, update_ready, group,
             UnstructuredSparsityMaskCreator(),
         )
 
@@ -511,17 +503,17 @@ def _expected_sparsity(
     ],
 )
 @pytest.mark.parametrize(
-    "net_const,inp_arr,ops",
+    "net_const,inp_arr,var_names",
     [
         (
             mlp_net,
             numpy.random.random((4, 16)),
-            ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+            ["re:mlp_net/.*/weight"],
         ),
         (
             conv_net,
             numpy.random.random((4, 28, 28, 1)),
-            ["conv_net/conv1/conv", "conv_net/conv2/conv", "conv_net/mlp/matmul"],
+            ["conv_net/conv1/weight", "conv_net/conv2/weight", "conv_net/mlp/weight"],
         ),
     ],
 )
@@ -534,7 +526,7 @@ def test_get_or_create_ks_scheduled_graph_ops(
     exponent: float,
     net_const: Callable,
     inp_arr: numpy.ndarray,
-    ops: List[str],
+    var_names: List[str],
 ):
     group = "test-group"
 
@@ -553,8 +545,7 @@ def test_get_or_create_ks_scheduled_graph_ops(
         ) = get_or_create_ks_scheduled_graph_ops(
             graph,
             global_step,
-            ops,
-            VAR_INDEX_FROM_TRAINABLE,
+            var_names,
             begin_step,
             end_step,
             update_step_freq,
@@ -572,8 +563,7 @@ def test_get_or_create_ks_scheduled_graph_ops(
         ) = get_or_create_ks_scheduled_graph_ops(
             graph,
             global_step,
-            ops,
-            VAR_INDEX_FROM_TRAINABLE,
+            var_names,
             begin_step,
             end_step,
             update_step_freq,
@@ -587,7 +577,8 @@ def test_get_or_create_ks_scheduled_graph_ops(
         assert update_op == update_op_sec
         assert update_ready == update_ready
         assert sparsity == sparsity
-        assert len(pruning_op_vars) == len(ops)
+        assert len(pruning_op_vars) == 3
+        assert len(pruning_op_vars) >= len(var_names)  # at least 1 regex match per name
 
         for op_vars, op_vars_sec in zip(pruning_op_vars, pruning_op_vars_sec):
             assert op_vars.op == op_vars_sec.op

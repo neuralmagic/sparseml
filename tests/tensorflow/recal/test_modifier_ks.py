@@ -37,7 +37,7 @@ from tests.tensorflow.recal.test_modifier import (
         (
             mlp_graph_lambda,
             lambda: ConstantKSModifier(
-                layers=["mlp_net/fc1/matmul"], start_epoch=0.0, end_epoch=20.0,
+                params=["mlp_net/fc1/weight"], start_epoch=0.0, end_epoch=20.0,
             ),
         ),
     ],
@@ -109,27 +109,29 @@ class TestConstantKSModifierImpl(ScheduledModifierTest):
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
 )
 def test_constant_ks_yaml():
-    layers = "__ALL__"
+    params = "__ALL__"
     start_epoch = 5.0
     end_epoch = 15.0
-    param = VAR_INDEX_FROM_TRAINABLE
     yaml_str = f"""
     !ConstantKSModifier
-        layers: {layers}
+        params: {params}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
-        param: {param}
     """
     yaml_modifier = ConstantKSModifier.load_obj(yaml_str)  # type: ConstantKSModifier
     serialized_modifier = ConstantKSModifier.load_obj(
         str(yaml_modifier)
     )  # type: ConstantKSModifier
     obj_modifier = ConstantKSModifier(
-        layers=layers, start_epoch=start_epoch, end_epoch=end_epoch, param=param
+        params=params, start_epoch=start_epoch, end_epoch=end_epoch
     )
 
     assert isinstance(yaml_modifier, ConstantKSModifier)
-    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
+    assert (
+        yaml_modifier.params
+        == serialized_modifier.params
+        == obj_modifier.params
+    )
     assert (
         yaml_modifier.start_epoch
         == serialized_modifier.start_epoch
@@ -140,7 +142,6 @@ def test_constant_ks_yaml():
         == serialized_modifier.end_epoch
         == obj_modifier.end_epoch
     )
-    assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
 
 
 @pytest.mark.skipif(
@@ -152,7 +153,7 @@ def test_constant_ks_yaml():
         (
             mlp_graph_lambda,
             lambda: GradualKSModifier(
-                layers=["mlp_net/fc1/matmul"],
+                params=["mlp_net/fc1/weight"],
                 init_sparsity=0.05,
                 final_sparsity=0.8,
                 start_epoch=0.0,
@@ -163,7 +164,7 @@ def test_constant_ks_yaml():
         (
             mlp_graph_lambda,
             lambda: GradualKSModifier(
-                layers="__ALL__",
+                params="__ALL__",
                 init_sparsity=0.05,
                 final_sparsity=0.6,
                 start_epoch=5.0,
@@ -186,7 +187,7 @@ def test_constant_ks_yaml():
         (
             conv_graph_lambda,
             lambda: GradualKSModifier(
-                layers="__ALL__",
+                params="__ALL__",
                 init_sparsity=0.05,
                 final_sparsity=0.8,
                 start_epoch=0.0,
@@ -197,7 +198,7 @@ def test_constant_ks_yaml():
         (
             conv_graph_lambda,
             lambda: GradualKSModifier(
-                layers=["conv_net/conv1/conv"],
+                params=["conv_net/conv1/weight"],
                 init_sparsity=0.05,
                 final_sparsity=0.6,
                 start_epoch=5.0,
@@ -293,7 +294,7 @@ class TestGradualKSModifierImpl(ScheduledModifierTest):
 )
 def test_gradual_ks_training_with_manager():
     modifier = GradualKSModifier(
-        layers=["mlp_net/fc1/matmul", "mlp_net/fc3/matmul"],
+        params=["mlp_net/fc1/weight", "mlp_net/fc3/weight"],
         init_sparsity=0.05,
         final_sparsity=0.8,
         start_epoch=2.0,
@@ -301,7 +302,7 @@ def test_gradual_ks_training_with_manager():
         update_frequency=1.0,
     )
     sec_modifier = GradualKSModifier(
-        layers=["mlp_net/fc2/matmul"],
+        params=["mlp_net/fc2/weight"],
         init_sparsity=0.05,
         final_sparsity=0.8,
         start_epoch=2.0,
@@ -371,24 +372,22 @@ def test_gradual_ks_training_with_manager():
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
 )
 def test_gradual_ks_yaml():
-    layers = "__ALL__"
+    params = "__ALL__"
     init_sparsity = 0.05
     final_sparsity = 0.8
     start_epoch = 5.0
     end_epoch = 15.0
     update_frequency = 1.0
-    param = VAR_INDEX_FROM_TRAINABLE
     inter_func = "cubic"
     mask_type = "channel"
     yaml_str = f"""
     !GradualKSModifier
-        layers: {layers}
+        params: {params}
         init_sparsity: {init_sparsity}
         final_sparsity: {final_sparsity}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
         update_frequency: {update_frequency}
-        param: {param}
         inter_func: {inter_func}
         mask_type: {mask_type}
     """
@@ -397,19 +396,22 @@ def test_gradual_ks_yaml():
         str(yaml_modifier)
     )  # type: GradualKSModifier
     obj_modifier = GradualKSModifier(
-        layers=layers,
+        params=params,
         init_sparsity=init_sparsity,
         final_sparsity=final_sparsity,
         start_epoch=start_epoch,
         end_epoch=end_epoch,
         update_frequency=update_frequency,
-        param=param,
         inter_func=inter_func,
         mask_type=mask_type,
     )
 
     assert isinstance(yaml_modifier, GradualKSModifier)
-    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
+    assert (
+        yaml_modifier.params
+        == serialized_modifier.params
+        == obj_modifier.params
+    )
     assert (
         yaml_modifier.init_sparsity
         == serialized_modifier.init_sparsity
@@ -435,7 +437,6 @@ def test_gradual_ks_yaml():
         == serialized_modifier.update_frequency
         == obj_modifier.update_frequency
     )
-    assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
     assert (
         yaml_modifier.inter_func
         == serialized_modifier.inter_func

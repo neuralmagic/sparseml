@@ -12,7 +12,7 @@ from neuralmagicML.recal import (
     KSLossSensitivityAnalysis,
 )
 from neuralmagicML.tensorflow.utils import tf_compat
-from neuralmagicML.tensorflow.utils import get_prunable_ops, VAR_INDEX_FROM_TRAINABLE
+from neuralmagicML.tensorflow.utils import get_ops_and_inputs_by_name_or_regex
 from neuralmagicML.tensorflow.recal.mask_ks import KSScope, create_op_pruning
 from neuralmagicML.tensorflow.recal.sparsity_mask import (
     SparsityMaskCreator,
@@ -32,7 +32,7 @@ SparsePruningOpVars = namedtuple("SparsePruningOpVars", ("op_vars", "sparsity"))
 
 def ks_loss_sensitivity_op_vars(
     graph: tf_compat.Graph = None,
-    var_index: Union[int, str] = VAR_INDEX_FROM_TRAINABLE,
+    var_names: List[str] = ['re:.*'],
     mask_type: Union[str, List[int], SparsityMaskCreator] = 'unstructured',
 ) -> List[SparsePruningOpVars]:
     """
@@ -43,8 +43,8 @@ def ks_loss_sensitivity_op_vars(
 
     :param graph: the graph to inject pruning ops and vars into,
         if not supplied uses get_default_graph()
-    :param var_index: the index for how to find the input variables into
-        the prunable ops
+    :param var_names: List of variable names or regex patterns of variables to get
+        the op vars for.  Defaults to matching all variables
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameter's in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
@@ -59,11 +59,11 @@ def ks_loss_sensitivity_op_vars(
         mask_creator = load_mask_creator(mask_type)
 
     ks_group = one_shot_ks_loss_sensitivity.__name__
-    prunable_ops = get_prunable_ops(graph)
+    prunable_ops_and_inputs = get_ops_and_inputs_by_name_or_regex(var_names, graph)
     op_vars = []
 
     with graph.as_default():
-        for op_index, (prune_name, prune_op) in enumerate(prunable_ops):
+        for prune_op, prune_op_input in prunable_ops_and_inputs:
             with tf_compat.name_scope(
                 KSScope.model(prune_op, ks_group, trailing_slash=True)
             ):
@@ -71,9 +71,8 @@ def ks_loss_sensitivity_op_vars(
                     dtype=tf_compat.float32, name="sparsity_placeholder"
                 )
                 update = tf_compat.constant(True, tf_compat.bool)
-
             prune_op_var = create_op_pruning(
-                prune_op, var_index, sparsity, update, ks_group, mask_creator,
+                prune_op, prune_op_input, sparsity, update, ks_group, mask_creator,
             )
             op_vars.append(SparsePruningOpVars(prune_op_var, sparsity))
 
