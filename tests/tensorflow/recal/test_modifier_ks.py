@@ -175,7 +175,7 @@ def test_constant_ks_yaml():
         (
             mlp_graph_lambda,
             lambda: GradualKSModifier(
-                layers="__ALL__",
+                params="__ALL__",
                 init_sparsity=0.05,
                 final_sparsity=0.6,
                 start_epoch=5.0,
