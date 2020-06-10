@@ -363,7 +363,7 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
         """
         block_shape = self._block_shape
         n_dims = len(tens_shape)
-        if len(block_shape) < n_dims:  # Conv will have block shape [X, Y, 1, ..., 1]
+        while len(block_shape) < n_dims:  # Conv will have block shape [X, Y, 1, ..., 1]
             block_shape.append(1)
         for idx, shape in enumerate(block_shape):
             if shape == -1:
