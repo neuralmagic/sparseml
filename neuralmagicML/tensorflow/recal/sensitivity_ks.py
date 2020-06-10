@@ -32,8 +32,8 @@ SparsePruningOpVars = namedtuple("SparsePruningOpVars", ("op_vars", "sparsity"))
 
 def ks_loss_sensitivity_op_vars(
     graph: tf_compat.Graph = None,
-    var_names: List[str] = ['re:.*'],
-    mask_type: Union[str, List[int], SparsityMaskCreator] = 'unstructured',
+    var_names: List[str] = ["re:.*"],
+    mask_type: Union[str, List[int], SparsityMaskCreator] = "unstructured",
 ) -> List[SparsePruningOpVars]:
     """
     Edit the graph for to inject pruning ops and vars to allow for a ks loss
@@ -72,7 +72,14 @@ def ks_loss_sensitivity_op_vars(
                 )
                 update = tf_compat.constant(True, tf_compat.bool)
             prune_op_var = create_op_pruning(
-                prune_op, prune_op_input, sparsity, update, ks_group, mask_creator,
+                prune_op,
+                prune_op_input,
+                sparsity,
+                update,
+                True,
+                None,
+                ks_group,
+                mask_creator,
             )
             op_vars.append(SparsePruningOpVars(prune_op_var, sparsity))
 

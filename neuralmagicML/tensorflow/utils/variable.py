@@ -13,7 +13,7 @@ __all__ = [
     "get_op_input_var",
     "get_tensor_var",
     "get_prunable_ops",
-    'get_ops_and_inputs_by_name_or_regex',
+    "get_ops_and_inputs_by_name_or_regex",
     "eval_tensor_density",
     "eval_tensor_sparsity",
 ]
@@ -148,8 +148,7 @@ def get_prunable_ops(
 
 
 def get_ops_and_inputs_by_name_or_regex(
-        var_names: List[str],
-        graph: tf_compat.Graph = None,
+    var_names: List[str], graph: tf_compat.Graph = None,
 ) -> List[Tuple[tf_compat.Operation, tf_compat.Tensor]]:
     """
     Get tuples of operations and the inputs for inputs of operations that match
@@ -164,7 +163,7 @@ def get_ops_and_inputs_by_name_or_regex(
         get_op_input_var
     """
     prunable_ops_and_inputs = []
-    if 're:.*' in var_names or 're:.' in var_names:  # wildcard cases
+    if "re:.*" in var_names or "re:." in var_names:  # wildcard cases
         ops = get_prunable_ops(graph)
         for _, op in ops:
             op_sgv = ge.sgv(op)
@@ -175,19 +174,38 @@ def get_ops_and_inputs_by_name_or_regex(
             if any_str_or_regex_matches_tensor_name(var.name, var_names):
                 var_tens = graph.get_tensor_by_name(var.name)
                 # get all the read ops for the var
-                read_ops = [read_op for read_op in ge.get_consuming_ops(var_tens)
-                            if '/read' == read_op.name[-5:]]  # filter for /read ops
-                read_tensors = {read_tensor for read_op in read_ops for read_tensor in ge.sgv(read_op).outputs}
+                read_ops = [
+                    read_op
+                    for read_op in ge.get_consuming_ops(var_tens)
+                    if "/read" == read_op.name[-5:]
+                ]  # filter for /read ops
+                read_tensors = {
+                    read_tensor
+                    for read_op in read_ops
+                    for read_tensor in ge.sgv(read_op).outputs
+                }
                 # gets ops that read from read_tensors and filters any ops that were created by mask_ks
-                consuming_ops_with_input = [(consuming_op, read_tensor) for read_tensor in read_tensors
-                                            for consuming_op in ge.get_consuming_ops(read_tensor)]
-                prunable_ops_and_inputs += consuming_ops_with_input
+                consuming_ops_with_input = [
+                    (consuming_op, read_tensor)
+                    for read_tensor in read_tensors
+                    for consuming_op in ge.get_consuming_ops(read_tensor)
+                ]
+                for op, inp in consuming_ops_with_input:
+                    if "_nm_ks" not in op.name:
+                        prunable_ops_and_inputs.append((op, inp))
+                    else:
+                        nm_ks_consuming_ops_with_input = [
+                            (consuming_op, inp)
+                            for output_tens in ge.sgv(op).outputs
+                            for consuming_op in ge.get_consuming_ops(output_tens)
+                            if "_nm_ks" not in consuming_op.name
+                        ]
+                        prunable_ops_and_inputs += nm_ks_consuming_ops_with_input
     return prunable_ops_and_inputs
 
 
 def any_str_or_regex_matches_tensor_name(
-    tensor_name: str,
-    name_or_regex_patterns: List[str],
+    tensor_name: str, name_or_regex_patterns: List[str],
 ):
     """
     :param tensor_name: The name of a tensor
@@ -197,7 +215,7 @@ def any_str_or_regex_matches_tensor_name(
     """
     clean_name = clean_tensor_name(tensor_name)
     for name_or_regex in name_or_regex_patterns:
-        if name_or_regex[:3] == 're:':
+        if name_or_regex[:3] == "re:":
             pattern = name_or_regex[3:]
             if re.match(pattern, tensor_name) or re.match(pattern, clean_name):
                 return True

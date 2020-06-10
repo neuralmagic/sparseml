@@ -13,8 +13,6 @@ from neuralmagicML.utils import (
 )
 from neuralmagicML.tensorflow.utils import (
     tf_compat,
-    VAR_INDEX_FROM_TRAINABLE,
-    get_prunable_ops,
     clean_tensor_name,
     get_ops_and_inputs_by_name_or_regex,
 )
@@ -32,7 +30,7 @@ from neuralmagicML.tensorflow.recal.mask_ks import (
     PruningOpVars,
     apply_op_vars_masks,
 )
-from neuralmagicML.tensorflow.recal.sparsity_mask import(
+from neuralmagicML.tensorflow.recal.sparsity_mask import (
     SparsityMaskCreator,
     load_mask_creator,
 )
@@ -53,13 +51,12 @@ class ConstantKSModifier(ScheduledModifier):
     |       start_epoch: 0.0
     |       end_epoch: 10.0
     |       log_types: __ALL__
-
     :param params: List of str names or regex patterns of names for the parameter
         variables to apply the KS modifier to. Regex patterns must be specified
         with the prefix 're:'. Can also use the token __ALL__ to specify all
         prunable layers and weights
-    :param start_epoch: Unsupported for this modifier
-    :param end_epoch: Unsupported for this modifier
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     """
@@ -67,8 +64,8 @@ class ConstantKSModifier(ScheduledModifier):
     def __init__(
         self,
         params: Union[str, List[str]],
-        start_epoch: float = -1,
-        end_epoch: float = -1,
+        start_epoch: float,
+        end_epoch: float,
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(ConstantKSModifier, self).__init__(
@@ -155,18 +152,22 @@ class ConstantKSModifier(ScheduledModifier):
             to be run or used for modifying the training process.
         """
         mod_ops, mod_extras = super().create_ops(graph, None, None)
+        start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=True)
 
         params = (
             self._params
             if self._params != ALL_TOKEN
-            else [clean_tensor_name(var.name) for _, var in
-                  # Have ALL_TOKEN match to all variable names for now
-                  get_ops_and_inputs_by_name_or_regex(['re:.*'], graph)]
+            else [
+                clean_tensor_name(var.name)
+                for _, var in
+                # Have ALL_TOKEN match to all variable names for now
+                get_ops_and_inputs_by_name_or_regex(["re:.*"], graph)
+            ]
         )
 
         with graph.as_default():
             update_op, prune_op_vars = create_ks_scheduled_constant_graph_ops(
-                graph, params, self.ks_group,
+                graph, global_step, params, start_step, end_step, self.ks_group,
             )
 
             if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:
@@ -230,6 +231,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
     |       inter_func: cubic
     |       log_types: __ALL__
     |       mask_type: unstructured
+    |       leave_enabled: True
 
     :param params: List of str names or name regex patterns for the variables in the
         graph to apply the KS modifier to.  Regex patterns must be specified with
@@ -251,6 +253,9 @@ class GradualKSModifier(ScheduledUpdateModifier):
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameter's in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
     """
 
     def __init__(
@@ -261,10 +266,10 @@ class GradualKSModifier(ScheduledUpdateModifier):
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
-        leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
-        mask_type: Union[str, List[int], SparsityMaskCreator] = 'unstructured',
+        mask_type: Union[str, List[int], SparsityMaskCreator] = "unstructured",
+        leave_enabled: bool = True,
     ):
         super(GradualKSModifier, self).__init__(
             log_types=log_types,
@@ -285,6 +290,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._inter_func = inter_func
         self._mask_type = mask_type
         self._mask_creator = mask_type
+        self._leave_enabled = convert_to_bool(leave_enabled)
         if not isinstance(mask_type, SparsityMaskCreator):
             self._mask_creator = load_mask_creator(mask_type)
         self._prune_op_vars = None
@@ -395,6 +401,24 @@ class GradualKSModifier(ScheduledUpdateModifier):
         if not isinstance(value, SparsityMaskCreator):
             self._mask_creator = load_mask_creator(value)
 
+    @ModifierProp()
+    def leave_enabled(self) -> bool:
+        """
+        :return: True to continue masking the weights after end_epoch,
+            False to stop masking. Note, if set as False, sparsity will not be enforced
+            and the model will likely deviate from the sparse solution
+        """
+        return self._leave_enabled
+
+    @leave_enabled.setter
+    def leave_enabled(self, value: bool):
+        """
+        :param value: True to continue masking the weights after end_epoch,
+            False to stop masking. Note, if set as False, sparsity will not be enforced
+            and the model will likely deviate from the sparse solution
+        """
+        self._leave_enabled = value
+
     @ModifierProp(serializable=False)
     def ks_group(self) -> str:
         """
@@ -472,9 +496,12 @@ class GradualKSModifier(ScheduledUpdateModifier):
         params = (
             self._params
             if self._params != ALL_TOKEN
-            else [clean_tensor_name(var.name) for _, var in
-                  # Have ALL_TOKEN match to all variable names for now
-                  get_ops_and_inputs_by_name_or_regex(['re:.*'], graph)]
+            else [
+                clean_tensor_name(var.name)
+                for _, var in
+                # Have ALL_TOKEN match to all variable names for now
+                get_ops_and_inputs_by_name_or_regex(["re:.*"], graph)
+            ]
         )
 
         with graph.as_default():
@@ -493,6 +520,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
                 self._init_sparsity,
                 self._final_sparsity,
                 self.exponent,
+                self._leave_enabled,
                 self.ks_group,
                 self._mask_creator,
             )

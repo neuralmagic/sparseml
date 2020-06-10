@@ -127,11 +127,7 @@ def test_constant_ks_yaml():
     )
 
     assert isinstance(yaml_modifier, ConstantKSModifier)
-    assert (
-        yaml_modifier.params
-        == serialized_modifier.params
-        == obj_modifier.params
-    )
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
     assert (
         yaml_modifier.start_epoch
         == serialized_modifier.start_epoch
@@ -380,6 +376,7 @@ def test_gradual_ks_yaml():
     update_frequency = 1.0
     inter_func = "cubic"
     mask_type = "channel"
+    leave_enabled = "True"
     yaml_str = f"""
     !GradualKSModifier
         params: {params}
@@ -390,6 +387,7 @@ def test_gradual_ks_yaml():
         update_frequency: {update_frequency}
         inter_func: {inter_func}
         mask_type: {mask_type}
+        leave_enabled: {leave_enabled}
     """
     yaml_modifier = GradualKSModifier.load_obj(yaml_str)  # type: GradualKSModifier
     serialized_modifier = GradualKSModifier.load_obj(
@@ -404,14 +402,11 @@ def test_gradual_ks_yaml():
         update_frequency=update_frequency,
         inter_func=inter_func,
         mask_type=mask_type,
+        leave_enabled=leave_enabled,
     )
 
     assert isinstance(yaml_modifier, GradualKSModifier)
-    assert (
-        yaml_modifier.params
-        == serialized_modifier.params
-        == obj_modifier.params
-    )
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
     assert (
         yaml_modifier.init_sparsity
         == serialized_modifier.init_sparsity
@@ -446,4 +441,9 @@ def test_gradual_ks_yaml():
         str(yaml_modifier.mask_type)
         == str(serialized_modifier.mask_type)
         == str(obj_modifier.mask_type)
+    )
+    assert (
+        str(yaml_modifier.leave_enabled)
+        == str(serialized_modifier.leave_enabled)
+        == str(obj_modifier.leave_enabled)
     )
