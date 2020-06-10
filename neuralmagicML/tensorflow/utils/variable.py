@@ -14,6 +14,7 @@ __all__ = [
     "get_tensor_var",
     "get_prunable_ops",
     "get_ops_and_inputs_by_name_or_regex",
+    "any_str_or_regex_matches_tensor_name",
     "eval_tensor_density",
     "eval_tensor_sparsity",
 ]
