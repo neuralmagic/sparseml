@@ -189,10 +189,12 @@ class ConstantKSModifier(ScheduledModifier):
 
         if self.start_pending(epoch, steps_per_epoch):
             for mask in self._module_masks:
+                mask.set_param_mask_from_weights()
                 mask.enabled = True
 
         if self.end_pending(epoch, steps_per_epoch):
             for mask in self._module_masks:
+                mask.set_param_mask_from_weights()
                 mask.enabled = False
 
     def log_update(
@@ -292,7 +294,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
-        mask_type: Union[str, List[int], SparsityMaskCreator] = 'unstructured',
+        mask_type: Union[str, List[int], SparsityMaskCreator] = "unstructured",
     ):
         super().__init__(
             log_types=log_types,
