@@ -13,8 +13,8 @@ from neuralmagicML.utils import (
 )
 from neuralmagicML.tensorflow.utils import (
     tf_compat,
-    VAR_INDEX_FROM_TRAINABLE,
-    get_prunable_ops,
+    clean_tensor_name,
+    get_ops_and_inputs_by_name_or_regex,
 )
 from neuralmagicML.tensorflow.recal.modifier import (
     EXTRAS_KEY_SUMMARIES,
@@ -30,7 +30,7 @@ from neuralmagicML.tensorflow.recal.mask_ks import (
     PruningOpVars,
     apply_op_vars_masks,
 )
-from neuralmagicML.tensorflow.recal.sparsity_mask import(
+from neuralmagicML.tensorflow.recal.sparsity_mask import (
     SparsityMaskCreator,
     load_mask_creator,
 )
@@ -47,30 +47,25 @@ class ConstantKSModifier(ScheduledModifier):
 
     | Sample yaml:
     |   !ConstantKSModifier
-    |       layers: __ALL__
+    |       params: __ALL__
     |       start_epoch: 0.0
     |       end_epoch: 10.0
-    |       param: weight
     |       log_types: __ALL__
-
-    :param layers: str or list of str for the layers to apply the KS modifier to
-        can also use the token __ALL__ to specify all layers
-    :param start_epoch: Unsupported for this modifier
-    :param end_epoch: Unsupported for this modifier
-    :param param: The index to guide which input to grab from the operation.
-        Can be set to an integer representing where the variable is, a string
-        representing a name or portion of the name of the variable, or the default:
-        "from_trainable" which tries to find from the trainable vars in the graph
+    :param params: List of str names or regex patterns of names for the parameter
+        variables to apply the KS modifier to. Regex patterns must be specified
+        with the prefix 're:'. Can also use the token __ALL__ to specify all
+        prunable layers and weights
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     """
 
     def __init__(
         self,
-        layers: Union[str, List[str]],
-        start_epoch: float = -1,
-        end_epoch: float = -1,
-        param: Union[int, str] = VAR_INDEX_FROM_TRAINABLE,
+        params: Union[str, List[str]],
+        start_epoch: float,
+        end_epoch: float,
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(ConstantKSModifier, self).__init__(
@@ -79,49 +74,30 @@ class ConstantKSModifier(ScheduledModifier):
             end_epoch=end_epoch,
             end_comparator=None,
         )
-        self._param = param
-        self._layers = validate_str_iterable(
-            layers, "{} for layers".format(self.__class__.__name__)
+        self._params = validate_str_iterable(
+            params, "{} for params".format(self.__class__.__name__)
         )  # type: List[str]
         self._prune_op_vars = None
         self._update_ready = None
         self._sparsity = None
 
     @ModifierProp()
-    def layers(self) -> Union[str, List[str]]:
+    def params(self) -> Union[str, List[str]]:
         """
-        :return: List of str for the layers (ops) to apply the KS modifier to
+        :return: List of str for the variable names or regex patterns of names
+            to apply the KS modifier to. Regex patterns must be specified with
+            the prefix 're:'.
         """
-        return self._layers
+        return self._params
 
-    @layers.setter
-    def layers(self, value: Union[str, List[str]]):
+    @params.setter
+    def params(self, value: Union[str, List[str]]):
         """
-        :param value: List of str for the layers (ops) to apply the KS modifier to
+        :param value: List of str for the variable names or regex patterns of names
+            to apply the KS modifier to. Regex patterns must be specified with
+            the prefix 're:'.
         """
-        self._layers = value
-
-    @ModifierProp()
-    def param(self) -> Union[int, str]:
-        """
-        :return: The index to guide which input to grab from the operation.
-            Can be set to an integer representing where the variable is,
-            a string representing a name or portion of the name of the variable,
-            or the default: "from_trainable" which tries to find from
-            the trainable vars in the graph
-        """
-        return self._param
-
-    @param.setter
-    def param(self, value: Union[int, str]):
-        """
-        :param value: The index to guide which input to grab from the operation.
-            Can be set to an integer representing where the variable is,
-            a string representing a name or portion of the name of the variable,
-            or the default: "from_trainable" which tries to find from
-            the trainable vars in the graph
-        """
-        self._param = value
+        self._params = value
 
     @ModifierProp(serializable=False)
     def ks_group(self) -> str:
@@ -176,16 +152,22 @@ class ConstantKSModifier(ScheduledModifier):
             to be run or used for modifying the training process.
         """
         mod_ops, mod_extras = super().create_ops(graph, None, None)
+        start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=True)
 
-        layers = (
-            self._layers
-            if self._layers != ALL_TOKEN
-            else [op[0] for op in get_prunable_ops(graph)]
+        params = (
+            self._params
+            if self._params != ALL_TOKEN
+            else [
+                clean_tensor_name(var.name)
+                for _, var in
+                # Have ALL_TOKEN match to all variable names for now
+                get_ops_and_inputs_by_name_or_regex(["re:.*"], graph)
+            ]
         )
 
         with graph.as_default():
             update_op, prune_op_vars = create_ks_scheduled_constant_graph_ops(
-                graph, layers, self._param, self.ks_group,
+                graph, global_step, params, start_step, end_step, self.ks_group,
             )
 
             if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:
@@ -232,7 +214,7 @@ class ConstantKSModifier(ScheduledModifier):
 @TensorFlowModifierYAML()
 class GradualKSModifier(ScheduledUpdateModifier):
     """
-    Gradually applies kernel sparsity to a given layer or layers from
+    Gradually applies kernel sparsity to a given variable or variables from
     init_sparsity until final_sparsity is reached over a given amount of time and
     applied with an interpolated function for each step taken.
 
@@ -240,29 +222,27 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
     | Sample yaml:
     |   !GradualKSModifier
-    |       layers: __ALL__
+    |       params: __ALL__
     |       init_sparsity: 0.05
     |       final_sparsity: 0.8
     |       start_epoch: 0.0
     |       end_epoch: 10.0
     |       update_frequency: 1.0
-    |       param: from_trainable
     |       inter_func: cubic
     |       log_types: __ALL__
     |       mask_type: unstructured
+    |       leave_enabled: True
 
-    :param layers: List of str for the layers (ops) to apply the KS modifier to
-    :param init_sparsity: The initial sparsity for the param to
+    :param params: List of str names or name regex patterns for the variables in the
+        graph to apply the KS modifier to.  Regex patterns must be specified with
+            the prefix 're:'.  __ALL__ will match to all parameters.
+    :param init_sparsity: The initial sparsity for the variable to
         start with at start_epoch
-    :param final_sparsity: The final sparsity for the param to end with at end_epoch
+    :param final_sparsity: The final sparsity for the variable to end with at end_epoch
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to
         update at between start and end
-    :param param: The index to guide which input to grab from the operation.
-        Can be set to an integer representing where the variable is, a string
-        representing a name or portion of the name of the variable, or the default:
-        "from_trainable" which tries to find from the trainable vars in the graph
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -273,21 +253,23 @@ class GradualKSModifier(ScheduledUpdateModifier):
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameter's in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
     """
 
     def __init__(
         self,
-        layers: Union[str, List[str]],
+        params: Union[str, List[str]],
         init_sparsity: float,
         final_sparsity: float,
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
-        param: Union[int, str] = VAR_INDEX_FROM_TRAINABLE,
-        leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
-        mask_type: Union[str, List[int], SparsityMaskCreator] = 'unstructured',
+        mask_type: Union[str, List[int], SparsityMaskCreator] = "unstructured",
+        leave_enabled: bool = True,
     ):
         super(GradualKSModifier, self).__init__(
             log_types=log_types,
@@ -299,9 +281,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
             update_frequency=update_frequency,
             min_frequency=-1.0,
         )
-        self._param = param
-        self._layers = validate_str_iterable(
-            layers, "{} for layers".format(self.__class__.__name__)
+        self._params = validate_str_iterable(
+            params, "{} for params".format(self.__class__.__name__)
         )  # type: List[str]
         self._init_sparsity = init_sparsity
         self._final_sparsity = final_sparsity
@@ -309,6 +290,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._inter_func = inter_func
         self._mask_type = mask_type
         self._mask_creator = mask_type
+        self._leave_enabled = convert_to_bool(leave_enabled)
         if not isinstance(mask_type, SparsityMaskCreator):
             self._mask_creator = load_mask_creator(mask_type)
         self._prune_op_vars = None
@@ -318,31 +300,35 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self.validate()
 
     @ModifierProp()
-    def layers(self) -> Union[str, List[str]]:
+    def params(self) -> Union[str, List[str]]:
         """
-        :return: List of str for the layers (ops) to apply the KS modifier to
+        :return: List of str for the variable names or regex patterns of names
+            to apply the KS modifier to. Regex patterns must be specified with
+            the prefix 're:'.
         """
-        return self._layers
+        return self._params
 
-    @layers.setter
-    def layers(self, value: Union[str, List[str]]):
+    @params.setter
+    def params(self, value: Union[str, List[str]]):
         """
-        :param value: List of str for the layers (ops) to apply the KS modifier to
+        :param value: List of str for the variable names or regex patterns of names
+            to apply the KS modifier to. Regex patterns must be specified with
+            the prefix 're:'.
         """
-        self._layers = value
+        self._params = value
         self.validate()
 
     @ModifierProp()
     def init_sparsity(self) -> float:
         """
-        :return: The initial sparsity for the param to start with at start_epoch
+        :return: The initial sparsity for the variable to start with at start_epoch
         """
         return self._init_sparsity
 
     @init_sparsity.setter
     def init_sparsity(self, value: float):
         """
-        :param value: The initial sparsity for the param to start with at start_epoch
+        :param value: The initial sparsity for the variable to start with at start_epoch
         """
         self._init_sparsity = value
         self.validate()
@@ -350,39 +336,16 @@ class GradualKSModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def final_sparsity(self) -> float:
         """
-        :return: The final sparsity for the param to end with at end_epoch
+        :return: The final sparsity for the variable to end with at end_epoch
         """
         return self._final_sparsity
 
     @final_sparsity.setter
     def final_sparsity(self, value: float):
         """
-        :param value: The final sparsity for the param to end with at end_epoch
+        :param value: The final sparsity for the variable to end with at end_epoch
         """
         self._final_sparsity = value
-        self.validate()
-
-    @ModifierProp()
-    def param(self) -> Union[int, str]:
-        """
-        :return: The index to guide which input to grab from the operation.
-            Can be set to an integer representing where the variable is,
-            a string representing a name or portion of the name of the variable,
-            or the default: "from_trainable" which tries to find from
-            the trainable vars in the graph
-        """
-        return self._param
-
-    @param.setter
-    def param(self, value: Union[int, str]):
-        """
-        :param value: The index to guide which input to grab from the operation.
-            Can be set to an integer representing where the variable is,
-            a string representing a name or portion of the name of the variable,
-            or the default: "from_trainable" which tries to find from
-            the trainable vars in the graph
-        """
-        self._param = value
         self.validate()
 
     @ModifierProp()
@@ -437,6 +400,24 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._mask_creator = value
         if not isinstance(value, SparsityMaskCreator):
             self._mask_creator = load_mask_creator(value)
+
+    @ModifierProp()
+    def leave_enabled(self) -> bool:
+        """
+        :return: True to continue masking the weights after end_epoch,
+            False to stop masking. Note, if set as False, sparsity will not be enforced
+            and the model will likely deviate from the sparse solution
+        """
+        return self._leave_enabled
+
+    @leave_enabled.setter
+    def leave_enabled(self, value: bool):
+        """
+        :param value: True to continue masking the weights after end_epoch,
+            False to stop masking. Note, if set as False, sparsity will not be enforced
+            and the model will likely deviate from the sparse solution
+        """
+        self._leave_enabled = value
 
     @ModifierProp(serializable=False)
     def ks_group(self) -> str:
@@ -512,10 +493,15 @@ class GradualKSModifier(ScheduledUpdateModifier):
         mod_ops, mod_extras = super().create_ops(graph, steps_per_epoch, global_step)
         start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=True)
         update_frequency_step = self.update_frequency_steps(steps_per_epoch)
-        layers = (
-            self._layers
-            if self._layers != ALL_TOKEN
-            else [op[0] for op in get_prunable_ops(graph)]
+        params = (
+            self._params
+            if self._params != ALL_TOKEN
+            else [
+                clean_tensor_name(var.name)
+                for _, var in
+                # Have ALL_TOKEN match to all variable names for now
+                get_ops_and_inputs_by_name_or_regex(["re:.*"], graph)
+            ]
         )
 
         with graph.as_default():
@@ -527,14 +513,14 @@ class GradualKSModifier(ScheduledUpdateModifier):
             ) = get_or_create_ks_scheduled_graph_ops(
                 graph,
                 global_step,
-                layers,
-                self._param,
+                params,
                 start_step,
                 end_step,
                 update_frequency_step,
                 self._init_sparsity,
                 self._final_sparsity,
                 self.exponent,
+                self._leave_enabled,
                 self.ks_group,
                 self._mask_creator,
             )

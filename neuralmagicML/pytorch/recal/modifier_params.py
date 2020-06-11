@@ -43,9 +43,7 @@ class TrainableParamsModifier(ScheduledModifier):
 
     | Sample yaml:
     |   !TrainableParamsModifier:
-    |       params:
-    |           - weight
-    |           - bias
+    |       params: ["re:*.weight"]
     |       trainable: True
     |       params_strict: False
     |       start_epoch: 0
@@ -153,32 +151,10 @@ class TrainableParamsModifier(ScheduledModifier):
             else ["re:.*"]
         )
         layers_names_and_params = get_named_layers_and_params_by_regex(
-            module, param_names
+            module, param_names, params_strict=self._params_strict
         )
-
-        found_params = []
         for layer_name, layer, param_name, param in layers_names_and_params:
             self._module_params.append(param)
-            found_params.append("{}.{}".format(layer_name, param_name))
-
-        # Check for params_strict
-        def found_match(regex: str) -> bool:
-            if regex[:3] != 're:':
-                return True
-            regex = regex[3:]
-            return any(re.match(regex, name) for name in found_params)
-
-        if (
-            self._params_strict
-            and self._params != ALL_TOKEN
-            and not all(found_match(regex) for regex in param_names)
-        ):
-            raise ValueError(
-                (
-                    "Could not find all required params for patterns {}"
-                    " found {} in {}"
-                ).format(self._params, found_params, self.__class__.__name__)
-            )
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -325,11 +301,10 @@ class SetParamModifier(ScheduledModifier):
             else ["re:.*"]
         )
         layers_names_and_params = get_named_layers_and_params_by_regex(
-            module, param_names
+            module, param_names, params_strict=self._params_strict
         )
 
         val_tensor = torch.tensor(self._val)
-        found_params = []
         for layer_name, layer, param_name, param in layers_names_and_params:
             if param.data.shape != val_tensor.shape:
                 raise ValueError(
@@ -338,26 +313,6 @@ class SetParamModifier(ScheduledModifier):
                     )
                 )
             self._module_params.append(param)
-            found_params.append("{}.{}".format(layer_name, param_name))
-
-        # Check for params_strict
-        def found_match(regex: str) -> bool:
-            if regex[:3] != 're:':
-                return True
-            regex = regex[3:]
-            return any(re.match(regex, name) for name in found_params)
-
-        if (
-                self._params_strict
-                and self._params != ALL_TOKEN
-                and not all(found_match(regex) for regex in param_names)
-        ):
-            raise ValueError(
-                (
-                    "Could not find all required params for patterns {}"
-                    " found {} in {}"
-                ).format(self._params, found_params, self.__class__.__name__)
-            )
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -561,10 +516,9 @@ class GradualParamModifier(ScheduledUpdateModifier):
             else ["re:.*"]
         )
         layers_names_and_params = get_named_layers_and_params_by_regex(
-            module, param_names
+            module, param_names, params_strict=self._params_strict
         )
 
-        found_params = []
         for layer_name, layer, param_name, param in layers_names_and_params:
             if param.data.shape != self._init_val_tens.shape:
                 raise ValueError(
@@ -573,26 +527,6 @@ class GradualParamModifier(ScheduledUpdateModifier):
                     )
                 )
             self._module_params.append(param)
-            found_params.append("{}.{}".format(layer_name, param_name))
-
-        # Check for params_strict
-        def found_match(regex: str) -> bool:
-            if regex[:3] != 're:':
-                return True
-            regex = regex[3:]
-            return any(re.match(regex, name) for name in found_params)
-
-        if (
-                self._params_strict
-                and self._params != ALL_TOKEN
-                and not all(found_match(regex) for regex in param_names)
-        ):
-            raise ValueError(
-                (
-                    "Could not find all required params for patterns {}"
-                    " found {} in {}"
-                ).format(self._params, found_params, self.__class__.__name__)
-            )
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int

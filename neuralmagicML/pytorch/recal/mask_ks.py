@@ -65,9 +65,7 @@ class ModuleParamKSMask(object):
                 )
             )
 
-        self._param_mask = self._mask_creator.create_sparsity_mask_from_tensor(
-            self._param
-        )
+        self._param_mask = torch.ones(self._param.shape)  # initialize to all ones
         self._param_init = None  # type: Tensor
         self._param_unmasked = None  # type: Tensor
         self._param_grad = None  # type: Tensor
@@ -244,6 +242,17 @@ class ModuleParamKSMask(object):
         self.apply()
 
         return mask_diff
+
+    def set_param_mask_from_weights(self) -> Tensor:
+        """
+        Convenience function to set the parameter mask such that the
+        mask is 1 if the parameter value is non zero and 0 otherwise,
+        unless otherwise defined by this object's mask_creator.
+
+        """
+        value = self._mask_creator.create_sparsity_mask_from_tensor(self._param.data)
+
+        return self.set_param_mask(value)
 
     def set_param_mask_from_abs_threshold(
         self, threshold: Union[float, Tensor]

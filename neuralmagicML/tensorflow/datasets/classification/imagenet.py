@@ -2,7 +2,6 @@
 Imagenet dataset implementations for the image classification field in computer vision.
 More info for the dataset can be found `here <http://www.image-net.org/>`__.
 """
-
 import os
 
 from neuralmagicML.utils.datasets import (
@@ -10,7 +9,7 @@ from neuralmagicML.utils.datasets import (
     IMAGENET_RGB_MEANS,
     IMAGENET_RGB_STDS,
 )
-from neuralmagicML.tensorflow.utils import tf_compat
+from neuralmagicML.tensorflow.utils import tf_compat, tf_compat_div
 from neuralmagicML.tensorflow.datasets.registry import DatasetRegistry
 from neuralmagicML.tensorflow.datasets.dataset import (
     ImageFolderDataset,
@@ -18,7 +17,21 @@ from neuralmagicML.tensorflow.datasets.dataset import (
     center_square_crop,
 )
 
-__all__ = ["ImageNetDataset"]
+__all__ = ["ImageNetDataset", "imagenet_normalizer"]
+
+
+def imagenet_normalizer(img):
+    """
+    Normalize an image using mean and std of the imagenet dataset
+
+    :param img: The input image to normalize
+    :return: The normalized image
+    """
+    img = tf_compat_div(img, 255.0)
+    means = tf_compat.constant(IMAGENET_RGB_MEANS, dtype=tf_compat.float32)
+    stds = tf_compat.constant(IMAGENET_RGB_STDS, dtype=tf_compat.float32)
+    img = tf_compat_div(tf_compat.subtract(img, means), stds)
+    return img
 
 
 @DatasetRegistry.register(
@@ -63,7 +76,7 @@ class ImageNetDataset(ImageFolderDataset):
         root = os.path.join(root, "train") if train else os.path.join(root, "val")
 
         super().__init__(
-            root, image_size, transforms, IMAGENET_RGB_MEANS, IMAGENET_RGB_STDS,
+            root, image_size, transforms, imagenet_normalizer,
         )
 
     def name_scope(self) -> str:

@@ -32,8 +32,7 @@ from tests.tensorflow.recal.test_modifier import (
         (
             mlp_graph_lambda,
             lambda: TrainableParamsModifier(
-                params=["weight"],
-                layers=["mlp_net/fc1/matmul"],
+                params=["mlp_net/fc1/weight"],
                 trainable=False,
                 params_strict=True,
             ),
@@ -42,7 +41,6 @@ from tests.tensorflow.recal.test_modifier import (
             mlp_graph_lambda,
             lambda: TrainableParamsModifier(
                 params=ALL_TOKEN,
-                layers=ALL_TOKEN,
                 trainable=False,
                 params_strict=False,
             ),
@@ -50,8 +48,7 @@ from tests.tensorflow.recal.test_modifier import (
         (
             conv_graph_lambda,
             lambda: TrainableParamsModifier(
-                params=["bias"],
-                layers=["conv_net/conv1/add"],
+                params=["conv_net/conv1/bias"],
                 trainable=False,
                 params_strict=True,
             ),
@@ -59,8 +56,7 @@ from tests.tensorflow.recal.test_modifier import (
         (
             conv_graph_lambda,
             lambda: TrainableParamsModifier(
-                params=["weight", "bias"],
-                layers=ALL_TOKEN,
+                params=["re:.*weight", "re:.*bias"],
                 trainable=False,
                 params_strict=False,
             ),
@@ -108,8 +104,7 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
 )
 def test_trainable_params_modifier_with_training():
     modifier = TrainableParamsModifier(
-        params=["weight"],
-        layers=["mlp_net/fc1/matmul"],
+        params=["mlp_net/fc1/weight"],
         trainable=False,
         params_strict=False,
     )
@@ -165,13 +160,11 @@ def test_trainable_params_modifier_with_training():
 )
 def test_trainable_params_yaml():
     params = ALL_TOKEN
-    layers = ALL_TOKEN
     trainable = False
     params_strict = False
     yaml_str = f"""
     !TrainableParamsModifier
         params: {params}
-        layers: {layers}
         trainable: {trainable}
         params_strict: {params_strict}
     """
@@ -182,12 +175,11 @@ def test_trainable_params_yaml():
         str(yaml_modifier)
     )  # type: TrainableParamsModifier
     obj_modifier = TrainableParamsModifier(
-        params=params, layers=layers, trainable=trainable, params_strict=params_strict
+        params=params, trainable=trainable, params_strict=params_strict
     )
 
     assert isinstance(yaml_modifier, TrainableParamsModifier)
     assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
-    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
     assert (
         yaml_modifier.trainable
         == serialized_modifier.trainable

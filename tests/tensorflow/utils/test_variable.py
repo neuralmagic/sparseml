@@ -9,6 +9,7 @@ from neuralmagicML.tensorflow.utils import (
     clean_tensor_name,
     get_op_input_var,
     get_prunable_ops,
+    get_ops_and_inputs_by_name_or_regex,
 )
 
 from tests.tensorflow.helpers import mlp_net, conv_net
@@ -63,3 +64,39 @@ def test_get_prunable_ops(net_const, expected_ops: List[str]):
 
         for op in ops:
             assert op[0] in expected_ops
+
+
+@pytest.mark.parametrize(
+    "net_const,var_names,expected_ops,expected_tens",
+    [
+        (
+            mlp_net,
+            ["mlp_net/fc1/weight", "mlp_net/fc2/weight", "mlp_net/fc3/weight"],
+            ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
+            ["mlp_net/fc1/weight", "mlp_net/fc2/weight", "mlp_net/fc3/weight"]
+        ),
+        (
+            mlp_net,
+            ["mlp_net/fc1/weight"],
+            ["mlp_net/fc1/matmul"],
+            ["mlp_net/fc1/weight"]
+        ),
+        (
+            conv_net,
+            ["re:conv_net/.*/weight"],
+            ["conv_net/conv1/conv", "conv_net/conv2/conv", "conv_net/mlp/matmul"],
+            ["conv_net/conv1/weight", "conv_net/conv2/weight", "conv_net/mlp/weight"],
+        ),
+    ],
+)
+def test_get_ops_and_inputs_by_name_or_regex(
+    net_const, var_names, expected_ops, expected_tens,
+):
+    with tf_compat.Graph().as_default() as graph:
+        net_const()
+        ops_and_inputs = get_ops_and_inputs_by_name_or_regex(var_names, graph)
+        assert len(ops_and_inputs) == len(expected_ops)
+
+        for op, inp in ops_and_inputs:
+            assert op.name in expected_ops
+            assert clean_tensor_name(inp.name) in expected_tens

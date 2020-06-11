@@ -13,6 +13,8 @@ __all__ = [
     "get_op_input_var",
     "get_tensor_var",
     "get_prunable_ops",
+    "get_ops_and_inputs_by_name_or_regex",
+    "any_str_or_regex_matches_tensor_name",
     "eval_tensor_density",
     "eval_tensor_sparsity",
 ]
@@ -144,6 +146,84 @@ def get_prunable_ops(
             ops.append((op.name, op))
 
     return ops
+
+
+def get_ops_and_inputs_by_name_or_regex(
+    var_names: List[str], graph: tf_compat.Graph = None,
+) -> List[Tuple[tf_compat.Operation, tf_compat.Tensor]]:
+    """
+    Get tuples of operations and the inputs for inputs of operations that match
+    a regex pattern in the list params.
+
+    :param var_names: List of regex patterns to match variable names by.
+    :param graph: the graph to get the prunable operations from.
+        If not supplied, then will use the default graph
+    :return: a list of (operation, parameter) pairs for parameters that match a
+        regex pattern in var_names.  If the wildcards '.' or '.*' are provided as regex
+        patterns, then will match on all prunable layers and return variables using
+        get_op_input_var
+    """
+    prunable_ops_and_inputs = []
+    if "re:.*" in var_names or "re:." in var_names:  # wildcard cases
+        ops = get_prunable_ops(graph)
+        for _, op in ops:
+            op_sgv = ge.sgv(op)
+            for inp in op_sgv.inputs:
+                prunable_ops_and_inputs.append((op, get_op_input_var(op)))
+    else:
+        for var in tf_compat.global_variables():
+            if any_str_or_regex_matches_tensor_name(var.name, var_names):
+                var_tens = graph.get_tensor_by_name(var.name)
+                # get all the read ops for the var
+                read_ops = [
+                    read_op
+                    for read_op in ge.get_consuming_ops(var_tens)
+                    if "/read" == read_op.name[-5:]
+                ]  # filter for /read ops
+                read_tensors = {
+                    read_tensor
+                    for read_op in read_ops
+                    for read_tensor in ge.sgv(read_op).outputs
+                }
+                # gets ops that read from read_tensors and filters any ops that were created by mask_ks
+                consuming_ops_with_input = [
+                    (consuming_op, read_tensor)
+                    for read_tensor in read_tensors
+                    for consuming_op in ge.get_consuming_ops(read_tensor)
+                ]
+                for op, inp in consuming_ops_with_input:
+                    if "_nm_ks" not in op.name:
+                        prunable_ops_and_inputs.append((op, inp))
+                    else:
+                        nm_ks_consuming_ops_with_input = [
+                            (consuming_op, inp)
+                            for output_tens in ge.sgv(op).outputs
+                            for consuming_op in ge.get_consuming_ops(output_tens)
+                            if "_nm_ks" not in consuming_op.name
+                        ]
+                        prunable_ops_and_inputs += nm_ks_consuming_ops_with_input
+    return prunable_ops_and_inputs
+
+
+def any_str_or_regex_matches_tensor_name(
+    tensor_name: str, name_or_regex_patterns: List[str],
+):
+    """
+    :param tensor_name: The name of a tensor
+    :param name_or_regex_patterns: List of full tensor names to match to the input or
+        regex patterns to match with that should be prefixed with 're:'
+    :return: True if any given str or regex pattern matches the given name
+    """
+    clean_name = clean_tensor_name(tensor_name)
+    for name_or_regex in name_or_regex_patterns:
+        if name_or_regex[:3] == "re:":
+            pattern = name_or_regex[3:]
+            if re.match(pattern, tensor_name) or re.match(pattern, clean_name):
+                return True
+        else:
+            if tensor_name == name_or_regex or clean_name == name_or_regex:
+                return True
+    return False
 
 
 def eval_tensor_density(

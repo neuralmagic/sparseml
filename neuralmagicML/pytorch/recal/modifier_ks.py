@@ -14,9 +14,7 @@ from neuralmagicML.utils import (
     interpolate,
     validate_str_iterable,
 )
-from neuralmagicML.pytorch.utils import (
-    get_named_layers_and_params_by_regex,
-)
+from neuralmagicML.pytorch.utils import get_named_layers_and_params_by_regex
 from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
     ScheduledModifier,
@@ -76,9 +74,9 @@ class ConstantKSModifier(ScheduledModifier):
 
     def __init__(
         self,
+        params: Union[str, List[str]],
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
-        params: Union[str, List[str]] = ["re:.*weight"],
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super().__init__(
@@ -101,7 +99,7 @@ class ConstantKSModifier(ScheduledModifier):
         self._module_masks.clear()
 
     @ModifierProp()
-    def params(self) -> str:
+    def params(self) -> Union[str, List[str]]:
         """
         :return: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
@@ -110,7 +108,7 @@ class ConstantKSModifier(ScheduledModifier):
         return self._params
 
     @params.setter
-    def params(self, value: str):
+    def params(self, value: Union[str, List[str]]):
         """
         :params value: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
@@ -135,20 +133,13 @@ class ConstantKSModifier(ScheduledModifier):
             else ["re:.*"]
         )
         named_layers_and_params = get_named_layers_and_params_by_regex(
-            module, param_names
+            module, param_names, params_strict=True,
         )
 
         self._analyzers = []
         for layer_name, layer, param_name, _ in named_layers_and_params:
             self._module_masks.append(ModuleParamKSMask(layer, param_name))
             self._analyzers.append(ModuleKSAnalyzer(layer, layer_name, param_name))
-
-        if len(self._analyzers) == 0:
-            raise ValueError(
-                "Could not find any params matching {} in {}".format(
-                    self._params, self.__class__.__name__
-                )
-            )
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -166,10 +157,12 @@ class ConstantKSModifier(ScheduledModifier):
 
         if self.start_pending(epoch, steps_per_epoch):
             for mask in self._module_masks:
+                mask.set_param_mask_from_weights()
                 mask.enabled = True
 
         if self.end_pending(epoch, steps_per_epoch):
             for mask in self._module_masks:
+                mask.set_param_mask_from_weights()
                 mask.enabled = False
 
     def log_update(
@@ -262,11 +255,11 @@ class GradualKSModifier(ScheduledUpdateModifier):
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
-        params: Union[str, List[str]] = ["re:.*weight"],
+        params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
-        mask_type: Union[str, List[int], SparsityMaskCreator] = 'unstructured',
+        mask_type: Union[str, List[int], SparsityMaskCreator] = "unstructured",
     ):
         super().__init__(
             log_types=log_types,
@@ -331,7 +324,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self.validate()
 
     @ModifierProp()
-    def params(self) -> str:
+    def params(self) -> Union[str, List[str]]:
         """
         :return: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
@@ -340,7 +333,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         return self._params
 
     @params.setter
-    def params(self, value: str):
+    def params(self, value: Union[str, List[str]]):
         """
         :param value: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
@@ -424,14 +417,14 @@ class GradualKSModifier(ScheduledUpdateModifier):
             else ["re:.*"]
         )
         named_layers_and_params = get_named_layers_and_params_by_regex(
-            module, param_names
+            module, param_names, params_strict=True,
         )
 
         self._analyzers = []
         for layer_name, layer, param_name, _ in named_layers_and_params:
-            self._module_masks.append(ModuleParamKSMask(
-                layer, param_name, mask_creator=self._mask_creator
-            ))
+            self._module_masks.append(
+                ModuleParamKSMask(layer, param_name, mask_creator=self._mask_creator)
+            )
             self._analyzers.append(ModuleKSAnalyzer(layer, layer_name, param_name))
 
         if len(self._analyzers) == 0:
