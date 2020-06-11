@@ -28,9 +28,9 @@ from tests.pytorch.recal.test_modifier import (
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
-        lambda: ConstantKSModifier(layers="__ALL__",),
+        lambda: ConstantKSModifier(params=["re:.*weight"],),
         lambda: ConstantKSModifier(
-            layers=[LinearNet.layer_descs()[2].name], start_epoch=10.0, end_epoch=25.0,
+            params=["seq.fc1.weight"], start_epoch=10.0, end_epoch=25.0,
         ),
     ],
     scope="function",
@@ -72,27 +72,24 @@ class TestConstantKSModifier(ScheduledModifierTest):
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_constant_ks_yaml():
-    layers = "__ALL__"
     start_epoch = 5.0
     end_epoch = 15.0
-    param = "weight"
+    params = ["re:.*weight"]
     yaml_str = f"""
     !ConstantKSModifier
-        layers: {layers}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
-        param: {param}
+        params: {params}
     """
     yaml_modifier = ConstantKSModifier.load_obj(yaml_str)  # type: ConstantKSModifier
     serialized_modifier = ConstantKSModifier.load_obj(
         str(yaml_modifier)
     )  # type: ConstantKSModifier
     obj_modifier = ConstantKSModifier(
-        layers=layers, start_epoch=start_epoch, end_epoch=end_epoch, param=param
+        start_epoch=start_epoch, end_epoch=end_epoch, params=params
     )
 
     assert isinstance(yaml_modifier, ConstantKSModifier)
-    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
     assert (
         yaml_modifier.start_epoch
         == serialized_modifier.start_epoch
@@ -103,7 +100,7 @@ def test_constant_ks_yaml():
         == serialized_modifier.end_epoch
         == obj_modifier.end_epoch
     )
-    assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
 
 
 @pytest.mark.skipif(
@@ -113,17 +110,16 @@ def test_constant_ks_yaml():
     "modifier_lambda",
     [
         lambda: GradualKSModifier(
-            layers="__ALL__",
             init_sparsity=0.05,
             final_sparsity=0.95,
             start_epoch=0.0,
             end_epoch=15.0,
             update_frequency=1.0,
-            param="weight",
+            params=["re:.*weight"],
             inter_func="linear",
         ),
         lambda: GradualKSModifier(
-            layers=[LinearNet.layer_descs()[2].name],
+            params=["re:seq.block1.*weight"],
             init_sparsity=0.05,
             final_sparsity=0.95,
             start_epoch=10.0,
@@ -132,7 +128,7 @@ def test_constant_ks_yaml():
             inter_func="cubic",
         ),
         lambda: GradualKSModifier(
-            layers=[LinearNet.layer_descs()[2].name],
+            params=["seq.fc1.weight", "seq.fc2.weight"],
             init_sparsity=0.05,
             final_sparsity=0.95,
             start_epoch=10.0,
@@ -190,24 +186,22 @@ class TestGradualKSModifier(ScheduledUpdateModifierTest):
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_gradual_ks_yaml():
-    layers = "__ALL__"
     init_sparsity = 0.05
     final_sparsity = 0.8
     start_epoch = 5.0
     end_epoch = 15.0
     update_frequency = 1.0
-    param = "weight"
+    params = ["re:.*weight"]
     inter_func = "cubic"
     mask_type = 'filter'
     yaml_str = f"""
     !GradualKSModifier
-        layers: {layers}
         init_sparsity: {init_sparsity}
         final_sparsity: {final_sparsity}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
         update_frequency: {update_frequency}
-        param: {param}
+        params: {params}
         inter_func: {inter_func}
         mask_type: {mask_type}
     """
@@ -216,19 +210,17 @@ def test_gradual_ks_yaml():
         str(yaml_modifier)
     )  # type: GradualKSModifier
     obj_modifier = GradualKSModifier(
-        layers=layers,
         init_sparsity=init_sparsity,
         final_sparsity=final_sparsity,
         start_epoch=start_epoch,
         end_epoch=end_epoch,
         update_frequency=update_frequency,
-        param=param,
+        params=params,
         inter_func=inter_func,
         mask_type=mask_type,
     )
 
     assert isinstance(yaml_modifier, GradualKSModifier)
-    assert yaml_modifier.layers == serialized_modifier.layers == obj_modifier.layers
     assert (
         yaml_modifier.init_sparsity
         == serialized_modifier.init_sparsity
@@ -254,7 +246,7 @@ def test_gradual_ks_yaml():
         == serialized_modifier.update_frequency
         == obj_modifier.update_frequency
     )
-    assert yaml_modifier.param == serialized_modifier.param == obj_modifier.param
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
     assert (
         yaml_modifier.inter_func
         == serialized_modifier.inter_func

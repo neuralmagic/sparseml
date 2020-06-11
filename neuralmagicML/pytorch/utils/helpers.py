@@ -2,9 +2,11 @@
 Utility / helper functions
 """
 
+from collections import namedtuple
 from typing import Union, Tuple, Iterable, Dict, Any, List
 import os
 import random
+import re
 import numpy
 
 import torch
@@ -31,6 +33,8 @@ __all__ = [
     "get_conv_layers",
     "get_linear_layers",
     "get_prunable_layers",
+    "get_named_layers_and_params_by_regex",
+    "NamedLayerParam",
     "get_layer_param",
 ]
 
@@ -40,6 +44,11 @@ __all__ = [
 # pytorch tensor helper functions
 #
 ##############################
+
+
+NamedLayerParam = namedtuple(
+    "NamedLayerParam", ["layer_name", "layer", "param_name", "param"]
+)
 
 
 def tensors_batch_size(tensors: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]]):
@@ -558,3 +567,82 @@ def get_layer_param(param: str, layer: str, module: Module) -> Parameter:
     param = layer.__getattr__(param)  # type: Parameter
 
     return param
+
+
+def get_named_layers_and_params_by_regex(
+    module: Module, param_names: List[str], params_strict: bool = False,
+) -> NamedLayerParam:
+    """
+    :param module: the module to get the matching layers and params from
+    :param param_names: a list of names or regex patterns to match with full parameter
+        paths. Regex patterns must be specified with the prefix 're:'
+    :param params_strict: if True, this function will raise an exception if there a
+        parameter is not found to match every name or regex in param_names
+    :return: a list of NamedLayerParam tuples whose full parameter names in the given
+        module match one of the given regex patterns or parameter names
+    """
+    named_layers_and_params = []
+    for layer_name, layer in module.named_modules():
+        for param_name, param in layer.named_parameters():
+            if "." in param_name:  # skip parameters of nested layers
+                continue
+            full_param_name = "{}.{}".format(layer_name, param_name)
+            if any_str_or_regex_matches_param_name(full_param_name, param_names):
+                named_layers_and_params.append(
+                    NamedLayerParam(layer_name, layer, param_name, param)
+                )
+    if params_strict:
+        validate_all_params_found(param_names, named_layers_and_params)
+    return named_layers_and_params
+
+
+def any_str_or_regex_matches_param_name(
+    param_name: str, name_or_regex_patterns: List[str],
+) -> bool:
+    """
+    :param param_name: The name of a parameter
+    :param name_or_regex_patterns: List of full param names to match to the input or
+        regex patterns to match with that should be prefixed with 're:'
+    :return: True if any given str or regex pattern matches the given name
+    """
+    for name_or_regex in name_or_regex_patterns:
+        if name_or_regex[:3] == "re:":
+            pattern = name_or_regex[3:]
+            if re.match(pattern, param_name):
+                return True
+        else:
+            if param_name == name_or_regex:
+                return True
+    return False
+
+
+def validate_all_params_found(
+    name_or_regex_patterns: List[str], named_layers_and_params: List[NamedLayerParam],
+):
+    """
+    :param name_or_regex_patterns: List of full param names or regex patterns of them
+        to check for matches in named_layers_and_params names
+    :param named_layers_and_params: List of NamedLayerParam objects to check for matches
+    :raise RuntimeError: If there is a name or regex pattern that does not have a
+        match in named_layers_and_params
+    """
+    full_parameter_names = [
+        "{}.{}".format(named_layer_param.layer_name, named_layer_param.param_name)
+        for named_layer_param in named_layers_and_params
+    ]
+    for name_or_regex in name_or_regex_patterns:
+        if "re:" != name_or_regex[:3] and name_or_regex in full_parameter_names:
+            continue  # name found in list of full parameter names
+        if "re:" == name_or_regex[:3] and any(
+            re.match(name_or_regex[3:], name) for name in full_parameter_names
+        ):
+            continue  # regex pattern matches at least one full parameter name
+        import pdb
+
+        pdb.set_trace()
+        raise RuntimeError(
+            "All supplied parameter names or regex patterns not found."
+            "No match for {} in found parameters {}.  Supplied {}".format(
+                name_or_regex, full_parameter_names, name_or_regex_patterns
+            )
+        )
