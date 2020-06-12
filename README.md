@@ -306,7 +306,7 @@ modifiers:
         end_epoch: 25.0
 
     - !GradualKSModifier
-        layers: __ALL__
+        params: __ALL__
         init_sparsity: 0.05
         final_sparsity: 0.8
         start_epoch: 5.0
@@ -343,31 +343,35 @@ The modifier is used for transfer learning from an already pruned model.
 The weights are allowed to make updates to enable transferring to a new task, however the sparsity is unchanged.
 
 Required Parameters:
- - `layers`: The layers in the model to prune. 
-   It can be set to a string containing `__ALL__` to prune all layers or a list to specify the targeted layers.
+ - `params`: The parameters in the model to prune. 
+   Can be set to a string containing `__ALL__` to prune all parameters, a list to specify the targeted parameters,
+   or regex patterns prefixed by 're:' of parameter name patterns to match.
    Ex: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
+        or using regex to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
    
 Example:
 ```yaml
     - !ConstantKSModifier
-        layers: __ALL__
+        params: __ALL__
 ```
 
 ##### GradualKSModifier
-The `GradualKSModifier` prunes the layer(s) in a model to a target sparsity 
+The `GradualKSModifier` prunes the parameter(s) in a model to a target sparsity 
 (percentage of 0's for a layer's param/variable).
 This is done gradually from an initial to final sparsity (`init_sparsity`, `final_sparsity`)
 over a range of epochs (`start_epoch`, `end_epoch`) and updated at a specific interval defined by the `update_frequency`.
 For example, using the following settings `start_epoch: 0`, `end_epoch: 5`, `update_frequency: 1`, 
 `init_sparsity: 0.05`, `final_sparsity: 0.8` will do the following:
-- at epoch 0 set the sparsity for the specified layer(s) to 5%
+- at epoch 0 set the sparsity for the specified param(s) to 5%
 - once every epoch, gradually increase the sparsity towards 80%
-- by the start of epoch 5, stop pruning and set the final sparsity for the specified layer(s) to 80%
+- by the start of epoch 5, stop pruning and set the final sparsity for the specified param(s) to 80%
 
 Required Parameters:
- - `layers`: The layers in the model to prune. 
-   Can be set to a string containing `__ALL__` to prune all layers or a list to specify the targeted layers.
+ - `params`: The parameters in the model to prune. 
+   Can be set to a string containing `__ALL__` to prune all parameters, a list to specify the targeted parameters,
+   or regex patterns prefixed by 're:' of parameter name patterns to match.
    Ex: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
+        or using regex to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
  - `init_sparsity`: The decimal value for the initial sparsity to start pruning with.
    At `start_epoch` will set the sparsity for the param/variable to this value. Generally kept at 0.05 (5%)
  - `final_sparsity`: The decimal value for the final sparsity to end pruning with.
@@ -387,7 +391,7 @@ Required Parameters:
 Example:
 ```yaml
     - !GradualKSModifier
-        layers: ['blocks.1.conv']
+        params: ['blocks.1.conv']
         init_sparsity: 0.05
         final_sparsity: 0.8
         start_epoch: 5.0
@@ -457,22 +461,19 @@ Required Parameters:
 
 ##### TrainableParamsModifier
 The `TrainableParamsModifier` controls the params that are marked as trainable for the current optimizer.
-This is generally useful when transfer learning to easily mark which layers should or should not be frozen / trained.
+This is generally useful when transfer learning to easily mark which parameters should or should not be frozen / trained.
 
 Required Parameters:
- - `params`: The parameter names under the layers to mark as trainable or not.
-    Can be set to a string containing `__ALL__` for all params under each layer.
- - `layers`: The layers in the model to mark as trainable or not. 
-   Can be set to a string containing `__ALL__` for all layers or a list to specify the targeted layers.
-   Ex: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
+ - `params`: The names of parameters to mark as trainable or not.
+    Can be set to a string containing `__ALL__` to mark all parameters, a list to specify the targeted parameters,
+    or regex patterns prefixed by 're:' of parameter name patterns to match.
+    Ex: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
+         or using regex to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
    
 Example:
 ```yaml
     - !TrainableParamsModifier
-      params:
-        - weight
-        - bias
-      layers: __ALL__
+      params: __ALL__
 ```
  
 
