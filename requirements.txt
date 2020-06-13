@@ -18,6 +18,7 @@ tqdm~=4.32.0
 tensorflow>=1.0,<2.0
 tensorboard>=1.0,<2.0
 tensorboardX~=1.9
+tf2onnx==1.6.1
 toposort~=1.5
 torch>=1.0.0
 torchvision>=0.2.1

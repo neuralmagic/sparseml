@@ -83,7 +83,7 @@ class GraphExporter(object):
         """
         try:
             from tf2onnx.tfonnx import process_tf_graph, tf_optimize
-            from tf2onnx import constants, loader, utils, optimizer
+            from tf2onnx import constants, tf_loader, utils, optimizer
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "tf2onnx must be installed on the system before using export_onnx"
@@ -101,7 +101,7 @@ class GraphExporter(object):
         inputs = [inp if isinstance(inp, str) else inp.name for inp in inputs]
         outputs = [out if isinstance(out, str) else out.name for out in outputs]
 
-        graph_def, inputs, outputs = loader.from_graphdef(pb_path, inputs, outputs)
+        graph_def, inputs, outputs = tf_loader.from_graphdef(pb_path, inputs, outputs)
         graph_def = tf_optimize(inputs, outputs, graph_def, fold_constant=True)
 
         with tf_compat.Graph().as_default() as tf_graph:

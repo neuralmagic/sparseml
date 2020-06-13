@@ -1,3 +1,0 @@
-[submodule "tensorflow-onnx"]
-	path = tensorflow-onnx
-	url = git@bitbucket.org:neuralmagic/tensorflow-onnx.git
