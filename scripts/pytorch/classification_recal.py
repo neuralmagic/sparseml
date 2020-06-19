@@ -433,9 +433,6 @@ def main(args):
     )
     py_logger.info("created loss: {}".format(loss))
 
-    # device setup
-    model, device, device_ids = model_to_device(model, args.device)
-
     epoch = 0
 
     if not args.eval_mode:
@@ -475,13 +472,18 @@ def main(args):
         )
         optim.adjust_current_step(epoch, 0)  # adjust in case this is restored
         py_logger.info("created manager: {}".format(manager))
-
-        trainer = ModuleTrainer(model, device, loss, optim, loggers=loggers)
     else:
         optim = None
         manager = None
-        trainer = None
 
+    # device setup
+    model, device, device_ids = model_to_device(model, args.device)
+
+    trainer = (
+        ModuleTrainer(model, device, loss, optim, loggers=loggers)
+        if not args.eval_mode
+        else None
+    )
     tester = ModuleTester(model, device, loss, loggers=loggers)
 
     # initial baseline eval run

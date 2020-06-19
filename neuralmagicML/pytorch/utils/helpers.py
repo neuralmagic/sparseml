@@ -676,7 +676,7 @@ def get_layer_param(param: str, layer: str, module: Module) -> Parameter:
 
 def get_named_layers_and_params_by_regex(
     module: Module, param_names: List[str], params_strict: bool = False,
-) -> NamedLayerParam:
+) -> List[NamedLayerParam]:
     """
     :param module: the module to get the matching layers and params from
     :param param_names: a list of names or regex patterns to match with full parameter
@@ -698,6 +698,7 @@ def get_named_layers_and_params_by_regex(
                 )
     if params_strict:
         validate_all_params_found(param_names, named_layers_and_params)
+
     return named_layers_and_params
 
 
