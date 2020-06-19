@@ -293,7 +293,7 @@ def parse_args():
         type=float,
         default=1e-9,
         help="The initial learning rate to use while training, "
-             "set to a low value because LR should come from the recal config path",
+        "set to a low value because LR should come from the recal config path",
     )
     parser.add_argument(
         "--optim-args",
@@ -448,6 +448,10 @@ def main(args):
 
         optim = optim_const(model.parameters(), lr=args.init_lr, **args.optim_args)
         py_logger.info("created optimizer: {}".format(optim))
+        py_logger.info(
+            "note, the lr for the optimizer will not reflect the manager yet until "
+            "the recal config. It must still be created and run"
+        )
 
         # restore from previous check point
         if args.checkpoint_path:
