@@ -291,14 +291,14 @@ def parse_args():
     parser.add_argument(
         "--init-lr",
         type=float,
-        default=10e-9,
+        default=1e-9,
         help="The initial learning rate to use while training, "
-        "set to a low value because LR should come from the recal config path",
+             "set to a low value because LR should come from the recal config path",
     )
     parser.add_argument(
         "--optim-args",
         type=json.loads,
-        default="{}",
+        default={"momentum": 0.9, "nesterov": True, "weight_decay": 0.0001},
         help="Additional args to be passed to the optimizer passed in as a json dict",
     )
 
