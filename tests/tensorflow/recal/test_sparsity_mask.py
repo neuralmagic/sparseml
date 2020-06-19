@@ -19,9 +19,9 @@ from neuralmagicML.tensorflow.recal import (
     [
         ([64, 64], UnstructuredSparsityMaskCreator()),
         ([3, 3, 64, 64], UnstructuredSparsityMaskCreator()),
-        ([512, 64], DimensionSparsityMaskCreator('channel')),
-        ([3, 3, 512, 64], DimensionSparsityMaskCreator('channel')),
-        ([3, 3, 64, 64], DimensionSparsityMaskCreator('filter')),
+        ([512, 64], DimensionSparsityMaskCreator("channel")),
+        ([3, 3, 512, 64], DimensionSparsityMaskCreator("channel")),
+        ([3, 3, 64, 64], DimensionSparsityMaskCreator("filter")),
         ([512, 64], BlockSparsityMaskCreator([4, 1])),
         ([3, 3, 512, 64], BlockSparsityMaskCreator([4, 1])),
         ([3, 3, 128, 128], BlockSparsityMaskCreator([2, 2])),

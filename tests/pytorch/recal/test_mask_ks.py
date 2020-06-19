@@ -32,15 +32,31 @@ def _test_constructor(layer, param_name, mask_creator):
 @pytest.mark.parametrize(
     "layer,param_name,mask_creator",
     [
-        (Linear(in_features=8, out_features=64), "weight", UnstructuredSparsityMaskCreator()),
-        (Linear(in_features=8, out_features=64), "bias", UnstructuredSparsityMaskCreator()),
+        (
+            Linear(in_features=8, out_features=64),
+            "weight",
+            UnstructuredSparsityMaskCreator(),
+        ),
+        (
+            Linear(in_features=8, out_features=64),
+            "bias",
+            UnstructuredSparsityMaskCreator(),
+        ),
         (
             Linear(in_features=8, out_features=64),
             "weight",
             DimensionSparsityMaskCreator(1),
         ),
-        (Conv2d(in_channels=3, out_channels=64, kernel_size=3), "weight", UnstructuredSparsityMaskCreator()),
-        (Conv2d(in_channels=3, out_channels=64, kernel_size=3), "bias", UnstructuredSparsityMaskCreator()),
+        (
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            "weight",
+            UnstructuredSparsityMaskCreator(),
+        ),
+        (
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            "bias",
+            UnstructuredSparsityMaskCreator(),
+        ),
         (
             Conv2d(in_channels=3, out_channels=64, kernel_size=3),
             "weight",
@@ -58,13 +74,21 @@ def test_constructor(layer, param_name, mask_creator):
 @pytest.mark.parametrize(
     "layer,param_name, mask_creator",
     [
-        (Linear(in_features=8, out_features=64), "weight", UnstructuredSparsityMaskCreator()),
+        (
+            Linear(in_features=8, out_features=64),
+            "weight",
+            UnstructuredSparsityMaskCreator(),
+        ),
         (
             Linear(in_features=8, out_features=64),
             "weight",
             DimensionSparsityMaskCreator(1),
         ),
-        (Conv2d(in_channels=3, out_channels=64, kernel_size=3), "weight", UnstructuredSparsityMaskCreator()),
+        (
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            "weight",
+            UnstructuredSparsityMaskCreator(),
+        ),
         (
             Conv2d(in_channels=3, out_channels=64, kernel_size=3),
             "weight",

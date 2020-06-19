@@ -132,7 +132,7 @@ class UnstructuredSparsityMaskCreator(SparsityMaskCreator):
         return sorted_vals[lookup_index]
 
     def __str__(self):
-        return 'unstructured'
+        return "unstructured"
 
     def __repr__(self):
         return str(self)
@@ -146,9 +146,9 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
     """
 
     _GROUPING_FUNCTIONS = {
-        'mean': torch.mean,
-        'max': torch.max,
-        'min': torch.min,
+        "mean": torch.mean,
+        "max": torch.max,
+        "min": torch.min,
     }
 
     @staticmethod
@@ -238,23 +238,23 @@ class DimensionSparsityMaskCreator(GroupedSparsityMaskCreator):
     """
 
     def __init__(
-        self,
-        dim: Union[str, int, List[int]],
-        grouping_fn_name: str = 'mean',
+        self, dim: Union[str, int, List[int]], grouping_fn_name: str = "mean",
     ):
         if isinstance(dim, int):
             dim = [dim]
         self._dim_name = None
         self._grouping_fn = GroupedSparsityMaskCreator.get_grouping_fn(grouping_fn_name)
         if isinstance(dim, str):
-            valid_dim_names = ['channel', 'filter']
+            valid_dim_names = ["channel", "filter"]
             if dim in valid_dim_names:
                 self._dim_name = dim
-                self._dim = [1] if dim == 'channel' else [0, 1]
+                self._dim = [1] if dim == "channel" else [0, 1]
             else:
-                raise ValueError("Invalid Dimension name: {}, valid names: {}".format(
-                    dim, valid_dim_names
-                ))
+                raise ValueError(
+                    "Invalid Dimension name: {}, valid names: {}".format(
+                        dim, valid_dim_names
+                    )
+                )
         self._dim = dim  # List[int]
 
     def _group_tensor(self, tensor: Tensor) -> Tensor:
@@ -264,7 +264,7 @@ class DimensionSparsityMaskCreator(GroupedSparsityMaskCreator):
             dimension(s) in self._dim
         """
         n_dims = len(tensor.shape)
-        if n_dims < 3 and self._dim_name == 'channel':
+        if n_dims < 3 and self._dim_name == "channel":
             raise ValueError(
                 "Channel pruning not supported for fewer than 3 dimensions."
                 " Received tensor with shape {}".format(tensor.shape)
@@ -309,9 +309,7 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
     """
 
     def __init__(
-        self,
-        block_shape: List[int],
-        grouping_fn_name: str = 'mean',
+        self, block_shape: List[int], grouping_fn_name: str = "mean",
     ):
         if len(block_shape) != 2:
             raise ValueError(
@@ -373,9 +371,7 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
             raise ValueError(
                 "Invalid tensor shape {}."
                 " BlockSparsityMaskCreator can only create masks from tensors with 2 or"
-                " more dimensions, tensor has {}.".format(
-                    tens_shape, n_dims
-                )
+                " more dimensions, tensor has {}.".format(tens_shape, n_dims)
             )
         for tens_dim, block_dim in zip(tens_shape, block_shape):
             if tens_dim % block_dim != 0:
@@ -418,9 +414,9 @@ def load_mask_creator(obj: Union[str, Iterable[int]]) -> SparsityMaskCreator:
     if isinstance(obj, str) and obj in mask_creator_name_to_constructor_lambda:
         return mask_creator_name_to_constructor_lambda[obj]()
     # Checking for a BlockSparsityMaskCreator string
-    if ('[' in obj and ']' in obj) or ('(' in obj and ')' in obj):
-        stripped_str = obj.strip('[|]|(|)')
-        block_shape = [int(s) for s in stripped_str.split(',')]
+    if ("[" in obj and "]" in obj) or ("(" in obj and ")" in obj):
+        stripped_str = obj.strip("[|]|(|)")
+        block_shape = [int(s) for s in stripped_str.split(",")]
         return BlockSparsityMaskCreator(block_shape)
     if isinstance(obj, list) or isinstance(obj, tuple):
         return BlockSparsityMaskCreator(obj)

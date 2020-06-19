@@ -38,16 +38,20 @@ class LossWrapper(object):
         accessible in the returned Dict at DEFAULT_LOSS_KEY
     :param extras: extras representing other metrics that should be calculated
         in addition to the loss
+    :param deconstruct_tensors: True to break the tensors up into expected
+        predictions and labels, False to pass the tensors as is to loss and extras
     """
 
     def __init__(
         self,
         loss_fn: Callable[[Any, Any], Tensor],
         extras: Union[None, Dict[str, Callable]] = None,
+        deconstruct_tensors: bool = True,
     ):
         super(LossWrapper, self).__init__()
         self._loss_fn = loss_fn
         self._extras = extras
+        self._deconstruct_tensors = deconstruct_tensors
 
     def __call__(self, data: Any, pred: Any) -> Dict[str, Tensor]:
         return self.forward(data, pred)
@@ -88,8 +92,7 @@ class LossWrapper(object):
             the loss from the loss_fn at DEFAULT_LOSS_KEY
         """
         calculated = {
-            DEFAULT_LOSS_KEY: self.calc_loss(
-                self.get_inputs(data, pred, DEFAULT_LOSS_KEY),
+            DEFAULT_LOSS_KEY: self._loss_fn(
                 self.get_preds(data, pred, DEFAULT_LOSS_KEY),
                 self.get_labels(data, pred, DEFAULT_LOSS_KEY),
             )
@@ -104,29 +107,6 @@ class LossWrapper(object):
 
         return calculated
 
-    def get_inputs(self, data: Any, pred: Any, name: str) -> Any:
-        """
-        overridable function that is responsible for extracting the inputs to the model
-        from the input data to the model and the output from the model
-
-        :param data: data from a data loader, expected to contain a tuple of
-            (features, labels)
-        :param pred: the predicted output from a model
-        :param name: the name of the loss function that is asking for the information
-            for calculation
-        :return: the input data for the model
-        """
-        if isinstance(data, Tensor):
-            return data
-
-        if isinstance(data, Iterable):
-            for tens in data:
-                return tens
-
-        raise TypeError(
-            "unsupported type of data given of {}".format(data.__class__.__name__)
-        )
-
     def get_preds(self, data: Any, pred: Any, name: str) -> Any:
         """
         overridable function that is responsible for extracting the predictions
@@ -139,7 +119,7 @@ class LossWrapper(object):
             information for calculation
         :return: the predictions from the model for the loss function
         """
-        if isinstance(pred, Tensor):
+        if isinstance(pred, Tensor) or not self._deconstruct_tensors:
             return pred
 
         # assume that the desired prediction for loss is in the first instance
@@ -175,18 +155,6 @@ class LossWrapper(object):
         raise TypeError(
             "unsupported type of data given of {}".format(data.__class__.__name__)
         )
-
-    def calc_loss(self, inputs: Any, preds: Any, labels: Any) -> Tensor:
-        """
-        overridable function to calculate the default loss function
-        for training the model
-
-        :param inputs: the inputs to the model, taken from get_inputs
-        :param preds: the predictions from the model, taken from get_preds
-        :param labels: the labels for the data, taken from get_labels
-        :return: the resulting calculated loss from the default loss_fn
-        """
-        return self._loss_fn(preds, labels)
 
 
 class KDSettings(object):
@@ -267,6 +235,8 @@ class KDLossWrapper(LossWrapper):
         accessible in the returned Dict at DEFAULT_LOSS_KEY
     :param extras: extras representing other metrics that should be
         calculated in addition to the loss
+    :param deconstruct_tensors: True to break the tensors up into expected
+        predictions and labels, False to pass the tensors as is to loss and extras
     :param kd_settings: the knowledge distillation settings that guide
         how to calculate the total loss
     """
@@ -275,52 +245,84 @@ class KDLossWrapper(LossWrapper):
         self,
         loss_fn: Callable[[Any, Any], Tensor],
         extras: Union[None, Dict[str, Callable]] = None,
+        deconstruct_tensors: bool = True,
         kd_settings: Union[None, KDSettings] = None,
     ):
-        super(KDLossWrapper, self).__init__(loss_fn, extras)
+        super().__init__(loss_fn, extras, deconstruct_tensors)
         self._kd_settings = kd_settings  # type: KDSettings
 
-    def calc_loss(self, inputs: Any, preds: Any, labels: Any) -> Tensor:
+    def get_inputs(self, data: Any, pred: Any, name: str) -> Any:
+        """
+        overridable function that is responsible for extracting the inputs to the model
+        from the input data to the model and the output from the model
+
+        :param data: data from a data loader, expected to contain a tuple of
+            (features, labels)
+        :param pred: the predicted output from a model
+        :param name: the name of the loss function that is asking for the information
+            for calculation
+        :return: the input data for the model
+        """
+        if isinstance(data, Tensor):
+            return data
+
+        if isinstance(data, Iterable):
+            for tens in data:
+                return tens
+
+        raise TypeError(
+            "unsupported type of data given of {}".format(data.__class__.__name__)
+        )
+
+    def forward(self, data: Any, pred: Any) -> Dict[str, Tensor]:
         """
         override to calculate the knowledge distillation loss if kd_settings
         is supplied and not None
 
-        :param inputs: the inputs to the model, taken from get_inputs
-        :param preds: the predictions from the model, taken from get_preds
-        :param labels: the labels for the data, taken from get_labels
-        :return: the resulting calculated loss from the default loss_fn combined
-            with the distillation loss if kd_settings is not None
+        :param data: the input data to the model, expected to contain the labels
+        :param pred: the predicted output from the model
+        :return: a dictionary containing all calculated losses and metrics with
+            the loss from the loss_fn at DEFAULT_LOSS_KEY
         """
-        loss = super().calc_loss(inputs, preds, labels)
+        losses = super().forward(data, pred)
 
-        if self._kd_settings is None:
-            return loss
+        if self._kd_settings is not None:
+            with torch.no_grad():
+                teacher = self._kd_settings.teacher  # type: Module
+                preds_teacher = tensors_module_forward(
+                    self.get_inputs(data, pred, TEACHER_LOSS_KEY), teacher.eval()
+                )
 
-        with torch.no_grad():
-            teacher = self._kd_settings.teacher  # type: Module
-            preds_teacher = tensors_module_forward(inputs, teacher.eval())
+            preds_teacher = self.get_preds(data, preds_teacher, TEACHER_LOSS_KEY)
 
-        preds_teacher = self.get_preds(None, preds_teacher, TEACHER_LOSS_KEY)
-
-        soft_log_probs = TF.log_softmax(preds / self._kd_settings.temp_student, dim=1)
-        soft_targets = TF.softmax(preds_teacher / self._kd_settings.temp_teacher, dim=1)
-        distill_loss = (
-            TF.kl_div(soft_log_probs, soft_targets, size_average=False)
-            / soft_targets.shape[0]
-        )
-
-        if not self._kd_settings.contradict_hinton:
-            # in hinton's original paper they included T^2 as a scaling factor
-            # some implementations dropped this factor
-            # so contradicting hinton does not scale by T^2
+            soft_log_probs = TF.log_softmax(
+                self.get_preds(data, pred, DEFAULT_LOSS_KEY)
+                / self._kd_settings.temp_student,
+                dim=1,
+            )
+            soft_targets = TF.softmax(
+                preds_teacher / self._kd_settings.temp_teacher, dim=1
+            )
             distill_loss = (
-                (self._kd_settings.temp_student + self._kd_settings.temp_teacher) / 2
-            ) ** 2 * distill_loss
+                TF.kl_div(soft_log_probs, soft_targets, size_average=False)
+                / soft_targets.shape[0]
+            )
 
-        return (
-            self._kd_settings.weight * distill_loss
-            + (1 - self._kd_settings.weight) * loss
-        )
+            if not self._kd_settings.contradict_hinton:
+                # in hinton's original paper they included T^2 as a scaling factor
+                # some implementations dropped this factor
+                # so contradicting hinton does not scale by T^2
+                distill_loss = (
+                    (self._kd_settings.temp_student + self._kd_settings.temp_teacher)
+                    / 2
+                ) ** 2 * distill_loss
+
+            losses[DEFAULT_LOSS_KEY] = (
+                self._kd_settings.weight * distill_loss
+                + (1 - self._kd_settings.weight) * losses[DEFAULT_LOSS_KEY]
+            )
+
+        return losses
 
 
 class BinaryCrossEntropyLossWrapper(KDLossWrapper):
@@ -330,6 +332,8 @@ class BinaryCrossEntropyLossWrapper(KDLossWrapper):
 
     :param extras: extras representing other metrics that should be calculated
         in addition to the loss
+    :param deconstruct_tensors: True to break the tensors up into expected
+        predictions and labels, False to pass the tensors as is to loss and extras
     :param kd_settings: the knowledge distillation settings that guide how to calculate
         the total loss if knowledge distillation is desired to be used
     """
@@ -337,10 +341,14 @@ class BinaryCrossEntropyLossWrapper(KDLossWrapper):
     def __init__(
         self,
         extras: Union[None, Dict] = None,
+        deconstruct_tensors: bool = True,
         kd_settings: Union[None, KDSettings] = None,
     ):
         super(BinaryCrossEntropyLossWrapper, self).__init__(
-            TF.binary_cross_entropy_with_logits, extras, kd_settings
+            TF.binary_cross_entropy_with_logits,
+            extras,
+            deconstruct_tensors,
+            kd_settings,
         )
 
 
@@ -351,6 +359,8 @@ class CrossEntropyLossWrapper(KDLossWrapper):
 
     :param extras: extras representing other metrics that should be calculated
         in addition to the loss
+    :param deconstruct_tensors: True to break the tensors up into expected
+        predictions and labels, False to pass the tensors as is to loss and extras
     :param kd_settings: the knowledge distillation settings that guide how
         to calculate the total loss if knowledge distillation is desired to be used
     """
@@ -358,10 +368,11 @@ class CrossEntropyLossWrapper(KDLossWrapper):
     def __init__(
         self,
         extras: Union[None, Dict] = None,
+        deconstruct_tensors: bool = True,
         kd_settings: Union[None, KDSettings] = None,
     ):
         super(CrossEntropyLossWrapper, self).__init__(
-            TF.cross_entropy, extras, kd_settings
+            TF.cross_entropy, extras, deconstruct_tensors, kd_settings
         )
 
 

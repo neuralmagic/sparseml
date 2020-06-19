@@ -294,7 +294,7 @@ def _train_helper(model, dataset, loss, optimizer, batch_size, device):
         counters["end"] += 1
 
     data_loader = DataLoader(dataset, batch_size)
-    trainer = ModuleTrainer(model, device, loss, optimizer)
+    trainer = ModuleTrainer(model, device, loss, optimizer, log_summary=False)
     hook_refs = [
         trainer.run_hooks.register_batch_start_hook(batch_start_hook),
         trainer.run_hooks.register_batch_forward_hook(batch_forward_hook),
@@ -312,6 +312,7 @@ def _train_helper(model, dataset, loss, optimizer, batch_size, device):
     for key, call_count in counters.items():
         assert expected_batches == call_count
 
+    trainer = ModuleTrainer(model, device, loss, optimizer)
     result = trainer.run_epoch(
         data_loader, epoch=0, show_progress=False, track_results=True
     )
@@ -406,7 +407,7 @@ def _test_helper(model, dataset, loss, batch_size, device):
         counters["end"] += 1
 
     data_loader = DataLoader(dataset, batch_size)
-    tester = ModuleTester(model, device, loss)
+    tester = ModuleTester(model, device, loss, log_summary=False)
     hook_refs = [
         tester.run_hooks.register_batch_start_hook(batch_start_hook),
         tester.run_hooks.register_batch_forward_hook(batch_forward_hook),
@@ -427,6 +428,7 @@ def _test_helper(model, dataset, loss, batch_size, device):
     for key, call_count in non_counters.items():
         assert call_count == 0
 
+    tester = ModuleTester(model, device, loss)
     result = tester.run_epoch(
         data_loader, epoch=0, show_progress=False, track_results=True
     )

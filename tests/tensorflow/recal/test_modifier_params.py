@@ -32,25 +32,19 @@ from tests.tensorflow.recal.test_modifier import (
         (
             mlp_graph_lambda,
             lambda: TrainableParamsModifier(
-                params=["mlp_net/fc1/weight"],
-                trainable=False,
-                params_strict=True,
+                params=["mlp_net/fc1/weight"], trainable=False, params_strict=True,
             ),
         ),
         (
             mlp_graph_lambda,
             lambda: TrainableParamsModifier(
-                params=ALL_TOKEN,
-                trainable=False,
-                params_strict=False,
+                params=ALL_TOKEN, trainable=False, params_strict=False,
             ),
         ),
         (
             conv_graph_lambda,
             lambda: TrainableParamsModifier(
-                params=["conv_net/conv1/bias"],
-                trainable=False,
-                params_strict=True,
+                params=["conv_net/conv1/bias"], trainable=False, params_strict=True,
             ),
         ),
         (
@@ -104,9 +98,7 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
 )
 def test_trainable_params_modifier_with_training():
     modifier = TrainableParamsModifier(
-        params=["mlp_net/fc1/weight"],
-        trainable=False,
-        params_strict=False,
+        params=["mlp_net/fc1/weight"], trainable=False, params_strict=False,
     )
     manager = ScheduledModifierManager([modifier])
     steps_per_epoch = 5

@@ -56,30 +56,6 @@ class LossWrapperTest(ABC):
     def test_available_losses(self, wrapper, metrics, data, pred):
         assert wrapper.available_losses == (DEFAULT_LOSS_KEY, *metrics.keys())
 
-    def test_get_inputs(self, wrapper, metrics, data, pred):
-        if isinstance(data, Tensor):
-            assert (
-                torch.sum(
-                    (data - wrapper.get_inputs(data, pred, DEFAULT_LOSS_KEY)).abs()
-                )
-                < 0.00001
-            )
-        else:
-            assert (
-                torch.sum(
-                    (data[0] - wrapper.get_inputs(data, pred, DEFAULT_LOSS_KEY)).abs()
-                )
-                < 0.00001
-            )
-            assert (
-                torch.sum(
-                    (
-                        data[0] - wrapper.get_inputs(data[0], pred, DEFAULT_LOSS_KEY)
-                    ).abs()
-                )
-                < 0.00001
-            )
-
     def test_get_preds(self, wrapper, metrics, data, pred):
         if isinstance(pred, Tensor):
             assert (
@@ -119,13 +95,6 @@ class LossWrapperTest(ABC):
 
             with pytest.raises(TypeError):
                 wrapper.get_labels(data[1], pred, DEFAULT_LOSS_KEY)
-
-    def test_calc_loss(self, wrapper, metrics, data, pred):
-        if isinstance(data, Tensor):
-            return
-
-        pred_inp = pred[0] if isinstance(pred, Iterable) else pred
-        assert isinstance(wrapper.calc_loss(data[0], pred_inp, data[1]), Tensor)
 
     def test_forward(self, wrapper, metrics, data, pred):
         if isinstance(data, Tensor):

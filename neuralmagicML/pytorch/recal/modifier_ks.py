@@ -14,7 +14,11 @@ from neuralmagicML.utils import (
     interpolate,
     validate_str_iterable,
 )
-from neuralmagicML.pytorch.utils import get_named_layers_and_params_by_regex
+from neuralmagicML.pytorch.utils import (
+    get_named_layers_and_params_by_regex,
+    get_prunable_layers,
+    tensor_sparsity,
+)
 from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
     ScheduledModifier,
@@ -71,6 +75,30 @@ class ConstantKSModifier(ScheduledModifier):
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     """
+
+    @staticmethod
+    def from_sparse_model(model: Module) -> List[ScheduledModifier]:
+        """
+        Create constant ks modifiers for all prunable params in the given model
+        (conv, linear) that have been artificially sparsified (sparsity > 40%).
+        Useful for transfer learning from a pruned model.
+
+        :param model: the model to create constant ks modifiers for
+        :return: the list of created constant ks modifiers
+        """
+        prunable = get_prunable_layers(model)
+        modifiers = []
+
+        for name, layer in prunable:
+            weight = getattr(layer, "weight")
+            sparsity = tensor_sparsity(weight)
+
+            if sparsity > 0.4:
+                modifiers.append(
+                    ConstantKSModifier(params=["{}.{}".format(name, "weight")])
+                )
+
+        return modifiers
 
     def __init__(
         self,
@@ -283,6 +311,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._module_masks = []  # type: List[ModuleParamKSMask]
         self._applied_sparsity = None
         self._last_logged_sparsity = None
+        self._last_logged_epoch = None
         self._analyzers = None
 
         self.validate()
@@ -485,8 +514,12 @@ class GradualKSModifier(ScheduledUpdateModifier):
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
-        if self._applied_sparsity != self._last_logged_sparsity:
+        if (
+            self._applied_sparsity != self._last_logged_sparsity
+            or math.floor(epoch) != self._last_logged_epoch
+        ):
             self._last_logged_sparsity = self._applied_sparsity
+            self._last_logged_epoch = math.floor(epoch)
             _log_sparsity(self._analyzers, self.loggers, epoch, steps_per_epoch)
 
     def optimizer_post_step(

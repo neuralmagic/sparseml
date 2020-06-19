@@ -10,7 +10,10 @@ from neuralmagicML.pytorch.recal import (
     SetParamModifier,
     GradualParamModifier,
 )
-from neuralmagicML.pytorch.utils import get_named_layers_and_params_by_regex, any_str_or_regex_matches_param_name
+from neuralmagicML.pytorch.utils import (
+    get_named_layers_and_params_by_regex,
+    any_str_or_regex_matches_param_name,
+)
 
 from tests.pytorch.helpers import (
     test_epoch,
@@ -35,28 +38,16 @@ MODEL_TEST_LAYER_INDEX = 3
 #
 ##############################
 TRAINABLE_MODIFIERS = [
+    lambda: TrainableParamsModifier(params=ALL_TOKEN, trainable=False, start_epoch=0.0),
+    lambda: TrainableParamsModifier(params=ALL_TOKEN, trainable=True, start_epoch=0.0),
     lambda: TrainableParamsModifier(
-        params=ALL_TOKEN, trainable=False, start_epoch=0.0
+        params=ALL_TOKEN, trainable=False, start_epoch=0.0, end_epoch=15.0,
     ),
     lambda: TrainableParamsModifier(
-        params=ALL_TOKEN, trainable=True, start_epoch=0.0
+        params=ALL_TOKEN, trainable=True, start_epoch=10.0, end_epoch=25.0,
     ),
     lambda: TrainableParamsModifier(
-        params=ALL_TOKEN,
-        trainable=False,
-        start_epoch=0.0,
-        end_epoch=15.0,
-    ),
-    lambda: TrainableParamsModifier(
-        params=ALL_TOKEN,
-        trainable=True,
-        start_epoch=10.0,
-        end_epoch=25.0,
-    ),
-    lambda: TrainableParamsModifier(
-        params=["re:.*weight"],
-        trainable=False,
-        start_epoch=10.0,
+        params=["re:.*weight"], trainable=False, start_epoch=10.0,
     ),
 ]
 
@@ -91,9 +82,8 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
         assert modifier.update_ready(epoch, test_steps_per_epoch)
         modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
         for name, param in model.named_parameters():
-            if (
-                modifier.params == ALL_TOKEN
-                or any_str_or_regex_matches_param_name(name, modifier.params)
+            if modifier.params == ALL_TOKEN or any_str_or_regex_matches_param_name(
+                name, modifier.params
             ):
                 assert param.requires_grad == modifier.trainable
             else:
@@ -112,8 +102,8 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
             if modifier.end_epoch > 0:
                 for name, param in model.named_parameters():
                     if (
-                            modifier.params == ALL_TOKEN
-                            or any_str_or_regex_matches_param_name(name, modifier.params)
+                        modifier.params == ALL_TOKEN
+                        or any_str_or_regex_matches_param_name(name, modifier.params)
                     ):
                         assert param.requires_grad == modifier.trainable
                     else:
@@ -201,18 +191,14 @@ SET_PARAM_MOD_VAL = [
     0 for _ in range(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].output_size[0])
 ]
 SET_PARAM_MOD_PARAMS = [
-    "{}.{}".format(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name, 'bias')
+    "{}.{}".format(LinearNet.layer_descs()[MODEL_TEST_LAYER_INDEX].name, "bias")
 ]
 SET_PARAM_MODIFIERS = [
     lambda: SetParamModifier(
-        params=SET_PARAM_MOD_PARAMS,
-        val=SET_PARAM_MOD_VAL,
-        start_epoch=0.0,
+        params=SET_PARAM_MOD_PARAMS, val=SET_PARAM_MOD_VAL, start_epoch=0.0,
     ),
     lambda: SetParamModifier(
-        params=SET_PARAM_MOD_PARAMS,
-        val=SET_PARAM_MOD_VAL,
-        start_epoch=10.0,
+        params=SET_PARAM_MOD_PARAMS, val=SET_PARAM_MOD_VAL, start_epoch=10.0,
     ),
 ]
 
@@ -245,11 +231,7 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
         self._lifecycle_helper(modifier, model, optimizer)
 
     def _lifecycle_helper(self, modifier, model, optimizer):
-        param_regex = (
-            modifier.params
-            if modifier.params != ALL_TOKEN
-            else ["re:.*"]
-        )
+        param_regex = modifier.params if modifier.params != ALL_TOKEN else ["re:.*"]
         named_layers_and_params = get_named_layers_and_params_by_regex(
             model, param_regex
         )
@@ -390,11 +372,7 @@ class TestGradualParamModifierImpl(ScheduledUpdateModifierTest):
         self._lifecycle_helper(modifier, model, optimizer)
 
     def _lifecycle_helper(self, modifier, model, optimizer):
-        param_regex = (
-            modifier.params
-            if modifier.params != ALL_TOKEN
-            else ["re:.*"]
-        )
+        param_regex = modifier.params if modifier.params != ALL_TOKEN else ["re:.*"]
         named_layers_and_params = get_named_layers_and_params_by_regex(
             model, param_regex
         )

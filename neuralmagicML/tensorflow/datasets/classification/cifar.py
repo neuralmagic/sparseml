@@ -186,9 +186,7 @@ class CifarDataSet(ImageFolderDataset):
             return image
 
 
-@DatasetRegistry.register(
-    key=["cifar10"], attributes={"num_classes": 10}
-)
+@DatasetRegistry.register(key=["cifar10"], attributes={"num_classes": 10})
 class Cifar10DataSet(CifarDataSet):
     def __init__(
         self,
@@ -269,9 +267,7 @@ class Cifar10DataSet(CifarDataSet):
         )
 
 
-@DatasetRegistry.register(
-    key=["cifar100"], attributes={"num_classes": 100}
-)
+@DatasetRegistry.register(key=["cifar100"], attributes={"num_classes": 100})
 class Cifar100DataSet(CifarDataSet):
     def __init__(
         self,

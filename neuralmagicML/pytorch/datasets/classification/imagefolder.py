@@ -19,20 +19,30 @@ from neuralmagicML.utils.datasets import (
 )
 
 
-__all__ = ["ImageNetDataset"]
+__all__ = ["ImageFolderDataset"]
 
 
 @DatasetRegistry.register(
-    key=["imagenet"],
+    key=["imagefolder"],
     attributes={
-        "num_classes": 1000,
         "transform_means": IMAGENET_RGB_MEANS,
         "transform_stds": IMAGENET_RGB_STDS,
     },
 )
-class ImageNetDataset(ImageFolder):
+class ImageFolderDataset(ImageFolder):
     """
-    Wrapper for the ImageNet dataset to apply standard transforms.
+    Wrapper for the ImageFolder dataset to apply standard transforms.
+    Additionally scales the inputs based off of the imagenet means and stds.
+
+    | Dataset should be in the following form locally on disk:
+    |
+    | root/dog/xxx.png
+    | root/dog/xxy.png
+    | root/dog/xxz.png
+    |
+    | root/cat/123.png
+    | root/cat/nsdf3.png
+    | root/cat/asd932_.png
 
     :param root: The root folder to find the dataset at
     :param train: True if this is for the training distribution,
@@ -44,7 +54,7 @@ class ImageNetDataset(ImageFolder):
 
     def __init__(
         self,
-        root: str = default_dataset_path("imagenet"),
+        root: str = default_dataset_path("imagenet"),  # default to imagenet location
         train: bool = True,
         rand_trans: bool = False,
         image_size: int = 224,
@@ -80,3 +90,7 @@ class ImageNetDataset(ImageFolder):
         if train:
             # make sure we don't preserve the folder structure class order
             random.shuffle(self.samples)
+
+    @property
+    def num_classes(self) -> int:
+        return len(self.classes)

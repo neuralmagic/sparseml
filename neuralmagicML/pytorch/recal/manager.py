@@ -40,18 +40,24 @@ class ScheduledModifierManager(BaseManager, Modifier):
     """
 
     @staticmethod
-    def from_yaml(file_path: str):
+    def from_yaml(file_path: str, add_modifiers: List[Modifier] = None):
         """
         Convenience function used to create the manager of multiple modifiers from a
         yaml file.
 
         :param file_path: the path to the yaml file to load the modifier from
+        :param add_modifiers: additional modifiers that should be added to the
+            returned manager alongside the ones loaded from the yaml file
         :return: ScheduledModifierManager() created from the yaml file
         """
         with open(file_path, "r") as yaml_file:
             yaml_str = yaml_file.read()
 
         modifiers = Modifier.load_list(yaml_str)
+
+        if add_modifiers:
+            modifiers.extend(add_modifiers)
+
         manager = ScheduledModifierManager(modifiers)
 
         return manager

@@ -193,7 +193,7 @@ def test_gradual_ks_yaml():
     update_frequency = 1.0
     params = ["re:.*weight"]
     inter_func = "cubic"
-    mask_type = 'filter'
+    mask_type = "filter"
     yaml_str = f"""
     !GradualKSModifier
         init_sparsity: {init_sparsity}

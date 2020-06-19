@@ -93,9 +93,7 @@ class GraphExporter(object):
 
         if not os.path.exists(pb_path):
             raise FileNotFoundError(
-                (
-                    "no pb file for the model found at {}"
-                ).format(pb_path)
+                ("no pb file for the model found at {}").format(pb_path)
             )
 
         inputs = [inp if isinstance(inp, str) else inp.name for inp in inputs]

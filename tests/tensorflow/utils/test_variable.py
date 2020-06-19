@@ -73,13 +73,13 @@ def test_get_prunable_ops(net_const, expected_ops: List[str]):
             mlp_net,
             ["mlp_net/fc1/weight", "mlp_net/fc2/weight", "mlp_net/fc3/weight"],
             ["mlp_net/fc1/matmul", "mlp_net/fc2/matmul", "mlp_net/fc3/matmul"],
-            ["mlp_net/fc1/weight", "mlp_net/fc2/weight", "mlp_net/fc3/weight"]
+            ["mlp_net/fc1/weight", "mlp_net/fc2/weight", "mlp_net/fc3/weight"],
         ),
         (
             mlp_net,
             ["mlp_net/fc1/weight"],
             ["mlp_net/fc1/matmul"],
-            ["mlp_net/fc1/weight"]
+            ["mlp_net/fc1/weight"],
         ),
         (
             conv_net,

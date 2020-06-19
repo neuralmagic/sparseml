@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Union, Dict
 import os
 import time
+import logging
 from logging import Logger
 from numpy import ndarray
 
@@ -142,9 +143,16 @@ class PythonLogger(PyTorchLogger):
 
     def __init__(self, logger: Logger = None, name: str = "python"):
         super().__init__(name)
-        self._logger = (
-            logger if logger is not None else Logger("NeuralMagicModifiersLogger")
-        )
+
+        if logger:
+            self._logger = logger
+        else:
+            self._logger = logging.getLogger(__name__)
+            self._logger.addHandler(logging.StreamHandler())
+            self._logger.setLevel(logging.INFO)
+
+    def __getattr__(self, item):
+        return getattr(self._logger, item)
 
     def log_hyperparams(self, params: Dict):
         """

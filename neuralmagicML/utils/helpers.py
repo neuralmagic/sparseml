@@ -3,7 +3,7 @@ General utility helper functions.
 Common functions for interfacing with python primitives and directories/files.
 """
 
-from typing import Union, Iterable, Any
+from typing import Union, Iterable, Any, List, Tuple
 import sys
 import os
 import errno
@@ -17,6 +17,7 @@ __all__ = [
     "validate_str_iterable",
     "INTERPOLATION_FUNCS",
     "interpolate",
+    "interpolated_integral",
     "clean_path",
     "create_dirs",
     "create_parent_dirs",
@@ -143,6 +144,34 @@ def interpolate(
 
     # scale the threshold based on what we want the current to be
     return y_per * (y1 - y0) + y0
+
+
+def interpolated_integral(measurements: List[Tuple[float, float]]):
+    """
+    Calculate the interpolated integal for a group of measurements of the form
+    [(x0, y0), (x1, y1), ...]
+
+    :param measurements: the measurements to calculate the integral for
+    :return: the integral or area under the curve for the measurements given
+    """
+    if len(measurements) < 1:
+        return 0.0
+
+    if len(measurements) == 1:
+        return measurements[0][1]
+
+    integral = 0.0
+
+    for index, (x_val, y_val) in enumerate(measurements):
+        if index >= len(measurements) - 1:
+            continue
+
+        x_next, y_next = measurements[index + 1]
+        x_dist = x_next - x_val
+        area = y_val * x_dist + (y_next - y_val) * x_dist / 2.0
+        integral += area
+
+    return integral
 
 
 def clean_path(path: str) -> str:

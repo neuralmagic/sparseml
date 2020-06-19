@@ -8,6 +8,8 @@ from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
 from collections import OrderedDict
 
+from neuralmagicML.utils.helpers import create_parent_dirs
+
 
 __all__ = [
     "load_model",
@@ -94,6 +96,8 @@ def save_model(
     :param optimizer: the optimizer, if any, to save state for
     :param epoch: the epoch to save
     """
+    create_parent_dirs(path)
+
     if isinstance(model, DataParallel):
         model = model.module
 

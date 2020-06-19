@@ -3,13 +3,16 @@ Optimizer wrapper for enforcing Modifiers on the training process of a Module.
 """
 
 from typing import List, Union
-import sys
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.pytorch.recal.manager import ScheduledModifierManager
-from neuralmagicML.pytorch.utils import PyTorchLogger
+from neuralmagicML.pytorch.utils import (
+    PyTorchLogger,
+    get_optim_learning_rate,
+    set_optim_learning_rate,
+)
 
 
 __all__ = ["ScheduledOptimizer"]
@@ -23,26 +26,11 @@ class ScheduledOptimizer(Optimizer):
     Overrides the step() function so that this method can call before and after on the
     modifiers to apply appropriate modifications to both the optimizer and the module.
 
-    Required to either pass in steps_per_epoch or to call epoch_start() and epoch_end().
-    Doing both is recommended as there are some caveats when only one is used.
-
-    Only using steps_per_epoch:
-    using this we estimate when epoch_start and epoch_end are based on how many
-    steps we take.
-    Can result in inaccurate estimates of starting a new epoch:
-    varying batch sizes, changes in dataset size, irregular optimization routines.
-
-    Only using epoch_start() and epoch_end():
-    based on this we estimate the steps_per_epoch to give a finer granularity of
-    control after first epoch can result in inaccurate estimates of the current batch
-    within epoch:
-    info not available until first epoch complete
-    (one cycle of epoch_start() and epoch_end()), changes in dataset size,
-    irregular optimization routines.
+    The epoch_start and epoch_end are based on how many steps have been taken
+    along with the steps_per_epoch.
 
     | Lifecycle:
-    |   - epoch_start
-    |   - training
+    |   - training cycle
     |       - zero_grad
     |       - loss_update
     |           - modifiers.loss_update
@@ -51,7 +39,6 @@ class ScheduledOptimizer(Optimizer):
     |           - modifiers.optimizer_pre_step
     |           - optimizer.step
     |           - modifiers.optimizers_post_step
-    |   - epoch_end
 
     :param module: module to modify
     :param optimizer: optimizer to modify
@@ -60,6 +47,9 @@ class ScheduledOptimizer(Optimizer):
         not strictly required and can be set to -1.
         used to calculate decimals within the epoch,
         when not using can result in irregularities
+    :param start_epoch: the epoch to start the manager at.
+        if restoring from a checkpoint then this value should be set to the
+        current epoch for optimizing
     :param loggers: loggers to log important info to within the modifiers;
         ex tensorboard or to the console
 
@@ -71,24 +61,23 @@ class ScheduledOptimizer(Optimizer):
         module: Module,
         manager: ScheduledModifierManager,
         steps_per_epoch: int,
+        start_epoch: int = 0,
         loggers: Union[List[PyTorchLogger], None] = None,
     ):
-        # do not call into super.__init__()
-        # makes the implementation messier activation this instance
-        # is not actually acting activation an optimizer
-        # just a wrapper around the passed in optimizer
+        # do not call into super since this instance is not passing all calls to
+        # the nested optimizer
+
+        if steps_per_epoch <= 0:
+            raise ValueError("steps_per_epoch must be >= 0")
+
         self._optimizer = optimizer
         self._module = module
         self._manager = manager
         self._steps_per_epoch = steps_per_epoch
-
+        self._start_epoch = start_epoch
         self._steps = 0
-        self._epoch_counter = -1
-        self._epoch = -1
-        self._epoch_steps = 0
-        self._epoch_started = False
-        self._mode = None
 
+        self._epoch = float(start_epoch)
         self._manager.initialize(self._module, self._optimizer)
         self._manager.initialize_loggers(loggers)
 
@@ -104,16 +93,32 @@ class ScheduledOptimizer(Optimizer):
     def __repr__(self):
         self._optimizer.__repr__()
 
+    def __getattr__(self, item):
+        return getattr(self._optimizer, item)
+
+    def __setattr__(self, key, value):
+        if key in [
+            "_optimizer",
+            "_module",
+            "_manager",
+            "_steps_per_epoch",
+            "_start_epoch",
+            "_steps",
+            "_epoch",
+            "learning_rate",
+            "param_groups",
+        ]:
+            super().__setattr__(key, value)
+        else:
+            setattr(self._optimizer, key, value)
+
     @property
     def learning_rate(self) -> float:
         """
         :return: convenience function to get the first learning rate for any of
             the param groups in the optimizer
         """
-        for param_group in self.param_groups:
-            return param_group["lr"]
-
-        raise RuntimeError("cannot get learning_rate, no param_groups available")
+        return get_optim_learning_rate(self._optimizer)
 
     @learning_rate.setter
     def learning_rate(self, value: float):
@@ -121,8 +126,7 @@ class ScheduledOptimizer(Optimizer):
         :param value: the learning rate to set for the optimizer,
             will set all param groups in the optim to this value
         """
-        for param_group in self.param_groups:
-            param_group["lr"] = value
+        set_optim_learning_rate(self._optimizer, value)
 
     @property
     def param_groups(self):
@@ -133,10 +137,13 @@ class ScheduledOptimizer(Optimizer):
         self._optimizer.param_groups = value
 
     def state_dict(self):
-        self._optimizer.state_dict()
+        return self._optimizer.state_dict()
 
     def load_state_dict(self, state_dict):
         self._optimizer.load_state_dict(state_dict)
+
+    def add_param_group(self, param_group):
+        self._optimizer.add_param_group(param_group)
 
     def zero_grad(self):
         self._optimizer.zero_grad()
@@ -151,23 +158,8 @@ class ScheduledOptimizer(Optimizer):
         :param closure: optional closure passed into the contained optimizer
             for the step
         """
-        if self._mode is None and self._steps_per_epoch <= 0:
-            raise RuntimeError(
-                "epoch_start must be called or steps_per_epoch must"
-                " be supplied in the constructor"
-            )
+        self._set_epoch()
 
-        if self._mode is None:
-            self._mode = "counter"
-
-        if self._mode == "counter":
-            self._set_epoch_by_counter()
-        elif self._mode == "start_end":
-            self._set_epoch_by_start_end()
-        else:
-            raise ValueError("unknown mode of {}".format(self._mode))
-
-        self._epoch_steps += 1
         self._manager.update(
             self._module, self._optimizer, self._epoch, self._steps_per_epoch
         )
@@ -178,41 +170,7 @@ class ScheduledOptimizer(Optimizer):
         self._manager.optimizer_post_step(
             self._module, self._optimizer, self._epoch, self._steps_per_epoch
         )
-
-    def add_param_group(self, param_group):
-        self._optimizer.add_param_group(param_group)
-
-    def epoch_start(self):
-        """
-        Called before starting an epoch for training.
-        Calls into the managers to update based on the new epoch that is starting.
-        """
-        if self._mode is not None and self._mode != "start_end":
-            raise RuntimeError(
-                "first epoch_start call must happen before first step call"
-            )
-
-        self._mode = "start_end"
-        self._epoch_started = True
-        self._epoch_counter += 1
-        self._epoch = float(self._epoch_counter)
-        self._epoch_steps = 0
-        self._manager.update(
-            self._module, self._optimizer, self._epoch, self._steps_per_epoch
-        )
-
-    def epoch_end(self):
-        """
-        Called after an epoch for training has ended.
-        Calls into the managers to update based on the epoch that just ended.
-        """
-        if self._mode != "start_end":
-            raise RuntimeError("epoch_start call must happen before epoch_end")
-
-        self._epoch = self._epoch_counter - sys.float_info.epsilon
-        self._manager.update(
-            self._module, self._optimizer, self._epoch, self._steps_per_epoch
-        )
+        self._steps += 1
 
     def loss_update(self, loss: Tensor) -> Tensor:
         """
@@ -229,26 +187,20 @@ class ScheduledOptimizer(Optimizer):
 
         return loss
 
-    def _set_epoch_by_counter(self):
-        if self._epoch_steps >= self._steps_per_epoch or self._epoch_counter < 0:
-            self._epoch_counter += 1
-            self._epoch_steps = 0
+    def adjust_current_step(self, epoch: int, step: int):
+        """
+        Adjust the current step for the manager's schedule to the given epoch and step
 
-        self._epoch = float(self._epoch_counter) + float(self._epoch_steps) / float(
+        :param epoch: the epoch to set the current global step to match
+        :param step: the step (batch) within the epoch to set the
+            current global step to match
+        """
+        self._steps = epoch * self._steps_per_epoch + step
+        self._set_epoch()
+
+    def _set_epoch(self):
+        epoch_num = self._start_epoch + self._steps // self._steps_per_epoch
+        epoch_steps = self._steps % self._steps_per_epoch
+        self._epoch = float(epoch_num) + float(epoch_steps) / float(
             self._steps_per_epoch
         )
-        self._check_epoch_bounds()
-
-    def _set_epoch_by_start_end(self):
-        if self._steps_per_epoch <= 0:
-            self._epoch = float(self._epoch_counter)
-        else:
-            self._epoch = float(self._epoch_counter) + float(self._epoch_steps) / float(
-                self._steps_per_epoch
-            )
-
-        self._check_epoch_bounds()
-
-    def _check_epoch_bounds(self):
-        if self._epoch >= self._epoch_counter + 1:
-            self._epoch = float(self._epoch_counter + 1) - sys.float_info.epsilon

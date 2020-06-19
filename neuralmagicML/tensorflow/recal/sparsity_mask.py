@@ -121,7 +121,7 @@ class UnstructuredSparsityMaskCreator(SparsityMaskCreator):
         )
 
     def __str__(self):
-        return 'unstructured'
+        return "unstructured"
 
     def __repr__(self):
         return str(self)
@@ -135,9 +135,9 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
     """
 
     _GROUPING_OPS = {
-        'mean': tf_compat.reduce_mean,
-        'max': tf_compat.reduce_max,
-        'min': tf_compat.reduce_min,
+        "mean": tf_compat.reduce_mean,
+        "max": tf_compat.reduce_max,
+        "min": tf_compat.reduce_min,
     }
 
     @staticmethod
@@ -221,12 +221,10 @@ class DimensionSparsityMaskCreator(GroupedSparsityMaskCreator):
         the type of dims to prune (['channel', 'filter'])
     """
 
-    _VALID_DIM_NAMES = ['channel', 'filter']
+    _VALID_DIM_NAMES = ["channel", "filter"]
 
     def __init__(
-        self,
-        dim: Union[str, int, List[int]],
-        grouping_op_name: str = 'mean',
+        self, dim: Union[str, int, List[int]], grouping_op_name: str = "mean",
     ):
         if isinstance(dim, int):
             dim = [dim]
@@ -237,30 +235,34 @@ class DimensionSparsityMaskCreator(GroupedSparsityMaskCreator):
             if dim in DimensionSparsityMaskCreator._VALID_DIM_NAMES:
                 self._dim_name = dim
             else:
-                raise ValueError("Invalid Dimension name: {}, valid names: {}".format(
-                    dim, DimensionSparsityMaskCreator._VALID_DIM_NAMES
-                ))
+                raise ValueError(
+                    "Invalid Dimension name: {}, valid names: {}".format(
+                        dim, DimensionSparsityMaskCreator._VALID_DIM_NAMES
+                    )
+                )
 
     def _set_dim_by_name_for_tensor(self, tensor: tf_compat.Tensor):
         n_dims = len(tensor.shape)
         if n_dims <= 2:
-            if self._dim_name == 'channel':
+            if self._dim_name == "channel":
                 self._dim = [0]
             else:
                 raise ValueError(
                     "filter pruning unsupported for tensors with fewer than 3 dimensions."
                     " Received Tensor with shape {}".format(tensor.shape)
                 )
-        elif self._dim_name == 'channel':
+        elif self._dim_name == "channel":
             # in channel should be the second to last dimension
             self._dim = [n_dims - 2]
-        elif self._dim_name == 'filter':
+        elif self._dim_name == "filter":
             # Non-kernel dimensions should be the last two in a conv (in / out channels)
             self._dim = [n_dims - 2, n_dims - 1]
         else:
-            raise ValueError("Invalid dimension prune type: {}, valid types: {}".format(
-                self._dim_name, DimensionSparsityMaskCreator._VALID_DIM_NAMES
-            ))
+            raise ValueError(
+                "Invalid dimension prune type: {}, valid types: {}".format(
+                    self._dim_name, DimensionSparsityMaskCreator._VALID_DIM_NAMES
+                )
+            )
 
     def _group_tensor(self, tensor: tf_compat.Tensor) -> tf_compat.Tensor:
         """
@@ -311,9 +313,7 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
     """
 
     def __init__(
-        self,
-        block_shape: List[int],
-        grouping_op_name: str = 'mean',
+        self, block_shape: List[int], grouping_op_name: str = "mean",
     ):
         if len(block_shape) != 2:
             raise ValueError(
@@ -395,9 +395,7 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
             raise ValueError(
                 "Invalid tensor shape {}."
                 " BlockSparsityMaskCreator can only create masks from tensors with 2 or"
-                " more dimensions, tensor has {}.".format(
-                    tens_shape, n_dims
-                )
+                " more dimensions, tensor has {}.".format(tens_shape, n_dims)
             )
         for tens_dim, block_dim in zip(tens_shape, block_shape):
             if tens_dim % block_dim != 0:
@@ -450,9 +448,9 @@ def load_mask_creator(obj: Union[str, Iterable[int]]) -> SparsityMaskCreator:
         constructor_lambda = mask_creator_name_to_constructor_lambda[obj]
         return constructor_lambda()
     # Checking for a BlockSparsityMaskCreator string
-    if ('[' in obj and ']' in obj) or ('(' in obj and ')' in obj):
-        stripped_str = obj.strip('[|]|(|)')
-        block_shape = [int(s) for s in stripped_str.split(',')]
+    if ("[" in obj and "]" in obj) or ("(" in obj and ")" in obj):
+        stripped_str = obj.strip("[|]|(|)")
+        block_shape = [int(s) for s in stripped_str.split(",")]
         return BlockSparsityMaskCreator(block_shape)
     if isinstance(obj, list) or isinstance(obj, tuple):
         return BlockSparsityMaskCreator(obj)

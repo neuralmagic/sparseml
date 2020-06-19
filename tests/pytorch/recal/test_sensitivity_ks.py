@@ -3,39 +3,67 @@ import pytest
 import os
 import torch
 import torch.nn.functional as TF
+from torch.utils.data import DataLoader
 
-from neuralmagicML.pytorch.recal import one_shot_ks_loss_sensitivity
+from neuralmagicML.pytorch.recal import (
+    approx_ks_loss_sensitivity,
+    one_shot_ks_loss_sensitivity,
+)
 from neuralmagicML.pytorch.utils import LossWrapper
 
 from tests.pytorch.helpers import MLPNet, ConvNet, MLPDataset, ConvDataset
-
-
-def _test_one_shot_ks_loss_sensitivity_helper(
-    model, dataset, loss_fn, batch_size, samples_per_measurement, device
-):
-    analysis = one_shot_ks_loss_sensitivity(
-        model, dataset, loss_fn, device, batch_size, samples_per_measurement
-    )
-
-    for res in analysis.results:
-        assert res.integral > 0.0
 
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
-    "model,dataset,loss_fn,batch_size,samples_per_measurement",
+    "model", [MLPNet(), ConvNet()],
+)
+def test_module_ks_sensitivity_analysis_one_shot(model):
+    analysis = approx_ks_loss_sensitivity(model)
+
+    for res in analysis.results:
+        assert "param" in res
+        assert "index" in res
+        assert "sparse_measurements" in res
+        assert "sparse_averages" in res
+        assert res["sparse_loss_avg"] > 0.0
+        assert res["sparse_loss_integral"] > 0.0
+
+
+def _test_one_shot_ks_loss_sensitivity_helper(
+    model, data, loss, device, steps_per_measurement
+):
+    analysis = one_shot_ks_loss_sensitivity(
+        model, data, loss, device, steps_per_measurement
+    )
+
+    for res in analysis.results:
+        assert "param" in res
+        assert "index" in res
+        assert "sparse_measurements" in res
+        assert "sparse_averages" in res
+        assert res["sparse_loss_avg"] > 0.0
+        assert res["sparse_loss_integral"] > 0.0
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize(
+    "model,dataset,loss,batch_size,steps_per_measurement",
     [
         (MLPNet(), MLPDataset(), LossWrapper(TF.mse_loss), 16, 100),
         (ConvNet(), ConvDataset(), LossWrapper(TF.mse_loss), 16, 100),
     ],
 )
 def test_module_ks_sensitivity_analysis_one_shot(
-    model, dataset, loss_fn, batch_size, samples_per_measurement
+    model, dataset, loss, batch_size, steps_per_measurement
 ):
+    data = DataLoader(dataset, batch_size)
     _test_one_shot_ks_loss_sensitivity_helper(
-        model, dataset, loss_fn, batch_size, samples_per_measurement, "cpu"
+        model, data, loss, "cpu", steps_per_measurement,
     )
 
 
@@ -43,7 +71,7 @@ def test_module_ks_sensitivity_analysis_one_shot(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
-    "model,dataset,loss_fn,batch_size,samples_per_measurement",
+    "model,dataset,loss,batch_size,steps_per_measurement",
     [
         (MLPNet(), MLPDataset(), LossWrapper(TF.mse_loss), 16, 100),
         (ConvNet(), ConvDataset(), LossWrapper(TF.mse_loss), 16, 100),
@@ -51,8 +79,9 @@ def test_module_ks_sensitivity_analysis_one_shot(
 )
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
 def test_module_ks_sensitivity_analysis_one_shot_cuda(
-    model, dataset, loss_fn, batch_size, samples_per_measurement
+    model, dataset, loss, batch_size, steps_per_measurement
 ):
+    data = DataLoader(dataset, batch_size)
     _test_one_shot_ks_loss_sensitivity_helper(
-        model, dataset, loss_fn, batch_size, samples_per_measurement, "cuda"
+        model, data, loss, "cuda", steps_per_measurement,
     )

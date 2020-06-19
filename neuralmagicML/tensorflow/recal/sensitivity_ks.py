@@ -5,12 +5,9 @@ Sensitivity analysis implementations for kernel sparsity on Graphs against loss 
 from typing import Dict, List, Union, Callable
 from collections import namedtuple
 import numpy
+from tqdm import auto
 
-from neuralmagicML.recal import (
-    KSLossSensitivityProgress,
-    KSLossSensitivityResult,
-    KSLossSensitivityAnalysis,
-)
+from neuralmagicML.recal import KSLossSensitivityAnalysis, default_check_sparsities
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.utils import get_ops_and_inputs_by_name_or_regex
 from neuralmagicML.tensorflow.recal.mask_ks import KSScope, create_op_pruning
@@ -89,13 +86,13 @@ def ks_loss_sensitivity_op_vars(
 def one_shot_ks_loss_sensitivity(
     op_vars: List[SparsePruningOpVars],
     loss_tensor: tf_compat.Tensor,
-    samples_per_measurement: int,
+    steps_per_measurement: int,
     add_ops_creator: Callable[[int], List[tf_compat.Tensor]] = None,
     feed_dict_creator: Callable[[int], Dict[str, tf_compat.Tensor]] = None,
     sess: tf_compat.Session = None,
-    sparsity_levels: List[int] = None,
-    progress_hook: Callable = None,
-):
+    sparsity_levels: List[int] = default_check_sparsities(False),
+    show_progress: bool = True,
+) -> KSLossSensitivityAnalysis:
     """
     Run a one shot sensitivity analysis for kernel sparsity.
     It does not retrain, and instead puts the model to eval mode.
@@ -111,66 +108,44 @@ def one_shot_ks_loss_sensitivity(
 
     :param op_vars: the created pruning op vars from ks_loss_sensitivity_op_vars
     :param loss_tensor: the loss tensor in the model to measure for the sensitivity
-    :param samples_per_measurement: the number of session.run calls to run through
+    :param steps_per_measurement: the number of session.run calls to run through
         for each sparsity level on each layer
     :param add_ops_creator: a callback to create an op/tens list to be run through
         the session for each measurement. Called for each measurement
     :param feed_dict_creator: a callback to create a feed dict to be run through
         the session for each measurement. Called for each measurement
     :param sess: the session to use
-    :param sparsity_levels:
-    :param progress_hook:
+    :param sparsity_levels: the sparsity levels to check for each layer to calculate
+        sensitivity
+    :param show_progress: track progress of the runs if True
     :return: the sensitivity results for every op that is prunable
     """
 
     if not sess:
         sess = tf_compat.get_default_session()
 
-    if sparsity_levels is None:
-        sparsity_levels = [0.05, 0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.99]
-
-    if progress_hook is None:
-        progress_hook = KSLossSensitivityProgress.standard_update_hook()
-
-    progress = KSLossSensitivityProgress(
-        layer_index=-1,
-        layer_name="",
-        layers=[var.op_vars.op.name for var in op_vars],
-        sparsity_index=-1,
-        sparsity_levels=sparsity_levels,
-        measurement_step=-1,
-        samples_per_measurement=samples_per_measurement,
-    )
     analysis = KSLossSensitivityAnalysis()
     sess.run(tf_compat.variables_initializer([var.op_vars.mask for var in op_vars]))
+    bar = (
+        auto.tqdm(
+            desc="KS Analysis",
+            total=len(op_vars) * len(sparsity_levels) * steps_per_measurement,
+        )
+        if show_progress
+        else None
+    )
 
     for op_index, sparse_op_vars in enumerate(op_vars):
-        progress.layer_index = op_index
-        progress.layer_name = sparse_op_vars.op_vars.op.name
-        progress.sparsity_index = -1
-        progress.measurement_step = -1
-        if progress_hook:
-            progress_hook(progress)
-
         sparsities_loss = []
 
         for sparsity_index, sparsity_level in enumerate(sparsity_levels):
-            progress.sparsity_index = sparsity_index
-            progress.measurement_step = -1
-            if progress_hook:
-                progress_hook(progress)
-
             sess.run(
                 sparse_op_vars.op_vars.update,
                 feed_dict={sparse_op_vars.sparsity: sparsity_level},
             )
             measured = []
 
-            for step in range(samples_per_measurement):
-                progress.measurement_step = step
-                if progress_hook:
-                    progress_hook(progress)
-
+            for step in range(steps_per_measurement):
                 ops = [loss_tensor]
                 add_ops = add_ops_creator(step) if add_ops_creator else None
                 feed_dict = feed_dict_creator(step) if feed_dict_creator else None
@@ -182,19 +157,19 @@ def one_shot_ks_loss_sensitivity(
                 loss = values[0]
                 measured.append(loss)
 
-            loss_mean = numpy.mean(measured).item()
-            sparsities_loss.append((sparsity_level, loss_mean))
+                if bar is not None:
+                    bar.update(1)
 
-        analysis.results.append(
-            KSLossSensitivityResult(
-                sparse_op_vars.op_vars.op.name,
-                sparse_op_vars.op_vars.op_input.name,
-                sparse_op_vars.op_vars.op.type,
-                sparsities_loss,
-            )
+            sparsities_loss.append((sparsity_level, measured))
+
+        analysis.add_result(
+            sparse_op_vars.op_vars.op_input.name, op_index, sparsities_loss
         )
         sess.run(
             sparse_op_vars.op_vars.update, feed_dict={sparse_op_vars.sparsity: 0.0}
         )
+
+    if bar is not None:
+        bar.close()
 
     return analysis

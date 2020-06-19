@@ -10,6 +10,7 @@ from neuralmagicML.pytorch.recal import (
     SetLearningRateModifier,
     LearningRateModifier,
 )
+from neuralmagicML.pytorch.utils import get_optim_learning_rate
 
 from tests.pytorch.helpers import LinearNet
 from tests.pytorch.recal.test_modifier import (
@@ -24,11 +25,6 @@ from tests.pytorch.recal.test_modifier import (
 EPSILON = 1e-7
 INIT_LR = 0.0001
 SET_LR = 0.1
-
-
-def _get_optim_lr(optim: Optimizer) -> float:
-    for param_group in optim.param_groups:
-        return param_group["lr"]
 
 
 ##############################
@@ -67,7 +63,7 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
         optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
         assert modifier.applied_learning_rate < 0
-        assert _get_optim_lr(optimizer) == INIT_LR
+        assert get_optim_learning_rate(optimizer) == INIT_LR
 
         for epoch in range(int(modifier.start_epoch) + 10):
             expected = (
@@ -100,7 +96,7 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
                     ), "Failed at epoch:{} step:{}".format(epoch, step)
 
                 assert (
-                    abs(_get_optim_lr(optimizer) - expected) < EPSILON
+                    abs(get_optim_learning_rate(optimizer) - expected) < EPSILON
                 ), "Failed at epoch:{} step:{}".format(epoch, step)
 
 
@@ -188,7 +184,7 @@ class TestLRModifierExponentialImpl(ScheduledUpdateModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
-        assert _get_optim_lr(optimizer) == INIT_LR
+        assert get_optim_learning_rate(optimizer) == INIT_LR
 
         for epoch in range(int(modifier.end_epoch) + 5):
             if epoch < modifier.start_epoch:
@@ -227,7 +223,7 @@ class TestLRModifierExponentialImpl(ScheduledUpdateModifierTest):
                     assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
 
                 assert (
-                    abs(_get_optim_lr(optimizer) - expected) < EPSILON
+                    abs(get_optim_learning_rate(optimizer) - expected) < EPSILON
                 ), "Failed at epoch:{} step:{}".format(epoch, step)
 
 
@@ -330,7 +326,7 @@ class TestLRModifierStepImpl(ScheduledUpdateModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
-        assert _get_optim_lr(optimizer) == INIT_LR
+        assert get_optim_learning_rate(optimizer) == INIT_LR
 
         for epoch in range(int(modifier.end_epoch) + 5):
             if epoch < modifier.start_epoch:
@@ -378,7 +374,7 @@ class TestLRModifierStepImpl(ScheduledUpdateModifierTest):
                     assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
 
                 assert (
-                    abs(_get_optim_lr(optimizer) - expected) < EPSILON
+                    abs(get_optim_learning_rate(optimizer) - expected) < EPSILON
                 ), "Failed at epoch:{} step:{}".format(epoch, step)
 
 
@@ -484,7 +480,7 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
-        assert _get_optim_lr(optimizer) == INIT_LR
+        assert get_optim_learning_rate(optimizer) == INIT_LR
 
         for epoch in range(int(modifier.end_epoch) + 5):
             if epoch < modifier.start_epoch:
@@ -518,7 +514,7 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
                 else:
                     assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
 
-                optim_lr = _get_optim_lr(optimizer)
+                optim_lr = get_optim_learning_rate(optimizer)
                 assert (
                     abs(optim_lr - expected) < EPSILON
                 ), "Failed at epoch:{} step:{}".format(epoch, step)

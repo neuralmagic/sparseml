@@ -5,7 +5,6 @@ Utility / helper functions
 from collections import namedtuple
 from typing import Union, Tuple, Iterable, Dict, Any, List
 import os
-import random
 import re
 import numpy
 
@@ -13,11 +12,17 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Linear, Parameter
 from torch.nn.modules.conv import _ConvNd
+from torch.optim.optimizer import Optimizer
+from torch.utils.data import DataLoader
 
 from neuralmagicML.utils import create_dirs
 
 
 __all__ = [
+    "default_device",
+    "get_optim_learning_rate",
+    "set_optim_learning_rate",
+    "infinite_data_loader",
     "tensors_batch_size",
     "tensors_to_device",
     "tensors_to_precision",
@@ -38,6 +43,105 @@ __all__ = [
     "NamedLayerParam",
     "get_layer_param",
 ]
+
+
+##############################
+#
+# pytorch device helpers
+#
+##############################
+
+
+def default_device() -> str:
+    """
+    :return: the device that should be defaulted to for the current setup.
+        if multiple gpus are available then will return a string with all of them,
+        else if single gpu available then will return cuda,
+        else returns cpu
+    """
+
+    if not torch.cuda.is_available():
+        return "cpu"
+
+    if torch.cuda.device_count() < 2:
+        return "cuda"
+
+    device_ids = [str(i) for i in range(torch.cuda.device_count())]
+
+    return "cuda:{}".format(",".join(device_ids))
+
+
+##############################
+#
+# pytorch optim helpers
+#
+##############################
+
+
+def get_optim_learning_rate(optim: Optimizer) -> float:
+    """
+    :param optim: The optimizer to get the learning rate for
+
+    :return: convenience function to get the first learning rate for any of
+        the param groups in the optimizer
+    """
+    for param_group in optim.param_groups:
+        return param_group["lr"]
+
+    raise RuntimeError("cannot get learning_rate, no param_groups available")
+
+
+def set_optim_learning_rate(optim: Optimizer, value: float):
+    """
+    :param optim: The optimizer to set the learning rate for
+    :param value: the learning rate to set for the optimizer,
+        will set all param groups in the optim to this value
+    """
+    for param_group in optim.param_groups:
+        param_group["lr"] = value
+
+
+##############################
+#
+# pytorch data loader helpers
+#
+##############################
+
+
+def infinite_data_loader(
+    data_loader: DataLoader, early_stop_steps: int = -1, cache: bool = False
+):
+    """
+    A never ending data loader that will keep repeating the one passed in.
+    Will additionally cache the data if requested.
+
+    :param data_loader: the data loader to continually repeat
+    :param early_stop_steps: if set, the number of steps to run and break out early
+        instead of running all of the steps in the data loader
+    :param cache: True to cache the results in memory and return those on
+        subsequent requests, False otherwise
+    :return: an iterable for the never ending data loader
+    """
+    cached = None
+
+    while True:
+        if not cache or cached is None:
+            counter = 0
+            cached = []
+
+            for data in data_loader:
+                if cache:
+                    cached.append(data)
+
+                yield data
+
+                counter += 1
+
+                if 0 < early_stop_steps <= counter:
+                    break
+        else:
+            for data in cached:
+                yield data
 
 
 ##############################

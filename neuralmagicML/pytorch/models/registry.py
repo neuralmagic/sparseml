@@ -30,8 +30,6 @@ class ModelRegistry(object):
         pretrained_dataset: str = None,
         load_strict: bool = True,
         ignore_error_tensors: List[str] = None,
-        pre_load_func: Callable[[Module], Module] = None,
-        post_load_func: Callable[[Module], Module] = None,
         **kwargs
     ) -> Module:
         """
@@ -45,8 +43,6 @@ class ModelRegistry(object):
         :param load_strict: True to make sure all states are found in and
             loaded in model, False otherwise; default True
         :param ignore_error_tensors: tensors to ignore if there are errors in loading
-        :param pre_load_func: a function to run before loading the pretrained weights
-        :param post_load_func: a function to run after loading the pretrained weights
         :param kwargs: any keyword args to supply to the model constructor
         :return: the instantiated model
         """
@@ -63,8 +59,6 @@ class ModelRegistry(object):
             pretrained_dataset=pretrained_dataset,
             load_strict=load_strict,
             ignore_error_tensors=ignore_error_tensors,
-            pre_load_func=pre_load_func,
-            post_load_func=post_load_func,
             **kwargs
         )
 
@@ -164,8 +158,6 @@ class ModelRegistry(object):
             pretrained_dataset: str = None,
             load_strict: bool = True,
             ignore_error_tensors: List[str] = None,
-            pre_load_func: Callable[[Module], Module] = None,
-            post_load_func: Callable[[Module], Module] = None,
             *args,
             **kwargs
         ):
@@ -183,10 +175,6 @@ class ModelRegistry(object):
                 loading from pretrained_path or pretrained, False to ignore
             :param ignore_error_tensors: Tensors to ignore while checking the state dict
                 for weights loaded from pretrained_path or pretrained
-            :param pre_load_func: A function to run over the created Model before
-                weights can be loaded
-            :param post_load_func: A function to run over the created Model after
-                weights have been loaded
             """
             if desc_args and pretrained in desc_args:
                 kwargs[desc_args[pretrained][0]] = desc_args[pretrained]
@@ -198,9 +186,6 @@ class ModelRegistry(object):
                 ignore.extend(ignore_error_tensors)
             elif def_ignore_error_tensors:
                 ignore.extend(def_ignore_error_tensors)
-
-            if pre_load_func:
-                model = pre_load_func(model)
 
             if pretrained_path:
                 load_model(pretrained_path, model, load_strict, ignore)
@@ -223,9 +208,6 @@ class ModelRegistry(object):
                     # try one more time with overwrite on in case file was corrupted
                     paths = repo_model.download_framework_files(overwrite=True)
                     load_model(paths[0], model, load_strict, ignore)
-
-            if post_load_func:
-                model = post_load_func(model)
 
             return model
 

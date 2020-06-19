@@ -1,0 +1,14 @@
+version: 1.1.0
+
+modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 30.0
+
+  - !LearningRateModifier
+    start_epoch: 0.0
+    lr_class: StepLR
+    lr_kwargs:
+      step_size: 10
+      gamma: 0.5
+    init_lr: 0.001

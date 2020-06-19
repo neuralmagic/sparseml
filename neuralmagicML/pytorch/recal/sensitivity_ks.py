@@ -2,47 +2,185 @@
 Sensitivity analysis implementations for kernel sparsity on Modules against loss funcs.
 """
 
-from typing import List, Callable, Dict, Any, Union
+from typing import List, Callable, Any, Union, Tuple
 
+from torch import Tensor
 from torch.nn import Module
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
-from neuralmagicML.recal import (
-    KSLossSensitivityProgress,
-    KSLossSensitivityResult,
-    KSLossSensitivityAnalysis,
-)
-from neuralmagicML.pytorch.datasets import EarlyStopDataset, CacheableDataset
+from neuralmagicML.recal import KSLossSensitivityAnalysis, default_check_sparsities
 from neuralmagicML.pytorch.utils import (
     ModuleTester,
+    ModuleRunResults,
     LossWrapper,
     DEFAULT_LOSS_KEY,
     ModuleRunFuncs,
     get_prunable_layers,
-    model_to_device,
+    PyTorchLogger,
+    infinite_data_loader,
 )
 from neuralmagicML.pytorch.recal.mask_ks import ModuleParamKSMask
 from neuralmagicML.pytorch.recal.sparsity_mask import UnstructuredSparsityMaskCreator
 
 
 __all__ = [
+    "approx_ks_loss_sensitivity",
     "one_shot_ks_loss_sensitivity",
 ]
 
 
+def approx_ks_loss_sensitivity(
+    module: Module,
+    sparsity_levels: Union[List[float], Tuple[float, ...]] = default_check_sparsities(
+        True
+    ),
+):
+    """
+    Approximated kernel sparsity (pruning) loss analysis for a given model.
+    Returns the results for each prunable param (conv, linear) in the model.
+
+    :param module: the model to calculate the sparse sensitivity analysis for
+    :param sparsity_levels: the sparsity levels to calculate the loss for for each param
+    :return: the analysis results for the model
+    """
+    prunable = get_prunable_layers(module)
+    analysis = KSLossSensitivityAnalysis()
+
+    for index, (name, layer) in enumerate(prunable):
+        weight = getattr(layer, "weight")
+        values, _ = weight.view(-1).abs().sort()
+        sparse_measurements = []
+        prev_index = None
+
+        for sparsity in sparsity_levels:
+            val_index = round(sparsity * len(values))
+
+            if val_index >= len(values):
+                val_index = len(values) - 1
+
+            if sparsity <= 0.0:
+                sparse_measurements.append((sparsity, [0.0]))
+            else:
+                avg = values[prev_index:val_index].mean().item()
+                sparse_measurements.append((sparsity, [avg]))
+
+            prev_index = val_index + 1
+
+        analysis.add_result("{}.weight".format(name), index, sparse_measurements)
+
+    return analysis
+
+
+def _sensitivity_callback(
+    prunable_layers: List[Tuple[str, Module]],
+    sparsity_levels: List[int],
+    steps_per_measurement: int,
+    analysis: KSLossSensitivityAnalysis,
+    loss_key: str,
+) -> Tuple[Callable, Callable]:
+    measurement_steps = 0
+    layer_index = -1
+    sparsity_index = -1
+    sparsity_results = None
+    current_mask = None
+    current_meas = None
+
+    def complete_measurement():
+        """
+        Uses complete_measurement to handle when all of the required steps have been
+        taken for a given layer and sparsity level.
+        This handles saving the data for that measurement as well as incrementing to
+        the next sparsity level. If all sparsity levels are complete,
+        increments to the next layer and starts from the initial sparsity level
+        while appending the final layer results to the analysis.
+
+        Should only be invoked when all measurements have been taken,
+        starting the entire process, or finishing the entire process.
+        """
+
+        nonlocal measurement_steps
+        nonlocal layer_index
+        nonlocal sparsity_index
+        nonlocal sparsity_results
+        nonlocal current_mask
+        nonlocal current_meas
+
+        if measurement_steps >= 0 and 0 <= layer_index < len(prunable_layers):
+            ks_res = [
+                res.item() for res in sparsity_results.result_list_tensor(loss_key)
+            ]
+            current_meas.append((sparsity_levels[sparsity_index], ks_res))
+
+        measurement_steps = 0
+        sparsity_index += 1
+        sparsity_results = ModuleRunResults()
+
+        if 0 <= sparsity_index < len(sparsity_levels) and 0 <= layer_index < len(
+            prunable_layers
+        ):
+            current_mask.set_param_mask_from_sparsity(sparsity_levels[sparsity_index])
+        else:
+            if current_meas and layer_index < len(prunable_layers):
+                analysis.add_result(
+                    "{}.weight".format(prunable_layers[layer_index][0]),
+                    sparsity_index,
+                    current_meas,
+                )
+
+            sparsity_index = 0
+            current_meas = []
+            layer_index += 1
+
+            if current_mask:
+                current_mask.enabled = False
+                current_mask.reset()
+                del current_mask
+                current_mask = None
+
+            if layer_index < len(prunable_layers):
+                current_mask = ModuleParamKSMask(
+                    prunable_layers[layer_index][1],
+                    store_init=True,
+                    mask_creator=UnstructuredSparsityMaskCreator(),
+                )
+                current_mask.enabled = True
+
+                if sparsity_levels[sparsity_index] > 0.0:
+                    current_mask.set_param_mask_from_sparsity(
+                        sparsity_levels[sparsity_index]
+                    )
+
+    complete_measurement()
+
+    def batch_end(
+        epoch: int, step: int, batch_size: int, data: Any, pred: Any, losses: Any,
+    ):
+        nonlocal measurement_steps
+        measurement_steps += 1
+        sparsity_results.append(losses, batch_size)
+
+        if measurement_steps >= steps_per_measurement:
+            complete_measurement()
+
+    def completed():
+        complete_measurement()
+
+        return batch_end, completed
+
+    return batch_end, completed
+
+
 def one_shot_ks_loss_sensitivity(
     module: Module,
-    data: Dataset,
-    loss_fn: LossWrapper,
+    data: DataLoader,
+    loss: Union[LossWrapper, Callable[[Any, Any], Tensor]],
     device: str,
-    batch_size: int,
-    samples_per_measurement: int,
-    sparsity_levels: List[int] = None,
-    cache_data: bool = True,
-    loader_args: Dict = None,
-    data_loader_const: Callable = DataLoader,
+    steps_per_measurement: int,
+    sparsity_levels: List[int] = default_check_sparsities(False),
+    loss_key: str = DEFAULT_LOSS_KEY,
     tester_run_funcs: ModuleRunFuncs = None,
-    progress_hook: Union[Callable, None] = None,
+    tester_loggers: List[PyTorchLogger] = None,
+    show_progress: bool = True,
 ) -> KSLossSensitivityAnalysis:
     """
     Run a one shot sensitivity analysis for kernel sparsity.
@@ -57,116 +195,46 @@ def one_shot_ks_loss_sensitivity(
         will extract all prunable layers out
     :param data: the data to run through the module for calculating the sensitivity
         analysis
-    :param loss_fn: the loss function to use for the sensitivity analysis
-    :param device: the device to run the analysis on; ex: cpu, cuda, cuda:0,1
-    :param batch_size: the batch size to run through the model in eval mode
-    :param samples_per_measurement: the number of samples or items to take for each
+    :param loss: the loss function to use for the sensitivity analysis
+    :param device: the device to run the analysis on; ex: cpu, cuda
+    :param steps_per_measurement: the number of samples or items to take for each
         measurement at each sparsity lev
     :param sparsity_levels: the sparsity levels to check for each layer to calculate
         sensitivity
-    :param cache_data: True to cache the data in CPU RAM instead of reloading from disk
-        False to not cache.
-        Note, num_workers must be 0 for this to work, so first load is slow
-    :param loader_args: the arguments to supply to the DataLoader other than the
-        dataset and batch size
-    :param data_loader_const: the constructor used to create a DataLoader instance,
-        defaults to the regular PyTorch constructor
+    :param loss_key: the key for the loss function to track in the returned dict
     :param tester_run_funcs: override functions to use in the ModuleTester that runs
-    :param progress_hook: a hook to handle reporting progress updates to
+    :param tester_loggers: loggers to log data to while running the analysis
+    :param show_progress: track progress of the runs if True
     :return: the sensitivity results for every layer that is prunable
     """
-    data = (
-        EarlyStopDataset(data, samples_per_measurement)
-        if len(data) > samples_per_measurement > 0
-        else data
+    analysis = KSLossSensitivityAnalysis()
+    tester = ModuleTester(
+        module,
+        device,
+        loss,
+        loggers=tester_loggers,
+        log_summary=False,
+        log_steps=max(1, round(steps_per_measurement / 10)),
     )
-
-    if loader_args is None:
-        loader_args = {}
-
-    if cache_data:
-        # cacheable dataset does not work with parallel data loaders
-        if "num_workers" in loader_args and loader_args["num_workers"] != 0:
-            raise ValueError("num_workers must be 0 for dataset cache")
-
-        loader_args["num_workers"] = 0
-        data = CacheableDataset(data)
-
-    if sparsity_levels is None:
-        sparsity_levels = [0.05, 0.2, 0.4, 0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.99]
-
-    if progress_hook is None:
-        progress_hook = KSLossSensitivityProgress.standard_update_hook()
-
-    module, device, device_ids = model_to_device(module, device)
-    device_str = (
-        device
-        if device_ids is None or len(device_ids) < 2
-        else "{}:{}".format(device, device_ids[0])
-    )
-
     layers = get_prunable_layers(module)
-    progress = KSLossSensitivityProgress(
-        layer_index=-1,
-        layer_name="",
-        layers=[lay[0] for lay in layers],
-        sparsity_index=-1,
-        sparsity_levels=sparsity_levels,
-        measurement_step=-1,
-        samples_per_measurement=samples_per_measurement,
+    batch_end, completed = _sensitivity_callback(
+        layers, sparsity_levels, steps_per_measurement, analysis, loss_key
     )
-
-    def _batch_end(
-        _epoch: int, _step: int, _batch_size: int, _data: Any, _pred: Any, _losses: Any,
-    ):
-        progress.measurement_step = _step
-        if progress_hook:
-            progress_hook(progress)
-
-    tester = ModuleTester(module, device_str, loss_fn)
-    batch_end_hook = tester.run_hooks.register_batch_end_hook(_batch_end)
+    batch_end_hook = tester.run_hooks.register_batch_end_hook(batch_end)
     if tester_run_funcs is not None:
         tester.run_funcs.copy(tester_run_funcs)
 
-    analysis = KSLossSensitivityAnalysis()
-
-    for layer_index, (name, layer) in enumerate(layers):
-        progress.layer_index = layer_index
-        progress.layer_name = name
-        progress.sparsity_index = -1
-        progress.measurement_step = -1
-        if progress_hook:
-            progress_hook(progress)
-
-        sparsities_loss = []
-        mask = ModuleParamKSMask(layer, store_init=True, mask_creator=UnstructuredSparsityMaskCreator())
-        mask.enabled = True
-
-        for sparsity_index, sparsity_level in enumerate(sparsity_levels):
-            progress.sparsity_index = sparsity_index
-            progress.measurement_step = -1
-            if progress_hook:
-                progress_hook(progress)
-
-            mask.set_param_mask_from_sparsity(sparsity_level)
-            data_loader = data_loader_const(data, batch_size, **loader_args)
-            res = tester.run(
-                data_loader, desc="", show_progress=False, track_results=True
-            )
-            sparsities_loss.append(
-                (sparsity_level, res.result_mean(DEFAULT_LOSS_KEY).item())
-            )
-
-        mask.enabled = False
-        mask.reset()
-        del mask
-
-        analysis.results.append(
-            KSLossSensitivityResult(
-                name, "weight", layer.__class__.__name__, sparsities_loss
-            )
-        )
-
+    data_loader = infinite_data_loader(
+        data, early_stop_steps=steps_per_measurement, cache=True
+    )
+    tester.run(
+        data_loader,
+        desc="KS Analysis",
+        show_progress=show_progress,
+        track_results=False,
+        max_steps=steps_per_measurement * len(sparsity_levels) * len(layers),
+    )
+    completed()
     batch_end_hook.remove()
 
     return analysis

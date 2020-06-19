@@ -41,6 +41,14 @@ def test_loss_sensitivity(
             def feed_dict_creator(step: int):
                 return {inp: inp_arr, labels: labs_arr}
 
-            sens = one_shot_ks_loss_sensitivity(
+            analysis = one_shot_ks_loss_sensitivity(
                 op_vars, loss, 5, add_ops_creator, feed_dict_creator
             )
+
+            for res in analysis.results:
+                assert "param" in res
+                assert "index" in res
+                assert "sparse_measurements" in res
+                assert "sparse_averages" in res
+                assert res["sparse_loss_avg"] > 0.0
+                assert res["sparse_loss_integral"] > 0.0

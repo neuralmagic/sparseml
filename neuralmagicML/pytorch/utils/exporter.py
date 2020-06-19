@@ -4,7 +4,6 @@ Export PyTorch models to the local device
 
 from typing import List, Any, Iterable
 import os
-from collections import OrderedDict
 
 import torch
 from torch import Tensor
@@ -13,7 +12,6 @@ from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.utils import (
     create_parent_dirs,
-    create_dirs,
     clean_path,
 )
 from neuralmagicML.pytorch.utils.helpers import (

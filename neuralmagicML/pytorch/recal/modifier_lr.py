@@ -12,7 +12,11 @@ from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR
 
 from neuralmagicML.utils import ALL_TOKEN, convert_to_bool
 from neuralmagicML.recal import LearningRate, SetLearningRate
-from neuralmagicML.pytorch.utils.logger import PyTorchLogger
+from neuralmagicML.pytorch.utils import (
+    PyTorchLogger,
+    get_optim_learning_rate,
+    set_optim_learning_rate,
+)
 from neuralmagicML.pytorch.recal.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
@@ -29,18 +33,6 @@ CONSTRUCTORS = {
     "MultiStepLR": MultiStepLR,
     "ExponentialLR": ExponentialLR,
 }
-
-
-def _set_lr(lr: float, optim: Optimizer):
-    for param_group in optim.param_groups:
-        param_group["lr"] = lr
-
-
-def _get_lr(optim: Optimizer) -> float:
-    for param_group in optim.param_groups:
-        return param_group["lr"]
-
-    return -1.0
 
 
 def _log_lr(
@@ -74,7 +66,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param constant_logging: True to constantly log on every step,
-        False to only log on an LR change, default True
+        False to only log on an LR change and min once per epoch, default False
     """
 
     def __init__(
@@ -83,7 +75,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
-        constant_logging: bool = True,
+        constant_logging: bool = False,
     ):
         super().__init__(
             learning_rate=learning_rate,
@@ -96,6 +88,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         self._applied = -1.0
         self._constant_logging = convert_to_bool(constant_logging)
         self._last_logged_lr = None
+        self._last_logged_epoch = None
 
     @ModifierProp()
     def constant_logging(self) -> bool:
@@ -151,10 +144,15 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
             (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
-        current_lr = _get_lr(optimizer)
+        current_lr = get_optim_learning_rate(optimizer)
 
-        if self._constant_logging or current_lr != self._last_logged_lr:
+        if (
+            self._constant_logging
+            or current_lr != self._last_logged_lr
+            or math.floor(epoch) != self._last_logged_epoch
+        ):
             self._last_logged_lr = current_lr
+            self._last_logged_epoch = math.floor(epoch)
             _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
 
     def _check_set_lr(self, optimizer: Optimizer, epoch: float):
@@ -166,7 +164,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
             and not self._lr_set
             and self._learning_rate is not None
         ):
-            _set_lr(self.learning_rate, optimizer)
+            set_optim_learning_rate(optimizer, self.learning_rate)
             self._applied = self._learning_rate
             self._lr_set = True
 
@@ -204,7 +202,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param constant_logging: True to constantly log on every step,
-        False to only log on an LR change, default True
+        False to only log on an LR change and min once per epoch, default False
     """
 
     def __init__(
@@ -216,7 +214,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
-        constant_logging: bool = True,
+        constant_logging: bool = False,
     ):
         super().__init__(
             lr_class=lr_class,
@@ -233,6 +231,9 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         self._last_scheduler_epoch = math.floor(start_epoch)
         self._constant_logging = convert_to_bool(constant_logging)
         self._double_step = False
+        self._last_logged_lr = None
+        self._last_logged_epoch = None
+        self._scheduler_steps = 0
         self.validate()
 
     @ModifierProp()
@@ -268,7 +269,9 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         self._check_init_lr(optimizer)
 
         if epoch <= sys.float_info.epsilon:
-            self._double_step = True
+            # make sure we don't apply an lr step before the optimizer step
+            # mark the step to be applied on the next update
+            self._scheduler_steps -= 1
             return
 
         if (
@@ -278,12 +281,15 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             # no cleanup step for LR, so exit before adding another LR step
             return
 
-        if not self._check_setup_lr_scheduler(optimizer, steps_per_epoch):
-            self._lr_scheduler.step()
+        self._check_setup_lr_scheduler(optimizer, epoch, steps_per_epoch)
+        global_step = round(epoch * steps_per_epoch)
+        step_diff = global_step - self._scheduler_steps
 
-        if self._double_step:
-            self._lr_scheduler.step()
-            self._double_step = False
+        if step_diff > 0:
+            for _ in range(step_diff):
+                self._lr_scheduler.step()
+
+            self._scheduler_steps = global_step
 
     def log_update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -300,9 +306,15 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
-        current_lr = _get_lr(optimizer)
+        current_lr = get_optim_learning_rate(optimizer)
 
-        if self._constant_logging or current_lr != self._last_logged_lr:
+        if (
+            self._constant_logging
+            or current_lr != self._last_logged_lr
+            or math.floor(epoch) != self._last_logged_epoch
+        ):
+            self._last_logged_lr = current_lr
+            self._last_logged_epoch = math.floor(epoch)
             _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
 
     def validate(self):
@@ -321,7 +333,9 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             for param_group in optimizer.param_groups:
                 param_group["lr"] = self._init_lr
 
-    def _check_setup_lr_scheduler(self, optimizer: Optimizer, steps_per_epoch: int):
+    def _check_setup_lr_scheduler(
+        self, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
         if self._lr_scheduler is not None:
             return False
 
@@ -329,5 +343,9 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             steps_per_epoch, self.start_epoch, self.end_epoch
         )
         self._lr_scheduler = CONSTRUCTORS[lr_class](optimizer=optimizer, **lr_kwargs)
+        optimizer._step_count += 1  # hack to keep pytorch lr scheduler from complaining
+
+        global_step = round(epoch * steps_per_epoch)
+        self._scheduler_steps += global_step
 
         return True
