@@ -1,0 +1,41 @@
+version: 1.1.0
+
+modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 90.0
+
+  - !SetLearningRateModifier
+    start_epoch: 0.0
+    learning_rate: 0.005
+
+  - !LearningRateModifier
+    start_epoch: 30.0
+    lr_class: ExponentialLR
+    lr_kwargs:
+      gamma: 0.925
+    init_lr: 0.005
+
+  - !GradualKSModifier
+    params:
+      - sections.0.1.conv.weight
+      - sections.1.0.conv.weight
+      - sections.1.1.conv.weight
+      - sections.2.0.conv.weight
+      - sections.2.1.conv.weight
+      - sections.2.2.conv.weight
+      - sections.2.3.conv.weight
+      - sections.3.0.conv.weight
+      - sections.3.1.conv.weight
+      - sections.3.2.conv.weight
+      - sections.3.3.conv.weight
+      - sections.4.0.conv.weight
+      - sections.4.1.conv.weight
+      - sections.4.2.conv.weight
+      - sections.4.3.conv.weight
+      - classifier.mlp.0.weight
+    init_sparsity: 0.05
+    final_sparsity: 0.875
+    start_epoch: 1.0
+    end_epoch: 26.0
+    update_frequency: 0.25
