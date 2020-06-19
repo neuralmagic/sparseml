@@ -450,7 +450,7 @@ def main(args):
         py_logger.info("created optimizer: {}".format(optim))
         py_logger.info(
             "note, the lr for the optimizer will not reflect the manager yet until "
-            "the recal config. It must still be created and run"
+            "the recal config is created and run"
         )
 
         # restore from previous check point
