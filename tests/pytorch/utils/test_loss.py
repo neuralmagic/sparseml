@@ -2,7 +2,7 @@ import pytest
 
 import os
 from abc import ABC
-from typing import Dict, Iterable
+from typing import Dict
 import torch
 from torch import Tensor
 from torch.nn import Sequential, Linear, ReLU
@@ -171,12 +171,7 @@ class TestKDLossWrapperImpl(LossWrapperTest):
     "wrapper,metrics",
     [
         (BinaryCrossEntropyLossWrapper(DEFAULT_METRICS), DEFAULT_METRICS),
-        (
-            BinaryCrossEntropyLossWrapper(
-                DEFAULT_METRICS, kd_settings=DEFAULT_KD_SETTINGS
-            ),
-            DEFAULT_METRICS,
-        ),
+        (BinaryCrossEntropyLossWrapper(DEFAULT_METRICS), DEFAULT_METRICS,),
     ],
 )
 @pytest.mark.parametrize(

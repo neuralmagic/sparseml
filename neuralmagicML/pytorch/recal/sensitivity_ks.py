@@ -4,6 +4,7 @@ Sensitivity analysis implementations for kernel sparsity on Modules against loss
 
 from typing import List, Callable, Any, Union, Tuple
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader
@@ -24,9 +25,33 @@ from neuralmagicML.pytorch.recal.sparsity_mask import UnstructuredSparsityMaskCr
 
 
 __all__ = [
+    "approx_model_prunability",
     "approx_ks_loss_sensitivity",
     "one_shot_ks_loss_sensitivity",
 ]
+
+
+def approx_model_prunability(module: Module):
+    """
+    Calculate the approximate sensitivity for an overall model.
+    Range of the values are not scaled to anything, so must be taken in context
+    with other known models.
+
+    :param module: the model to calculate the sensitivity for
+    :return: the approximated sensitivity
+    """
+    prunable = get_prunable_layers(module)
+    tensors = []
+
+    for (name, layer) in prunable:
+        weight = getattr(layer, "weight")
+        values = weight.view(-1).abs()
+        tensors.append(values)
+
+    all_weights = torch.cat(tensors)
+    avg = all_weights.mean().item()
+
+    return avg
 
 
 def approx_ks_loss_sensitivity(

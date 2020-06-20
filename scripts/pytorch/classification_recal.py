@@ -136,12 +136,12 @@ import json
 import torch
 from torch.utils.data import DataLoader
 from torch.optim import SGD, Adam
-import torch.nn.functional as TF
 
 from neuralmagicML.pytorch.datasets import DatasetRegistry
 from neuralmagicML.pytorch.models import ModelRegistry
 from neuralmagicML.pytorch.utils import (
-    LossWrapper,
+    CrossEntropyLossWrapper,
+    InceptionCrossEntropyLossWrapper,
     TopKAccuracy,
     ModuleTrainer,
     ModuleTester,
@@ -426,16 +426,20 @@ def main(args):
     )
     py_logger.info("created model: {}".format(model))
 
-    # loss setup
-    loss = LossWrapper(
-        loss_fn=TF.cross_entropy,
-        extras={"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)},
-    )
-    py_logger.info("created loss: {}".format(loss))
-
-    epoch = 0
+    # val loss setup
+    extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
+    val_loss = CrossEntropyLossWrapper(extras)
+    py_logger.info("created loss for validation: {}".format(val_loss))
 
     if not args.eval_mode:
+        # train loss setup, different from val if using inception
+        train_loss = (
+            CrossEntropyLossWrapper(extras)
+            if "inception" not in args.arch_key
+            else InceptionCrossEntropyLossWrapper(extras)
+        )
+        py_logger.info("created loss for validation: {}".format(val_loss))
+
         # optimizer setup
         if args.optim == "SGD":
             optim_const = SGD
@@ -461,6 +465,8 @@ def main(args):
                     args.checkpoint_path, epoch
                 )
             )
+        else:
+            epoch = 0
 
         # recal setup
         add_mods = (
@@ -474,9 +480,10 @@ def main(args):
         optim = ScheduledOptimizer(
             optim, model, manager, steps_per_epoch=len(train_loader), loggers=loggers,
         )
-        optim.adjust_current_step(epoch, 0)  # adjust in case this is restored
         py_logger.info("created manager: {}".format(manager))
     else:
+        epoch = 0
+        train_loss = None
         optim = None
         manager = None
 
@@ -484,16 +491,19 @@ def main(args):
     model, device, device_ids = model_to_device(model, args.device)
 
     trainer = (
-        ModuleTrainer(model, device, loss, optim, loggers=loggers)
+        ModuleTrainer(model, device, train_loss, optim, loggers=loggers)
         if not args.eval_mode
         else None
     )
-    tester = ModuleTester(model, device, loss, loggers=loggers)
+    tester = ModuleTester(model, device, val_loss, loggers=loggers)
 
     # initial baseline eval run
     tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=args.debug_steps)
 
     if not args.eval_mode:
+        py_logger.info("starting training from epoch {}".format(epoch))
+        optim.adjust_current_step(epoch, 0)  # adjust in case this is restored
+
         while epoch < manager.max_epochs:
             if args.debug_steps > 0:
                 # correct since all optimizer steps are not

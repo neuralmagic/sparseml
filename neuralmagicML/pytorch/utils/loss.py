@@ -16,10 +16,11 @@ __all__ = [
     "TEACHER_LOSS_KEY",
     "DEFAULT_LOSS_KEY",
     "LossWrapper",
-    "KDSettings",
-    "KDLossWrapper",
     "BinaryCrossEntropyLossWrapper",
     "CrossEntropyLossWrapper",
+    "InceptionCrossEntropyLossWrapper",
+    "KDSettings",
+    "KDLossWrapper",
     "Accuracy",
     "TopKAccuracy",
 ]
@@ -155,6 +156,106 @@ class LossWrapper(object):
         raise TypeError(
             "unsupported type of data given of {}".format(data.__class__.__name__)
         )
+
+
+class BinaryCrossEntropyLossWrapper(LossWrapper):
+    """
+    Convenience class for doing binary cross entropy loss calculations,
+    ie the default loss function is TF.binary_cross_entropy_with_logits.
+
+    :param extras: extras representing other metrics that should be calculated
+        in addition to the loss
+    """
+
+    def __init__(
+        self, extras: Union[None, Dict] = None,
+    ):
+        super().__init__(
+            TF.binary_cross_entropy_with_logits, extras,
+        )
+
+
+class CrossEntropyLossWrapper(LossWrapper):
+    """
+    Convenience class for doing cross entropy loss calculations,
+    ie the default loss function is TF.cross_entropy.
+
+    :param extras: extras representing other metrics that should be calculated
+        in addition to the loss
+    """
+
+    def __init__(
+        self, extras: Union[None, Dict] = None,
+    ):
+        super().__init__(TF.cross_entropy, extras)
+
+
+class InceptionCrossEntropyLossWrapper(LossWrapper):
+    """
+    Loss wrapper for training an inception model that as an aux output
+    with cross entropy.
+
+    Defines the loss in the following way:
+    aux_weight * cross_entropy(aux_pred, lab) + cross_entropy(pred, lab)
+
+    Additionally adds cross_entropy into the extras.
+
+    :param extras: extras representing other metrics that should be calculated
+        in addition to the loss
+    :param aux_weight: the weight to use for the cross_entropy value
+        calculated from the aux output
+    """
+
+    def __init__(
+        self, extras: Union[None, Dict] = None, aux_weight: float = 0.4,
+    ):
+        if extras is None:
+            extras = {}
+
+        extras["cross_entropy"] = TF.cross_entropy
+        self._aux_weight = aux_weight
+
+        super().__init__(self.loss, extras)
+
+    def loss(self, preds: Tuple[Tensor, Tensor], labels: Tensor):
+        """
+        Loss function for inception to combine the overall outputs from the model
+        along with the the auxiliary loss from an earlier point in the model
+
+        :param preds: the predictions tuple containing [aux output, output]
+        :param labels: the labels to compare to
+        :return: the combined cross entropy value
+        """
+
+        aux_loss = TF.cross_entropy(preds[0], labels)
+        loss = TF.cross_entropy(preds[1], labels)
+
+        return loss + self._aux_weight * aux_loss
+
+    def get_preds(
+        self, data: Any, pred: Tuple[Tensor, Tensor, Tensor], name: str
+    ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+        """
+        Override get_preds for the inception training output.
+        Specifically expects the pred from the model to be a three tensor tuple:
+        (aux logits, logits, classes)
+
+        For the loss function returns a tuple containing (aux logits, logits),
+        for all other extras returns the logits tensor
+
+        :param data: data from a data loader
+        :param pred: the prediction from an inception model,
+            expected to be a tuple containing (aux logits, logits, classes)
+        :param name: the name of the loss function that is asking for the
+            information for calculation
+        :return: the predictions from the model for the loss function;
+            a tuple containing (aux logits, logits),
+            for all other extras returns the logits tensor
+        """
+        if name == DEFAULT_LOSS_KEY:
+            return pred[0], pred[1]  # return aux, logits for loss function
+
+        return pred[1]  # return logits for other calculations
 
 
 class KDSettings(object):
@@ -323,57 +424,6 @@ class KDLossWrapper(LossWrapper):
             )
 
         return losses
-
-
-class BinaryCrossEntropyLossWrapper(KDLossWrapper):
-    """
-    Convenience class for doing binary cross entropy loss calculations,
-    ie the default loss function is TF.binary_cross_entropy_with_logits.
-
-    :param extras: extras representing other metrics that should be calculated
-        in addition to the loss
-    :param deconstruct_tensors: True to break the tensors up into expected
-        predictions and labels, False to pass the tensors as is to loss and extras
-    :param kd_settings: the knowledge distillation settings that guide how to calculate
-        the total loss if knowledge distillation is desired to be used
-    """
-
-    def __init__(
-        self,
-        extras: Union[None, Dict] = None,
-        deconstruct_tensors: bool = True,
-        kd_settings: Union[None, KDSettings] = None,
-    ):
-        super(BinaryCrossEntropyLossWrapper, self).__init__(
-            TF.binary_cross_entropy_with_logits,
-            extras,
-            deconstruct_tensors,
-            kd_settings,
-        )
-
-
-class CrossEntropyLossWrapper(KDLossWrapper):
-    """
-    Convenience class for doing cross entropy loss calculations,
-    ie the default loss function is TF.cross_entropy.
-
-    :param extras: extras representing other metrics that should be calculated
-        in addition to the loss
-    :param deconstruct_tensors: True to break the tensors up into expected
-        predictions and labels, False to pass the tensors as is to loss and extras
-    :param kd_settings: the knowledge distillation settings that guide how
-        to calculate the total loss if knowledge distillation is desired to be used
-    """
-
-    def __init__(
-        self,
-        extras: Union[None, Dict] = None,
-        deconstruct_tensors: bool = True,
-        kd_settings: Union[None, KDSettings] = None,
-    ):
-        super(CrossEntropyLossWrapper, self).__init__(
-            TF.cross_entropy, extras, deconstruct_tensors, kd_settings
-        )
 
 
 class Accuracy(Module):

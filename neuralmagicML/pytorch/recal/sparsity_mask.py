@@ -3,7 +3,6 @@ Classes for defining sparsity masks based on model parameters.
 """
 from abc import ABC, abstractmethod
 from typing import List, Union, Callable, Iterable
-import numpy
 import torch
 from torch import Tensor
 import random
