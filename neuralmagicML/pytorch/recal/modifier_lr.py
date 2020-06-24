@@ -8,7 +8,12 @@ import sys
 import math
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
-from torch.optim.lr_scheduler import StepLR, MultiStepLR, ExponentialLR
+from torch.optim.lr_scheduler import (
+    StepLR,
+    MultiStepLR,
+    ExponentialLR,
+    CosineAnnealingWarmRestarts,
+)
 
 from neuralmagicML.utils import ALL_TOKEN, convert_to_bool
 from neuralmagicML.recal import LearningRate, SetLearningRate
@@ -32,6 +37,7 @@ CONSTRUCTORS = {
     "StepLR": StepLR,
     "MultiStepLR": MultiStepLR,
     "ExponentialLR": ExponentialLR,
+    "CosineAnnealingWarmRestarts": CosineAnnealingWarmRestarts,
 }
 
 
@@ -190,7 +196,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
     |       constant_logging: True
 
     :param lr_class: The name of the lr scheduler class to use:
-        [StepLR, MultiStepLR, ExponentialLR]
+        [StepLR, MultiStepLR, ExponentialLR, CosineAnnealingWarmRestarts]
     :param lr_kwargs: The dictionary of keyword arguments to pass to the constructor
         for the lr_class
     :param init_lr: The initial learning rate to use once this modifier starts
@@ -282,14 +288,24 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             return
 
         self._check_setup_lr_scheduler(optimizer, epoch, steps_per_epoch)
-        global_step = round(epoch * steps_per_epoch)
-        step_diff = global_step - self._scheduler_steps
 
-        if step_diff > 0:
-            for _ in range(step_diff):
-                self._lr_scheduler.step()
+        if self.lr_class != "CosineAnnealingWarmRestarts":
+            global_step = (
+                round(epoch * steps_per_epoch)
+                if self.end_epoch < 0.0 or epoch <= self.end_epoch
+                else round(self.end_epoch * steps_per_epoch)
+            )
+            step_diff = global_step - self._scheduler_steps
 
-            self._scheduler_steps = global_step
+            if step_diff > 0:
+                for _ in range(step_diff):
+                    self._lr_scheduler.step()
+
+                self._scheduler_steps = global_step
+        else:
+            self._lr_scheduler.step(
+                epoch - self.start_epoch if self.start_epoch >= 0.0 else 0.0
+            )
 
     def log_update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int

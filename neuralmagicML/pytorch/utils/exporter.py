@@ -4,11 +4,13 @@ Export PyTorch models to the local device
 
 from typing import List, Any, Iterable
 import os
+from copy import deepcopy
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
+from torch.nn import DataParallel
 
 from neuralmagicML.utils import (
     create_parent_dirs,
@@ -37,10 +39,13 @@ class ModuleExporter(object):
     def __init__(
         self, module: Module, output_dir: str,
     ):
-        self._module = module.to("cpu").eval()
+        if isinstance(module, DataParallel):
+            module = module.module
+
+        self._module = deepcopy(module).to("cpu").eval()
         self._output_dir = clean_path(output_dir)
 
-    def export_onnx(self, sample_batch: Any):
+    def export_onnx(self, sample_batch: Any, name: str = "model.onnx"):
         """
         Export an onnx file for the current module and for a sample batch.
         Sample batch used to feed through the model to freeze the graph for a
@@ -48,9 +53,10 @@ class ModuleExporter(object):
 
         :param sample_batch: the batch to export an onnx for, handles creating the
             static graph for onnx as well as setting dimensions
+        :param name: name of the onnx file to save
         """
         sample_batch = tensors_to_device(sample_batch, "cpu")
-        onnx_path = os.path.join(self._output_dir, "model.onnx")
+        onnx_path = os.path.join(self._output_dir, name)
         create_parent_dirs(onnx_path)
 
         with torch.no_grad():
@@ -82,16 +88,19 @@ class ModuleExporter(object):
             verbose=False,
         )
 
-    def export_pytorch(self, optimizer: Optimizer = None, epoch: int = None):
+    def export_pytorch(
+        self, optimizer: Optimizer = None, epoch: int = None, name: str = "model.pth"
+    ):
         """
         Export the pytorch state dicts into pth file within a
         pytorch framework directory.
 
         :param optimizer: optional optimizer to export along with the module
         :param epoch: optional epoch to export along with the module
+        :param name: name of the pytorch file to save
         """
         pytorch_path = os.path.join(self._output_dir, "pytorch")
-        pth_path = os.path.join(pytorch_path, "model.pth")
+        pth_path = os.path.join(pytorch_path, name)
         create_parent_dirs(pth_path)
         save_model(pth_path, self._module, optimizer, epoch)
 

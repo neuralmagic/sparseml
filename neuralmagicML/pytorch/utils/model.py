@@ -14,6 +14,7 @@ from neuralmagicML.utils.helpers import create_parent_dirs
 __all__ = [
     "load_model",
     "load_optimizer",
+    "load_epoch",
     "save_model",
     "model_to_device",
     "parallelize_model",
@@ -26,6 +27,7 @@ def load_model(
     model: Module,
     strict: bool = False,
     ignore_error_tensors: List[str] = None,
+    fix_data_parallel: bool = True,
 ):
     """
     Load the state dict into a model from a given file.
@@ -36,12 +38,26 @@ def load_model(
         and the file; False otherwise
     :param ignore_error_tensors: names of tensors to ignore if they are not found
         in either the model or the file
+    :param fix_data_parallel: fix the keys in the model state dict if they
+        look like they came from DataParallel type setup (start with module.).
+        This removes "module." all keys
     """
     model_dict = torch.load(path, map_location="cpu")
     current_dict = model.state_dict()
 
     if "state_dict" in model_dict:
         model_dict = model_dict["state_dict"]
+
+    # check if any keys were saved through DataParallel type setup and convert those
+    if fix_data_parallel:
+        keys = [k for k in model_dict.keys()]
+        module_key = "module."
+
+        for key in keys:
+            if key.startswith(module_key):
+                new_key = key[len(module_key):]
+                model_dict[new_key] = model_dict[key]
+                del model_dict[key]
 
     if not ignore_error_tensors:
         ignore_error_tensors = []
@@ -64,16 +80,23 @@ def load_model(
     model.load_state_dict(model_dict, strict)
 
 
-def load_optimizer(path: str, optimizer: Optimizer) -> Union[int, None]:
+def load_optimizer(
+    path: str, optimizer: Optimizer, map_location: Union[None, str] = "cpu"
+):
     """
     Load the state dict into an optimizer from a given file.
 
     :param path: the path to the pth file to load the state dict from
     :param optimizer: the optimizer to load the state dict into
+    :param map_location: the location to map the values to when loading the
     :return: the epoch saved in the file, if any
     """
-    model_dict = torch.load(path, map_location="cpu")
+    model_dict = torch.load(path, map_location=map_location)
     optimizer.load_state_dict(model_dict["optimizer"])
+
+
+def load_epoch(path: str, map_location: Union[None, str] = "cpu") -> Union[int, None]:
+    model_dict = torch.load(path, map_location=map_location)
 
     if "epoch" in model_dict:
         return model_dict["epoch"]

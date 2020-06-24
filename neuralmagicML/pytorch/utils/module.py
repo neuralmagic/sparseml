@@ -6,6 +6,7 @@ Allows reporting of progress and override functions and hooks.
 from abc import ABC, abstractmethod
 from typing import Callable, Any, Dict, Union, List
 from collections import OrderedDict
+import time
 from tqdm import auto
 
 import torch
@@ -574,8 +575,10 @@ class ModuleRunner(ABC):
         results = ModuleRunResults() if track_results else None
         previous_steps = (counter if counter > -1 else 0) * counter_len
         first_batch_size = None
+        epoch_timer = time.time()
 
         for batch, data in data_iter:
+            step_timer = time.time()
             batch_size = self._run_funcs.batch_size(data)  # type: int
 
             if first_batch_size is None:
@@ -604,6 +607,23 @@ class ModuleRunner(ABC):
                 self._log_scalar(
                     "{}/Batch Size".format(self._log_name), batch_size, log_step,
                 )
+                step_time = time.time() - step_timer
+                self._log_scalar(
+                    "{}/Seconds per step".format(self._log_name), step_time, log_step,
+                )
+                self._log_scalar(
+                    "{}/Steps per second".format(self._log_name),
+                    1.0 / step_time,
+                    log_step,
+                )
+
+                if progress_steps:
+                    remaining_steps = progress_steps - batch - 1
+                    self._log_scalar(
+                        "{}/Est remaining minutes".format(self._log_name),
+                        (step_time * remaining_steps) / 60,
+                        log_step,
+                    )
 
             if results is not None:
                 results.append(batch_results, batch_size)
@@ -624,6 +644,11 @@ class ModuleRunner(ABC):
             self._log_scalar(
                 "{}/Batch Size Summary".format(self._log_name),
                 first_batch_size,
+                log_step,
+            )
+            self._log_scalar(
+                "{}/Minutes per epoch".format(self._log_name),
+                (time.time() - epoch_timer) / 60,
                 log_step,
             )
 

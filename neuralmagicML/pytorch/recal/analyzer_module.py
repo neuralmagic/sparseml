@@ -119,7 +119,11 @@ class ModuleAnalyzer(object):
 
         for (name, _) in get_prunable_layers(self._module):
             desc = self.layer_desc(name)
-            descs.append(desc)
+
+            if desc is None:
+                print("analyzer: no description found for {}".format(name))
+            else:
+                descs.append(desc)
 
         descs.sort(key=lambda val: val.execution_order)
 
@@ -252,6 +256,7 @@ class ModuleAnalyzer(object):
         desc.prunable_params_dims = {
             key: tuple(s for s in val.shape) for key, val in prunable_params.items()
         }
+        desc.stride = mod.stride
 
         mult_per_out_pix = float(numpy.prod(mod.kernel_size)) * mod.in_channels
         add_per_out_pix = 1 if mod.bias is not None else 0
@@ -353,6 +358,7 @@ class ModuleAnalyzer(object):
         desc.prunable_params_dims = {
             key: tuple(s for s in val.shape) for key, val in prunable_params.items()
         }
+        desc.stride = mod.stride
 
         flops_per_out_pix = float(numpy.prod(mod.kernel_size) + 1)
         out_pix = float(numpy.prod(out[0].shape[1:]))
@@ -382,6 +388,7 @@ class ModuleAnalyzer(object):
         desc.prunable_params_dims = {
             key: tuple(s for s in val.shape) for key, val in prunable_params.items()
         }
+        desc.stride = 1
 
         stride = tuple(
             inp[0].shape[i] // out[0].shape[i] for i in range(2, len(inp[0].shape))
@@ -458,6 +465,12 @@ class ModuleAnalyzer(object):
         child_descs = []
         for _, child in mod.named_children():
             if child != mod:
-                child_descs.append(ModuleAnalyzer._mod_desc(child))
+                child_desc = ModuleAnalyzer._mod_desc(child)
+
+                if child_desc:
+                    child_descs.append(child_desc)
+
+        if not mod._analyzed_layer_desc:
+            return None
 
         return AnalyzedLayerDesc.merge_descs(mod._analyzed_layer_desc, child_descs)

@@ -45,7 +45,7 @@ class LearningRate(BaseObject):
     Generic implementation for LearningRate shared across framework implementations.
 
     :param lr_class: The name of the lr scheduler class to use:
-        [StepLR, MultiStepLR, ExponentialLR]
+        [StepLR, MultiStepLR, ExponentialLR, CosineAnnealingWarmRestarts]
     :param lr_kwargs: The dictionary of keyword arguments to pass to the constructor
         for the lr_class
     :param init_lr: The initial learning rate to use once this modifier starts
@@ -126,6 +126,15 @@ class LearningRate(BaseObject):
                 raise ValueError("gamma must be in lr_kwargs for MultiStepLR")
             if "milestones" not in self._lr_kwargs:
                 raise ValueError("milestones must be in lr_kwargs for MultiStepLR")
+        elif self._lr_class == "CosineAnnealingWarmRestarts":
+            if "lr_min" not in self._lr_kwargs:
+                raise ValueError(
+                    "lr_min must be in lr_kwargs for CosineAnnealingWarmRestarts"
+                )
+            if "cycle_epochs" not in self._lr_kwargs:
+                raise ValueError(
+                    "cycle_epochs must be in lr_kwargs for CosineAnnealingWarmRestarts"
+                )
         else:
             raise ValueError("unknown lr_class given of {}".format(self._lr_class))
 
@@ -175,6 +184,11 @@ class LearningRate(BaseObject):
                             self._lr_kwargs["milestones"], end_epoch
                         )
                     )
+        elif lr_class == "CosineAnnealingWarmRestarts":
+            lr_kwargs["eta_min"] = lr_kwargs["lr_min"]
+            del lr_kwargs["lr_min"]
+            lr_kwargs["T_0"] = lr_kwargs["cycle_epochs"]
+            del lr_kwargs["cycle_epochs"]
         else:
             raise ValueError("unrecognized lr_class given of {}".format(lr_class))
 

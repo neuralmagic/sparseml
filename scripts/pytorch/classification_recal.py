@@ -129,13 +129,16 @@ python scripts/pytorch/classification_recal.py \
 """
 
 import argparse
+from typing import Tuple, Union
 import os
 import time
 import json
 
 import torch
+from torch.nn import Module
 from torch.utils.data import DataLoader
-from torch.optim import SGD, Adam
+from torch.optim import SGD, Adam, RMSprop
+from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.pytorch.datasets import DatasetRegistry
 from neuralmagicML.pytorch.models import ModelRegistry
@@ -145,15 +148,17 @@ from neuralmagicML.pytorch.utils import (
     TopKAccuracy,
     ModuleTrainer,
     ModuleTester,
+    ModuleRunResults,
     TensorBoardLogger,
     PythonLogger,
     model_to_device,
-    save_model,
     load_optimizer,
+    load_epoch,
     default_device,
     ModuleExporter,
     get_prunable_layers,
     tensor_sparsity,
+    DEFAULT_LOSS_KEY,
 )
 from neuralmagicML.pytorch.recal import (
     ScheduledModifierManager,
@@ -323,6 +328,13 @@ def parse_args():
         help="The path to the directory for saving logs",
     )
     parser.add_argument(
+        "--save-best-after",
+        type=int,
+        default=-1,
+        help="start saving the best validation result after the given "
+        "epoch completes until the end of training",
+    )
+    parser.add_argument(
         "--save-epochs",
         type=int,
         default=[],
@@ -341,22 +353,56 @@ def parse_args():
     return parser.parse_args()
 
 
+def _save_model(
+    model: Module,
+    optim: Optimizer,
+    input_shape: Tuple[int, ...],
+    save_name: str,
+    save_dir: str,
+    epoch: int,
+    val_res: Union[ModuleRunResults, None],
+    py_logger: PythonLogger,
+):
+    py_logger.info(
+        "Saving model for epoch {} and val_loss {} to {} for {}".format(
+            epoch, val_res.result_mean(DEFAULT_LOSS_KEY).item(), save_dir, save_name
+        )
+    )
+    exporter = ModuleExporter(model, save_dir)
+    exporter.export_pytorch(optim, epoch, "{}.pth".format(save_name))
+    exporter.export_onnx(torch.randn(1, *input_shape), "{}.onnx".format(save_name))
+
+    info_path = os.path.join(save_dir, "{}.txt".format(save_name))
+
+    with open(info_path, "w") as info_file:
+        info_lines = [
+            "epoch: {}".format(epoch),
+        ]
+
+        if val_res is not None:
+            for loss in val_res.results.keys():
+                info_lines.append(
+                    "{}: {}".format(loss, val_res.result_mean(loss).item())
+                )
+
+        info_file.write("\n".join(info_lines))
+
+
 def main(args):
     # logging and saving setup
     save_dir = os.path.abspath(os.path.expanduser(args.save_dir))
     logs_dir = os.path.abspath(os.path.expanduser(os.path.join(args.logs_dir)))
 
-    model_tag = (
-        "{}_{}".format(args.arch_key.replace("/", "."), args.dataset)
-        if not args.model_tag
-        else args.model_tag
-    )
-    model_id = model_tag
-    model_inc = 0
+    if not args.model_tag:
+        model_tag = "{}_{}".format(args.arch_key.replace("/", "."), args.dataset)
+        model_id = model_tag
+        model_inc = 0
 
-    while os.path.exists(os.path.join(logs_dir, model_id)):
-        model_inc += 1
-        model_id = "{}__{:02d}".format(model_tag, model_inc)
+        while os.path.exists(os.path.join(logs_dir, model_id)):
+            model_inc += 1
+            model_id = "{}__{:02d}".format(model_tag, model_inc)
+    else:
+        model_id = args.model_tag
 
     save_dir = os.path.join(save_dir, model_id)
     logs_dir = os.path.join(logs_dir, model_id)
@@ -445,6 +491,8 @@ def main(args):
             optim_const = SGD
         elif args.optim == "Adam":
             optim_const = Adam
+        elif args.optim == "RMSProp":
+            optim_const = RMSprop
         else:
             raise ValueError(
                 "unsupported value given for optim_type of {}".format(args.optim_type)
@@ -453,16 +501,19 @@ def main(args):
         optim = optim_const(model.parameters(), lr=args.init_lr, **args.optim_args)
         py_logger.info("created optimizer: {}".format(optim))
         py_logger.info(
-            "note, the lr for the optimizer will not reflect the manager yet until "
+            "note, the lr for the optimizer may not reflect the manager yet until "
             "the recal config is created and run"
         )
 
         # restore from previous check point
         if args.checkpoint_path:
-            epoch = load_optimizer(args.checkpoint_path, optim)
+            # currently optimizer restoring is unsupported
+            # mapping of the restored params to the correct device is not working
+            # load_optimizer(args.checkpoint_path, optim)
+            epoch = load_epoch(args.checkpoint_path) + 1
             py_logger.info(
                 "restored checkpoint from {} for epoch {}".format(
-                    args.checkpoint_path, epoch
+                    args.checkpoint_path, epoch - 1
                 )
             )
         else:
@@ -489,20 +540,27 @@ def main(args):
 
     # device setup
     model, device, device_ids = model_to_device(model, args.device)
+    py_logger.info("running on device {} for ids {}".format(device, device_ids))
 
     trainer = (
         ModuleTrainer(model, device, train_loss, optim, loggers=loggers)
         if not args.eval_mode
         else None
     )
-    tester = ModuleTester(model, device, val_loss, loggers=loggers)
+    tester = ModuleTester(model, device, val_loss, loggers=loggers, log_steps=-1)
 
     # initial baseline eval run
     tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=args.debug_steps)
 
     if not args.eval_mode:
         py_logger.info("starting training from epoch {}".format(epoch))
-        optim.adjust_current_step(epoch, 0)  # adjust in case this is restored
+
+        if epoch > 0:
+            py_logger.info("adjusting ScheduledOptimizer to restore point")
+            optim.adjust_current_step(epoch, 0)
+
+        best_loss = None
+        val_res = None
 
         while epoch < manager.max_epochs:
             if args.debug_steps > 0:
@@ -510,26 +568,46 @@ def main(args):
                 # taken in the epochs for debug mode
                 optim.adjust_current_step(epoch, 0)
 
-            trainer.run_epoch(train_loader, epoch, max_steps=args.debug_steps)
-            tester.run_epoch(val_loader, epoch, max_steps=args.debug_steps)
+            train_res = trainer.run_epoch(
+                train_loader, epoch, max_steps=args.debug_steps
+            )
+            val_res = tester.run_epoch(val_loader, epoch, max_steps=args.debug_steps)
+            val_loss = val_res.result_mean(DEFAULT_LOSS_KEY).item()
+
+            if epoch >= args.save_best_after and (
+                best_loss is None or val_loss <= best_loss
+            ):
+                _save_model(
+                    model,
+                    optim,
+                    input_shape,
+                    "checkpoint-best",
+                    save_dir,
+                    epoch,
+                    val_res,
+                    py_logger,
+                )
+                best_loss = val_loss
 
             if args.save_epochs and epoch in args.save_epochs:
-                save_path = os.path.join(
-                    save_dir, "pytorch", "checkpoint-{:04d}.pth".format(epoch)
+                _save_model(
+                    model,
+                    optim,
+                    input_shape,
+                    "checkpoint-{:04d}-{:.04f}".format(epoch, val_loss),
+                    save_dir,
+                    epoch,
+                    val_res,
+                    py_logger,
                 )
-                py_logger.info("Saving checkpoint to {}".format(save_path))
-                save_model(save_path, model, optim, epoch)
 
             epoch += 1
 
-    # export the final model
-    py_logger.info("completed...")
-
-    if not args.eval_mode:
-        py_logger.info("Saving final model in {}".format(save_dir))
-        exporter = ModuleExporter(model, save_dir)
-        exporter.export_pytorch(optim, epoch)
-        exporter.export_onnx(torch.randn(1, *input_shape))
+        # export the final model
+        py_logger.info("completed...")
+        _save_model(
+            model, optim, input_shape, "model", save_dir, epoch, val_res, py_logger,
+        )
 
     py_logger.info("layer sparsities:")
     for (name, layer) in get_prunable_layers(model):

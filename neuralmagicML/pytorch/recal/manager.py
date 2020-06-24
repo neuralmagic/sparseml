@@ -102,7 +102,12 @@ class ScheduledModifierManager(BaseManager, Modifier):
             mod.initialize_loggers(loggers)
 
     def update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        log_updates: bool = True,
     ):
         """
         Handles updating the contained modifiers' states, module, or optimizer
@@ -113,6 +118,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
+        :param log_updates: True to log the updates for each modifier to the loggers,
+            False to skip logging
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
 
@@ -123,7 +130,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
             if mod.update_ready(epoch, steps_per_epoch):
                 mod.scheduled_update(module, optimizer, epoch, steps_per_epoch)
 
-            mod.scheduled_log_update(module, optimizer, epoch, steps_per_epoch)
+            if log_updates:
+                mod.scheduled_log_update(module, optimizer, epoch, steps_per_epoch)
 
     def loss_update(
         self,

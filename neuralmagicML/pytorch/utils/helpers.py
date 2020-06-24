@@ -6,6 +6,7 @@ from collections import namedtuple
 from typing import Union, Tuple, Iterable, Dict, Any, List
 import os
 import re
+from copy import deepcopy
 import numpy
 
 import torch
@@ -131,7 +132,7 @@ def infinite_data_loader(
 
             for data in data_loader:
                 if cache:
-                    cached.append(data)
+                    cached.append(deepcopy(data))
 
                 yield data
 

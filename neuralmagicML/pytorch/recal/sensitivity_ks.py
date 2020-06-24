@@ -59,7 +59,7 @@ def approx_ks_loss_sensitivity(
     sparsity_levels: Union[List[float], Tuple[float, ...]] = default_check_sparsities(
         True
     ),
-):
+) -> KSLossSensitivityAnalysis:
     """
     Approximated kernel sparsity (pruning) loss analysis for a given model.
     Returns the results for each prunable param (conv, linear) in the model.

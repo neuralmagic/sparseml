@@ -3,6 +3,8 @@ Optimizer wrapper for enforcing Modifiers on the training process of a Module.
 """
 
 from typing import List, Union
+from tqdm import auto
+
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -47,9 +49,6 @@ class ScheduledOptimizer(Optimizer):
         not strictly required and can be set to -1.
         used to calculate decimals within the epoch,
         when not using can result in irregularities
-    :param start_epoch: the epoch to start the manager at.
-        if restoring from a checkpoint then this value should be set to the
-        current epoch for optimizing
     :param loggers: loggers to log important info to within the modifiers;
         ex tensorboard or to the console
 
@@ -61,7 +60,6 @@ class ScheduledOptimizer(Optimizer):
         module: Module,
         manager: ScheduledModifierManager,
         steps_per_epoch: int,
-        start_epoch: int = 0,
         loggers: Union[List[PyTorchLogger], None] = None,
     ):
         # do not call into super since this instance is not passing all calls to
@@ -74,10 +72,9 @@ class ScheduledOptimizer(Optimizer):
         self._module = module
         self._manager = manager
         self._steps_per_epoch = steps_per_epoch
-        self._start_epoch = start_epoch
         self._steps = 0
 
-        self._epoch = float(start_epoch)
+        self._epoch = 0.0
         self._manager.initialize(self._module, self._optimizer)
         self._manager.initialize_loggers(loggers)
 
@@ -102,7 +99,6 @@ class ScheduledOptimizer(Optimizer):
             "_module",
             "_manager",
             "_steps_per_epoch",
-            "_start_epoch",
             "_steps",
             "_epoch",
             "learning_rate",
@@ -189,7 +185,7 @@ class ScheduledOptimizer(Optimizer):
 
     def adjust_current_step(self, epoch: int, step: int):
         """
-        Adjust the current step for the manager's schedule to the given epoch and step
+        Adjust the current step for the manager's schedule to the given epoch and step.
 
         :param epoch: the epoch to set the current global step to match
         :param step: the step (batch) within the epoch to set the
@@ -197,9 +193,16 @@ class ScheduledOptimizer(Optimizer):
         """
         self._steps = epoch * self._steps_per_epoch + step
         self._set_epoch()
+        self._manager.update(
+            self._module,
+            self._optimizer,
+            self._epoch,
+            self._steps_per_epoch,
+            log_updates=False,
+        )
 
     def _set_epoch(self):
-        epoch_num = self._start_epoch + self._steps // self._steps_per_epoch
+        epoch_num = self._steps // self._steps_per_epoch
         epoch_steps = self._steps % self._steps_per_epoch
         self._epoch = float(epoch_num) + float(epoch_steps) / float(
             self._steps_per_epoch

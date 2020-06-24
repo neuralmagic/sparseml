@@ -4,7 +4,6 @@ import os
 import sys
 import math
 from torch.optim import SGD, Adam
-from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.pytorch.recal import (
     SetLearningRateModifier,
@@ -526,6 +525,132 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
 def test_lr_modifier_multi_step_yaml():
     lr_class = "MultiStepLR"
     lr_kwargs = {"milestones": MILESTONES, "gamma": GAMMA}
+    start_epoch = 2.0
+    end_epoch = 20.0
+    init_lr = 0.1
+    yaml_str = """
+    !LearningRateModifier
+        start_epoch: {}
+        end_epoch: {}
+        lr_class: {}
+        lr_kwargs: {}
+        init_lr: {}
+    """.format(
+        start_epoch, end_epoch, lr_class, lr_kwargs, init_lr
+    )
+    yaml_modifier = LearningRateModifier.load_obj(
+        yaml_str
+    )  # type: LearningRateModifier
+    serialized_modifier = LearningRateModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: LearningRateModifier
+    obj_modifier = LearningRateModifier(
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+        lr_class=lr_class,
+        lr_kwargs=lr_kwargs,
+        init_lr=init_lr,
+    )
+
+    assert isinstance(yaml_modifier, LearningRateModifier)
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert (
+        yaml_modifier.lr_class == serialized_modifier.lr_class == obj_modifier.lr_class
+    )
+    assert (
+        yaml_modifier.lr_kwargs
+        == serialized_modifier.lr_kwargs
+        == obj_modifier.lr_kwargs
+    )
+    assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: LearningRateModifier(
+            lr_class="CosineAnnealingWarmRestarts",
+            lr_kwargs={"lr_min": 0.001, "cycle_epochs": 10},
+            start_epoch=0,
+            init_lr=0.1,
+        ),
+        lambda: LearningRateModifier(
+            lr_class="CosineAnnealingWarmRestarts",
+            lr_kwargs={"lr_min": 0.001, "cycle_epochs": 5},
+            start_epoch=3,
+            end_epoch=13,
+            init_lr=0.1,
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize(
+    "optim_lambda",
+    [
+        lambda model: SGD(model.parameters(), INIT_LR),
+        lambda model: Adam(model.parameters(), INIT_LR),
+    ],
+    scope="function",
+)
+class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
+    def test_lifecycle(
+        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        self.initialize_helper(modifier, model, optimizer)
+        assert get_optim_learning_rate(optimizer) == INIT_LR
+
+        for epoch in range(int(modifier.end_epoch) + 5):
+            for step in range(test_steps_per_epoch):
+                test_epoch = float(epoch) + float(step) / float(test_steps_per_epoch)
+
+                if test_epoch < modifier.start_epoch:
+                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
+                elif abs(test_epoch - modifier.start_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    modifier.scheduled_update(
+                        model, optimizer, test_epoch, test_steps_per_epoch
+                    )
+                elif test_epoch < modifier.end_epoch or modifier.end_epoch == -1:
+                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    modifier.scheduled_update(
+                        model, optimizer, test_epoch, test_steps_per_epoch
+                    )
+                elif abs(test_epoch - modifier.end_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    modifier.scheduled_update(
+                        model, optimizer, test_epoch, test_steps_per_epoch
+                    )
+                else:
+                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
+def test_lr_modifier_multi_step_yaml():
+    lr_class = "CosineAnnealingWarmRestarts"
+    lr_kwargs = {"lr_min": 0.001, "cycle_epochs": 5}
     start_epoch = 2.0
     end_epoch = 20.0
     init_lr = 0.1

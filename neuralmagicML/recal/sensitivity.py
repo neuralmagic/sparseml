@@ -69,6 +69,14 @@ class KSLossSensitivityAnalysis(object):
         index: int,
         sparse_measurements: List[Tuple[float, List[float]]],
     ):
+        """
+        Add a result to the sensitivity analysis for a specific param
+
+        :param param: the param to add the result for
+        :param index: the index of the param as found in the model parameters
+        :param sparse_measurements: a list of measurements each made up of
+            a tuple of (sparsity, losses)
+        """
         sparse_averages = [
             (ks, numpy.mean(meas).item()) for ks, meas in sparse_measurements
         ]
@@ -85,6 +93,19 @@ class KSLossSensitivityAnalysis(object):
                 "sparse_loss_integral": sparse_loss_integral,
             }
         )
+
+    def get_result(self, param: str) -> Dict[str, Any]:
+        """
+        get a result from the sensitivity analysis for a specific param
+
+        :param param: the param to get the result for
+        :return: a dictionary containing the sensitivity results for the param
+        """
+        for res in self._results:
+            if param == res["param"]:
+                return res
+
+        raise ValueError("could not find param {} in results".format(param))
 
     def dict(self) -> Dict[str, Any]:
         """

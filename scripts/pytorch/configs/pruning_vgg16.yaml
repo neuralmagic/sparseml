@@ -30,7 +30,6 @@ modifiers:
     params:
       - sections.1.1.conv.weight
       - sections.2.0.conv.weight
-      - sections.2.3.conv.weight
       - sections.3.0.conv.weight
       - sections.4.0.conv.weight
       - sections.4.1.conv.weight
@@ -46,9 +45,7 @@ modifiers:
       - sections.2.2.conv.weight
       - sections.3.1.conv.weight
       - sections.3.2.conv.weight
-      - sections.3.3.conv.weight
       - sections.4.2.conv.weight
-      - sections.4.3.conv.weight
     init_sparsity: 0.05
     final_sparsity: 0.95
     start_epoch: 1.0

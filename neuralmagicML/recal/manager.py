@@ -23,13 +23,32 @@ class BaseManager(BaseObject):
 
     def __init__(self, modifiers: List[BaseScheduled], **kwargs):
         super().__init__(**kwargs)
-        self._modifiers = modifiers
+        # sort the modifiers so they are iterated in order of their start epoch
+        # if start epoch is the same, end epoch is used to break ties
+        # with ending first running first
+        self._modifiers = sorted(
+            modifiers, key=lambda m: m.start_epoch + m.end_epoch * 1e-6
+        )
 
     def __del__(self):
         for mod in self._modifiers:
             del mod
 
         self._modifiers.clear()
+
+    def __str__(self) -> str:
+        man_str = "\nversion: 1.1.0\n\n"
+        man_str += super().__str__()
+
+        for mod in self._modifiers:
+            mod_lines = str(mod).splitlines()
+
+            for line in mod_lines:
+                man_str += "\t{}\n".format(line)
+
+            man_str += "\n"
+
+        return man_str
 
     @ModifierProp()
     def modifiers(self) -> Dict[str, List[BaseScheduled]]:

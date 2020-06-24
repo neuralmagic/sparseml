@@ -90,6 +90,7 @@ class AnalyzedLayerDesc(object):
             output_shape=orig.output_shape,
             flops=orig.flops,
             total_flops=orig.total_flops,
+            stride=orig.stride,
         )
 
         for desc in descs:
@@ -115,6 +116,7 @@ class AnalyzedLayerDesc(object):
         output_shape: Tuple[Tuple[int, ...], ...] = None,
         flops: int = 0,
         total_flops: int = 0,
+        stride: Tuple[int, ...] = None,
     ):
         self.name = name
         self.type_ = type_
@@ -130,6 +132,7 @@ class AnalyzedLayerDesc(object):
         self.output_shape = output_shape
         self.flops = flops
         self.total_flops = total_flops
+        self.stride = stride
 
     def __repr__(self):
         return "AnalyzedLayerDesc({})".format(self.dict())
@@ -166,6 +169,7 @@ class AnalyzedLayerDesc(object):
             "execution_order": self.execution_order,
             "input_shape": self.input_shape,
             "output_shape": self.output_shape,
+            "stride": self.stride,
             "flops": self.flops,
             "total_flops": self.total_flops,
             "terminal": self.terminal,
