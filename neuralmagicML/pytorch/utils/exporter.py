@@ -104,20 +104,31 @@ class ModuleExporter(object):
         create_parent_dirs(pth_path)
         save_model(pth_path, self._module, optimizer, epoch)
 
-    def export_samples(self, sample_batches: List[Any], exp_counter: int = 0):
+    def export_samples(
+        self,
+        sample_batches: List[Any],
+        sample_labels: List[Any] = None,
+        exp_counter: int = 0,
+    ):
         """
         Export a set list of sample batches as inputs and outputs through the model.
 
         :param sample_batches: a list of the sample batches to feed through the module
                                for saving inputs and outputs
+        :param sample_labels: an optional list of sample labels that correspond to the
+            the batches for saving
         :param exp_counter: the counter to start exporting the tensor files at
         """
         sample_batches = [tensors_to_device(batch, "cpu") for batch in sample_batches]
         inputs_dir = os.path.join(self._output_dir, "_sample-inputs")
         outputs_dir = os.path.join(self._output_dir, "_sample-outputs")
+        labels_dir = os.path.join(self._output_dir, "_sample-labels")
 
         with torch.no_grad():
-            for batch in sample_batches:
+            for batch, lab in zip(
+                sample_batches,
+                sample_labels if sample_labels else [None for _ in sample_batches],
+            ):
                 out = tensors_module_forward(batch, self._module)
 
                 exported_input = tensors_export(
@@ -139,5 +150,11 @@ class ModuleExporter(object):
                     counter=exp_counter,
                     break_batch=True,
                 )
+
+                if lab is not None:
+                    exported_label = tensors_export(
+                        lab, labels_dir, "lab", counter=exp_counter, break_batch=True
+                    )
+
                 assert len(exported_input) == len(exported_output)
                 exp_counter += len(exported_input)

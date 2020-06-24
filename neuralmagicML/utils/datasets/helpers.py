@@ -21,6 +21,11 @@ def default_dataset_path(name: str) -> str:
     :param name: name of the dataset to get a path for
     :return: the default path to save the dataset at
     """
-    path = os.path.join("~", ".cache", "nm_datasets", name)
+    path = os.getenv("NM_ML_DATASETS_PATH", "")
+
+    if not path:
+        path = os.path.join("~", ".cache", "nm_datasets")
+
+    path = os.path.join(path, name)
 
     return path

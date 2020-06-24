@@ -76,7 +76,12 @@ def models_download_file(path: str, overwrite: bool, save_dir: str = None) -> st
 
     if not save_dir:
         save_name = hashlib.md5(file_dir.encode("utf-8")).hexdigest()
-        save_dir = os.path.join("~", ".cache", "nm_models", save_name)
+        save_path = os.getenv("NM_ML_MODELS_PATH", "")
+
+        if not save_path:
+            save_path = os.path.join("~", ".cache", "nm_models")
+
+        save_dir = os.path.join(save_path, save_name)
 
     save_dir = clean_path(save_dir)
     save_file = os.path.join(save_dir, file_name)

@@ -8,8 +8,15 @@ import numpy
 import torch
 from torch import Tensor
 from torch.nn import Module, Sequential, Linear, ReLU
+from torch.optim import SGD
+from torch.utils.data import DataLoader
 
 from neuralmagicML.pytorch.utils import (
+    default_device,
+    get_optim_learning_rate,
+    set_optim_learning_rate,
+    early_stop_data_loader,
+    infinite_data_loader,
     tensors_batch_size,
     tensors_to_device,
     tensors_to_precision,
@@ -21,6 +28,74 @@ from neuralmagicML.pytorch.utils import (
     tensor_sample,
     mask_difference,
 )
+from neuralmagicML.pytorch.datasets import RandNDataset
+
+from tests.pytorch.helpers import LinearNet
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
+def test_default_device():
+    default = default_device()
+
+    if torch.cuda.is_available():
+        assert "cuda" in default
+    else:
+        assert "cpu" in default
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
+def test_get_set_optim_learning_rate():
+    model = LinearNet()
+    optim = SGD(model.parameters(), lr=0.01)
+
+    check_lr = get_optim_learning_rate(optim)
+    assert abs(check_lr - 0.01) < 1e-9
+
+    set_optim_learning_rate(optim, 0.0001)
+
+    check_lr = get_optim_learning_rate(optim)
+    assert abs(check_lr - 0.0001) < 1e-9
+
+
+def test_early_stop_data_loader():
+    dataset = RandNDataset(100, (3, 32, 32), True)
+    data_loader = DataLoader(dataset)
+
+    check_loader = early_stop_data_loader(data_loader, early_stop_steps=10)
+    check_count = 0
+
+    for _ in check_loader:
+        check_count += 1
+
+    assert check_count == 10
+
+    check_loader = early_stop_data_loader(data_loader, early_stop_steps=-1)
+    check_count = 0
+
+    for _ in check_loader:
+        check_count += 1
+
+    assert check_count == 100
+
+
+def test_infinite_data_loader():
+    dataset = RandNDataset(100, (3, 32, 32), True)
+    data_loader = DataLoader(dataset)
+
+    check_loader = infinite_data_loader(data_loader)
+    check_count = 0
+
+    for _ in check_loader:
+        check_count += 1
+
+        if check_count >= 150:
+            break
+
+    assert check_count == 150
 
 
 @pytest.mark.skipif(

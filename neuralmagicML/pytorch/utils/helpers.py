@@ -23,6 +23,7 @@ __all__ = [
     "default_device",
     "get_optim_learning_rate",
     "set_optim_learning_rate",
+    "early_stop_data_loader",
     "infinite_data_loader",
     "tensors_batch_size",
     "tensors_to_device",
@@ -109,6 +110,27 @@ def set_optim_learning_rate(optim: Optimizer, value: float):
 ##############################
 
 
+def early_stop_data_loader(data_loader: DataLoader, early_stop_steps: int):
+    """
+    An iterator that goes through the data_loader for yields and stops
+    after early_stop_steps instead of the full loader
+
+    :param data_loader: the data loader to continually repeat
+    :param early_stop_steps: if set, the number of steps to run and break out early
+        instead of running all of the steps in the data loader,
+        if < 1 then will run the full length
+    :return: an iterable for the never ending data loader
+    """
+    counter = 0
+
+    for data in data_loader:
+        yield data
+        counter += 1
+
+        if 0 < early_stop_steps <= counter:
+            break
+
+
 def infinite_data_loader(
     data_loader: DataLoader, early_stop_steps: int = -1, cache: bool = False
 ):
@@ -127,19 +149,13 @@ def infinite_data_loader(
 
     while True:
         if not cache or cached is None:
-            counter = 0
             cached = []
 
-            for data in data_loader:
+            for data in early_stop_data_loader(data_loader, early_stop_steps):
                 if cache:
                     cached.append(deepcopy(data))
 
                 yield data
-
-                counter += 1
-
-                if 0 < early_stop_steps <= counter:
-                    break
         else:
             for data in cached:
                 yield data
