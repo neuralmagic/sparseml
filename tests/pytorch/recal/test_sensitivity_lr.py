@@ -59,6 +59,7 @@ def test_module_ks_sensitivity_analysis_one_shot_cuda(
     model, dataset, loss, batch_size, samples_per_measurement
 ):
     data = DataLoader(dataset, batch_size)
+    model = model.to("cuda")
     _test_lr_sensitivity(
         model, data, loss, "cuda", samples_per_measurement,
     )
