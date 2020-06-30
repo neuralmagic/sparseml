@@ -45,7 +45,12 @@ class ModuleExporter(object):
         self._module = deepcopy(module).to("cpu").eval()
         self._output_dir = clean_path(output_dir)
 
-    def export_onnx(self, sample_batch: Any, name: str = "model.onnx"):
+    def export_onnx(
+        self,
+        sample_batch: Any,
+        name: str = "model.onnx",
+        opset: int = 11,
+    ):
         """
         Export an onnx file for the current module and for a sample batch.
         Sample batch used to feed through the model to freeze the graph for a
@@ -54,6 +59,7 @@ class ModuleExporter(object):
         :param sample_batch: the batch to export an onnx for, handles creating the
             static graph for onnx as well as setting dimensions
         :param name: name of the onnx file to save
+        :param opset: onnx opset to use for exported model. Default=11,
         """
         sample_batch = tensors_to_device(sample_batch, "cpu")
         onnx_path = os.path.join(self._output_dir, name)
@@ -86,6 +92,7 @@ class ModuleExporter(object):
             output_names=output_names,
             strip_doc_string=True,
             verbose=False,
+            opset_version=opset,
         )
 
     def export_pytorch(
