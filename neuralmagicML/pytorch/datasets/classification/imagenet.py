@@ -58,10 +58,7 @@ class ImageNetDataset(ImageFolder):
             ]
             if rand_trans
             else [
-                transforms.Resize(
-                    round(non_rand_resize_scale * image_size),
-                    interpolation=Image.BICUBIC,
-                ),
+                transforms.Resize(round(non_rand_resize_scale * image_size)),
                 transforms.CenterCrop(image_size),
             ]
         )
