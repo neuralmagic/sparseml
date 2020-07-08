@@ -49,7 +49,7 @@ class ModuleExporter(object):
         self,
         sample_batch: Any,
         name: str = "model.onnx",
-        opset: int = 11,
+        opset: int = 9,
     ):
         """
         Export an onnx file for the current module and for a sample batch.
