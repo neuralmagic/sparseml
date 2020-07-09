@@ -55,7 +55,7 @@ def load_model(
 
         for key in keys:
             if key.startswith(module_key):
-                new_key = key[len(module_key):]
+                new_key = key[len(module_key) :]
                 model_dict[new_key] = model_dict[key]
                 del model_dict[key]
 

@@ -133,7 +133,7 @@ def parse_args():
         "using a softmax and multi is for multi class training using a sigmoid",
     )
 
-    # training and dataset args
+    # dataset args
     parser.add_argument(
         "--dataset",
         type=str,
@@ -200,7 +200,7 @@ def main(args):
         rand_trans=False,
         image_size=image_size,
     )
-    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=1,)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=1)
     val_loader = early_stop_data_loader(
         val_loader, args.num_samples if args.num_samples > 1 else 1
     )
