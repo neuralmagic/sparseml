@@ -28,8 +28,7 @@ doc:
 
 package:
 	$(MAKE) doc;
-	git submodule update;
-	python3 --tar-name $$PACKAGE;
+	python3 create_package.py --tar-name $(PACKAGE);
 
 tensorflow_testing:
 	@source .venv/bin/activate;

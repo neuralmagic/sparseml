@@ -19,19 +19,19 @@ def add_to_package(package, folders, old_root=None, new_root=""):
             else:
                 target_folder = folder
             tarinfo = tarfile.TarInfo(os.path.join(DIRECTORY_ROOT, target_folder))
-            package.addfile(tarinfo, open(folder))
+            package.add(folder, arcname=os.path.join(DIRECTORY_ROOT, target_folder))
             continue
-        folder = os.path.join(folder, "*")
-        for subfile in glob.glob(folder):
-            if re.search(UNWANTED, subfile) is not None:
-                continue
-            folders.append(subfile)
+        else:
+            folder = os.path.join(folder, "*")
+            for subfile in glob.glob(folder):
+                if re.search(UNWANTED, subfile) is not None:
+                    continue
+                folders.append(subfile)
 
 
 def create_package(name="neuralmagicML-python.tar.gz", exists_ok=True):
     folders = [
         "neuralmagicML",
-        "tensorflow-onnx",
         "notebooks",
         "scripts",
         "README.md",
