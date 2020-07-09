@@ -19,14 +19,15 @@ from neuralmagicML.tensorflow.recal import (
     GradualKSModifier as GradualKSModifier_tf,
     ScheduledModifierManager as ScheduledModifierManager_tf,
 )
+from neuralmagicML.tensorflow.utils import clean_tensor_name
 from neuralmagicML.utilsnb.helpers import format_html
 
 
 __all__ = [
     "KSWidgetContainer",
     "PruningEpochWidget",
-    "PruneLayerWidget",
-    "PruningLayersWidget",
+    "PruneParamWidget",
+    "PruningParamsWidget",
 ]
 
 
@@ -284,23 +285,23 @@ class PruningEpochWidget(_Widget):
         raise ValueError("unknown framework given of {}".format(framework))
 
 
-class PruneLayerWidget(_Widget):
+class PruneParamWidget(_Widget):
     """
     Widget used in KS notebooks for setting up pruning hyperparams
-    for an individual layer. Includes visual data for identifying the layer
-    such as name and description. Also allows pruning for the layer to
+    for an individual parameter. Includes visual data for identifying the parameter
+    such as name and description. Also allows pruning for the parameter to
     be enabled or disabled. Finally, allows the user to set the desired
-    final sparsity for the layer.
+    final sparsity for the parameter.
 
-    :param name: name of the layer that can be selected for pruning
-    :param desc: optional description of the layer to display for more context
+    :param name: name of the parameter that can be selected for pruning
+    :param desc: optional description of the parameter to display for more context
     :param enabled: optional pre configured settings for enabling pruning on widget
         display, default True
     :param end_sparsity: optional pre configured setting for the sparsity to set
-        for each layer
-        on display, by default all layers are set to 0.8
+        for each parameter
+        on display, by default all parameter are set to 0.8
     :param loss_sens_analysis: optional sensitivity analysis to use to display next
-        to the layers
+        to the parameters
     """
 
     def __init__(
@@ -351,16 +352,22 @@ class PruneLayerWidget(_Widget):
         spacer.layout.width = "24px"
 
         if self._loss_sens_analysis:
-            summary = self._loss_sens_analysis.results_summary(normalize=True)
-            layer_index = summary["layers"].index(self._name)
-            layer_integral = summary["values"][layer_index]
-            bounds = (summary["max"] - summary["min"]) * 0.25
+
+            param_integral = self._loss_sens_analysis.get_result(self._name)[
+                "sparse_loss_integral"
+            ]
+            all_loss_integrals = [
+                param["sparse_loss_integral"]
+                for param in self._loss_sens_analysis.results
+            ]
+            min_val, max_val = min(all_loss_integrals), max(all_loss_integrals)
+            bounds = (max_val - min_val) * 0.25
 
             sens_visualization = widgets.FloatProgress(
-                value=layer_integral - summary["min"] + bounds,
+                value=param_integral - min_val + bounds,
                 min=0.0,
-                max=summary["max"] - summary["min"] + 2 * bounds,
-                bar_style="info" if layer_integral <= 0.0 else "warning",
+                max=max_val - min_val + 2 * bounds,
+                bar_style="info" if param_integral <= 0.0 else "warning",
                 disabled=True,
             )
             sens_box = widgets.HBox(
@@ -410,7 +417,7 @@ class PruneLayerWidget(_Widget):
         if framework == PYTORCH_FRAMEWORK:
             return [
                 GradualKSModifier_pt(
-                    layers=[self._name],
+                    params=[self._name],
                     init_sparsity=0.05,
                     final_sparsity=self._end_sparsity,
                     start_epoch=0.0,
@@ -422,7 +429,7 @@ class PruneLayerWidget(_Widget):
         if framework == TENSORFLOW_FRAMEWORK:
             return [
                 GradualKSModifier_tf(
-                    layers=[self._name],
+                    params=[clean_tensor_name(self._name)],
                     init_sparsity=0.05,
                     final_sparsity=self._end_sparsity,
                     start_epoch=0.0,
@@ -434,80 +441,80 @@ class PruneLayerWidget(_Widget):
         raise ValueError("unknown framework given of {}".format(framework))
 
 
-class PruningLayersWidget(_Widget):
+class PruningParamsWidget(_Widget):
     """
     Widget used in KS notebooks for setting up pruning hyperparams
-    for multiple layers in a model.
-    See :py:func `~PruneLayerWidget` for more details
+    for multiple parameters in a model.
+    See :py:func `~PruneParamsWidget` for more details
 
-    :param layer_names: names of the layers that can be selected for pruning
-    :param layer_descs: optional descriptions of the layers to display for more context
-    :param layer_enables: optional pre configured settings for which layers to
-        enable on display, by default all layers are enabled
-    :param layer_sparsities: optional pre configured settings for the sparsity to
-        set for each layer on display, by default all layers are set to 0.8
+    :param param_names: names of the parameters that can be selected for pruning
+    :param param_descs: optional descriptions of the parameters to display for more context
+    :param param_enables: optional pre configured settings for which parameters to
+        enable on display, by default all parameters are enabled
+    :param param_sparsities: optional pre configured settings for the sparsity to
+        set for each parameters on display, by default all parameters are set to 0.8
     :param loss_sens_analysis: optional sensitivity analysis to use to display next
-        to the layers
+        to the parameters
     """
 
     def __init__(
         self,
-        layer_names: List[str],
-        layer_descs: Union[List[str], None] = None,
-        layer_enables: Union[List[bool], None] = None,
-        layer_sparsities: Union[List[float], None] = None,
+        param_names: List[str],
+        param_descs: Union[List[str], None] = None,
+        param_enables: Union[List[bool], None] = None,
+        param_sparsities: Union[List[float], None] = None,
         loss_sens_analysis: Union[KSLossSensitivityAnalysis, None] = None,
     ):
-        if not layer_names or len(layer_names) < 1:
-            raise ValueError("layer_names must be provided")
+        if not param_names or len(param_names) < 1:
+            raise ValueError("param_names must be provided")
 
-        if layer_descs is not None and len(layer_descs) != len(layer_names):
+        if param_descs is not None and len(param_descs) != len(param_names):
             raise ValueError(
                 (
-                    "layer_descs given of length {}, "
-                    "must match layer_names length {}"
-                ).format(len(layer_descs), len(layer_names))
+                    "param_descs given of length {}, "
+                    "must match param_names length {}"
+                ).format(len(param_descs), len(param_names))
             )
 
-        if layer_enables is not None and len(layer_enables) != len(layer_names):
+        if param_enables is not None and len(param_enables) != len(param_names):
             raise ValueError(
                 (
-                    "layer_enables given of length {}, "
-                    "must match layer_names length {}"
-                ).format(len(layer_enables), len(layer_names))
+                    "param_enables given of length {}, "
+                    "must match param_names length {}"
+                ).format(len(param_enables), len(param_names))
             )
 
-        if layer_sparsities is not None and len(layer_sparsities) != len(layer_names):
+        if param_sparsities is not None and len(param_sparsities) != len(param_names):
             raise ValueError(
                 (
-                    "layer_sparsities given of length {}, "
-                    "must match layer_names length {}"
-                ).format(len(layer_sparsities), len(layer_names))
+                    "param_sparsities given of length {}, "
+                    "must match param_names length {}"
+                ).format(len(param_sparsities), len(param_names))
             )
 
         if loss_sens_analysis:
-            for name in layer_names:
+            for name in param_names:
                 try:
                     assert loss_sens_analysis.get_result(name)
                 except Exception as ex:
                     raise ValueError(
-                        "layer name {} must be in the loss_sens_analysis: {}".format(
+                        "param name {} must be in the loss_sens_analysis: {}".format(
                             name, ex
                         )
                     )
 
-        self._layer_widgets = [
-            PruneLayerWidget(
+        self._param_widgets = [
+            PruneParamWidget(
                 name,
-                enabled=layer_enables[index] if layer_enables else True,
-                desc=layer_descs[index] if layer_descs else None,
-                end_sparsity=layer_sparsities[index] if layer_sparsities else 0.8,
+                enabled=param_enables[index] if param_enables else True,
+                desc=param_descs[index] if param_descs else None,
+                end_sparsity=param_sparsities[index] if param_sparsities else 0.8,
                 loss_sens_analysis=loss_sens_analysis,
             )
-            for index, name in enumerate(layer_names)
+            for index, name in enumerate(param_names)
         ]
-        self._layer_descs = layer_descs
-        self._layer_names = layer_names
+        self._param_descs = param_descs
+        self._param_names = param_names
         self._loss_sens_analysis = loss_sens_analysis
 
     def create(self):
@@ -516,8 +523,8 @@ class PruningLayersWidget(_Widget):
         """
         return widgets.VBox(
             (
-                widgets.HTML(value=format_html("Layer Sparsity Setter", header="h3")),
-                *[widg.create() for widg in self._layer_widgets],
+                widgets.HTML(value=format_html("Param Sparsity Setter", header="h3")),
+                *[widg.create() for widg in self._param_widgets],
             )
         )
 
@@ -528,7 +535,7 @@ class PruningLayersWidget(_Widget):
         """
         modifiers = []
 
-        for widg in self._layer_widgets:
+        for widg in self._param_widgets:
             modifiers.extend(widg.get_modifiers(framework))
 
         return modifiers
@@ -537,24 +544,24 @@ class PruningLayersWidget(_Widget):
 class KSWidgetContainer(object):
     """
     Widget used in KS notebooks for setting up pruning hyperparams.
-    See :py:func `~PruneLayersWidget` and :py:func `~PruningEpochWidget`
+    See :py:func `~PruneParamsWidget` and :py:func `~PruningEpochWidget`
     for more details
 
     :param epoch_widget: the instance of the epoch widget to display
-    :param layers_widget: the instance of the layers widget to display
+    :param params_widget: the instance of the params widget to display
     """
 
     def __init__(
-        self, epoch_widget: PruningEpochWidget, layers_widget: PruningLayersWidget
+        self, epoch_widget: PruningEpochWidget, params_widget: PruningParamsWidget
     ):
         if not epoch_widget:
             raise ValueError("epoch_widget must be supplied")
 
-        if not layers_widget:
-            raise ValueError("layers_widget must be supplied")
+        if not params_widget:
+            raise ValueError("params_widget must be supplied")
 
         self._epoch_widget = epoch_widget
-        self._layers_widget = layers_widget
+        self._params_widget = params_widget
 
     def create(self):
         """
@@ -566,7 +573,7 @@ class KSWidgetContainer(object):
                     format_html("Pruning Hyperparameters Selector", header="h2")
                 ),
                 self._epoch_widget.create(),
-                self._layers_widget.create(),
+                self._params_widget.create(),
             )
         )
 
@@ -576,16 +583,16 @@ class KSWidgetContainer(object):
         :return: the created manager containing the modifiers with the desired settings
         """
         epoch_modifiers = self._epoch_widget.get_modifiers(framework)
-        layers_modifiers = self._layers_widget.get_modifiers(framework)
+        param_modifiers = self._params_widget.get_modifiers(framework)
 
-        for mod in layers_modifiers:
+        for mod in param_modifiers:
             mod.end_epoch = self._epoch_widget.end_epoch
             mod.start_epoch = self._epoch_widget.start_epoch
             mod.update_frequency = self._epoch_widget.update_frequency
 
         modifiers = []
         modifiers.extend(epoch_modifiers)
-        modifiers.extend(layers_modifiers)
+        modifiers.extend(param_modifiers)
 
         if framework == PYTORCH_FRAMEWORK:
             return ScheduledModifierManager_pt(modifiers)

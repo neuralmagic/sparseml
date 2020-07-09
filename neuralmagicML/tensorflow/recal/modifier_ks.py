@@ -64,8 +64,8 @@ class ConstantKSModifier(ScheduledModifier):
     def __init__(
         self,
         params: Union[str, List[str]],
-        start_epoch: float,
-        end_epoch: float,
+        start_epoch: float = -1,
+        end_epoch: float = -1,
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(ConstantKSModifier, self).__init__(

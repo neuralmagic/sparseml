@@ -7,11 +7,36 @@ import numpy
 
 from neuralmagicML.tensorflow.recal.sensitivity_ks import (
     ks_loss_sensitivity_op_vars,
+    approx_ks_loss_sensitivity,
     one_shot_ks_loss_sensitivity,
 )
 from neuralmagicML.tensorflow.utils import tf_compat, batch_cross_entropy_loss
 
 from tests.tensorflow.helpers import mlp_net
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+)
+@pytest.mark.parametrize(
+    "net_const", [mlp_net],
+)
+def test_approx_ks_loss_sensitivity(net_const: Callable):
+    with tf_compat.Graph().as_default() as graph:
+        out, inp = net_const()
+
+        with tf_compat.Session() as sess:
+            sess.run(tf_compat.global_variables_initializer())
+
+            analysis = approx_ks_loss_sensitivity(graph)
+
+            for res in analysis.results:
+                assert "param" in res
+                assert "index" in res
+                assert "sparse_measurements" in res
+                assert "sparse_averages" in res
+                assert res["sparse_loss_avg"] > 0.0
+                assert res["sparse_loss_integral"] > 0.0
 
 
 @pytest.mark.skipif(

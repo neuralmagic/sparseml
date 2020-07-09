@@ -2,7 +2,7 @@
 Sensitivity analysis implementations for kernel sparsity on Graphs against loss funcs.
 """
 
-from typing import Dict, List, Union, Callable
+from typing import Dict, List, Union, Callable, Tuple
 from collections import namedtuple
 import numpy
 from tqdm import auto
@@ -19,6 +19,7 @@ from neuralmagicML.tensorflow.recal.sparsity_mask import (
 
 __all__ = [
     "SparsePruningOpVars",
+    "approx_ks_loss_sensitivity",
     "ks_loss_sensitivity_op_vars",
     "one_shot_ks_loss_sensitivity",
 ]
@@ -45,7 +46,8 @@ def ks_loss_sensitivity_op_vars(
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameter's in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
-    :return: the created pruning op vars to be used in one_shot_ks_loss_sensitivity
+    :return: the created pruning op vars to be used in approx_ks_loss_sensitivity and
+        one_shot_ks_loss_sensitivity
     """
 
     if not graph:
@@ -81,6 +83,57 @@ def ks_loss_sensitivity_op_vars(
             op_vars.append(SparsePruningOpVars(prune_op_var, sparsity))
 
     return op_vars
+
+
+def approx_ks_loss_sensitivity(
+    graph: tf_compat.Graph = None,
+    sess: tf_compat.Session = None,
+    sparsity_levels: Union[List[float], Tuple[float, ...]] = default_check_sparsities(
+        True
+    ),
+) -> KSLossSensitivityAnalysis:
+    """
+    Approximated kernel sparsity (pruning) loss analysis for a given model.
+    Returns the results for each prunable param (conv, linear) in the model.
+
+    :param graph: the graph to inject pruning ops and vars into,
+        if not supplied uses get_default_graph()
+    :param sess: the session to use
+    :param sparsity_levels: the sparsity levels to calculate the loss for for each param
+    :return: the analysis results for the model
+    """
+
+    if not graph:
+        graph = tf_compat.get_default_graph()
+    if not sess:
+        sess = tf_compat.get_default_session()
+
+    prunable_ops_and_inputs = get_ops_and_inputs_by_name_or_regex(["re:.*"], graph)
+    analysis = KSLossSensitivityAnalysis()
+
+    for op_index, (_, op_tens) in enumerate(prunable_ops_and_inputs):
+        weight = sess.run(op_tens)
+        values = numpy.sort(numpy.abs(weight.reshape(-1)))
+        sparse_measurements = []
+        prev_index = None
+
+        for sparsity in sparsity_levels:
+            val_index = round(sparsity * len(values))
+
+            if val_index >= len(values):
+                val_index = len(values) - 1
+
+            if sparsity <= 0.0:
+                sparse_measurements.append((sparsity, [0.0]))
+            else:
+                avg = values[prev_index:val_index].mean().item()
+                sparse_measurements.append((sparsity, [avg]))
+
+            prev_index = val_index + 1
+
+        analysis.add_result(op_tens.name, op_index, sparse_measurements)
+
+    return analysis
 
 
 def one_shot_ks_loss_sensitivity(

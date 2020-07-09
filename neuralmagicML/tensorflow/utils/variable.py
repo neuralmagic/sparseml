@@ -163,13 +163,15 @@ def get_ops_and_inputs_by_name_or_regex(
         patterns, then will match on all prunable layers and return variables using
         get_op_input_var
     """
+
+    if not graph:
+        graph = tf_compat.get_default_graph()
+
     prunable_ops_and_inputs = []
     if "re:.*" in var_names or "re:." in var_names:  # wildcard cases
         ops = get_prunable_ops(graph)
         for _, op in ops:
-            op_sgv = ge.sgv(op)
-            for inp in op_sgv.inputs:
-                prunable_ops_and_inputs.append((op, get_op_input_var(op)))
+            prunable_ops_and_inputs.append((op, get_op_input_var(op)))
     else:
         for var in tf_compat.global_variables():
             if any_str_or_regex_matches_tensor_name(var.name, var_names):
