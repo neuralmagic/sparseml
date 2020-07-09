@@ -155,7 +155,7 @@ def get_ops_and_inputs_by_name_or_regex(
     Get tuples of operations and the inputs for inputs of operations that match
     a regex pattern in the list params.
 
-    :param var_names: List of regex patterns to match variable names by.
+    :param var_names: List of full names or regex patterns to match variable names by.
     :param graph: the graph to get the prunable operations from.
         If not supplied, then will use the default graph
     :return: a list of (operation, parameter) pairs for parameters that match a
@@ -202,6 +202,8 @@ def get_ops_and_inputs_by_name_or_regex(
                             if "_nm_ks" not in consuming_op.name
                         ]
                         prunable_ops_and_inputs += nm_ks_consuming_ops_with_input
+    # Check that all var_names values have a match
+    _validate_all_params_found(var_names, prunable_ops_and_inputs)
     return prunable_ops_and_inputs
 
 
@@ -224,6 +226,35 @@ def any_str_or_regex_matches_tensor_name(
             if tensor_name == name_or_regex or clean_name == name_or_regex:
                 return True
     return False
+
+
+def _validate_all_params_found(
+    name_or_regex_patterns: List[str],
+    prunable_ops_and_inputs: List[Tuple[tf_compat.Operation, tf_compat.Tensor]],
+):
+    """
+    :param name_or_regex_patterns: List of full param names or regex patterns of them
+        to check for matches in named_layers_and_params names
+    :param prunable_ops_and_inputs: List prunable ops and inputs found in
+        get_ops_and_inputs_by_name_or_regex
+    :raise RuntimeError: If there is a name or regex pattern that does not have a
+        match in named_layers_and_params
+    """
+    tensor_names = [inp.name for _, inp in prunable_ops_and_inputs]
+    for name_or_regex in name_or_regex_patterns:
+        # Convert all name_or_regex values to regex patterns since we may want
+        # full names to match based on tensor name extensions
+        pattern = name_or_regex if name_or_regex[:3] != "re:" else name_or_regex[3:]
+
+        if any(re.match(pattern, name) for name in tensor_names):
+            continue  # regex pattern matches at least one full parameter name
+
+        raise RuntimeError(
+            "All supplied parameter names or regex patterns not found."
+            "No match for {} in found tensors {}.  Supplied {}".format(
+                name_or_regex, tensor_names, name_or_regex_patterns
+            )
+        )
 
 
 def eval_tensor_density(
