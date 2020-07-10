@@ -3,6 +3,7 @@ import glob
 import os
 import re
 import tarfile
+import shutil
 
 UNWANTED = r"__pycache__|.git|.venv"
 RINOH_ROOT = "docs/_build/rinoh"
@@ -39,12 +40,10 @@ def create_package(name="neuralmagicML-python.tar.gz", exists_ok=True):
         "requirements.txt",
     ]
 
-    if os.path.exists(name) and exists_ok:
-        mode = "a"
-    else:
-        mode = "x"
+    if os.path.exists(name):
+        shutil.rmtree(name)
 
-    with tarfile.TarFile(name=name, mode=mode) as package:
+    with tarfile.open(name=name, mode="x:gz") as package:
         add_to_package(package, folders)
         add_to_package(package, [RINOH_ROOT], old_root=RINOH_ROOT, new_root="docs")
         add_to_package(
@@ -61,14 +60,8 @@ def main():
         "--tar-name", type=str, required=True, help="Name of the tar file"
     )
 
-    parser.add_argument(
-        "--exists_ok",
-        action="store_true",
-        help="Adds to tar file if it already exists locally, otherwise throws error if it exists.",
-    )
-
     args = parser.parse_args()
-    create_package(name=args.tar_name, exists_ok=args.exists_ok)
+    create_package(name=args.tar_name)
 
 
 if __name__ == "__main__":
