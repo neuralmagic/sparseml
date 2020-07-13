@@ -57,7 +57,7 @@ def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
             # is the same within the mask.  Assumes grouping applies
             # an absolte mean to each grouping
             for mask in [initial_mask, new_mask]:
-                grouped_mask = mask_creator._group_tensor(mask)
+                grouped_mask = mask_creator.group_tensor(mask)
                 mask_vals_are_grouped = tf_compat.reduce_all(
                     tf_compat.logical_or(
                         tf_compat.equal(grouped_mask, 0.0),

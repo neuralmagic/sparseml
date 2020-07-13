@@ -130,7 +130,7 @@ class UnstructuredSparsityMaskCreator(SparsityMaskCreator):
 class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
     """
     Abstract class for a sparsity mask creator that structures masks according to
-    grouping functions.  Subclasses should implement _group_tensor and
+    grouping functions.  Subclasses should implement group_tensor and
     _map_mask_to_tensor
     """
 
@@ -153,7 +153,7 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
         return GroupedSparsityMaskCreator._GROUPING_OPS[grouping_op_name]
 
     @abstractmethod
-    def _group_tensor(self, tensor: tf_compat.Tensor) -> tf_compat.Tensor:
+    def group_tensor(self, tensor: tf_compat.Tensor) -> tf_compat.Tensor:
         """
         :param tensor: The tensor to reduce in groups
         :return: The grouped tensor
@@ -167,7 +167,7 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
         original_tensor_shape: tf_compat.TensorShape,
     ) -> tf_compat.Tensor:
         """
-        :param grouped_mask: A binary mask the size of a tensor from _group_tensor
+        :param grouped_mask: A binary mask the size of a tensor from group_tensor
         :param original_tensor_shape: Shape of the original tensor grouped_mask
             derives from
         :return: The values from grouped_mask mapped to a tensor of size
@@ -191,7 +191,7 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
             dtype = tf_compat.as_dtype(dtype)
             if not dtype.is_numpy_compatible or dtype == tf_compat.string:
                 raise ValueError("Expected numeric or boolean dtype, got %s." % dtype)
-            grouped_tensor = self._group_tensor(tensor)
+            grouped_tensor = self.group_tensor(tensor)
             grouped_mask = tf_compat.not_equal(grouped_tensor, 0.0)
             mask = self._map_mask_to_tensor(grouped_mask, tensor.shape)
             return tf_compat.cast(mask, dtype=dtype)
@@ -207,7 +207,7 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
         :return: A sparsity mask close to the set sparsity based on the values of
             the input tensor
         """
-        grouped_tensor = self._group_tensor(tensor)
+        grouped_tensor = self.group_tensor(tensor)
         grouped_mask = super().create_sparsity_mask(grouped_tensor, sparsity)
         return self._map_mask_to_tensor(grouped_mask, tensor.shape)
 
@@ -264,7 +264,7 @@ class DimensionSparsityMaskCreator(GroupedSparsityMaskCreator):
                 )
             )
 
-    def _group_tensor(self, tensor: tf_compat.Tensor) -> tf_compat.Tensor:
+    def group_tensor(self, tensor: tf_compat.Tensor) -> tf_compat.Tensor:
         """
         :param tensor: The tensor to transform
         :return: The absolute mean values of the tensor grouped by the
@@ -325,7 +325,7 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
         self._block_shape = block_shape
         self._grouping_op = GroupedSparsityMaskCreator.get_grouping_op(grouping_op_name)
 
-    def _group_tensor(self, tensor: tf_compat.Tensor) -> tf_compat.Tensor:
+    def group_tensor(self, tensor: tf_compat.Tensor) -> tf_compat.Tensor:
         """
         :param tensor: The tensor to transform
         :return: The absolute mean values of the tensor grouped by blocks of

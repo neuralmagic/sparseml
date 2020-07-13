@@ -178,7 +178,7 @@ def test_create_op_pruning_conv(sparsity_val: float, mask_creator: SparsityMaskC
                 # Check that every value in the mask_creator grouping
                 # is the same within the mask.  Assumes grouping applies
                 # an absolte mean to each grouping
-                grouped_mask = mask_creator._group_tensor(pruning_op_vars.mask)
+                grouped_mask = mask_creator.group_tensor(pruning_op_vars.mask)
                 mask_vals_are_grouped = tf_compat.reduce_all(
                     tf_compat.logical_or(
                         tf_compat.equal(grouped_mask, 0.0),
@@ -291,7 +291,7 @@ def test_get_or_create_graph_ops_pruning(
                     # Check that every value in the mask_creator grouping
                     # is the same within the mask.  Assumes grouping applies
                     # an absolte mean to each grouping
-                    grouped_mask = mask_creator._group_tensor(op_vars.mask)
+                    grouped_mask = mask_creator.group_tensor(op_vars.mask)
                     mask_vals_are_grouped = tf_compat.reduce_all(
                         tf_compat.logical_or(
                             tf_compat.equal(grouped_mask, 0.0),

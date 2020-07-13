@@ -140,14 +140,14 @@ class UnstructuredSparsityMaskCreator(SparsityMaskCreator):
 class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
     """
     Abstract class for a sparsity mask creator that structures masks according to
-    grouping functions.  Subclasses should implement _group_tensor and
+    grouping functions.  Subclasses should implement group_tensor and
     _map_mask_to_tensor
     """
 
     _GROUPING_FUNCTIONS = {
-        "mean": torch.mean,
-        "max": torch.max,
-        "min": torch.min,
+        "mean": lambda args: torch.mean(**args),
+        "max": lambda args: torch.max(**args)[0],
+        "min": lambda args: torch.min(**args)[0],
     }
 
     @staticmethod
@@ -165,7 +165,7 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
         return GroupedSparsityMaskCreator._GROUPING_FUNCTIONS[grouping_fn_name]
 
     @abstractmethod
-    def _group_tensor(self, tensor: Tensor) -> Tensor:
+    def group_tensor(self, tensor: Tensor) -> Tensor:
         """
         :param tensor: The tensor to reduce in groups
         :return: The grouped tensor
@@ -177,7 +177,7 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
         self, grouped_mask: Tensor, original_tensor_shape: torch.Size,
     ) -> Tensor:
         """
-        :param grouped_mask: A binary mask the size of a tensor from _group_tensor
+        :param grouped_mask: A binary mask the size of a tensor from group_tensor
         :param original_tensor_shape: Shape of the original tensor grouped_mask
             derives from
         :return: The values from grouped_mask mapped to a tensor of size
@@ -188,9 +188,9 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
     def create_sparsity_mask_from_tensor(self, tensor: Tensor) -> Tensor:
         """
         :param tensor: the tensor to calculate a mask based on its values
-        :return: a mask derived from the values of tensor grouped by the _group_tensor
+        :return: a mask derived from the values of tensor grouped by the group_tensor
         """
-        grouped_tensor = self._group_tensor(tensor)
+        grouped_tensor = self.group_tensor(tensor)
         grouped_mask = super().create_sparsity_mask_from_tensor(grouped_tensor)
         return self._map_mask_to_tensor(grouped_mask, tensor.shape)
 
@@ -200,11 +200,11 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
         """
         :param tensor: the tensor to calculate a mask from based on the contained
             values
-        :param threshold: a threshold of _group_tensor values to determine cutoff
+        :param threshold: a threshold of group_tensor values to determine cutoff
             for sparsification
         :return: a mask derived from the tensor and the grouped threshold
         """
-        grouped_tensor = self._group_tensor(tensor)
+        grouped_tensor = self.group_tensor(tensor)
         grouped_mask = super().create_sparsity_mask_from_abs_threshold(
             grouped_tensor, threshold
         )
@@ -220,7 +220,7 @@ class GroupedSparsityMaskCreator(UnstructuredSparsityMaskCreator):
             matches the sparsity and all values mapped to the same group have the
             same value.
         """
-        grouped_tensor = self._group_tensor(tensor)
+        grouped_tensor = self.group_tensor(tensor)
         grouped_mask = super().create_sparsity_mask(grouped_tensor, sparsity)
         return self._map_mask_to_tensor(grouped_mask, tensor.shape)
 
@@ -256,7 +256,7 @@ class DimensionSparsityMaskCreator(GroupedSparsityMaskCreator):
                 )
         self._dim = dim  # List[int]
 
-    def _group_tensor(self, tensor: Tensor) -> Tensor:
+    def group_tensor(self, tensor: Tensor) -> Tensor:
         """
         :param tensor: The tensor to transform
         :return: The absolute mean values of the tensor grouped by the
@@ -270,7 +270,10 @@ class DimensionSparsityMaskCreator(GroupedSparsityMaskCreator):
             )
         reduced_dims = [idx for idx in range(n_dims) if idx not in self._dim]
         reduced_tensor = self._grouping_fn(
-            torch.abs(tensor), reduced_dims, keepdim=True
+            {'input': torch.abs(tensor),
+             'dim': reduced_dims,
+             'keepdim': True,
+             }
         )
         return reduced_tensor.type(tensor.type())
 
@@ -320,7 +323,7 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
         self._block_shape = block_shape
         self._grouping_fn = GroupedSparsityMaskCreator.get_grouping_fn(grouping_fn_name)
 
-    def _group_tensor(self, tensor: Tensor) -> Tensor:
+    def group_tensor(self, tensor: Tensor) -> Tensor:
         """
         :param tensor: The tensor to transform
         :return: The absolute mean values of the tensor grouped by blocks of
@@ -328,7 +331,12 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
         """
         blocked_tens_shape = self._get_blocked_tens_shape_and_validate(tensor.shape)
         blocked_tensor = tensor.reshape(blocked_tens_shape)
-        reduced_blocks = self._grouping_fn(torch.abs(blocked_tensor), 1, keepdim=True)
+        reduced_blocks = self._grouping_fn(
+            {'input': torch.abs(blocked_tensor),
+             'dim': 1,
+             'keepdim': True,
+             }
+        )
         return reduced_blocks.type(tensor.type())
 
     def _map_mask_to_tensor(

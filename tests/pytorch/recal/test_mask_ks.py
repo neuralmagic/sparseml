@@ -257,7 +257,7 @@ def test_set_param_mask_cuda(layer, param_name, param_mask):
 
 
 def _test_grouped_sparsity_mask_output(mask_creator, mask):
-    grouped_mask = mask_creator._group_tensor(mask)
+    grouped_mask = mask_creator.group_tensor(mask)
     mask_vals_are_grouped = torch.all(
         torch.logical_or(grouped_mask == 0.0, grouped_mask == 1.0)
     )
