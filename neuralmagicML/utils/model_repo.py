@@ -9,7 +9,7 @@ import requests
 from requests.exceptions import HTTPError
 import hashlib
 import copy
-from tarfile import TarFile
+import tarfile
 
 from neuralmagicML.utils.frameworks import (
     ONNX_FRAMEWORK,
@@ -286,7 +286,7 @@ class RepoModel(object):
         for data_path in self.data_file_paths:
             try:
                 paths.append(models_download_file(data_path, overwrite, save_dir))
-                with TarFile(paths[-1]) as tar:
+                with tarfile.open(paths[-1]) as tar:
                     tar.extractall(save_dir)
             except HTTPError:
                 print(f"Could not download {data_path}")

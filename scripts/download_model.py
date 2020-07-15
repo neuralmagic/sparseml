@@ -90,10 +90,10 @@ def main():
             desc=args.desc,
         )
 
-        model.download_onnx_file(overwrite=False, save_dir=args.model_path)
-        model.download_framework_files(overwrite=False, save_dir=args.model_path)
+        model.download_onnx_file(overwrite=False, save_dir=args.target_path)
+        model.download_framework_files(overwrite=False, save_dir=args.target_path)
         if args.download_test_data:
-            model.download_data_files(overwrite=False, save_dir=args.model_path)
+            model.download_data_files(overwrite=False, save_dir=args.target_path)
     else:
         models = available_models(
             domains=args.dom,
