@@ -1,9 +1,10 @@
 """
-Simple script to validate a datasets validation metrics for a given onnx model.
+Script to validate a dataset's validation metrics for a given onnx model.
 Uses neuralmagicML.pytorch for convenience functions to load images and metrics.
 Additionally uses Neural Magic Inference Engine for inference of the model if available.
 
 
+##########
 Command help:
 python scripts/onnx/classification_validation.py -h
 neuralmagic package not found in system, falling back to onnx runtime
@@ -40,6 +41,7 @@ optional arguments:
                         The number of workers to use for data loading
 
 
+##########
 Example for ResNet, MobileNet, etc (image size 224):
 python nm_imagenet_validation.py \
     --onnx-file-path PATH/TO/MODEL.onnx \
@@ -47,6 +49,7 @@ python nm_imagenet_validation.py \
      --loader-num-workers 10 --image-size 224
 
 
+##########
 Example for Inception V3 (image size 299):
 python nm_imagenet_validation.py \
     --onnx-file-path PATH/TO/MODEL.onnx \
@@ -55,6 +58,7 @@ python nm_imagenet_validation.py \
 """
 
 import argparse
+import logging
 from tqdm import auto
 from onnxruntime import InferenceSession
 
@@ -73,7 +77,7 @@ from neuralmagicML.pytorch.utils import (
 try:
     from neuralmagic import create_model
 except Exception:
-    PythonLogger().warn(
+    logging.warning(
         "neuralmagic package not found in system, falling back to onnx runtime"
     )
     create_model = None

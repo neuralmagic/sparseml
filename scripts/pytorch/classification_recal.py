@@ -6,6 +6,7 @@ Image classification recal script. Setup to support the following use cases:
 - evaluating image classification architectures
 
 
+##########
 Command help:
 usage: classification_recal.py [-h] [--recal-config-path RECAL_CONFIG_PATH]
                                [--sparse-transfer-learn] [--eval-mode]
@@ -99,6 +100,7 @@ optional arguments:
                         debug mode
 
 
+##########
 Example command for training mobilenet on imagenet dataset:
 python scripts/pytorch/classification_recal.py \
     --recal-config-path scripts/pytorch/configs/imagenet_training.yaml \
@@ -106,6 +108,7 @@ python scripts/pytorch/classification_recal.py \
     --train-batch-size 256 --test-batch-size 1024
 
 
+##########
 Example command for pruning resnet50 on imagenet dataset:
 python scripts/pytorch/classification_recal.py \
     --recal-config-path scripts/pytorch/configs/pruning_resnet50.yaml \
@@ -113,6 +116,7 @@ python scripts/pytorch/classification_recal.py \
     --train-batch-size 256 --test-batch-size 1024
 
 
+##########
 Example command for transfer learning sparse resnet50 on an image folder dataset:
 python scripts/pytorch/classification_recal.py \
     --sparse-transfer-learn \
@@ -122,6 +126,7 @@ python scripts/pytorch/classification_recal.py \
     --train-batch-size 256 --test-batch-size 1024
 
 
+##########
 Example command for evaluating a mobilenetv2 model on imagenet dataset:
 python scripts/pytorch/classification_recal.py \
     --eval-mode --arch-key mobilenetv2 --dataset imagenet \
@@ -130,6 +135,7 @@ python scripts/pytorch/classification_recal.py \
 
 import argparse
 from typing import Tuple, Union
+import logging
 import os
 import time
 import json
@@ -137,7 +143,14 @@ import json
 import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
-from torch.optim import SGD, Adam, RMSprop
+from torch.optim import SGD, Adam
+
+try:
+    from torch.optim import RMSprop
+except Exception:
+    RMSprop = None
+    logging.warning("RMSprop not available as an optimizer")
+
 from torch.optim.optimizer import Optimizer
 
 from neuralmagicML.pytorch.datasets import DatasetRegistry

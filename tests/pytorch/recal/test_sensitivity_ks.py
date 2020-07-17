@@ -24,12 +24,13 @@ def test_module_ks_sensitivity_analysis_one_shot(model):
     analysis = approx_ks_loss_sensitivity(model)
 
     for res in analysis.results:
-        assert "param" in res
-        assert "index" in res
-        assert "sparse_measurements" in res
-        assert "sparse_averages" in res
-        assert res["sparse_loss_avg"] > 0.0
-        assert res["sparse_loss_integral"] > 0.0
+        assert res.name
+        assert isinstance(res.index, int)
+        assert len(res.sparse_measurements) > 0
+        assert len(res.averages) > 0
+        assert res.sparse_average > 0
+        assert res.sparse_integral > 0
+        assert res.sparse_comparison > 0
 
 
 def _test_one_shot_ks_loss_sensitivity_helper(
@@ -40,12 +41,12 @@ def _test_one_shot_ks_loss_sensitivity_helper(
     )
 
     for res in analysis.results:
-        assert "param" in res
-        assert "index" in res
-        assert "sparse_measurements" in res
-        assert "sparse_averages" in res
-        assert res["sparse_loss_avg"] > 0.0
-        assert res["sparse_loss_integral"] > 0.0
+        assert res.name
+        assert isinstance(res.index, int)
+        assert len(res.sparse_measurements) > 0
+        assert len(res.averages) > 0
+        assert res.sparse_average > 0
+        assert res.sparse_integral > 0
 
 
 @pytest.mark.skipif(

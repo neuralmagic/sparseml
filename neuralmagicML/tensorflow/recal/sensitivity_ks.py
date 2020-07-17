@@ -7,7 +7,7 @@ from collections import namedtuple
 import numpy
 from tqdm import auto
 
-from neuralmagicML.recal import KSLossSensitivityAnalysis, default_check_sparsities
+from neuralmagicML.recal import KSLossSensitivityAnalysis, default_check_sparsities_loss
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.utils import get_ops_and_inputs_by_name_or_regex
 from neuralmagicML.tensorflow.recal.mask_ks import KSScope, create_op_pruning
@@ -30,7 +30,7 @@ SparsePruningOpVars = namedtuple("SparsePruningOpVars", ("op_vars", "sparsity"))
 
 def ks_loss_sensitivity_op_vars(
     graph: tf_compat.Graph = None,
-    var_names: List[str] = ["re:.*"],
+    var_names: Union[List[str], Tuple[str]] = ("re:.*",),
     mask_type: Union[str, List[int], SparsityMaskCreator] = "unstructured",
 ) -> List[SparsePruningOpVars]:
     """
@@ -88,13 +88,14 @@ def ks_loss_sensitivity_op_vars(
 def approx_ks_loss_sensitivity(
     graph: tf_compat.Graph = None,
     sess: tf_compat.Session = None,
-    sparsity_levels: Union[List[float], Tuple[float, ...]] = default_check_sparsities(
-        True
-    ),
+    sparsity_levels: Union[
+        List[float], Tuple[float, ...]
+    ] = default_check_sparsities_loss(True),
 ) -> KSLossSensitivityAnalysis:
     """
     Approximated kernel sparsity (pruning) loss analysis for a given model.
     Returns the results for each prunable param (conv, linear) in the model.
+    Approximated by taking the magnitudes of the weights.
 
     :param graph: the graph to inject pruning ops and vars into,
         if not supplied uses get_default_graph()
@@ -114,7 +115,6 @@ def approx_ks_loss_sensitivity(
     for op_index, (_, op_tens) in enumerate(prunable_ops_and_inputs):
         weight = sess.run(op_tens)
         values = numpy.sort(numpy.abs(weight.reshape(-1)))
-        sparse_measurements = []
         prev_index = None
 
         for sparsity in sparsity_levels:
@@ -123,15 +123,21 @@ def approx_ks_loss_sensitivity(
             if val_index >= len(values):
                 val_index = len(values) - 1
 
-            if sparsity <= 0.0:
-                sparse_measurements.append((sparsity, [0.0]))
+            if sparsity <= 1e-9:
+                analysis.add_result(
+                    None, op_tens.name, op_index, 0.0, 0.0, baseline=True
+                )
             else:
-                avg = values[prev_index:val_index].mean().item()
-                sparse_measurements.append((sparsity, [avg]))
+                avg = (
+                    values[prev_index:val_index].mean().item()
+                    if val_index > prev_index
+                    else values[val_index]
+                )
+                analysis.add_result(
+                    None, op_tens.name, op_index, sparsity, avg, baseline=False
+                )
 
             prev_index = val_index + 1
-
-        analysis.add_result(op_tens.name, op_index, sparse_measurements)
 
     return analysis
 
@@ -143,7 +149,7 @@ def one_shot_ks_loss_sensitivity(
     add_ops_creator: Callable[[int], List[tf_compat.Tensor]] = None,
     feed_dict_creator: Callable[[int], Dict[str, tf_compat.Tensor]] = None,
     sess: tf_compat.Session = None,
-    sparsity_levels: List[int] = default_check_sparsities(False),
+    sparsity_levels: List[int] = default_check_sparsities_loss(False),
     show_progress: bool = True,
 ) -> KSLossSensitivityAnalysis:
     """
@@ -189,14 +195,11 @@ def one_shot_ks_loss_sensitivity(
     )
 
     for op_index, sparse_op_vars in enumerate(op_vars):
-        sparsities_loss = []
-
-        for sparsity_index, sparsity_level in enumerate(sparsity_levels):
+        for sparsity_level in sparsity_levels:
             sess.run(
                 sparse_op_vars.op_vars.update,
                 feed_dict={sparse_op_vars.sparsity: sparsity_level},
             )
-            measured = []
 
             for step in range(steps_per_measurement):
                 ops = [loss_tensor]
@@ -208,16 +211,18 @@ def one_shot_ks_loss_sensitivity(
 
                 values = sess.run(ops, feed_dict=feed_dict)
                 loss = values[0]
-                measured.append(loss)
+                analysis.add_result(
+                    None,
+                    sparse_op_vars.op_vars.op_input.name,
+                    op_index,
+                    sparsity_level,
+                    loss,
+                    baseline=sparsity_level < 1e-9,
+                )
 
                 if bar is not None:
                     bar.update(1)
 
-            sparsities_loss.append((sparsity_level, measured))
-
-        analysis.add_result(
-            sparse_op_vars.op_vars.op_input.name, op_index, sparsities_loss
-        )
         sess.run(
             sparse_op_vars.op_vars.update, feed_dict={sparse_op_vars.sparsity: 0.0}
         )

@@ -300,7 +300,7 @@ class PruneParamWidget(_Widget):
     :param end_sparsity: optional pre configured setting for the sparsity to set
         for each parameter
         on display, by default all parameter are set to 0.8
-    :param loss_sens_analysis: optional sensitivity analysis to use to display next
+    :param sens_analysis: optional sensitivity analysis to use to display next
         to the parameters
     """
 
@@ -352,13 +352,11 @@ class PruneParamWidget(_Widget):
         spacer.layout.width = "24px"
 
         if self._loss_sens_analysis:
-
-            param_integral = self._loss_sens_analysis.get_result(self._name)[
-                "sparse_loss_integral"
-            ]
+            param_integral = self._loss_sens_analysis.get_result(
+                self._name
+            ).sparse_integral
             all_loss_integrals = [
-                param["sparse_loss_integral"]
-                for param in self._loss_sens_analysis.results
+                param.sparse_integral for param in self._loss_sens_analysis.results
             ]
             min_val, max_val = min(all_loss_integrals), max(all_loss_integrals)
             bounds = (max_val - min_val) * 0.25

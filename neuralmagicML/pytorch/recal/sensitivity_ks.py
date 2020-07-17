@@ -9,7 +9,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader
 
-from neuralmagicML.recal import KSLossSensitivityAnalysis, default_check_sparsities
+from neuralmagicML.recal import KSLossSensitivityAnalysis, default_check_sparsities_loss
 from neuralmagicML.pytorch.utils import (
     ModuleTester,
     ModuleRunResults,
@@ -56,9 +56,9 @@ def approx_model_prunability(module: Module):
 
 def approx_ks_loss_sensitivity(
     module: Module,
-    sparsity_levels: Union[List[float], Tuple[float, ...]] = default_check_sparsities(
-        True
-    ),
+    sparsity_levels: Union[
+        List[float], Tuple[float, ...]
+    ] = default_check_sparsities_loss(True),
 ) -> KSLossSensitivityAnalysis:
     """
     Approximated kernel sparsity (pruning) loss analysis for a given model.
@@ -74,7 +74,6 @@ def approx_ks_loss_sensitivity(
     for index, (name, layer) in enumerate(prunable):
         weight = getattr(layer, "weight")
         values, _ = weight.view(-1).abs().sort()
-        sparse_measurements = []
         prev_index = None
 
         for sparsity in sparsity_levels:
@@ -83,15 +82,19 @@ def approx_ks_loss_sensitivity(
             if val_index >= len(values):
                 val_index = len(values) - 1
 
-            if sparsity <= 0.0:
-                sparse_measurements.append((sparsity, [0.0]))
+            if sparsity <= 1e-9:
+                analysis.add_result(None, weight.name, index, 0.0, 0.0, baseline=True)
             else:
-                avg = values[prev_index:val_index].mean().item()
-                sparse_measurements.append((sparsity, [avg]))
+                avg = (
+                    values[prev_index:val_index].mean().item()
+                    if val_index > prev_index
+                    else values[val_index]
+                )
+                analysis.add_result(
+                    None, weight.name, index, sparsity, avg, baseline=False,
+                )
 
             prev_index = val_index + 1
-
-        analysis.add_result("{}.weight".format(name), index, sparse_measurements)
 
     return analysis
 
@@ -102,58 +105,39 @@ def _sensitivity_callback(
     steps_per_measurement: int,
     analysis: KSLossSensitivityAnalysis,
     loss_key: str,
-) -> Tuple[Callable, Callable]:
+) -> Callable:
     measurement_steps = 0
     layer_index = -1
     sparsity_index = -1
-    sparsity_results = None
     current_mask = None
-    current_meas = None
 
     def complete_measurement():
         """
         Uses complete_measurement to handle when all of the required steps have been
         taken for a given layer and sparsity level.
-        This handles saving the data for that measurement as well as incrementing to
-        the next sparsity level. If all sparsity levels are complete,
-        increments to the next layer and starts from the initial sparsity level
-        while appending the final layer results to the analysis.
+        This handles incrementing to the next sparsity level.
+        If all sparsity levels are complete,
+        increments to the next layer and starts from the initial sparsity level.
 
-        Should only be invoked when all measurements have been taken,
-        starting the entire process, or finishing the entire process.
+        Should only be invoked when all measurements have been taken.
         """
 
         nonlocal measurement_steps
         nonlocal layer_index
         nonlocal sparsity_index
-        nonlocal sparsity_results
         nonlocal current_mask
-        nonlocal current_meas
-
-        if measurement_steps >= 0 and 0 <= layer_index < len(prunable_layers):
-            ks_res = [
-                res.item() for res in sparsity_results.result_list_tensor(loss_key)
-            ]
-            current_meas.append((sparsity_levels[sparsity_index], ks_res))
 
         measurement_steps = 0
         sparsity_index += 1
-        sparsity_results = ModuleRunResults()
 
         if 0 <= sparsity_index < len(sparsity_levels) and 0 <= layer_index < len(
             prunable_layers
         ):
+            # increment sparsity level for current layer
             current_mask.set_param_mask_from_sparsity(sparsity_levels[sparsity_index])
         else:
-            if current_meas and layer_index < len(prunable_layers):
-                analysis.add_result(
-                    "{}.weight".format(prunable_layers[layer_index][0]),
-                    sparsity_index,
-                    current_meas,
-                )
-
+            # go to next layer
             sparsity_index = 0
-            current_meas = []
             layer_index += 1
 
             if current_mask:
@@ -182,17 +166,21 @@ def _sensitivity_callback(
     ):
         nonlocal measurement_steps
         measurement_steps += 1
-        sparsity_results.append(losses, batch_size)
+
+        if layer_index < len(prunable_layers):
+            analysis.add_result(
+                None,
+                "{}.weight".format(prunable_layers[layer_index][0]),
+                sparsity_index,
+                sparsity_levels[sparsity_index],
+                losses[loss_key].item(),
+                baseline=sparsity_levels[sparsity_index] < 1e-9,
+            )
 
         if measurement_steps >= steps_per_measurement:
             complete_measurement()
 
-    def completed():
-        complete_measurement()
-
-        return batch_end, completed
-
-    return batch_end, completed
+    return batch_end
 
 
 def one_shot_ks_loss_sensitivity(
@@ -201,7 +189,7 @@ def one_shot_ks_loss_sensitivity(
     loss: Union[LossWrapper, Callable[[Any, Any], Tensor]],
     device: str,
     steps_per_measurement: int,
-    sparsity_levels: List[int] = default_check_sparsities(False),
+    sparsity_levels: List[int] = default_check_sparsities_loss(False),
     loss_key: str = DEFAULT_LOSS_KEY,
     tester_run_funcs: ModuleRunFuncs = None,
     tester_loggers: List[PyTorchLogger] = None,
@@ -242,7 +230,7 @@ def one_shot_ks_loss_sensitivity(
         log_steps=max(1, round(steps_per_measurement / 10)),
     )
     layers = get_prunable_layers(module)
-    batch_end, completed = _sensitivity_callback(
+    batch_end = _sensitivity_callback(
         layers, sparsity_levels, steps_per_measurement, analysis, loss_key
     )
     batch_end_hook = tester.run_hooks.register_batch_end_hook(batch_end)
@@ -259,7 +247,6 @@ def one_shot_ks_loss_sensitivity(
         track_results=False,
         max_steps=steps_per_measurement * len(sparsity_levels) * len(layers),
     )
-    completed()
     batch_end_hook.remove()
 
     return analysis

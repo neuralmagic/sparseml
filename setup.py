@@ -14,7 +14,7 @@ with open("requirements.txt", "r") as req_file:
 
 setup(
     name="neuralmagicML",
-    version="1.0.0",
+    version="1.1.0",
     packages=packages,
     package_data={},
     install_requires=install_reqs,

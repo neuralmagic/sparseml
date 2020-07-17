@@ -7,6 +7,7 @@ Saves the results to a given directory.
 Additionally will print the results out to the command line
 
 
+##########
 Command help:
 usage: classification_sensitivity_lr.py [-h] --arch-key ARCH_KEY
                                         [--pretrained PRETRAINED]
@@ -83,6 +84,7 @@ optional arguments:
   --save-dir SAVE_DIR   The path to the directory for saving results
 
 
+##########
 Example command for running LR sensitivity analysis on mobilenet:
 python scripts/pytorch/classification_sensitivity_lr.py \
     --arch-key mobilenet --dataset imagenet \

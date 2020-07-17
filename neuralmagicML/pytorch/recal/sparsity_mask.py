@@ -270,10 +270,7 @@ class DimensionSparsityMaskCreator(GroupedSparsityMaskCreator):
             )
         reduced_dims = [idx for idx in range(n_dims) if idx not in self._dim]
         reduced_tensor = self._grouping_fn(
-            {'input': torch.abs(tensor),
-             'dim': reduced_dims,
-             'keepdim': True,
-             }
+            {"input": torch.abs(tensor), "dim": reduced_dims, "keepdim": True}
         )
         return reduced_tensor.type(tensor.type())
 
@@ -332,10 +329,7 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
         blocked_tens_shape = self._get_blocked_tens_shape_and_validate(tensor.shape)
         blocked_tensor = tensor.reshape(blocked_tens_shape)
         reduced_blocks = self._grouping_fn(
-            {'input': torch.abs(blocked_tensor),
-             'dim': 1,
-             'keepdim': True,
-             }
+            {"input": torch.abs(blocked_tensor), "dim": 1, "keepdim": True}
         )
         return reduced_blocks.type(tensor.type())
 

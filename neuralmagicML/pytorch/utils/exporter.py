@@ -46,10 +46,7 @@ class ModuleExporter(object):
         self._output_dir = clean_path(output_dir)
 
     def export_onnx(
-        self,
-        sample_batch: Any,
-        name: str = "model.onnx",
-        opset: int = 9,
+        self, sample_batch: Any, name: str = "model.onnx", opset: int = 9,
     ):
         """
         Export an onnx file for the current module and for a sample batch.

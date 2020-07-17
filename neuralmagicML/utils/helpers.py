@@ -3,7 +3,7 @@ General utility helper functions.
 Common functions for interfacing with python primitives and directories/files.
 """
 
-from typing import Union, Iterable, Any, List, Tuple
+from typing import Union, Iterable, Any, List, Tuple, Callable
 import sys
 import os
 import errno
@@ -15,6 +15,7 @@ __all__ = [
     "flatten_iterable",
     "convert_to_bool",
     "validate_str_iterable",
+    "bucket_iterable",
     "INTERPOLATION_FUNCS",
     "interpolate",
     "interpolated_integral",
@@ -91,6 +92,49 @@ def validate_str_iterable(
     raise ValueError("unsupported type ({}) given in {}".format(val, error_desc))
 
 
+def bucket_iterable(
+    val: Iterable[Any],
+    num_buckets: int = 3,
+    edge_percent: float = 0.05,
+    sort_highest: bool = True,
+    sort_key: Callable[[Any], Any] = None,
+) -> List[Tuple[int, Any]]:
+    """
+    Bucket iterable into subarray consisting of the first top percentage
+    followed by the rest of the iterable sliced into equal sized groups
+
+    :param val: The iterable to bucket
+    :param num_buckets: The number of buckets to group the iterable into,
+        does not include the top bucket
+    :param edge_percent  : Group the first percent into its own bucket.
+        If sort_highest then this is the top percent, else bottom percent.
+        If <= 0, then will not create an edge bucket
+    :param sort_highest: True to sort such that the highest percent is first
+        and will create buckets in descending order.
+        False to sort so lowest is first and create buckets in ascending order.
+    :param sort_key: The sort_key, if any, to use for sorting the iterable
+        after converting it to a list
+    :return: a list of each value mapped to the bucket it was sorted into
+    """
+    val_list = [v for v in val]
+    val_list.sort(key=sort_key, reverse=sort_highest)
+    bucketed_values = []
+    edge_count = round(edge_percent * len(val_list))
+
+    if edge_count > 0:
+        bucketed_values.extend([(-1, val) for val in val_list[:edge_count]])
+        val_list = val_list[edge_count:]
+
+    buckets_count = round(len(val_list) / float(num_buckets))
+
+    for bucket in range(num_buckets):
+        add_vals = val_list[:buckets_count] if bucket < num_buckets - 1 else val_list
+        val_list = val_list[buckets_count:] if bucket < num_buckets - 1 else []
+        bucketed_values.extend([(bucket, val) for val in add_vals])
+
+    return bucketed_values
+
+
 INTERPOLATION_FUNCS = ["linear", "cubic", "inverse_cubic"]
 
 
@@ -160,6 +204,7 @@ def interpolated_integral(measurements: List[Tuple[float, float]]):
     if len(measurements) == 1:
         return measurements[0][1]
 
+    measurements.sort(key=lambda v: v[0])
     integral = 0.0
 
     for index, (x_val, y_val) in enumerate(measurements):

@@ -9,6 +9,7 @@ Saves the results to a given directory.
 Additionally will print the results out to the command line
 
 
+##########
 Command help:
 usage: classification_sensitivity_ks.py [-h] [--approximate]
                                         [--steps-per-measurement STEPS_PER_MEASUREMENT]
@@ -77,12 +78,14 @@ optional arguments:
   --save-dir SAVE_DIR   The path to the directory for saving results
 
 
+##########
 Example command for running approximated KS sensitivity analysis on mobilenet:
 python scripts/pytorch/classification_sensitivity_ks.py \
     --approximate --arch-key mobilenet --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012
 
 
+##########
 Example command for running one shot KS sensitivity analysis on mobilenet for imagenet:
 python scripts/pytorch/classification_sensitivity_ks.py \
     --arch-key mobilenet --dataset imagenet \

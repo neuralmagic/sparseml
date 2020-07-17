@@ -3,6 +3,7 @@ Image classification export script. Exports models to a standard structure
 including an ONNX export as well as sample inputs, outputs, and labels
 
 
+##########
 Command help:
 python scripts/pytorch/classification_export.py -h
 usage: classification_export.py [-h] [--num-samples NUM_SAMPLES] --arch-key
@@ -56,6 +57,7 @@ optional arguments:
   --save-dir SAVE_DIR   The path to the directory for saving results
 
 
+##########
 Example command for exporting ResNet50:
 python scripts/pytorch/classification_export.py \
     --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012

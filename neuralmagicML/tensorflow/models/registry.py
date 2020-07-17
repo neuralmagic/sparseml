@@ -46,6 +46,13 @@ class ModelRegistry(object):
     _ATTRIBUTES = {}  # type: Dict[str, _ModelAttributes]
 
     @staticmethod
+    def available_keys() -> List[str]:
+        """
+        :return: the keys (models) currently available in the registry
+        """
+        return list(ModelRegistry._CONSTRUCTORS.keys())
+
+    @staticmethod
     def create(key: str, *args, **kwargs) -> Any:
         """
         Create a new model for the given key
@@ -63,6 +70,40 @@ class ModelRegistry(object):
             )
 
         return ModelRegistry._CONSTRUCTORS[key](*args, **kwargs)
+
+    @staticmethod
+    def create_repo(
+        key: str, pretrained: Union[bool, str] = True, pretrained_dataset: str = None,
+    ) -> RepoModel:
+        """
+        Create a RepoModel for the desired model in the model repo
+
+        :param key: the model key (name) to retrieve
+        :param pretrained: True to load pretrained weights; to load a specific version
+            give a string with the name of the version (recal, recal-perf), default True
+        :param pretrained_dataset: The dataset to load for the model
+        :return: the RepoModel reference for the given model
+        """
+        if key not in ModelRegistry._CONSTRUCTORS:
+            raise ValueError(
+                "key {} is not in the model registry; available: {}".format(
+                    key, ModelRegistry._CONSTRUCTORS
+                )
+            )
+
+        attributes = ModelRegistry._ATTRIBUTES[key]
+
+        return RepoModel(
+            attributes.domain,
+            attributes.sub_domain,
+            attributes.architecture,
+            attributes.sub_architecture,
+            attributes.default_dataset
+            if pretrained_dataset is None
+            else pretrained_dataset,
+            TENSORFLOW_FRAMEWORK,
+            pretrained if isinstance(pretrained, str) else attributes.default_desc,
+        )
 
     @staticmethod
     def load_pretrained(
@@ -108,8 +149,6 @@ class ModelRegistry(object):
                 )
             )
 
-        attributes = ModelRegistry._ATTRIBUTES[key]
-
         if not sess and (pretrained_path or pretrained):
             sess = tf_compat.get_default_session()
 
@@ -119,21 +158,7 @@ class ModelRegistry(object):
         if pretrained_path:
             saver.restore(sess, pretrained_path)
         elif pretrained:
-            desc = (
-                pretrained if isinstance(pretrained, str) else attributes.default_desc
-            )
-            dataset = (
-                pretrained_dataset if pretrained_dataset else attributes.default_dataset
-            )
-            repo_model = RepoModel(
-                attributes.domain,
-                attributes.sub_domain,
-                attributes.architecture,
-                attributes.sub_architecture,
-                dataset,
-                TENSORFLOW_FRAMEWORK,
-                desc,
-            )
+            repo_model = ModelRegistry.create_repo(key, pretrained, pretrained_dataset)
             try:
                 paths = repo_model.download_framework_files()
                 index_path = [path for path in paths if path.endswith(".index")]
