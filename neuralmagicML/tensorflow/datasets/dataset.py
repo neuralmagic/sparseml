@@ -130,12 +130,27 @@ def create_split_iterators_handle(split_datasets: Iterable) -> Tuple[Any, Any, L
     output_shapes = None
     split_iterators = []
 
+    # Get correct TF data functions for backwards compatibility with TF
+    get_output_types = (
+        tf_compat.data.get_output_types
+        if hasattr(tf_compat.data, "get_output_types")
+        else lambda dataset: dataset.output_types
+    )
+    get_output_shapes = (
+        tf_compat.data.get_output_shapes
+        if hasattr(tf_compat.data, "get_output_shapes")
+        else lambda dataset: dataset.output_shapes
+    )
+    make_initializable_iterator = (
+        tf_compat.data.make_initializable_iterator
+        if hasattr(tf_compat.data, "make_initializable_iterator")
+        else lambda dataset: dataset.make_initializable_iterator()
+    )
+
     for split_dataset in split_datasets:
-        output_types = tf_compat.data.get_output_types(split_dataset)
-        output_shapes = tf_compat.data.get_output_shapes(split_dataset)
-        split_iterators.append(
-            tf_compat.data.make_initializable_iterator(split_dataset)
-        )
+        output_types = get_output_types(split_dataset)
+        output_shapes = get_output_shapes(split_dataset)
+        split_iterators.append(make_initializable_iterator(split_dataset))
 
     handle = tf_compat.placeholder(tf_compat.string, shape=[])
     iterator = tf_compat.data.Iterator.from_string_handle(

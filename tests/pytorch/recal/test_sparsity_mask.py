@@ -26,7 +26,7 @@ def _test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val, device
         for mask in [initial_mask, update_mask]:
             grouped_mask = mask_creator.group_tensor(mask)
             mask_vals_are_grouped = torch.all(
-                torch.logical_or(grouped_mask == 0.0, grouped_mask == 1.0)
+                (grouped_mask == 0.0) | (grouped_mask == 1.0)
             )
             assert mask_vals_are_grouped
 

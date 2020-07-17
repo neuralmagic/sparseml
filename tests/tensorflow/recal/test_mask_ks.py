@@ -155,7 +155,7 @@ def test_create_op_pruning_conv(sparsity_val: float, mask_creator: SparsityMaskC
             mask_sparsity = eval_tensor_sparsity(pruning_op_vars.mask)
             weight_sparsity = eval_tensor_sparsity(pruning_op_vars.op_input)
             assert mask_sparsity < err_threshold
-            assert mask_sparsity == weight_sparsity
+            assert abs(mask_sparsity - weight_sparsity) <= 1e-4
 
             masked_sparsity = eval_tensor_sparsity(pruning_op_vars.masked)
             assert masked_sparsity < err_threshold

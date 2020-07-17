@@ -290,7 +290,13 @@ class DimensionSparsityMaskCreator(GroupedSparsityMaskCreator):
         :return: The values from grouped_mask mapped to a tensor of size
             original_tensor_shape
         """
-        return tf_compat.broadcast_to(grouped_mask, original_tensor_shape)
+        # using tile instead of broadcast_to for compatibility with older tf versions
+        # equivalent to: tf_compat.broadcast_to(grouped_mask, original_tensor_shape)
+        tile_vals = [
+            dim if idx not in self._dim else 1
+            for (idx, dim) in enumerate(original_tensor_shape)
+        ]
+        return tf_compat.tile(grouped_mask, tile_vals)
 
     def __str__(self):
         if self._dim_name is not None:
@@ -363,7 +369,16 @@ class BlockSparsityMaskCreator(GroupedSparsityMaskCreator):
         # expand so every element has a corresponding value in the original tensor
         block_mask = tf_compat.reshape(grouped_mask, block_values_shape)
         block_mask = tf_compat.expand_dims(block_mask, 1)
-        tensor_mask_blocked = tf_compat.broadcast_to(block_mask, blocked_tens_shape)
+
+        # Recover reduced dimension of block_mask, using tile instead of broadcast_to
+        # for compatibility with older versions of tf
+        block_mask_shape = [dim.value for dim in block_mask.shape]
+        tile_shape = [
+            int(block_dim / mask_dim)
+            for (block_dim, mask_dim) in zip(blocked_tens_shape, block_mask_shape)
+        ]
+        # equivalent to: tf_compat.broadcast_to(block_mask, blocked_tens_shape)
+        tensor_mask_blocked = tf_compat.tile(block_mask, tile_shape)
 
         mask = tf_compat.reshape(tensor_mask_blocked, original_tensor_shape)
         # Undo channel / kernel transpose if applicable

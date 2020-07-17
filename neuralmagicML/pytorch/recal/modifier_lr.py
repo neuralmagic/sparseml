@@ -359,7 +359,9 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             steps_per_epoch, self.start_epoch, self.end_epoch
         )
         self._lr_scheduler = CONSTRUCTORS[lr_class](optimizer=optimizer, **lr_kwargs)
-        optimizer._step_count += 1  # hack to keep pytorch lr scheduler from complaining
+        if hasattr(optimizer, "_step_count"):
+            # hack to keep pytorch lr scheduler from complaining
+            optimizer._step_count += 1
 
         global_step = round(epoch * steps_per_epoch)
         self._scheduler_steps += global_step

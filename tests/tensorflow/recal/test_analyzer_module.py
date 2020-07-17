@@ -66,7 +66,7 @@ def simple_conv2d_net(init_weights):
 def resnet_v2_50(init_weights):
     tf_compat.reset_default_graph()
     image_size = 224
-    inputs = tf_compat.random.normal([1, image_size, image_size, 3])
+    inputs = tf_compat.random_normal([1, image_size, image_size, 3])
     with slim.arg_scope(resnet_v2.resnet_arg_scope()):
         logits, _ = resnet_v2.resnet_v2_50(inputs, 1000, is_training=False)
         return tf_compat.get_default_graph()

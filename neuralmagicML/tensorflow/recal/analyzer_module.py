@@ -206,9 +206,14 @@ def _replace_incomplete_shape_placeholers(gdef, import_prefix_name="NM_IMPORT"):
             dtype, shape=new_shape, name="new_{}".format(pl.name)
         )
         input_map[pl.name] = new_pl
-    tf_compat.graph_util.import_graph_def(
-        gdef, input_map=input_map, name=import_prefix_name
+
+    # Get correct import_graph_def function for TF version
+    import_graph_def = (
+        tf_compat.graph_util.import_graph_def
+        if hasattr(tf_compat.graph_util, "import_graph_def")
+        else tf_compat.import_graph_def
     )
+    import_graph_def(gdef, input_map=input_map, name=import_prefix_name)
 
 
 def _op_exec_order(g: tf_compat.Graph):
