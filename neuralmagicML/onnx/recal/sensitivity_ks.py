@@ -3,6 +3,7 @@ Sensitivity analysis implementations for kernel sparsity on Models against loss 
 """
 
 from typing import Union, List, Tuple
+import logging
 from tqdm import auto
 import numpy
 from onnx import ModelProto
@@ -26,6 +27,9 @@ from neuralmagicML.onnx.utils import (
     check_load_model,
 )
 from neuralmagicML.onnx.recal.mask_ks import prune_model_one_shot
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -129,9 +133,11 @@ def one_shot_ks_loss_sensitivity(
         if not NMModelRunner.available()
         else NMModelRunner(model, batch_size)
     )
+    _LOGGER.debug("created runner for one shot analysis {}".format(runner))
     base_outputs, _ = runner.run(
         data, desc="", show_progress=False, max_steps=steps_per_measurement,
     )
+    _LOGGER.debug("recorded base outputs")
     del runner
 
     if bar is not None:
@@ -140,18 +146,24 @@ def one_shot_ks_loss_sensitivity(
     for index, node in enumerate(prunable_nodes):
         node_id = extract_node_id(node)
         weight, bias = get_node_params(model, node)
+        _LOGGER.debug("running one shot for node {}".format(node_id))
 
         for sparsity in sparsity_levels:
             pruned_model = prune_model_one_shot(model, [node], sparsity)
+            _LOGGER.debug(
+                "created one shot pruned model for sparsity {}".format(sparsity)
+            )
             runner = (
                 ORTModelRunner(pruned_model)
                 if not NMModelRunner.available()
                 else NMModelRunner(pruned_model, batch_size)
             )
+            _LOGGER.debug("created runner for one shot analysis {}".format(runner))
             pruned_outputs, _ = runner.run(
                 data, desc="", show_progress=False, max_steps=steps_per_measurement,
             )
             del runner
+            _LOGGER.debug("recorded outputs")
 
             for base, pruned in zip(base_outputs, pruned_outputs):
                 batch_losses = []
@@ -216,11 +228,12 @@ def one_shot_ks_perf_sensitivity(
 
     analysis = KSPerfSensitivityAnalysis(num_cores, batch_size)
     bar = (
-        auto.tqdm(total=len(sparsity_levels), desc="KS Perf Sensitivity Analysis",)
+        auto.tqdm(total=len(sparsity_levels), desc="KS Perf Sensitivity Analysis")
         if show_progress
         else None
     )
     runner = NMBenchmarkModelRunner(model, batch_size, num_cores)
+    _LOGGER.debug("created runner for one shot analysis {}".format(runner))
 
     for sparsity in sparsity_levels:
         if sparsity <= 1e-9:
@@ -235,12 +248,13 @@ def one_shot_ks_perf_sensitivity(
             optimization_level=0,
             imposed_ks=sparsity,
         )
+        _LOGGER.debug("measured results for one shot sparsity {}".format(sparsity))
 
         for res in results:
             for iter_time in res["iteration_times"]:
                 analysis.add_model_result(
                     sparsity if sparsity is not None else 0.0,
-                    iter_time,
+                    iter_time / 1000.0,
                     baseline=sparsity is None,
                 )
 
@@ -252,7 +266,7 @@ def one_shot_ks_perf_sensitivity(
                     layer["name"],
                     index,
                     sparsity if sparsity is not None else layer["kernel_sparsity"],
-                    layer["average_run_time_in_ms"],
+                    layer["average_run_time_in_ms"] / 1000.0,
                     baseline=sparsity is None,
                 )
 

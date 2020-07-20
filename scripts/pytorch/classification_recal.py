@@ -153,6 +153,7 @@ except Exception:
 
 from torch.optim.optimizer import Optimizer
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.pytorch.datasets import DatasetRegistry
 from neuralmagicML.pytorch.models import ModelRegistry
 from neuralmagicML.pytorch.utils import (
@@ -179,6 +180,9 @@ from neuralmagicML.pytorch.recal import (
     ConstantKSModifier,
 )
 from neuralmagicML.utils import create_dirs
+
+
+LOGGER = get_main_logger()
 
 
 def parse_args():
@@ -374,9 +378,8 @@ def _save_model(
     save_dir: str,
     epoch: int,
     val_res: Union[ModuleRunResults, None],
-    py_logger: PythonLogger,
 ):
-    py_logger.info(
+    LOGGER.info(
         "Saving model for epoch {} and val_loss {} to {} for {}".format(
             epoch, val_res.result_mean(DEFAULT_LOSS_KEY).item(), save_dir, save_name
         )
@@ -424,9 +427,8 @@ def main(args):
 
     # loggers setup
     tb_logger = TensorBoardLogger(log_path=logs_dir)
-    py_logger = PythonLogger()
-    loggers = [tb_logger, py_logger]
-    py_logger.info("Model id is set to {}".format(model_id))
+    loggers = [TensorBoardLogger(log_path=logs_dir), PythonLogger()]
+    LOGGER.info("Model id is set to {}".format(model_id))
 
     # dataset creation
     input_shape = ModelRegistry.input_shape(args.arch_key)
@@ -447,7 +449,7 @@ def main(args):
             num_workers=args.loader_num_workers,
             pin_memory=args.loader_pin_memory,
         )
-        py_logger.info("created train_dataset: {}".format(train_dataset))
+        LOGGER.info("created train_dataset: {}".format(train_dataset))
     else:
         train_dataset = None
         train_loader = None
@@ -466,7 +468,7 @@ def main(args):
         num_workers=args.loader_num_workers,
         pin_memory=args.loader_pin_memory,
     )
-    py_logger.info("created val_dataset: {}".format(val_dataset))
+    LOGGER.info("created val_dataset: {}".format(val_dataset))
 
     # model creation
     if args.dataset == "imagefolder":
@@ -483,12 +485,12 @@ def main(args):
         num_classes=num_classes,
         class_type=args.class_type,
     )
-    py_logger.info("created model: {}".format(model))
+    LOGGER.info("created model: {}".format(model))
 
     # val loss setup
     extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
     val_loss = CrossEntropyLossWrapper(extras)
-    py_logger.info("created loss for validation: {}".format(val_loss))
+    LOGGER.info("created loss for validation: {}".format(val_loss))
 
     if not args.eval_mode:
         # train loss setup, different from val if using inception
@@ -497,7 +499,7 @@ def main(args):
             if "inception" not in args.arch_key
             else InceptionCrossEntropyLossWrapper(extras)
         )
-        py_logger.info("created loss for validation: {}".format(val_loss))
+        LOGGER.info("created loss for validation: {}".format(val_loss))
 
         # optimizer setup
         if args.optim == "SGD":
@@ -512,8 +514,8 @@ def main(args):
             )
 
         optim = optim_const(model.parameters(), lr=args.init_lr, **args.optim_args)
-        py_logger.info("created optimizer: {}".format(optim))
-        py_logger.info(
+        LOGGER.info("created optimizer: {}".format(optim))
+        LOGGER.info(
             "note, the lr for the optimizer may not reflect the manager yet until "
             "the recal config is created and run"
         )
@@ -524,7 +526,7 @@ def main(args):
             # mapping of the restored params to the correct device is not working
             # load_optimizer(args.checkpoint_path, optim)
             epoch = load_epoch(args.checkpoint_path) + 1
-            py_logger.info(
+            LOGGER.info(
                 "restored checkpoint from {} for epoch {}".format(
                     args.checkpoint_path, epoch - 1
                 )
@@ -544,7 +546,7 @@ def main(args):
         optim = ScheduledOptimizer(
             optim, model, manager, steps_per_epoch=len(train_loader), loggers=loggers,
         )
-        py_logger.info("created manager: {}".format(manager))
+        LOGGER.info("created manager: {}".format(manager))
     else:
         epoch = 0
         train_loss = None
@@ -553,7 +555,7 @@ def main(args):
 
     # device setup
     model, device, device_ids = model_to_device(model, args.device)
-    py_logger.info("running on device {} for ids {}".format(device, device_ids))
+    LOGGER.info("running on device {} for ids {}".format(device, device_ids))
 
     trainer = (
         ModuleTrainer(model, device, train_loss, optim, loggers=loggers)
@@ -566,10 +568,10 @@ def main(args):
     tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=args.debug_steps)
 
     if not args.eval_mode:
-        py_logger.info("starting training from epoch {}".format(epoch))
+        LOGGER.info("starting training from epoch {}".format(epoch))
 
         if epoch > 0:
-            py_logger.info("adjusting ScheduledOptimizer to restore point")
+            LOGGER.info("adjusting ScheduledOptimizer to restore point")
             optim.adjust_current_step(epoch, 0)
 
         best_loss = None
@@ -598,7 +600,6 @@ def main(args):
                     save_dir,
                     epoch,
                     val_res,
-                    py_logger,
                 )
                 best_loss = val_loss
 
@@ -611,20 +612,17 @@ def main(args):
                     save_dir,
                     epoch,
                     val_res,
-                    py_logger,
                 )
 
             epoch += 1
 
         # export the final model
-        py_logger.info("completed...")
-        _save_model(
-            model, optim, input_shape, "model", save_dir, epoch, val_res, py_logger,
-        )
+        LOGGER.info("completed...")
+        _save_model(model, optim, input_shape, "model", save_dir, epoch, val_res)
 
-    py_logger.info("layer sparsities:")
+    LOGGER.info("layer sparsities:")
     for (name, layer) in get_prunable_layers(model):
-        py_logger.info(
+        LOGGER.info(
             "{}.weight: {:.4f}".format(name, tensor_sparsity(layer.weight).item())
         )
 

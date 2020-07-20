@@ -270,14 +270,24 @@ class KSLossSensitivityAnalysis(object):
     def load_json(path: str):
         """
         :param path: the path to load a previous analysis from
-        :return: the analysis instance created from the json file
+        :return: the KSLossSensitivityAnalysis instance from the json
         """
+        path = clean_path(path)
+
         with open(path, "r") as file:
             objs = json.load(file)
 
+        return KSLossSensitivityAnalysis.from_dict(objs)
+
+    @staticmethod
+    def from_dict(dictionary: Dict[str, Any]):
+        """
+        :param dictionary: the dictionary to create an analysis object from
+        :return: the KSLossSensitivityAnalysis instance from the json
+        """
         analysis = KSLossSensitivityAnalysis()
 
-        for res_obj in objs["results"]:
+        for res_obj in dictionary["results"]:
             analysis._results.append(KSSensitivityResult.from_dict(res_obj))
 
         return analysis
@@ -444,15 +454,29 @@ class KSPerfSensitivityAnalysis(object):
     def load_json(path: str):
         """
         :param path: the path to load a previous analysis from
-        :return: the analysis instance created from the json file
+        :return: the KSPerfSensitivityAnalysis instance from the json
         """
+        path = clean_path(path)
+
         with open(path, "r") as file:
             objs = json.load(file)
 
-        analysis = KSPerfSensitivityAnalysis(objs["num_cores"], objs["batch_size"])
-        analysis._results_model = KSSensitivityResult.from_dict(objs["results_model"])
+        return KSPerfSensitivityAnalysis.from_dict(objs)
 
-        for res_obj in objs["results"]:
+    @staticmethod
+    def from_dict(dictionary: Dict[str, Any]):
+        """
+        :param dictionary: the dictionary to create an analysis object from
+        :return: the KSPerfSensitivityAnalysis instance from the json
+        """
+        analysis = KSPerfSensitivityAnalysis(
+            dictionary["num_cores"], dictionary["batch_size"]
+        )
+        analysis._results_model = KSSensitivityResult.from_dict(
+            dictionary["results_model"]
+        )
+
+        for res_obj in dictionary["results"]:
             analysis._results.append(KSSensitivityResult.from_dict(res_obj))
 
         return analysis

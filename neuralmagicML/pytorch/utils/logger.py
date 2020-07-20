@@ -148,8 +148,6 @@ class PythonLogger(PyTorchLogger):
             self._logger = logger
         else:
             self._logger = logging.getLogger(__name__)
-            self._logger.addHandler(logging.StreamHandler())
-            self._logger.setLevel(logging.INFO)
 
     def __getattr__(self, item):
         return getattr(self._logger, item)

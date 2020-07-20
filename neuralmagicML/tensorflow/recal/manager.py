@@ -6,10 +6,9 @@ Also handles loading modifiers from yaml files
 
 import collections
 import itertools
-from typing import List, Any, Union, Dict, Tuple
+from typing import List, Any, Union, Dict, Tuple, Callable
 
-from neuralmagicML.recal import BaseManager
-from neuralmagicML.utils import clean_path, create_parent_dirs
+from neuralmagicML.recal import BaseManager, BaseScheduled
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.recal.modifier import (
     NM_RECAL,
@@ -18,6 +17,29 @@ from neuralmagicML.tensorflow.recal.modifier import (
 )
 
 __all__ = ["ScheduledModifierManager"]
+
+
+def _group_modifiers(modifiers: List[ScheduledModifier]) -> List[ScheduledModifier]:
+    group_classes = {}  # type: Dict[str, Callable]
+    group_mods = {}  # type: Dict[str, List[ScheduledModifier]]
+    grouped = []
+
+    for mod in modifiers:
+        group = mod.get_group()
+
+        if group:
+            if group.__name__ not in group_classes:
+                group_classes[group.__name__] = group
+                group_mods[group.__name__] = []
+
+            group_mods[group.__name__].append(mod)
+        else:
+            grouped.append(mod)
+
+    for group, group_const in group_classes.items():
+        grouped.append(group_const(group_mods[group]))
+
+    return grouped
 
 
 class ScheduledModifierManager(BaseManager, Modifier):
@@ -59,58 +81,18 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
     RECAL_UPDATE = "recal_update"
 
-    def _group_modifiers(
-        self, modifiers: List[ScheduledModifier]
-    ) -> List[ScheduledModifier]:
-        # List of individial modifiers which stay separately
-        self._non_group_mods = []
-
-        # Each set of modifiers in a group is cached based on the group class name
-        # The resulting container modifier will be cached as the first element of
-        # the 2-element list below. We need it in order to restore individial
-        # modifier's log type before saving the modifiers
-        self._group_mods = collections.defaultdict(lambda: [None, []])
-
-        for mod in modifiers:
-            group_cls = mod.get_group()
-            if group_cls is None:
-                self._non_group_mods.append(mod)
-            else:
-                # Add this modifier into the list. The container modifier
-                # is added later into the first slot.
-                self._group_mods[group_cls.__name__][1].append(mod)
-        res = self._non_group_mods
-        for group_cls_name, (_, mod_list) in self._group_mods.items():
-            constructor = mod_list[0].get_group()
-            new_group_mod = constructor(mod_list)
-            # Add the resulting container modifier into the slot for caching
-            self._group_mods[group_cls_name][0] = new_group_mod
-            res.append(new_group_mod)
-        return res
-
     def __init__(self, modifiers: List[ScheduledModifier]):
-        self._non_group_mods = None
-        self._group_mods = None
-        grouped_modifiers = self._group_modifiers(modifiers)
-        super().__init__(modifiers=grouped_modifiers)
+        self._orig_modifiers = modifiers
+        super().__init__(modifiers=_group_modifiers(modifiers))
 
-    def save(self, file_path: str):
+    def modifiers_to_string_lines(self, modifiers: List[BaseScheduled]) -> List[str]:
         """
-        :param file_path: the file path to save the yaml config representation to
+        :param modifiers: ignored and overwritten with the original
+            (non grouped) modifiers
+        :return: a list of lines for a string / yaml representation of the
+            modifiers in the manager
         """
-        file_path = clean_path(file_path)
-        create_parent_dirs(file_path)
-
-        # Recover the original modifiers before saving
-        orig_mods = self._non_group_mods
-        for group_cls_name, (grouped_mod, mod_list) in self._group_mods.items():
-            for mod in mod_list:
-                # Force individual modifier's log types to be that of the
-                # container modifier
-                mod.log_types = grouped_mod.log_types
-                orig_mods.append(mod)
-        with open(file_path, "w") as yaml_file:
-            yaml_file.write(Modifier.list_to_yaml(orig_mods))
+        return super().modifiers_to_string_lines(self._orig_modifiers)
 
     def create_ops(
         self,

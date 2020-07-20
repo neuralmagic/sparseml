@@ -74,16 +74,27 @@ optional arguments:
 
 
 ##########
-Example:
+neuralmagic example:
+python scripts/onnx/model_benchmark.py neuralmagic \
+    --onnx-file-path /PATH/TO/MODEL.onnx \
+    --batch-size 1
 
+
+##########
+onnxruntime example:
+python scripts/onnx/model_benchmark.py onnxruntime \
+    --onnx-file-path /PATH/TO/MODEL.onnx \
+    --batch-size 1
 """
 
 import argparse
 import numpy
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.onnx.utils import DataLoader, NMModelRunner, ORTModelRunner
 
 
+LOGGER = get_main_logger()
 NEURALMAGIC_COMMAND = "neuralmagic"
 ONNXRUNTIME_COMMAND = "onnxruntime"
 
@@ -152,20 +163,21 @@ def parse_args():
 
 def main(args):
     if args.command == NEURALMAGIC_COMMAND:
-        print("running benchmarking in neuralmagic...")
+        LOGGER.info("running benchmarking in neuralmagic...")
         runner = NMModelRunner(args.onnx_file_path, args.batch_size, args.num_cores)
     elif args.command == ONNXRUNTIME_COMMAND:
-        print("running benchmarking in onnxruntime...")
+        LOGGER.info("running benchmarking in onnxruntime...")
         runner = ORTModelRunner(args.onnx_file_path)
     else:
         raise ValueError("unknown command given of {}".format(args.command))
 
-    print("creating data...")
     if args.data_glob is not None:
+        LOGGER.info("creating data from glob {}".format(args.data_glob))
         data = DataLoader(
             data=args.data_glob, labels=None, batch_size=args.batch_size, iter_steps=-1
         )
     else:
+        LOGGER.info("creating random data...")
         data = DataLoader.from_model_random(
             args.onnx_file_path, batch_size=args.batch_size, iter_steps=-1
         )
@@ -184,8 +196,12 @@ def main(args):
     secs_per_item = secs_per_batch / args.batch_size
     items_per_sec = 1.0 / secs_per_item
 
-    print("\n\n")
-    print("benchmarking complete for batch_size {}".format(args.batch_size))
+    # print out results instead of log so they can't be filtered
+    print(
+        "benchmarking complete for batch_size {} num_core {}".format(
+            args.batch_size, args.num_cores if hasattr(args, "num_cores") else None
+        )
+    )
     print("batch times: {}".format(times))
     print("ms/batch: {}".format(secs_per_batch * 1000))
     print("batches/sec: {}".format(batches_per_sec))

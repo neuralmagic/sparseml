@@ -6,7 +6,6 @@ Records things like FLOPS, input and output shapes, kernel shapes, etc.
 from typing import List, Dict, Any, Union
 import json
 import numpy
-import onnx
 from onnx import ModelProto
 
 from neuralmagicML.utils import clean_path, create_parent_dirs
@@ -250,20 +249,30 @@ class ModelAnalyzer(object):
     """
 
     @staticmethod
-    def load_json(path: str) -> List:
+    def load_json(path: str):
         """
         :param path: the path to load a previous analysis from
-        :return: a list of analyzed nodes created from the json file
+        :return: the ModelAnalyzer instance from the json
         """
+        path = clean_path(path)
+
         with open(path, "r") as file:
             objs = json.load(file)
 
+        return ModelAnalyzer.from_dict(objs)
+
+    @staticmethod
+    def from_dict(dictionary: Dict[str, Any]):
+        """
+        :param dictionary: the dictionary to create an analysis object from
+        :return: the ModelAnalyzer instance created from the dictionary
+        """
         nodes = []
 
-        for res_obj in objs["nodes"]:
+        for res_obj in dictionary["nodes"]:
             nodes.append(NodeAnalyzer(model=None, node=None, **res_obj))
 
-        return nodes
+        return ModelAnalyzer(nodes)
 
     def __init__(
         self, model: Union[ModelProto, str, None], nodes: List[NodeAnalyzer] = None

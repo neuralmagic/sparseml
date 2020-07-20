@@ -51,8 +51,12 @@ python scripts/onnx/model_pruning_perf_sensitivity.py \
 
 import argparse
 
-from neuralmagicML.onnx.utils import DataLoader
+from neuralmagicML import get_main_logger
+from neuralmagicML.onnx.utils import DataLoader, max_available_cores
 from neuralmagicML.onnx.recal import one_shot_ks_perf_sensitivity
+
+
+LOGGER = get_main_logger()
 
 
 def parse_args():
@@ -118,20 +122,23 @@ def parse_args():
 
 
 def main(args):
-    print("creating data...")
     if args.data_glob is not None:
+        LOGGER.info("creating data from glob {}".format(args.data_glob))
         data = DataLoader(data=args.data_glob, labels=None, batch_size=args.batch_size)
     else:
+        LOGGER.info("creating random data...")
         data = DataLoader.from_model_random(
             args.onnx_file_path, batch_size=args.batch_size
         )
 
-    print("running performance sensitivity...")
+    num_cores = args.num_cores if args.num_cores > 0 else max_available_cores()
+
+    LOGGER.info("running performance sensitivity...")
     sensitivity = one_shot_ks_perf_sensitivity(
         args.onnx_file_path,
         data,
         args.batch_size,
-        args.num_cores,
+        num_cores,
         args.iterations_per_check,
         args.warmup_iterations_per_check,
     )
@@ -139,18 +146,24 @@ def main(args):
     json_path = (
         args.json_path
         if args.json_path is not None
-        else "{}.perf-sensitivity.json".format(args.onnx_file_path)
+        else "{}.perf-sensitivity_bs-{}_c-{}.json".format(
+            args.onnx_file_path, args.batch_size, num_cores
+        )
     )
-    print("saving json to {}".format(json_path))
+    LOGGER.info("saving json to {}".format(json_path))
     sensitivity.save_json(json_path)
+    LOGGER.info("saved json to {}".format(json_path))
 
     plot_path = (
         args.plot_path
         if args.plot_path is not None
-        else "{}.perf-sensitivity.png".format(args.onnx_file_path)
+        else "{}.perf-sensitivity_bs-{}_c-{}.png".format(
+            args.onnx_file_path, args.batch_size, num_cores
+        )
     )
-    print("saving plot to {}".format(plot_path))
+    LOGGER.info("saving plot to {}".format(plot_path))
     sensitivity.plot(plot_path)
+    LOGGER.info("saved plot to {}".format(plot_path))
 
 
 if __name__ == "__main__":

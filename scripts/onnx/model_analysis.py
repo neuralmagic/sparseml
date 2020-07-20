@@ -18,8 +18,8 @@ optional arguments:
   --onnx-file-path ONNX_FILE_PATH
                         Path to the local onnx file to analyze
   --output-path OUTPUT_PATH
-                        Path to save the output json file to, defaults to
-                        save next to the onnx-file-path
+                        Path to save the output json file to, defaults to save
+                        next to the onnx-file-path
 
 
 ##########
@@ -29,7 +29,11 @@ python scripts/onnx/model_analysis.py --onnx-file-path /PATH/TO/MODEL.onnx
 
 import argparse
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.onnx.recal import ModelAnalyzer
+
+
+LOGGER = get_main_logger()
 
 
 def parse_args():
@@ -55,7 +59,7 @@ def parse_args():
 
 
 def main(args):
-    print("analyzing model")
+    LOGGER.info("analyzing model...")
     analyzer = ModelAnalyzer(args.onnx_file_path)
 
     save_path = (
@@ -63,7 +67,7 @@ def main(args):
         if args.output_path is not None
         else "{}.analyzed.json".format(args.onnx_file_path)
     )
-    print("analyzed, saving to {}".format(save_path))
+    LOGGER.info("analyzed, saving to {}".format(save_path))
 
     analyzer.save_json(save_path)
 

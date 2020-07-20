@@ -3,11 +3,15 @@ General utility helper functions.
 Common functions for interfacing with python primitives and directories/files.
 """
 
-from typing import Union, Iterable, Any, List, Tuple, Callable
+from typing import Union, Iterable, Any, List, Tuple, Callable, Dict
+from collections import OrderedDict
 import sys
 import os
 import errno
 import fnmatch
+import glob
+import logging
+import numpy
 
 
 __all__ = [
@@ -24,6 +28,11 @@ __all__ = [
     "create_parent_dirs",
     "create_unique_dir",
     "path_file_count",
+    "NDARRAY_KEY",
+    "load_numpy",
+    "save_numpy",
+    "load_labeled_data",
+    "NumpyArrayBatcher",
 ]
 
 
@@ -277,3 +286,212 @@ def path_file_count(path: str, pattern: str = "*") -> int:
     path = clean_path(path)
 
     return len(fnmatch.filter(os.listdir(path), pattern))
+
+
+##############################
+#
+# numpy helper functions
+#
+##############################
+
+
+NDARRAY_KEY = "ndarray"
+
+
+def load_numpy(file_path: str) -> Union[numpy.ndarray, Dict[str, numpy.ndarray]]:
+    """
+    Load a numpy file into either an ndarray or an OrderedDict representing what
+    was in the npz file
+
+    :param file_path: the file_path to load
+    :return: the loaded values from the file
+    """
+    array = numpy.load(file_path)
+
+    if not isinstance(array, numpy.ndarray):
+        tmp_arrray = array
+        array = OrderedDict()
+        for key, val in tmp_arrray.items():
+            array[key] = val
+
+    return array
+
+
+def save_numpy(
+    array: Union[numpy.ndarray, Dict[str, numpy.ndarray], Iterable[numpy.ndarray]],
+    export_dir: str,
+    name: str,
+    npz: bool = True,
+):
+    """
+    Save a numpy array or collection of numpy arrays to disk
+
+    :param array: the array or collection of arrays to save
+    :param export_dir: the directory to export the numpy file into
+    :param name: the name of the file to export to (without extension)
+    :param npz: True to save as an npz compressed file, False for standard npy.
+        Note, npy can only be used for single numpy arrays
+    :return: the saved path
+    """
+    create_dirs(export_dir)
+    export_path = os.path.join(
+        export_dir, "{}.{}".format(name, "npz" if npz else "npy")
+    )
+
+    if isinstance(array, numpy.ndarray) and npz:
+        numpy.savez_compressed(export_path, array)
+    elif isinstance(array, numpy.ndarray):
+        numpy.save(export_path, array)
+    elif isinstance(array, Dict) and npz:
+        numpy.savez_compressed(export_path, **array)
+    elif isinstance(array, Dict):
+        raise ValueError("Dict can only be exported to an npz file")
+    elif isinstance(array, Iterable) and npz:
+        numpy.savez_compressed(export_path, *[val for val in array])
+    elif isinstance(array, Iterable):
+        raise ValueError("Iterable can only be exported to an npz file")
+    else:
+        raise ValueError("Unrecognized type given for array {}".format(array))
+
+    return export_path
+
+
+def load_labeled_data(
+    data: Union[str, Iterable[Union[str, numpy.ndarray, Dict[str, numpy.ndarray]]]],
+    labels: Union[
+        None, str, Iterable[Union[str, numpy.ndarray, Dict[str, numpy.ndarray]]]
+    ],
+    raise_on_error: bool = True,
+) -> List[
+    Tuple[
+        Union[numpy.ndarray, Dict[str, numpy.ndarray]],
+        Union[None, numpy.ndarray, Dict[str, numpy.ndarray]],
+    ]
+]:
+    """
+    Load labels and data from disk or from memory and group them together.
+    Assumes sorted ordering for on disk. Will match between when a file glob is passed
+    for either data and/or labels.
+
+    :param data: the file glob or list of arrays to use for data
+    :param labels: the file glob or list of arrays to use for labels, if any
+    :param raise_on_error: True to raise on any error that occurs;
+        False to log a warning, ignore, and continue
+    :return: a list containing tuples of the data, labels. If labels was passed in
+        as None, will now contain a None for the second index in each tuple
+    """
+    if isinstance(data, str):
+        data = sorted(glob.glob(data))
+
+    if labels is None:
+        labels = [None for _ in range(len(data))]
+    elif isinstance(labels, str):
+        labels = sorted(glob.glob(data))
+
+    if len(data) != len(labels) and labels:
+        # always raise this error, lengths must match
+        raise ValueError(
+            "len(data) given of {} does not match len(labels) given of {}".format(
+                len(data), len(labels)
+            )
+        )
+
+    labeled_data = []
+
+    for dat, lab in zip(data, labels):
+        try:
+            if isinstance(dat, str):
+                dat = load_numpy(dat)
+
+            if lab is not None and isinstance(lab, str):
+                lab = load_numpy(lab)
+
+            labeled_data.append((dat, lab))
+        except Exception as err:
+            if raise_on_error:
+                raise err
+
+    return labeled_data
+
+
+class NumpyArrayBatcher(object):
+    """
+    Batcher instance to handle taking in dictionaries of numpy arrays,
+    appending multiple items to them to increase their batch size,
+    and then stack them into a single batched numpy array for all keys in the dicts.
+    """
+
+    def __init__(self):
+        self._items = OrderedDict()  # type: Dict[str, List[numpy.ndarray]]
+
+    def __len__(self):
+        if len(self._items) == 0:
+            return 0
+
+        return len(self._items[list(self._items.keys())[0]])
+
+    def append(self, item: Union[numpy.ndarray, Dict[str, numpy.ndarray]]):
+        """
+        Append a new item into the current batch.
+        All keys and shapes must match the current state.
+
+        :param item: the item to add for batching
+        """
+        if len(self) < 1 and isinstance(item, numpy.ndarray):
+            self._items[NDARRAY_KEY] = [item]
+        elif len(self) < 1:
+            for key, val in item.items():
+                self._items[key] = [val]
+        elif isinstance(item, numpy.ndarray):
+            if NDARRAY_KEY not in self._items:
+                raise ValueError(
+                    "numpy ndarray passed for item, but prev_batch does not contain one"
+                )
+
+            if item.shape != self._items[NDARRAY_KEY][0].shape:
+                raise ValueError(
+                    (
+                        "item of numpy ndarray of shape {} does not "
+                        "match the current batch shape of {}".format(
+                            item.shape, self._items[NDARRAY_KEY][0].shape
+                        )
+                    )
+                )
+
+            self._items[NDARRAY_KEY].append(item)
+        else:
+            diff_keys = list(set(item.keys()) - set(self._items.keys()))
+
+            if len(diff_keys) > 0:
+                raise ValueError(
+                    (
+                        "numpy dict passed for item, not all keys match "
+                        "with the prev_batch. difference: {}"
+                    ).format(diff_keys)
+                )
+
+            for key, val in item.items():
+                if val.shape != self._items[key][0].shape:
+                    raise ValueError(
+                        (
+                            "item with key {} of shape {} does not "
+                            "match the current batch shape of {}".format(
+                                key, val.shape, self._items[key][0].shape
+                            )
+                        )
+                    )
+
+                self._items[key].append(val)
+
+    def stack(self) -> Dict[str, numpy.ndarray]:
+        """
+        Stack the current items into a batch along a new, zeroed dimension
+
+        :return: the stacked items
+        """
+        batch_dict = OrderedDict()
+
+        for key, val in self._items.items():
+            batch_dict[key] = numpy.stack(self._items[key])
+
+        return batch_dict

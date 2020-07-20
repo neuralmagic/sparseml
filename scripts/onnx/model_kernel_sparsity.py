@@ -22,7 +22,11 @@ python scripts/onnx/model_kernel_sparsity.py --onnx-file-path /PATH/TO/MODEL.onn
 
 import argparse
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.onnx.utils import onnx_nodes_sparsities
+
+
+LOGGER = get_main_logger()
 
 
 def parse_args():
@@ -41,9 +45,10 @@ def parse_args():
 
 
 def main(args):
-    print("analyzing model")
+    LOGGER.info("analyzing model...")
     total_sparse, node_sparse = onnx_nodes_sparsities(args.onnx_file_path)
 
+    # print out results instead of log so they can't be filtered
     print("node inp sparsities:")
     for name, val in node_sparse.items():
         print("{}: {}".format(name, val))

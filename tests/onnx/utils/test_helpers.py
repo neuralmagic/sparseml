@@ -56,4 +56,5 @@ def test_onnx_node_sparsities():
                 continue
 
             assert val.sparsity > 0.2
+            assert val.sparsity < 0.95
             assert val.params_zero_count > 0

@@ -7,6 +7,7 @@ ex to perform model pruning.
 from typing import List, Dict
 import math
 
+from neuralmagicML.utils import clean_path, create_parent_dirs
 from neuralmagicML.recal.modifier import ModifierProp, BaseScheduled, BaseObject
 
 
@@ -37,18 +38,7 @@ class BaseManager(BaseObject):
         self._modifiers.clear()
 
     def __str__(self) -> str:
-        man_str = "\nversion: 1.1.0\n\n"
-        man_str += super().__str__()
-
-        for mod in self._modifiers:
-            mod_lines = str(mod).splitlines()
-
-            for line in mod_lines:
-                man_str += "\t{}\n".format(line)
-
-            man_str += "\n"
-
-        return man_str
+        return "\n".join(self.to_string_lines())
 
     @ModifierProp()
     def modifiers(self) -> Dict[str, List[BaseScheduled]]:
@@ -96,3 +86,45 @@ class BaseManager(BaseObject):
         )
 
         return max(vals) if len(vals) > 0 else -1
+
+    def save(self, file_path: str):
+        """
+        :param file_path: the file path to save the yaml config representation to
+        """
+        file_path = clean_path(file_path)
+        create_parent_dirs(file_path)
+
+        with open(file_path, "w") as yaml_file:
+            yaml_file.write(str(self))
+
+    def to_string_lines(self) -> List[str]:
+        """
+        :return: a list of lines for a string / yaml representation of this instance
+        """
+        yaml_str_lines = ["version: 1.1.0", "", "modifiers"]
+        yaml_str_lines.extend(self.modifiers_to_string_lines(self.modifiers))
+
+        return yaml_str_lines
+
+    def modifiers_to_string_lines(self, modifiers: List[BaseScheduled]) -> List[str]:
+        """
+        :param modifiers: the modifiers to convert into string / yaml representation
+            for within the manage
+        :return: a list of lines for a string / yaml representation of the
+            modifiers in the manager
+        """
+        yaml_str_lines = []
+
+        for mod in modifiers:
+            mod_yaml = str(mod)
+            mod_yaml_lines = mod_yaml.splitlines()
+
+            for index, line in enumerate(mod_yaml_lines):
+                if index == 0:
+                    yaml_str_lines.append("    - {}".format(line))
+                else:
+                    yaml_str_lines.append("    {}".format(line))
+
+            yaml_str_lines.append("")
+
+        return yaml_str_lines

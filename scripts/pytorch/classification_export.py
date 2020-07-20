@@ -69,14 +69,14 @@ from tqdm import auto
 
 from torch.utils.data import DataLoader
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.pytorch.datasets import DatasetRegistry
 from neuralmagicML.pytorch.models import ModelRegistry
-from neuralmagicML.pytorch.utils import (
-    PythonLogger,
-    ModuleExporter,
-    early_stop_data_loader,
-)
+from neuralmagicML.pytorch.utils import ModuleExporter, early_stop_data_loader
 from neuralmagicML.utils import create_dirs
+
+
+LOGGER = get_main_logger()
 
 
 def parse_args():
@@ -189,8 +189,7 @@ def main(args):
     create_dirs(save_dir)
 
     # loggers setup
-    py_logger = PythonLogger()
-    py_logger.info("Model id is set to {}".format(model_id))
+    LOGGER.info("Model id is set to {}".format(model_id))
 
     # dataset creation
     input_shape = ModelRegistry.input_shape(args.arch_key)
@@ -206,7 +205,7 @@ def main(args):
     val_loader = early_stop_data_loader(
         val_loader, args.num_samples if args.num_samples > 1 else 1
     )
-    py_logger.info("created val_dataset: {}".format(val_dataset))
+    LOGGER.info("created val_dataset: {}".format(val_dataset))
 
     # model creation
     if args.dataset == "imagefolder":
@@ -223,12 +222,12 @@ def main(args):
         num_classes=num_classes,
         class_type=args.class_type,
     )
-    py_logger.info("created model: {}".format(model))
+    LOGGER.info("created model: {}".format(model))
 
     # exporting
     exporter = ModuleExporter(model, save_dir)
 
-    py_logger.info("exporting pytorch in {}".format(save_dir))
+    LOGGER.info("exporting pytorch in {}".format(save_dir))
     exporter.export_pytorch()
     onnx_exported = False
 
@@ -238,7 +237,7 @@ def main(args):
         total=args.num_samples if args.num_samples > 1 else 1,
     ):
         if not onnx_exported:
-            py_logger.info("exporting onnx in {}".format(save_dir))
+            LOGGER.info("exporting onnx in {}".format(save_dir))
             exporter.export_onnx(data[0])
             onnx_exported = True
 

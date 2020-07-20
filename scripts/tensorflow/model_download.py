@@ -61,11 +61,12 @@ python scripts/tensorflow/model_download.py download \
 
 import argparse
 import os
-import logging
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.tensorflow.models import ModelRegistry
 
 
+LOGGER = get_main_logger()
 DOWNLOAD_COMMAND = "download"
 LIST_COMMAND = "list"
 
@@ -122,6 +123,7 @@ def parse_args():
 
 def main(args):
     if args.command == LIST_COMMAND:
+        # print out results instead of log so they can't be filtered
         print(
             "List of available_keys "
             "(note, there are multiple name versions for each model):"
@@ -151,24 +153,24 @@ def main(args):
             )
         )
 
-        print("downloading ONNX file...")
+        LOGGER.info("downloading ONNX file...")
         onnx_path = repo_model.download_onnx_file(overwrite=True, save_dir=save_dir)
 
-        print("downloading TensorFlow files...")
+        LOGGER.info("downloading TensorFlow files...")
         tensorflow_paths = repo_model.download_framework_files(
             overwrite=True, save_dir=save_dir
         )
 
         try:
-            print("downloading sample data files...")
+            LOGGER.info("downloading sample data files...")
             data_paths = repo_model.download_data_files(
                 overwrite=True, save_dir=save_dir
             )
         except Exception as err:
-            logging.warning("Error when downloading sample data: {}".format(err))
+            LOGGER.warning("Error when downloading sample data: {}".format(err))
             data_paths = None
 
-        print("\n\n")
+        # print out results instead of log so they can't be filtered
         print("completed download for {}".format(args.model_key))
         print("ONNX: {}".format(onnx_path))
         print("TensorFlow: {}".format(tensorflow_paths))

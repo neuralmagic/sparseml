@@ -4,28 +4,38 @@ Utilities for ONNX models and running inference with them
 
 from abc import ABC, abstractmethod
 from typing import Callable, Union, Any, Dict, Tuple, List
+from collections import OrderedDict
 import logging
 import tempfile
 import time
+import psutil
 from tqdm import auto
 import numpy
 from onnx import ModelProto
 import onnxruntime
 
-from neuralmagicML.utils import clean_path
+from neuralmagicML.onnx.utils.helpers import check_load_model
 from neuralmagicML.onnx.utils.data import DataLoader
 
 try:
     from neuralmagic import create_model
     from neuralmagic import benchmark_model
+    from neuralmagic.cpu import cpu_details
 except Exception:
-    logging.warning(
-        "neuralmagic package not found in system, inference won't be available for it"
-    )
     create_model = None
     benchmark_model = None
+    cpu_details = None
 
-__all__ = ["ModelRunner", "ORTModelRunner", "NMModelRunner", "NMBenchmarkModelRunner"]
+__all__ = [
+    "max_available_cores",
+    "ModelRunner",
+    "ORTModelRunner",
+    "NMModelRunner",
+    "NMBenchmarkModelRunner",
+]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _check_args(args, kwargs):
@@ -44,6 +54,24 @@ def _check_args(args, kwargs):
         )
 
 
+def max_available_cores() -> int:
+    """
+    :return: the maximum number of physical cores detected on the system
+    """
+    if cpu_details is not None:
+        _LOGGER.debug(
+            "retrieving physical core count per socket "
+            "from neuralmagic.cpu.cpu_details()"
+        )
+
+        return cpu_details()[0]
+
+    _LOGGER.debug("retrieving physical core count using psutil")
+    physical_cores = psutil.cpu_count(logical=False)
+
+    return physical_cores if physical_cores else -1
+
+
 class ModelRunner(ABC):
     """
     Abstract class for handling running inference for an ONNX model
@@ -59,7 +87,7 @@ class ModelRunner(ABC):
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ] = None,
     ):
-        self._model = clean_path(model) if isinstance(model, str) else model
+        self._model = check_load_model(model)
         self._loss = loss
 
     def run(
@@ -94,6 +122,7 @@ class ModelRunner(ABC):
         else:
             progress_steps = None
 
+        _LOGGER.debug("running {} items through model".format(progress_steps))
         data_iter = (
             enumerate(data_loader)
             if not show_progress
@@ -104,7 +133,9 @@ class ModelRunner(ABC):
         times = []
 
         for batch, (data, label) in data_iter:
+            _LOGGER.debug("calling batch_forward for batch {}".format(batch))
             pred, pred_time = self.batch_forward(data, *args, **kwargs)
+            _LOGGER.debug("prediction completed in {}".format(pred_time))
             times.append(pred_time)
             output = self._loss(pred, label) if self._loss is not None else pred
             outputs.append(output)
@@ -150,6 +181,9 @@ class ORTModelRunner(ModelRunner):
         super().__init__(model, loss)
         sess_options = onnxruntime.SessionOptions()
         sess_options.log_severity_level = 3
+        sess_options.graph_optimization_level = (
+            onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+        )
         self._session = onnxruntime.InferenceSession(
             self._model.SerializeToString()
             if not isinstance(self._model, str)
@@ -157,12 +191,16 @@ class ORTModelRunner(ModelRunner):
             sess_options,
         )
         self._overwrite_input_names = overwrite_input_names
+        _LOGGER.debug("created model in onnxruntime {}".format(self._session))
 
     def __del__(self):
         try:
             del self._session
         except Exception:
             pass
+
+    def __repr__(self):
+        return str(self._session)
 
     def run(
         self,
@@ -206,6 +244,11 @@ class ORTModelRunner(ModelRunner):
         else:
             sess_batch = {}
             batch_keys = list(batch.keys())
+            _LOGGER.debug(
+                "remapping input dict from {} to {}".format(
+                    batch_keys, [inp.name for inp in self._session.get_inputs()]
+                )
+            )
 
             for inp_index, inp in enumerate(self._session.get_inputs()):
                 sess_batch[inp.name] = batch[batch_keys[inp_index]]
@@ -216,7 +259,9 @@ class ORTModelRunner(ModelRunner):
         pred = self._session.run(sess_outputs, sess_batch)
         pred_time = time.time() - pred_time
 
-        return pred, pred_time
+        pred_dict = OrderedDict((key, val) for key, val in zip(sess_outputs, pred))
+
+        return pred_dict, pred_time
 
 
 class _NMModelRunner(ModelRunner):
@@ -293,6 +338,7 @@ class NMModelRunner(_NMModelRunner):
         self._nm_model = create_model(
             self._model, batch_size=batch_size, num_cores=num_cores
         )
+        _LOGGER.debug("created model in neural magic {}".format(self._nm_model))
 
     def __del__(self):
         super().__del__()
@@ -301,6 +347,9 @@ class NMModelRunner(_NMModelRunner):
             del self._nm_model
         except Exception:
             pass
+
+    def __repr__(self):
+        return str(self._nm_model)
 
     def run(
         self,

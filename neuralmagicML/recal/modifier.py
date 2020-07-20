@@ -297,24 +297,6 @@ class BaseModifier(BaseObject):
         return modifier
 
     @staticmethod
-    def list_to_yaml(modifiers: List) -> str:
-        yaml_str_lines = ["version: 1.0.0", "", "modifiers:"]
-
-        for mod in modifiers:
-            mod_yaml = str(mod)
-            mod_yaml_lines = mod_yaml.splitlines()
-
-            for index, line in enumerate(mod_yaml_lines):
-                if index == 0:
-                    yaml_str_lines.append("    - {}".format(line))
-                else:
-                    yaml_str_lines.append("    {}".format(line))
-
-            yaml_str_lines.append("")
-
-        return "\n".join(yaml_str_lines)
-
-    @staticmethod
     def yaml_key(clazz, framework: Union[str, None] = None):
         """
         create a key for loading in yaml from the class and the framework

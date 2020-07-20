@@ -2,8 +2,8 @@
 Utility / helper functions
 """
 
-from collections import namedtuple
 from typing import Union, Tuple, Iterable, Dict, Any, List
+from collections import namedtuple, OrderedDict
 import os
 import re
 from copy import deepcopy
@@ -16,7 +16,7 @@ from torch.nn.modules.conv import _ConvNd
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
-from neuralmagicML.utils import create_dirs
+from neuralmagicML.utils import create_dirs, save_numpy
 
 
 __all__ = [
@@ -327,7 +327,7 @@ def tensors_module_forward(
 
 
 def tensor_export(
-    tensor: Union[Tensor, Iterable[Tensor]],
+    tensor: Union[Tensor, Dict[str, Tensor], Iterable[Tensor]],
     export_dir: str,
     name: str,
     npz: bool = True,
@@ -339,25 +339,19 @@ def tensor_export(
     :param npz: True to export as an npz file, False otherwise
     :return: the path of the numpy file the tensor was exported to
     """
-    create_dirs(export_dir)
-    export_path = os.path.join(
-        export_dir, "{}.{}".format(name, "npz" if npz else "npy")
-    )
 
     if isinstance(tensor, Tensor):
         tensor = tensor.detach().cpu().numpy()
-        if npz:
-            numpy.savez_compressed(export_path, tensor)
-        else:
-            numpy.save(export_path, tensor)
+    elif isinstance(tensor, Dict):
+        tensor = OrderedDict(
+            (key, val.detach().cpu().numpy()) for key, val in tensor.items()
+        )
+    elif isinstance(tensor, Iterable):
+        tensor = [val.detach().cpu().numpy() for val in tensor]
     else:
-        tensor = [tens.detach().cpu().numpy() for tens in tensor]
-        if npz:
-            numpy.savez_compressed(export_path, *tensor)
-        else:
-            numpy.save(export_path, tensor)
+        raise ValueError("Unrecognized type given for tensorr {}".format(tensor))
 
-    return export_path
+    return save_numpy(tensor, export_dir, name, npz)
 
 
 def tensors_export(

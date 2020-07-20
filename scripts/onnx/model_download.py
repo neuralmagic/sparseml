@@ -74,12 +74,13 @@ python scripts/onnx/model_download.py download \
 """
 
 import argparse
-import logging
 import os
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.utils import RepoModel, available_models
 
 
+LOGGER = get_main_logger()
 DOWNLOAD_COMMAND = "download"
 LIST_COMMAND = "list"
 
@@ -151,9 +152,10 @@ def parse_args():
 
 def main(args):
     if args.command == LIST_COMMAND:
-        print("loading available models...")
+        LOGGER.info("loading available models...")
         models = available_models()
 
+        # print out results instead of log so they can't be filtered
         print("Available Models:")
         for model in models:
             print(model)
@@ -185,22 +187,24 @@ def main(args):
             )
         )
 
-        print("downloading ONNX file...")
+        LOGGER.info("downloading ONNX file...")
         onnx_path = model.download_onnx_file(overwrite=True, save_dir=save_dir)
 
-        print("downloading {} files...".format(model.framework))
+        LOGGER.info("downloading {} files...".format(model.framework))
         framework_paths = model.download_framework_files(
             overwrite=True, save_dir=save_dir
         )
 
         try:
-            print("downloading sample data files...")
+            # sample data isn't always available
+            # wrap in try catch to be safe
+            LOGGER.info("downloading sample data files...")
             data_paths = model.download_data_files(overwrite=True, save_dir=save_dir)
         except Exception as err:
-            logging.warning("Error when downloading sample data: {}".format(err))
+            LOGGER.warning("Error when downloading sample data: {}".format(err))
             data_paths = None
 
-        print("\n\n")
+        # print out results instead of log so they can't be filtered
         print("completed download for {}".format(model))
         print("ONNX: {}".format(onnx_path))
         print("{}: {}".format(model.framework, framework_paths))

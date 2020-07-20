@@ -99,20 +99,24 @@ from torch.utils.data import DataLoader
 from torch.optim import SGD
 import torch.nn.functional as TF
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.pytorch.datasets import DatasetRegistry
 from neuralmagicML.pytorch.models import ModelRegistry
 from neuralmagicML.pytorch.utils import (
     LossWrapper,
     TopKAccuracy,
-    PythonLogger,
     model_to_device,
     default_device,
+    PythonLogger,
 )
 from neuralmagicML.pytorch.recal import (
     lr_loss_sensitivity,
     default_exponential_check_lrs,
 )
 from neuralmagicML.utils import create_dirs
+
+
+LOGGER = get_main_logger()
 
 
 def parse_args():
@@ -268,8 +272,7 @@ def main(args):
     create_dirs(save_dir)
 
     # loggers setup
-    py_logger = PythonLogger()
-    py_logger.info("Model id is set to {}".format(model_id))
+    LOGGER.info("Model id is set to {}".format(model_id))
 
     # dataset creation
     input_shape = ModelRegistry.input_shape(args.arch_key)
@@ -288,7 +291,7 @@ def main(args):
         num_workers=args.loader_num_workers,
         pin_memory=args.loader_pin_memory,
     )
-    py_logger.info("created train_dataset: {}".format(train_dataset))
+    LOGGER.info("created train_dataset: {}".format(train_dataset))
 
     # model creation
     if args.dataset == "imagefolder":
@@ -305,24 +308,24 @@ def main(args):
         num_classes=num_classes,
         class_type=args.class_type,
     )
-    py_logger.info("created model: {}".format(model))
+    LOGGER.info("created model: {}".format(model))
 
     # optimizer setup
     optim = SGD(model.parameters(), lr=args.init_lr, **args.optim_args)
-    py_logger.info("created optimizer: {}".format(optim))
+    LOGGER.info("created optimizer: {}".format(optim))
 
     # loss setup
     loss = LossWrapper(
         loss_fn=TF.cross_entropy,
         extras={"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)},
     )
-    py_logger.info("created loss: {}".format(loss))
+    LOGGER.info("created loss: {}".format(loss))
 
     # device setup
     module, device, device_ids = model_to_device(model, args.device)
 
     # learning rate analysis
-    py_logger.info("running analysis: {}".format(loss))
+    LOGGER.info("running analysis: {}".format(loss))
     analysis = lr_loss_sensitivity(
         model,
         train_loader,
@@ -331,12 +334,12 @@ def main(args):
         device,
         args.steps_per_measurement,
         check_lrs=default_exponential_check_lrs(args.init_lr, args.final_lr),
-        trainer_loggers=[py_logger],
+        trainer_loggers=[PythonLogger()],
     )
 
     # saving and printing results
-    py_logger.info("completed...")
-    py_logger.info("Saving results in {}".format(save_dir))
+    LOGGER.info("completed...")
+    LOGGER.info("Saving results in {}".format(save_dir))
     analysis.save_json(os.path.join(save_dir, "lr_sensitivity.json"))
     analysis.plot(os.path.join(save_dir, "lr_sensitivity.png"))
     analysis.print_res()

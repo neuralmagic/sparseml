@@ -65,16 +65,6 @@ class ScheduledModifierManager(BaseManager, Modifier):
     def __init__(self, modifiers: List[ScheduledModifier]):
         super().__init__(modifiers=modifiers)
 
-    def save(self, file_path: str):
-        """
-        :param file_path: the file path to save the yaml config representation to
-        """
-        file_path = clean_path(file_path)
-        create_parent_dirs(file_path)
-
-        with open(file_path, "w") as yaml_file:
-            yaml_file.write(Modifier.list_to_yaml(self.modifiers))
-
     def initialize(self, module: Module, optimizer: Optimizer):
         """
         Handles initializing and setting up the contained modifiers

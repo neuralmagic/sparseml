@@ -54,5 +54,5 @@ class TestManagerImpl(ModifierTest):
 )
 def test_manager_yaml():
     manager = ScheduledModifierManager([ScheduledModifierImpl()])
-    yaml_str = ScheduledModifierManager.list_to_yaml(manager.modifiers)
+    yaml_str = str(manager)
     assert yaml_str

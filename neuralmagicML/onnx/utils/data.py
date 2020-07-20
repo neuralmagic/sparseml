@@ -9,9 +9,8 @@ import math
 import numpy
 from onnx import ModelProto
 
+from neuralmagicML.utils import load_labeled_data, NumpyArrayBatcher
 from neuralmagicML.onnx.utils.helpers import (
-    load_labeled_data,
-    NumpyArrayBatcher,
     model_inputs,
     model_outputs,
     extract_shape,
@@ -20,6 +19,9 @@ from neuralmagicML.onnx.utils.helpers import (
 
 
 __all__ = ["DataLoader"]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DataLoader(object):
@@ -72,6 +74,9 @@ class DataLoader(object):
             )
             for _ in range(num_samples)
         ]
+        _LOGGER.debug(
+            "created random data of shapes {} and len {}".format(data_shapes, len(data))
+        )
         labels = (
             [
                 OrderedDict(
@@ -90,6 +95,15 @@ class DataLoader(object):
             if label_shapes is not None
             else None
         )
+
+        if labels:
+            _LOGGER.debug(
+                "created random labels of shapes {} and len {}".format(
+                    data_shapes, len(data)
+                )
+            )
+        else:
+            _LOGGER.debug("skipping creation of labels")
 
         return DataLoader(data, labels, batch_size, iter_steps)
 
@@ -129,6 +143,7 @@ class DataLoader(object):
                 for inp in inputs
             ]
         )
+        _LOGGER.debug("pulled input shapes {} from the model".format(data_shapes))
         label_shapes = (
             OrderedDict(
                 [
@@ -144,6 +159,13 @@ class DataLoader(object):
             if create_labels
             else None
         )
+
+        if label_shapes:
+            _LOGGER.debug(
+                "pulled label output shapes {} from the model".format(data_shapes)
+            )
+        else:
+            _LOGGER.debug("skipping pulling label shapes")
 
         return DataLoader.from_random(
             data_shapes, label_shapes, batch_size, iter_steps, num_samples
@@ -223,6 +245,7 @@ class DataLoader(object):
         self,
     ) -> Tuple[Dict[str, numpy.ndarray], Union[None, Dict[str, numpy.ndarray]]]:
         if not self.infinite and self._step_count >= self._max_steps:
+            _LOGGER.debug("reached in of dataset, raising StopIteration")
             raise StopIteration()
 
         self._step_count += 1
@@ -232,6 +255,7 @@ class DataLoader(object):
 
         while len(data_batcher) < self._batch_size:
             try:
+                _LOGGER.debug("including data in batch at index {}".format(self._index))
                 dat, lab = self._labeled_data[self._index]
 
                 if lab is None and len(label_batcher) > 0:
@@ -264,6 +288,7 @@ class DataLoader(object):
                 )
 
             if self._index >= len(self._labeled_data) - 1:
+                _LOGGER.debug("resetting index to loop data again")
                 self._index = 0
                 num_resets += 1
 
@@ -278,6 +303,10 @@ class DataLoader(object):
                 self._index += 1
 
         batch_data = data_batcher.stack()
+        _LOGGER.debug("created batch data of size {}".format(len(batch_data)))
         batch_label = label_batcher.stack() if len(label_batcher) > 0 else None
+
+        if batch_label:
+            _LOGGER.debug("created batch labels of size {}".format(len(batch_label)))
 
         return batch_data, batch_label

@@ -89,6 +89,7 @@ python scripts/onnx/model_pruning_loss_sensitivity.py one_shot \
 
 import argparse
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.onnx.utils import DataLoader
 from neuralmagicML.onnx.recal import (
     approx_ks_loss_sensitivity,
@@ -96,6 +97,7 @@ from neuralmagicML.onnx.recal import (
 )
 
 
+LOGGER = get_main_logger()
 APPROXIMATE_COMMAND = "approximate"
 ONE_SHOT_COMMAND = "one_shot"
 
@@ -165,11 +167,11 @@ def parse_args():
 
 def main(args):
     if args.command == APPROXIMATE_COMMAND:
-        print("running approximated loss sensitivity...")
+        LOGGER.info("running approximated loss sensitivity...")
         sensitivity = approx_ks_loss_sensitivity(args.onnx_file_path)
         save_key = "loss_approx"
     elif args.command == ONE_SHOT_COMMAND:
-        print("creating data...")
+        LOGGER.info("creating data...")
         if args.data_glob is not None:
             data = DataLoader(
                 data=args.data_glob,
@@ -182,7 +184,7 @@ def main(args):
                 args.onnx_file_path, batch_size=args.batch_size, iter_steps=-1
             )
 
-        print("running one shot loss sensitivity...")
+        LOGGER.info("running one shot loss sensitivity...")
         sensitivity = one_shot_ks_loss_sensitivity(
             args.onnx_file_path, data, args.batch_size, args.steps_per_measurement
         )
@@ -195,16 +197,18 @@ def main(args):
         if args.json_path is not None
         else "{}.{}-sensitivity.json".format(args.onnx_file_path, save_key)
     )
-    print("saving json to {}".format(json_path))
+    LOGGER.info("saving json to {}".format(json_path))
     sensitivity.save_json(json_path)
+    LOGGER.info("saved json to {}".format(json_path))
 
     plot_path = (
         args.plot_path
         if args.plot_path is not None
         else "{}.{}-sensitivity.png".format(args.onnx_file_path, save_key)
     )
-    print("saving plot to {}".format(plot_path))
+    LOGGER.info("saving plot to {}".format(plot_path))
     sensitivity.plot(plot_path, plot_integral=True, normalize=False)
+    LOGGER.info("saved plot to {}".format(plot_path))
 
 
 if __name__ == "__main__":

@@ -98,20 +98,24 @@ import os
 from torch.utils.data import DataLoader
 import torch.nn.functional as TF
 
+from neuralmagicML import get_main_logger
 from neuralmagicML.pytorch.datasets import DatasetRegistry
 from neuralmagicML.pytorch.models import ModelRegistry
 from neuralmagicML.pytorch.utils import (
     LossWrapper,
     TopKAccuracy,
-    PythonLogger,
     model_to_device,
     default_device,
+    PythonLogger,
 )
 from neuralmagicML.pytorch.recal import (
     approx_ks_loss_sensitivity,
     one_shot_ks_loss_sensitivity,
 )
 from neuralmagicML.utils import create_dirs
+
+
+LOGGER = get_main_logger()
 
 
 def parse_args():
@@ -253,8 +257,7 @@ def main(args):
     create_dirs(save_dir)
 
     # loggers setup
-    py_logger = PythonLogger()
-    py_logger.info("Model id is set to {}".format(model_id))
+    LOGGER.info("Model id is set to {}".format(model_id))
 
     # dataset creation
     if not args.approximate:
@@ -274,7 +277,7 @@ def main(args):
             num_workers=args.loader_num_workers,
             pin_memory=args.loader_pin_memory,
         )
-        py_logger.info("created train_dataset: {}".format(train_dataset))
+        LOGGER.info("created train_dataset: {}".format(train_dataset))
     else:
         train_dataset = None
         train_loader = None
@@ -294,7 +297,7 @@ def main(args):
         num_classes=num_classes,
         class_type=args.class_type,
     )
-    py_logger.info("created model: {}".format(model))
+    LOGGER.info("created model: {}".format(model))
 
     # loss setup
     if not args.approximate:
@@ -302,7 +305,7 @@ def main(args):
             loss_fn=TF.cross_entropy,
             extras={"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)},
         )
-        py_logger.info("created loss: {}".format(loss))
+        LOGGER.info("created loss: {}".format(loss))
     else:
         loss = None
 
@@ -323,12 +326,12 @@ def main(args):
             loss,
             device,
             args.steps_per_measurement,
-            tester_loggers=[py_logger],
+            tester_loggers=[PythonLogger()],
         )
 
     # saving and printing results
-    py_logger.info("completed...")
-    py_logger.info("Saving results in {}".format(save_dir))
+    LOGGER.info("completed...")
+    LOGGER.info("Saving results in {}".format(save_dir))
     analysis.save_json(
         os.path.join(
             save_dir,
