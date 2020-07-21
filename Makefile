@@ -31,14 +31,12 @@ tensorflow_testing:
 	@source .venv/bin/activate;
 	for tensorflow_version in 1.8 1.9 1.10 1.11 1.12 1.13 1.14 1.15; do \
 		if [ -z $$NM_ML_GPU_TESTS ]; then \
-			pip3 install "tensorflow==$$tensorflow_version.*" &> /dev/null; \
+			pip3 install . "tensorflow==$$tensorflow_version.*" "tensorboard==$$tensorflow_version.*" &> /dev/null; \
 		else \
-			pip3 install "tensorflow==$$tensorflow_version.*" "tensorflow-gpu==$$tensorflow_version.*" &> /dev/null ; \
+			pip3 install . "tensorflow==$$tensorflow_version.*" "tensorboard==$$tensorflow_version.*" "tensorflow-gpu==$$tensorflow_version.*" &> /dev/null; \
 		fi; \
-
 		echo "Running tests with $$(pip3 freeze | grep tensorflow==)"; \
 		pytest .; \
-		
 		if [[ -f "$(FAILURE_LOG)" ]]; then \
 			cp "$(FAILURE_LOG)" "$(LOGSDIR)/$$(pip3 freeze | grep tensorflow==).log"; \
 		fi \
@@ -61,11 +59,9 @@ pytorch_testing:
 		else \
 			torchvision="torchvision==0.6.0"; \
 		fi; \
-		pip3 install "$$torch" "$$torchvision" &> /dev/null; \
-
+		pip3 install . "$$torch" "$$torchvision" &> /dev/null; \
 		echo "Running tests with $$(pip3 freeze | grep torch==)"; \
 		pytest .; \
-
 		if [[ -f "$(FAILURE_LOG)" ]]; then \
 			cp "$(FAILURE_LOG)" "$(LOGSDIR)/$$(pip3 freeze | grep torch==).log"; \
 		fi \
@@ -73,9 +69,12 @@ pytorch_testing:
 
 test_latest:
 	@source .venv/bin/activate;
-	pip3 install tensorflow==1.15 torch==1.5 torchvision==0.6.0 &> /dev/null;
+	pip3 uninstall -y tensorflow torch torchvision tensorboard &> /dev/null;
+	pip3 install . &> /dev/null;
 	if [ ! -z $$NM_ML_GPU_TESTS ]; then \
-		pip3 install "tensorflow-gpu==1.15" &> /dev/null; \
+		tfversion="$$(pip3 freeze | grep tensorflow==)";\
+		tfgpuversion=$$(echo "$${tfversion/tensorflow/tensorflow-gpu}");\
+		pip3 install "$$tfgpuversion"; \
 	fi;
 	echo "Running tests with $$(pip3 freeze | grep torch==) and $$(pip3 freeze | grep tensorflow==)";
 	pytest .;
