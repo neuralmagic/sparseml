@@ -83,11 +83,16 @@ class GraphExporter(object):
         """
         try:
             from tf2onnx.tfonnx import process_tf_graph, tf_optimize
-            from tf2onnx import constants, loader, utils, optimizer
+            from tf2onnx import constants, utils, optimizer
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "tf2onnx must be installed on the system before using export_onnx"
             )
+
+        try:
+            from tf2onnx import tf_loader as loader
+        except:
+            from tf2onnx import loader
 
         pb_path = clean_path(pb_path)
 
