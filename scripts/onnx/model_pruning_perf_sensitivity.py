@@ -22,7 +22,10 @@ optional arguments:
                         Path to the local onnx file to analyze
   --data-glob DATA_GLOB
                         Optional glob pattern to grab sample data files to
-                        feed through the model, defaults to random
+                        feed through the model, sample data must be numpy
+                        files with one model input per file as either an array
+                        in an npy file or dictionary in an npz file, defaults
+                        to random
   --batch-size BATCH_SIZE
                         The batch size to run the analysis for
   --num-cores NUM_CORES
@@ -74,8 +77,10 @@ def parse_args():
         "--data-glob",
         type=str,
         default=None,
-        help="Optional glob pattern to grab sample data files to feed through the model"
-        ", defaults to random",
+        help="Optional glob pattern to grab sample data files to feed through the "
+        "model, sample data must be numpy files with one model input per file "
+        "as either an array in an npy file or dictionary in an npz file, "
+        "defaults to random",
     )
     parser.add_argument(
         "--batch-size",

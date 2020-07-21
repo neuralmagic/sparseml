@@ -5,6 +5,7 @@ Common functions for interfacing with python primitives and directories/files.
 
 from typing import Union, Iterable, Any, List, Tuple, Callable, Dict
 from collections import OrderedDict
+import logging
 import sys
 import os
 import errno
@@ -37,6 +38,7 @@ __all__ = [
 
 
 ALL_TOKEN = "__ALL__"
+_LOGGER = logging.getLogger(__name__)
 
 
 ##############################
@@ -306,6 +308,7 @@ def load_numpy(file_path: str) -> Union[numpy.ndarray, Dict[str, numpy.ndarray]]
     :param file_path: the file_path to load
     :return: the loaded values from the file
     """
+    file_path = clean_path(file_path)
     array = numpy.load(file_path)
 
     if not isinstance(array, numpy.ndarray):
@@ -410,6 +413,8 @@ def load_labeled_data(
         except Exception as err:
             if raise_on_error:
                 raise err
+            else:
+                _LOGGER.error("Error creating labeled data: {}".format(err))
 
     return labeled_data
 

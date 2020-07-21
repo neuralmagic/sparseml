@@ -63,8 +63,10 @@ optional arguments:
                         Path to save the output visual plot file to, defaults
                         to save next to the onnx-file-path
   --data-glob DATA_GLOB
-                        Optional glob pattern to grab sample data files to
-                        feed through the model, defaults to random
+                        glob pattern to grab sample data files to feed through
+                        the model, sample data must be numpy files with one
+                        model input per file as either an array in an npy file
+                        or dictionary in an npz file
   --batch-size BATCH_SIZE
                         The batch size to run the analysis for
   --steps-per-measurement STEPS_PER_MEASUREMENT
@@ -146,8 +148,9 @@ def parse_args():
         "--data-glob",
         type=str,
         required=True,
-        help="Optional glob pattern to grab sample data files to feed through the model"
-        ", defaults to random",
+        help="glob pattern to grab sample data files to feed through the model, "
+        "sample data must be numpy files with one model input per file "
+        "as either an array in an npy file or dictionary in an npz file",
     )
     one_shot_parser.add_argument(
         "--batch-size",

@@ -74,7 +74,7 @@ optional arguments:
                         generic image classification dataset setup with an
                         image folder structure setup like imagenet.
   --dataset-path DATASET_PATH
-                        The root path to where the dataset is stored
+                        The root path to where the PyTorch dataset is stored
   --batch-size BATCH_SIZE
                         The batch size for the data to use to pass into the
                         model
@@ -175,7 +175,7 @@ def parse_args():
             "--dataset-path",
             type=str,
             required=True,
-            help="The root path to where the dataset is stored",
+            help="The root path to where the PyTorch dataset is stored",
         )
         par.add_argument(
             "--batch-size",

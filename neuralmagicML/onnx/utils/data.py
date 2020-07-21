@@ -182,6 +182,13 @@ class DataLoader(object):
         self._iter_steps = iter_steps
         self._labeled_data = load_labeled_data(data, labels, raise_on_error=False)
 
+        if len(self._labeled_data) < 1:
+            raise ValueError(
+                "No data for DataLoader after loading. data: {}, labels: {}".format(
+                    data, labels
+                )
+            )
+
         self._index = 0
         self._step_count = 0
 
