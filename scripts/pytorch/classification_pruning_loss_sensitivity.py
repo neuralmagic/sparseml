@@ -1,7 +1,9 @@
 """
-Image classification learning rate sensitivity script.
+Image classification ks (pruning) sensitivity script.
 Setup to support the following use cases:
-- learning rate sensitivity analysis while training the model
+- approximated loss sensitivity without running any data through a trained model
+- one shot loss sensitivity without training the model at all while running
+  data through it
 
 Saves the results to a given directory.
 Additionally will print the results out to the command line
@@ -9,28 +11,30 @@ Additionally will print the results out to the command line
 
 ##########
 Command help:
-usage: classification_sensitivity_lr.py [-h] --arch-key ARCH_KEY
+usage: classification_pruning_loss_sensitivity.py [-h] [--approximate]
+                                        [--steps-per-measurement STEPS_PER_MEASUREMENT]
+                                        --arch-key ARCH_KEY
                                         [--pretrained PRETRAINED]
                                         [--pretrained-dataset PRETRAINED_DATASET]
                                         [--checkpoint-path CHECKPOINT_PATH]
                                         [--class-type CLASS_TYPE]
                                         [--device DEVICE] --dataset DATASET
                                         --dataset-path DATASET_PATH
-                                        --batch-size BATCH_SIZE
+                                        [--batch-size BATCH_SIZE]
                                         [--loader-num-workers LOADER_NUM_WORKERS]
                                         [--loader-pin-memory LOADER_PIN_MEMORY]
-                                        [--steps-per-measurement STEPS_PER_MEASUREMENT]
-                                        [--init-lr INIT_LR]
-                                        [--final-lr FINAL_LR]
-                                        [--optim-args OPTIM_ARGS]
                                         [--model-tag MODEL_TAG]
                                         [--save-dir SAVE_DIR]
 
-Run a learning rate sensitivity analysis for a desired image classification
-architecture
+Run a kernel sparsity (pruning) analysis for a given model
 
 optional arguments:
   -h, --help            show this help message and exit
+  --approximate         True to approximate without running data through the
+                        model, otherwise will run a one shot analysis
+  --steps-per-measurement STEPS_PER_MEASUREMENT
+                        The number of steps (batches) to run for each sparse
+                        measurement
   --arch-key ARCH_KEY   The type of model to create, ex: resnet50, vgg16,
                         mobilenet put as help to see the full list (will raise
                         an exception with the list)
@@ -67,16 +71,6 @@ optional arguments:
                         The number of workers to use for data loading
   --loader-pin-memory LOADER_PIN_MEMORY
                         Use pinned memory for data loading
-  --steps-per-measurement STEPS_PER_MEASUREMENT
-                        The number of steps (batches) to run for each lr
-                        measurement
-  --init-lr INIT_LR     The initial learning rate to use for the sensitivity
-                        analysis
-  --final-lr FINAL_LR   The final learning rate to use for the sensitivity
-                        analysis
-  --optim-args OPTIM_ARGS
-                        Additional args to be passed to the optimizer passed
-                        in as a json dict
   --model-tag MODEL_TAG
                         A tag to use for the model for saving results under
                         save-dir and in tensorboard, defaults to the model
@@ -85,18 +79,23 @@ optional arguments:
 
 
 ##########
-Example command for running LR sensitivity analysis on mobilenet:
-python scripts/pytorch/classification_sensitivity_lr.py \
+Example command for running approximated KS sensitivity analysis on mobilenet:
+python scripts/pytorch/classification_pruning_loss_sensitivity.py \
+    --approximate --arch-key mobilenet --dataset imagenet \
+    --dataset-path ~/datasets/ILSVRC2012
+
+
+##########
+Example command for running one shot KS sensitivity analysis on mobilenet for imagenet:
+python scripts/pytorch/classification_pruning_loss_sensitivity.py \
     --arch-key mobilenet --dataset imagenet \
-    --dataset-path ~/datasets/ILSVRC2012 --batch-size 2
+    --dataset-path ~/datasets/ILSVRC2012
 """
 
 import argparse
 import os
-import json
 
 from torch.utils.data import DataLoader
-from torch.optim import SGD
 import torch.nn.functional as TF
 
 from neuralmagicML import get_main_logger
@@ -110,8 +109,8 @@ from neuralmagicML.pytorch.utils import (
     PythonLogger,
 )
 from neuralmagicML.pytorch.recal import (
-    lr_loss_sensitivity,
-    default_exponential_check_lrs,
+    approx_ks_loss_sensitivity,
+    one_shot_ks_loss_sensitivity,
 )
 from neuralmagicML.utils import create_dirs
 
@@ -121,8 +120,20 @@ LOGGER = get_main_logger()
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Run a learning rate sensitivity analysis for a desired image "
-        "classification architecture",
+        description="Run a kernel sparsity (pruning) analysis for a given model",
+    )
+
+    parser.add_argument(
+        "--approximate",
+        action="store_true",
+        help="True to approximate without running data through the model, "
+        "otherwise will run a one shot analysis",
+    )
+    parser.add_argument(
+        "--steps-per-measurement",
+        type=int,
+        default=15,
+        help="The number of steps (batches) to run for each sparse measurement",
     )
 
     # model args
@@ -192,7 +203,7 @@ def parse_args():
     parser.add_argument(
         "--batch-size",
         type=int,
-        required=True,
+        default=64,
         help="The batch size to use while training",
     )
     parser.add_argument(
@@ -208,32 +219,6 @@ def parse_args():
         help="Use pinned memory for data loading",
     )
 
-    # optim args
-    parser.add_argument(
-        "--steps-per-measurement",
-        type=int,
-        default=20,
-        help="The number of steps (batches) to run for each lr measurement",
-    )
-    parser.add_argument(
-        "--init-lr",
-        type=float,
-        default=10e-6,
-        help="The initial learning rate to use for the sensitivity analysis",
-    )
-    parser.add_argument(
-        "--final-lr",
-        type=float,
-        default=0.5,
-        help="The final learning rate to use for the sensitivity analysis",
-    )
-    parser.add_argument(
-        "--optim-args",
-        type=json.loads,
-        default="{}",
-        help="Additional args to be passed to the optimizer passed in as a json dict",
-    )
-
     # logging and saving
     parser.add_argument(
         "--model-tag",
@@ -245,7 +230,7 @@ def parse_args():
     parser.add_argument(
         "--save-dir",
         type=str,
-        default="pytorch_classification_sensitivity_lr",
+        default="pytorch_classification_pruning_loss_sensitivity",
         help="The path to the directory for saving results",
     )
 
@@ -275,23 +260,27 @@ def main(args):
     LOGGER.info("Model id is set to {}".format(model_id))
 
     # dataset creation
-    input_shape = ModelRegistry.input_shape(args.arch_key)
-    image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
-    train_dataset = DatasetRegistry.create(
-        args.dataset,
-        root=args.dataset_path,
-        train=True,
-        rand_trans=True,
-        image_size=image_size,
-    )
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.loader_num_workers,
-        pin_memory=args.loader_pin_memory,
-    )
-    LOGGER.info("created train_dataset: {}".format(train_dataset))
+    if not args.approximate:
+        input_shape = ModelRegistry.input_shape(args.arch_key)
+        image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
+        train_dataset = DatasetRegistry.create(
+            args.dataset,
+            root=args.dataset_path,
+            train=True,
+            rand_trans=True,
+            image_size=image_size,
+        )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.loader_num_workers,
+            pin_memory=args.loader_pin_memory,
+        )
+        LOGGER.info("created train_dataset: {}".format(train_dataset))
+    else:
+        train_dataset = None
+        train_loader = None
 
     # model creation
     if args.dataset == "imagefolder":
@@ -310,38 +299,59 @@ def main(args):
     )
     LOGGER.info("created model: {}".format(model))
 
-    # optimizer setup
-    optim = SGD(model.parameters(), lr=args.init_lr, **args.optim_args)
-    LOGGER.info("created optimizer: {}".format(optim))
-
     # loss setup
-    loss = LossWrapper(
-        loss_fn=TF.cross_entropy,
-        extras={"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)},
-    )
-    LOGGER.info("created loss: {}".format(loss))
+    if not args.approximate:
+        loss = LossWrapper(
+            loss_fn=TF.cross_entropy,
+            extras={"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)},
+        )
+        LOGGER.info("created loss: {}".format(loss))
+    else:
+        loss = None
 
     # device setup
-    module, device, device_ids = model_to_device(model, args.device)
+    if not args.approximate:
+        module, device, device_ids = model_to_device(model, args.device)
+    else:
+        device = None
+        device_ids = None
 
-    # learning rate analysis
-    LOGGER.info("running analysis: {}".format(loss))
-    analysis = lr_loss_sensitivity(
-        model,
-        train_loader,
-        loss,
-        optim,
-        device,
-        args.steps_per_measurement,
-        check_lrs=default_exponential_check_lrs(args.init_lr, args.final_lr),
-        trainer_loggers=[PythonLogger()],
-    )
+    # kernel sparsity analysis
+    if args.approximate:
+        analysis = approx_ks_loss_sensitivity(model)
+    else:
+        analysis = one_shot_ks_loss_sensitivity(
+            model,
+            train_loader,
+            loss,
+            device,
+            args.steps_per_measurement,
+            tester_loggers=[PythonLogger()],
+        )
 
     # saving and printing results
     LOGGER.info("completed...")
     LOGGER.info("Saving results in {}".format(save_dir))
-    analysis.save_json(os.path.join(save_dir, "lr_sensitivity.json"))
-    analysis.plot(os.path.join(save_dir, "lr_sensitivity.png"))
+    analysis.save_json(
+        os.path.join(
+            save_dir,
+            "ks_approx_sensitivity.json"
+            if args.approximate
+            else "ks_one_shot_sensitivity.json",
+        )
+    )
+    analysis.plot(
+        os.path.join(
+            save_dir,
+            os.path.join(
+                save_dir,
+                "ks_approx_sensitivity.png"
+                if args.approximate
+                else "ks_one_shot_sensitivity.png",
+            ),
+        ),
+        plot_integral=True,
+    )
     analysis.print_res()
 
 

@@ -11,7 +11,10 @@ The easy-to-use codebase is designed for machine learning engineers.
 neuralmagicml
     neuralmagicML - The Python API Code
     notebooks - Tutorial Notebooks for using the Python API
-    scripts - Functional scripts for working with the Python API (to be added in future releases)
+    scripts - Functional scripts for working with the Python API
+        onnx - Functional scripts for working with ONNX models
+        pytorch - Functional scripts for working with PyTorch models
+        tensorflow - Functional scripts for working with TensorFlow models
     tensorflow-onnx - API for converting TensorFlow models to ONNX
     README.md - readme file
     requirements.txt - requirements for the Python API
@@ -82,6 +85,65 @@ The main use case is transfer learning from a previously pruned model.
 In this way, you can limit the training time needed as well as the potential complexity of 
 the pruning process while keeping the performance.
 
+## Scripts
+
+Ease of use scripts, which are implemented as Python scripts for easy consumption and editing,
+are provided under the `scripts` directory.
+To run one of the scripts, invoke it with a python command from the commandline along with the relevant arguments.
+```bash
+python scripts/onnx/model_download.py \
+    --dom cv --sub-dom classification --arch resnet-v1 --sub-arch 50 \
+    --dataset imagenet --framework pytorch --desc recal
+```
+
+Each script file is fully documented with descriptions, command help printouts, and example commands.
+
+### ONNX
+
+The `onnx` subdirectory is provided for working with models converted to or 
+trained in the [ONNX](https://onnx.ai/) framework.
+The following scripts are currently maintained for use:
+- `classification_validation.py`: Run an image classification model over a selected dataset to measure 
+  validation metrics.
+- `model_analysis.py`: Analyze a model to parse it into relevant info for each node / op in the graph 
+  such as param counts, flops, is prunable, etc.
+- `model_benchmark.py`: Benchmark the inference speed for a model in either the 
+  [Neural Magic Inference Engine](https://neuralmagic.com/) or [ONNX Runtime](https://github.com/microsoft/onnxruntime)
+- `model_download.py`: Download a model from the Neural Magic [Model Repository](#model-repository).
+- `model_kernel_sparsity.py`: Measure the sparsity of the weight parameters across a model (the result of pruning)
+- `model_pruning_config.py`: Create a config.yaml file or a pruning information table to guide the creation 
+  of a config.yaml file for pruning a given model in the `neuralmagicML` python package.
+- `model_pruning_loss_sensitivity.py`: Calculate the sensitivity for each prunable layer in a model towards the loss,
+  where, for example, a higher score means the layer affects the loss more and therefore should be pruned less.
+- `model_pruning_perf_sensitivity.py`: Calculate the sensitivity for each prunable layer in a model towards 
+  the performance, where, for example, a higher score means the layer did not give as much net speedup for pruning and 
+  therefore should be pruned less.
+  
+  
+### PyTorch
+
+The `pytorch` subdirectory is provided for working with models trained in the [PyTorch](https://pytorch.org/) framework.
+The following scripts are currently maintained for use:
+- `classification_export.py`: Exports an image classification model to a standard structure including
+  an ONNX format, sample inputs, sample outputs, and sample labels.
+- `classification_lr_sensitivity.py`: Calculate the learning rate sensitivity for an image classification model
+  as compared with the loss. A higher sensitivity means a higher affect on the loss.
+- `classification_pruning_loss_sensitivity.py`: Calculate the sensitivity for each prunable layer in an
+  image classification model towards the loss, where, for example, a higher score means the layer affects 
+  the loss more and therefore should be pruned less.
+- `classification_train.py`: Train an image classification model using a config.yaml file 
+  to modify the training process such as for pruning or sparse transfer learning.
+- `model_download.py`: Download a model from the Neural Magic [Model Repository](#model-repository). 
+
+
+### TensorFlow
+
+The `tensorflow` subdirectory is provided for working with models trained in the 
+[TensorFlow](https://www.tensorflow.org/) framework.
+The following scripts are currently maintained for use:
+- `model_download.py`: Download a model from the Neural Magic [Model Repository](#model-repository). 
+  
+
 ## Exporting to ONNX
 [ONNX](https://onnx.ai/) is a generic format for storing Neural Networks that is supported natively or by
 3rd party extensions in all major deep learning frameworks such as PyTorch, TensorFlow, Keras.
@@ -114,14 +176,6 @@ ONNX support is not natively built in to TensorFlow.
 However, a third party library is maintained for the conversion to ONNX 
 named [tf2onnx](https://github.com/onnx/tensorflow-onnx).
 This pathway converts native protobuf graph definitions from TensorFlow into their equivalent ONNX representation.
-A version of tf2onnx that has been tested and verified to work with Neural Magic
-is included as the sub folder `tensorflow-onnx`. 
-
-Installation:
-From the root of the directory containing the neuralmagicML-python code, run the following command:
-```
-pip install ./tensorflow-onnx
-```
 
 Example code:
 ```python
@@ -174,16 +228,16 @@ Possible types are:
 | MobileNet V2       | imagenet | base                    | onnx, PyTorch, TensorFlow  | 71.88% top1 accuracy       |
 | ResNet 50          | imagenet | base, recal, recal-perf | onnx, PyTorch, TensorFlow  | 76.1% top1 accuracy        |
 | ResNet 50 2xwidth  | imagenet | base                    | onnx, PyTorch              | 78.51% top1 accuracy       |
-| ResNet 101         | imagenet | base                    | onnx, PyTorch, TensorFlow  | 77.37% top1 accuracy       |
+| ResNet 101         | imagenet | base, recal-perf        | onnx, PyTorch, TensorFlow  | 77.37% top1 accuracy       |
 | ResNet 101 2xwidth | imagenet | base                    | onnx, PyTorch              | 78.84% top1 accuracy       |
-| ResNet 152         | imagenet | base                    | onnx, PyTorch, TensorFlow  | 78.31% top1 accuracy       |
-| VGG 11             | imagenet | base                    | onnx, PyTorch, TensorFlow  | 69.02% top1 accuracy       |
+| ResNet 152         | imagenet | base, recal-perf        | onnx, PyTorch, TensorFlow  | 78.31% top1 accuracy       |
+| VGG 11             | imagenet | base, recal-perf        | onnx, PyTorch, TensorFlow  | 69.02% top1 accuracy       |
 | VGG 11bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 70.38% top1 accuracy       |
 | VGG 13             | imagenet | base                    | onnx, PyTorch, TensorFlow  | 69.93% top1 accuracy       |
 | VGG 13bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
 | VGG 16             | imagenet | base, recal, recal-perf | onnx, PyTorch, TensorFlow  | 71.59% top1 accuracy       |
 | VGG 16bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
-| VGG 19             | imagenet | base                    | onnx, PyTorch, TensorFlow  | 72.38% top1 accuracy       |
+| VGG 19             | imagenet | base, recal-perf        | onnx, PyTorch, TensorFlow  | 72.38% top1 accuracy       |
 | VGG 19bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 74.24% top1 accuracy       |
 
 ### Downloading and Usage
@@ -513,13 +567,12 @@ manager = ScheduledModifierManager.from_yaml(config_path)
 optimizer = ScheduledOptimizer(optimizer, model, manager, steps_per_epoch=math.ceil(len(train_data) / batch_size))
 
 for epoch in range(manager.max_epochs):
-    optimizer.epoch_start()
     for batch_x, batch_y in DataLoader(train_data, batch_size):
         optimizer.zero_grad()
         batch_pred = model(batch_x)[0]
         loss = TF.cross_entropy(batch_pred, batch_y)
         loss.backward()
-    optimizer.epoch_end()
+        optimizer.step()
 ```
 
 Note: if you would like to log to TensorBoard, a logger class can be created and passed into the `ScheduledOptimizer`.
@@ -531,7 +584,7 @@ optimizer = ScheduledOptimizer(
     optimizer, 
     model, 
     manager, 
-    steps_per_epoch=len(train_data), 
+    steps_per_epoch=math.ceil(len(train_data) / batch_size), 
     loggers=[TensorBoardLogger()]
 )
 ```

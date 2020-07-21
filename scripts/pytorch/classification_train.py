@@ -8,7 +8,7 @@ Image classification recal script. Setup to support the following use cases:
 
 ##########
 Command help:
-usage: classification_recal.py [-h] [--recal-config-path RECAL_CONFIG_PATH]
+usage: classification_train.py [-h] [--recal-config-path RECAL_CONFIG_PATH]
                                [--sparse-transfer-learn] [--eval-mode]
                                --arch-key ARCH_KEY [--pretrained PRETRAINED]
                                [--pretrained-dataset PRETRAINED_DATASET]
@@ -102,7 +102,7 @@ optional arguments:
 
 ##########
 Example command for training mobilenet on imagenet dataset:
-python scripts/pytorch/classification_recal.py \
+python scripts/pytorch/classification_train.py \
     --recal-config-path scripts/pytorch/configs/imagenet_training.yaml \
     --arch-key mobilenet --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
     --train-batch-size 256 --test-batch-size 1024
@@ -110,7 +110,7 @@ python scripts/pytorch/classification_recal.py \
 
 ##########
 Example command for pruning resnet50 on imagenet dataset:
-python scripts/pytorch/classification_recal.py \
+python scripts/pytorch/classification_train.py \
     --recal-config-path scripts/pytorch/configs/pruning_resnet50.yaml \
     --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
     --train-batch-size 256 --test-batch-size 1024
@@ -118,7 +118,7 @@ python scripts/pytorch/classification_recal.py \
 
 ##########
 Example command for transfer learning sparse resnet50 on an image folder dataset:
-python scripts/pytorch/classification_recal.py \
+python scripts/pytorch/classification_train.py \
     --sparse-transfer-learn \
     --recal-config-path scripts/pytorch/configs/pruning_resnet50.yaml \
     --arch-key resnet50 --pretrained recal-perf \
@@ -128,7 +128,7 @@ python scripts/pytorch/classification_recal.py \
 
 ##########
 Example command for evaluating a mobilenetv2 model on imagenet dataset:
-python scripts/pytorch/classification_recal.py \
+python scripts/pytorch/classification_train.py \
     --eval-mode --arch-key mobilenetv2 --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012 --train-batch-size 256 --test-batch-size 1024
 """
@@ -335,13 +335,13 @@ def parse_args():
     parser.add_argument(
         "--save-dir",
         type=str,
-        default="pytorch_classification_pruning",
+        default="pytorch_classification_train",
         help="The path to the directory for saving results",
     )
     parser.add_argument(
         "--logs-dir",
         type=str,
-        default=os.path.join("pytorch_classification_pruning", "tensorboard-logs"),
+        default=os.path.join("pytorch_classification_train", "tensorboard-logs"),
         help="The path to the directory for saving logs",
     )
     parser.add_argument(
