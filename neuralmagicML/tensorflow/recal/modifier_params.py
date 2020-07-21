@@ -1,12 +1,9 @@
 """
-Modifier for changing the state of a module's params while training according to
+Modifier for changing the state of a modules params while training according to
 certain update formulas or patterns.
 """
 
-import re
 from typing import Union, List, Tuple, Dict, Any
-
-import tensorflow.contrib.graph_editor as ge
 
 from neuralmagicML.utils import (
     ALL_TOKEN,
@@ -31,8 +28,8 @@ __all__ = ["TrainableParamsModifier"]
 @TensorFlowModifierYAML()
 class TrainableParamsModifier(ScheduledModifier):
     """
-    Modifier to control the params for a given list of parameters.  Applies the
-    trainability over all epochs.
+    Modifier to control the params for a given list of parameters.
+    Applies the trainability over all epochs.
     To select all params in the graph, set to the ALL_TOKEN string: __ALL__
 
     | Sample yaml:
@@ -46,9 +43,9 @@ class TrainableParamsModifier(ScheduledModifier):
         params
     :param trainable: True if the param(s) should be made trainable,
         False to make them non-trainable
-    :param params_strict: True if the given param(s) must be found in each layer
-        -- will raise an err if not found,
-        False if missing params are ok -- will not raise an err
+    :param params_strict: True if the given param(s) must be found in each layer and
+        will raise an err if not found,
+        False if missing params are ok and will not raise an err
     """
 
     def __init__(
@@ -69,11 +66,6 @@ class TrainableParamsModifier(ScheduledModifier):
         self.validate()
 
     def _validate_params(self, params: Union[str, List[Union[int, str]]]):
-        """
-        :param val: the value to validate, check that params is a list (and flattens it),
-            otherwise checks that it's an ALL string, otherwise raises a ValueError
-        :return: the validated version of the param
-        """
         if isinstance(params, str):
             if params.upper() == ALL_TOKEN:
                 return params.upper()
@@ -91,9 +83,9 @@ class TrainableParamsModifier(ScheduledModifier):
     def params(self) -> Union[str, List[str]]:
         """
         :return: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters. Can also use the token __ALL__ to specify all
-        params
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters. Can also use the token __ALL__ to specify all
+            params
         """
         return self._params
 
@@ -101,9 +93,9 @@ class TrainableParamsModifier(ScheduledModifier):
     def params(self, value: Union[str, List[str]]):
         """
         :param value: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters. Can also use the token __ALL__ to specify all
-        params
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters. Can also use the token __ALL__ to specify all
+            params
         """
         self._params = self._validate_params(value)
         self.validate()
@@ -128,18 +120,18 @@ class TrainableParamsModifier(ScheduledModifier):
     @ModifierProp()
     def params_strict(self) -> bool:
         """
-        :return: True if the given param(s) must be found in each layer
-            -- will raise an err if not found.
-            False if missing params are ok -- will not raise an err
+        :return: True if the given param(s) must be found in each layer and
+            will raise an err if not found,
+            False if missing params are ok and will not raise an err
         """
         return self._params_strict
 
     @params_strict.setter
     def params_strict(self, value: bool):
         """
-        :param value: True if the given param(s) must be found in each layer
-            -- will raise an err if not found.
-            False if missing params are ok -- will not raise an err
+        :param value: True if the given param(s) must be found in each layer and
+            will raise an err if not found,
+            False if missing params are ok and will not raise an err
         """
         self._params_strict = value
 
@@ -203,7 +195,7 @@ class TrainableParamsModifier(ScheduledModifier):
     def complete_graph(self, graph: tf_compat.Graph, sess: tf_compat.Session):
         """
         Complete modifying the graph.
-        Resets the object's filtered variables to their original trainability
+        Resets the objects filtered variables to their original trainability
 
         :param graph: the modified graph that should be completed and cleaned.
             if not supplied, then will use the default graph
@@ -212,7 +204,7 @@ class TrainableParamsModifier(ScheduledModifier):
         """
         super().complete_graph(graph, sess)
 
-        trainable_vars_ref = collection = tf_compat.get_collection_ref(
+        trainable_vars_ref = tf_compat.get_collection_ref(
             tf_compat.GraphKeys.TRAINABLE_VARIABLES
         )
         for variable, was_trainable in self._vars_to_trainable_orig.items():

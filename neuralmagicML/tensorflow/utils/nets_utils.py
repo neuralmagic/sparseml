@@ -1,26 +1,51 @@
 """
 Utility functions for working with tensorflow slim's nets_factory
-
-=================================================================
-
-from neuralmagicML.tensorflow.utils import nets_utils
 """
 
+import logging
 import functools
 from typing import Callable, Dict
 
 from neuralmagicML.tensorflow.utils import tf_compat as tf
 
-from nets import nets_factory, dcgan, cyclegan
-from tensorflow.contrib import slim
-from tensorflow.contrib import layers as contrib_layers
+try:
+    from nets import nets_factory, dcgan, cyclegan
+except Exception:
+    nets_factory = None
+    dcgan = None
+    cyclegan = None
+    logging.warning("TensorFlow slim nets not found in system")
+
+try:
+    from tensorflow.contrib import slim
+    from tensorflow.contrib import layers as contrib_layers
+except Exception:
+    slim = None
+    contrib_layers = None
+    logging.warning("TensorFlow slim not found in system")
 
 
-gans = {
-    "cyclegan": cyclegan.cyclegan_generator_resnet,
-    "dcgan_generator": dcgan.generator,
-    "dcgan_discriminator": dcgan.discriminator,
-}
+__all__ = [
+    "get_network_fn",
+    "get_gan_network_fn",
+    "get_model_scope",
+    "mobilenet_v1_arg_scope",
+]
+
+
+def _gans_constructors() -> Dict[str, Callable]:
+    return {
+        "cyclegan": cyclegan.cyclegan_generator_resnet,
+        "dcgan_generator": dcgan.generator,
+        "dcgan_discriminator": dcgan.discriminator,
+    }
+
+
+def _check_slim_availability():
+    if nets_factory is None or slim is None:
+        raise ValueError(
+            "TensorFlow slim not setup in environment, please install first"
+        )
 
 
 def get_network_fn(
@@ -28,7 +53,7 @@ def get_network_fn(
     num_classes: int,
     weight_decay: float = 0.0,
     is_training: bool = False,
-    arg_scope_vars: Dict = {},
+    arg_scope_vars: Dict = None,
 ):
     """
     Modified from slim/nets/nets_factory
@@ -36,25 +61,31 @@ def get_network_fn(
 
     :param name: The name of the network.
     :param num_classes: The number of classes to use for classification. If 0 or None,
-     the logits layer is omitted and its input features are returned instead.
+        the logits layer is omitted and its input features are returned instead.
     :param weight_decay: The l2 coefficient for the model weights.
     :param is_training: `True` if the model is being used for training otherwise `False`
+    :param arg_scope_vars: arg_scope_vars to be passed to the slim arg_scope
     :return network_fn: A function that applies the model to a batch of images. It has
-     the following signature: net, end_points = network_fn(images)
-     The `images` input is a tensor of shape [batch_size, height, width, 3 or
-     1] with height = width = network_fn.default_image_size. (The
-     permissibility and treatment of other sizes depends on the network_fn.)
-     The returned `end_points` are a dictionary of intermediate activations.
-     The returned `net` is the topmost layer, depending on `num_classes`:
-     If `num_classes` was a non-zero integer, `net` is a logits tensor
-     of shape [batch_size, num_classes].
-     If `num_classes` was 0 or `None`, `net` is a tensor with the input
-     to the logits layer of shape [batch_size, 1, 1, num_features] or
-     [batch_size, num_features]. Dropout has not been applied to this
-     (even if the network's original classification does); it remains for
-     the caller to do this or not.
-    :raise: ValueError If network `name` is not recognized.
-  """
+        the following signature: net, end_points = network_fn(images)
+        The `images` input is a tensor of shape [batch_size, height, width, 3 or
+        1] with height = width = network_fn.default_image_size. (The
+        permissibility and treatment of other sizes depends on the network_fn.)
+        The returned `end_points` are a dictionary of intermediate activations.
+        The returned `net` is the topmost layer, depending on `num_classes`:
+        If `num_classes` was a non-zero integer, `net` is a logits tensor
+        of shape [batch_size, num_classes].
+        If `num_classes` was 0 or `None`, `net` is a tensor with the input
+        to the logits layer of shape [batch_size, 1, 1, num_features] or
+        [batch_size, num_features]. Dropout has not been applied to this
+        (even if the network's original classification does); it remains for
+        the caller to do this or not.
+    :raises ValueError: If network `name` is not recognized.
+    """
+    _check_slim_availability()
+
+    if not arg_scope_vars:
+        arg_scope_vars = {}
+
     if "gan" in name.lower():
         return get_gan_network_fn(name, is_training)
     if name not in nets_factory.networks_map:
@@ -84,11 +115,14 @@ def get_gan_network_fn(
     :param name: The name of the network.
     :param is_training: `True` if the model is being used for training otherwise `False`
     :return network_fn: Function that will run a gan sub-model
-    :raise: ValueError If network `name` is not recognized.
-  """
-    if name not in gans:
+    :raises ValueError: If network `name` is not recognized.
+    """
+    _check_slim_availability()
+
+    if name not in _gans_constructors():
         raise ValueError("Name of GAN network unknown %s" % name)
-    func = gans[name]
+
+    func = _gans_constructors()[name]
 
     def network_fn(inputs, **kwargs):
         if name == "dcgan_generator":
@@ -98,7 +132,17 @@ def get_gan_network_fn(
     return network_fn
 
 
-def get_model_scope(model_name: str, arg_scope_vars: Dict = {}):
+def get_model_scope(model_name: str, arg_scope_vars: Dict = None):
+    """
+    :param model_name: name of the model to create an arg scope for
+    :param arg_scope_vars:
+    :return: arg_scope_vars to be passed to the slim arg_scope
+    """
+    _check_slim_availability()
+
+    if arg_scope_vars is None:
+        arg_scope_vars = {}
+
     arg_scope = nets_factory.arg_scopes_map[model_name](**arg_scope_vars)
     if model_name == "mobilenet_v1":
         arg_scope = mobilenet_v1_arg_scope(**arg_scope_vars)
@@ -115,22 +159,25 @@ def mobilenet_v1_arg_scope(
     batch_norm_updates_collections: tf.GraphKeys = tf.GraphKeys.UPDATE_OPS,
     normalizer_fn: Callable = slim.batch_norm,
 ):
-    """Adapted from slim to allow for Xavier initializer
-  Defines the default MobilenetV1 arg scope.
+    """
+    Adapted from slim to allow for Xavier initializer
+    Defines the default MobilenetV1 arg scope.
 
     :param is_training: Whether or not we're training the model. If this is set to
-      None, the parameter is not added to the batch_norm arg_scope.
+        None, the parameter is not added to the batch_norm arg_scope.
     :param weight_decay: The weight decay to use for regularizing the model.
     :param stddev: The standard deviation of the trunctated normal weight initializer.
     :param regularize_depthwise: Whether or not apply regularization on depthwise.
     :param batch_norm_decay: Decay for batch norm moving average.
     :param batch_norm_epsilon: Small float added to variance to avoid dividing by zero
-      in batch norm.
+        in batch norm.
     :param batch_norm_updates_collections: Collection for the update ops for
-      batch norm.
+        batch norm.
     :param normalizer_fn: Normalization function to apply after convolution.
     :return: An `arg_scope` to use for the mobilenet v1 model.
-  """
+    """
+    _check_slim_availability()
+
     batch_norm_params = {
         "center": True,
         "scale": True,

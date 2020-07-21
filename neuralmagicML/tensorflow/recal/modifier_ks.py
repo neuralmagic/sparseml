@@ -51,6 +51,7 @@ class ConstantKSModifier(ScheduledModifier):
     |       start_epoch: 0.0
     |       end_epoch: 10.0
     |       log_types: __ALL__
+
     :param params: List of str names or regex patterns of names for the parameter
         variables to apply the KS modifier to. Regex patterns must be specified
         with the prefix 're:'. Can also use the token __ALL__ to specify all
@@ -235,7 +236,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
 
     :param params: List of str names or name regex patterns for the variables in the
         graph to apply the KS modifier to.  Regex patterns must be specified with
-            the prefix 're:'.  __ALL__ will match to all parameters.
+        the prefix 're:'.  __ALL__ will match to all parameters.
     :param init_sparsity: The initial sparsity for the variable to
         start with at start_epoch
     :param final_sparsity: The final sparsity for the variable to end with at end_epoch

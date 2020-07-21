@@ -20,7 +20,7 @@ install:
 doc:
 	source .venv/bin/activate;
 	sphinx-apidoc -o docs/source/ neuralmagicML/;
-	cd $(DOCDIR) && $(MAKE) html && sphinx-build -b rinoh source _build/rinoh;
+	cd $(DOCDIR) && $(MAKE) html;
 	cd $(BUILDDIR);
 
 package:

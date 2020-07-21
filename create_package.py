@@ -6,7 +6,6 @@ import tarfile
 import shutil
 
 UNWANTED = r"__pycache__|.git|.venv"
-RINOH_ROOT = "docs/_build/rinoh"
 DOC_BUILD_ROOT = "docs/build"
 DIRECTORY_ROOT = "neuralmagicML-python"
 
@@ -45,7 +44,6 @@ def create_package(name="neuralmagicML-python.tar.gz", exists_ok=True):
 
     with tarfile.open(name=name, mode="x:gz") as package:
         add_to_package(package, folders)
-        add_to_package(package, [RINOH_ROOT], old_root=RINOH_ROOT, new_root="docs")
         add_to_package(
             package, [DOC_BUILD_ROOT], old_root=DOC_BUILD_ROOT, new_root="docs"
         )

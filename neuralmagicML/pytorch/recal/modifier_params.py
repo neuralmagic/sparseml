@@ -1,9 +1,8 @@
 """
-Modifier for changing the state of a module's params while training according to
+Modifier for changing the state of a modules params while training according to
 certain update formulas or patterns.
 """
 
-import re
 from typing import List, Union, Any
 import torch
 from torch.nn import Module, Parameter
@@ -22,11 +21,7 @@ from neuralmagicML.pytorch.recal.modifier import (
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from neuralmagicML.pytorch.utils import (
-    get_layer,
-    get_terminal_layers,
-    get_named_layers_and_params_by_regex,
-)
+from neuralmagicML.pytorch.utils import get_named_layers_and_params_by_regex
 
 
 __all__ = ["TrainableParamsModifier", "SetParamModifier", "GradualParamModifier"]
@@ -43,7 +38,7 @@ class TrainableParamsModifier(ScheduledModifier):
 
     | Sample yaml:
     |   !TrainableParamsModifier:
-    |       params: ["re:*.weight"]
+    |       params: ["conv_net.conv1.weight"]
     |       trainable: True
     |       params_strict: False
     |       start_epoch: 0
@@ -55,8 +50,8 @@ class TrainableParamsModifier(ScheduledModifier):
     :param trainable: True if the param(s) should be made trainable,
         False to make them non-trainable
     :param params_strict: True if every regex pattern in params must match at least
-        one parameter name in the module
-        False if missing params are ok -- will not raise an err
+        one parameter name in the module,
+        False if missing params are ok and will not raise an err
     :param start_epoch: The epoch to start the modifier at
         (set to -1.0 so it starts immediately)
     :param end_epoch: The epoch to end the modifier at (set to -1.0 so it never ends),
@@ -87,17 +82,18 @@ class TrainableParamsModifier(ScheduledModifier):
     def params(self) -> Union[str, List[str]]:
         """
         :return: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         return self._params
 
     @params.setter
     def params(self, value: Union[str, List[str]]):
         """
-        :params value: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+        :params value: A list of full parameter names or regex patterns of names
+            to apply pruning to.
+            Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -124,7 +120,7 @@ class TrainableParamsModifier(ScheduledModifier):
         """
         :return: True if every regex pattern in params must match at least
             one parameter name in the module
-            False if missing params are ok -- will not raise an err
+            False if missing params are ok and will not raise an err
         """
         return self._params_strict
 
@@ -133,13 +129,13 @@ class TrainableParamsModifier(ScheduledModifier):
         """
         :param value: True if every regex pattern in params must match at least
             one parameter name in the module
-            False if missing params are ok -- will not raise an err
+            False if missing params are ok and will not raise an err
         """
         self._params_strict = value
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
-        Grab the layers' params to control trainable or not for within the given module
+        Grab the layers params to control trainable or not for within the given module
 
         :param module: module to modify
         :param optimizer: optimizer to modify
@@ -160,9 +156,9 @@ class TrainableParamsModifier(ScheduledModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        If start_pending(), updates the module's layers' params to be trainable or
+        If start_pending(), updates the modules layers params to be trainable or
         not depending on given settings.
-        If end_pending(), updates the module's layers' params to their original
+        If end_pending(), updates the modules layers params to their original
         trainable state.
 
         :param module: module to modify
@@ -202,8 +198,8 @@ class SetParamModifier(ScheduledModifier):
         will match to all parameters.
     :param val: The value to set for the given param in the given layers at start_epoch
     :param params_strict: True if every regex pattern in params must match at least
-        one parameter name in the module
-        False if missing params are ok -- will not raise an err
+        one parameter name in the module,
+        False if missing params are ok and will not raise an err
     :param start_epoch: The epoch to start the modifier at
         (set to -1.0 so it starts immediately)
     :param end_epoch: unused and should not be passed
@@ -231,8 +227,8 @@ class SetParamModifier(ScheduledModifier):
     def params(self) -> Union[str, List[str]]:
         """
         :return: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         return self._params
 
@@ -240,8 +236,8 @@ class SetParamModifier(ScheduledModifier):
     def params(self, value: Union[str, List[str]]):
         """
         :param value: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -266,8 +262,8 @@ class SetParamModifier(ScheduledModifier):
     def params_strict(self) -> bool:
         """
         :return: True if every regex pattern in params must match at least
-            one parameter name in the module
-            False if missing params are ok -- will not raise an err
+            one parameter name in the module,
+            False if missing params are ok and will not raise an err
         """
         return self._params_strict
 
@@ -275,8 +271,8 @@ class SetParamModifier(ScheduledModifier):
     def params_strict(self, value: bool):
         """
         :param value: True if every regex pattern in params must match at least
-            one parameter name in the module
-            False if missing params are ok -- will not raise an err
+            one parameter name in the module,
+            False if missing params are ok and will not raise an err
         """
         if self._initialized:
             raise RuntimeError(
@@ -289,7 +285,7 @@ class SetParamModifier(ScheduledModifier):
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
-        Grab the layers' params to control the values for within the given module
+        Grab the layers params to control the values for within the given module
 
         :param module: module to modify
         :param optimizer: optimizer to modify
@@ -318,7 +314,7 @@ class SetParamModifier(ScheduledModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        If start_pending(), updates the module's layers' params to the
+        If start_pending(), updates the modules layers params to the
         value based on given settings.
 
         :param module: module to modify
@@ -367,9 +363,10 @@ class GradualParamModifier(ScheduledUpdateModifier):
         params_strict: bool = True,
     ):
         """
-        :param params: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+        :param params: A list of full parameter names or regex patterns of names
+            to apply pruning to.
+            Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         :param init_val: The initial value to set for the given param in the
             given layers at start_epoch
         :param final_val: The final value to set for the given param in the
@@ -408,8 +405,8 @@ class GradualParamModifier(ScheduledUpdateModifier):
     def params(self) -> Union[str, List[str]]:
         """
         :return: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         return self._params
 
@@ -417,8 +414,8 @@ class GradualParamModifier(ScheduledUpdateModifier):
     def params(self, value: Union[str, List[str]]):
         """
         :param value: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -493,7 +490,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
 
     def initialize(self, module: Module, optimizer: Optimizer):
         """
-        Grab the layers' params to control the values for within the given module
+        Grab the layers params to control the values for within the given module
 
         :param module: module to modify
         :param optimizer: optimizer to modify
@@ -532,7 +529,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Updates the module's layers' params to the interpolated value based on given
+        Updates the modules layers params to the interpolated value based on given
         settings and current epoch.
 
         :param module: module to modify

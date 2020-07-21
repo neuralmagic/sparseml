@@ -42,7 +42,7 @@ class ImageFolderDataset(ImageFolder):
     |
     | root/cat/123.png
     | root/cat/nsdf3.png
-    | root/cat/asd932_.png
+    | root/cat/asd932.png
 
     :param root: The root folder to find the dataset at
     :param train: True if this is for the training distribution,
@@ -85,7 +85,7 @@ class ImageFolderDataset(ImageFolder):
         super().__init__(root, transform=transforms.Compose(trans))
 
         if train:
-            # make sure we don't preserve the folder structure class order
+            # make sure we dont preserve the folder structure class order
             random.shuffle(self.samples)
 
     @property

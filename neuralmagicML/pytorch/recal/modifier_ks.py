@@ -130,17 +130,18 @@ class ConstantKSModifier(ScheduledModifier):
     def params(self) -> Union[str, List[str]]:
         """
         :return: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         return self._params
 
     @params.setter
     def params(self, value: Union[str, List[str]]):
         """
-        :params value: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+        :params value: A list of full parameter names or regex patterns of names to
+            apply pruning to.
+            Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -272,7 +273,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
-        'channel', 'filter']), List to define block shape of a parameter's in and out
+        'channel', 'filter']), List to define block shape of a parameters in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
     """
 
@@ -356,8 +357,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
     def params(self) -> Union[str, List[str]]:
         """
         :return: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         return self._params
 
@@ -365,8 +366,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
     def params(self, value: Union[str, List[str]]):
         """
         :param value: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)

@@ -516,7 +516,7 @@ class SensitivityModelInfo(object):
         """
         :param id_: the id of the node to get a row for
         :return: a list of attributes for a table representation for a given node
-            that matches the id_
+            that matches the id
         """
         node = self._nodes[id_]
         row = [

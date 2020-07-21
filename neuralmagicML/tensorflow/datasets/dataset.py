@@ -244,12 +244,13 @@ class Dataset(metaclass=ABCMeta):
 class ImageFolderDataset(Dataset):
     """
     Implementation for loading an image folder structure into a dataset.
-    |Image folders should be of the form:
+
+    | Image folders should be of the form:
     |    - root
     |        - label
     |            - images
 
-    :param root: the root location for the dataset's images to load
+    :param root: the root location for the datasets images to load
     :param image_size: the size of the image to reshape to
     :param transforms: any additional transforms to apply to the images
     :param normalizer: the function to normalize images
@@ -283,7 +284,7 @@ class ImageFolderDataset(Dataset):
     @property
     def root(self) -> str:
         """
-        :return: the root location for the dataset's images to load
+        :return: the root location for the datasets images to load
         """
         return self._root
 

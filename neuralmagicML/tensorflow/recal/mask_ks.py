@@ -746,7 +746,7 @@ def get_scheduled_update_op(
 def get_or_create_ks_scheduled_graph_ops(
     graph: tf_compat.Graph,
     global_step: tf_compat.Variable,
-    var_names: List[int],
+    var_names: List[str],
     begin_step: int,
     end_step: int,
     update_step_freq: int,

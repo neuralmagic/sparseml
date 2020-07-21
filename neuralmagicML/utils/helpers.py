@@ -112,13 +112,13 @@ def bucket_iterable(
 ) -> List[Tuple[int, Any]]:
     """
     Bucket iterable into subarray consisting of the first top percentage
-    followed by the rest of the iterable sliced into equal sized groups
+    followed by the rest of the iterable sliced into equal sliced groups.
 
     :param val: The iterable to bucket
     :param num_buckets: The number of buckets to group the iterable into,
         does not include the top bucket
-    :param edge_percent  : Group the first percent into its own bucket.
-        If sort_highest then this is the top percent, else bottom percent.
+    :param edge_percent: Group the first percent into its own bucket.
+        If sort_highest, then this is the top percent, else bottom percent.
         If <= 0, then will not create an edge bucket
     :param sort_highest: True to sort such that the highest percent is first
         and will create buckets in descending order.
@@ -127,6 +127,7 @@ def bucket_iterable(
         after converting it to a list
     :return: a list of each value mapped to the bucket it was sorted into
     """
+
     val_list = [v for v in val]
     val_list.sort(key=sort_key, reverse=sort_highest)
     bucketed_values = []
