@@ -32,9 +32,11 @@ from neuralmagicML.tensorflow.recal import (
 def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
     tensor = tf_compat.Variable(tf_compat.random_normal(tensor_shape))
     sparsity = tf_compat.constant(sparsity_val)
-    name = (
-        f"{mask_creator.__class__.__name__}_{'_'.join([str(s) for s in tensor_shape])}"
-        f"_{str(sparsity_val)}_{random.randint(0, 10000)}"
+    name = "{}_{}_{}_{}".format(
+        mask_creator.__class__.__name__,
+        "_".join([str(s) for s in tensor_shape]),
+        str(sparsity_val),
+        random.randint(0, 10000),
     )
     initial_mask = tf_compat.get_variable(
         name,

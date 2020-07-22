@@ -289,7 +289,7 @@ class RepoModel(object):
                 with tarfile.open(paths[-1]) as tar:
                     tar.extractall(save_dir)
             except HTTPError:
-                print(f"Could not download {data_path}")
+                print("Could not download {data_path}".format(data_path=data_path))
         return paths
 
 

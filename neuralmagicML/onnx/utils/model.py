@@ -97,7 +97,7 @@ class ModelRunner(ABC):
         show_progress: bool = True,
         max_steps: int = -1,
         *args,
-        **kwargs,
+        **kwargs
     ) -> Tuple[List[Any], List[float]]:
         """
         Run inference for a model for the data given in the data_loader iterator
@@ -209,7 +209,7 @@ class ORTModelRunner(ModelRunner):
         show_progress: bool = True,
         max_steps: int = -1,
         *args,
-        **kwargs,
+        **kwargs
     ) -> Tuple[List[Any], List[float]]:
         """
         Run inference for a model for the data given in the data_loader iterator
@@ -358,7 +358,7 @@ class NMModelRunner(_NMModelRunner):
         show_progress: bool = True,
         max_steps: int = -1,
         *args,
-        **kwargs,
+        **kwargs
     ) -> Tuple[List[Any], List[float]]:
         """
         Run inference for a model for the data given in the data_loader iterator
@@ -421,7 +421,7 @@ class NMBenchmarkModelRunner(_NMModelRunner):
         optimization_level: int = 1,
         imposed_ks: Union[None, float] = None,
         *args,
-        **kwargs,
+        **kwargs
     ) -> Tuple[List[Dict], List[float]]:
         """
         Run inference for a model for the data given in the data_loader iterator
@@ -467,7 +467,7 @@ class NMBenchmarkModelRunner(_NMModelRunner):
         optimization_level: int = 1,
         imposed_ks: Union[None, float] = None,
         *args,
-        **kwargs,
+        **kwargs
     ) -> Tuple[Dict[str, numpy.ndarray], float]:
         """
         :param batch: the batch to run through the ONNX model for inference

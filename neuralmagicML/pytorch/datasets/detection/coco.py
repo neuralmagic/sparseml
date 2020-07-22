@@ -51,20 +51,28 @@ class CocoDetectionDataset(CocoDetection):
         year: str = "2017",
         image_size: int = 300,
     ):
-        root = os.path.join(os.path.abspath(os.path.expanduser(root)), f"{year}")
+        root = os.path.join(os.path.abspath(os.path.expanduser(root)), str(year))
         if train:
-            data_path = f"{root}/train{year}"
-            annotation_path = f"{root}/annotations/instances_train{year}.json"
+            data_path = "{root}/train{year}".format(root=root, year=year)
+            annotation_path = "{root}/annotations/instances_train{year}.json".format(
+                root=root, year=year
+            )
         else:
-            data_path = f"{root}/val{year}"
-            annotation_path = f"{root}/annotations/instances_val{year}.json"
+            data_path = "{root}/val{year}".format(root=root, year=year)
+            annotation_path = "{root}/annotations/instances_val{year}.json".format(
+                root=root, year=year
+            )
 
         if not os.path.isdir(root) and download:
             dataset_type = "train" if train else "val"
-            zip_url = f"{COCO_IMAGE_ZIP_ROOT}/{dataset_type}{year}.zip"
+            zip_url = "{COCO_IMAGE_ZIP_ROOT}/{dataset_type}{year}.zip".format(
+                COCO_ANNOTATION_ZIP_ROOT=COCO_ANNOTATION_ZIP_ROOT,
+                dataset_type=dataset_type,
+                year=year,
+            )
             zip_path = os.path.join(root, "images.zip")
-            annotation_url = (
-                f"{COCO_ANNOTATION_ZIP_ROOT}/annotations_trainval{year}.zip"
+            annotation_url = "{COCO_ANNOTATION_ZIP_ROOT}/annotations_trainval{year}.zip".format(
+                COCO_ANNOTATION_ZIP_ROOT=COCO_ANNOTATION_ZIP_ROOT, year=year
             )
             annotation_zip_path = os.path.join(root, "annotation.zip")
             os.makedirs(root, exist_ok=True)
@@ -84,7 +92,9 @@ class CocoDetectionDataset(CocoDetection):
 
         elif not os.path.isdir(root):
             raise ValueError(
-                f"Coco Dataset Path {root} does not exist. Please download dataset."
+                "Coco Dataset Path {root} does not exist. Please download dataset.".format(
+                    root=root
+                )
             )
         trans = (
             [

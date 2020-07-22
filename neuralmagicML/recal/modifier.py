@@ -449,7 +449,7 @@ class BaseScheduled(BaseObject):
         end_epoch: float,
         min_end: float,
         end_comparator: Union[int, None],
-        **kwargs,
+        **kwargs
     ):
         super().__init__(**kwargs)
         self._start_epoch = start_epoch

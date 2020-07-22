@@ -13,17 +13,20 @@ from neuralmagicML.pytorch.utils import load_model
 
 __all__ = ["ModelRegistry"]
 
-
-class _ModelAttributes(NamedTuple):
-    input_shape: Any
-    domain: str
-    sub_domain: str
-    architecture: str
-    sub_architecture: str
-    default_dataset: str
-    default_desc: str
-    ignore_error_tensors: List[str]
-    args: Dict[str, Tuple[str, Any]]
+_ModelAttributes = NamedTuple(
+    "_ModelAttributes",
+    [
+        ("input_shape", Any),
+        ("domain", str),
+        ("sub_domain", str),
+        ("architecture", str),
+        ("sub_architecture", str),
+        ("default_dataset", str),
+        ("default_desc", str),
+        ("ignore_error_tensors", List[str]),
+        ("args", Dict[str, Tuple[str, Any]]),
+    ],
+)
 
 
 class ModelRegistry(object):

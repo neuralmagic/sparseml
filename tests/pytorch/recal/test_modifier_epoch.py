@@ -34,11 +34,13 @@ class TestEpochRangeModifierImpl(ScheduledModifierTest):
 def test_epoch_range_yaml():
     start_epoch = 5.0
     end_epoch = 15.0
-    yaml_str = f"""
+    yaml_str = """
     !EpochRangeModifier
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
-    """
+    """.format(
+        start_epoch=start_epoch, end_epoch=end_epoch
+    )
     yaml_modifier = EpochRangeModifier.load_obj(yaml_str)  # type: EpochRangeModifier
     serialized_modifier = EpochRangeModifier.load_obj(
         str(yaml_modifier)

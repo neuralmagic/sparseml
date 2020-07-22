@@ -21,7 +21,7 @@ def write_to_failure_log(node_id, long_repr):
         with open(FAILURE_LOG, mode=mode) as failure_log:
             max_dashes = 150
             name_dashes = int(max((max_dashes - len(str(node_id)) - 2) / 2, 0))
-            node_name = f"{'=' * name_dashes } {node_id} {'=' * name_dashes}\n\n"
+            node_name = "{} {} {}\n\n".format("=" * name_dashes, node_id, "=" * name_dashes)
             failure_log.write(node_name)
             failure_log.write(str(long_repr) + "\n" * 2)
             failure_log.write("=" * max_dashes + "\n" * 2)

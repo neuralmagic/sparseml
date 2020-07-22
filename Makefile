@@ -97,9 +97,9 @@ version_testing:
 python_version_testing:
 	@rm -fr "$(LOGSDIR)";
 	mkdir "$(LOGSDIR)";
-	for python_version in $$(pyenv install --list | grep " 3\.[678]" ); do \
+	for python_version in $$(pyenv install --list | grep " 3\.[5678]" ); do \
 		echo "Testing python version $$python_version"; \
-		[ -z "$$(pyenv versions | grep "$$python_version")" ] && pyenv install "$$python_version"; \
+		[ -z "$$(pyenv versions | grep "$$python_version")" ] && env PYTHON_CONFIGURE_OPTS="--enable-framework CC=clang" pyenv install "$$python_version"; \
 		[ -d "$$HOME/.pyenv/versions/pyenv_$$python_version" ] || pyenv virtualenv "$$python_version" "pyenv_$$python_version"; \
 		source "$$HOME/.pyenv/versions/pyenv_$$python_version/bin/activate"; \
 		
@@ -111,6 +111,11 @@ python_version_testing:
 			cp "$(FAILURE_LOG)" "$(LOGSDIR)/python==$$python_version.log"; \
 		fi \
 	done;
+	if [[ ! -d "$(LOGSDIR)" ]] || [[ -z "$$(ls -A '$(LOGSDIR)')" ]]; then \
+		echo "No version errors found"; \
+	else \
+		exit 1; \
+	fi;
 
 clean:
 	rm -f $(PACKAGE);

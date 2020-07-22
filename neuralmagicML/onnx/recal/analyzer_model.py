@@ -37,7 +37,7 @@ class NodeAnalyzer(object):
     """
 
     def __init__(
-        self, model: Union[ModelProto, None], node: Union[Any, None], **kwargs,
+        self, model: Union[ModelProto, None], node: Union[Any, None], **kwargs
     ):
         if model is None and node is None:
             self._id = kwargs["id"]

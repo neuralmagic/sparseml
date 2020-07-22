@@ -112,12 +112,14 @@ def test_constant_ks_yaml():
     params = "__ALL__"
     start_epoch = 5.0
     end_epoch = 15.0
-    yaml_str = f"""
+    yaml_str = """
     !ConstantKSModifier
         params: {params}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
-    """
+    """.format(
+        params=params, start_epoch=start_epoch, end_epoch=end_epoch
+    )
     yaml_modifier = ConstantKSModifier.load_obj(yaml_str)  # type: ConstantKSModifier
     serialized_modifier = ConstantKSModifier.load_obj(
         str(yaml_modifier)
@@ -377,7 +379,7 @@ def test_gradual_ks_yaml():
     inter_func = "cubic"
     mask_type = "channel"
     leave_enabled = "True"
-    yaml_str = f"""
+    yaml_str = """
     !GradualKSModifier
         params: {params}
         init_sparsity: {init_sparsity}
@@ -388,7 +390,17 @@ def test_gradual_ks_yaml():
         inter_func: {inter_func}
         mask_type: {mask_type}
         leave_enabled: {leave_enabled}
-    """
+    """.format(
+        params=params,
+        init_sparsity=init_sparsity,
+        final_sparsity=final_sparsity,
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+        update_frequency=update_frequency,
+        inter_func=inter_func,
+        mask_type=mask_type,
+        leave_enabled=leave_enabled,
+    )
     yaml_modifier = GradualKSModifier.load_obj(yaml_str)  # type: GradualKSModifier
     serialized_modifier = GradualKSModifier.load_obj(
         str(yaml_modifier)

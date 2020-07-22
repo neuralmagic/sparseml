@@ -131,13 +131,10 @@ def get_init_by_name(model: ModelProto, init_name: str) -> Union[Any, None]:
     return matching_inits[0]
 
 
-class NodeParam(NamedTuple):
-    """
-    Simple named tuple for mapping a node value to the init name it came from
-    """
-
-    name: str
-    val: numpy.ndarray
+"""
+Simple named tuple for mapping a node value to the init name it came from
+"""
+NodeParam = NamedTuple("NodeParam", [("name", str), ("val", numpy.ndarray)])
 
 
 def conv_node_params(
@@ -375,16 +372,19 @@ def get_prunable_nodes(model: Union[str, ModelProto]) -> List[Any]:
     return prunable_nodes
 
 
-class SparsityMeasurement(NamedTuple):
-    """
-    A measurement of the sparsity for a given onnx node or model
-    """
-
-    node_id: str
-    params_count: int
-    params_zero_count: int
-    sparsity: float
-    density: float
+"""
+A measurement of the sparsity for a given onnx node or model
+"""
+SparsityMeasurement = NamedTuple(
+    "SparsityMeasurement",
+    [
+        ("node_id", str),
+        ("params_count", int),
+        ("params_zero_count", int),
+        ("sparsity", float),
+        ("density", float),
+    ],
+)
 
 
 def onnx_nodes_sparsities(

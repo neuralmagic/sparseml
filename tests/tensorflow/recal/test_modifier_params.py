@@ -154,12 +154,14 @@ def test_trainable_params_yaml():
     params = ALL_TOKEN
     trainable = False
     params_strict = False
-    yaml_str = f"""
+    yaml_str = """
     !TrainableParamsModifier
         params: {params}
         trainable: {trainable}
         params_strict: {params_strict}
-    """
+    """.format(
+        params=params, trainable=trainable, params_strict=params_strict
+    )
     yaml_modifier = TrainableParamsModifier.load_obj(
         yaml_str
     )  # type: TrainableParamsModifier

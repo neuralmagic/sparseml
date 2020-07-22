@@ -135,14 +135,20 @@ def test_trainable_params_yaml():
     params_strict = False
     start_epoch = 10.0
     end_epoch = 20.0
-    yaml_str = f"""
+    yaml_str = """
     !TrainableParamsModifier
         params: {params}
         trainable: {trainable}
         params_strict: {params_strict}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
-    """
+    """.format(
+        params=params,
+        trainable=trainable,
+        params_strict=params_strict,
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+    )
     yaml_modifier = TrainableParamsModifier.load_obj(
         yaml_str
     )  # type: TrainableParamsModifier
@@ -265,13 +271,18 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
 def test_set_param_yaml():
     params_strict = False
     start_epoch = 10.0
-    yaml_str = f"""
+    yaml_str = """
     !SetParamModifier
         params: {SET_PARAM_MOD_PARAMS}
         val: {SET_PARAM_MOD_VAL}
         params_strict: {params_strict}
         start_epoch: {start_epoch}
-    """
+    """.format(
+        SET_PARAM_MOD_PARAMS=SET_PARAM_MOD_PARAMS,
+        SET_PARAM_MOD_VAL=SET_PARAM_MOD_VAL,
+        params_strict=params_strict,
+        start_epoch=start_epoch,
+    )
     yaml_modifier = SetParamModifier.load_obj(yaml_str)  # type: SetParamModifier
     serialized_modifier = SetParamModifier.load_obj(
         str(yaml_modifier)
@@ -423,7 +434,7 @@ def test_gradual_param_yaml():
     end_epoch = 20.0
     update_frequency = 1.0
     inter_func = "linear"
-    yaml_str = f"""
+    yaml_str = """
     !GradualParamModifier
         params: {GRADUAL_PARAM_MOD_PARAMS}
         init_val: {GRADUAL_PARAM_MOD_INIT_VAL}
@@ -433,7 +444,16 @@ def test_gradual_param_yaml():
         update_frequency: {update_frequency}
         inter_func: {inter_func}
         params_strict: {params_strict}
-    """
+    """.format(
+        GRADUAL_PARAM_MOD_PARAMS=GRADUAL_PARAM_MOD_PARAMS,
+        GRADUAL_PARAM_MOD_INIT_VAL=GRADUAL_PARAM_MOD_INIT_VAL,
+        GRADUAL_PARAM_MOD_FINAL_VAL=GRADUAL_PARAM_MOD_FINAL_VAL,
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+        update_frequency=update_frequency,
+        inter_func=inter_func,
+        params_strict=params_strict,
+    )
     yaml_modifier = GradualParamModifier.load_obj(
         yaml_str
     )  # type: GradualParamModifier
