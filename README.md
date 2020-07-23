@@ -1,29 +1,29 @@
-# Neural Magic ML API
+# Neural Magic ML Tooling
 Neural Magic is focused on making performance engineering for deep learning easy, affordable, and accessible. 
 The Neural Magic Inference Engine enhances speed for neural networks in numerous ways, 
 including activation sparsity and model pruning. 
-This codebase is set up to allow easy creation of performance-optimized models specifically for Neural Magic. 
+This codebase is set up to allow easy creation of performance-optimized models, specifically for Neural Magic. 
 Additionally, implementations for multiple frameworks, including PyTorch and TensorFlow, are provided. 
 The easy-to-use codebase is designed for machine learning engineers.
 
 ## Repository Structure
 ```
-neuralmagicml
+neuralmagicML-python
+    docs - API documentation for the repository
     neuralmagicML - The Python API Code
     notebooks - Tutorial Notebooks for using the Python API
     scripts - Functional scripts for working with the Python API
         onnx - Functional scripts for working with ONNX models
         pytorch - Functional scripts for working with PyTorch models
         tensorflow - Functional scripts for working with TensorFlow models
-    tensorflow-onnx - API for converting TensorFlow models to ONNX
     README.md - readme file
     requirements.txt - requirements for the Python API
     setup.py - setuptools install script
 ```
 
 ## Installation and Requirements
-Python 3.6.0 or higher is required on the system. 
-General instructions for doing this are found [here](https://realpython.com/installing-python/).
+Python 3.5.0 or higher is required on the system. 
+General instructions for Python installation are found [here](https://realpython.com/installing-python/).
 
 Additionally, it is recommended to work within a virtual environment. 
 Sample commands for creating and activating in a Unix-based system are provided below:
@@ -38,16 +38,16 @@ source ./venv/bin/activate
 - TensorFlow supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
 
 ### Installation
-1. Navigate to the parent directory of the `neuralmagicml` code base.
+1. Navigate to the parent directory of the `neuralmagicML` codebase.
 2. Use pip install to run the setup.py file in the repo: `pip install neuralmagicML-python/`
 3. Import neuralmagicML library in your code: `import neuralmagicML`
 
-Note: If you run into issues with TensorFlow / PyTorch imports (specifically GPU vs. CPU support), 
-you can edit the `requirements.txt` file at the root of the repo for the desired TensorFlow or PyTorch version.
+Note: If you run into issues with TensorFlow/PyTorch imports (specifically GPU vs. CPU support), 
+you can edit the `requirements.txt` file at the root of the repository for the desired TensorFlow or PyTorch version.
 
 
 ## Tutorials
-Tutorials, which are implemented as Jupyter notebooks for easy consumption and editing, 
+Tutorials, which are implemented as Jupyter Notebooks for easy consumption and editing, 
 are provided under the `notebooks` directory. 
 To run one of the tutorials, start a Jupyter session in the `notebooks` directory.
 ```bash
@@ -58,11 +58,11 @@ jupyter notebook
 Additionally, the notebooks make use of the [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) package.
 You may need to enable the Jupyter extension to properly see the UIs.
 Use the following command to do so: `jupyter nbextension enable --py widgetsnbextension`.
-If Jupyter was already running, please restart after running the command.
+If Jupyter was already running, restart after running the command.
 
 Once the Jupyter session has started, you can open the desired notebooks.
 Note, the notebooks are tested with TensorFlow version ~= 1.15.0. 
-For best results, please make sure your system matches that.
+For best results, make sure your system matches that version.
 
 ### model_repo.ipynb
 A tutorial for exploring and downloading from the [Model Repository](#model-repository). 
@@ -89,7 +89,7 @@ the pruning process while keeping the performance.
 
 Ease of use scripts, which are implemented as Python scripts for easy consumption and editing,
 are provided under the `scripts` directory.
-To run one of the scripts, invoke it with a python command from the commandline along with the relevant arguments.
+To run one of the scripts, invoke it with a Python command from the command line along with the relevant arguments.
 ```bash
 python scripts/onnx/model_download.py \
     --dom cv --sub-dom classification --arch resnet-v1 --sub-arch 50 \
@@ -105,14 +105,14 @@ trained in the [ONNX](https://onnx.ai/) framework.
 The following scripts are currently maintained for use:
 - `classification_validation.py`: Run an image classification model over a selected dataset to measure 
   validation metrics.
-- `model_analysis.py`: Analyze a model to parse it into relevant info for each node / op in the graph 
+- `model_analysis.py`: Analyze a model to parse it into relevant info for each node/op in the graph 
   such as param counts, flops, is prunable, etc.
 - `model_benchmark.py`: Benchmark the inference speed for a model in either the 
-  [Neural Magic Inference Engine](https://neuralmagic.com/) or [ONNX Runtime](https://github.com/microsoft/onnxruntime)
+  [Neural Magic Inference Engine](https://neuralmagic.com/) or [ONNX Runtime](https://github.com/microsoft/onnxruntime).
 - `model_download.py`: Download a model from the Neural Magic [Model Repository](#model-repository).
-- `model_kernel_sparsity.py`: Measure the sparsity of the weight parameters across a model (the result of pruning)
+- `model_kernel_sparsity.py`: Measure the sparsity of the weight parameters across a model (the result of pruning).
 - `model_pruning_config.py`: Create a config.yaml file or a pruning information table to guide the creation 
-  of a config.yaml file for pruning a given model in the `neuralmagicML` python package.
+  of a config.yaml file for pruning a given model in the `neuralmagicML` Python package.
 - `model_pruning_loss_sensitivity.py`: Calculate the sensitivity for each prunable layer in a model towards the loss,
   where, for example, a higher score means the layer affects the loss more and therefore should be pruned less.
 - `model_pruning_perf_sensitivity.py`: Calculate the sensitivity for each prunable layer in a model towards 
@@ -124,16 +124,16 @@ The following scripts are currently maintained for use:
 
 The `pytorch` subdirectory is provided for working with models trained in the [PyTorch](https://pytorch.org/) framework.
 The following scripts are currently maintained for use:
-- `classification_export.py`: Exports an image classification model to a standard structure including
+- `classification_export.py`: Export an image classification model to a standard structure including
   an ONNX format, sample inputs, sample outputs, and sample labels.
 - `classification_lr_sensitivity.py`: Calculate the learning rate sensitivity for an image classification model
-  as compared with the loss. A higher sensitivity means a higher affect on the loss.
+  as compared with the loss. A higher sensitivity means a higher loss impact.
 - `classification_pruning_loss_sensitivity.py`: Calculate the sensitivity for each prunable layer in an
   image classification model towards the loss, where, for example, a higher score means the layer affects 
   the loss more and therefore should be pruned less.
 - `classification_train.py`: Train an image classification model using a config.yaml file 
   to modify the training process such as for pruning or sparse transfer learning.
-- `model_download.py`: Download a model from the Neural Magic [Model Repository](#model-repository). 
+- `model_download.py`: Download a model from the Neural Magic [Model Repo](#model-repository). 
 
 
 ### TensorFlow
@@ -141,17 +141,17 @@ The following scripts are currently maintained for use:
 The `tensorflow` subdirectory is provided for working with models trained in the 
 [TensorFlow](https://www.tensorflow.org/) framework.
 The following scripts are currently maintained for use:
-- `model_download.py`: Download a model from the Neural Magic [Model Repository](#model-repository). 
+- `model_download.py`: Download a model from the Neural Magic [Model Repo](#model-repository). 
   
 
 ## Exporting to ONNX
 [ONNX](https://onnx.ai/) is a generic format for storing Neural Networks that is supported natively or by
-3rd party extensions in all major deep learning frameworks such as PyTorch, TensorFlow, Keras.
+third-party extensions in all major deep learning frameworks such as PyTorch, TensorFlow, and Keras.
 Due to this flexibility, the Neural Magic Inference Engine uses the ONNX format.
 Below instructions for exporting in the popular frameworks are included below.
 
 ### PyTorch ONNX
-[ONNX support](https://pytorch.org/docs/stable/onnx.html) is natively built in to PyTorch.
+[ONNX support](https://pytorch.org/docs/stable/onnx.html) is natively built into PyTorch.
 To enable ease of use, a high level API, `ModuleExporter`, is also included in the `neuralmagicML.pytorch` package.
 To run the export for a model, a sample batch must be provided. 
 The sample batch is run through the model to freeze the execution graph into an ONNX format.
@@ -172,10 +172,11 @@ print("exported onnx file in {}".format(export_dir))
 ```
 
 ### TensorFlow ONNX
-ONNX support is not natively built in to TensorFlow.
-However, a third party library is maintained for the conversion to ONNX 
-named [tf2onnx](https://github.com/onnx/tensorflow-onnx).
+ONNX support is not natively built into TensorFlow.
+However, a third-party library, [tf2onnx](https://github.com/onnx/tensorflow-onnx), 
+is maintained for the conversion to ONNX.
 This pathway converts native protobuf graph definitions from TensorFlow into their equivalent ONNX representation.
+Note, if you are using Python 3.5, then you will need to install tf2onnx version 1.5.6.
 
 Example code:
 ```python
@@ -221,24 +222,25 @@ Possible types are:
 ### Available Models
 |  Architecture      | Dataset  | Available Types         | Frameworks                 | Validation Baseline Metric |
 | ------------------ | -------- | ----------------------- | -------------------------- | -------------------------- |
-| MnistNet           | mnist    | base                    | onnx, PyTorch, TensorFlow  | ~99% top1 accuracy         |
-| EfficientNet B0    | imagenet | base, recal-perf        | onnx, PyTorch              | 77.3% top1 accuracy        |
-| EfficientNet B4    | imagenet | base, recal-perf        | onnx, PyTorrch             | 83.0% top1 accuracy        |
-| MobileNet V1       | imagenet | base, recal, recal-perf | onnx, PyTorch, TensorFlow  | 70.9% top1 accuracy        |
-| MobileNet V2       | imagenet | base                    | onnx, PyTorch, TensorFlow  | 71.88% top1 accuracy       |
-| ResNet 50          | imagenet | base, recal, recal-perf | onnx, PyTorch, TensorFlow  | 76.1% top1 accuracy        |
-| ResNet 50 2xwidth  | imagenet | base                    | onnx, PyTorch              | 78.51% top1 accuracy       |
-| ResNet 101         | imagenet | base, recal-perf        | onnx, PyTorch, TensorFlow  | 77.37% top1 accuracy       |
-| ResNet 101 2xwidth | imagenet | base                    | onnx, PyTorch              | 78.84% top1 accuracy       |
-| ResNet 152         | imagenet | base, recal-perf        | onnx, PyTorch, TensorFlow  | 78.31% top1 accuracy       |
-| VGG 11             | imagenet | base, recal-perf        | onnx, PyTorch, TensorFlow  | 69.02% top1 accuracy       |
-| VGG 11bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 70.38% top1 accuracy       |
-| VGG 13             | imagenet | base                    | onnx, PyTorch, TensorFlow  | 69.93% top1 accuracy       |
-| VGG 13bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
-| VGG 16             | imagenet | base, recal, recal-perf | onnx, PyTorch, TensorFlow  | 71.59% top1 accuracy       |
-| VGG 16bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
-| VGG 19             | imagenet | base, recal-perf        | onnx, PyTorch, TensorFlow  | 72.38% top1 accuracy       |
-| VGG 19bn           | imagenet | base                    | onnx, PyTorch, TensorFlow  | 74.24% top1 accuracy       |
+| MnistNet           | MNIST    | base                    | ONNX, PyTorch, TensorFlow  | ~99% top1 accuracy         |
+| EfficientNet-B0    | ImageNet | base, recal-perf        | ONNX, PyTorch              | 77.3% top1 accuracy        |
+| EfficientNet-B4    | ImageNet | base, recal-perf        | ONNX, PyTorch              | 83.0% top1 accuracy        |
+| InceptionV3        | ImageNet | base, recal, recal-perf | ONNX, PyTorch              | 77.45% top1 accuracy       |
+| MobileNetV1        | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 70.9% top1 accuracy        |
+| MobileNetV2        | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.88% top1 accuracy       |
+| ResNet-50          | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 76.1% top1 accuracy        |
+| ResNet-50 2xwidth  | ImageNet | base                    | ONNX, PyTorch              | 78.51% top1 accuracy       |
+| ResNet-101         | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 77.37% top1 accuracy       |
+| ResNet-101 2xwidth | ImageNet | base                    | ONNX, PyTorch              | 78.84% top1 accuracy       |
+| ResNet-152         | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 78.31% top1 accuracy       |
+| VGG-11             | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 69.02% top1 accuracy       |
+| VGG-11bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 70.38% top1 accuracy       |
+| VGG-13             | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 69.93% top1 accuracy       |
+| VGG-13bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
+| VGG-16             | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 71.59% top1 accuracy       |
+| VGG-16bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
+| VGG-19             | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 72.38% top1 accuracy       |
+| VGG-19bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 74.24% top1 accuracy       |
 
 ### Downloading and Usage
 Tutorial notebooks are provided for easily integrating and using the models in the Neural Magic Model Repo. 
@@ -256,7 +258,7 @@ print(models)
 ```
 
 #### ONNX
-The `RepoModel` class contains a helper function to download the ONNX files: RepoModel().download_onnx_file()`.
+The `RepoModel` class contains a helper function to download the ONNX files: `RepoModel().download_onnx_file()`.
 Example code:
 ```python
 import os
@@ -320,7 +322,7 @@ with tf_compat.Graph().as_default() as graph:
 
 ## Recalibration
 APIs for recalibrating models are provided for each supported ML framework.
-Recalibration includes such things as 
+Recalibration includes
 [model pruning (kernel sparsity)](https://towardsdatascience.com/pruning-deep-neural-network-56cae1ec5505) 
 as well as [quantization](https://towardsdatascience.com/speeding-up-deep-learning-with-quantization-3fe3538cbb9)
 in a future release.
@@ -329,7 +331,7 @@ Both of these, when paired with the Neural Magic Inference Engine, can significa
 The APIs are designed to be integrated into your existing code with as few lines as possible.
 The implementations for each framework differ to best match their internal structures and designs.
 
-### Config File
+### Config Files
 All recalibration APIs are designed to work with configuration files.
 These configuration files are written in [YAML](https://yaml.org/) and are loaded into 
 modifying Python objects when recalibrating the models.
@@ -338,7 +340,7 @@ This enables relatively minimal changes to the config files to load an original
 config for a PyTorch model into TensorFlow, for example.
 
 An interactive UI will be rolled out in a future release to support easier modification and creation of the config files.
-For now, UI's with basic functions are provided in the supporting [tutorial notebooks](#tutorials).
+For now, UIs with basic functions are provided in the supporting [tutorial notebooks](#tutorials).
 We recommend becoming familiar with these first.
 
 The config.yaml files are made up of individual modifiers. 
@@ -349,7 +351,7 @@ Note that it does not run through `end_epoch`.
 Additionally, all epoch values support decimal values such that they can be started somewhere in the middle of an epoch.
 For example, `start_epoch: 2.5` will start in the middle of the second training epoch.
 
-The most commonly used ones are enumerated as subsections below.
+The most commonly used modifiers are enumerated as subsections below.
 Also, here is a simple example of a config.yaml file that prunes all layers in a model:
 ```yaml
 version: 1.0.0
@@ -394,14 +396,14 @@ The pruning modifiers handle creating or enforcing kernel sparsity for a specifi
 ##### ConstantKSModifier
 The `ConstantKSModifier` enforces the sparsity structure and level for an already pruned layer(s) in a model.
 The modifier is used for transfer learning from an already pruned model.
-The weights are allowed to make updates to enable transferring to a new task, however the sparsity is unchanged.
+The weights are allowed to make updates to enable transferring to a new task; however, the sparsity is unchanged.
 
 Required Parameters:
  - `params`: The parameters in the model to prune. 
-   Can be set to a string containing `__ALL__` to prune all parameters, a list to specify the targeted parameters,
+   This can be set to a string containing `__ALL__` to prune all parameters, a list to specify the targeted parameters,
    or regex patterns prefixed by 're:' of parameter name patterns to match.
-   Ex: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
-        or using regex to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
+   For example: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
+   Regex can also be used to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
    
 Example:
 ```yaml
@@ -422,25 +424,26 @@ For example, using the following settings `start_epoch: 0`, `end_epoch: 5`, `upd
 
 Required Parameters:
  - `params`: The parameters in the model to prune. 
-   Can be set to a string containing `__ALL__` to prune all parameters, a list to specify the targeted parameters,
+   This can be set to a string containing `__ALL__` to prune all parameters, a list to specify the targeted parameters,
    or regex patterns prefixed by 're:' of parameter name patterns to match.
-   Ex: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
-        or using regex to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
+   For example: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
+   Regex can also be used to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
  - `init_sparsity`: The decimal value for the initial sparsity to start pruning with.
-   At `start_epoch` will set the sparsity for the param/variable to this value. Generally kept at 0.05 (5%)
+   At `start_epoch` will set the sparsity for the param/variable to this value. 
+   Generally, this is kept at kept at 0.05 (5%).
  - `final_sparsity`: The decimal value for the final sparsity to end pruning with.
    By the start of `end_epoch` will set the sparsity for the param/variable to this value.
-   Generally kept in a range from 0.6 to 0.95 depending on the model and layer. 
+   Generally, this is kept in a range from 0.6 to 0.95 depending on the model and layer. 
    Anything less than 0.4 is not useful for performance.
  - `start_epoch`: The epoch to start the pruning at (0 indexed).
-   Supports floating-point values to enable starting pruning between epochs.
- - `end_epoch`: The epoch to stop pruning before.
-   Supports floating-point values to enable stopping pruning between epochs.
+   This supports floating-point values to enable starting pruning between epochs.
+ - `end_epoch`: The epoch before which to stop pruning.
+   This supports floating-point values to enable stopping pruning between epochs.
  - `update_frequency`: The number of epochs/fractions of an epoch between each pruning step.
    It supports floating-point values to enable updating inside of epochs.
-   Generally set to update once per epoch (`1.0`). 
+   Generally, this is set to update once per epoch (`1.0`). 
    However, if the loss for the model recovers quickly, it should be set to a lesser value.
-   Ex: Set it to `0.5` for once every half epoch (twice per epoch). 
+   For example: set it to `0.5` for once every half epoch (twice per epoch). 
    
 Example:
 ```yaml
@@ -454,17 +457,17 @@ Example:
 ```
 
 #### Learning Rate Modifiers
-The learning rate modifiers sets the learning rate for an optimizer during training.
+The learning rate modifiers set the learning rate (LR) for an optimizer during training.
 If you are using an Adam optimizer, then generally, these are not useful.
 If you are using a standard stochastic gradient descent optimizer, then these give a convenient way to control the LR.
 
 ##### SetLearningRateModifier
-The `SetLearningRateModifier` sets the learning rate for the optimizer to a specific value at a specific point
+The `SetLearningRateModifier` sets the learning rate (LR) for the optimizer to a specific value at a specific point
 in the training process.
 
 Required Parameters:
  - `start_epoch`: The epoch in the training process to set the `learning_rate` value for the optimizer.
-   Supports floating-point values to enable setting the LR between epochs.
+   This supports floating-point values to enable setting the LR between epochs.
  - `learning_rate`: The floating-point value to set as the learning rate for the optimizer at `start_epoch`.
  
 Example:
@@ -476,28 +479,28 @@ Example:
 
 ##### LearningRateModifier
 The `LearningRateModifier` sets schedules for controlling the learning rate for an optimizer during training.
-If you are using an Adam optimizer, then generally these are not useful.
+If you are using an Adam optimizer, then generally, these are not useful.
 If you are using a standard stochastic gradient descent optimizer, then these give a convenient way to control the LR.
 Provided schedules to choose from are the following:
- - `ExponentialLR`: multiplies the learning rate by a `gamma` value every epoch.
+ - `ExponentialLR`: Multiplies the learning rate by a `gamma` value every epoch.
    To use this one, `lr_kwargs` should be set to a dictionary containing `gamma`.
-   Ex: `{'gamma': 0.9}`
- - `StepLR`: multiplies the learning rate by a `gamma` value after a certain epoch period defined by `step`.
+   For example: `{'gamma': 0.9}`
+ - `StepLR`: Multiplies the learning rate by a `gamma` value after a certain epoch period defined by `step`.
    To use this one, `lr_kwargs` must be set to a dictionary containing `gamma` and `step`.
-   Ex: `{'gamma': 0.9, step: 2.0}`
- - `MultiStepLR`: multiplies the learning rate by a `gamma` value at specific epoch points defined by `milestones`.
+   For example: `{'gamma': 0.9, step: 2.0}`
+ - `MultiStepLR`: Multiplies the learning rate by a `gamma` value at specific epoch points defined by `milestones`.
    To use this one, `lr_kwargs` must be set to a dictionary containing `gamma` and `milestones`.
-   Ex: `{'gamma': 0.9, 'milestones': [2.0, 5.5, 10.0]}`
+   For example: `{'gamma': 0.9, 'milestones': [2.0, 5.5, 10.0]}`
    
 Required Parameters:
  - `start_epoch`: The epoch to start modifying the LR at (0 indexed).
-   Supports floating-point values to enable starting pruning between epochs.
+   This supports floating-point values to enable starting pruning between epochs.
  - `end_epoch`: The epoch to stop modifying the LR before.
-   Supports floating-point values to enable stopping pruning between epochs.
- - `lr_class`: The LR class to use, one of [`ExponentialLR`, `StepLR`, `MultiStepLR`]
- - `lr_kwargs`: The named arguments for the `lr_class`
- - `init_lr`: [Optional] The initial LR to set at `start_epoch` and to use for creating the schedules, 
-    if not given then will use the optimizer's current LR at startup
+   This supports floating-point values to enable stopping pruning between epochs.
+ - `lr_class`: The LR class to use, one of [`ExponentialLR`, `StepLR`, `MultiStepLR`].
+ - `lr_kwargs`: The named arguments for the `lr_class`.
+ - `init_lr`: [Optional] The initial LR to set at `start_epoch` and to use for creating the schedules. 
+    If not given, the optimizer's current LR will be used at startup.
  
  Example:
  ```yaml
@@ -511,18 +514,18 @@ Required Parameters:
         init_lr: 0.1
  ```
  
-#### Params / Variables Modifiers
+#### Params/Variables Modifiers
 
 ##### TrainableParamsModifier
 The `TrainableParamsModifier` controls the params that are marked as trainable for the current optimizer.
-This is generally useful when transfer learning to easily mark which parameters should or should not be frozen / trained.
+This is generally useful when transfer learning to easily mark which parameters should or should not be frozen/trained.
 
 Required Parameters:
  - `params`: The names of parameters to mark as trainable or not.
-    Can be set to a string containing `__ALL__` to mark all parameters, a list to specify the targeted parameters,
+    This can be set to a string containing `__ALL__` to mark all parameters, a list to specify the targeted parameters,
     or regex patterns prefixed by 're:' of parameter name patterns to match.
-    Ex: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
-         or using regex to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
+    For example: `['blocks.1.conv']` for PyTorch and `['mnist_net/blocks/conv0/conv']` for TensorFlow.
+    Regex can also be used to match all conv params: `['re:.*conv']` for PyTorch and `['re:.*/conv']` for TensorFlow.
    
 Example:
 ```yaml
@@ -545,7 +548,7 @@ and PyTorch optimizer to enable modifying the training process.
 The `ScheduledOptimizer` should then be used in place of the original PyTorch optimizer in the rest of your code.
 Mainly, it overrides the `optimizer.step()` function to modify the training process.
 Additionally, `optimizer.epoch_start()` and `optimizer.epoch_end()` should be called 
-at the start and end of each epoch respectively. 
+at the start and end of each epoch, respectively. 
 
 Example:
 ```python
@@ -680,8 +683,8 @@ train_op = tf_compat.train.AdamOptimizer(learning_rate=1e-4).minimize(
 ```
 
 ## Licenses and Agreements
-* All implementations in this repo are subject to Neural Magic's [Privacy Policy.](https://neuralmagic.com/privacy-policy/)
-* All implementations in this repo are subject to Neural Magic's [Terms of Use.](https://neuralmagic.com/evaluation-license-agreement)
+* All implementations in this repository are subject to Neural Magic's [Privacy Policy.](https://neuralmagic.com/privacy-policy/)
+* All implementations in this repository are subject to Neural Magic's [Terms of Use.](https://neuralmagic.com/evaluation-license-agreement)
 * All packages as defined in the requirements.txt and their associated licenses.
 * PyTorch [License.](https://github.com/pytorch/pytorch/blob/master/LICENSE)
 * PyTorch torchvision and models [License.](https://github.com/pytorch/vision/blob/master/LICENSE)
