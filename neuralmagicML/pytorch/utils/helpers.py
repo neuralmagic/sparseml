@@ -239,7 +239,7 @@ def tensors_to_device(
     if isinstance(tensors, Dict):
         return {key: tensors_to_device(tens, device) for key, tens in tensors.items()}
 
-    if isinstance(tensors, Tuple):
+    if isinstance(tensors, tuple):
         return tuple(tensors_to_device(tens, device) for tens in tensors)
 
     if isinstance(tensors, Iterable):
@@ -268,7 +268,7 @@ def tensors_to_precision(
             for key, tens in tensors.items()
         }
 
-    if isinstance(tensors, Tuple):
+    if isinstance(tensors, tuple):
         return tuple(tensors_to_precision(tens, full_precision) for tens in tensors)
 
     if isinstance(tensors, Iterable):
@@ -304,7 +304,7 @@ def tensors_module_forward(
     :return: the result of calling into the model for a forward pass
     """
     if (
-        (isinstance(tensors, Tuple) or isinstance(tensors, List))
+        (isinstance(tensors, tuple) or isinstance(tensors, List))
         and len(tensors) == 2
         and check_feat_lab_inp
     ):
