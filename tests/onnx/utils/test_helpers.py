@@ -14,6 +14,8 @@ from neuralmagicML.onnx.utils import (
     get_prunable_nodes,
     onnx_nodes_sparsities,
     SparsityMeasurement,
+    get_kernel_shape,
+    calculate_flops,
 )
 from neuralmagicML.utils import available_models
 
@@ -71,3 +73,198 @@ def test_extract_node_shape(extract_node_models):
     for node in node_shapes:
         assert node_shapes[node].input_shapes == expected_output[node][0]
         assert node_shapes[node].output_shapes == expected_output[node][1]
+
+
+@pytest.mark.parametrize(
+    "attributes,output",
+    [
+        ({"kernel": [3, 3]}, [3, 3]),
+        ({"kernel_shape": [5, 5]}, [5, 5]),
+        ({"stride": [1, 1]}, None),
+    ],
+)
+def test_get_kernel_shape(attributes, output):
+    assert get_kernel_shape(attributes) == output
+
+
+@pytest.mark.parametrize(
+    "op_type,input_shape,output_shape,weight_shape,kernel_shape,bias_shape,flops",
+    [
+        (
+            "Add",
+            [[1, 3, 15, 15], [1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        (
+            "Mul",
+            [[1, 3, 15, 15], [1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        (
+            "Div",
+            [[1, 3, 15, 15], [1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        (
+            "Sub",
+            [[1, 3, 15, 15], [1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        (
+            "Clip",
+            [[1, 3, 15, 15], [1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        ("Relu", [[1, 3, 15, 15]], [[1, 3, 15, 15]], None, None, None, 3 * 15 * 15,),
+        (
+            "LeakyRelu",
+            [[1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        ("Sigmoid", [[1, 3, 15, 15]], [[1, 3, 15, 15]], None, None, None, 3 * 15 * 15,),
+        ("Tanh", [[1, 3, 15, 15]], [[1, 3, 15, 15]], None, None, None, 3 * 15 * 15,),
+        (
+            "BatchNormalization",
+            [[1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        (
+            "GlobalAveragePool",
+            [[1, 3, 15, 15]],
+            [[1, 3, 1, 1]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        (
+            "GlobalMaxPool",
+            [[1, 3, 15, 15]],
+            [[1, 3, 1, 1]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        (
+            "MaxPool",
+            [[1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            [3, 3],
+            None,
+            3 * 3 * 3 * 15 * 15,
+        ),
+        (
+            "AveragePool",
+            [[1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            [3, 3],
+            None,
+            3 * 3 * 3 * 15 * 15,
+        ),
+        ("MatMul", [[16]], [[8]], [[16, 8]], None, None, 16 * 8 * 2),
+        ("MatMul", [[16]], [[8]], [[16, 8]], None, [[8]], 16 * 8 * 2 + 8),
+        (
+            "MatMul",
+            [[9, 5, 7, 4], [9, 5, 4, 3]],
+            [[9, 5, 7, 3]],
+            None,
+            None,
+            None,
+            (7 * 3 * (2 * 4 - 1)) * 9 * 5,
+        ),
+        ("Gemm", [[16]], [[8]], [[16, 8]], None, None, 16 * 8 * 2),
+        ("Gemm", [[16]], [[8]], [[16, 8]], None, [[8]], 16 * 8 * 2 + 8),
+        (
+            "Conv",
+            [[16, 4, 3, 3]],
+            [[16, 16, 2, 2]],
+            [16, 4, 3, 3],
+            [3, 3],
+            [16],
+            3 * 3 * 4 * 16 * 16 * 2 * 2 + 16 * 2 * 2,
+        ),
+        (
+            "Conv",
+            [[16, 4, 3, 3]],
+            [[16, 16, 2, 2]],
+            [16, 4, 3, 3],
+            [3, 3],
+            None,
+            3 * 3 * 4 * 16 * 16 * 2 * 2,
+        ),
+        (
+            "Conv",
+            [["batch", 4, 3, 3]],
+            [["batch", 16, 2, 2]],
+            ["batch", 4, 3, 3],
+            [3, 3],
+            None,
+            3 * 3 * 4 * 16 * 2 * 2,
+        ),
+    ],
+)
+def test_calculate_flops(
+    op_type, input_shape, output_shape, weight_shape, kernel_shape, bias_shape, flops
+):
+    assert flops == calculate_flops(
+        op_type,
+        input_shape=input_shape,
+        output_shape=output_shape,
+        weight_shape=weight_shape,
+        kernel_shape=kernel_shape,
+        bias_shape=bias_shape,
+    )
+
+
+@pytest.mark.parametrize(
+    "op_type,input_shape,output_shape,weight_shape,kernel_shape,bias_shape",
+    [
+        ("Add", [[1, 3, 15, 15], [1, 3, 15, 15]], None, None, None, None,),
+        ("GlobalMaxPool", None, [[1, 3, 1, 1]], None, None, None,),
+        ("MaxPool", [[1, 3, 15, 15]], [[1, 3, 15, 15]], None, None, None,),
+        ("Gemm", [[16]], [[8]], None, None, None),
+        ("MatMul", [[9, 5, 7, 4], [9, 5, 5, 3]], [[9, 5, 7, 3]], None, None, None,),
+    ],
+)
+def test_calculate_flops_negatives(
+    op_type, input_shape, output_shape, weight_shape, kernel_shape, bias_shape
+):
+    assert calculate_flops(
+        op_type,
+        input_shape=input_shape,
+        output_shape=output_shape,
+        weight_shape=weight_shape,
+        kernel_shape=kernel_shape,
+        bias_shape=bias_shape,
+    ) is None

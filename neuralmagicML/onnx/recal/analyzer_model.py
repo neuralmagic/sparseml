@@ -20,6 +20,8 @@ from neuralmagicML.onnx.utils import (
     get_node_attributes,
     check_load_model,
     NodeShape,
+    get_kernel_shape,
+    calculate_flops,
 )
 
 
@@ -58,6 +60,7 @@ class NodeAnalyzer(object):
             self._bias_name = kwargs["bias_name"]
             self._bias_shape = kwargs["bias_shape"]
             self._attributes = kwargs["attributes"]
+            self._flops = kwargs["flops"]
 
             return
 
@@ -100,6 +103,16 @@ class NodeAnalyzer(object):
                 self._bias_name = bias.name
                 self._params += bias.val.size
                 self._bias_shape = [s for s in bias.val.shape]
+
+        kernel_shape = get_kernel_shape(self._attributes)
+        self._flops = calculate_flops(
+            self._op_type,
+            input_shape=self._input_shapes,
+            output_shape=self._output_shapes,
+            weight_shape=self._weight_shape,
+            kernel_shape=kernel_shape,
+            bias_shape=self._bias_shape,
+        )
 
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, self.dict())
@@ -182,8 +195,7 @@ class NodeAnalyzer(object):
         """
         :return: number of flops to run the node
         """
-        # TODO: fill in flops for different op types
-        return None
+        return self._flops
 
     @property
     def weight_name(self) -> str:

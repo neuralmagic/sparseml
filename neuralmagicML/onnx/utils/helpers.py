@@ -47,6 +47,8 @@ __all__ = [
     "onnx_nodes_sparsities",
     "model_inputs",
     "model_outputs",
+    "get_kernel_shape",
+    "calculate_flops",
 ]
 
 
@@ -830,3 +832,173 @@ def model_outputs(model: Union[str, ModelProto]) -> List:
     outputs = [node for node in model.graph.output]
 
     return outputs
+
+
+def get_kernel_shape(attributes: Dict[str, Any]) -> Union[List[float], None]:
+    """
+    Get the kernel shape from a dictionary of a model's attributes
+
+    :param attributes: a dictionary of a model's attributes
+    :return: the kernel shape if attribute contains either the kernel or kernel_shape field,
+        otherwise None
+    """
+    if "kernel" in attributes:
+        return attributes["kernel"]
+    elif "kernel_shape" in attributes:
+        return attributes["kernel_shape"]
+    else:
+        return None
+
+
+def calculate_flops(
+    op_type: str,
+    input_shape: Union[List[List], None] = None,
+    output_shape: Union[List[List], None] = None,
+    weight_shape: Union[List, None] = None,
+    kernel_shape: Union[List, None] = None,
+    bias_shape: Union[List, None] = None,
+) -> Union[float, None]:
+    """
+    Calculate flops based on operation type and shape of certain attributes.
+    If any fields necessary in operation are set to None, will return None
+
+    :param op_type: Operation type of flop calculation
+    :param input_shape: List of input shapes of operation
+    :param output_shape: List of output shapes of operation
+    :param weight_shape: Shape of weights in operation if any, else None
+    :param kernel_shape: Shape of kernel in operation if any, else None
+    :param bias_shape: Shape of bias in operation if any, else None
+    :return: The amount of floating point operations in the operation
+    """
+    input_shape = _array_as_numeric(input_shape)
+    output_shape = _array_as_numeric(output_shape)
+    weight_shape = _array_as_numeric(weight_shape)
+    kernel_shape = _array_as_numeric(kernel_shape)
+    bias_shape = _array_as_numeric(bias_shape)
+    if (
+        op_type == "Add"
+        or op_type == "Mul"
+        or op_type == "Div"
+        or op_type == "Sub"
+        or op_type == "Clip"
+    ):
+        flops = _numpy_prod_with_none_check(output_shape)
+    elif (
+        op_type == "Relu"
+        or op_type == "LeakyRelu"
+        or op_type == "Sigmoid"
+        or op_type == "Tanh"
+        or op_type == "BatchNormalization"
+    ):
+        flops = _numpy_prod_with_none_check(output_shape)
+    elif op_type == "GlobalAveragePool" or op_type == "GlobalMaxPool":
+        flops = _numpy_prod_with_none_check(input_shape)
+    elif op_type == "MaxPool" or op_type == "AveragePool":
+        flops = (
+            numpy.prod(output_shape) * numpy.prod(kernel_shape)
+            if output_shape is not None and kernel_shape is not None
+            else None
+        )
+    elif op_type == "MatMul":
+        flops = _calculate_flops_matmul(
+            op_type,
+            input_shape=input_shape,
+            output_shape=output_shape,
+            weight_shape=weight_shape,
+        )
+    elif op_type == "Gemm":
+        flops = _numpy_prod_with_none_check(weight_shape)
+        flops = flops * 2 if flops is not None else None
+    elif op_type == "Conv":
+        flops = (
+            numpy.prod(kernel_shape) * weight_shape[1] * numpy.prod(output_shape)
+            if kernel_shape is not None
+            and weight_shape is not None
+            and output_shape is not None
+            else None
+        )
+    else:
+        flops = None
+
+    if flops is not None and bias_shape is not None:
+        if op_type == "Conv":
+            flops += numpy.prod(bias_shape) * output_shape[0][-1] * output_shape[0][-2]
+        else:
+            flops += numpy.prod(bias_shape)
+    return flops
+
+
+def _calculate_flops_matmul(
+    op_type: str,
+    input_shape: Union[List[List], None] = None,
+    output_shape: Union[List[List], None] = None,
+    weight_shape: Union[List, None] = None,
+) -> Union[float, None]:
+    """
+    Calculates flops in a onnx MatMul operation.
+
+    If input shape only contains 1 input, in otherwords the value of the first index is 1, then
+    the matrix operation is treated as a Gemm operation.
+
+    Otherwise the operation is treated like a numpy operation.
+
+    Will return none if any required value is set to None
+
+    :param op_type: Operation type of flop calculation
+    :param input_shape: List of input shapes of operation
+    :param output_shape: List of output shapes of operation
+    :param weight_shape: Shape of weights in operation if any, else None
+    :return: The amount of floating point operations in the operation
+    """
+    flops = None
+    if (
+        input_shape is not None
+        and output_shape is not None
+        and len(input_shape) > 1
+        and input_shape[0][-1] == input_shape[1][-2]
+    ):
+        matrix_ops = (
+            input_shape[0][-2] * input_shape[1][-1] * (2 * input_shape[0][-1] - 1)
+        )
+        flops = numpy.prod(output_shape[0][:-2]) * matrix_ops
+    elif input_shape is not None and len(input_shape) == 1:
+        flops = _numpy_prod_with_none_check(weight_shape)
+        flops = flops * 2 if flops is not None else None
+    return flops
+
+
+def _numpy_prod_with_none_check(array: Union[List, None]) -> Union[float, None]:
+    """
+    :param array: an array like list
+    :return: the product of the array if array is not None otherwise return None
+    """
+    return numpy.prod(array) if array is not None else None
+
+
+def _attempt_cast_as_float(value: Any) -> float:
+    """
+    :param vale: a value
+    :return: the value as a float if casting is possible, otherwise return 1
+    """
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return 1.0
+
+
+def _array_as_numeric(array: Union[List, None]) -> Union[List, None]:
+    """
+    :param array: an array like list
+    :return: the array with any non numeric or None values replaced with 1 if array itself
+        is not None, otherwise return None
+    """
+    if array is None:
+        return None
+
+    array = numpy.array(array, dtype=object)
+    # Check if the array datatype is a number
+    if numpy.issubdtype(array.dtype, numpy.number):
+        return array
+    else:
+        to_float = numpy.vectorize(_attempt_cast_as_float)
+        return to_float(array)

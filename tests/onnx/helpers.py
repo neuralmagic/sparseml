@@ -1,28 +1,19 @@
 import pytest
 
 import os
+import json
 from typing import List
 from collections import OrderedDict, namedtuple
 import torch
-from torch import Tensor
-from torch.nn import (
-    Module,
-    Sequential,
-    Linear,
-    ReLU,
-    Sigmoid,
-    Conv2d,
-    AdaptiveAvgPool2d,
-)
 
 from neuralmagicML.pytorch.utils import ModuleExporter
 from neuralmagicML.utils import RepoModel
 from tests.pytorch.helpers import LinearNet, MLPNet, ConvNet
 
-__all__ = ["extract_node_models", "analyzer_models", "onnx_repo_models"]
+__all__ = ["extract_node_models", "analyzer_models", "onnx_repo_models", "analyzer_models_repo"]
 
 
-TEMP_FOLDER = os.path.join("~", ".cache", "nm_models")
+TEMP_FOLDER = os.path.expanduser(os.path.join("~", ".cache", "nm_models"))
 
 
 @pytest.fixture(
@@ -116,7 +107,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 128,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 256,
                         "weight_name": "21",
                         "weight_shape": [8, 16],
                         "bias_name": None,
@@ -134,7 +125,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 16,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -152,7 +143,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 512,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 1024,
                         "weight_name": "22",
                         "weight_shape": [16, 32],
                         "bias_name": None,
@@ -170,7 +161,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 32,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -188,7 +179,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 512,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 1024,
                         "weight_name": "23",
                         "weight_shape": [32, 16],
                         "bias_name": None,
@@ -206,7 +197,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 16,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -224,7 +215,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 128,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 256,
                         "weight_name": "24",
                         "weight_shape": [16, 8],
                         "bias_name": None,
@@ -242,7 +233,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 8,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -269,7 +260,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 128,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 256,
                         "weight_name": "19",
                         "weight_shape": [8, 16],
                         "bias_name": None,
@@ -287,7 +278,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 16,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -305,7 +296,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 16,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -323,7 +314,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 512,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 1024,
                         "weight_name": "20",
                         "weight_shape": [16, 32],
                         "bias_name": None,
@@ -341,7 +332,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 32,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -359,7 +350,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 32,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -377,7 +368,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 2048,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 4096,
                         "weight_name": "21",
                         "weight_shape": [32, 64],
                         "bias_name": None,
@@ -395,7 +386,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 64,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -413,7 +404,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 64,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -440,7 +431,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 432,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 27712,
                         "weight_name": "seq.conv1.weight",
                         "weight_shape": [16, 3, 3, 3],
                         "bias_name": "seq.conv1.bias",
@@ -464,7 +455,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 1024,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -482,7 +473,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 4608,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 73760,
                         "weight_name": "seq.conv2.weight",
                         "weight_shape": [32, 16, 3, 3],
                         "bias_name": "seq.conv2.bias",
@@ -506,7 +497,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 512,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -524,7 +515,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 512,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -650,7 +641,7 @@ def extract_node_models(request):
                         "prunable": True,
                         "prunable_params": 320,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 650,
                         "weight_name": "mlp.fc.weight",
                         "weight_shape": [10, 32],
                         "bias_name": "mlp.fc.bias",
@@ -668,7 +659,7 @@ def extract_node_models(request):
                         "prunable": False,
                         "prunable_params": -1,
                         "prunable_params_zeroed": 0,
-                        "flops": None,
+                        "flops": 160,
                         "weight_name": None,
                         "weight_shape": None,
                         "bias_name": None,
@@ -724,3 +715,41 @@ def onnx_repo_models(request):
     model = RepoModel(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
     return model_path
+
+@pytest.fixture(
+    params=[
+        (
+            {
+                "domain": "cv",
+                "sub_domain": "classification",
+                "architecture": "resnet-v1",
+                "sub_architecture": "50",
+                "dataset": "imagenet",
+                "framework": "pytorch",
+                "desc": "base",
+            },
+            "tests/onnx/recal/test_analyzer_model_data/resnet50pytorch.json",
+        ),
+        (
+            {
+                "domain": "cv",
+                "sub_domain": "classification",
+                "architecture": "resnet-v1",
+                "sub_architecture": "50",
+                "dataset": "imagenet",
+                "framework": "tensorflow",
+                "desc": "base",
+            },
+            "tests/onnx/recal/test_analyzer_model_data/resnet50tensorflow.json",
+        ),
+    ]
+)
+def analyzer_models_repo(request):
+    model_args, output_path = request.param
+    model = RepoModel(**model_args)
+    model_path = model.download_onnx_file(overwrite=False)
+
+    output = {}
+    with open(output_path) as output_file:
+        output = dict(json.load(output_file))
+    return model_path, output
