@@ -1,19 +1,21 @@
 """
-Image classification export script. Exports models to a standard structure
-including an ONNX export as well as sample inputs, outputs, and labels
+Torchvision models classification export script. Exports models to a standard structure
+including an ONNX export as well as sample inputs, outputs, and labels.
+Information about torchvision can be found here:
+https://pytorch.org/docs/stable/torchvision/models.html
 
 
 ##########
 Command help:
-python scripts/pytorch/classification_export.py -h
-usage: classification_export.py [-h] [--num-samples NUM_SAMPLES] --arch-key
-                                ARCH_KEY [--pretrained PRETRAINED]
-                                [--pretrained-dataset PRETRAINED_DATASET]
-                                [--checkpoint-path CHECKPOINT_PATH]
-                                [--class-type CLASS_TYPE] --dataset DATASET
-                                --dataset-path DATASET_PATH
-                                [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
-                                [--onnx-opset ONNX_OPSET]
+python scripts/pytorch/torchvision_export.py -h
+usage: torchvision_export.py [-h] [--num-samples NUM_SAMPLES] --model MODEL
+                             [--image-size IMAGE_SIZE]
+                             [--pretrained PRETRAINED]
+                             [--pretrained-dataset PRETRAINED_DATASET]
+                             [--checkpoint-path CHECKPOINT_PATH] --dataset
+                             DATASET --dataset-path DATASET_PATH
+                             [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
+                             [--onnx-opset ONNX_OPSET]
 
 Export an image classification model to onnx as well as store sample inputs,
 outputs, and labels
@@ -24,15 +26,17 @@ optional arguments:
                         The number of samples to export along with the model
                         onnx and pth files (sample inputs and labels as well
                         as the outputs from model execution)
-  --arch-key ARCH_KEY   The type of model to create, ex: resnet50, vgg16,
-                        mobilenet put as help to see the full list (will raise
-                        an exception with the list)
+  --model MODEL         The torchvision model class to use, ex: inception_v3,
+                        resnet50, mobilenet_v2 model name is fed directly to
+                        torchvision.models, more information can be found here
+                        https://pytorch.org/docs/stable/torchvision/models.htm
+                        l
+  --image-size IMAGE_SIZE
+                        Size of image to use for model input. Default is 224
+                        unless pytorch documentation specifies otherwise
   --pretrained PRETRAINED
-                        The type of pretrained weights to use, default is true
-                        to load the default pretrained weights for the model.
-                        Otherwise should be set to the desired weights type:
-                        [base, recal, recal-perf]. To not load any weights set
-                        to one of [none, false]
+                        Set True to use torchvisions pretrained weights, to
+                        not set weights, set False. default is true.
   --pretrained-dataset PRETRAINED_DATASET
                         The dataset to load pretrained weights for if
                         pretrained is set. Default is None which will load the
@@ -42,10 +46,6 @@ optional arguments:
                         A path to a previous checkpoint to load the state from
                         and resume the state for. If provided, pretrained will
                         be ignored
-  --class-type CLASS_TYPE
-                        One of [single, multi] where single is for single
-                        class training using a softmax and multi is for multi
-                        class training using a sigmoid
   --dataset DATASET     The dataset to use for training, ex: imagenet,
                         imagenette, cifar10, etc. Set to imagefolder for a
                         generic image classification dataset setup with an
@@ -62,8 +62,8 @@ optional arguments:
 
 ##########
 Example command for exporting ResNet50:
-python scripts/pytorch/classification_export.py \
-    --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012
+python scripts/pytorch/torchvision_export.py \
+    --model resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012
 """
 
 import argparse
@@ -71,15 +71,24 @@ import os
 from tqdm import auto
 
 from torch.utils.data import DataLoader
+from torchvision import models
 
 from neuralmagicML import get_main_logger
 from neuralmagicML.pytorch.datasets import DatasetRegistry
 from neuralmagicML.pytorch.models import ModelRegistry
-from neuralmagicML.pytorch.utils import ModuleExporter, early_stop_data_loader
+from neuralmagicML.pytorch.utils import (
+    ModuleExporter,
+    early_stop_data_loader,
+    load_model,
+)
 from neuralmagicML.utils import create_dirs
 
 
 LOGGER = get_main_logger()
+
+MODEL_IMAGE_SIZES = {
+    "inception_v3": 299,
+}
 
 
 def parse_args():
@@ -96,24 +105,29 @@ def parse_args():
         help="The number of samples to export along with the model onnx and pth files "
         "(sample inputs and labels as well as the outputs from model execution)",
     )
-
     # model args
     parser.add_argument(
-        "--arch-key",
+        "--model",
         type=str,
         required=True,
-        help="The type of model to create, ex: resnet50, vgg16, mobilenet "
-        "put as help to see the full list (will raise an exception with the list)",
+        help="The torchvision model class to use, ex: inception_v3, resnet50, mobilenet_v2 "
+        "model name is fed directly to torchvision.models, more information can be found here "
+        "https://pytorch.org/docs/stable/torchvision/models.html",
+    )
+    parser.add_argument(
+        "--image-size",
+        type=int,
+        required=False,
+        default=None,
+        help="Size of image to use for model input. Default is 224 unless pytorch documentation "
+        "specifies otherwise",
     )
     parser.add_argument(
         "--pretrained",
-        type=str,
+        type=bool,
         default=True,
-        help="The type of pretrained weights to use, "
-        "default is true to load the default pretrained weights for the model. "
-        "Otherwise should be set to the desired weights type: "
-        "[base, recal, recal-perf]. "
-        "To not load any weights set to one of [none, false]",
+        help="Set True to use torchvisions pretrained weights,"
+        " to not set weights, set False. default is true.",
     )
     parser.add_argument(
         "--pretrained-dataset",
@@ -129,13 +143,6 @@ def parse_args():
         default=None,
         help="A path to a previous checkpoint to load the state from and "
         "resume the state for. If provided, pretrained will be ignored",
-    )
-    parser.add_argument(
-        "--class-type",
-        type=str,
-        default="single",
-        help="One of [single, multi] where single is for single class training "
-        "using a softmax and multi is for multi class training using a sigmoid",
     )
 
     # dataset args
@@ -176,7 +183,20 @@ def parse_args():
         help="The onnx opset to use for export. Default is 11",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.image_size is None:
+        args.image_size = (
+            MODEL_IMAGE_SIZES[args.model] if args.model in MODEL_IMAGE_SIZES else 224
+        )
+    return args
+
+
+def _get_torchvision_model(name, num_classes, pretrained=True, checkpoint_path=None):
+    model_constructor = models.__getattribute__(name)
+    model = model_constructor(pretrained=pretrained, num_classes=num_classes)
+    if checkpoint_path is not None:
+        load_model(checkpoint_path, model)
+    return model
 
 
 def main(args):
@@ -184,7 +204,7 @@ def main(args):
     save_dir = os.path.abspath(os.path.expanduser(args.save_dir))
 
     if not args.model_tag:
-        model_tag = "{}_{}".format(args.arch_key.replace("/", "."), args.dataset)
+        model_tag = "{}_{}".format(args.model.replace("/", "."), args.dataset)
         model_id = model_tag
         model_inc = 0
 
@@ -201,14 +221,12 @@ def main(args):
     LOGGER.info("Model id is set to {}".format(model_id))
 
     # dataset creation
-    input_shape = ModelRegistry.input_shape(args.arch_key)
-    image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
     val_dataset = DatasetRegistry.create(
         args.dataset,
         root=args.dataset_path,
         train=False,
         rand_trans=False,
-        image_size=image_size,
+        image_size=args.image_size,
     )
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=1)
     val_loader = early_stop_data_loader(
@@ -223,13 +241,8 @@ def main(args):
         dataset_attributes = DatasetRegistry.attributes(args.dataset)
         num_classes = dataset_attributes["num_classes"]
 
-    model = ModelRegistry.create(
-        args.arch_key,
-        args.pretrained,
-        args.checkpoint_path,
-        args.pretrained_dataset,
-        num_classes=num_classes,
-        class_type=args.class_type,
+    model = _get_torchvision_model(
+        args.model, num_classes, args.pretrained, args.checkpoint_path,
     )
     LOGGER.info("created model: {}".format(model))
 
