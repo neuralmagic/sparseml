@@ -1,7 +1,9 @@
 import pytest
 
+from onnx import load_model
 from neuralmagicML.onnx.utils import (
     extract_node_id,
+    extract_node_shapes,
     get_node_by_id,
     get_init_by_name,
     NodeParam,
@@ -14,6 +16,8 @@ from neuralmagicML.onnx.utils import (
     SparsityMeasurement,
 )
 from neuralmagicML.utils import available_models
+
+from tests.onnx.helpers import extract_node_models
 
 
 def test_onnx_node_sparsities():
@@ -58,3 +62,12 @@ def test_onnx_node_sparsities():
             assert val.sparsity > 0.2
             assert val.sparsity < 0.95
             assert val.params_zero_count > 0
+
+
+def test_extract_node_shape(extract_node_models):
+    model_path, expected_output = extract_node_models
+    onnx_model = load_model(model_path)
+    node_shapes = extract_node_shapes(onnx_model)
+    for node in node_shapes:
+        assert node_shapes[node].input_shapes == expected_output[node][0]
+        assert node_shapes[node].output_shapes == expected_output[node][1]

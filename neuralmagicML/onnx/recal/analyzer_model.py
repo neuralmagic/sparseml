@@ -6,17 +6,20 @@ Records things like FLOPS, input and output shapes, kernel shapes, etc.
 from typing import List, Dict, Any, Union
 import json
 import numpy
-from onnx import ModelProto
+from functools import reduce
+from onnx import ModelProto, load_model
 
 from neuralmagicML.utils import clean_path, create_parent_dirs
 from neuralmagicML.onnx.utils import (
     extract_node_id,
+    extract_node_shapes,
     get_node_inputs,
     get_node_outputs,
     is_prunable_node,
     get_node_params,
     get_node_attributes,
     check_load_model,
+    NodeShape,
 )
 
 
@@ -27,17 +30,18 @@ class NodeAnalyzer(object):
     """
     Analyzer instance for an individual node in a model
 
-    :param params: number of params in the node
-    :param prunable_params_zeroed: number of params set to zero in the node
-    :param weight_name: the name of the weight for the node if applicable
-    :param weight_shape: the shape of the weight for the node if applicable
-    :param bias_name: name of the bias for the node
-    :param bias_shape: name of the shape for the node
-    :param attributes: any extra attributes for the node such as padding, stride, etc
+    :param model: the loaded onnx.ModelProto, can also be set to None if a node's kwargs are supplied
+    :param node: the individual node in model, can alse be set to None if a node's kwargs are supplied
+    :param node_shape: the node's NodeShape object
+    :param kwargs: additional kwargs to pass to the node
     """
 
     def __init__(
-        self, model: Union[ModelProto, None], node: Union[Any, None], **kwargs
+        self,
+        model: Union[ModelProto, None],
+        node: Union[Any, None],
+        node_shape: Union[NodeShape, None] = None,
+        **kwargs
     ):
         if model is None and node is None:
             self._id = kwargs["id"]
@@ -47,7 +51,6 @@ class NodeAnalyzer(object):
             self._input_shapes = kwargs["input_shapes"]
             self._output_shapes = kwargs["output_shapes"]
             self._params = kwargs["params"]
-            self._prunable_params = kwargs["prunable_params"]
             self._prunable_params_zeroed = kwargs["prunable_params_zeroed"]
             self._weight_name = kwargs["weight_name"]
             self._weight_shape = kwargs["weight_shape"]
@@ -65,9 +68,12 @@ class NodeAnalyzer(object):
         self._input_names = get_node_inputs(model, node)
         self._output_names = get_node_outputs(model, node)
 
-        # TODO: fill in input_shapes and output_shapes
-        self._input_shapes = None
-        self._output_shapes = None
+        if node_shape is None:
+            self._input_shapes = None
+            self._output_shapes = None
+        else:
+            self._input_shapes = node_shape.input_shapes
+            self._output_shapes = node_shape.output_shapes
 
         self._params = 0
         self._prunable_params = 0
@@ -236,6 +242,17 @@ class NodeAnalyzer(object):
             "attributes": self.attributes,
         }
 
+    def __eq__(self, other: Any):
+        """
+        :param other: a node analyzer
+        :return: True iff other is an instance of NodeAnalyzer
+            and the dictionary representiations are equal.
+        """
+        if isinstance(other, NodeAnalyzer):
+            return other.dict() == self.dict()
+        else:
+            return False
+
 
 class ModelAnalyzer(object):
     """
@@ -272,7 +289,7 @@ class ModelAnalyzer(object):
         for res_obj in dictionary["nodes"]:
             nodes.append(NodeAnalyzer(model=None, node=None, **res_obj))
 
-        return ModelAnalyzer(nodes)
+        return ModelAnalyzer(None, nodes)
 
     def __init__(
         self, model: Union[ModelProto, str, None], nodes: List[NodeAnalyzer] = None
@@ -285,7 +302,12 @@ class ModelAnalyzer(object):
 
         if model is not None:
             model = check_load_model(model)
-            self._nodes = [NodeAnalyzer(model, node) for node in model.graph.node]
+            node_shapes = extract_node_shapes(model)
+
+            self._nodes = [
+                NodeAnalyzer(model, node, node_shape=node_shapes[extract_node_id(node)])
+                for node in model.graph.node
+            ]
         else:
             self._nodes = nodes
 
@@ -332,3 +354,15 @@ class ModelAnalyzer(object):
         with open(path, "w") as file:
             dictionary = self.dict()
             json.dump(dictionary, file, indent=2)
+
+    def __eq__(self, other: Any):
+        """
+        :param other: a model analyzer
+        :return: True iff other is an instance of ModelAnalyzer
+            and the dictionary representiations of each node are equal.
+        """
+        if isinstance(other, ModelAnalyzer):
+            return sorted(self.nodes, key=lambda node: node.id_) == sorted(
+                other.nodes, key=lambda node: node.id_
+            )
+        return False

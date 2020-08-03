@@ -7,15 +7,21 @@ from collections import OrderedDict
 from functools import reduce
 import numpy
 import onnx
-from onnx import numpy_helper, ModelProto
-from onnx.helper import get_attribute_value
+from onnx import numpy_helper, ModelProto, NodeProto
+from onnx.helper import get_attribute_value, make_model, make_empty_tensor_value_info
+import onnxruntime as rt
+from onnxruntime import NodeArg
 
+from neuralmagicML import get_nm_root_logger
 from neuralmagicML.utils import clean_path
 
+MAIN_LOGGER = get_nm_root_logger()
 
 __all__ = [
     "check_load_model",
     "extract_node_id",
+    "NodeShape",
+    "extract_node_shapes",
     "get_node_by_id",
     "extract_shape",
     "get_init_by_name",
@@ -104,6 +110,134 @@ def extract_shape(proto: Any) -> Union[None, Tuple[Union[int, None], ...]]:
             shape.append(None)
 
     return tuple(shape)
+
+
+"""
+Tuple containing a node id and its input and output shapes
+"""
+NodeShape = NamedTuple(
+    "NodeShape",
+    [
+        ("id", str),
+        ("input_shapes", Union[List[List[int]], None]),
+        ("output_shapes", Union[List[List[int]], None]),
+    ],
+)
+
+
+def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
+    """
+    Creates a modified model to expose intermediate outputs and runs an onnxruntime
+    InferenceSession to obtain the output shape of each node.
+
+    :param model: an onnx model
+    :return: a list of NodeArg with their shape exposed
+    """
+    model_copy = make_model(model.graph)
+
+    for node in model_copy.graph.node:
+        intermediate_layer_value_info = make_empty_tensor_value_info(
+            extract_node_id(node)
+        )
+        model_copy.graph.output.append(intermediate_layer_value_info)
+
+    sess_options = rt.SessionOptions()
+    sess_options.log_severity_level = 3
+    sess = rt.InferenceSession(model_copy.SerializeToString(), sess_options)
+
+    output_shapes = {}
+    for node in sess.get_outputs() + sess.get_inputs():
+        output_shapes[node.name] = (
+            node.shape if node.shape is not None and len(node.shape) > 0 else None
+        )
+    return output_shapes
+
+
+def extract_nodes_shapes_shape_inference(
+    model: ModelProto,
+) -> Dict[str, List[List[int]]]:
+    """
+    Creates a modified model to expose intermediate outputs and runs an onnx shape inference
+    to obtain the output shape of each node.
+
+    NOTE: The Onnx docs on shape inference have the following disclaimer on shape inference
+
+        Shape inference is not guaranteed to be complete. In particular, some dynamic behaviors
+        block the flow of shape inference, for example a Reshape to a dynamically-provide shape.
+        Also, all operators are not required to have a shape inference implementation.
+
+    :param model: an onnx model
+    :return: a list of NodeProto with their shape exposed
+    """
+    model_copy = make_model(model.graph)
+
+    for node in model_copy.graph.node:
+        model_copy.graph.output.extend(
+            [
+                onnx.helper.make_tensor_value_info(
+                    output, onnx.TensorProto.UNDEFINED, None
+                )
+                for output in node.output
+            ]
+        )
+    model_copy = onnx.shape_inference.infer_shapes(model_copy)
+
+    output_shapes = {}
+    for node in model_copy.graph.output:
+        node_shape = extract_shape(node)
+        output_shapes[node.name] = (
+            list(node_shape) if node_shape is not None and len(node_shape) > 0 else None
+        )
+    return output_shapes
+
+
+def extract_node_shapes(model: ModelProto) -> Dict[str, NodeShape]:
+    """
+    Extracts the shape information for each node as a NodeShape object.
+
+    :param model: the loaded onnx.ModelProto to extract node shape information from
+    :return: a mapping of node id to a NodeShape object
+    """
+
+    # Maps NodeArg to its inputs
+    node_to_inputs = {}
+    for node in model.graph.node:
+        node_to_inputs[extract_node_id(node)] = node.input
+
+    # Obtains output shapes for each model's node
+    try:
+        output_shapes = extract_nodes_shapes_ort(model)
+    except Exception as e:
+        MAIN_LOGGER.warning(e)
+        MAIN_LOGGER.warning(
+            "Creating Onnxruntime InferenceSession failed. Using Onnx Shape Inference for node shape calculation."
+        )
+        output_shapes = extract_nodes_shapes_shape_inference(model)
+
+    # Obtains the input shapes for each node
+    input_shapes = {}
+    for node in output_shapes.keys():
+        if node not in node_to_inputs:
+            continue
+        input_shapes[node] = [
+            output_shapes[input_node]
+            for input_node in node_to_inputs[node]
+            if input_node in output_shapes and output_shapes[input_node] is not None
+        ]
+        input_shapes[node] = input_shapes[node] if len(input_shapes[node]) > 0 else None
+
+    # Combines shape information into mapping of node id to a NodeShape object
+    node_shapes = {}
+    for node in output_shapes.keys():
+        node_shapes[node] = NodeShape(
+            node,
+            input_shapes[node] if node in input_shapes else None,
+            [output_shapes[node]]
+            if node in output_shapes and output_shapes[node] is not None
+            else None,
+        )
+
+    return node_shapes
 
 
 def get_init_by_name(model: ModelProto, init_name: str) -> Union[Any, None]:
