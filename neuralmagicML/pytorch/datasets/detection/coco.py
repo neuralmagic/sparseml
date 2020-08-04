@@ -1,7 +1,11 @@
 import os
+from PIL import Image
+import random
 from torchvision import transforms
+from torchvision.transforms import functional as F
 from torchvision.datasets import CocoDetection
 
+from neuralmagicML.pytorch.datasets.detection.helpers import AnnotatedImageTransforms
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
 from neuralmagicML.utils.datasets import (
     default_dataset_path,
@@ -66,7 +70,7 @@ class CocoDetectionDataset(CocoDetection):
         if not os.path.isdir(root) and download:
             dataset_type = "train" if train else "val"
             zip_url = "{COCO_IMAGE_ZIP_ROOT}/{dataset_type}{year}.zip".format(
-                COCO_ANNOTATION_ZIP_ROOT=COCO_ANNOTATION_ZIP_ROOT,
+                COCO_IMAGE_ZIP_ROOT=COCO_IMAGE_ZIP_ROOT,
                 dataset_type=dataset_type,
                 year=year,
             )
@@ -96,20 +100,73 @@ class CocoDetectionDataset(CocoDetection):
                     root=root
                 )
             )
-        trans = (
-            [
-                transforms.Resize((image_size, image_size)),
-                transforms.RandomHorizontalFlip(),
-            ]
-            if rand_trans
-            else [transforms.Resize((image_size, image_size))]
-        )
+        trans = [lambda img, ann: _resize(img, ann, image_size)]
+        if rand_trans:
+            trans.append(lambda img, ann: _random_horizontal_flip(img, ann))
         trans.extend(
             [
-                transforms.ToTensor(),
-                transforms.Normalize(mean=IMAGENET_RGB_MEANS, std=IMAGENET_RGB_STDS),
+                # Convert to tensor
+                lambda img, ann: (F.to_tensor(img), ann),
+                # Normalize image
+                lambda img, ann: (
+                    F.normalize(img, IMAGENET_RGB_MEANS, IMAGENET_RGB_STDS),
+                    ann,
+                ),
             ]
         )
         super().__init__(
-            root=data_path, annFile=annotation_path, transform=transforms.Compose(trans)
+            root=data_path,
+            annFile=annotation_path,
+            transforms=AnnotatedImageTransforms(trans),
         )
+
+
+def _resize(image, annotations, image_size):
+    if not isinstance(image, Image.Image):
+        raise RuntimeError(
+            "Loaded image class not supported, expected PIL.Image, got {}".format(
+                image.__class__
+            )
+        )
+    width_scale = image_size / image.size[0]
+    height_scale = image_size / image.size[1]
+
+    def update_bbox_fn(bbox):
+        return [
+            bbox[0] * width_scale,
+            bbox[1] * height_scale,
+            bbox[2] * width_scale,
+            bbox[3] * height_scale,
+        ]
+
+    image = F.resize(image, (image_size, image_size))
+    annotations = _update_bbox_values(annotations, update_bbox_fn)
+
+    return image, annotations
+
+
+def _random_horizontal_flip(image, annotations, p=0.5):
+    if not isinstance(image, Image.Image):
+        raise RuntimeError(
+            "Loaded image class not supported, expected PIL.Image, got {}".format(
+                image.__class__
+            )
+        )
+
+    if random.random() < p:
+
+        def bbox_horizontal_flip_fn(bbox):
+            bbox[0] = image.size[0] - bbox[0] - bbox[2]
+            return bbox
+
+        image = F.hflip(image)
+        annotations = _update_bbox_values(annotations, bbox_horizontal_flip_fn)
+
+    return image, annotations
+
+
+def _update_bbox_values(annotations, update_bbox_fn):
+    for idx, annotation in enumerate(annotations):
+        updated_bbox = update_bbox_fn(annotation["bbox"])
+        annotations[idx]["bbox"] = updated_bbox
+    return annotations

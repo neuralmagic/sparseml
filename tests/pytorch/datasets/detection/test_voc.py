@@ -19,7 +19,8 @@ def _validate_voc(dataset: Dataset, size: int):
     assert item[0].shape[0] == 3
     assert item[0].shape[1] == size
     assert item[0].shape[2] == size
-    assert len(item[1]) > 0
+    assert isinstance(item[1], dict)
+    assert "annotation" in item[1]
 
 
 @pytest.mark.skipif(
@@ -33,16 +34,14 @@ def _validate_voc(dataset: Dataset, size: int):
     os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_voc_detection():
-    # TODO: disabling for 1.0 release
-    pass
-    # train_dataset = VOCDetectionDataset(train=True)
-    # _validate_voc(train_dataset, 300)
+    train_dataset = VOCDetectionDataset(train=True)
+    _validate_voc(train_dataset, 300)
 
-    # val_dataset = VOCDetectionDataset(train=False)
-    # _validate_voc(val_dataset, 300)
+    val_dataset = VOCDetectionDataset(train=False)
+    _validate_voc(val_dataset, 300)
 
-    # reg_dataset = DatasetRegistry.create("voc_det", train=False)
-    # _validate_voc(reg_dataset, 300)
+    reg_dataset = DatasetRegistry.create("voc_det", train=False)
+    _validate_voc(reg_dataset, 300)
 
 
 @pytest.mark.skipif(

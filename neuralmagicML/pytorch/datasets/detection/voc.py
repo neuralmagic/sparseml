@@ -6,7 +6,10 @@ PascalVOC_IJCV2009.pdf>`__.
 """
 
 import os
+from PIL import Image
+import random
 from torchvision import transforms
+from torchvision.transforms import functional as F
 
 try:
     from torchvision.datasets import VOCSegmentation, VOCDetection
@@ -15,6 +18,7 @@ except ModuleNotFoundError:
     VOCSegmentation = object
     VOCDetection = object
 
+from neuralmagicML.pytorch.datasets.detection.helpers import AnnotatedImageTransforms
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
 from neuralmagicML.utils.datasets import (
     default_dataset_path,
@@ -126,18 +130,18 @@ class VOCDetectionDataset(VOCDetection):
             )
 
         root = os.path.abspath(os.path.expanduser(root))
-        trans = (
-            [
-                transforms.Resize((image_size, image_size)),
-                transforms.RandomHorizontalFlip(),
-            ]
-            if rand_trans
-            else [transforms.Resize((image_size, image_size))]
-        )
+        trans = [lambda img, ann: _resize_detection(img, ann, image_size)]
+        if rand_trans:
+            trans.append(lambda img, ann: _random_horizontal_flip_detection(img, ann))
         trans.extend(
             [
-                transforms.ToTensor(),
-                transforms.Normalize(mean=IMAGENET_RGB_MEANS, std=IMAGENET_RGB_STDS),
+                # Convert to tensor
+                lambda img, ann: (F.to_tensor(img), ann),
+                # Normalize image
+                lambda img, ann: (
+                    F.normalize(img, IMAGENET_RGB_MEANS, IMAGENET_RGB_STDS),
+                    ann,
+                ),
             ]
         )
 
@@ -146,5 +150,56 @@ class VOCDetectionDataset(VOCDetection):
             year=year,
             image_set="train" if train else "val",
             download=download,
-            transform=transforms.Compose(trans),
+            transforms=AnnotatedImageTransforms(trans),
         )
+
+
+def _resize_detection(image, annotations, image_size):
+    if not isinstance(image, Image.Image):
+        raise RuntimeError(
+            "Loaded image class not supported, expected PIL.Image, got {}".format(
+                image.__class__
+            )
+        )
+    width_scale = image_size / image.size[0]
+    height_scale = image_size / image.size[1]
+
+    def update_bndbox_fn(bndbox):
+        bndbox["xmin"] = float(bndbox["xmin"]) * width_scale
+        bndbox["ymin"] = float(bndbox["ymin"]) * height_scale
+        bndbox["xmax"] = float(bndbox["xmax"]) * width_scale
+        bndbox["ymax"] = float(bndbox["ymax"]) * height_scale
+        return bndbox
+
+    image = F.resize(image, (image_size, image_size))
+    annotations = _update_bndbox_values(annotations, update_bndbox_fn)
+
+    return image, annotations
+
+
+def _random_horizontal_flip_detection(image, annotations, p=0.5):
+    if not isinstance(image, Image.Image):
+        raise RuntimeError(
+            "Loaded image class not supported, expected PIL.Image, got {}".format(
+                image.__class__
+            )
+        )
+
+    if random.random() < p:
+
+        def bndbox_horizontal_flip_fn(bndbox):
+            bndbox["xmin"] = image.size[0] - bndbox["xmax"]
+            bndbox["xmax"] = image.size[0] - bndbox["xmin"]
+            return bndbox
+
+        image = F.hflip(image)
+        annotations = _update_bndbox_values(annotations, bndbox_horizontal_flip_fn)
+
+    return image, annotations
+
+
+def _update_bndbox_values(annotations, update_bndbox_fn):
+    for idx, annotation in enumerate(annotations["annotation"]["object"]):
+        updated_bndbox = update_bndbox_fn(annotation["bndbox"])
+        annotations["annotation"]["object"][idx]["bndbox"] = updated_bndbox
+    return annotations
