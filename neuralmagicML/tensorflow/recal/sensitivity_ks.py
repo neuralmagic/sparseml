@@ -131,7 +131,7 @@ def approx_ks_loss_sensitivity(
                 avg = (
                     values[prev_index:val_index].mean().item()
                     if val_index > prev_index
-                    else values[val_index]
+                    else values[val_index].item()
                 )
                 analysis.add_result(
                     None, op_tens.name, op_index, sparsity, avg, baseline=False

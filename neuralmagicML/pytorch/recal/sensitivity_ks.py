@@ -73,6 +73,7 @@ def approx_ks_loss_sensitivity(
 
     for index, (name, layer) in enumerate(prunable):
         weight = getattr(layer, "weight")
+        name = "{}.weight".format(name)
         values, _ = weight.view(-1).abs().sort()
         prev_index = None
 
@@ -83,15 +84,16 @@ def approx_ks_loss_sensitivity(
                 val_index = len(values) - 1
 
             if sparsity <= 1e-9:
-                analysis.add_result(None, weight.name, index, 0.0, 0.0, baseline=True)
+                analysis.add_result(None, name, index, 0.0, 0.0, baseline=True)
             else:
                 avg = (
                     values[prev_index:val_index].mean().item()
                     if val_index > prev_index
-                    else values[val_index]
+                    else values[val_index].detach().numpy().item()
                 )
+
                 analysis.add_result(
-                    None, weight.name, index, sparsity, avg, baseline=False,
+                    None, name, index, sparsity, avg, baseline=False,
                 )
 
             prev_index = val_index + 1

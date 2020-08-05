@@ -388,7 +388,10 @@ class KSLossSensitivityAnalysis(object):
         :param title: the title to put on the chart
         :return: the created figure and axes if path is None, otherwise (None, None)
         """
-        names = ["{} ({})".format(res.name, res.id_) for res in self._results]
+        names = [
+            "{} ({})".format(res.name, res.id_) if res.id_ is not None else res.name
+            for res in self._results
+        ]
         values = [
             res.sparse_integral if plot_integral else res.sparse_average
             for res in self._results

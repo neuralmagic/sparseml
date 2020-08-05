@@ -101,7 +101,7 @@ class BaseManager(BaseObject):
         """
         :return: a list of lines for a string / yaml representation of this instance
         """
-        yaml_str_lines = ["version: 1.1.0", "", "modifiers"]
+        yaml_str_lines = ["version: 1.1.0", "", "modifiers:"]
         yaml_str_lines.extend(self.modifiers_to_string_lines(self.modifiers))
 
         return yaml_str_lines

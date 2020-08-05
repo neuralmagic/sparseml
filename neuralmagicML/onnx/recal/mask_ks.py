@@ -34,11 +34,6 @@ def prune_unstructured(array: numpy.ndarray, sparsity: float) -> numpy.ndarray:
     sparse_thresh = sorted_array[sparse_index]
     array[numpy.abs(array) < sparse_thresh] = 0
 
-    measured_sparsity = float(array.size - numpy.count_nonzero(array)) / float(
-        array.size
-    )
-    assert abs(measured_sparsity - sparsity) < 1e-9
-
     return array
 
 
