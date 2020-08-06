@@ -15,6 +15,7 @@ from onnx import ModelProto
 import onnxruntime
 
 from neuralmagicML.onnx.utils.helpers import check_load_model
+from neuralmagicML.onnx.utils.graph_editor import override_model_batch_size
 from neuralmagicML.onnx.utils.data import DataLoader
 
 try:
@@ -168,6 +169,8 @@ class ORTModelRunner(ModelRunner):
     :param loss: the loss function, if any, to run for evaluation of the model
     :param overwrite_input_names: True to overwrite the input data names to what
         is found in for the model inputs, False to keep as found in the loaded data
+    :param batch_size: if provided, and the model has a hardcoded batch size, will
+        rewrite the model proto so that the model batch size matches batch_size
     """
 
     def __init__(
@@ -177,8 +180,11 @@ class ORTModelRunner(ModelRunner):
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ] = None,
         overwrite_input_names: bool = True,
+        batch_size: int = None
     ):
         super().__init__(model, loss)
+        if batch_size is not None:
+            override_model_batch_size(self._model, batch_size)
         sess_options = onnxruntime.SessionOptions()
         sess_options.log_severity_level = 3
         sess_options.graph_optimization_level = (

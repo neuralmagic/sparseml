@@ -62,6 +62,7 @@ usage: classification_validation.py onnxruntime [-h] --onnx-file-path
                                                 [--batch-size BATCH_SIZE]
                                                 [--image-size IMAGE_SIZE]
                                                 [--loader-num-workers LOADER_NUM_WORKERS]
+                                                [--no-batch-override]
 
 Run validation in onnxruntime
 
@@ -82,6 +83,8 @@ optional arguments:
                         The image size to use to pass into the model
   --loader-num-workers LOADER_NUM_WORKERS
                         The number of workers to use for data loading
+  --no-batch-override   Do not override batch dimension of the ONNX model
+                        before running in ORT
 
 
 ##########
@@ -196,6 +199,12 @@ def parse_args():
             help="The number of workers to use for data loading",
         )
 
+    onnxruntime_parser.add_argument(
+        "--no-batch-override",
+        action='store_true',
+        help="Do not override batch dimension of the ONNX model before running in ORT"
+    )
+
     return parser.parse_args()
 
 
@@ -222,7 +231,10 @@ def main(args):
         runner = NMModelRunner(args.onnx_file_path, args.batch_size, args.num_cores)
     elif args.command == ONNXRUNTIME_COMMAND:
         LOGGER.info("creating model in onnxruntime...")
-        runner = ORTModelRunner(args.onnx_file_path)
+        if args.no_batch_override:
+            runner = ORTModelRunner(args.onnx_file_path)
+        else:
+            runner = ORTModelRunner(args.onnx_file_path, batch_size=args.batch_size)
     else:
         raise ValueError("Unknown command given of {}".format(args.command))
 

@@ -56,6 +56,7 @@ usage: model_benchmark.py onnxruntime [-h] --onnx-file-path ONNX_FILE_PATH
                                       BATCH_SIZE
                                       [--iterations-per-check ITERATIONS_PER_CHECK]
                                       [--warmup-iterations-per-check WARMUP_ITERATIONS_PER_CHECK]
+                                      [--no-batch-override]
 
 Run benchmarks in onnxruntime
 
@@ -77,6 +78,8 @@ optional arguments:
   --warmup-iterations-per-check WARMUP_ITERATIONS_PER_CHECK
                         The number of warmup iterations to run for before
                         checking performance / timing
+  --no-batch-override   Do not override batch dimension of the ONNX model
+                        before running in ORT
 
 
 ##########
@@ -166,6 +169,12 @@ def parse_args():
             "performance / timing",
         )
 
+    onnxruntime_parser.add_argument(
+        "--no-batch-override",
+        action='store_true',
+        help="Do not override batch dimension of the ONNX model before running in ORT"
+    )
+
     return parser.parse_args()
 
 
@@ -175,7 +184,10 @@ def main(args):
         runner = NMModelRunner(args.onnx_file_path, args.batch_size, args.num_cores)
     elif args.command == ONNXRUNTIME_COMMAND:
         LOGGER.info("running benchmarking in onnxruntime...")
-        runner = ORTModelRunner(args.onnx_file_path)
+        if args.no_batch_override:
+            runner = ORTModelRunner(args.onnx_file_path)
+        else:
+            runner = ORTModelRunner(args.onnx_file_path, batch_size=args.batch_size)
     else:
         raise ValueError("unknown command given of {}".format(args.command))
 
