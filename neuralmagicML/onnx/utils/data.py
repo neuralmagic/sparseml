@@ -14,6 +14,7 @@ from neuralmagicML.onnx.utils.helpers import (
     model_inputs,
     model_outputs,
     extract_shape,
+    get_numpy_dtype,
     check_load_model,
 )
 
@@ -47,6 +48,7 @@ class DataLoader(object):
         batch_size: int,
         iter_steps: int = 0,
         num_samples: int = 100,
+        data_types: Dict[str, numpy.dtype] = None,
     ):
         """
         Create a DataLoader from random data
@@ -58,22 +60,38 @@ class DataLoader(object):
             Set to -1 for infinite, 0 for running through the loaded data once,
             or a positive integer for the desired number of steps
         :param num_samples: number of random samples to create
+        :param data_types: optional numpy data types for each of the data items
         :return: the created DataLoader instance with the random data
         """
-        data = [
-            OrderedDict(
-                [
-                    (
-                        key,
-                        numpy.ascontiguousarray(
-                            numpy.random.random(shape).astype(numpy.float32)
-                        ),
+        # Validate that shapes are integers and positive
+        for shape in data_shapes.values():
+            if not all(isinstance(dim, int) and dim > 0 for dim in shape):
+                raise RuntimeError(
+                    "Invalid input shape, cannot create a random input shape"
+                    " from: {}".format(shape)
+                )
+        data = []
+        for _ in range(num_samples):
+            batch = OrderedDict()
+            for key in data_shapes:
+                # generate a random array based on the supported data type
+                dtype = data_types[key] if key in data_types else numpy.float32
+                if dtype is not None and "float" in dtype.__name__:
+                    array = numpy.random.random(data_shapes[key]).astype(dtype)
+                elif dtype is not None and "int" in dtype.__name__:
+                    iinfo = numpy.iinfo(dtype)
+                    array = numpy.random.randint(
+                        iinfo.min, iinfo.max, data_shapes[key], dtype
                     )
-                    for key, shape in data_shapes.items()
-                ]
-            )
-            for _ in range(num_samples)
-        ]
+                elif dtype is not None and dtype is numpy.bool:
+                    array = numpy.random.random(data_shapes[key]) < 0.5
+                else:
+                    raise RuntimeError(
+                        "Cannot create random input for"
+                        " {} with unsupported type {}".format(key, dtype)
+                    )
+                batch[key] = array
+            data.append(batch)
         _LOGGER.debug(
             "created random data of shapes {} and len {}".format(data_shapes, len(data))
         )
@@ -143,6 +161,7 @@ class DataLoader(object):
                 for inp in inputs
             ]
         )
+        data_types = OrderedDict([(inp.name, get_numpy_dtype(inp)) for inp in inputs])
         _LOGGER.debug("pulled input shapes {} from the model".format(data_shapes))
         label_shapes = (
             OrderedDict(
@@ -168,7 +187,7 @@ class DataLoader(object):
             _LOGGER.debug("skipping pulling label shapes")
 
         return DataLoader.from_random(
-            data_shapes, label_shapes, batch_size, iter_steps, num_samples
+            data_shapes, label_shapes, batch_size, iter_steps, num_samples, data_types
         )
 
     def __init__(

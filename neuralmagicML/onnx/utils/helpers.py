@@ -23,6 +23,7 @@ __all__ = [
     "extract_node_shapes",
     "get_node_by_id",
     "extract_shape",
+    "get_numpy_dtype",
     "get_init_by_name",
     "NodeParam",
     "conv_node_params",
@@ -109,6 +110,26 @@ def extract_shape(proto: Any) -> Union[None, Tuple[Union[int, None], ...]]:
             shape.append(None)
 
     return tuple(shape)
+
+
+def get_numpy_dtype(tensor: onnx.TensorProto) -> Union[None, numpy.dtype]:
+    """
+    Extract the numpy dtype of an ONNX tensor.
+    Returns None if there is not a direct mapping from the ONNX data type
+    to a numpy dtype.
+
+    :param tensor: the tensor to get the dtype of
+    :return: a numpy dtype for the tensor if available otherwise None
+    """
+    data_type_enum = tensor.type.tensor_type.elem_type  # type: int
+    data_type = onnx.TensorProto.DataType.Name(data_type_enum).lower()  # type: str
+
+    if hasattr(numpy, data_type):
+        dtype = getattr(numpy, data_type)
+        if dtype is numpy.float:  # default to float32
+            dtype = numpy.float32
+        return dtype
+    return None
 
 
 """
