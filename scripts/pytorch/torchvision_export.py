@@ -68,6 +68,7 @@ python scripts/pytorch/torchvision_export.py \
 
 import argparse
 import os
+from types import ModuleType
 from tqdm import auto
 
 from torch.utils.data import DataLoader
@@ -192,7 +193,9 @@ def parse_args():
 
 
 def _get_torchvision_model(name, num_classes, pretrained=True, checkpoint_path=None):
-    model_constructor = models.__getattribute__(name)
+    model_constructor = getattr(models, name, None)
+    if model_constructor is None or isinstance(model_constructor, ModuleType):
+        raise ValueError("Torchvision model {} not found".format(name))
     model = model_constructor(pretrained=pretrained, num_classes=num_classes)
     if checkpoint_path is not None:
         load_model(checkpoint_path, model)
@@ -219,6 +222,9 @@ def main(args):
 
     # loggers setup
     LOGGER.info("Model id is set to {}".format(model_id))
+
+    if args.pretrained and args.dataset != "imagenet":
+        raise ValueError("Torchvision pretrained weights only available for the imagenet dataset")
 
     # dataset creation
     val_dataset = DatasetRegistry.create(
