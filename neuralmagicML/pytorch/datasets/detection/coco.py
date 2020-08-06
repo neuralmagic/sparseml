@@ -8,7 +8,7 @@ try:
     from torchvision.datasets import CocoDetection
     import pycocotools
 except:
-    CocoDetection = None
+    CocoDetection = object
     pycocotools = None
 
 from neuralmagicML.pytorch.datasets.detection.helpers import AnnotatedImageTransforms
