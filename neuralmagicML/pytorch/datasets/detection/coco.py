@@ -3,7 +3,13 @@ from PIL import Image
 import random
 from torchvision import transforms
 from torchvision.transforms import functional as F
-from torchvision.datasets import CocoDetection
+
+try:
+    from torchvision.datasets import CocoDetection
+    import pycocotools
+except:
+    CocoDetection = None
+    pycocotools = None
 
 from neuralmagicML.pytorch.datasets.detection.helpers import AnnotatedImageTransforms
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
@@ -15,7 +21,6 @@ from neuralmagicML.utils.datasets import (
 
 import urllib.request as request
 import zipfile
-
 
 __all__ = ["CocoDetectionDataset"]
 
@@ -55,6 +60,9 @@ class CocoDetectionDataset(CocoDetection):
         year: str = "2017",
         image_size: int = 300,
     ):
+        if pycocotools is None:
+            raise ValueError("pycocotools is not installed, please install to use")
+
         root = os.path.join(os.path.abspath(os.path.expanduser(root)), str(year))
         if train:
             data_path = "{root}/train{year}".format(root=root, year=year)

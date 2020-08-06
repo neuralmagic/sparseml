@@ -3,6 +3,11 @@ import pytest
 
 from torch.utils.data import Dataset, DataLoader
 
+try:
+    import pycocotools
+except:
+    pycocotools = None
+
 from neuralmagicML.pytorch.datasets import (
     DatasetRegistry,
     CocoDetectionDataset,
@@ -21,6 +26,9 @@ def _validate_coco(dataset: Dataset, size: int):
     assert "category_id" in item[1][0]
 
 
+@pytest.mark.skipif(
+    pycocotools is None, reason="Pycocotools not installed"
+)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )

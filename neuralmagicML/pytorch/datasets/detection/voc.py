@@ -15,8 +15,8 @@ try:
     from torchvision.datasets import VOCSegmentation, VOCDetection
 except ModuleNotFoundError:
     # older version of pytorch, VOC not available
-    VOCSegmentation = object
-    VOCDetection = object
+    VOCSegmentation = None
+    VOCDetection = None
 
 from neuralmagicML.pytorch.datasets.detection.helpers import AnnotatedImageTransforms
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
@@ -62,7 +62,7 @@ class VOCSegmentationDataset(VOCSegmentation):
         year: str = "2012",
         image_size: int = 300,
     ):
-        if VOCSegmentation == object:
+        if VOCSegmentation is None:
             raise ValueError(
                 "VOC is unsupported on this PyTorch version, please upgrade to use"
             )
