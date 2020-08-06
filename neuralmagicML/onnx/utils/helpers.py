@@ -4,18 +4,17 @@ Utility / helper functions
 
 from typing import Tuple, Dict, Union, Any, List, NamedTuple
 from collections import OrderedDict
+import logging
 from functools import reduce
 import numpy
 import onnx
-from onnx import numpy_helper, ModelProto, NodeProto
+from onnx import numpy_helper, ModelProto
 from onnx.helper import get_attribute_value, make_model, make_empty_tensor_value_info
-import onnxruntime as rt
-from onnxruntime import NodeArg
+import onnxruntime
 
-from neuralmagicML import get_nm_root_logger
 from neuralmagicML.utils import clean_path
 
-MAIN_LOGGER = get_nm_root_logger()
+_LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "check_load_model",
@@ -141,9 +140,9 @@ def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
         )
         model_copy.graph.output.append(intermediate_layer_value_info)
 
-    sess_options = rt.SessionOptions()
+    sess_options = onnxruntime.SessionOptions()
     sess_options.log_severity_level = 3
-    sess = rt.InferenceSession(model_copy.SerializeToString(), sess_options)
+    sess = onnxruntime.InferenceSession(model_copy.SerializeToString(), sess_options)
 
     output_shapes = {}
     for node in sess.get_outputs() + sess.get_inputs():
@@ -157,14 +156,15 @@ def extract_nodes_shapes_shape_inference(
     model: ModelProto,
 ) -> Dict[str, List[List[int]]]:
     """
-    Creates a modified model to expose intermediate outputs and runs an onnx shape inference
-    to obtain the output shape of each node.
+    Creates a modified model to expose intermediate outputs and runs an onnx shape
+    inference to obtain the output shape of each node.
 
-    NOTE: The Onnx docs on shape inference have the following disclaimer on shape inference
-
-        Shape inference is not guaranteed to be complete. In particular, some dynamic behaviors
-        block the flow of shape inference, for example a Reshape to a dynamically-provide shape.
-        Also, all operators are not required to have a shape inference implementation.
+    NOTE: The Onnx docs on shape inference have the following
+    disclaimer on shape inference:
+    Shape inference is not guaranteed to be complete.
+    In particular, some dynamic behaviors block the flow of shape inference,
+    for example a Reshape to a dynamically-provide shape.
+    Also, all operators are not required to have a shape inference implementation.
 
     :param model: an onnx model
     :return: a list of NodeProto with their shape exposed
@@ -205,17 +205,29 @@ def extract_node_shapes(model: ModelProto) -> Dict[str, NodeShape]:
         node_to_inputs[extract_node_id(node)] = node.input
 
     # Obtains output shapes for each model's node
+    output_shapes = None
+
     try:
         output_shapes = extract_nodes_shapes_ort(model)
-    except Exception as e:
-        MAIN_LOGGER.warning(e)
-        MAIN_LOGGER.warning(
-            "Creating Onnxruntime InferenceSession failed. Using Onnx Shape Inference for node shape calculation."
+    except Exception as err:
+        _LOGGER.warning(
+            "Extracting shapes using onnx runtime session failed: {}".format(err)
         )
-        output_shapes = extract_nodes_shapes_shape_inference(model)
+
+    if output_shapes is None:
+        try:
+            output_shapes = extract_nodes_shapes_shape_inference(model)
+        except Exception as err:
+            _LOGGER.warning(
+                "Extracting shapes using onnx shape_inference failed: {}".format(err)
+            )
 
     # Obtains the input shapes for each node
+    if output_shapes is None:
+        output_shapes = {}
+
     input_shapes = {}
+
     for node in output_shapes.keys():
         if node not in node_to_inputs:
             continue
@@ -224,7 +236,9 @@ def extract_node_shapes(model: ModelProto) -> Dict[str, NodeShape]:
             for input_node in node_to_inputs[node]
             if input_node in output_shapes and output_shapes[input_node] is not None
         ]
-        input_shapes[node] = input_shapes[node] if len(input_shapes[node]) > 0 else None
+        input_shapes[node] = (
+            input_shapes[node] if len(input_shapes[node]) > 0 else None
+        )
 
     # Combines shape information into mapping of node id to a NodeShape object
     node_shapes = {}
