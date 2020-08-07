@@ -51,6 +51,7 @@ class NodeAnalyzer(object):
             self._input_shapes = kwargs["input_shapes"]
             self._output_shapes = kwargs["output_shapes"]
             self._params = kwargs["params"]
+            self._prunable = kwargs["prunable"]
             self._prunable_params_zeroed = kwargs["prunable_params_zeroed"]
             self._weight_name = kwargs["weight_name"]
             self._weight_shape = kwargs["weight_shape"]
@@ -76,6 +77,7 @@ class NodeAnalyzer(object):
             self._output_shapes = node_shape.output_shapes
 
         self._params = 0
+        self._prunable = is_prunable_node(model, node)
         self._prunable_params = 0
         self._prunable_params_zeroed = 0
         self._weight_name = None
@@ -84,7 +86,7 @@ class NodeAnalyzer(object):
         self._bias_shape = None
         self._attributes = get_node_attributes(node)
 
-        if is_prunable_node(node):
+        if self._prunable:
             weight, bias = get_node_params(model, node)
             self._params += weight.val.size
             self._prunable_params += weight.val.size
@@ -156,7 +158,7 @@ class NodeAnalyzer(object):
         """
         :return: True if the node is prunable (conv, gemm, etc), False otherwise
         """
-        return is_prunable_node(self.op_type)
+        return self._prunable
 
     @property
     def prunable_params(self) -> int:

@@ -266,9 +266,7 @@ def one_shot_ks_perf_sensitivity(
 
             for index, layer in enumerate(res["layer_info"]):
                 analysis.add_result(
-                    layer["canonical_name"]
-                    if "<none>" not in layer["canonical_name"]
-                    else None,
+                    layer["canonical_name"],
                     layer["name"],
                     index,
                     sparsity if sparsity is not None else layer["kernel_sparsity"],

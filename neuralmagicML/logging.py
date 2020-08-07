@@ -17,21 +17,23 @@ def _create_console_stream(level: int, format_: str, datefmt: str):
     return stream
 
 
+DEFAULT_LOG_LEVEL = logging.INFO
+
 NM_ROOT_LOGGER = logging.getLogger("neuralmagicML")
-NM_ROOT_LOGGER.setLevel(logging.INFO)
+NM_ROOT_LOGGER.setLevel(DEFAULT_LOG_LEVEL)
 NM_ROOT_LOGGER.addHandler(
     _create_console_stream(
-        logging.INFO,
+        DEFAULT_LOG_LEVEL,
         "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
         "%Y-%m-%d %H:%M:%S",
     )
 )
 
 MAIN_LOGGER = logging.getLogger("__main__")
-MAIN_LOGGER.setLevel(logging.INFO)
+MAIN_LOGGER.setLevel(DEFAULT_LOG_LEVEL)
 MAIN_LOGGER.addHandler(
     _create_console_stream(
-        logging.INFO,
+        DEFAULT_LOG_LEVEL,
         "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
         "%Y-%m-%d %H:%M:%S",
     )

@@ -14,7 +14,13 @@ import numpy
 from onnx import ModelProto
 import onnxruntime
 
-from neuralmagicML.onnx.utils.helpers import check_load_model
+from neuralmagicML.onnx.utils.helpers import (
+    check_load_model,
+    get_node_by_id,
+    is_foldable_node,
+    get_prunable_node_from_foldable,
+    extract_node_id,
+)
 from neuralmagicML.onnx.utils.graph_editor import override_model_batch_size
 from neuralmagicML.onnx.utils.data import DataLoader
 
@@ -32,6 +38,7 @@ __all__ = [
     "ModelRunner",
     "ORTModelRunner",
     "NMModelRunner",
+    "correct_nm_benchmark_model_node_ids",
     "NMBenchmarkModelRunner",
 ]
 
@@ -180,7 +187,7 @@ class ORTModelRunner(ModelRunner):
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ] = None,
         overwrite_input_names: bool = True,
-        batch_size: int = None
+        batch_size: int = None,
     ):
         super().__init__(model, loss)
         if batch_size is not None:
@@ -401,6 +408,68 @@ class NMModelRunner(_NMModelRunner):
         return pred, pred_time
 
 
+def correct_nm_benchmark_model_node_ids(nm_result: Dict, model: Union[str, ModelProto]):
+    """
+    Correct the node ids returned from the neuralmagic.benchmark_model api.
+    In some cases, it will return the ids for folded nodes due to ONNXRuntime folding.
+    This finds the corrected node ids from those folded nodes.
+    Additionally, ops that did not have an id are changed from the returned
+    string <none> to proper None python type
+
+    :param nm_result: the result from the neuralmagic.benchmark_model api
+    :param model: the onnx model proto or path to the onnx file that the
+        nm_result was for
+    """
+    model = check_load_model(model)
+
+    for layer in nm_result["layer_info"]:
+        node_id = (
+            layer["canonical_name"] if "<none>" not in layer["canonical_name"] else None
+        )
+
+        if node_id is None:
+            layer["canonical_name"] = None
+            continue
+
+        node = get_node_by_id(model, node_id)
+
+        if node is None:
+            _LOGGER.warning(
+                (
+                    "node returned from neuralmagic.benchmark_model "
+                    "was not found in the model graph; node id {}"
+                ).format(node_id)
+            )
+            continue
+
+        if is_foldable_node(node):
+            _LOGGER.debug(
+                "foldable node of id {} returned from "
+                "neuralmagic.benchmark_model api, matching to prunable node"
+            )
+            # traverse previous because incorrect node id will only be returned
+            # for following foldable layers, not previous
+            node = get_prunable_node_from_foldable(model, node, traverse_previous=True)
+
+            if node is None:
+                _LOGGER.warning(
+                    (
+                        "could not find prunable node from a foldable node "
+                        "returned in the neuralmagic.benchmark_model api; "
+                        "node id: {}"
+                    ).format(node_id)
+                )
+            else:
+                prunable_node_id = extract_node_id(node)
+                _LOGGER.debug(
+                    (
+                        "matched prunable node of id {} to foldable node {} as "
+                        "returned from neuralmagic.benchmark_model api"
+                    ).format(prunable_node_id, node_id)
+                )
+                layer["canonical_name"] = prunable_node_id
+
+
 class NMBenchmarkModelRunner(_NMModelRunner):
     """
     Class for handling running inference for an ONNX model through Neural Magic's
@@ -502,5 +571,6 @@ class NMBenchmarkModelRunner(_NMModelRunner):
             imposed_ks=imposed_ks,
         )
         pred_time = time.time() - pred_time
+        correct_nm_benchmark_model_node_ids(nm_pred, self._model)
 
         return nm_pred, pred_time

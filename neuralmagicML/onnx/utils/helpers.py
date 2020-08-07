@@ -8,7 +8,7 @@ import logging
 from functools import reduce
 import numpy
 import onnx
-from onnx import numpy_helper, ModelProto
+from onnx import numpy_helper, ModelProto, NodeProto
 from onnx.helper import get_attribute_value, make_model, make_empty_tensor_value_info
 import onnxruntime
 
@@ -19,11 +19,15 @@ _LOGGER = logging.getLogger(__name__)
 __all__ = [
     "check_load_model",
     "extract_node_id",
-    "NodeShape",
-    "extract_node_shapes",
     "get_node_by_id",
+    "get_nodes_by_input_id",
+    "get_nodes_by_output_id",
     "extract_shape",
     "get_numpy_dtype",
+    "NodeShape",
+    "extract_nodes_shapes_ort",
+    "extract_nodes_shapes_shape_inference",
+    "extract_node_shapes",
     "get_init_by_name",
     "NodeParam",
     "conv_node_params",
@@ -33,7 +37,11 @@ __all__ = [
     "get_node_attributes",
     "get_node_inputs",
     "get_node_outputs",
+    "get_node_input_nodes",
+    "get_node_output_nodes",
     "is_prunable_node",
+    "is_foldable_node",
+    "get_prunable_node_from_foldable",
     "get_prunable_nodes",
     "SparsityMeasurement",
     "onnx_nodes_sparsities",
@@ -59,7 +67,7 @@ def check_load_model(model: Union[str, ModelProto]) -> ModelProto:
     raise ValueError("unknown type given for model: {}".format(model))
 
 
-def extract_node_id(node) -> str:
+def extract_node_id(node: NodeProto) -> str:
     """
     Get the node id for a given node from an onnx model.
     Grabs the first ouput id as the node id.
@@ -73,7 +81,7 @@ def extract_node_id(node) -> str:
     return str(outputs[0])
 
 
-def get_node_by_id(model: ModelProto, node_id: str) -> Union[Any, None]:
+def get_node_by_id(model: ModelProto, node_id: str) -> Union[NodeProto, None]:
     """
     Get a node from a model by the node_id generated from extract_node_id
 
@@ -86,6 +94,44 @@ def get_node_by_id(model: ModelProto, node_id: str) -> Union[Any, None]:
             return node
 
     return None
+
+
+def get_nodes_by_input_id(model: ModelProto, input_id: str) -> List[NodeProto]:
+    """
+    Get all the nodes in a model that have a given id as one of the inputs
+
+    :param model: the model proto loaded from the onnx file
+    :param input_id: id of the input to get nodes by
+    :return: the retrieved nodes
+    """
+    nodes = []
+
+    for node in model.graph.node:
+        inputs = get_node_inputs(model, node)
+
+        if input_id in inputs:
+            nodes.append(node)
+
+    return nodes
+
+
+def get_nodes_by_output_id(model: ModelProto, output_id: str) -> List[NodeProto]:
+    """
+    Get all the nodes in a model that have a given id as one of the outputs
+
+    :param model: the model proto loaded from the onnx file
+    :param output_id: id of the output to get nodes by
+    :return: the retrieved nodes
+    """
+    nodes = []
+
+    for node in model.graph.node:
+        outputs = get_node_outputs(model, node)
+
+        if output_id in outputs:
+            nodes.append(node)
+
+    return nodes
 
 
 def extract_shape(proto: Any) -> Union[None, Tuple[Union[int, None], ...]]:
@@ -175,7 +221,7 @@ def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
 
 def extract_nodes_shapes_shape_inference(
     model: ModelProto,
-) -> Dict[str, List[List[int]]]:
+) -> Dict[str, List[Union[None, List[int]]]]:
     """
     Creates a modified model to expose intermediate outputs and runs an onnx shape
     inference to obtain the output shape of each node.
@@ -201,7 +247,14 @@ def extract_nodes_shapes_shape_inference(
                 for output in node.output
             ]
         )
-    model_copy = onnx.shape_inference.infer_shapes(model_copy)
+
+    if hasattr(onnx, "shape_inference"):
+        model_copy = onnx.shape_inference.infer_shapes(model_copy)
+    else:
+        raise ModuleNotFoundError(
+            "onnx.shape_inference not available for current version, "
+            "please upgrade to use this functionality"
+        )
 
     output_shapes = {}
     for node in model_copy.graph.output:
@@ -209,6 +262,7 @@ def extract_nodes_shapes_shape_inference(
         output_shapes[node.name] = (
             list(node_shape) if node_shape is not None and len(node_shape) > 0 else None
         )
+
     return output_shapes
 
 
@@ -257,9 +311,7 @@ def extract_node_shapes(model: ModelProto) -> Dict[str, NodeShape]:
             for input_node in node_to_inputs[node]
             if input_node in output_shapes and output_shapes[input_node] is not None
         ]
-        input_shapes[node] = (
-            input_shapes[node] if len(input_shapes[node]) > 0 else None
-        )
+        input_shapes[node] = input_shapes[node] if len(input_shapes[node]) > 0 else None
 
     # Combines shape information into mapping of node id to a NodeShape object
     node_shapes = {}
@@ -307,13 +359,16 @@ NodeParam = NamedTuple("NodeParam", [("name", str), ("val", numpy.ndarray)])
 
 
 def conv_node_params(
-    model: ModelProto, node: Any
+    model: ModelProto, node: NodeProto, include_values: bool = True
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     """
     Get the params (weight and bias) for a conv node in an onnx ModelProto
 
     :param model: the model proto loaded from the onnx file
     :param node: the conv node to get the params for
+    :param include_values: True to include the param values as numpy arrays
+        in the returned NodeParam objects.
+        False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
     """
     node_id = extract_node_id(node)
@@ -322,18 +377,24 @@ def conv_node_params(
         raise ValueError("node_id of {} is not a conv: {}".format(node_id, node))
 
     weight_init = get_init_by_name(model, node.input[1])
-    weight = NodeParam(node.input[1], numpy_helper.to_array(weight_init))
+    weight = NodeParam(
+        node.input[1], numpy_helper.to_array(weight_init) if include_values else None
+    )
 
     if len(node.input) > 2:
         bias_init = get_init_by_name(model, node.input[2])
-        bias = NodeParam(node.input[2], numpy_helper.to_array(bias_init))
+        bias = NodeParam(
+            node.input[2], numpy_helper.to_array(bias_init) if include_values else None
+        )
     else:
         bias = None
 
     return weight, bias
 
 
-def _get_matmul_gemm_weight(model: ModelProto, node: Any) -> NodeParam:
+def _get_matmul_gemm_weight(
+    model: ModelProto, node: NodeProto, include_values: bool = True
+) -> NodeParam:
     node_id = extract_node_id(node)
 
     if str(node.op_type).lower() not in ["gemm", "matmul"]:
@@ -364,21 +425,30 @@ def _get_matmul_gemm_weight(model: ModelProto, node: Any) -> NodeParam:
             )
         )
     elif weight_inits[0] is not None:
-        weight = NodeParam(node.input[0], numpy_helper.to_array(weight_inits[0]))
+        weight = NodeParam(
+            node.input[0],
+            numpy_helper.to_array(weight_inits[0]) if include_values else None,
+        )
     else:
-        weight = NodeParam(node.input[1], numpy_helper.to_array(weight_inits[1]))
+        weight = NodeParam(
+            node.input[1],
+            numpy_helper.to_array(weight_inits[1]) if include_values else None,
+        )
 
     return weight
 
 
 def gemm_node_params(
-    model: ModelProto, node: Any
+    model: ModelProto, node: NodeProto, include_values: bool = True
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     """
     Get the params (weight and bias) for a gemm node in an onnx ModelProto
 
     :param model: the model proto loaded from the onnx file
     :param node: the conv node to get the params for
+    :param include_values: True to include the param values as numpy arrays
+        in the returned NodeParam objects.
+        False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
     """
     node_id = extract_node_id(node)
@@ -386,11 +456,13 @@ def gemm_node_params(
     if str(node.op_type).lower() != "gemm":
         raise ValueError("node_id of {} is not a gemm: {}".format(node_id, node))
 
-    weight = _get_matmul_gemm_weight(model, node)
+    weight = _get_matmul_gemm_weight(model, node, include_values)
 
     if len(node.input) > 2:
         bias_init = get_init_by_name(model, node.input[2])
-        bias = NodeParam(node.input[2], numpy_helper.to_array(bias_init))
+        bias = NodeParam(
+            node.input[2], numpy_helper.to_array(bias_init) if include_values else None
+        )
     else:
         bias = None
 
@@ -398,7 +470,7 @@ def gemm_node_params(
 
 
 def matmul_node_params(
-    model: ModelProto, node: Any
+    model: ModelProto, node: NodeProto, include_values: bool = True
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     """
     Get the params (weight) for a matmul node in an onnx ModelProto.
@@ -406,6 +478,9 @@ def matmul_node_params(
 
     :param model: the model proto loaded from the onnx file
     :param node: the conv node to get the params for
+    :param include_values: True to include the param values as numpy arrays
+        in the returned NodeParam objects.
+        False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
     """
     # todo, expand this to grab a bias add if one occurs after the matmul for fcs
@@ -414,14 +489,14 @@ def matmul_node_params(
     if str(node.op_type).lower() != "matmul":
         raise ValueError("node_id of {} is not a matmul: {}".format(node_id, node))
 
-    weight = _get_matmul_gemm_weight(model, node)
+    weight = _get_matmul_gemm_weight(model, node, include_values)
     bias = None
 
     return weight, bias
 
 
 def get_node_params(
-    model: ModelProto, node: Any
+    model: ModelProto, node: NodeProto, include_values: bool = True
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     """
     Get the params (weight and bias) for a node in an onnx ModelProto.
@@ -429,18 +504,21 @@ def get_node_params(
 
     :param model: the model proto loaded from the onnx file
     :param node: the conv node to get the params for
+    :param include_values: True to include the param values as numpy arrays
+        in the returned NodeParam objects.
+        False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
     """
     node_id = extract_node_id(node)
 
     if str(node.op_type).lower() == "conv":
-        return conv_node_params(model, node)
+        return conv_node_params(model, node, include_values)
 
     if str(node.op_type).lower() == "gemm":
-        return gemm_node_params(model, node)
+        return gemm_node_params(model, node, include_values)
 
     if str(node.op_type).lower() == "matmul":
-        return matmul_node_params(model, node)
+        return matmul_node_params(model, node, include_values)
 
     raise ValueError(
         (
@@ -450,7 +528,7 @@ def get_node_params(
     )
 
 
-def get_node_attributes(node: Any) -> Dict[str, Any]:
+def get_node_attributes(node: NodeProto) -> Dict[str, Any]:
     """
     :param node: the ONNX node to get the attibutes for
     :return: a dictionary containing all attributes for the node
@@ -479,11 +557,11 @@ def get_node_attributes(node: Any) -> Dict[str, Any]:
     return attributes
 
 
-def get_node_inputs(model: ModelProto, node: Any) -> List[str]:
+def get_node_inputs(model: ModelProto, node: NodeProto) -> List[str]:
     """
     :param model: the model the node is from
     :param node: the node to get all inputs (non initializers) for
-    :return: the names off all the inputs to the node that are not initializers
+    :return: the names of all the inputs to the node that are not initializers
     """
     inputs = []
 
@@ -494,7 +572,7 @@ def get_node_inputs(model: ModelProto, node: Any) -> List[str]:
     return inputs
 
 
-def get_node_outputs(model: ModelProto, node: Any) -> List[str]:
+def get_node_outputs(model: ModelProto, node: NodeProto) -> List[str]:
     """
     :param model: the model the node is from
     :param node: the node to get all outputs (non initializers) for
@@ -509,16 +587,140 @@ def get_node_outputs(model: ModelProto, node: Any) -> List[str]:
     return outputs
 
 
-def is_prunable_node(node: Any) -> bool:
+def get_node_input_nodes(model: ModelProto, node: NodeProto) -> List[NodeProto]:
     """
+    Get all of the nodes that share an output edge for the inputs to a given node
+
+    :param model: the model the node is from
+    :param node: the node to get all input nodes for
+    :return: the list of nodes that share an output edge
+        for the inputs to the given node
+    """
+    nodes = []
+    inputs = [node.name for node in model.graph.input] + [
+        node.name for node in model.graph.initializer
+    ]
+
+    for input_id in get_node_inputs(model, node):
+        if input_id in inputs:
+            continue
+
+        nodes.extend(get_nodes_by_output_id(model, input_id))
+
+    return nodes
+
+
+def get_node_output_nodes(model: ModelProto, node: NodeProto) -> List[NodeProto]:
+    """
+    Get all of the nodes that share an input edge for the outputs from a given node
+
+    :param model: the model the node is from
+    :param node: the node to get all output nodes for
+    :return: the list of nodes that share an input edge
+        for the outputs from the given node
+    """
+    nodes = []
+
+    for output_id in get_node_outputs(model, node):
+        nodes.extend(get_nodes_by_input_id(model, output_id))
+
+    return nodes
+
+
+def is_prunable_node(model: ModelProto, node: NodeProto) -> bool:
+    """
+    :param model: the model the node is from
     :param node: an onnx node or op_type string
-    :return: True if the given node or op type is prunable, False othewise
+    :return: True if the given node is prunable, False otherwise
     """
     prunable_types = ["conv", "gemm", "matmul"]
 
+    if str(node.op_type).lower() not in prunable_types:
+        return False
+
+    try:
+        # try to get the weight param, if this fails then
+        # it's not a trainable version of the node and therefore not prunable
+        get_node_params(model, node, include_values=False)
+    except:
+        return False
+
+    return True
+
+
+def is_foldable_node(node: Union[str, NodeProto]) -> bool:
+    """
+    Foldable nodes as defined by ONNXRuntime and what it supports layerwise folding
+    in the ONNX graphs. More info can be fined in their docs:
+    https://github.com/microsoft/onnxruntime/blob/master/docs/ONNX_Runtime_Graph_Optimizations.md
+
+    :param node: the node or node type to check if it is foldable or not
+        according to the ONNXRuntime specs
+    :return: True if the node is foldable and therefore can be combined with other
+        nodes, False otherwise
+    """
+
     return (
-        str(node.op_type if not isinstance(node, str) else node).lower()
-        in prunable_types
+        node.lower()
+        if isinstance(node, str)
+        else str(node.op_type).lower() in ["batchnormalization", "add", "mul"]
+    )
+
+
+def get_prunable_node_from_foldable(
+    model: ModelProto,
+    foldable_node: Union[str, NodeProto],
+    traverse_previous: bool = True,
+    max_node_distance: int = 3,
+) -> Union[None, NodeProto]:
+    """
+    Get a prunable node that is attached by foldable nodes to a given foldable node.
+    Returns None if nothing could be found.
+    Ex: get the convolution that would be folded for an attached BatchNormalization
+
+    :param model: the model the node is from
+    :param foldable_node: the foldable node or node id to find prunable node from
+    :param traverse_previous: True to only search for previous prunable nodes that the
+        foldable node could have been attached to for Conv -> BN patterns.
+        False to only search for following prunable nodes that the foldable node
+        could have been attached to for BN -> Conv patterns.
+    :param max_node_distance: The maximum distance
+        (and therefore number of foldable nodes) the prunable node must be within
+        to match. Ex: max_node_distance = 3, the prunable node must be within 3
+        other foldable nodes of the foldable node passed in to match
+    :return: the found prunable node
+    """
+    if isinstance(foldable_node, str):
+        foldable_node = get_node_by_id(model, foldable_node)
+
+    if not is_foldable_node(foldable_node):
+        raise ValueError(
+            "non foldable node passed in for foldable_node: {}".format(
+                extract_node_id(foldable_node)
+            )
+        )
+
+    prunable_node = foldable_node
+    num_steps = 0
+
+    while (
+        prunable_node is not None
+        and not is_prunable_node(model, prunable_node)
+        and is_foldable_node(prunable_node)
+        and num_steps < max_node_distance
+    ):
+        next_nodes = (
+            get_node_input_nodes(model, prunable_node)
+            if traverse_previous
+            else get_node_output_nodes(model, prunable_node)
+        )
+        num_steps += 1
+        prunable_node = next_nodes[0] if next_nodes else None
+
+    return (
+        None
+        if prunable_node is None or not is_prunable_node(model, prunable_node)
+        else prunable_node
     )
 
 
@@ -531,11 +733,10 @@ def get_prunable_nodes(model: Union[str, ModelProto]) -> List[Any]:
     :return: a list of nodes from the model proto
     """
     model = check_load_model(model)
-    prunable_types = ["conv", "gemm", "matmul"]
     prunable_nodes = []
 
     for node in model.graph.node:
-        if str(node.op_type).lower() in prunable_types:
+        if is_prunable_node(model, node):
             prunable_nodes.append(node)
 
     return prunable_nodes
