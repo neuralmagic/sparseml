@@ -41,9 +41,10 @@ optional arguments:
   --model-key MODEL_KEY
                         Key for what model to download; ex: resnet50
   --pretrained-type PRETRAINED_TYPE
-                        The type of pretrained weights to download; ex: dense,
+                        The type of pretrained weights to download; ex: base,
                         recal, recal-perf. The default used is specific to
-                        each model, but generally are the dense weights.
+                        each model, but generally are the base option for
+                        dense weights.
   --pretrained-dataset PRETRAINED_DATASET
                         The dataset for the pretrained weights to download;
                         ex: imagenet. The default used is specific to each
@@ -99,9 +100,9 @@ def parse_args():
         type=str,
         default=True,
         help="The type of pretrained weights to download; "
-        "ex: dense, recal, recal-perf. "
-        "The default used is specific to each model, but generally are the "
-        "dense weights.",
+        "ex: base, recal, recal-perf. "
+        "The default used is specific to each model, but generally are the base option for
+        dense weights.",
     )
     download_parser.add_argument(
         "--pretrained-dataset",

@@ -123,7 +123,7 @@ class ModelRegistry(object):
         :param key: the model key (name) to create
         :param pretrained: True to load the default pretrained variables,
             a string to load a specific pretrained graph
-            (ex: dense, recal, recal-perf),
+            (ex: base, recal, recal-perf),
             or False to not load any pretrained weights
         :param pretrained_dataset: The dataset to load pretrained weights for
             (ex: imagenet, mnist, etc).

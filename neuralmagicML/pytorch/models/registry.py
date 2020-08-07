@@ -214,7 +214,7 @@ class ModelRegistry(object):
                 if provided will override the pretrained param
             :param pretrained: True to load the default pretrained weights,
                 a string to load a specific pretrained weight
-                (ex: dense, recal, recal-perf),
+                (ex: base, recal, recal-perf),
                 or False to not load any pretrained weights
             :param pretrained_dataset: The dataset to load pretrained weights for
                 (ex: imagenet, mnist, etc).
