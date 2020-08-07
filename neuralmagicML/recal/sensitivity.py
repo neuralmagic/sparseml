@@ -37,7 +37,7 @@ def default_check_sparsities_loss(extended: bool) -> Tuple[float, ...]:
     if not extended:
         return 0.0, 0.2, 0.4, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.99
 
-    sparsities = [float(s) / 1000.0 for s in range(1000)]
+    sparsities = [float(s) / 100.0 for s in range(100)]
 
     return tuple(sparsities)
 

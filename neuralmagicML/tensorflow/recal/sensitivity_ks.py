@@ -115,7 +115,7 @@ def approx_ks_loss_sensitivity(
     for op_index, (_, op_tens) in enumerate(prunable_ops_and_inputs):
         weight = sess.run(op_tens)
         values = numpy.sort(numpy.abs(weight.reshape(-1)))
-        prev_index = None
+        prev_index = 0
 
         for sparsity in sparsity_levels:
             val_index = round(sparsity * len(values))
@@ -124,20 +124,22 @@ def approx_ks_loss_sensitivity(
                 val_index = len(values) - 1
 
             if sparsity <= 1e-9:
-                analysis.add_result(
-                    None, op_tens.name, op_index, 0.0, 0.0, baseline=True
-                )
+                baseline = True
+                sparsity = 0.0
+                sparse_avg = 0.0
             else:
-                avg = (
-                    values[prev_index:val_index].mean().item()
-                    if val_index > prev_index
-                    else values[val_index].item()
-                )
-                analysis.add_result(
-                    None, op_tens.name, op_index, sparsity, avg, baseline=False
-                )
+                baseline = False
 
-            prev_index = val_index + 1
+                if val_index > prev_index:
+                    sparse_avg = values[prev_index:val_index].mean().item()
+                    prev_index = val_index
+                else:
+                    sparse_avg = values[val_index].item()
+                    prev_index = val_index + 1
+
+            analysis.add_result(
+                None, op_tens.name, op_index, sparsity, sparse_avg, baseline
+            )
 
     return analysis
 

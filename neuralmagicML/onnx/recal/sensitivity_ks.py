@@ -66,7 +66,7 @@ def approx_ks_loss_sensitivity(
         weight, bias = get_node_params(model, node)
 
         values = numpy.sort(numpy.abs(weight.val.flatten()))
-        prev_index = None
+        prev_index = 0
 
         for sparsity in sparsity_levels:
             val_index = round(sparsity * values.size)
@@ -75,16 +75,22 @@ def approx_ks_loss_sensitivity(
                 val_index = len(values) - 1
 
             if sparsity <= 1e-9:
-                analysis.add_result(
-                    node_id, weight.name, index, 0.0, 0.0, baseline=True
-                )
+                baseline = True
+                sparsity = 0.0
+                sparse_avg = 0.0
             else:
-                avg = values[prev_index:val_index].mean().item()
-                analysis.add_result(
-                    node_id, weight.name, index, sparsity, avg, baseline=False
-                )
+                baseline = False
 
-            prev_index = val_index + 1
+                if val_index > prev_index:
+                    sparse_avg = values[prev_index:val_index].mean().item()
+                    prev_index = val_index
+                else:
+                    sparse_avg = values[val_index].item()
+                    prev_index = val_index + 1
+
+            analysis.add_result(
+                node_id, weight.name, index, sparsity, sparse_avg, baseline
+            )
 
     return analysis
 
