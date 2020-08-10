@@ -27,6 +27,9 @@ from neuralmagicML.pytorch.utils.model import save_model
 __all__ = ["ModuleExporter"]
 
 
+DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
+
+
 class ModuleExporter(object):
     """
     An exporter for exporting PyTorch modules into ONNX format
@@ -46,7 +49,10 @@ class ModuleExporter(object):
         self._output_dir = clean_path(output_dir)
 
     def export_onnx(
-        self, sample_batch: Any, name: str = "model.onnx", opset: int = 11,
+        self,
+        sample_batch: Any,
+        name: str = "model.onnx",
+        opset: int = DEFAULT_ONNX_OPSET
     ):
         """
         Export an onnx file for the current module and for a sample batch.
@@ -56,7 +62,8 @@ class ModuleExporter(object):
         :param sample_batch: the batch to export an onnx for, handles creating the
             static graph for onnx as well as setting dimensions
         :param name: name of the onnx file to save
-        :param opset: onnx opset to use for exported model. Default=11,
+        :param opset: onnx opset to use for exported model. Default is 11, if torch
+            version is 1.2 or below, default is 9
         """
         sample_batch = tensors_to_device(sample_batch, "cpu")
         onnx_path = os.path.join(self._output_dir, name)
