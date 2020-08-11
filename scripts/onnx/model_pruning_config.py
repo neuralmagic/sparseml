@@ -310,7 +310,6 @@ def parse_args():
                 "--ignore-percent",
                 type=float,
                 default=0.05,
-                nargs="+",
                 help="The percentage (as a decimal) of layers to not prune in the model"
                 ", takes the layers that affect the loss the most and / or the "
                 "performance the least",
