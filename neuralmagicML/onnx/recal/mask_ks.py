@@ -6,7 +6,7 @@ aka model pruning
 from typing import Union, List
 from collections import OrderedDict
 import numpy
-from onnx import numpy_helper, ModelProto
+from onnx import numpy_helper, ModelProto, NodeProto
 from onnx.helper import make_graph, make_model
 
 from neuralmagicML.onnx.utils import get_node_params
@@ -38,7 +38,7 @@ def prune_unstructured(array: numpy.ndarray, sparsity: float) -> numpy.ndarray:
 
 
 def prune_model_one_shot(
-    model: ModelProto, nodes: List, sparsity: Union[float, List[float]]
+    model: ModelProto, nodes: List[NodeProto], sparsity: Union[float, List[float]]
 ) -> ModelProto:
     """
     Prune a model with one shot pruning (no retraining) according to magnitude pruning.

@@ -16,9 +16,10 @@ from torch.nn import (
 )
 
 from neuralmagicML.pytorch.utils import ModuleExporter
+from neuralmagicML.utils import RepoModel
 from tests.pytorch.helpers import LinearNet, MLPNet, ConvNet
 
-__all__ = ["extract_node_models", "analyzer_models"]
+__all__ = ["extract_node_models", "analyzer_models", "onnx_repo_models"]
 
 
 TEMP_FOLDER = os.path.join("~", ".cache", "nm_models")
@@ -690,3 +691,36 @@ def analyzer_models(request):
         exporter = ModuleExporter(module, directory)
         exporter.export_onnx(sample_batch=sample_batch)
     return os.path.expanduser(model_path), expected_output
+
+
+@pytest.fixture(
+    params=[
+        (
+            {
+                "domain": "cv",
+                "sub_domain": "classification",
+                "architecture": "resnet-v1",
+                "sub_architecture": "50",
+                "dataset": "imagenet",
+                "framework": "pytorch",
+                "desc": "base",
+            }
+        ),
+        (
+            {
+                "domain": "cv",
+                "sub_domain": "classification",
+                "architecture": "mobilenet-v1",
+                "sub_architecture": "1.0",
+                "dataset": "imagenet",
+                "framework": "pytorch",
+                "desc": "base",
+            }
+        ),
+    ]
+)
+def onnx_repo_models(request):
+    model_args = request.param
+    model = RepoModel(**model_args)
+    model_path = model.download_onnx_file(overwrite=False)
+    return model_path
