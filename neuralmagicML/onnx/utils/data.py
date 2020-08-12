@@ -75,10 +75,15 @@ class DataLoader(object):
             batch = OrderedDict()
             for key in data_shapes:
                 # generate a random array based on the supported data type
-                dtype = data_types[key] if key in data_types else numpy.float32
-                if dtype is not None and "float" in dtype.__name__:
+                dtype = (
+                    data_types[key]
+                    if data_types is not None and key in data_types
+                    else numpy.float32
+                )
+                dtype_name = dtype.name if hasattr(dtype, "name") else dtype.__name__
+                if dtype is not None and "float" in dtype_name:
                     array = numpy.random.random(data_shapes[key]).astype(dtype)
-                elif dtype is not None and "int" in dtype.__name__:
+                elif dtype is not None and "int" in dtype_name:
                     iinfo = numpy.iinfo(dtype)
                     array = numpy.random.randint(
                         iinfo.min, iinfo.max, data_shapes[key], dtype
@@ -212,7 +217,8 @@ class DataLoader(object):
         self._step_count = 0
 
         if self.infinite:
-            self._max_steps = math.inf
+            # __len__ cannot return math.inf as a value and must be non-negative integer
+            self._max_steps = 0
         elif self._iter_steps > 0:
             self._max_steps = self._iter_steps
         else:

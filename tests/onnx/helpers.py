@@ -2,8 +2,6 @@ import pytest
 
 import os
 import json
-from typing import List
-from collections import OrderedDict, namedtuple
 import torch
 
 from neuralmagicML.pytorch.utils import ModuleExporter

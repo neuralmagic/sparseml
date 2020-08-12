@@ -390,7 +390,7 @@ def load_labeled_data(
     if labels is None:
         labels = [None for _ in range(len(data))]
     elif isinstance(labels, str):
-        labels = sorted(glob.glob(data))
+        labels = sorted(glob.glob(labels))
 
     if len(data) != len(labels) and labels:
         # always raise this error, lengths must match
