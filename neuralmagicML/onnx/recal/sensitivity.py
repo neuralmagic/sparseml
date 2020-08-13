@@ -49,7 +49,7 @@ def check_load_perf_analysis(
     if not analysis:
         return []
 
-    if not isinstance(analysis, Iterable):
+    if not isinstance(analysis, Iterable) or isinstance(analysis, str):
         analysis = [analysis]
 
     checked = []
@@ -82,7 +82,7 @@ def check_load_loss_analysis(
     if not analysis:
         return []
 
-    if not isinstance(analysis, Iterable):
+    if not isinstance(analysis, Iterable) or isinstance(analysis, str):
         analysis = [analysis]
 
     checked = []
