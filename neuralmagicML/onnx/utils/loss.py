@@ -35,8 +35,8 @@ def kl_divergence(
     predicted = predicted.flatten() - zero_point + min_value
     expected = expected.flatten() - zero_point + min_value
 
-    predicted[predicted < 0] = min_value
-    expected[expected < 0] = min_value
+    predicted[predicted < min_value] = min_value
+    expected[expected < min_value] = min_value
 
     divergence = entropy(predicted, expected)
 
