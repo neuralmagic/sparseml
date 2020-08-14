@@ -1,25 +1,346 @@
+import numpy
 import pytest
-
-from onnx import load_model
 from neuralmagicML.onnx.utils import (
+    NodeParam,
+    SparsityMeasurement,
+    check_load_model,
+    conv_node_params,
     extract_node_id,
     extract_node_shapes,
-    get_node_by_id,
-    get_init_by_name,
-    NodeParam,
-    conv_node_params,
+    extract_shape,
     gemm_node_params,
-    matmul_node_params,
+    get_init_by_name,
+    get_node_attributes,
+    get_node_by_id,
+    get_node_inputs,
+    get_node_outputs,
     get_node_params,
+    get_nodes_by_input_id,
+    get_nodes_by_output_id,
+    get_node_input_nodes,
+    get_node_output_nodes,
+    get_numpy_dtype,
     get_prunable_nodes,
+    get_prunable_node_from_foldable,
+    is_foldable_node,
+    is_prunable_node,
+    matmul_node_params,
+    model_inputs,
+    model_outputs,
     onnx_nodes_sparsities,
     SparsityMeasurement,
     get_kernel_shape,
     calculate_flops,
 )
 from neuralmagicML.utils import available_models
+from onnx import numpy_helper, TensorProto, load_model
+from onnx.helper import (
+    make_graph,
+    make_model,
+    make_node,
+    make_tensor_value_info,
+    make_tensor,
+)
 
-from tests.onnx.helpers import extract_node_models
+from tests.onnx.helpers import extract_node_models, onnx_repo_models
+
+
+@pytest.fixture
+def simple_onnx_model():
+    X = make_tensor_value_info("X", TensorProto.FLOAT, [3, 2])
+
+    Z = make_tensor_value_info("Z", TensorProto.FLOAT, [3, 4])
+
+    node_defs = [
+        make_node("Conv", ["X", "node1.weight", "node1.bias"], ["Y"], name="node1"),
+        make_node("ReLU", ["Y"], ["Z"], name="node2"),
+    ]
+
+    graph_def = make_graph(
+        node_defs,
+        "test-model",
+        [X],
+        [Z],
+        initializer=[
+            numpy_helper.from_array(
+                numpy.random.randn(2, 3, 3, 3), name="node1.weight"
+            ),
+            numpy_helper.from_array(numpy.random.randn(3), name="node1.bias"),
+        ],
+    )
+
+    model_def = make_model(graph_def)
+    return model_def
+
+
+@pytest.fixture
+def foldable_onnx_model():
+    X = make_tensor_value_info("X", TensorProto.FLOAT, [3, 2])
+
+    Z = make_tensor_value_info("Z", TensorProto.FLOAT, [3, 4])
+
+    node_defs = [
+        make_node("Conv", ["X", "node1.weight", "node1.bias"], ["Y"], name="node1"),
+        make_node("batchnormalization", ["Y"], ["Z"], name="node2"),
+    ]
+
+    graph_def = make_graph(
+        node_defs,
+        "test-model",
+        [X],
+        [Z],
+        initializer=[
+            numpy_helper.from_array(
+                numpy.random.randn(2, 3, 3, 3), name="node1.weight"
+            ),
+            numpy_helper.from_array(numpy.random.randn(3), name="node1.bias"),
+        ],
+    )
+
+    model_def = make_model(graph_def)
+    return model_def
+
+
+@pytest.fixture
+def prunable_onnx_model():
+    X = make_tensor_value_info("A", TensorProto.FLOAT, [3, 2])
+
+    Z = make_tensor_value_info("B", TensorProto.FLOAT, [4])
+
+    node_defs = [
+        make_node("Conv", ["A", "node1.weight", "node1.bias"], ["B"], name="node1"),
+        make_node("Gemm", ["B", "node2.weight"], ["C"], name="node2"),
+        make_node("MatMul", ["node3.weight", "C"], ["D"], name="node3"),
+        make_node("ReLU", ["D"], ["Z"], name="node4"),
+    ]
+
+    graph_def = make_graph(
+        node_defs,
+        "test-model",
+        [X],
+        [Z],
+        initializer=[
+            numpy_helper.from_array(
+                numpy.random.randn(2, 3, 3, 3), name="node1.weight"
+            ),
+            numpy_helper.from_array(numpy.random.randn(3), name="node1.bias"),
+            numpy_helper.from_array(numpy.random.randn(12, 3), name="node2.weight"),
+            numpy_helper.from_array(numpy.random.randn(3, 4), name="node3.weight"),
+        ],
+    )
+
+    model_def = make_model(graph_def)
+    return model_def
+
+
+def test_check_load_model(onnx_repo_models):
+    model_path = onnx_repo_models
+    loaded_model = load_model(model_path)
+    assert loaded_model == check_load_model(model_path)
+    assert loaded_model == check_load_model(loaded_model)
+
+
+@pytest.mark.parametrize(
+    "op_type,inputs,outputs", [("Conv", ["X"], ["Y"]), ("Gemm", ["X"], ["Y", "Z"])]
+)
+def test_extract_node_id(op_type, inputs, outputs):
+    node = make_node(op_type, inputs, outputs)
+    assert extract_node_id(node) == outputs[0]
+
+
+def test_get_node_by_id(simple_onnx_model):
+    for node in simple_onnx_model.graph.node:
+        node_id = extract_node_id(node)
+        assert node == get_node_by_id(simple_onnx_model, node_id)
+
+    assert get_node_by_id(simple_onnx_model, "NONE") is None
+
+
+def test_get_node_by_input_id(simple_onnx_model):
+    last_node = simple_onnx_model.graph.node[-1]
+    assert get_nodes_by_input_id(simple_onnx_model, "Y") == [last_node]
+    assert get_nodes_by_input_id(simple_onnx_model, "NONE") == []
+
+
+def test_get_node_by_output_id(simple_onnx_model):
+    first_node = simple_onnx_model.graph.node[0]
+    assert get_nodes_by_output_id(simple_onnx_model, "Y") == [first_node]
+    assert get_nodes_by_output_id(simple_onnx_model, "NONE") == []
+
+
+def test_extract_shape():
+    sample_tensor = make_tensor_value_info("X", TensorProto.FLOAT, [3, 2])
+    assert extract_shape(sample_tensor) == (3, 2)
+
+    sample_tensor = make_tensor_value_info("X", TensorProto.STRING, None)
+    assert extract_shape(sample_tensor) is None
+
+
+def test_get_numpy_dtype():
+    sample_tensor = make_tensor_value_info("X", TensorProto.FLOAT, [3, 2])
+    assert get_numpy_dtype(sample_tensor) == numpy.float32
+
+    sample_tensor = make_tensor_value_info("X", TensorProto.INT32, [3, 2])
+    assert get_numpy_dtype(sample_tensor) == numpy.int32
+
+    sample_tensor = make_tensor_value_info("X", TensorProto.STRING, None)
+    assert get_numpy_dtype(sample_tensor) is None
+
+
+def test_get_attributes():
+    attributes = {
+        "kernel": [3, 3],
+        "padding": [1, 1, 1, 1],
+    }
+    node = make_node("Conv", ["X"], ["Y"], **attributes)
+    assert get_node_attributes(node) == attributes
+
+
+def test_get_inputs(simple_onnx_model):
+    for node, expected_input in zip(simple_onnx_model.graph.node, [["X"], ["Y"]]):
+        assert get_node_inputs(simple_onnx_model, node) == expected_input
+
+
+def test_get_outputs(simple_onnx_model):
+    for node in simple_onnx_model.graph.node:
+        assert get_node_outputs(simple_onnx_model, node) == node.output
+
+
+@pytest.mark.parametrize(
+    "node,foldable",
+    [
+        (make_node("batchnormalization", ["X"], ["Y"]), True),
+        (make_node("add", ["X"], ["Y"]), True),
+        (make_node("mul", ["X"], ["Y"]), True),
+        (make_node("Other", ["X"], ["Y"]), False),
+        ("batchnormalization", True),
+    ],
+)
+def test_is_foldable(node, foldable):
+    assert is_foldable_node(node) == foldable
+
+
+def test_get_prunable_node_from_foldable(foldable_onnx_model):
+    assert (
+        get_prunable_node_from_foldable(
+            foldable_onnx_model, foldable_onnx_model.graph.node[-1]
+        )
+        == foldable_onnx_model.graph.node[0]
+    )
+    with pytest.raises(ValueError):
+        get_prunable_node_from_foldable(
+            foldable_onnx_model, foldable_onnx_model.graph.node[0]
+        )
+    assert (
+        get_prunable_node_from_foldable(
+            foldable_onnx_model,
+            foldable_onnx_model.graph.node[-1],
+            traverse_previous=False,
+        )
+        is None
+    )
+    assert (
+        get_prunable_node_from_foldable(
+            foldable_onnx_model, foldable_onnx_model.graph.node[-1], max_node_distance=0
+        )
+        is None
+    )
+
+
+def test_get_init_by_name(onnx_repo_models):
+    model = load_model(onnx_repo_models)
+    for init in model.graph.initializer:
+        assert init == get_init_by_name(model, init.name)
+
+
+def test_is_prunable(simple_onnx_model):
+    assert is_prunable_node(simple_onnx_model, simple_onnx_model.graph.node[0])
+    assert not is_prunable_node(simple_onnx_model, simple_onnx_model.graph.node[-1])
+
+
+def test_model_inputs(simple_onnx_model):
+    assert model_inputs(simple_onnx_model) == list(simple_onnx_model.graph.input)
+
+
+def test_model_outputs(simple_onnx_model):
+    assert model_outputs(simple_onnx_model) == list(simple_onnx_model.graph.output)
+
+
+def test_get_prunable_nodes(prunable_onnx_model):
+    assert (
+        get_prunable_nodes(prunable_onnx_model) == prunable_onnx_model.graph.node[:-1]
+    )
+
+
+def test_get_node_input_nodes(simple_onnx_model):
+    assert get_node_input_nodes(
+        simple_onnx_model, simple_onnx_model.graph.node[-1]
+    ) == [simple_onnx_model.graph.node[0]]
+    assert (
+        get_node_input_nodes(simple_onnx_model, simple_onnx_model.graph.node[0]) == []
+    )
+
+
+def test_get_node_output_nodes(simple_onnx_model):
+    assert get_node_output_nodes(
+        simple_onnx_model, simple_onnx_model.graph.node[0]
+    ) == [simple_onnx_model.graph.node[-1]]
+    assert (
+        get_node_output_nodes(simple_onnx_model, simple_onnx_model.graph.node[-1]) == []
+    )
+
+
+def test_conv_node_params(prunable_onnx_model):
+    conv_node = [
+        node for node in prunable_onnx_model.graph.node if node.op_type == "Conv"
+    ][0]
+    assert conv_node_params(prunable_onnx_model, conv_node, include_values=False) == (
+        NodeParam("node1.weight", None),
+        NodeParam("node1.bias", None),
+    )
+    params = conv_node_params(prunable_onnx_model, conv_node)
+    assert params[0][1].shape == (2, 3, 3, 3)
+    assert params[1][1].shape == (3,)
+
+
+def test_gemm_node_params(prunable_onnx_model):
+    gemm_node = [
+        node for node in prunable_onnx_model.graph.node if node.op_type == "Gemm"
+    ][0]
+    assert gemm_node_params(prunable_onnx_model, gemm_node, include_values=False) == (
+        NodeParam("node2.weight", None),
+        None,
+    )
+    params = gemm_node_params(prunable_onnx_model, gemm_node)
+    assert params[0][1].shape == (12, 3)
+
+
+def test_matmul_node_params(prunable_onnx_model):
+    matmul_node = [
+        node for node in prunable_onnx_model.graph.node if node.op_type == "MatMul"
+    ][0]
+    assert matmul_node_params(
+        prunable_onnx_model, matmul_node, include_values=False
+    ) == (NodeParam("node3.weight", None), None)
+    params = matmul_node_params(prunable_onnx_model, matmul_node)
+    assert params[0][1].shape == (3, 4)
+
+
+def test_get_node_params(prunable_onnx_model):
+    with pytest.raises(ValueError):
+        get_node_params(prunable_onnx_model, prunable_onnx_model.graph.node[-1])
+    for node, expected_params in zip(
+        prunable_onnx_model.graph.node[:-1],
+        [
+            (NodeParam("node1.weight", None), NodeParam("node1.bias", None)),
+            (NodeParam("node2.weight", None), None),
+            (NodeParam("node3.weight", None), None),
+        ],
+    ):
+        assert (
+            get_node_params(prunable_onnx_model, node, include_values=False)
+            == expected_params
+        )
 
 
 def test_onnx_node_sparsities():

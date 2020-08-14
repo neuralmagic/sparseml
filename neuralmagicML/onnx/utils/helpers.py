@@ -662,11 +662,11 @@ def is_foldable_node(node: Union[str, NodeProto]) -> bool:
         nodes, False otherwise
     """
 
-    return (
-        node.lower()
-        if isinstance(node, str)
-        else str(node.op_type).lower() in ["batchnormalization", "add", "mul"]
-    )
+    return (node.lower() if isinstance(node, str) else str(node.op_type).lower()) in [
+        "batchnormalization",
+        "add",
+        "mul",
+    ]
 
 
 def get_prunable_node_from_foldable(
