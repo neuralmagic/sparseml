@@ -56,7 +56,7 @@ def dataloader_models(request) -> DataloaderModelFixture:
     model = RepoModel(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
 
-    return model_path, input_shapes, output_shapes, data_types
+    return DataloaderModelFixture(model_path, input_shapes, output_shapes, data_types)
 
 
 def _test_dataloader(
@@ -166,9 +166,8 @@ def test_dataloader_from_model(
     create_labels: bool,
     strip_first_dim: bool,
 ):
-    model, data_shapes, label_shapes, data_types = dataloader_models
     dataloader = DataLoader.from_model_random(
-        model,
+        dataloader_models.model_path,
         batch_size,
         iter_steps,
         num_samples,
@@ -176,8 +175,8 @@ def test_dataloader_from_model(
         strip_first_dim,
     )
 
-    data_shapes = dict(data_shapes)
-    label_shapes = dict(label_shapes)
+    data_shapes = dict(dataloader_models.data_shape)
+    label_shapes = dict(dataloader_models.label_shape)
     if strip_first_dim:
         for key in data_shapes:
             data_shapes[key] = data_shapes[key][1:]
@@ -195,7 +194,7 @@ def test_dataloader_from_model(
         batch_size,
         iter_steps,
         num_samples,
-        data_types,
+        dataloader_models.data_types,
     )
 
 

@@ -287,6 +287,11 @@ class RepoModel(object):
             try:
                 paths.append(models_download_file(data_path, overwrite, save_dir))
                 with tarfile.open(paths[-1]) as tar:
+                    save_dir = (
+                        os.path.dirname(paths[-1])
+                        if not save_dir
+                        else save_dir
+                    )
                     tar.extractall(save_dir)
             except HTTPError:
                 print("Could not download {data_path}".format(data_path=data_path))

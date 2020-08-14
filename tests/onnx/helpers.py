@@ -1,22 +1,20 @@
-import pytest
-
-import os
 import json
-import torch
+import os
 
+import pytest
+import torch
 from neuralmagicML.pytorch.utils import ModuleExporter
 from neuralmagicML.utils import RepoModel
-from tests.pytorch.helpers import LinearNet, MLPNet, ConvNet
 
-__all__ = [
-    "extract_node_models",
-    "analyzer_models",
-    "onnx_repo_models",
-    "analyzer_models_repo",
-]
+from tests.pytorch.helpers import ConvNet, LinearNet, MLPNet
+
+__all__ = ["extract_node_models", "analyzer_models", "onnx_repo_models", "analyzer_models_repo", "GENERATE_TEST_FILES"]
 
 
 TEMP_FOLDER = os.path.expanduser(os.path.join("~", ".cache", "nm_models"))
+
+GENERATE_TEST_FILES = os.getenv("NM_ML_GENERATE_ONNX_TEST_DATA", False)
+GENERATE_TEST_FILES = False if GENERATE_TEST_FILES == "0" else GENERATE_TEST_FILES
 
 
 @pytest.fixture(

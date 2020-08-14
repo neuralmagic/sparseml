@@ -581,11 +581,14 @@ def test_calculate_flops(
 def test_calculate_flops_negatives(
     op_type, input_shape, output_shape, weight_shape, kernel_shape, bias_shape
 ):
-    assert calculate_flops(
-        op_type,
-        input_shape=input_shape,
-        output_shape=output_shape,
-        weight_shape=weight_shape,
-        kernel_shape=kernel_shape,
-        bias_shape=bias_shape,
-    ) is None
+    assert (
+        calculate_flops(
+            op_type,
+            input_shape=input_shape,
+            output_shape=output_shape,
+            weight_shape=weight_shape,
+            kernel_shape=kernel_shape,
+            bias_shape=bias_shape,
+        )
+        is None
+    )
