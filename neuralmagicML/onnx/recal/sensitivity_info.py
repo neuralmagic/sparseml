@@ -50,10 +50,10 @@ class SensitivityNodeInfo(object):
         :param dictionary: the dictionary to create a result out of
         :return: the created KSLossSensitivityResult
         """
-        analyzer = NodeAnalyzer(
-            model=None,
-            node=None,
-            **dictionary["analyzer"] if dictionary["analyzer"] else None
+        analyzer = (
+            NodeAnalyzer(model=None, node=None, **dictionary["analyzer"])
+            if dictionary["analyzer"]
+            else None
         )
         node_info = SensitivityNodeInfo(analyzer)
 
@@ -209,7 +209,7 @@ class SensitivityModelInfo(object):
         with open(path, "r") as file:
             objs = json.load(file)
 
-        return ModelAnalyzer.from_dict(objs)
+        return SensitivityModelInfo.from_dict(objs)
 
     @staticmethod
     def from_dict(dictionary: Dict[str, Any]):
@@ -225,7 +225,7 @@ class SensitivityModelInfo(object):
         model_info = SensitivityModelInfo(analyzer)
         model_info._nodes = OrderedDict(
             [
-                (key, NodeAnalyzer(model=None, node=None, **val))
+                (key, SensitivityNodeInfo.from_dict(val))
                 for (key, val) in dictionary["nodes"]
             ]
         )
@@ -237,7 +237,7 @@ class SensitivityModelInfo(object):
         )
         model_info._loss_analysis = OrderedDict(
             [
-                (key, KSPerfSensitivityAnalysis.from_dict(val))
+                (key, KSLossSensitivityAnalysis.from_dict(val))
                 for (key, val) in dictionary["loss_analysis"]
             ]
         )
@@ -543,13 +543,9 @@ class SensitivityModelInfo(object):
             # Param Count
             node.analyzer.params if node.analyzer else None,
             # Prunable Params Count
-            node.analyzer.prunable_params
-            if node.analyzer
-            else None,
+            node.analyzer.prunable_params if node.analyzer else None,
             # Zeroed Prunable Param Count
-            node.analyzer.prunable_params_zeroed
-            if node.analyzer
-            else None,
+            node.analyzer.prunable_params_zeroed if node.analyzer else None,
             # Sparsity
             node.analyzer.prunable_params_zeroed / node.analyzer.prunable_params
             if node.analyzer
