@@ -1,13 +1,11 @@
-import os
-from random import sample
-
 import numpy
 import pytest
+from typing import List
 from neuralmagicML.onnx.recal import prune_model_one_shot, prune_unstructured
 from neuralmagicML.onnx.utils import get_node_params
 from onnx import load_model
 
-from tests.onnx.helpers import onnx_repo_models
+from tests.onnx.helpers import onnx_repo_models, OnnxRepoModelFixture
 
 
 def _test_correct_sparsity(pruned_array, sparsity, tolerance=1e-4):
@@ -54,8 +52,10 @@ def test_prune_unstructured(array, sparsities):
 
 
 @pytest.mark.parametrize("sparsity", [(0.01), (0.5), (0.99), (0.999)])
-def test_prune_model_one_shot(onnx_repo_models, sparsity):
-    model_path = onnx_repo_models
+def test_prune_model_one_shot(
+    onnx_repo_models: OnnxRepoModelFixture, sparsity: List[float]
+):
+    model_path = onnx_repo_models.model_path
     model = load_model(model_path)
     nodes = [
         node
@@ -66,12 +66,11 @@ def test_prune_model_one_shot(onnx_repo_models, sparsity):
 
     for node in nodes:
         weight, _ = get_node_params(pruned_model, node)
-        weight_val = weight.val
-        _test_correct_sparsity(weight.val, sparsity, 5e-3)
+        _test_correct_sparsity(weight.val, sparsity, 5.5e-3)
 
 
-def test_prune_model_one_shot_sparsity_list(onnx_repo_models):
-    model_path = onnx_repo_models
+def test_prune_model_one_shot_sparsity_list(onnx_repo_models: OnnxRepoModelFixture):
+    model_path = onnx_repo_models.model_path
     model = load_model(model_path)
     nodes = [
         node
@@ -85,4 +84,4 @@ def test_prune_model_one_shot_sparsity_list(onnx_repo_models):
     for node, sparsity in zip(nodes, sparsities):
         weight, _ = get_node_params(pruned_model, node)
         weight_val = weight.val
-        _test_correct_sparsity(weight_val, sparsity, 5e-3)
+        _test_correct_sparsity(weight_val, sparsity, 5.5e-3)

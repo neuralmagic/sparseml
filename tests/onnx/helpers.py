@@ -1,5 +1,5 @@
-import json
 import os
+from typing import NamedTuple
 
 import pytest
 import torch
@@ -8,11 +8,17 @@ from neuralmagicML.utils import RepoModel
 
 from tests.pytorch.helpers import ConvNet, LinearNet, MLPNet
 
-__all__ = ["extract_node_models", "analyzer_models", "onnx_repo_models", "analyzer_models_repo", "GENERATE_TEST_FILES"]
+
+__all__ = [
+    "extract_node_models",
+    "analyzer_models",
+    "onnx_repo_models",
+    "GENERATE_TEST_FILES",
+]
 
 
 TEMP_FOLDER = os.path.expanduser(os.path.join("~", ".cache", "nm_models"))
-
+RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
 GENERATE_TEST_FILES = os.getenv("NM_ML_GENERATE_ONNX_TEST_DATA", False)
 GENERATE_TEST_FILES = False if GENERATE_TEST_FILES == "0" else GENERATE_TEST_FILES
 
@@ -685,7 +691,19 @@ def analyzer_models(request):
     return os.path.expanduser(model_path), expected_output
 
 
+OnnxRepoModelFixture = NamedTuple(
+    "OnnxRepoModelFixture",
+    [
+        ("model_path", str),
+        ("model_name", str),
+        ("input_paths", str),
+        ("output_paths", str),
+    ],
+)
+
+
 @pytest.fixture(
+    scope="session",
     params=[
         (
             {
@@ -696,7 +714,8 @@ def analyzer_models(request):
                 "dataset": "imagenet",
                 "framework": "pytorch",
                 "desc": "base",
-            }
+            },
+            "resnet50",
         ),
         (
             {
@@ -707,51 +726,22 @@ def analyzer_models(request):
                 "dataset": "imagenet",
                 "framework": "pytorch",
                 "desc": "base",
-            }
+            },
+            "mobilenet",
         ),
-    ]
+    ],
 )
-def onnx_repo_models(request):
-    model_args = request.param
+def onnx_repo_models(request) -> OnnxRepoModelFixture:
+    model_args, model_name = request.param
     model = RepoModel(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
-    return model_path
+    data_paths = model.download_data_files(overwrite=False)
 
-
-@pytest.fixture(
-    params=[
-        (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "resnet-v1",
-                "sub_architecture": "50",
-                "dataset": "imagenet",
-                "framework": "pytorch",
-                "desc": "base",
-            },
-            "tests/onnx/recal/test_analyzer_model_data/resnet50pytorch.json",
-        ),
-        (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "resnet-v1",
-                "sub_architecture": "50",
-                "dataset": "imagenet",
-                "framework": "tensorflow",
-                "desc": "base",
-            },
-            "tests/onnx/recal/test_analyzer_model_data/resnet50tensorflow.json",
-        ),
-    ]
-)
-def analyzer_models_repo(request):
-    model_args, output_path = request.param
-    model = RepoModel(**model_args)
-    model_path = model.download_onnx_file(overwrite=False)
-
-    output = {}
-    with open(output_path) as output_file:
-        output = dict(json.load(output_file))
-    return model_path, output
+    input_paths = None
+    output_paths = None
+    for path in data_paths:
+        if "_sample-inputs" in path:
+            input_paths = path.split(".tar")[0]
+        elif "_sample-outputs" in path:
+            output_paths = path.split(".tar")[0]
+    return OnnxRepoModelFixture(model_path, model_name, input_paths, output_paths)

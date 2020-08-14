@@ -3,7 +3,7 @@ Code related to applying a mask onto a parameter to impose kernel sparsity,
 aka model pruning
 """
 
-from typing import Union, List
+from typing import Union, List, Iterable
 from collections import OrderedDict
 import numpy
 from onnx import numpy_helper, ModelProto, NodeProto
@@ -50,8 +50,8 @@ def prune_model_one_shot(
         or the sparsity level to prune each node to if a list of floats
     :return: the new, pruned model
     """
-    if isinstance(sparsity, float):
-        tmp = sparsity
+    if not isinstance(sparsity, Iterable):
+        tmp = float(sparsity)
         sparsity = [tmp for _ in range(len(nodes))]
 
     if len(nodes) != len(sparsity):

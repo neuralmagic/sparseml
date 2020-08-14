@@ -100,7 +100,7 @@ def one_shot_ks_loss_sensitivity(
     data: DataLoader,
     batch_size: int,
     steps_per_measurement: int,
-    sparsity_levels: List[int] = default_check_sparsities_loss(False),
+    sparsity_levels: List[float] = default_check_sparsities_loss(False),
     show_progress: bool = True,
 ) -> KSLossSensitivityAnalysis:
     """
@@ -124,7 +124,6 @@ def one_shot_ks_loss_sensitivity(
     model = check_load_model(model)
     prunable_nodes = get_prunable_nodes(model)
     analysis = KSLossSensitivityAnalysis()
-
     bar = (
         auto.tqdm(
             total=len(prunable_nodes) * len(sparsity_levels) + 1,
@@ -208,7 +207,7 @@ def one_shot_ks_perf_sensitivity(
     num_cores: int = -1,
     iterations_per_check: int = 10,
     warmup_iterations_per_check: int = 5,
-    sparsity_levels: List[int] = default_check_sparsities_perf(),
+    sparsity_levels: List[float] = default_check_sparsities_perf(),
     show_progress: bool = True,
 ) -> KSPerfSensitivityAnalysis:
     """
