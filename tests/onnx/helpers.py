@@ -8,7 +8,12 @@ from neuralmagicML.pytorch.utils import ModuleExporter
 from neuralmagicML.utils import RepoModel
 from tests.pytorch.helpers import LinearNet, MLPNet, ConvNet
 
-__all__ = ["extract_node_models", "analyzer_models", "onnx_repo_models", "analyzer_models_repo"]
+__all__ = [
+    "extract_node_models",
+    "analyzer_models",
+    "onnx_repo_models",
+    "analyzer_models_repo",
+]
 
 
 TEMP_FOLDER = os.path.expanduser(os.path.join("~", ".cache", "nm_models"))
@@ -713,6 +718,7 @@ def onnx_repo_models(request):
     model = RepoModel(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
     return model_path
+
 
 @pytest.fixture(
     params=[

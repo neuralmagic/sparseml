@@ -29,11 +29,14 @@ __all__ = [
     "extract_nodes_shapes_shape_inference",
     "extract_node_shapes",
     "get_init_by_name",
+    "get_attr_float_val_for_node",
     "NodeParam",
     "conv_node_params",
     "gemm_node_params",
     "matmul_node_params",
     "get_node_params",
+    "BatchNormParams",
+    "get_batch_norm_params",
     "get_node_attributes",
     "get_node_inputs",
     "get_node_outputs",
@@ -49,6 +52,7 @@ __all__ = [
     "model_outputs",
     "get_kernel_shape",
     "calculate_flops",
+    "get_quantize_parent_for_dequantize_node",
 ]
 
 
@@ -354,6 +358,31 @@ def get_init_by_name(model: ModelProto, init_name: str) -> Union[Any, None]:
     return matching_inits[0]
 
 
+def _get_node_param_init_by_idx(
+    model: ModelProto, node: onnx.NodeProto, idx: int
+) -> Union[numpy.ndarray, None]:
+    if idx < len(node.input):
+        initializer = get_init_by_name(model, node.input[idx])
+        if initializer is not None:
+            return numpy_helper.to_array(initializer)
+    return None
+
+
+def get_attr_float_val_for_node(node: onnx.NodeProto, attr: str) -> Union[float, None]:
+    """
+    :param node: Node to get the attribute value of
+    :param attr: Attribute name to match in the node
+    :return: The value of the attribute if the attribute found in the node and is
+        a float type. Otherwise returns None
+    """
+    attr = attr.lower()
+    node_attr_matches = [att for att in node.attribute if attr in att.name]
+    if not node_attr_matches:
+        return None
+    node_attr = node_attr_matches[0]
+    return node_attr.f if node_attr.type == node_attr.FLOAT else None
+
+
 """
 Simple named tuple for mapping a node value to the init name it came from
 """
@@ -527,6 +556,45 @@ def get_node_params(
             "node_id of {} is not a supported node (conv, gemm, matmul) "
             "for params: {}"
         ).format(node_id, node)
+    )
+
+
+"""
+Named tuple for defining the paramters of a batch normalization operator
+"""
+BatchNormParams = NamedTuple(
+    "BatchNormParams",
+    [
+        ("epsilon", float),
+        ("momentum", numpy.ndarray),
+        ("scale", numpy.ndarray),
+        ("bias", numpy.ndarray),
+        ("mean", numpy.ndarray),
+        ("var", numpy.ndarray),
+    ],
+)
+
+
+def get_batch_norm_params(
+    model: onnx.ModelProto, bn_node: onnx.NodeProto
+) -> BatchNormParams:
+    """
+    Get the params and relevant attributes of a batch normalization operator.
+    Following the onnx operators spec, will default epsilon and momentum to
+    1e-5 and 0.9 respectively when not defined.
+
+    :param model: the model proto loaded from the onnx file
+    :param bn_node: the batch normalization node to get the params for
+    :return: a BatchNormParams named tuple
+    """
+    bn_attributes = get_node_attributes(bn_node)
+    return BatchNormParams(
+        epsilon=(bn_attributes["epsilon"] if "epsilon" in bn_attributes else 1e-5),
+        momentum=(bn_attributes["momentum"] if "momentum" in bn_attributes else 0.9),
+        scale=_get_node_param_init_by_idx(model, bn_node, 1),
+        bias=_get_node_param_init_by_idx(model, bn_node, 2),
+        mean=_get_node_param_init_by_idx(model, bn_node, 3),
+        var=_get_node_param_init_by_idx(model, bn_node, 4),
     )
 
 
@@ -1002,3 +1070,23 @@ def _array_as_numeric(array: Union[List, None]) -> Union[List, None]:
     else:
         to_float = numpy.vectorize(_attempt_cast_as_float)
         return to_float(array)
+
+
+def get_quantize_parent_for_dequantize_node(
+    quantized_model: ModelProto, dequantize_node: NodeProto
+) -> Union[NodeProto, None]:
+    """
+    Returns the first quantize node found by traversing the first node input of the
+    given de-quantize node's ancestors.  All inputs to de-quantize nodes should have
+    a quantize node ancestor.
+
+    :param quantized_model: the model the de-quantize node is from
+    :param dequantize_node: the node to get an associated quantize node for
+    :return: the first quantize node found by traversing the first node input of the
+    given de-quantize node's ancestors. If no quantize node is found, returns None
+    """
+    curr_node = dequantize_node
+    while curr_node is not None and curr_node.op_type != "QuantizeLinear":
+        input_nodes = get_node_input_nodes(quantized_model, curr_node)
+        curr_node = input_nodes[0] if input_nodes else None
+    return curr_node
