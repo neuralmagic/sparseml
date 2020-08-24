@@ -41,6 +41,12 @@ MAIN_LOGGER.addHandler(
 
 
 def set_logging_level(level: int):
+    """
+    Set the logging level for the MAIN and NM_ROOT loggers along with all
+    loggers created in the neuralmagicML namespace
+
+    :param level: the log level to set; ex: logging.INFO
+    """
     NM_ROOT_LOGGER.setLevel(level)
     for hand in NM_ROOT_LOGGER.handlers:
         hand.setLevel(level)
@@ -51,8 +57,16 @@ def set_logging_level(level: int):
 
 
 def get_nm_root_logger() -> logging.Logger:
+    """
+    :return: the logger used for the neuralmagicML root package that all
+        other loggers in that namespace are created from
+    """
     return NM_ROOT_LOGGER
 
 
 def get_main_logger() -> logging.Logger:
+    """
+    :return: a main logger that can be used in external scripts for logging
+        in a standard format that is consistent with other loggers in neuralmagicML
+    """
     return MAIN_LOGGER

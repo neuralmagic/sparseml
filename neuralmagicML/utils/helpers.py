@@ -5,7 +5,6 @@ Common functions for interfacing with python primitives and directories/files.
 
 from typing import Union, Iterable, Any, List, Tuple, Callable, Dict
 from collections import OrderedDict
-import logging
 import sys
 import os
 import errno
@@ -29,6 +28,7 @@ __all__ = [
     "create_parent_dirs",
     "create_unique_dir",
     "path_file_count",
+    "path_file_size",
     "NDARRAY_KEY",
     "load_numpy",
     "save_numpy",
@@ -289,6 +289,43 @@ def path_file_count(path: str, pattern: str = "*") -> int:
     path = clean_path(path)
 
     return len(fnmatch.filter(os.listdir(path), pattern))
+
+
+def path_file_size(path: str) -> int:
+    """
+    Return the total size, in bytes, for a path on the file system
+
+    :param path: the path (directory or file) to get the size for
+    :return: the size of the path, in bytes, as stored on disk
+    """
+
+    if not os.path.isdir(path):
+        stat = os.stat(path)
+
+        return stat.st_size
+
+    total_size = 0
+    seen = {}
+
+    for dir_path, dir_names, filenames in os.walk(path):
+        for file in filenames:
+            file_path = os.path.join(dir_path, file)
+
+            try:
+                stat = os.stat(file_path)
+            except OSError:
+                continue
+
+            try:
+                seen[stat.st_ino]
+            except KeyError:
+                seen[stat.st_ino] = True
+            else:
+                continue
+
+            total_size += stat.st_size
+
+    return total_size
 
 
 ##############################
