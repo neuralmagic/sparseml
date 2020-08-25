@@ -25,16 +25,19 @@ from neuralmagicML.onnx.utils.graph_editor import override_model_batch_size
 from neuralmagicML.onnx.utils.data import DataLoader
 
 try:
+    import neuralmagic
     from neuralmagic import create_model
     from neuralmagic import benchmark_model
     from neuralmagic.cpu import cpu_details
 except Exception:
+    neuralmagic
     create_model = None
     benchmark_model = None
     cpu_details = None
 
 __all__ = [
     "max_available_cores",
+    "available_engines",
     "ModelRunner",
     "ORTModelRunner",
     "NMModelRunner",
@@ -78,6 +81,26 @@ def max_available_cores() -> int:
     physical_cores = psutil.cpu_count(logical=False)
 
     return physical_cores if physical_cores else -1
+
+
+def available_engines() -> List[str]:
+    """
+    :return: List of available inference providers on current system. Potential values
+        include ['neural_magic', 'ort_cpu', 'ort_gpu']
+    """
+    # ORT availability
+    engines = []
+
+    if neuralmagic is not None:
+        engines.append("neural_magic")
+
+    ort_providers = onnxruntime.get_available_providers()
+    if "CPUExecutionProvider" in ort_providers:
+        engines.append("ort_cpu")
+    if "CUDAExecutionProvider" in ort_providers:
+        engines.append("ort_gpu")
+
+    return engines
 
 
 class ModelRunner(ABC):

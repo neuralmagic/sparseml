@@ -138,10 +138,7 @@ def parse_args() -> Any:
         "--port", default=5543, type=int, help="The local port to launch the server on"
     )
     parser.add_argument(
-        "--debug",
-        default=False,
-        type=convert_to_bool,
-        help="True to run in debug mode, False otherwise",
+        "--debug", default=False, action="store_true", help="Set to run in debug mode",
     )
     parser.add_argument(
         "--logging-level",
