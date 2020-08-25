@@ -31,7 +31,7 @@ try:
     from neuralmagic import benchmark_model
     from neuralmagic.cpu import cpu_details
 except Exception:
-    neuralmagic
+    neuralmagic = None
     create_model = None
     benchmark_model = None
     cpu_details = None

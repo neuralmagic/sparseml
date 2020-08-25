@@ -10,6 +10,7 @@ __all__ = [
     "ResponseProjectModelSchema",
     "ResponseProjectModelDeletedSchema",
     "SetProjectModelFromSchema",
+    "CreateUpdateProjectModelSchema"
 ]
 
 
@@ -53,6 +54,12 @@ class ProjectModelSchema(Schema):
     analysis = fields.Nested(
         ProjectModelAnalysisNodeSchema, required=True, allow_none=True
     )
+
+
+class CreateUpdateProjectModelSchema(Schema):
+    file = fields.Str(required=False, allow_none=True)
+    source = fields.Str(required=False, allow_none=True)
+    job = fields.Nested(JobSchema, required=True, allow_none=True)
 
 
 class ResponseProjectModelSchema(Schema):

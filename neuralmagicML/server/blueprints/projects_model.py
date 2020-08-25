@@ -1,10 +1,15 @@
 import logging
 from http import HTTPStatus
+from tempfile import NamedTemporaryFile, gettempdir
+import os
+import shutil
 
 from marshmallow import ValidationError
 from flask import Blueprint, request, jsonify
 from flasgger import swag_from
 
+
+from neuralmagicML.onnx.utils import validate_onnx_file
 from neuralmagicML.server.blueprints.helpers import HTTPNotFoundError
 from neuralmagicML.server.blueprints.projects import PROJECTS_ROOT_PATH
 from neuralmagicML.server.schemas import (
@@ -12,6 +17,7 @@ from neuralmagicML.server.schemas import (
     ProjectModelAnalysisSchema,
     ResponseProjectModelSchema,
     ResponseProjectModelDeletedSchema,
+    CreateUpdateProjectModelSchema,
     SetProjectModelFromSchema,
 )
 from neuralmagicML.server.models import database, Project, ProjectModel, Job
@@ -76,7 +82,62 @@ projects_model_blueprint = Blueprint(
     },
 )
 def upload_model(project_id: str):
-    pass
+    # Checks if project with project_id exists
+    project = Project.get_or_none(Project.project_id == project_id)
+
+    if project is None:
+        _LOGGER.error("could not find project with project_id {}".format(project_id))
+        raise HTTPNotFoundError(
+            "could not find project with project_id {}".format(project_id)
+        )
+
+    if "model_file" not in request.files:
+        _LOGGER.error("missing uploaded file 'model_file'")
+        raise ValidationError("missing uploaded file 'model_file'")
+
+    model_file = request.files["model_file"]
+
+    models_query = ProjectModel.select(ProjectModel).where(
+        ProjectModel.project == project
+    )
+
+    if models_query.exists():
+        raise ValidationError(
+            (
+                "A model is already set for the project with id {}, "
+                "can only have one model per project"
+            ).format(project_id)
+        )
+
+    with NamedTemporaryFile() as temp:
+        # Verify onnx model is valid and contains opset field
+        tempname = os.path.join(gettempdir(), temp.name)
+        model_file.save(temp)
+        validate_onnx_file(tempname)
+
+        with database.atomic() as transaction:
+            try:
+                # Create project model
+                data = CreateUpdateProjectModelSchema().dump(
+                    {"file": "model.onnx", "source": "uploaded"}
+                )
+                project_model = ProjectModel.create(project=project_id, **data)
+                project_model.setup_filesystem()
+                shutil.copy(tempname, project_model.file_path)
+                project_model.validate_filesystem()
+            except Exception as err:
+                _LOGGER.error(
+                    "error while creating new project model, rolling back: {}".format(
+                        err
+                    )
+                )
+                transaction.rollback()
+                raise err
+
+        resp_model = ResponseProjectModelSchema().dump({"model": project_model})
+        _LOGGER.info("created project model {}".format(resp_model))
+
+        return jsonify(resp_model), HTTPStatus.OK.value
 
 
 @projects_model_blueprint.route("/upload-from-path", methods=["POST"])
