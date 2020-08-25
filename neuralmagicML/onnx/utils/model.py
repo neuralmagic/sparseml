@@ -3,6 +3,7 @@ Utilities for ONNX models and running inference with them
 """
 
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Callable, Union, Any, Dict, Tuple, List
 from collections import OrderedDict
 import logging
@@ -42,6 +43,7 @@ __all__ = [
     "ORTModelRunner",
     "NMModelRunner",
     "correct_nm_benchmark_model_node_ids",
+    "split_canonical_names",
     "NMBenchmarkModelRunner",
 ]
 
@@ -493,6 +495,29 @@ def correct_nm_benchmark_model_node_ids(nm_result: Dict, model: Union[str, Model
                 layer["canonical_name"] = prunable_node_id
 
 
+def split_canonical_names(nm_result: Dict):
+    """
+    Splits benchmarking layer results from grouped canonical names by individual nodes.
+    Stores the original grouped canonical name in the 'meta_canonical_name' field.
+
+    Will split on any canonical_name that includes ','.
+
+    :param nm_result: the result from the neuralmagic.benchmark_model api
+    """
+    split_layer_infos = []
+    for layer in nm_result["layer_info"]:
+        if "," in layer["canonical_name"]:
+            for sub_layer_name in layer["canonical_name"].split(","):
+                sub_layer_info = deepcopy(layer)
+                sub_layer_info["meta_canonical_name"] = layer["canonical_name"]
+                sub_layer_info["canonical_name"] = sub_layer_name
+                split_layer_infos.append(sub_layer_info)
+        else:
+            layer["meta_canonical_name"] = None
+            split_layer_infos.append(layer)
+    nm_result["layer_info"] = split_layer_infos
+
+
 class NMBenchmarkModelRunner(_NMModelRunner):
     """
     Class for handling running inference for an ONNX model through Neural Magic's
@@ -594,6 +619,7 @@ class NMBenchmarkModelRunner(_NMModelRunner):
             imposed_ks=imposed_ks,
         )
         pred_time = time.time() - pred_time
+        split_canonical_names(nm_pred)
         correct_nm_benchmark_model_node_ids(nm_pred, self._model)
 
         return nm_pred, pred_time
