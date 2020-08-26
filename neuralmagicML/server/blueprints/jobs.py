@@ -1,16 +1,26 @@
+"""
+Server routes related to the jobs routes
+"""
+
 import logging
 from http import HTTPStatus
 
-from flask import Blueprint, current_app, request, jsonify
+from marshmallow import ValidationError
+from flask import Blueprint, request, jsonify
 from flasgger import swag_from
 
-from neuralmagicML.server.blueprints.helpers import API_ROOT_PATH
+from neuralmagicML.server.blueprints.helpers import API_ROOT_PATH, HTTPNotFoundError
+from neuralmagicML.server.models import Job
 from neuralmagicML.server.schemas import (
-    JobSchema,
     ResponseJobSchema,
     ResponseJobsSchema,
     ErrorSchema,
     SearchJobsSchema,
+)
+from neuralmagicML.server.workers import (
+    JobWorkerManager,
+    JobNotFoundError,
+    JobCancelationFailureError,
 )
 
 
@@ -33,6 +43,13 @@ jobs_blueprint = Blueprint(JOBS_PATH, __name__, url_prefix=JOBS_PATH)
         "parameters": [
             {
                 "in": "query",
+                "name": "project_id",
+                "type": "string",
+                "description": "The project_id to get a list of jobs for, "
+                "if not supplied then will get jobs for all project",
+            },
+            {
+                "in": "query",
                 "name": "order_by",
                 "type": "string",
                 "enum": ["created", "modified", "status"],
@@ -43,27 +60,27 @@ jobs_blueprint = Blueprint(JOBS_PATH, __name__, url_prefix=JOBS_PATH)
                 "in": "query",
                 "name": "order_desc",
                 "type": "boolean",
-                "description": "True to order the projects in descending order, "
+                "description": "True to order the jobs in descending order, "
                 "False otherwise. Default True",
             },
             {
                 "in": "query",
                 "name": "page",
                 "type": "integer",
-                "description": "The page (one indexed) to get of the projects. "
+                "description": "The page (one indexed) to get of the jobs. "
                 "Default 1",
             },
             {
                 "in": "query",
                 "name": "page_length",
                 "type": "integer",
-                "description": "The length of the page to get (number of projects). "
+                "description": "The length of the page to get (number of jobs). "
                 "Default 20",
             },
         ],
         "responses": {
             HTTPStatus.OK.value: {
-                "description": "The requested projects",
+                "description": "The requested jobs",
                 "schema": ResponseJobsSchema,
             },
             HTTPStatus.BAD_REQUEST.value: {
@@ -78,7 +95,27 @@ jobs_blueprint = Blueprint(JOBS_PATH, __name__, url_prefix=JOBS_PATH)
     },
 )
 def get_jobs():
-    pass
+    """
+    Route for getting a list of jobs filtered by the flask request args
+
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info("getting jobs for request args {}".format(request.args))
+    args = SearchJobsSchema().load({key: val for key, val in request.args.items()})
+
+    query = Job.select()
+    if "project_id" in args and args["project_id"]:
+        query = query.where(Job.project == args["project_id"])
+    order_by = getattr(Job, args["order_by"])
+    query = query.order_by(
+        order_by if not args["order_desc"] else order_by.desc()
+    ).paginate(args["page"], args["page_length"])
+
+    jobs = [res for res in query]
+    resp_jobs = ResponseJobsSchema().dump({"jobs": jobs})
+    _LOGGER.info("retrieved {} jobs".format(len(resp_jobs)))
+
+    return jsonify(resp_jobs), HTTPStatus.OK.value
 
 
 @jobs_blueprint.route("/<job_id>")
@@ -117,7 +154,23 @@ def get_jobs():
     },
 )
 def get_job(job_id: str):
-    pass
+    """
+    Route for getting a job matching the given job_id.
+    Raises an HTTPNotFoundError if the job is not found in the database.
+
+    :param job_id: the id of the job to get
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info("getting job {}".format(job_id))
+    job = Job.get_or_none(Job.job_id == job_id)
+
+    if job is None:
+        raise HTTPNotFoundError("could not find job with job_id {}".format(job_id))
+
+    resp_job = ResponseJobSchema().dump({"job": job})
+    _LOGGER.info("retrieved job {}".format(resp_job))
+
+    return jsonify(resp_job), HTTPStatus.OK.value
 
 
 @jobs_blueprint.route("/<job_id>/cancel", methods=["POST"])
@@ -156,4 +209,23 @@ def get_job(job_id: str):
     },
 )
 def cancel_job(job_id: str):
-    pass
+    """
+    Route for canceling a job matching the given job_id.
+    Raises an HTTPNotFoundError if the job is not found in the database.
+    Raises a ValidationError if the job is not in a cancelable state
+
+    :param job_id: the id of the job to get
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info("cancelling job {}".format(job_id))
+
+    try:
+        JobWorkerManager().cancel_job(job_id)
+    except JobNotFoundError:
+        raise HTTPNotFoundError("could not find job with job_id {}".format(job_id))
+    except JobCancelationFailureError:
+        raise ValidationError(
+            "job with job_id {} is not in a cancelable state".format(job_id)
+        )
+
+    return get_job(job_id)

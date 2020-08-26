@@ -4,20 +4,13 @@ Root logging file for the server application to handle standard logging setups
 
 import logging
 
-from neuralmagicML.log import _create_console_stream, DEFAULT_LOG_LEVEL
+from neuralmagicML.log import DEFAULT_LOG_LEVEL
 
 __all__ = ["set_server_logging_level", "get_nm_server_logger"]
 
 
 NM_SERVER_LOGGER = logging.getLogger("neuralmagicML.server")
 NM_SERVER_LOGGER.setLevel(DEFAULT_LOG_LEVEL)
-NM_SERVER_LOGGER.addHandler(
-    _create_console_stream(
-        DEFAULT_LOG_LEVEL,
-        "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
-        "%Y-%m-%d %H:%M:%S",
-    )
-)
 
 
 def set_server_logging_level(level: int):

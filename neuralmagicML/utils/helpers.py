@@ -11,6 +11,7 @@ import errno
 import fnmatch
 import glob
 import logging
+from urllib.parse import urlparse
 import numpy
 
 
@@ -29,6 +30,7 @@ __all__ = [
     "create_unique_dir",
     "path_file_count",
     "path_file_size",
+    "is_url",
     "NDARRAY_KEY",
     "load_numpy",
     "save_numpy",
@@ -326,6 +328,20 @@ def path_file_size(path: str) -> int:
             total_size += stat.st_size
 
     return total_size
+
+
+def is_url(val: str):
+    """
+    :param val: value to check if it is a url or not
+    :return: True if value is a URL, False otherwise
+    """
+
+    try:
+        result = urlparse(val)
+
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
 
 
 ##############################

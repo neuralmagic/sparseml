@@ -31,6 +31,7 @@ from neuralmagicML.server.models import (
     ProjectModel,
     ProjectData,
 )
+from neuralmagicML.server.workers import JobWorkerManager
 
 
 __all__ = ["run"]
@@ -74,11 +75,18 @@ def _setup_logging(logging_level: str):
 def _database_setup(app: Flask, working_dir: str):
     storage.init(working_dir)
     db_path = os.path.join(working_dir, "db.sqlite")
-    database.init(db_path, max_connections=10, stale_timeout=300, timeout=0)
+    database.init(
+        db_path,
+        max_connections=10,
+        stale_timeout=300,
+        timeout=0,
+        check_same_thread=False,
+    )
     FlaskDB(app, database)
 
     database.connect()
     database.create_tables(models=[Job, Project, ProjectModel, ProjectData], safe=True)
+    database.close()
 
 
 def _blueprints_setup(app: Flask):
@@ -105,6 +113,10 @@ def _api_docs_setup(app: Flask):
     Swagger(app)
 
 
+def _worker_setup():
+    JobWorkerManager().app_startup()
+
+
 def run(working_dir: str, host: str, port: int, debug: bool, logging_level: str):
     working_dir = _validate_working_dir(working_dir)
     _setup_logging(logging_level)
@@ -115,6 +127,7 @@ def run(working_dir: str, host: str, port: int, debug: bool, logging_level: str)
     _database_setup(app, working_dir)
     _blueprints_setup(app)
     _api_docs_setup(app)
+    _worker_setup()
 
     app.run(host=host, port=port, debug=debug, threaded=True)
 

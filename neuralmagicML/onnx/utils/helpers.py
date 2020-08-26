@@ -17,6 +17,7 @@ from neuralmagicML.utils import clean_path
 _LOGGER = logging.getLogger(__name__)
 
 __all__ = [
+    "validate_onnx_file",
     "check_load_model",
     "extract_node_id",
     "get_node_by_id",
@@ -54,6 +55,24 @@ __all__ = [
     "calculate_flops",
     "get_quantize_parent_for_dequantize_node",
 ]
+
+
+def validate_onnx_file(path: str):
+    """
+    Validate that a file at a given path is a valid onnx model
+
+    :param path: the path of the file to validate
+    :raise ValueError: if not a valid ONNX model
+    """
+    try:
+        onnx_model = check_load_model(path)
+
+        if not onnx_model.opset_import:
+            raise ValueError("could not parse opset_import")
+    except Exception as err:
+        raise ValueError(
+            "file at {} is not a valid onnx model: {}".format(path, err)
+        )
 
 
 def check_load_model(model: Union[str, ModelProto]) -> ModelProto:

@@ -2,7 +2,8 @@
 Code related to efficiently downloading multiple files with parallel workers
 """
 
-from typing import List, Tuple, Iterator, Callable
+from typing import List, Tuple, Iterator, Callable, NamedTuple, Union
+import logging
 import os
 import multiprocessing
 import requests
@@ -14,10 +15,15 @@ from neuralmagicML.utils.helpers import clean_path, create_parent_dirs
 
 __all__ = [
     "PreviouslyDownloadedError",
+    "DownloadProgress",
+    "download_file_iter",
     "download_file",
     "DownloadResult",
     "MultiDownloader",
 ]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class PreviouslyDownloadedError(Exception):
@@ -29,9 +35,26 @@ class PreviouslyDownloadedError(Exception):
         super().__init__(*args)
 
 
-def _download(
-    url_path: str, dest_path: str, show_progress: bool, progress_title: str,
-):
+DownloadProgress = NamedTuple(
+    "DownloadProgress",
+    [("chunk_size", int), ("downloaded", int), ("content_length", Union[None, int])],
+)
+
+
+def _download_iter(url_path: str, dest_path: str) -> Iterator[DownloadProgress]:
+    _LOGGER.debug("downloading file from {} to {}".format(url_path, dest_path))
+
+    if os.path.exists(dest_path):
+        _LOGGER.debug("removing file for download at {}".format(dest_path))
+
+        try:
+            os.remove(dest_path)
+        except OSError as err:
+            _LOGGER.warning(
+                "error encountered when removing older "
+                "cache_file at {}: {}".format(dest_path, err)
+            )
+
     request = requests.get(url_path, stream=True)
     request.raise_for_status()
     content_length = request.headers.get("content-length")
@@ -39,18 +62,13 @@ def _download(
     try:
         content_length = int(content_length)
     except Exception:
+        _LOGGER.debug("could not get content length for file at".format(url_path))
         content_length = None
 
-    progress = (
-        auto.tqdm(
-            total=content_length,
-            desc=progress_title if progress_title else "downloading...",
-        )
-        if show_progress and content_length and content_length > 0
-        else None
-    )
-
     try:
+        downloaded = 0
+        yield DownloadProgress(0, downloaded, content_length)
+
         with open(dest_path, "wb") as file:
             for chunk in request.iter_content(chunk_size=1024):
                 if not chunk:
@@ -59,14 +77,100 @@ def _download(
                 file.write(chunk)
                 file.flush()
 
-                if progress:
-                    progress.update(n=len(chunk))
+                downloaded += len(chunk)
+
+                yield DownloadProgress(len(chunk), downloaded, content_length)
     except Exception as err:
-        os.remove(dest_path)
+        _LOGGER.error(
+            "error downloading file from {} to {}: {}".format(url_path, dest_path, err)
+        )
+
+        try:
+            os.remove(dest_path)
+        except Exception:
+            pass
         raise err
 
-    if progress:
-        progress.close()
+
+def _download(
+    url_path: str, dest_path: str, show_progress: bool, progress_title: str,
+):
+    bar = None
+
+    for progress in _download_iter(url_path, dest_path):
+        if (
+            bar is None
+            and show_progress
+            and progress.content_length
+            and progress.content_length > 0
+        ):
+            bar = auto.tqdm(
+                total=progress.content_length,
+                desc=progress_title if progress_title else "downloading...",
+            )
+
+        if bar:
+            bar.update(n=progress.chunk_size)
+
+    if bar:
+        bar.close()
+
+
+def download_file_iter(
+    url_path: str, dest_path: str, overwrite: bool, num_retries: int = 3,
+) -> Iterator[DownloadProgress]:
+    """
+    Download a file from the given url to the desired local path
+
+    :param url_path: the source url to download the file from
+    :param dest_path: the local file path to save the downloaded file to
+    :param overwrite: True to overwrite any previous files if they exist,
+        False to not overwrite and raise an error if a file exists
+    :param num_retries: number of times to retry the download if it fails
+    :return: an iterator representing the progress for the file download
+    :raise PreviouslyDownloadedError: raised if file already exists at dest_path
+        nad overwrite is False
+    """
+    dest_path = clean_path(dest_path)
+    create_parent_dirs(dest_path)
+
+    if not overwrite and os.path.exists(dest_path):
+        raise PreviouslyDownloadedError()
+
+    if os.path.exists(dest_path):
+        _LOGGER.debug("removing previously downloaded file at {}".format(dest_path))
+
+        try:
+            os.remove(dest_path)
+        except OSError as err:
+            _LOGGER.warning(
+                "error encountered when removing older "
+                "cache_file at {}: {}".format(dest_path, err)
+            )
+
+    retry_err = None
+
+    for retry in range(num_retries + 1):
+        _LOGGER.debug(
+            "downloading attempt {} for file from {} to {}".format(
+                retry, url_path, dest_path
+            )
+        )
+
+        try:
+            for progress in _download_iter(url_path, dest_path):
+                yield progress
+            break
+        except PreviouslyDownloadedError as err:
+            raise err
+        except Exception as err:
+            _LOGGER.error(
+                "error while downloading file from {} to {}".format(url_path, dest_path)
+            )
+            retry_err = err
+
+    if retry_err is not None:
+        raise retry_err
 
 
 def download_file(
@@ -91,34 +195,25 @@ def download_file(
     :raise PreviouslyDownloadedError: raised if file already exists at dest_path
         nad overwrite is False
     """
-    dest_path = clean_path(dest_path)
-    create_parent_dirs(dest_path)
+    bar = None
 
-    if not overwrite and os.path.exists(dest_path):
-        raise PreviouslyDownloadedError()
-
-    if os.path.exists(dest_path):
-        try:
-            os.remove(dest_path)
-        except OSError as err:
-            print(
-                "warning, error encountered when removing older "
-                "cache_file at {}: {}".format(dest_path, err)
+    for progress in download_file_iter(url_path, dest_path, overwrite, num_retries):
+        if (
+            bar is None
+            and show_progress
+            and progress.content_length
+            and progress.content_length > 0
+        ):
+            bar = auto.tqdm(
+                total=progress.content_length,
+                desc=progress_title if progress_title else "downloading...",
             )
 
-    retry_err = None
+        if bar:
+            bar.update(n=progress.chunk_size)
 
-    for _ in range(num_retries + 1):
-        try:
-            _download(url_path, dest_path, show_progress, progress_title)
-            break
-        except PreviouslyDownloadedError as err:
-            raise err
-        except Exception as err:
-            retry_err = err
-
-    if retry_err is not None:
-        raise retry_err
+    if bar:
+        bar.close()
 
 
 class DownloadResult(object):
