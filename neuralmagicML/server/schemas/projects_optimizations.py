@@ -305,7 +305,7 @@ class CreateUpdateProjectOptimizationModifiersTrainableSchema(Schema):
 
 
 class ResponseProjectOptimizationModifiersAvailable(Schema):
-    modifiers = fields.Str(required=True, validate=validate.OneOf(OPTIM_MODIFIER_TYPES))
+    modifiers = fields.Str(required=True, validate=validate.OneOf(OPTIM_MODIFIER_TYPES), many=True)
 
 
 class ResponseProjectOptimizationModifiersBestEstimated(Schema):

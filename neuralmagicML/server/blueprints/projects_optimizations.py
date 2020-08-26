@@ -3,10 +3,20 @@ from http import HTTPStatus
 
 from flask import Blueprint, current_app, request, jsonify
 from flasgger import swag_from
+from peewee import JOIN
+
+from neuralmagicML.onnx.recal import ModelAnalyzer
 
 from neuralmagicML.server.blueprints.projects import PROJECTS_ROOT_PATH
+from neuralmagicML.server.blueprints.helpers import (
+    HTTPNotFoundError,
+    get_project_by_id,
+    get_project_model_by_project_id,
+    get_project_optimizer_by_ids,
+)
 from neuralmagicML.server.schemas import (
     ErrorSchema,
+    ProjectOptimizationSchema,
     CreateProjectOptimizationSchema,
     CreateUpdateProjectOptimizationModifiersPruningSchema,
     CreateUpdateProjectOptimizationModifiersQuantizationSchema,
@@ -19,6 +29,14 @@ from neuralmagicML.server.schemas import (
     ResponseProjectOptimizationsSchema,
     ResponseProjectOptimizationDeletedSchema,
     ResponseProjectOptimizationModifierDeletedSchema,
+)
+from neuralmagicML.server.models import (
+    database,
+    ProjectOptimization,
+    ProjectOptimizationModifierTrainable,
+    ProjectOptimizationModifierLRSchedule,
+    ProjectOptimizationModifierPruning,
+    ProjectOptimizationModifierQuantization,
 )
 
 
@@ -85,7 +103,45 @@ projects_optim_blueprint = Blueprint(
     },
 )
 def get_optims(project_id: str):
-    pass
+    """
+    :param project_id: project_id for optimizers
+    :return: List of project optimizers with project_id
+    """
+    _LOGGER.info("getting all project optimizers for project {}".format(project_id))
+    query = (
+        ProjectOptimization.select(
+            ProjectOptimization,
+            ProjectOptimizationModifierLRSchedule,
+            ProjectOptimizationModifierPruning,
+            ProjectOptimizationModifierQuantization,
+            ProjectOptimizationModifierTrainable,
+        )
+        .join_from(
+            ProjectOptimization, ProjectOptimizationModifierLRSchedule, JOIN.LEFT_OUTER,
+        )
+        .join_from(
+            ProjectOptimization, ProjectOptimizationModifierPruning, JOIN.LEFT_OUTER,
+        )
+        .join_from(
+            ProjectOptimization,
+            ProjectOptimizationModifierQuantization,
+            JOIN.LEFT_OUTER,
+        )
+        .join_from(
+            ProjectOptimization, ProjectOptimizationModifierTrainable, JOIN.LEFT_OUTER,
+        )
+        .where(ProjectOptimization.project_id == project_id,)
+        .group_by(ProjectOptimization)
+    )
+
+    optimizers = []
+
+    for res in query:
+        optimizers.append(res)
+
+    response = ResponseProjectOptimizationsSchema().dump({"optims": optimizers})
+
+    return jsonify(response), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/", methods=["POST"])
@@ -130,7 +186,73 @@ def get_optims(project_id: str):
     },
 )
 def create_optim(project_id: str):
-    pass
+    """
+    Creates a project optimizer for given project with project_id
+    :param project_id: project_id for optimizer
+    :return: Created optimizer
+    """
+    project = get_project_by_id(project_id)
+
+    data = request.get_json(force=True)
+    data = CreateProjectOptimizationSchema().dump(request.get_json(force=True))
+
+    training_epochs = project.training_epochs
+    start_epoch = 0
+    stabilization_epochs = 1
+    pruning_epochs = int(training_epochs / 3)
+    fine_tuning_epochs = int(training_epochs / 4)
+    end_epoch = stabilization_epochs + pruning_epochs + fine_tuning_epochs
+
+    model = get_project_model_by_project_id(project_id)
+    node_ids = [node.id_ for node in ModelAnalyzer(model.file_path).nodes]
+    with database.atomic() as transaction:
+        try:
+            optim = ProjectOptimization.create(
+                start_epoch=start_epoch, end_epoch=end_epoch, project=project, **data
+            )
+            if data["add_trainable"]:
+                ProjectOptimizationModifierTrainable.create(
+                    start_epoch=start_epoch,
+                    end_epoch=end_epoch,
+                    optim=optim,
+                    nodes=[
+                        {"node_id": node_id, "trainable": True} for node_id in node_ids
+                    ],
+                )
+            if data["add_pruning"]:
+                pruning_start_epochs = stabilization_epochs
+                ProjectOptimizationModifierPruning.create(
+                    start_epoch=pruning_start_epochs,
+                    end_epoch=pruning_start_epochs + pruning_epochs,
+                    optim=optim,
+                    update_frequency=1,
+                    sparsity=0.85,
+                    nodes=[
+                        {"node_id": node_id, "sparsity": 0.85} for node_id in node_ids
+                    ],
+                )
+            if data["add_quantization"]:
+                ProjectOptimizationModifierQuantization.create(
+                    start_epoch=start_epoch,
+                    end_epoch=end_epoch,
+                    optim=optim,
+                    nodes=[{"node_id": node_id} for node_id in node_ids],
+                )
+            if data["add_lr_schedule"]:
+                ProjectOptimizationModifierLRSchedule.create(
+                    start_epoch=start_epoch, end_epoch=end_epoch, optim=optim,
+                )
+
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating new project, rolling back: {}".format(err)
+            )
+            transaction.rollback()
+            raise err
+
+    response = ResponseProjectOptimizationSchema().dump({"optims": optim})
+
+    return jsonify(response), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/modifiers")
@@ -248,10 +370,22 @@ def get_modifiers_estimated_speedup(project_id: str):
     },
 )
 def get_optim(project_id: str, optim_id: str):
-    pass
+    """
+    :param project_id: project_id for optimizer
+    :param optim_id: optim_id for optimizer
+    :return: Project optimizers with matching project_id and optim_id
+    """
+    _LOGGER.info(
+        "getting project optimizer {} for project {}".format(optim_id, project_id)
+    )
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+
+    response = ResponseProjectOptimizationSchema().dump({"optims": optim})
+    _LOGGER.info("retrieved project optimizer {}".format(project_id))
+    return jsonify(response), HTTPStatus.OK.value
 
 
-@projects_optim_blueprint.route("/<optim_id>", methods=["UPDATE"])
+@projects_optim_blueprint.route("/<optim_id>", methods=["PUT"])
 @swag_from(
     {
         "tags": ["Projects Optimizations"],
@@ -301,7 +435,25 @@ def get_optim(project_id: str, optim_id: str):
     },
 )
 def update_optim(project_id: str, optim_id: str):
-    pass
+    """
+    Updates a project optimizer
+    :param project_id: project_id for optimizer
+    :param optim_id: optim_id for optimizer
+    :return: Updated project optimizers with matching project_id and optim_id
+    """
+    _LOGGER.info(
+        "updating project optimizer {} for project {}".format(optim_id, project_id)
+    )
+    data = UpdateProjectOptimizationSchema().dump(request.get_json(force=True))
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+
+    for key, val in data.items():
+        setattr(optim, key, val)
+
+    optim.save()
+    response = ResponseProjectOptimizationSchema().dump({"optims": optim})
+    _LOGGER.info("retrieved project optimizer {}".format(response))
+    return get_optim(project_id, optim_id)
 
 
 @projects_optim_blueprint.route("/<optim_id>", methods=["DELETE"])
@@ -347,7 +499,27 @@ def update_optim(project_id: str, optim_id: str):
     },
 )
 def delete_optim(project_id: str, optim_id: str):
-    pass
+    _LOGGER.info(
+        "deleting project optimizer {} for project {}".format(optim_id, project_id)
+    )
+
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+
+    with database.atomic() as transaction:
+        try:
+            optim.delete_instance()
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating new project, rolling back: {}".format(err)
+            )
+            transaction.rollback()
+            raise err
+
+    response = ResponseProjectOptimizationDeletedSchema().dump(
+        {"optim_id": optim_id, "project_id": project_id}
+    )
+
+    return jsonify(response), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/<optim_id>/config")

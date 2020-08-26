@@ -92,22 +92,24 @@ def _database_setup(app: Flask, working_dir: str):
     FlaskDB(app, database)
 
     database.connect()
+    models = [
+        Job,
+        Project,
+        ProjectModel,
+        ProjectData,
+        ProjectLossProfile,
+        ProjectPerfProfile,
+        ProjectOptimization,
+        ProjectOptimizationModifierPruning,
+        ProjectOptimizationModifierQuantization,
+        ProjectOptimizationModifierLRSchedule,
+        ProjectOptimizationModifierTrainable,
+    ]
     database.create_tables(
-        models=[
-            Job,
-            Project,
-            ProjectModel,
-            ProjectData,
-            ProjectLossProfile,
-            ProjectPerfProfile,
-            ProjectOptimization,
-            ProjectOptimizationModifierPruning,
-            ProjectOptimizationModifierQuantization,
-            ProjectOptimizationModifierLRSchedule,
-            ProjectOptimizationModifierTrainable,
-        ],
-        safe=True,
+        models=models, safe=True,
     )
+    for model in models:
+        model.raw("PRAGMA foreign_keys=ON").execute()
     database.close()
 
 

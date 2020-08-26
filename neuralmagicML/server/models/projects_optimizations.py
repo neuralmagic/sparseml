@@ -42,7 +42,7 @@ class ProjectOptimization(BaseCreatedModifiedModel):
     """
 
     optim_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    project = ForeignKeyField(Project, backref="loss_profiles")
+    project = ForeignKeyField(Project, backref="loss_profiles", on_delete="CASCADE")
     name = TextField(null=True, default="")
     profile_perf = ForeignKeyField(ProjectPerfProfile, null=True, default=None)
     profile_loss = ForeignKeyField(ProjectLossProfile, null=True, default=None)
@@ -79,7 +79,9 @@ class ProjectOptimizationModifierQuantization(BaseCreatedModifiedModel):
     """
 
     modifier_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    optim = ForeignKeyField(ProjectOptimization, backref="quantization_modifiers")
+    optim = ForeignKeyField(
+        ProjectOptimization, backref="quantization_modifiers", on_delete="CASCADE"
+    )
     start_epoch = FloatField(null=True, default=None)
     end_epoch = FloatField(null=True, default=None)
     level = TextField(null=True, default=None)
@@ -99,7 +101,9 @@ class ProjectOptimizationModifierLRSchedule(BaseCreatedModifiedModel):
     """
 
     modifier_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    optim = ForeignKeyField(ProjectOptimization, backref="lr_schedule_modifiers")
+    optim = ForeignKeyField(
+        ProjectOptimization, backref="lr_schedule_modifiers", on_delete="CASCADE"
+    )
     start_epoch = FloatField(null=True, default=None)
     end_epoch = FloatField(null=True, default=None)
     lr_mods = ListObjField(null=True, default=None)
@@ -111,7 +115,9 @@ class ProjectOptimizationModifierTrainable(BaseCreatedModifiedModel):
     """
 
     modifier_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    optim = ForeignKeyField(ProjectOptimization, backref="trainable_modifiers")
+    optim = ForeignKeyField(
+        ProjectOptimization, backref="trainable_modifiers", on_delete="CASCADE"
+    )
     start_epoch = FloatField(null=True, default=None)
     end_epoch = FloatField(null=True, default=None)
     nodes = ListObjField(null=True, default=None)
