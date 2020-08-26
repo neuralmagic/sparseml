@@ -30,6 +30,13 @@ from neuralmagicML.server.models import (
     Project,
     ProjectModel,
     ProjectData,
+    ProjectLossProfile,
+    ProjectPerfProfile,
+    ProjectOptimization,
+    ProjectOptimizationModifierPruning,
+    ProjectOptimizationModifierQuantization,
+    ProjectOptimizationModifierLRSchedule,
+    ProjectOptimizationModifierTrainable,
 )
 from neuralmagicML.server.workers import JobWorkerManager
 
@@ -85,7 +92,22 @@ def _database_setup(app: Flask, working_dir: str):
     FlaskDB(app, database)
 
     database.connect()
-    database.create_tables(models=[Job, Project, ProjectModel, ProjectData], safe=True)
+    database.create_tables(
+        models=[
+            Job,
+            Project,
+            ProjectModel,
+            ProjectData,
+            ProjectLossProfile,
+            ProjectPerfProfile,
+            ProjectOptimization,
+            ProjectOptimizationModifierPruning,
+            ProjectOptimizationModifierQuantization,
+            ProjectOptimizationModifierLRSchedule,
+            ProjectOptimizationModifierTrainable,
+        ],
+        safe=True,
+    )
     database.close()
 
 

@@ -2,6 +2,7 @@ from marshmallow import Schema, fields, validate
 
 from neuralmagicML.server.schemas.helpers import (
     OPTIM_MODIFIER_TYPES,
+    PRUNING_STRUCTURE_TYPES,
     LR_CLASSES,
     QUANTIZATION_LEVELS,
 )
@@ -61,9 +62,16 @@ class ProjectOptimizationModifierPruningNodeSchema(
 
 
 class ProjectOptimizationModifierPruningSchema(Schema):
+    modifier_id = fields.Str(required=True)
+    optim_id = fields.Str(required=True)
+    created = fields.DateTime(required=True)
+    modified = fields.DateTime(required=True)
     start_epoch = fields.Float(required=True)
     end_epoch = fields.Float(required=True)
-    update_epoch = fields.Float(required=True)
+    update_frequency = fields.Float(required=True)
+    mask_type = fields.Str(
+        required=True, validate=validate.OneOf(PRUNING_STRUCTURE_TYPES)
+    )
 
     sparsity = fields.Float(required=True)
     sparsity_perf_loss_balance = fields.Float(required=True)
@@ -89,6 +97,10 @@ class ProjectOptimizationModifierQuantizationNodeSchema(Schema):
 
 
 class ProjectOptimizationModifierQuantizationSchema(Schema):
+    modifier_id = fields.Str(required=True)
+    optim_id = fields.Str(required=True)
+    created = fields.DateTime(required=True)
+    modified = fields.DateTime(required=True)
     start_epoch = fields.Float(required=True)
     end_epoch = fields.Float(required=True)
 
@@ -136,6 +148,10 @@ class ProjectOptimizationModifierLRExponentialArgsSchema(Schema):
 
 
 class ProjectOptimizationModifierLRScheduleSchema(Schema):
+    modifier_id = fields.Str(required=True)
+    optim_id = fields.Str(required=True)
+    created = fields.DateTime(required=True)
+    modified = fields.DateTime(required=True)
     start_epoch = fields.Float(required=True)
     end_epoch = fields.Float(required=True)
 
@@ -150,11 +166,15 @@ class ProjectOptimizationModifierTrainableNodeSchema(Schema):
 
 
 class ProjectOptimizationModifierTrainableSchema(Schema):
+    modifier_id = fields.Str(required=True)
+    optim_id = fields.Str(required=True)
+    created = fields.DateTime(required=True)
+    modified = fields.DateTime(required=True)
     start_epoch = fields.Float(required=True)
     end_epoch = fields.Float(required=True)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierQuantizationNodeSchema, required=True, many=True
+        ProjectOptimizationModifierTrainableNodeSchema, required=True, many=True
     )
 
 
@@ -162,9 +182,10 @@ class ProjectOptimizationSchema(Schema):
     optim_id = fields.Str(required=True)
     project_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
+    modified = fields.DateTime(required=True)
     name = fields.Str(required=True, allow_none=True)
     profile_perf_id = fields.Str(required=True, allow_none=True)
-    loss_perf_id = fields.Str(required=True, allow_none=True)
+    profile_loss_id = fields.Str(required=True, allow_none=True)
     start_epoch = fields.Float(required=True)
     end_epoch = fields.Float(required=True)
     pruning_modifiers = fields.Nested(
@@ -202,7 +223,7 @@ class UpdateProjectOptimizationSchema(Schema):
 class CreateUpdateProjectOptimizationModifiersPruningSchema(Schema):
     start_epoch = fields.Float(required=False, default=None, allow_none=True)
     end_epoch = fields.Float(required=False, default=None, allow_none=True)
-    update_epoch = fields.Float(required=False, default=None, allow_none=True)
+    update_frequency = fields.Float(required=False, default=None, allow_none=True)
 
     sparsity = fields.Float(required=False, default=None, allow_none=True)
     sparsity_perf_loss_balance = fields.Float(

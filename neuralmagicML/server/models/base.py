@@ -3,12 +3,24 @@ Base DB model classes for the server
 """
 
 import logging
+import datetime
 
-from peewee import Model
+from peewee import Model, TextField, DateTimeField
+from playhouse.sqlite_ext import JSONField
 from playhouse.pool import PooledSqliteDatabase
 
 
-__all__ = ["FileStorage", "database", "storage", "BaseModel"]
+__all__ = [
+    "FileStorage",
+    "database",
+    "storage",
+    "BaseModel",
+    "BaseCreatedModifiedModel",
+    "ListObjField",
+    "CSVField",
+    "CSVIntField",
+    "CSVFloatField",
+]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,3 +69,67 @@ class BaseModel(Model):
     class Meta(object):
         database = database
         storage = storage
+
+
+class BaseCreatedModifiedModel(BaseModel):
+    """
+    Base peewee model that includes created and modified timestamp functionality
+    """
+
+    created = DateTimeField(default=datetime.datetime.now)
+    modified = DateTimeField(default=datetime.datetime.now)
+
+    def save(self, *args, **kwargs):
+        self.modified = datetime.datetime.now()
+
+        return super().save(*args, **kwargs)
+
+
+class ListObjField(JSONField):
+    """
+    Field for handling lists of objects in a peewee database
+    """
+
+    def db_value(self, value):
+        if value:
+            value = {"list": value}
+
+        return super().db_value(value)
+
+    def python_value(self, value):
+        value = super().python_value(value)
+
+        return value["list"] if value else []
+
+
+class CSVField(TextField):
+    """
+    CSV field for handling lists of strings in a peewee database
+    """
+
+    def db_value(self, value):
+        if value:
+            value = ",".join([str(v) for v in value])
+
+        return value
+
+    def python_value(self, value):
+        return value.split(",") if value else []
+
+
+class CSVIntField(CSVField):
+    """
+    CSV field for handling lists of integers in a peewee database
+    """
+
+    def python_value(self, value):
+        return [int(v) for v in value.split(",")] if value else []
+
+
+class CSVFloatField(CSVField):
+    """
+    CSV field for handling lists of floats in a peewee database
+    """
+
+    def python_value(self, value):
+        return [float(v) for v in value.split(",")] if value else []
