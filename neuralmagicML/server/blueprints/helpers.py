@@ -111,6 +111,7 @@ def get_project_model_by_project_id(
     query = ProjectModel.get_or_none(ProjectModel.project_id == project_id)
 
     if query is None and raise_not_found:
+        _LOGGER.error("could not find model for project_id {}".format(project_id))
         raise HTTPNotFoundError(
             "could not find model for project_id {}".format(project_id)
         )
@@ -139,6 +140,7 @@ def get_project_by_id(project_id: str) -> Project:
         break
 
     if not project:
+        _LOGGER.error("could not find project with project_id {}".format(project_id))
         raise HTTPNotFoundError(
             "could not find project with project_id {}".format(project_id)
         )

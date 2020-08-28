@@ -21,6 +21,7 @@ from neuralmagicML.server.schemas import (
     CreateUpdateProjectOptimizationModifiersPruningSchema,
     CreateUpdateProjectOptimizationModifiersQuantizationSchema,
     CreateUpdateProjectOptimizationModifiersLRScheduleSchema,
+    ProjectOptimizationModifierLRSchema,
     CreateUpdateProjectOptimizationModifiersTrainableSchema,
     UpdateProjectOptimizationSchema,
     ResponseProjectOptimizationModifiersAvailable,
@@ -50,6 +51,18 @@ _LOGGER = logging.getLogger(__name__)
 projects_optim_blueprint = Blueprint(
     PROJECT_OPTIM_PATH, __name__, url_prefix=PROJECT_OPTIM_PATH
 )
+
+
+def _get_epochs_from_lr_mods(lr_mods: ProjectOptimizationModifierLRSchema):
+    start_epoch = None
+    end_epoch = None
+    for lr_mod in lr_mods:
+        if start_epoch is None or lr_mod["start_epoch"] < start_epoch:
+            start_epoch = lr_mod["start_epoch"]
+        if end_epoch is None or lr_mod["end_epoch"] > end_epoch:
+            end_epoch = lr_mod["end_epoch"]
+
+    return start_epoch, end_epoch
 
 
 @projects_optim_blueprint.route("/")
@@ -193,7 +206,6 @@ def create_optim(project_id: str):
     """
     project = get_project_by_id(project_id)
 
-    data = request.get_json(force=True)
     data = CreateProjectOptimizationSchema().dump(request.get_json(force=True))
 
     training_epochs = project.training_epochs
@@ -245,7 +257,7 @@ def create_optim(project_id: str):
 
         except Exception as err:
             _LOGGER.error(
-                "error while creating new project, rolling back: {}".format(err)
+                "error while creating new optimizer, rolling back: {}".format(err)
             )
             transaction.rollback()
             raise err
@@ -452,7 +464,7 @@ def update_optim(project_id: str, optim_id: str):
 
     optim.save()
     response = ResponseProjectOptimizationSchema().dump({"optims": optim})
-    _LOGGER.info("retrieved project optimizer {}".format(response))
+    _LOGGER.info("updated project optimizer {}".format(response))
     return get_optim(project_id, optim_id)
 
 
@@ -509,9 +521,7 @@ def delete_optim(project_id: str, optim_id: str):
         try:
             optim.delete_instance()
         except Exception as err:
-            _LOGGER.error(
-                "error while creating new project, rolling back: {}".format(err)
-            )
+            _LOGGER.error("error while deleting optim, rolling back: {}".format(err))
             transaction.rollback()
             raise err
 
@@ -683,12 +693,48 @@ def get_optim_code(project_id: str, optim_id: str, framework: str, code_type: st
     },
 )
 def delete_optim_modifier(project_id: str, optim_id: str, modifier_id: str):
-    pass
+    _LOGGER.info("deleting modifier {} for optimizer {}".format(modifier_id, optim_id))
+    mods = [
+        ProjectOptimizationModifierLRSchedule.get_or_none(
+            ProjectOptimizationModifierLRSchedule.modifier_id == modifier_id
+        ),
+        ProjectOptimizationModifierPruning.get_or_none(
+            ProjectOptimizationModifierPruning.modifier_id == modifier_id
+        ),
+        ProjectOptimizationModifierQuantization.get_or_none(
+            ProjectOptimizationModifierQuantization.modifier_id == modifier_id
+        ),
+        ProjectOptimizationModifierTrainable.get_or_none(
+            ProjectOptimizationModifierTrainable.modifier_id == modifier_id
+        ),
+    ]
+    mod_for_deletion = None
+    for mod in mods:
+        if mod is not None:
+            mod_for_deletion = mod
+            break
+    if mod_for_deletion is None:
+        _LOGGER.error(
+            "could not find optimization modifier with modifier_id {}".format(
+                modifier_id
+            )
+        )
+        raise HTTPNotFoundError(
+            "could not find optimization modifier with modifier_id {}".format(
+                modifier_id
+            )
+        )
+
+    mod_for_deletion.delete_instance()
+
+    response = ResponseProjectOptimizationModifierDeletedSchema().dump(
+        {"project_id": project_id, "optim_id": optim_id}
+    )
+
+    return jsonify(response), HTTPStatus.OK.value
 
 
-@projects_optim_blueprint.route(
-    "/<optim_id>/modifiers/<modifier_id>/pruning", methods=["POST"]
-)
+@projects_optim_blueprint.route("/<optim_id>/modifiers/pruning", methods=["POST"])
 @swag_from(
     {
         "tags": ["Projects Optimizations"],
@@ -737,8 +783,31 @@ def delete_optim_modifier(project_id: str, optim_id: str, modifier_id: str):
         },
     },
 )
-def create_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: str):
-    pass
+def create_optim_modifier_pruning(project_id: str, optim_id: str):
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+
+    data = CreateUpdateProjectOptimizationModifiersPruningSchema().dump(
+        request.get_json(force=True)
+    )
+
+    with database.atomic() as transaction:
+        try:
+            ProjectOptimizationModifierPruning.create(
+                optim=optim,
+                est_recovery=None,
+                est_perf_gain=None,
+                est_time=None,
+                est_time_baseline=None,
+                **data
+            )
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating pruning modifier, rolling back: {}".format(err)
+            )
+            transaction.rollback()
+            raise err
+
+    return get_optim(project_id, optim_id)
 
 
 @projects_optim_blueprint.route(
@@ -800,12 +869,35 @@ def create_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: s
     },
 )
 def update_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: str):
-    pass
+    pruning_mod = ProjectOptimizationModifierPruning.get_or_none(
+        ProjectOptimizationModifierPruning.modifier_id == modifier_id
+    )
+
+    if pruning_mod is None:
+        _LOGGER.error(
+            "could not find pruning modifier with modifier_id {}".format(modifier_id)
+        )
+        raise HTTPNotFoundError(
+            "could not find pruning modifier with modifier_id {}".format(modifier_id)
+        )
+
+    data = CreateUpdateProjectOptimizationModifiersPruningSchema().dump(
+        request.get_json(force=True)
+    )
+
+    for key, val in data.items():
+        setattr(pruning_mod, key, val)
+
+    setattr(pruning_mod, "est_recovery", None)
+    setattr(pruning_mod, "est_perf_gain", None)
+    setattr(pruning_mod, "est_time", None)
+    setattr(pruning_mod, "est_time_basline", None)
+
+    pruning_mod.save()
+    return get_optim(project_id, optim_id)
 
 
-@projects_optim_blueprint.route(
-    "/<optim_id>/modifiers/<modifier_id>/quantization", methods=["POST"]
-)
+@projects_optim_blueprint.route("/<optim_id>/modifiers/quantization", methods=["POST"])
 @swag_from(
     {
         "tags": ["Projects Optimizations"],
@@ -854,9 +946,7 @@ def update_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: s
         },
     },
 )
-def create_optim_modifier_quantization(
-    project_id: str, optim_id: str, modifier_id: str
-):
+def create_optim_modifier_quantization(project_id: str, optim_id: str):
     pass
 
 
@@ -924,9 +1014,7 @@ def update_optim_modifier_quantization(
     pass
 
 
-@projects_optim_blueprint.route(
-    "/<optim_id>/modifiers/<modifier_id>/lr-schedule", methods=["POST"]
-)
+@projects_optim_blueprint.route("/<optim_id>/modifiers/lr-schedule", methods=["POST"])
 @swag_from(
     {
         "tags": ["Projects Optimizations"],
@@ -975,8 +1063,29 @@ def update_optim_modifier_quantization(
         },
     },
 )
-def create_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_id: str):
-    pass
+def create_optim_modifier_lr_schedule(project_id: str, optim_id: str):
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+
+    data = CreateUpdateProjectOptimizationModifiersLRScheduleSchema().dump(
+        request.get_json(force=True)
+    )
+
+    with database.atomic() as transaction:
+        try:
+            start_epoch, end_epoch = _get_epochs_from_lr_mods(data["lr_mods"])
+            ProjectOptimizationModifierLRSchedule.create(
+                optim=optim, start_epoch=start_epoch, end_epoch=end_epoch, **data
+            )
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating lr schedule modifier, rolling back: {}".format(
+                    err
+                )
+            )
+            transaction.rollback()
+            raise err
+
+    return get_optim(project_id, optim_id)
 
 
 @projects_optim_blueprint.route(
@@ -1038,12 +1147,38 @@ def create_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_i
     },
 )
 def update_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_id: str):
-    pass
+    pruning_mod = ProjectOptimizationModifierLRSchedule.get_or_none(
+        ProjectOptimizationModifierLRSchedule.modifier_id == modifier_id
+    )
+
+    if pruning_mod is None:
+        _LOGGER.error(
+            "could not find lr schedule modifier with modifier_id {}".format(
+                modifier_id
+            )
+        )
+        raise HTTPNotFoundError(
+            "could not find lr schedule modifier with modifier_id {}".format(
+                modifier_id
+            )
+        )
+
+    data = CreateUpdateProjectOptimizationModifiersLRScheduleSchema().dump(
+        request.get_json(force=True)
+    )
+
+    for key, val in data.items():
+        if key == "lr_mods":
+            start_epoch, end_epoch = _get_epochs_from_lr_mods(val)
+            setattr(pruning_mod, "start_epoch", start_epoch)
+            setattr(pruning_mod, "end_epoch", end_epoch)
+        setattr(pruning_mod, key, val)
+
+    pruning_mod.save()
+    return get_optim(project_id, optim_id)
 
 
-@projects_optim_blueprint.route(
-    "/<optim_id>/modifiers/<modifier_id>/trainable", methods=["POST"]
-)
+@projects_optim_blueprint.route("/<optim_id>/modifiers/trainable", methods=["POST"])
 @swag_from(
     {
         "tags": ["Projects Optimizations"],
@@ -1092,7 +1227,7 @@ def update_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_i
         },
     },
 )
-def create_optim_modifier_trainable(project_id: str, optim_id: str, modifier_id: str):
+def create_optim_modifier_trainable(project_id: str, optim_id: str):
     pass
 
 

@@ -267,23 +267,8 @@ class CreateUpdateProjectOptimizationModifiersQuantizationSchema(Schema):
 
 
 class CreateUpdateProjectOptimizationModifiersLRScheduleSchema(Schema):
-    start_epoch = fields.Float(required=False, allow_none=True, default=None)
-    end_epoch = fields.Float(required=False, allow_none=True, default=None)
-
-    level = fields.Str(
-        required=True,
-        validate=validate.OneOf(QUANTIZATION_LEVELS),
-        allow_none=True,
-        default=None,
-    )
-    sparsity_perf_loss_balance = fields.Float(
-        required=False, allow_none=True, default=None
-    )
-    filter_min_perf_gain = fields.Float(required=False, allow_none=True, default=None)
-    filter_max_loss_drop = fields.Float(required=False, allow_none=True, default=None)
-
-    nodes = fields.Nested(
-        ProjectOptimizationModifierQuantizationNodeSchema,
+    lr_mods = fields.Nested(
+        ProjectOptimizationModifierLRSchema,
         required=False,
         allow_none=True,
         default=None,
@@ -296,7 +281,7 @@ class CreateUpdateProjectOptimizationModifiersTrainableSchema(Schema):
     end_epoch = fields.Float(required=False, allow_none=True, default=None)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierQuantizationNodeSchema,
+        ProjectOptimizationModifierTrainableNodeSchema,
         required=False,
         allow_none=True,
         default=None,
@@ -305,7 +290,9 @@ class CreateUpdateProjectOptimizationModifiersTrainableSchema(Schema):
 
 
 class ResponseProjectOptimizationModifiersAvailable(Schema):
-    modifiers = fields.Str(required=True, validate=validate.OneOf(OPTIM_MODIFIER_TYPES), many=True)
+    modifiers = fields.Str(
+        required=True, validate=validate.OneOf(OPTIM_MODIFIER_TYPES), many=True
+    )
 
 
 class ResponseProjectOptimizationModifiersBestEstimated(Schema):
