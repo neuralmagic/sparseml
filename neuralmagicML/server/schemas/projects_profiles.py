@@ -12,6 +12,7 @@ from neuralmagicML.server.schemas.jobs import JobSchema
 __all__ = [
     "ProjectProfileOpSensitivitySchema",
     "ProjectProfileOpBaselineSensitivitySchema",
+    "ProjectProfileAnalysisSchema",
     "ProjectProfileSchema",
     "ProjectLossProfileBaseSchema",
     "ProjectLossProfileSchema",
@@ -103,27 +104,29 @@ class ProjectPerfProfileSchema(ProjectProfileSchema, ProjectPerfProfileBaseSchem
 
 
 class CreateProjectLossProfileSchema(Schema):
-    name = fields.Str(required=False, allow_none=True, default=None)
-    pruning_estimations = fields.Bool(required=False, default=True)
+    name = fields.Str(required=False, allow_none=True, default=None, missing=None)
+    pruning_estimations = fields.Bool(required=False, default=True, missing=True)
     pruning_estimation_type = fields.Str(
         required=False,
         validate=validate.OneOf(PRUNING_LOSS_ESTIMATION_TYPES),
         default="weight_magnitude",
+        missing="weight_magnitude",
     )
     pruning_structure = fields.Str(
         required=False,
         validate=validate.OneOf(PRUNING_STRUCTURE_TYPES),
         default="unstructured",
+        missing="unstructured",
     )
-    quantized_estimations = fields.Bool(required=False, default=True)
+    quantized_estimations = fields.Bool(required=False, default=True, missing=True)
 
 
 class CreateProjectPerfProfileSchema(Schema):
-    name = fields.Str(required=False, allow_none=True, default=None)
-    batch_size = fields.Int(required=False, default=1)
-    core_count = fields.Int(required=False, default=-1)
-    pruning_estimations = fields.Bool(required=False, default=True)
-    quantized_estimations = fields.Bool(required=False, default=False)
+    name = fields.Str(required=False, allow_none=True, default=None, missing=None)
+    batch_size = fields.Int(required=False, default=1, missing=1)
+    core_count = fields.Int(required=False, default=-1, missing=-1)
+    pruning_estimations = fields.Bool(required=False, default=True, missing=True)
+    quantized_estimations = fields.Bool(required=False, default=False, missing=False)
 
 
 class ResponseProjectLossProfileSchema(Schema):
@@ -131,7 +134,7 @@ class ResponseProjectLossProfileSchema(Schema):
 
 
 class ResponseProjectLossProfilesSchema(Schema):
-    profile = fields.Nested(ProjectLossProfileSchema, required=True, many=True)
+    profiles = fields.Nested(ProjectLossProfileSchema, required=True, many=True)
 
 
 class ResponseProjectPerfProfileSchema(Schema):

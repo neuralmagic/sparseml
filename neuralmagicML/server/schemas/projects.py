@@ -70,15 +70,22 @@ class ResponseProjectDeletedSchema(Schema):
 class SearchProjectsSchema(Schema):
     order_by = fields.Str(
         default="modified",
+        missing="modified",
         validate=validate.OneOf(["name", "created", "modified"]),
         required=False,
     )
-    order_desc = fields.Bool(default=True, required=False)
+    order_desc = fields.Bool(default=True, missing=True, required=False)
     page = fields.Int(
-        default=1, validate=validate.Range(min=1, min_inclusive=True), required=False
+        default=1,
+        missing=1,
+        validate=validate.Range(min=1, min_inclusive=True),
+        required=False,
     )
     page_length = fields.Int(
-        default=20, validate=validate.Range(min=1, min_inclusive=True), required=False
+        default=20,
+        missing=20,
+        validate=validate.Range(min=1, min_inclusive=True),
+        required=False,
     )
 
 

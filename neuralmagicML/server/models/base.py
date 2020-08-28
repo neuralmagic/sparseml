@@ -31,6 +31,7 @@ class FileStorage(object):
     Used for storing large files that would not be good in the DB
     such as model and data files.
     """
+
     def __init__(self):
         self._root_path = None
 
@@ -114,6 +115,8 @@ class CSVField(TextField):
         return value
 
     def python_value(self, value):
+        if value is None:
+            return None
         return value.split(",") if value else []
 
 
