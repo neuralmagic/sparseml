@@ -112,7 +112,9 @@ def get_jobs():
     ).paginate(args["page"], args["page_length"])
 
     jobs = [res for res in query]
-    resp_jobs = ResponseJobsSchema().dump({"jobs": jobs})
+    resp_schema = ResponseJobsSchema()
+    resp_jobs = resp_schema.dump({"jobs": jobs})
+    resp_schema.validate(resp_jobs)
     _LOGGER.info("retrieved {} jobs".format(len(resp_jobs)))
 
     return jsonify(resp_jobs), HTTPStatus.OK.value
@@ -167,7 +169,9 @@ def get_job(job_id: str):
     if job is None:
         raise HTTPNotFoundError("could not find job with job_id {}".format(job_id))
 
-    resp_job = ResponseJobSchema().dump({"job": job})
+    resp_schema = ResponseJobSchema()
+    resp_job = resp_schema.dump({"job": job})
+    resp_schema.validate(resp_job)
     _LOGGER.info("retrieved job {}".format(resp_job))
 
     return jsonify(resp_job), HTTPStatus.OK.value

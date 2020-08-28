@@ -2,7 +2,10 @@
 Schemas for anything related to job routes, database models, and
 """
 
-from marshmallow import Schema, fields, validate, pre_load, pre_dump
+from marshmallow import Schema, fields, validate, post_dump
+
+from neuralmagicML.server.schemas.helpers import EnumField
+from neuralmagicML.server.models import JobStatus
 
 
 __all__ = [
@@ -48,7 +51,8 @@ class JobSchema(Schema):
     modified = fields.DateTime(required=True)
     type_ = fields.Str(required=True)
     worker_args = fields.Dict(required=True, allow_none=True)
-    status = fields.Str(
+    status = EnumField(
+        JobStatus,
         validate=validate.OneOf(
             ["pending", "started", "canceling", "completed", "canceled", "error"]
         ),

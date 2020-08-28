@@ -11,7 +11,6 @@ from peewee import (
     CharField,
     Field,
     TextField,
-    UUIDField,
     DateTimeField,
     ForeignKeyField,
 )
@@ -59,7 +58,7 @@ class Job(BaseModel):
     DB model for a project's job.
     """
 
-    job_id = UUIDField(primary_key=True, default=uuid.uuid4)
+    job_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
     project = ForeignKeyField(Project, backref="jobs")
     created = DateTimeField(default=datetime.datetime.now)
     modified = DateTimeField(default=datetime.datetime.now)
