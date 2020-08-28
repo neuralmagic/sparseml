@@ -304,8 +304,8 @@ class ResponseProjectOptimizationFrameworksAvailableSamplesSchema(Schema):
 
 
 class ResponseProjectOptimizationModifiersAvailable(Schema):
-    modifiers = fields.Str(
-        required=True, validate=validate.OneOf(OPTIM_MODIFIER_TYPES), many=True
+    modifiers = fields.List(
+        fields.Str(validate=validate.OneOf(OPTIM_MODIFIER_TYPES)), required=True
     )
 
 

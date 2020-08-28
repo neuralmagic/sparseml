@@ -4,12 +4,16 @@ import glob
 import re
 from http import HTTPStatus
 
-from flask import Blueprint, current_app, request, jsonify, send_file
+from flask import Blueprint, current_app, request, jsonify, send_file, Response
+from typing import Callable
+
 from flasgger import swag_from
+from marshmallow import ValidationError
 from peewee import JOIN
 
 from neuralmagicML.utils import clean_path
 from neuralmagicML.onnx.recal import ModelAnalyzer
+from neuralmagicML.onnx.utils import check_load_model, get_node_by_id, get_node_params
 from neuralmagicML.server.blueprints.projects import PROJECTS_ROOT_PATH
 from neuralmagicML.server.blueprints.helpers import (
     HTTPNotFoundError,
@@ -20,7 +24,6 @@ from neuralmagicML.server.blueprints.helpers import (
 from neuralmagicML.server.schemas import (
     ML_FRAMEWORKS,
     ErrorSchema,
-    ProjectOptimizationSchema,
     CreateProjectOptimizationSchema,
     CreateUpdateProjectOptimizationModifiersPruningSchema,
     CreateUpdateProjectOptimizationModifiersQuantizationSchema,
@@ -46,6 +49,21 @@ from neuralmagicML.server.models import (
     ProjectOptimizationModifierQuantization,
 )
 
+from neuralmagicML.pytorch.recal import (
+    ScheduledModifierManager as PTScheduledModifierManager,
+    EpochRangeModifier as PTEpochRangeModifier,
+    GradualKSModifier as PTGradualKSModifier,
+    SetLearningRateModifier as PTSetLearningRateModifier,
+    LearningRateModifier as PTLearningRateModifier,
+)
+from neuralmagicML.tensorflow.recal import (
+    ScheduledModifierManager as TFScheduledModifierManager,
+    EpochRangeModifier as TFEpochRangeModifier,
+    GradualKSModifier as TFGradualKSModifier,
+    SetLearningRateModifier as TFSetLearningRateModifier,
+    LearningRateModifier as TFLearningRateModifier,
+)
+
 
 __all__ = ["PROJECT_OPTIM_PATH", "projects_optim_blueprint"]
 
@@ -59,6 +77,96 @@ projects_optim_blueprint = Blueprint(
 )
 
 
+def _get_config(
+    project_id: str,
+    optim_id: str,
+    manager_const: Callable,
+    epoch_const: Callable,
+    set_lr_const: Callable,
+    lr_const: Callable,
+    ks_const: Callable,
+) -> str:
+    """
+    Creates a optimization config yaml for a given project and optimization
+
+    :param project_id: project id
+    :param optim_id: project optimizer id
+    :param manager_const: constructor for a ScheduledModifierManager
+    :param epoch_const: constructor for an EpochRangeModifer
+    :param set_lr_const: constructor for a SetLearningRateModifier
+    :param lr_const: constructor for a LearnignRateModifier
+    :param ks_const: constructor for a GradualKSModifer
+    """
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    project_model = get_project_model_by_project_id(project_id)
+    onnx_model = check_load_model(project_model.file_path)
+
+    mods = [
+        epoch_const(
+            start_epoch=optim.start_epoch if optim.start_epoch else -1,
+            end_epoch=optim.end_epoch if optim.end_epoch else -1,
+        )
+    ]
+
+    for lr_schedule_modifier in optim.lr_schedule_modifiers:
+        for mod in lr_schedule_modifier.lr_mods:
+            mod = ProjectOptimizationModifierLRSchema().dump(mod)
+            if "clazz" in mod:
+                mods.append(
+                    lr_const(
+                        lr_class=mod["clazz"],
+                        lr_kwargs=mod["args"],
+                        init_lr=mod["init_lr"],
+                        start_epoch=mod["start_epoch"] if mod["start_epoch"] else -1,
+                        end_epoch=mod["end_epoch"] if mod["end_epoch"] else -1,
+                    )
+                )
+            else:
+                mods.append(
+                    set_lr_const(
+                        learning_rate=mod["init_lr"],
+                        start_epoch=mod["start_epoch"] if mod["start_epoch"] else -1,
+                    )
+                )
+
+    node_to_weight_name = {}
+
+    for mod in optim.pruning_modifiers:
+        sparsity_to_nodes = {}
+        for node in mod.nodes:
+            sparsity = node["sparsity"]
+            node_id = node["node_id"]
+            if node_id in node_to_weight_name:
+                weight_name = node_to_weight_name[node_id]
+            else:
+                node = get_node_by_id(onnx_model, node_id)
+
+                weight_info, _ = get_node_params(onnx_model, node)
+                weight_name = weight_info.name
+                node_to_weight_name[node_id] = weight_name
+
+            if sparsity not in sparsity_to_nodes:
+                sparsity_to_nodes[sparsity] = [weight_name]
+            else:
+                sparsity_to_nodes[sparsity].append(weight_name)
+        for sparsity, nodes in sparsity_to_nodes.items():
+            grad_ks = ks_const(
+                init_sparsity=0.05,
+                final_sparsity=sparsity,
+                start_epoch=mod.start_epoch,
+                end_epoch=mod.end_epoch,
+                update_frequency=mod.update_frequency,
+                params=nodes,
+            )
+
+            if mod.mask_type:
+                grad_ks.mask_type(mod.mask_type)
+
+            mods.append(grad_ks)
+
+    return str(manager_const(mods))
+
+
 def _get_epochs_from_lr_mods(lr_mods: ProjectOptimizationModifierLRSchema):
     start_epoch = None
     end_epoch = None
@@ -69,6 +177,17 @@ def _get_epochs_from_lr_mods(lr_mods: ProjectOptimizationModifierLRSchema):
             end_epoch = lr_mod["end_epoch"]
 
     return start_epoch, end_epoch
+
+
+def _validate_nodes(project_id: str, data: CreateProjectOptimizationSchema):
+    model = get_project_model_by_project_id(project_id)
+    node_ids = set(
+        [node.id_ for node in ModelAnalyzer(model.file_path).nodes if node.prunable]
+    )
+    for node in data["nodes"]:
+        if node["node_id"] not in node_ids:
+            _LOGGER.error("Node {} is not prunable".format(node["node_id"]))
+            raise ValidationError("Node {} is not prunable".format(node["node_id"]))
 
 
 @projects_optim_blueprint.route("/")
@@ -222,7 +341,9 @@ def create_optim(project_id: str):
     end_epoch = stabilization_epochs + pruning_epochs + fine_tuning_epochs
 
     model = get_project_model_by_project_id(project_id)
-    node_ids = [node.id_ for node in ModelAnalyzer(model.file_path).nodes]
+    node_ids = [
+        node.id_ for node in ModelAnalyzer(model.file_path).nodes if node.prunable
+    ]
     with database.atomic() as transaction:
         try:
             optim = ProjectOptimization.create(
@@ -541,7 +662,11 @@ def get_framework_sample(project_id: str, framework: str, sample: str):
     },
 )
 def get_available_modifiers(project_id: str):
-    pass
+    response = ResponseProjectOptimizationModifiersAvailable().dump(
+        {"modifiers": ["pruning", "lr_schedule"]}
+    )
+    ResponseProjectOptimizationModifiersAvailable().validate(response)
+    return jsonify(response), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/modifiers/best-estimated")
@@ -578,7 +703,11 @@ def get_available_modifiers(project_id: str):
     },
 )
 def get_modifiers_estimated_speedup(project_id: str):
-    pass
+    response = ResponseProjectOptimizationModifiersBestEstimated().dump(
+        {"est_recovery": 0, "est_perf_gain": 0, "est_time": 0, "est_time_baseline": 0}
+    )
+    ResponseProjectOptimizationModifiersBestEstimated().validate(response)
+    return jsonify(response), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/<optim_id>")
@@ -774,11 +903,11 @@ def delete_optim(project_id: str, optim_id: str):
     return jsonify(response), HTTPStatus.OK.value
 
 
-@projects_optim_blueprint.route("/<optim_id>/config")
+@projects_optim_blueprint.route("/<optim_id>/frameworks/<framework>/config")
 @swag_from(
     {
         "tags": ["Projects Optimizations"],
-        "summary": "Get an optimization config for the projects model.",
+        "summary": "Get an optimization config for the projects model for given framework.",
         "produces": ["text/yaml", "application/json"],
         "parameters": [
             {
@@ -816,8 +945,33 @@ def delete_optim(project_id: str, optim_id: str):
         },
     },
 )
-def get_optim_config(project_id: str, optim_id: str):
-    pass
+def get_optim_config(project_id: str, optim_id: str, framework: str):
+    get_project_by_id(project_id)
+    if framework == "pytorch":
+        config_string = _get_config(
+            project_id,
+            optim_id,
+            PTScheduledModifierManager,
+            PTEpochRangeModifier,
+            PTSetLearningRateModifier,
+            PTLearningRateModifier,
+            PTGradualKSModifier,
+        )
+    elif framework == "tensorflow":
+        config_string = _get_config(
+            project_id,
+            optim_id,
+            TFScheduledModifierManager,
+            TFEpochRangeModifier,
+            TFSetLearningRateModifier,
+            TFLearningRateModifier,
+            TFGradualKSModifier,
+        )
+    else:
+        _LOGGER.error("Unsupported framework {} provided".format(framework))
+        raise ValidationError("Unsupported framework {} provided".format(framework))
+
+    return Response(config_string, mimetype="text/yaml"), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route(
@@ -970,6 +1124,8 @@ def create_optim_modifier_pruning(project_id: str, optim_id: str):
         request.get_json(force=True)
     )
 
+    _validate_nodes(project_id, data)
+
     with database.atomic() as transaction:
         try:
             ProjectOptimizationModifierPruning.create(
@@ -1064,6 +1220,9 @@ def update_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: s
     data = CreateUpdateProjectOptimizationModifiersPruningSchema().dump(
         request.get_json(force=True)
     )
+
+    if "nodes" in data:
+        _validate_nodes(project_id, data)
 
     for key, val in data.items():
         setattr(pruning_mod, key, val)
