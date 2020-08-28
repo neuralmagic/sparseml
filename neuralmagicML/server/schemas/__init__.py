@@ -2,6 +2,7 @@ from .helpers import *
 
 from .errors import *
 from .jobs import *
+from .model_repo import *
 from .projects import *
 from .projects_benchmarks import *
 from .projects_data import *

@@ -16,6 +16,7 @@ __all__ = [
     "LR_CLASSES",
     "FILE_SOURCES",
     "MODEL_DATA_SOURCES",
+    "METRIC_DISPLAY_TYPES",
     "EnumField",
 ]
 
@@ -33,6 +34,8 @@ LR_CLASSES = ["set", "step", "multi_step", "exponential"]
 
 FILE_SOURCES = ["uploaded", "generated"]
 MODEL_DATA_SOURCES = ["uploaded", "downloaded_path", "downloaded_repo"]
+
+METRIC_DISPLAY_TYPES = ["number", "percent", "scientific"]
 
 
 class EnumField(fields.String):

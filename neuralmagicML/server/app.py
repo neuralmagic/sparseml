@@ -14,6 +14,7 @@ from neuralmagicML.server.log import set_server_logging_level
 from neuralmagicML.server.blueprints import (
     errors_blueprint,
     jobs_blueprint,
+    model_repo_blueprint,
     projects_blueprint,
     projects_benchmark_blueprint,
     projects_data_blueprint,
@@ -116,6 +117,7 @@ def _database_setup(app: Flask, working_dir: str):
 def _blueprints_setup(app: Flask):
     app.register_blueprint(errors_blueprint)
     app.register_blueprint(jobs_blueprint)
+    app.register_blueprint(model_repo_blueprint)
     app.register_blueprint(projects_blueprint)
     app.register_blueprint(projects_benchmark_blueprint)
     app.register_blueprint(projects_data_blueprint)
