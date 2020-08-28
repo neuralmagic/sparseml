@@ -1,6 +1,7 @@
 """
-Flask blueprint setup for serving UI files for the server application
+Helper functions and classes for flask blueprints
 """
+
 from peewee import JOIN
 import logging
 
@@ -31,6 +32,10 @@ API_ROOT_PATH = "/api"
 
 
 class HTTPNotFoundError(Exception):
+    """
+    Expected error raised when a 404 should be encountered by the user
+    """
+
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
 
@@ -92,15 +97,20 @@ def get_project_optimizer_by_ids(project_id: str, optim_id: str) -> ProjectOptim
     return optim
 
 
-def get_project_model_by_project_id(project_id: str) -> ProjectModel:
+def get_project_model_by_project_id(
+    project_id: str, raise_not_found: bool = True
+) -> ProjectModel:
     """
     Get a project model by its project_id
 
     :param project_id: project id of the project model
+    :param raise_not_found: if no model is found raise an HTTPNotFoundError,
+        otherwise return the result no matter what
     :return: Project model with the project id
     """
     query = ProjectModel.get_or_none(ProjectModel.project_id == project_id)
-    if query is None:
+
+    if query is None and raise_not_found:
         raise HTTPNotFoundError(
             "could not find model for project_id {}".format(project_id)
         )

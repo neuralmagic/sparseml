@@ -37,7 +37,12 @@ class PreviouslyDownloadedError(Exception):
 
 DownloadProgress = NamedTuple(
     "DownloadProgress",
-    [("chunk_size", int), ("downloaded", int), ("content_length", Union[None, int])],
+    [
+        ("chunk_size", int),
+        ("downloaded", int),
+        ("content_length", Union[None, int]),
+        ("path", str),
+    ],
 )
 
 
@@ -67,7 +72,7 @@ def _download_iter(url_path: str, dest_path: str) -> Iterator[DownloadProgress]:
 
     try:
         downloaded = 0
-        yield DownloadProgress(0, downloaded, content_length)
+        yield DownloadProgress(0, downloaded, content_length, dest_path)
 
         with open(dest_path, "wb") as file:
             for chunk in request.iter_content(chunk_size=1024):
@@ -79,7 +84,9 @@ def _download_iter(url_path: str, dest_path: str) -> Iterator[DownloadProgress]:
 
                 downloaded += len(chunk)
 
-                yield DownloadProgress(len(chunk), downloaded, content_length)
+                yield DownloadProgress(
+                    len(chunk), downloaded, content_length, dest_path
+                )
     except Exception as err:
         _LOGGER.error(
             "error downloading file from {} to {}: {}".format(url_path, dest_path, err)

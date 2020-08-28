@@ -87,3 +87,10 @@ class ProjectData(BaseProjectModel):
             raise FileNotFoundError(
                 "project data file at {} does not exist anymore".format(self.file_path)
             )
+
+    def delete_filesystem(self):
+        """
+        Delete the data file from the local file system
+        """
+        if self.file:
+            os.remove(self.file_path)

@@ -43,6 +43,13 @@ class BaseProjectModel(BaseModel):
         """
         raise NotImplementedError()
 
+    @abstractmethod
+    def delete_filesystem(self):
+        """
+        Delete the state from the local file system
+        """
+        raise NotImplementedError()
+
 
 class Project(BaseProjectModel):
     """

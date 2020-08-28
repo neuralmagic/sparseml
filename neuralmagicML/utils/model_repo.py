@@ -2,7 +2,8 @@
 Code for downloading models from the Neural Magic Repository
 """
 
-from typing import List, Union
+from typing import List, Union, Tuple, Iterator
+import logging
 import os
 import json
 import requests
@@ -16,17 +17,25 @@ from neuralmagicML.utils.frameworks import (
     PYTORCH_FRAMEWORK,
     TENSORFLOW_FRAMEWORK,
 )
-from neuralmagicML.utils import clean_path, download_file
+from neuralmagicML.utils import (
+    clean_path,
+    create_dirs,
+    download_file,
+    download_file_iter,
+    DownloadProgress,
+)
 
 __all__ = [
     "models_sign_url",
     "models_download_file",
+    "models_download_file_iter",
     "RepoModel",
     "filter_model",
     "available_models",
 ]
 
 
+_LOGGER = logging.getLogger(__name__)
 _REPO_BASE_URI = "https://models.neuralmagic.com"
 _SIGNATURE_URI = "https://api.neuralmagic.com/models/sign-url"
 _NM_SIGNING_TOKEN = (
@@ -60,7 +69,46 @@ def models_sign_url(path: str) -> str:
     return model_res_data["signed_url"]
 
 
-def models_download_file(path: str, overwrite: bool, save_dir: str = None) -> str:
+def _models_download_helper(
+    path: str, overwrite: bool, save_dir: str = None, save_path: str = None
+) -> Tuple[str, str]:
+    file_dir = "/".join(path.split("/")[:-1])
+    file_name = path.split("/")[-1]
+    url = models_sign_url(path)
+
+    if save_path:
+        save_file = clean_path(save_path)
+        save_dir = os.path.dirname(save_path)
+    else:
+        if not save_dir:
+            save_name = hashlib.md5(file_dir.encode("utf-8")).hexdigest()
+            save_path = os.getenv("NM_ML_MODELS_PATH", "")
+
+            if not save_path:
+                save_path = os.path.join("~", ".cache", "nm_models")
+
+            save_dir = os.path.join(save_path, save_name)
+
+        save_dir = clean_path(save_dir)
+        save_file = os.path.join(save_dir, file_name)
+
+    create_dirs(save_dir)
+
+    if overwrite and os.path.exists(save_file):
+        try:
+            os.remove(save_file)
+        except OSError as err:
+            logging.warning(
+                "error encountered when removing older "
+                "cache_file at {}: {}".format(save_file, err)
+            )
+
+    return url, save_file
+
+
+def models_download_file(
+    path: str, overwrite: bool, save_dir: str = None, save_path: str = None
+) -> Iterator[DownloadProgress]:
     """
     Download the given file from models.neuralmagic.com repo
 
@@ -68,32 +116,11 @@ def models_download_file(path: str, overwrite: bool, save_dir: str = None) -> st
     :param overwrite: True to overwrite the file if it exists, False otherwise
     :param save_dir: The directory to save the model files to
         instead of the default cache dir
+    :param save_path: The exact path to save the model file to instead of
+        the default cache dir or save_dir
     :return: the local path to the downloaded file
     """
-    file_dir = "/".join(path.split("/")[:-1])
-    file_name = path.split("/")[-1]
-    url = models_sign_url(path)
-
-    if not save_dir:
-        save_name = hashlib.md5(file_dir.encode("utf-8")).hexdigest()
-        save_path = os.getenv("NM_ML_MODELS_PATH", "")
-
-        if not save_path:
-            save_path = os.path.join("~", ".cache", "nm_models")
-
-        save_dir = os.path.join(save_path, save_name)
-
-    save_dir = clean_path(save_dir)
-    save_file = os.path.join(save_dir, file_name)
-
-    if overwrite and os.path.exists(save_file):
-        try:
-            os.remove(save_file)
-        except OSError as err:
-            print(
-                "warning, error encountered when removing older "
-                "cache_file at {}: {}".format(save_file, err)
-            )
+    url, save_file = _models_download_helper(path, overwrite, save_dir, save_path)
 
     if not os.path.exists(save_file) or overwrite:
         download_file(
@@ -101,6 +128,31 @@ def models_download_file(path: str, overwrite: bool, save_dir: str = None) -> st
         )
 
     return save_file
+
+
+def models_download_file_iter(
+    path: str, overwrite: bool, save_dir: str = None, save_path: str = None
+) -> Iterator[DownloadProgress]:
+    """
+    Download the given file from models.neuralmagic.com repo returning an iterator
+
+    :param path: the path for the file to download
+    :param overwrite: True to overwrite the file if it exists, False otherwise
+    :param save_dir: The directory to save the model files to
+        instead of the default cache dir
+    :param save_path: The exact path to save the model file to instead of
+        the default cache dir or save_dir
+    :return: the local path to the downloaded file
+    """
+    url, save_file = _models_download_helper(path, overwrite, save_dir, save_path)
+
+    if not os.path.exists(save_file) or overwrite:
+        for progress in download_file_iter(url, save_file, overwrite):
+            yield progress
+    else:
+        yield DownloadProgress(
+            0, os.path.getsize(save_file), os.path.getsize(save_file), save_file
+        )
 
 
 class RepoModel(object):
@@ -287,11 +339,7 @@ class RepoModel(object):
             try:
                 paths.append(models_download_file(data_path, overwrite, save_dir))
                 with tarfile.open(paths[-1]) as tar:
-                    save_dir = (
-                        os.path.dirname(paths[-1])
-                        if not save_dir
-                        else save_dir
-                    )
+                    save_dir = os.path.dirname(paths[-1]) if not save_dir else save_dir
                     tar.extractall(save_dir)
             except HTTPError:
                 print("Could not download {data_path}".format(data_path=data_path))

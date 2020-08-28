@@ -43,7 +43,6 @@ class ProjectModel(BaseProjectModel):
     source = TextField(null=True, default=None)
     job = ForeignKeyField(Job, null=True, default=None)
     file = TextField(null=True, default=None)
-    analysis_job = ForeignKeyField(Job, null=True, default=None)
     analysis = JSONField(null=True, default=None)
 
     @property
@@ -90,3 +89,10 @@ class ProjectModel(BaseProjectModel):
             raise FileNotFoundError(
                 "project model file at {} does not exist anymore".format(self.file_path)
             )
+
+    def delete_filesystem(self):
+        """
+        Delete the model file from the local file system
+        """
+        if self.file:
+            os.remove(self.file_path)
