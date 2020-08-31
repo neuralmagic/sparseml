@@ -9,6 +9,7 @@ from marshmallow import fields
 __all__ = [
     "INSTRUCTION_SETS",
     "INFERENCE_ENGINE_TYPES",
+    "ML_FRAMEWORKS",
     "OPTIM_MODIFIER_TYPES",
     "PRUNING_LOSS_ESTIMATION_TYPES",
     "PRUNING_STRUCTURE_TYPES",
@@ -23,6 +24,7 @@ __all__ = [
 INSTRUCTION_SETS = ["AVX2", "AVX512", "VNNI"]
 INFERENCE_ENGINE_TYPES = ["neural_magic", "ort_cpu", "ort_gpu"]
 
+ML_FRAMEWORKS = ["pytorch", "tensorflow"]
 OPTIM_MODIFIER_TYPES = ["pruning", "quantization", "lr_schedule", "trainable"]
 
 PRUNING_LOSS_ESTIMATION_TYPES = ["weight_magnitude", "one_shot"]

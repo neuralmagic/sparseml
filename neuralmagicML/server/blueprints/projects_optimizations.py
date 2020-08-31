@@ -1,12 +1,15 @@
 import logging
+import os
+import glob
+import re
 from http import HTTPStatus
 
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, current_app, request, jsonify, send_file
 from flasgger import swag_from
 from peewee import JOIN
 
+from neuralmagicML.utils import clean_path
 from neuralmagicML.onnx.recal import ModelAnalyzer
-
 from neuralmagicML.server.blueprints.projects import PROJECTS_ROOT_PATH
 from neuralmagicML.server.blueprints.helpers import (
     HTTPNotFoundError,
@@ -15,6 +18,7 @@ from neuralmagicML.server.blueprints.helpers import (
     get_project_optimizer_by_ids,
 )
 from neuralmagicML.server.schemas import (
+    ML_FRAMEWORKS,
     ErrorSchema,
     ProjectOptimizationSchema,
     CreateProjectOptimizationSchema,
@@ -24,6 +28,8 @@ from neuralmagicML.server.schemas import (
     ProjectOptimizationModifierLRSchema,
     CreateUpdateProjectOptimizationModifiersTrainableSchema,
     UpdateProjectOptimizationSchema,
+    ResponseProjectOptimizationFrameworksAvailableSchema,
+    ResponseProjectOptimizationFrameworksAvailableSamplesSchema,
     ResponseProjectOptimizationModifiersAvailable,
     ResponseProjectOptimizationModifiersBestEstimated,
     ResponseProjectOptimizationSchema,
@@ -265,6 +271,242 @@ def create_optim(project_id: str):
     response = ResponseProjectOptimizationSchema().dump({"optims": optim})
 
     return jsonify(response), HTTPStatus.OK.value
+
+
+@projects_optim_blueprint.route("/frameworks")
+@swag_from(
+    {
+        "tags": ["Projects Optimizations"],
+        "summary": "Get available ML frameworks optimization of the projects model.",
+        "produces": ["application/json"],
+        "parameters": [
+            {
+                "in": "path",
+                "name": "project_id",
+                "description": "ID of the project to get the available modifiers for",
+                "required": True,
+                "type": "string",
+            },
+        ],
+        "responses": {
+            HTTPStatus.OK.value: {
+                "description": "The available ML frameworks optimization of the model",
+                "schema": ResponseProjectOptimizationModifiersAvailable,
+            },
+            HTTPStatus.BAD_REQUEST.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+            HTTPStatus.INTERNAL_SERVER_ERROR.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+        },
+    },
+)
+def get_available_frameworks(project_id: str):
+    """
+    Route for getting the available ML frameworks for optimization of the projects model
+
+    :param project_id: the project_id to get the available frameworks for
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        "getting the available frameworks for project_id {}".format(project_id)
+    )
+
+    # make sure project exists
+    # currently project_id doesn't do anything,
+    # but gives us flexibility to edit the frameworks for a projects model in the future
+    project = get_project_by_id(project_id)
+
+    resp_schema = ResponseProjectOptimizationFrameworksAvailableSchema()
+    resp_frameworks = resp_schema.dump({"frameworks": ML_FRAMEWORKS})
+    resp_schema.validate(resp_frameworks)
+
+    _LOGGER.info(
+        "retrieved available frameworks for project_id {}: {}".format(
+            project_id, resp_frameworks
+        )
+    )
+
+    return jsonify(resp_frameworks), HTTPStatus.OK.value
+
+
+@projects_optim_blueprint.route("/frameworks/<framework>/samples")
+@swag_from(
+    {
+        "tags": ["Projects Optimizations"],
+        "summary": "Get available ML frameworks optimization of the projects model.",
+        "produces": ["application/json"],
+        "parameters": [
+            {
+                "in": "path",
+                "name": "project_id",
+                "description": "ID of the project to get the available modifiers for",
+                "required": True,
+                "type": "string",
+            },
+        ],
+        "responses": {
+            HTTPStatus.OK.value: {
+                "description": "The available ML frameworks optimization of the model",
+                "schema": ResponseProjectOptimizationFrameworksAvailableSamplesSchema,
+            },
+            HTTPStatus.BAD_REQUEST.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+            HTTPStatus.INTERNAL_SERVER_ERROR.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+        },
+    },
+)
+def get_available_frameworks_samples(project_id: str, framework: str):
+    """
+    Route for getting the available sample code for an ML framework
+    for optimization of the projects model
+
+    :param project_id: the project_id to get the available frameworks for
+    :param framework: the ML framework to get available sample code types for
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        (
+            "getting the available sample code types "
+            "for project_id {} and framework {}"
+        ).format(project_id, framework)
+    )
+
+    # make sure project exists
+    # currently project_id doesn't do anything,
+    # but gives us flexibility to edit the frameworks for a projects model in the future
+    project = get_project_by_id(project_id)
+
+    code_samples_dir = os.path.join(
+        os.path.dirname(clean_path(__file__)), "code_samples"
+    )
+
+    if framework not in ML_FRAMEWORKS:
+        raise HTTPNotFoundError(
+            "could not find the given framework of {}".format(framework)
+        )
+
+    reg = re.compile("(.+)__(.+)\.py")
+    samples = []
+
+    for file in glob.glob(os.path.join(code_samples_dir, "{}*.py".format(framework))):
+        split = reg.split(os.path.basename(file))
+        found_framework = split[1]
+        assert found_framework == framework
+        samples.append(split[2])
+
+    resp_schema = ResponseProjectOptimizationFrameworksAvailableSamplesSchema()
+    resp_samples = resp_schema.dump({"framework": framework, "samples": samples})
+    resp_schema.validate(resp_samples)
+
+    _LOGGER.info(
+        "retrieved available samples for project_id {} and framework {}: {}".format(
+            project_id, framework, resp_samples
+        )
+    )
+
+    return jsonify(resp_samples), HTTPStatus.OK.value
+
+
+@projects_optim_blueprint.route("/frameworks/<framework>/samples/<sample>")
+@swag_from(
+    {
+        "tags": ["Projects Optimizations"],
+        "summary": "Get code for optimizing with an optimization "
+        "for the projects model.",
+        "produces": ["text/plain", "application/json"],
+        "parameters": [
+            {
+                "in": "path",
+                "name": "project_id",
+                "description": "ID of the project to create a optim for",
+                "required": True,
+                "type": "string",
+            },
+            {
+                "in": "path",
+                "name": "framework",
+                "description": "The ML framework to get example code for",
+                "required": True,
+                "type": "string",
+            },
+            {
+                "in": "path",
+                "name": "sample",
+                "description": "The type of sample code to get",
+                "required": True,
+                "type": "string",
+            },
+        ],
+        "responses": {
+            HTTPStatus.OK.value: {
+                "description": "The requested optimization code",
+                "content": {"text/plain": {}},
+            },
+            HTTPStatus.BAD_REQUEST.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+            HTTPStatus.NOT_FOUND.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+            HTTPStatus.INTERNAL_SERVER_ERROR.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+        },
+    },
+)
+def get_framework_sample(project_id: str, framework: str, sample: str):
+    """
+    Route for getting sample code for an ML framework
+    for optimization of the projects model
+
+    :param project_id: the project_id to get the available frameworks for
+    :param framework: the ML framework to get available sample code types for
+    :param sample: the type of sample code to get
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        (
+            "getting the sample code for project_id {}, framework {}, and sample {}"
+        ).format(project_id, framework, sample)
+    )
+
+    # make sure project exists
+    # currently project_id doesn't do anything,
+    # but gives us flexibility to edit the frameworks for a projects model in the future
+    project = get_project_by_id(project_id)
+
+    code_samples_dir = os.path.join(
+        os.path.dirname(clean_path(__file__)), "code_samples"
+    )
+
+    if framework not in ML_FRAMEWORKS:
+        raise HTTPNotFoundError(
+            "could not find the given framework of {}".format(framework)
+        )
+
+    sample_file = os.path.join(code_samples_dir, "{}__{}.py".format(framework, sample))
+
+    if not os.path.exists(sample_file):
+        raise HTTPNotFoundError(
+            (
+                "could not find sample code for project_id {}, "
+                "framework {} and sample {}"
+            ).format(project_id, framework, sample)
+        )
+
+    return send_file(sample_file, mimetype="text/plain")
 
 
 @projects_optim_blueprint.route("/modifiers")
@@ -575,68 +817,6 @@ def delete_optim(project_id: str, optim_id: str):
     },
 )
 def get_optim_config(project_id: str, optim_id: str):
-    pass
-
-
-@projects_optim_blueprint.route("/<optim_id>/code/<framework>/<code_type>")
-@swag_from(
-    {
-        "tags": ["Projects Optimizations"],
-        "summary": "Get code for optimizing with an optimization "
-        "for the projects model.",
-        "produces": ["text/yaml", "application/json"],
-        "parameters": [
-            {
-                "in": "path",
-                "name": "project_id",
-                "description": "ID of the project to create a optim for",
-                "required": True,
-                "type": "string",
-            },
-            {
-                "in": "path",
-                "name": "optim_id",
-                "description": "ID of the optim within the project to get",
-                "required": True,
-                "type": "string",
-            },
-            {
-                "in": "path",
-                "name": "framework",
-                "description": "The ML framework to get example code for",
-                "required": True,
-                "type": "string",
-            },
-            {
-                "in": "path",
-                "name": "code_type",
-                "description": "The type of code to get",
-                "required": True,
-                "type": "string",
-                "enum": ["integration", "training"],
-            },
-        ],
-        "responses": {
-            HTTPStatus.OK.value: {
-                "description": "The requested optimization code",
-                "content": {"application/yaml": {}},
-            },
-            HTTPStatus.BAD_REQUEST.value: {
-                "description": "Information for the error that occurred",
-                "schema": ErrorSchema,
-            },
-            HTTPStatus.NOT_FOUND.value: {
-                "description": "Information for the error that occurred",
-                "schema": ErrorSchema,
-            },
-            HTTPStatus.INTERNAL_SERVER_ERROR.value: {
-                "description": "Information for the error that occurred",
-                "schema": ErrorSchema,
-            },
-        },
-    },
-)
-def get_optim_code(project_id: str, optim_id: str, framework: str, code_type: str):
     pass
 
 

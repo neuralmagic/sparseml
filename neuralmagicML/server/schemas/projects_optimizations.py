@@ -1,6 +1,7 @@
 from marshmallow import Schema, fields, validate
 
 from neuralmagicML.server.schemas.helpers import (
+    ML_FRAMEWORKS,
     OPTIM_MODIFIER_TYPES,
     PRUNING_STRUCTURE_TYPES,
     LR_CLASSES,
@@ -28,6 +29,8 @@ __all__ = [
     "CreateUpdateProjectOptimizationModifiersQuantizationSchema",
     "CreateUpdateProjectOptimizationModifiersLRScheduleSchema",
     "CreateUpdateProjectOptimizationModifiersTrainableSchema",
+    "ResponseProjectOptimizationFrameworksAvailableSchema",
+    "ResponseProjectOptimizationFrameworksAvailableSamplesSchema",
     "ResponseProjectOptimizationModifiersAvailable",
     "ResponseProjectOptimizationModifiersBestEstimated",
     "ResponseProjectOptimizationSchema",
@@ -287,6 +290,17 @@ class CreateUpdateProjectOptimizationModifiersTrainableSchema(Schema):
         default=None,
         many=True,
     )
+
+
+class ResponseProjectOptimizationFrameworksAvailableSchema(Schema):
+    frameworks = fields.List(
+        fields.Str(validate=validate.OneOf(ML_FRAMEWORKS)), required=True
+    )
+
+
+class ResponseProjectOptimizationFrameworksAvailableSamplesSchema(Schema):
+    framework = fields.Str(validate=validate.OneOf(ML_FRAMEWORKS), required=True)
+    samples = fields.List(fields.Str(), required=True)
 
 
 class ResponseProjectOptimizationModifiersAvailable(Schema):
