@@ -51,8 +51,8 @@ class GroupLearningRateModifier(ScheduledModifier):
         assert len(lr_modifiers) > 0
         lr_modifiers = deepcopy(lr_modifiers)
         lr_modifiers = sorted(lr_modifiers, key=lambda m: m.start_epoch, reverse=True)
-        start_epoch = min(*[mod.start_epoch for mod in lr_modifiers])
-        end_epoch = max(*[mod.end_epoch for mod in lr_modifiers])
+        start_epoch = min([mod.start_epoch for mod in lr_modifiers])
+        end_epoch = max([mod.end_epoch for mod in lr_modifiers])
         log_types = None
 
         for mod in lr_modifiers:
