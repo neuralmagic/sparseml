@@ -85,6 +85,13 @@ The main use case is transfer learning from a previously pruned model.
 In this way, you can limit the training time needed as well as the potential complexity of 
 the pruning process while keeping the performance.
 
+### transfer_learning_tensorflow.ipynb
+A tutorial for transfer learning from a model in the [Model Repository](#model-repository)
+within TensorFlow using an Adam optimizer.
+The main use case is transfer learning from a previously pruned model.
+In this way, you can limit the training time needed as well as the potential complexity of
+the pruning process while keeping the performance.
+
 ## Scripts
 
 Ease of use scripts, which are implemented as Python scripts for easy consumption and editing,
