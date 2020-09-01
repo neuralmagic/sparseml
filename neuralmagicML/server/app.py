@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Union
 import os
 import pkg_resources
 import logging
@@ -143,11 +143,23 @@ def _worker_setup():
     JobWorkerManager().app_startup()
 
 
-def run(working_dir: str, host: str, port: int, debug: bool, logging_level: str):
+def run(
+    working_dir: str,
+    host: str,
+    port: int,
+    debug: bool,
+    logging_level: str,
+    ui_path: Union[str, None],
+):
     working_dir = _validate_working_dir(working_dir)
     _setup_logging(logging_level)
 
     app = Flask("neuralmagicML.server")
+
+    if ui_path is None:
+        ui_path = os.path.join(os.path.dirname(clean_path(__file__)), "ui")
+
+    app.config["UI_PATH"] = ui_path
     CORS(app)
 
     _database_setup(app, working_dir)
@@ -185,10 +197,25 @@ def parse_args() -> Any:
         type=str,
         help="The logging level to report at",
     )
+    parser.add_argument(
+        "--ui-path",
+        default=None,
+        type=str,
+        help="The directory to render the UI from, generally should not be set. "
+        "By default, will load from the UI packaged with neuralmagicML "
+        "under neuralmagicML/server/ui",
+    )
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     ARGS = parse_args()
-    run(ARGS.working_dir, ARGS.host, ARGS.port, ARGS.debug, ARGS.logging_level)
+    run(
+        ARGS.working_dir,
+        ARGS.host,
+        ARGS.port,
+        ARGS.debug,
+        ARGS.logging_level,
+        ARGS.ui_path,
+    )
