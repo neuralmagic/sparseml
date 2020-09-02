@@ -24,10 +24,13 @@ ui_blueprint = Blueprint("ui", __name__, url_prefix="/")
     {
         "tags": ["UI"],
         "summary": "Get the index.html file for the UI to render",
-        "produces": ["text/html"],
+        "produces": ["text/html", "application/json"],
         "parameters": [],
         "responses": {
-            HTTPStatus.OK.value: {"description": "The index html file"},
+            HTTPStatus.OK.value: {
+                "description": "The index html file",
+                "content": {"text/html": {}},
+            },
             HTTPStatus.INTERNAL_SERVER_ERROR.value: {
                 "description": "Information for the error that occurred",
                 "schema": ErrorSchema,
@@ -37,6 +40,8 @@ ui_blueprint = Blueprint("ui", __name__, url_prefix="/")
 )
 def index():
     """
+    Route for getting the root index.html file for the UI
+
     :return: response containing the main index.html file for the ui,
         uses send_from_directory. Targets "/" and "/index.html"
     """
@@ -54,7 +59,7 @@ def index():
     {
         "tags": ["UI"],
         "summary": "Get a supporting file for the UI to render",
-        "produces": ["text/html", "text/javascript", "text/css"],
+        "produces": ["text/html", "text/javascript", "text/css", "application/json"],
         "parameters": [
             {
                 "in": "path",
@@ -65,7 +70,10 @@ def index():
             },
         ],
         "responses": {
-            HTTPStatus.OK.value: {"description": "The supporting UI file"},
+            HTTPStatus.OK.value: {
+                "description": "The supporting UI file",
+                "content": {"text/html": {}, "text/javascript": {}, "text/css": {}},
+            },
             HTTPStatus.NOT_FOUND.value: {
                 "description": "Information for the error that occurred",
                 "schema": ErrorSchema,
@@ -79,6 +87,8 @@ def index():
 )
 def files(path: str):
     """
+    Route for getting a file for the UI
+
     :param path: the path requested for a UI file to render,
         note this is a catch all, so may improperly catch other misspelled routes
         and therefore fail to render them
