@@ -1,3 +1,7 @@
+"""
+Server routes related to benchmarks
+"""
+
 import logging
 from http import HTTPStatus
 
@@ -77,6 +81,14 @@ projects_benchmark_blueprint = Blueprint(
     },
 )
 def get_benchmarks(project_id: str):
+    """
+    Route for getting a list of benchmarks for a given project
+    filtered by the flask request args.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to get benchmarks for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -126,6 +138,13 @@ def get_benchmarks(project_id: str):
     },
 )
 def create_benchmark(project_id: str):
+    """
+    Route for creating a new benchmark for a given project.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to create a benchmark for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -173,6 +192,13 @@ def create_benchmark(project_id: str):
     },
 )
 def upload_benchmark(project_id: str):
+    """
+    Route for creating a new benchmark for a given project from uploaded data.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to create a benchmark for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -218,7 +244,16 @@ def upload_benchmark(project_id: str):
         },
     },
 )
-def get_benchmark_metadata(project_id: str, benchmark_id: str):
+def get_benchmark(project_id: str, benchmark_id: str):
+    """
+    Route for getting a specific benchmark for a given project.
+    Raises an HTTPNotFoundError if the project or benchmark are
+    not found in the database.
+
+    :param project_id: the id of the project to get the benchmark for
+    :param benchmark_id: the id of the benchmark to get
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -265,4 +300,13 @@ def get_benchmark_metadata(project_id: str, benchmark_id: str):
     },
 )
 def delete_benchmark(project_id: str, benchmark_id: str):
+    """
+    Route for deleting a specific benchmark for a given project.
+    Raises an HTTPNotFoundError if the project or benchmark are
+    not found in the database.
+
+    :param project_id: the id of the project to delete the benchmark for
+    :param benchmark_id: the id of the benchmark to delete
+    :return: a tuple containing (json response, http status code)
+    """
     pass

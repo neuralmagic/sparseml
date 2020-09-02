@@ -1,3 +1,7 @@
+"""
+Schemas for anything related to project benchmark routes, database models, and workers
+"""
+
 from marshmallow import Schema, fields, validate
 
 from neuralmagicML.server.schemas.helpers import (
@@ -20,6 +24,10 @@ __all__ = [
 
 
 class ProjectBenchmarkResultSchema(Schema):
+    """
+    Schema for a project benchmark object's metadata as stored in the DB
+    """
+
     core_count = fields.Int(required=True)
     batch_size = fields.Int(required=True)
     inference_engine = fields.Str(
@@ -30,10 +38,19 @@ class ProjectBenchmarkResultSchema(Schema):
 
 
 class ProjectBenchmarkResultsSchema(Schema):
+    """
+    Schema for a project benchmark object's measured results as stored in the DB
+    """
+
     benchmarks = fields.Nested(ProjectBenchmarkResultSchema, many=True, required=True)
 
 
 class ProjectBenchmarkSchema(Schema):
+    """
+    Schema for a project benchmark object (metadata and result) as stored in the DB and
+    returned in the server routes
+    """
+
     benchmark_id = fields.Str(required=True)
     project_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
@@ -60,6 +77,10 @@ class ProjectBenchmarkSchema(Schema):
 
 
 class CreateProjectBenchmarkSchema(Schema):
+    """
+    Expected schema to use for creating a project benchmark
+    """
+
     name = fields.Str(required=False, allow_none=True, default=None)
     inference_engine = fields.Str(
         required=True, validate=validate.OneOf(INFERENCE_ENGINE_TYPES),
@@ -81,14 +102,26 @@ class CreateProjectBenchmarkSchema(Schema):
 
 
 class ResponseProjectBenchmarkSchema(Schema):
+    """
+    Schema for returning a response containing a benchmark project
+    """
+
     benchmark = fields.Nested(ProjectBenchmarkSchema, required=True)
 
 
 class ResponseProjectBenchmarksSchema(Schema):
-    benchmark = fields.Nested(ProjectBenchmarkSchema, required=True, many=True)
+    """
+    Schema for returning a response containing multiple benchmark projects
+    """
+
+    benchmarks = fields.Nested(ProjectBenchmarkSchema, required=True, many=True)
 
 
 class ResponseProjectBenchmarkDeletedSchema(Schema):
+    """
+    Expected schema to use for deleting a project benchmark
+    """
+
     success = fields.Bool(required=False, default=True)
     project_id = fields.Str(required=True)
     benchmark_id = fields.Str(required=True)
