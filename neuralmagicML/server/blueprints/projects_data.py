@@ -1,3 +1,7 @@
+"""
+Server routes related to projects data files
+"""
+
 import logging
 from http import HTTPStatus
 
@@ -7,6 +11,7 @@ from flasgger import swag_from
 from neuralmagicML.server.blueprints.projects import PROJECTS_ROOT_PATH
 from neuralmagicML.server.schemas import (
     ErrorSchema,
+    ResponseProjectDataSingleSchema,
     ResponseProjectDataSchema,
     ResponseProjectDataDeletedSchema,
     SetProjectDataFromSchema,
@@ -53,7 +58,7 @@ projects_data_blueprint = Blueprint(
         "responses": {
             HTTPStatus.OK.value: {
                 "description": "The saved project's data details",
-                "schema": ResponseProjectDataSchema,
+                "schema": ResponseProjectDataSingleSchema,
             },
             HTTPStatus.BAD_REQUEST.value: {
                 "description": "Information for the error that occurred",
@@ -71,6 +76,13 @@ projects_data_blueprint = Blueprint(
     },
 )
 def upload_data(project_id: str):
+    """
+    Route for uploading a data file to a project.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to upload the data for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -106,7 +118,7 @@ def upload_data(project_id: str):
             HTTPStatus.OK.value: {
                 "description": "The saved project's data details, "
                 "contains the id for the job that was kicked off",
-                "schema": ResponseProjectDataSchema,
+                "schema": ResponseProjectDataSingleSchema,
             },
             HTTPStatus.BAD_REQUEST.value: {
                 "description": "Information for the error that occurred",
@@ -124,6 +136,16 @@ def upload_data(project_id: str):
     },
 )
 def load_data_from_path(project_id: str):
+    """
+    Route for loading data file(s) for a project from a given uri path;
+    either public url or from the local file system.
+    Starts a background job in the JobWorker setup to run.
+    The state of the job can be checked after.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to load the data for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -159,7 +181,7 @@ def load_data_from_path(project_id: str):
             HTTPStatus.OK.value: {
                 "description": "The saved project's data details, "
                 "contains the id for the job that was kicked off",
-                "schema": ResponseProjectDataSchema,
+                "schema": ResponseProjectDataSingleSchema,
             },
             HTTPStatus.BAD_REQUEST.value: {
                 "description": "Information for the error that occurred",
@@ -177,6 +199,15 @@ def load_data_from_path(project_id: str):
     },
 )
 def load_data_from_repo(project_id: str):
+    """
+    Route for loading data file(s) for a project from the Neural Magic model repo.
+    Starts a background job in the JobWorker setup to run.
+    The state of the job can be checked after.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to load the data for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -216,6 +247,13 @@ def load_data_from_repo(project_id: str):
     },
 )
 def get_data_details(project_id: str):
+    """
+    Route to get the details for all data for a given project matching the project_id.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the project_id to get the data details for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -244,7 +282,7 @@ def get_data_details(project_id: str):
         "responses": {
             HTTPStatus.OK.value: {
                 "description": "The project's data details",
-                "schema": ResponseProjectDataSchema,
+                "schema": ResponseProjectDataSingleSchema,
             },
             HTTPStatus.BAD_REQUEST.value: {
                 "description": "Information for the error that occurred",
@@ -262,6 +300,14 @@ def get_data_details(project_id: str):
     },
 )
 def get_data_single_details(project_id: str, data_id: str):
+    """
+    Route to get the details for all data for a given project matching the project_id.
+    Raises an HTTPNotFoundError if the project or data is not found in the database.
+
+    :param project_id: the project_id to get the data details for
+    :param data_id: the data_id to get the data details for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -307,7 +353,14 @@ def get_data_single_details(project_id: str, data_id: str):
         },
     },
 )
-def delete_data_details(project_id: str, data_id: str):
+def delete_data(project_id: str, data_id: str):
+    """
+    Route to delete a data file for a given project matching the project_id.
+    Raises an HTTPNotFoundError if the project or data is not found in the database.
+
+    :param project_id: the project_id to get the model details for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
 
 
@@ -334,7 +387,10 @@ def delete_data_details(project_id: str, data_id: str):
             },
         ],
         "responses": {
-            HTTPStatus.OK.value: {"description": "The project's data file"},
+            HTTPStatus.OK.value: {
+                "description": "The project's data file",
+                "content": {"application/octet-stream": {}},
+            },
             HTTPStatus.BAD_REQUEST.value: {
                 "description": "Information for the error that occurred",
                 "schema": ErrorSchema,
@@ -351,4 +407,12 @@ def delete_data_details(project_id: str, data_id: str):
     },
 )
 def get_data_file(project_id: str, data_id: str):
+    """
+    Route to get the data file for a given project matching the project_id.
+    Raises an HTTPNotFoundError if the project or data is not found in the database.
+
+    :param project_id: the project_id to get the data file for
+    :param data_id: the data_id to get the data file for
+    :return: a tuple containing (json response, http status code)
+    """
     pass
