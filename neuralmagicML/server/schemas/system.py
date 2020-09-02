@@ -1,3 +1,7 @@
+"""
+Schemas for anything related to system routes
+"""
+
 from marshmallow import Schema, fields, validate
 
 from neuralmagicML.server.schemas.helpers import (
@@ -10,27 +14,54 @@ __all__ = ["SystemInfo", "ResponseSystemInfo"]
 
 
 class SystemInfo(Schema):
-    vendor = fields.Str(required=True)
-    isa = fields.Str(required=True)
-    vnni = fields.Bool(required=True)
-    num_sockets = fields.Int(required=True)
-    available_sockets = fields.Int(required=True)
-    cores_per_socket = fields.Int(required=True)
-    available_cores_per_socket = fields.Int(required=True)
-    threads_per_core = fields.Int(required=True)
-    available_threads_per_core = fields.Int(required=True)
-    l1_instruction_cache_size = fields.Int(required=True)
-    l1_data_cache_size = fields.Int(required=True)
-    l2_cache_size = fields.Int(required=True)
-    l3_cache_size = fields.Int(required=True)
-    ip_address = fields.Str(required=True)
+    """
+    Schema for the system info the server is currently running on
+    """
+
+    vendor = fields.Str(required=False, default=None, missing=None, allow_none=True)
+    isa = fields.Str(required=False, default=None, missing=None, allow_none=True)
+    vnni = fields.Bool(required=False, default=None, missing=None, allow_none=True)
+    num_sockets = fields.Int(
+        required=False, default=None, missing=None, allow_none=True
+    )
+    cores_per_socket = fields.Int(
+        required=False, default=None, missing=None, allow_none=True
+    )
+    threads_per_core = fields.Int(
+        required=False, default=None, missing=None, allow_none=True
+    )
+    l1_instruction_cache_size = fields.Int(
+        required=False, default=None, missing=None, allow_none=True
+    )
+    l1_data_cache_size = fields.Int(
+        required=False, default=None, missing=None, allow_none=True
+    )
+    l2_cache_size = fields.Int(
+        required=False, default=None, missing=None, allow_none=True
+    )
+    l3_cache_size = fields.Int(
+        required=False, default=None, missing=None, allow_none=True
+    )
+    ip_address = fields.Str(required=False, default=None, missing=None, allow_none=True)
     available_engines = fields.List(
-        fields.Str(validate=validate.OneOf(INFERENCE_ENGINE_TYPES))
+        fields.Str(validate=validate.OneOf(INFERENCE_ENGINE_TYPES)),
+        required=False,
+        default=None,
+        missing=None,
+        allow_none=True,
     )
     available_instructions = fields.List(
-        fields.Str(validate=validate.OneOf(INSTRUCTION_SETS))
+        fields.Str(validate=validate.OneOf(INSTRUCTION_SETS)),
+        required=False,
+        default=None,
+        missing=None,
+        allow_none=True,
     )
 
 
 class ResponseSystemInfo(Schema):
+    """
+    Schema for returning a response with the system info
+    """
+
     info = fields.Nested(SystemInfo, required=True)

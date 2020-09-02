@@ -1,20 +1,38 @@
+"""
+Server routes related to the system
+"""
+
 import logging
-import onnxruntime
 import socket
+import psutil
 from http import HTTPStatus
 
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, jsonify
 from flasgger import swag_from
 
 from neuralmagicML.onnx.utils import available_engines
 from neuralmagicML.server.blueprints.helpers import API_ROOT_PATH
-from neuralmagicML.server.schemas import ResponseSystemInfo, ErrorSchema
+from neuralmagicML.server.schemas import (
+    data_dump_and_validation,
+    ResponseSystemInfo,
+    ErrorSchema,
+)
 
 try:
     import neuralmagic
-except Exception as e:
+
+    nm_import_exception = None
+except Exception as nm_err:
     neuralmagic = None
-    nm_import_exception = e
+    nm_import_exception = nm_err
+
+try:
+    import onnxruntime
+
+    ort_import_execption = None
+except Exception as ort_err:
+    onnxruntime = None
+    ort_import_execption = ort_err
 
 
 __all__ = ["SYSTEM_PATH", "system_blueprint"]
@@ -51,6 +69,11 @@ system_blueprint = Blueprint(SYSTEM_PATH, __name__, url_prefix=SYSTEM_PATH)
     },
 )
 def info():
+    """
+    Route for getting the info describing the current system the server is running on
+
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info("getting system info")
 
     sys_info = {
@@ -71,8 +94,10 @@ def info():
         _LOGGER.info("retrieved system info using neuralmagic.cpu")
     else:
         _LOGGER.info("retrieved basic system info")
+        sys_info["cores_per_socket"] = psutil.cpu_count(logical=False)
 
-    resp_info = ResponseSystemInfo().dump({"info": sys_info})
+    resp_info = data_dump_and_validation(ResponseSystemInfo(), {"info": sys_info})
+    _LOGGER.info("retrieved system info {}".format(resp_info))
 
     return jsonify(resp_info), HTTPStatus.OK.value
 
@@ -99,7 +124,20 @@ def info():
     },
 )
 def validate():
-    if neuralmagic is not None:
-        return "", HTTPStatus.OK.value
-    else:
+    """
+    Route for validating the current system the server is running on,
+    neuralmagic and onnxruntime must be installed to validate successfully
+
+    :return: a tuple containing (response, http status code)
+    """
+    _LOGGER.info("validating system")
+
+    if nm_import_exception is not None:
         raise nm_import_exception
+
+    if ort_import_execption is not None:
+        raise ort_import_execption
+
+    _LOGGER.info("validated system")
+
+    return "", HTTPStatus.OK.value

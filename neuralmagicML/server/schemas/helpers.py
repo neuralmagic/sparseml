@@ -2,9 +2,9 @@
 Helper values and classes for marshmallow schemas
 """
 
-from typing import Any, Mapping
+from typing import Any, Mapping, Dict
 
-from marshmallow import fields
+from marshmallow import fields, Schema, ValidationError
 
 __all__ = [
     "INSTRUCTION_SETS",
@@ -18,6 +18,7 @@ __all__ = [
     "FILE_SOURCES",
     "MODEL_DATA_SOURCES",
     "METRIC_DISPLAY_TYPES",
+    "data_dump_and_validation",
     "EnumField",
 ]
 
@@ -38,6 +39,23 @@ FILE_SOURCES = ["uploaded", "generated"]
 MODEL_DATA_SOURCES = ["uploaded", "downloaded_path", "downloaded_repo"]
 
 METRIC_DISPLAY_TYPES = ["number", "percent", "scientific"]
+
+
+def data_dump_and_validation(schema: Schema, data: Any) -> Dict:
+    """
+    Use a marshmallow schema to dump and validate input data
+
+    :param schema: the schema to use to dump an object and validate it
+    :param data: the data to dump and validate
+    :return: the resulting dumped data from marshmallow
+    """
+    val = schema.dump(data)
+    errors = schema.validate(val)
+
+    if errors:
+        raise ValidationError(errors)
+
+    return val
 
 
 class EnumField(fields.String):
