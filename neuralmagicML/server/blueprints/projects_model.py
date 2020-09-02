@@ -24,6 +24,7 @@ from neuralmagicML.server.blueprints.helpers import (
 )
 from neuralmagicML.server.blueprints.projects import PROJECTS_ROOT_PATH
 from neuralmagicML.server.schemas import (
+    data_dump_and_validation,
     ErrorSchema,
     ProjectModelAnalysisSchema,
     ResponseProjectModelAnalysisSchema,
@@ -116,6 +117,7 @@ def _add_model_check(project_id: str) -> Project:
 def upload_model(project_id: str) -> Tuple[Response, int]:
     """
     Route for uploading a model file to a project.
+    Raises an HTTPNotFoundError if the project is not found in the database.
 
     :param project_id: the id of the project to upload the model for
     :return: a tuple containing (json response, http status code)
@@ -154,7 +156,9 @@ def upload_model(project_id: str) -> Tuple[Response, int]:
                 transaction.rollback()
                 raise err
 
-        resp_model = ResponseProjectModelSchema().dump({"model": project_model})
+        resp_model = data_dump_and_validation(
+            ResponseProjectModelSchema(), {"model": project_model}
+        )
         _LOGGER.info("created project model {}".format(resp_model))
 
         return jsonify(resp_model), HTTPStatus.OK.value
@@ -214,6 +218,7 @@ def load_model_from_path(project_id: str) -> Tuple[Response, int]:
     either public url or from the local file system.
     Starts a background job in the JobWorker setup to run.
     The state of the job can be checked after.
+    Raises an HTTPNotFoundError if the project is not found in the database.
 
     :param project_id: the id of the project to load the model for
     :return: a tuple containing (json response, http status code)
@@ -235,8 +240,7 @@ def load_model_from_path(project_id: str) -> Tuple[Response, int]:
                 project=project,
                 type_=ModelFromPathJobWorker.get_type(),
                 worker_args=ModelFromPathJobWorker.format_args(
-                    model_id=project_model.model_id,
-                    uri=data["uri"],
+                    model_id=project_model.model_id, uri=data["uri"],
                 ),
             )
             project_model.job = job
@@ -253,7 +257,9 @@ def load_model_from_path(project_id: str) -> Tuple[Response, int]:
     # call into JobWorkerManager to kick off job if it's not already running
     JobWorkerManager().refresh()
 
-    resp_model = ResponseProjectModelSchema().dump({"model": project_model})
+    resp_model = data_dump_and_validation(
+        ResponseProjectModelSchema(), {"model": project_model}
+    )
     _LOGGER.info("created project model from path {}".format(resp_model))
 
     return jsonify(resp_model), HTTPStatus.OK.value
@@ -312,6 +318,7 @@ def load_model_from_repo(project_id: str) -> Tuple[Response, int]:
     Route for loading a model for a project from the Neural Magic model repo.
     Starts a background job in the JobWorker setup to run.
     The state of the job can be checked after.
+    Raises an HTTPNotFoundError if the project is not found in the database.
 
     :param project_id: the id of the project to load the model for
     :return: a tuple containing (json response, http status code)
@@ -333,8 +340,7 @@ def load_model_from_repo(project_id: str) -> Tuple[Response, int]:
                 project=project,
                 type_=ModelFromRepoJobWorker.get_type(),
                 worker_args=ModelFromRepoJobWorker.format_args(
-                    model_id=project_model.model_id,
-                    uri=data["uri"],
+                    model_id=project_model.model_id, uri=data["uri"],
                 ),
             )
             project_model.job = job
@@ -351,7 +357,9 @@ def load_model_from_repo(project_id: str) -> Tuple[Response, int]:
     # call into JobWorkerManager to kick off job if it's not already running
     JobWorkerManager().refresh()
 
-    resp_model = ResponseProjectModelSchema().dump({"model": project_model})
+    resp_model = data_dump_and_validation(
+        ResponseProjectModelSchema(), {"model": project_model}
+    )
     _LOGGER.info("created project model from repo {}".format(resp_model))
 
     return jsonify(resp_model), HTTPStatus.OK.value
@@ -395,6 +403,8 @@ def load_model_from_repo(project_id: str) -> Tuple[Response, int]:
 def get_model_details(project_id: str) -> Tuple[Response, int]:
     """
     Route to get the model details for a given project matching the project_id.
+    Raises an HTTPNotFoundError if the project is not found in the database
+    or a model doesn't exit.
 
     :param project_id: the project_id to get the model details for
     :return: a tuple containing (json response, http status code)
@@ -416,7 +426,9 @@ def get_model_details(project_id: str) -> Tuple[Response, int]:
             "could not find model for project_id {}".format(project_id)
         )
 
-    resp_model = ResponseProjectModelSchema().dump({"model": project_model})
+    resp_model = data_dump_and_validation(
+        ResponseProjectModelSchema(), {"model": project_model}
+    )
     _LOGGER.info("retrieved project model details {}".format(resp_model))
 
     return jsonify(resp_model), HTTPStatus.OK.value
@@ -438,7 +450,10 @@ def get_model_details(project_id: str) -> Tuple[Response, int]:
             },
         ],
         "responses": {
-            HTTPStatus.OK.value: {"description": "The project's model file"},
+            HTTPStatus.OK.value: {
+                "description": "The project's model file",
+                "content": {"application/octet-stream": {}},
+            },
             HTTPStatus.BAD_REQUEST.value: {
                 "description": "Information for the error that occurred",
                 "schema": ErrorSchema,
@@ -457,6 +472,8 @@ def get_model_details(project_id: str) -> Tuple[Response, int]:
 def get_model_file(project_id: str) -> Tuple[Response, int]:
     """
     Route to get the model details for a given project matching the project_id.
+    Raises an HTTPNotFoundError if the project is not found in the database
+    or a model doesn't exit.
 
     :param project_id: the project_id to get the model details for
     :return: a tuple containing (json response, http status code)
@@ -515,6 +532,8 @@ def get_model_file(project_id: str) -> Tuple[Response, int]:
 def delete_model(project_id: str) -> Tuple[Response, int]:
     """
     Route to delete the model for a given project matching the project_id.
+    Raises an HTTPNotFoundError if the project is not found in the database
+    or a model doesn't exit.
 
     :param project_id: the project_id to delete the model for
     :return: a tuple containing (json response, http status code)
@@ -542,12 +561,13 @@ def delete_model(project_id: str) -> Tuple[Response, int]:
                 transaction.rollback()
                 raise err
 
-    resp_deleted = ResponseProjectModelDeletedSchema().dump(
-        {"project_id": project_id, "model_id": model_id}
+    resp_deleted = data_dump_and_validation(
+        ResponseProjectModelDeletedSchema(),
+        {"project_id": project_id, "model_id": model_id},
     )
     _LOGGER.info(
         "deleted model for project_id {} and model_id {} from path {}".format(
-            project_id, project_model.model_id, project_model.file_path
+            project_id, project_model.model_id, project_model.dir_path
         )
     )
 
@@ -593,6 +613,8 @@ def create_analysis(project_id: str) -> Tuple[Response, int]:
     """
     Route for creating a model analysis for a given project matching the project_id.
     If one exists, will overwrite the previous.
+    Raises an HTTPNotFoundError if the project is not found in the database
+    or a model doesn't exit.
 
     :param project_id: the project_id to create the analysis for
     :return: a tuple containing (json response, http status code)
@@ -606,7 +628,9 @@ def create_analysis(project_id: str) -> Tuple[Response, int]:
     project_model.analysis = analysis
     project_model.save()
 
-    resp_analysis = ResponseProjectModelAnalysisSchema().dump({"analysis": analysis})
+    resp_analysis = data_dump_and_validation(
+        ResponseProjectModelAnalysisSchema(), {"analysis": analysis}
+    )
     _LOGGER.info(
         "analyzed model for project_id {} and model_id {} from path {}".format(
             project_id, project_model.model_id, project_model.file_path
@@ -654,6 +678,8 @@ def create_analysis(project_id: str) -> Tuple[Response, int]:
 def get_analysis(project_id: str) -> Tuple[Response, int]:
     """
     Route for getting the model analysis for a given project matching the project_id.
+    Raises an HTTPNotFoundError if the project is not found in the database
+    or a model doesn't exit.
 
     :param project_id: the project_id to get the analysis for
     :return: a tuple containing (json response, http status code)
@@ -667,7 +693,12 @@ def get_analysis(project_id: str) -> Tuple[Response, int]:
         else None
     )
 
-    resp_analysis = ResponseProjectModelAnalysisSchema().dump({"analysis": analysis})
+    if analysis is None:
+        raise ValidationError("analysis must be created first")
+
+    resp_analysis = data_dump_and_validation(
+        ResponseProjectModelAnalysisSchema(), {"analysis": analysis}
+    )
     _LOGGER.info(
         "retrieved model analysis for project_id {} and model_id {}".format(
             project_id, project_model.model_id
@@ -715,6 +746,8 @@ def get_analysis(project_id: str) -> Tuple[Response, int]:
 def delete_analysis(project_id: str) -> Tuple[Response, int]:
     """
     Route for deleting the model analysis for a given project matching the project_id.
+    Raises an HTTPNotFoundError if the project is not found in the database
+    or a model doesn't exit.
 
     :param project_id: the project_id to delete the analysis for
     :return: a tuple containing (json response, http status code)
@@ -725,8 +758,9 @@ def delete_analysis(project_id: str) -> Tuple[Response, int]:
     project_model.analysis = None
     project_model.save()
 
-    resp_deleted = ResponseProjectModelDeletedSchema().dump(
-        {"project_id": project_id, "model_id": project_model.model_id}
+    resp_deleted = data_dump_and_validation(
+        ResponseProjectModelDeletedSchema(),
+        {"project_id": project_id, "model_id": project_model.model_id},
     )
     _LOGGER.info(
         "deleted model analysis for project_id {} and model_id {} from path {}".format(
