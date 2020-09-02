@@ -1,5 +1,5 @@
 """
-Schemas for anything related to job routes, database models, and
+Schemas for anything related to job routes, database models, and workers
 """
 
 from marshmallow import Schema, fields, validate, post_dump

@@ -37,7 +37,7 @@ class ProjectData(BaseProjectModel):
     """
 
     data_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    project = ForeignKeyField(Project, backref="data")
+    project = ForeignKeyField(Project, backref="data", on_delete="CASCADE")
     created = DateTimeField(default=datetime.datetime.now)
     file = TextField(null=True, default=None)
     source = TextField(null=True, default=None)

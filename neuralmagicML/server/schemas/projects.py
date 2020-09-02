@@ -1,3 +1,7 @@
+"""
+Schemas for anything related to project routes, database models, and workers
+"""
+
 from marshmallow import Schema, fields, validate
 
 from neuralmagicML.server.schemas.projects_data import ProjectDataSchema
@@ -18,6 +22,10 @@ __all__ = [
 
 
 class ProjectSchema(Schema):
+    """
+    Schema for a project object as stored in the DB and returned in the server routes
+    """
+
     project_id = fields.Str(required=True)
     name = fields.Str(required=True)
     description = fields.Str(required=True)
@@ -28,46 +36,72 @@ class ProjectSchema(Schema):
     training_lr_init = fields.Float(required=True, allow_none=True)
     training_lr_final = fields.Float(required=True, allow_none=True)
 
-    dir_path = fields.Str(required=True, dump_only=True)
-    dir_size = fields.Int(required=True, dump_only=True)
+    dir_path = fields.Str(required=True)
+    dir_size = fields.Int(required=True)
 
 
 class ProjectExtSchema(ProjectSchema):
+    """
+    Schema for a project object including model and data
+    as stored in the DB and returned in the server routes
+    """
+
     model = fields.Nested(
         ProjectModelSchema,
         required=False,
         default=None,
+        missing=None,
         allow_none=True,
-        dump_only=True,
     )
     data = fields.Nested(
         ProjectDataSchema,
         many=True,
         required=False,
         default=None,
+        missing=None,
         allow_none=True,
-        dump_only=True,
     )
 
 
 class ResponseProjectSchema(Schema):
+    """
+    Schema for returning a response with a single project
+    """
+
     project = fields.Nested(ProjectSchema, required=True)
 
 
 class ResponseProjectExtSchema(Schema):
+    """
+    Schema for returning a response with a single project and its
+    associated model and data
+    """
+
     project = fields.Nested(ProjectExtSchema, required=True)
 
 
 class ResponseProjectsSchema(Schema):
+    """
+    Schema for returning a response with multiple project
+    """
+
     projects = fields.Nested(ProjectSchema, many=True, required=True)
 
 
 class ResponseProjectDeletedSchema(Schema):
-    success = fields.Bool(required=False, default=True)
+    """
+    Schema for returning a response after deleting a project
+    """
+
+    success = fields.Bool(required=False, default=True, missing=True)
     project_id = fields.Str(required=True)
 
 
 class SearchProjectsSchema(Schema):
+    """
+    Expected schema to use for querying projects
+    """
+
     order_by = fields.Str(
         default="modified",
         missing="modified",
@@ -90,6 +124,10 @@ class SearchProjectsSchema(Schema):
 
 
 class CreateUpdateProjectSchema(Schema):
+    """
+    Expected schema to use for creating or updating a project
+    """
+
     name = fields.Str(required=False)
     description = fields.Str(required=False)
     training_optimizer = fields.Str(required=False, allow_none=True)
@@ -99,4 +137,8 @@ class CreateUpdateProjectSchema(Schema):
 
 
 class DeleteProjectSchema(Schema):
-    force = fields.Bool(required=False, default=False)
+    """
+    Expected schema to use for deleting a project
+    """
+
+    force = fields.Bool(required=False, default=False, missing=False)

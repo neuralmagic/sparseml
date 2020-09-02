@@ -1,12 +1,16 @@
+"""
+Server routes related to projects
+"""
+
 import logging
 from http import HTTPStatus
 
 from flask import Blueprint, request, jsonify
-from peewee import JOIN
 from flasgger import swag_from
 
-from neuralmagicML.server.models import database, Project, ProjectModel, ProjectData
+from neuralmagicML.server.models import database, Project
 from neuralmagicML.server.schemas import (
+    data_dump_and_validation,
     ErrorSchema,
     ResponseProjectSchema,
     ResponseProjectExtSchema,
@@ -16,7 +20,7 @@ from neuralmagicML.server.schemas import (
     CreateUpdateProjectSchema,
     DeleteProjectSchema,
 )
-from neuralmagicML.server.blueprints.helpers import API_ROOT_PATH, HTTPNotFoundError
+from neuralmagicML.server.blueprints.helpers import API_ROOT_PATH, get_project_by_id
 
 
 __all__ = ["PROJECTS_ROOT_PATH", "projects_blueprint"]
@@ -85,8 +89,14 @@ projects_blueprint = Blueprint(
     },
 )
 def get_projects():
-    _LOGGER.info("getting projects for request args {}".format(request.args))
-    args = SearchProjectsSchema().dump({key: val for key, val in request.args.items()})
+    """
+    Route for getting a list of projects filtered by the flask request args
+
+    :return: a tuple containing (json response, http status code)
+    """
+    args = {key: val for key, val in request.args.items()}
+    _LOGGER.info("getting projects for request args {}".format(args))
+    args = SearchProjectsSchema().load(args)
     order_by = getattr(Project, args["order_by"])
     query = (
         Project.select()
@@ -94,7 +104,9 @@ def get_projects():
         .paginate(args["page"], args["page_length"])
     )
     projects = [res for res in query]
-    resp_projects = ResponseProjectsSchema().dump({"projects": projects})
+    resp_projects = data_dump_and_validation(
+        ResponseProjectsSchema(), {"projects": projects}
+    )
     _LOGGER.info("retrieved {} projects".format(len(resp_projects)))
 
     return jsonify(resp_projects), HTTPStatus.OK.value
@@ -133,8 +145,13 @@ def get_projects():
     },
 )
 def create_project():
+    """
+    Route for creating a new project with the given flask request arguments
+
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info("creating project for request json {}".format(request.json))
-    data = CreateUpdateProjectSchema().dump(request.get_json(force=True))
+    data = CreateUpdateProjectSchema().load(request.get_json(force=True))
 
     # create transaction in case project folder creation fails
     with database.atomic() as transaction:
@@ -149,7 +166,9 @@ def create_project():
             transaction.rollback()
             raise err
 
-    resp_project = ResponseProjectSchema().dump({"project": project})
+    resp_project = data_dump_and_validation(
+        ResponseProjectSchema(), {"project": project}
+    )
     _LOGGER.info("created project {}".format(resp_project))
 
     return jsonify(resp_project), HTTPStatus.OK.value
@@ -191,25 +210,16 @@ def create_project():
     },
 )
 def get_project(project_id: str):
+    """
+    Route for getting a project matching the given project_id.
+    Additionally includes attached model and data if available.
+    Raises an HTTPNotFoundError if the job is not found in the database.
+
+    :param project_id: the id of the project to get
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info("getting project {}".format(project_id))
-
-    query = (
-        Project.select(Project, ProjectModel, ProjectData)
-        .join_from(Project, ProjectModel, JOIN.LEFT_OUTER)
-        .join_from(Project, ProjectData, JOIN.LEFT_OUTER)
-        .where(Project.project_id == project_id)
-        .group_by(Project)
-    )
-    project = None
-
-    for res in query:
-        project = res
-        break
-
-    if not project:
-        raise HTTPNotFoundError(
-            "could not find project with project_id {}".format(project_id)
-        )
+    project = get_project_by_id(project_id)
 
     # run file system validations to figure out if there are any errors in setup
     project.validate_filesystem()
@@ -225,7 +235,9 @@ def get_project(project_id: str):
         for data in project.data:
             data.validate_filesystem()
 
-    resp_project = ResponseProjectExtSchema().dump({"project": project})
+    resp_project = data_dump_and_validation(
+        ResponseProjectExtSchema(), {"project": project}
+    )
     _LOGGER.info("retrieved project {}".format(resp_project))
 
     return jsonify(resp_project), HTTPStatus.OK.value
@@ -275,24 +287,29 @@ def get_project(project_id: str):
     },
 )
 def update_project(project_id: str):
+    """
+    Route for updating a project with the given flask request arguments.
+    Raises an HTTPNotFoundError if the job is not found in the database.
+
+    :param project_id: the id of the project to get
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info(
         "updating project {} for request json {}".format(project_id, request.json)
     )
-    data = CreateUpdateProjectSchema().dump(request.get_json(force=True))
-    project = Project.get(Project.project_id == project_id)
-
-    if not project:
-        raise HTTPNotFoundError(
-            "could not find project with project_id {}".format(project_id)
-        )
+    data = CreateUpdateProjectSchema().load(request.get_json(force=True))
+    project = get_project_by_id(project_id)
 
     for key, val in data.items():
         setattr(project, key, val)
 
     project.save()
+    resp_project = data_dump_and_validation(
+        ResponseProjectExtSchema(), {"project": project}
+    )
     _LOGGER.info("updated project {} with {}".format(project_id, data))
 
-    return get_project(project_id)
+    return jsonify(resp_project), HTTPStatus.OK.value
 
 
 @projects_blueprint.route("/<project_id>", methods=["DELETE"])
@@ -338,20 +355,22 @@ def update_project(project_id: str):
     },
 )
 def delete_project(project_id: str):
+    """
+    Route for deleting the project with the given project_id.
+    Raises an HTTPNotFoundError if the job is not found in the database.
+
+    :param project_id: the id of the project to get
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info(
         "deleting project {} with request args {}".format(project_id, request.args)
     )
-    args = DeleteProjectSchema().dump({key: val for key, val in request.args.items()})
-    project = Project.get(Project.project_id == project_id)
-
-    if not project:
-        raise HTTPNotFoundError(
-            "could not find project with project_id {}".format(project_id)
-        )
+    args = DeleteProjectSchema().load({key: val for key, val in request.args.items()})
+    project = get_project_by_id(project_id)
 
     with database.atomic() as transaction:
         try:
-            project.delete_instance()
+            Project.delete().where(Project.project_id == project_id).execute()
             project.delete_filesystem()
         except Exception as err:
             _LOGGER.error(
@@ -364,6 +383,9 @@ def delete_project(project_id: str):
                 transaction.rollback()
                 raise err
 
+    resp_deleted = data_dump_and_validation(
+        ResponseProjectDeletedSchema(), {"success": True, "project_id": project_id}
+    )
     _LOGGER.info("deleted project {}".format(project_id))
 
-    return jsonify({"success": True, "project_id": project_id}), HTTPStatus.OK.value
+    return jsonify(resp_deleted), HTTPStatus.OK.value

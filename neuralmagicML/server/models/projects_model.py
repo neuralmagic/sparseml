@@ -38,7 +38,9 @@ class ProjectModel(BaseProjectModel):
     """
 
     model_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    project = ForeignKeyField(Project, unique=True, backref="models")
+    project = ForeignKeyField(
+        Project, unique=True, backref="models", on_delete="CASCADE"
+    )
     created = DateTimeField(default=datetime.datetime.now)
     source = TextField(null=True, default=None)
     job = ForeignKeyField(Job, null=True, default=None)
