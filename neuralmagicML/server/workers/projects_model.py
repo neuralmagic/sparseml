@@ -162,16 +162,14 @@ class ModelFromPathJobWorker(_ModelLoaderJobWorker):
 
         _LOGGER.info(
             (
-                "added model file to project_id {} and "
-                "model_id {} from file path {}"
+                "added model file to project_id {} and " "model_id {} from file path {}"
             ).format(self.project_id, self.model_id, self.uri)
         )
 
     def _run_download(self) -> Iterator[Dict[str, Any]]:
         _LOGGER.info(
             (
-                "adding model file to project_id {} and "
-                "model_id {} from url {}"
+                "adding model file to project_id {} and " "model_id {} from url {}"
             ).format(self.project_id, self.model_id, self.uri)
         )
 
@@ -206,10 +204,9 @@ class ModelFromPathJobWorker(_ModelLoaderJobWorker):
             ModelFromPathJobWorker._save_project_model(model, temp_path)
 
         _LOGGER.info(
-            (
-                "added model file to project_id {} and "
-                "model_id {} from url {}"
-            ).format(self.project_id, self.model_id, self.uri)
+            ("added model file to project_id {} and " "model_id {} from url {}").format(
+                self.project_id, self.model_id, self.uri
+            )
         )
 
 

@@ -1,36 +1,50 @@
+"""
+Server routes related to project optimizations and modifiers
+"""
+
 import logging
 import os
 import glob
 import re
 from http import HTTPStatus
 
-from flask import Blueprint, current_app, request, jsonify, send_file, Response
-from typing import Callable
-
+from flask import Blueprint, request, jsonify, send_file, Response
 from flasgger import swag_from
 from marshmallow import ValidationError
 from peewee import JOIN
 
 from neuralmagicML.utils import clean_path
-from neuralmagicML.onnx.recal import ModelAnalyzer
-from neuralmagicML.onnx.utils import check_load_model, get_node_by_id, get_node_params
 from neuralmagicML.server.blueprints.projects import PROJECTS_ROOT_PATH
-from neuralmagicML.server.blueprints.helpers import (
+from neuralmagicML.server.blueprints.utils import (
     HTTPNotFoundError,
     get_project_by_id,
-    get_project_model_by_project_id,
+    optim_validate_and_get_project_by_id,
     get_project_optimizer_by_ids,
+    default_epochs_distribution,
+    default_pruning_settings,
+    get_profiles_by_id,
+    optim_trainable_default_nodes,
+    optim_lr_sched_default_mods,
+    optim_trainable_updater,
+    optim_pruning_updater,
+    optim_lr_sched_updater,
+    optim_updater,
+    create_config,
+    validate_pruning_nodes,
+    PruningModelEvaluator,
 )
 from neuralmagicML.server.schemas import (
+    data_dump_and_validation,
     ML_FRAMEWORKS,
     ErrorSchema,
+    GetProjectOptimizationBestEstimatedResultsSchema,
     CreateProjectOptimizationSchema,
     CreateUpdateProjectOptimizationModifiersPruningSchema,
     CreateUpdateProjectOptimizationModifiersQuantizationSchema,
     CreateUpdateProjectOptimizationModifiersLRScheduleSchema,
-    ProjectOptimizationModifierLRSchema,
     CreateUpdateProjectOptimizationModifiersTrainableSchema,
     UpdateProjectOptimizationSchema,
+    SearchProjectOptimizationsSchema,
     ResponseProjectOptimizationFrameworksAvailableSchema,
     ResponseProjectOptimizationFrameworksAvailableSamplesSchema,
     ResponseProjectOptimizationModifiersAvailable,
@@ -49,21 +63,6 @@ from neuralmagicML.server.models import (
     ProjectOptimizationModifierQuantization,
 )
 
-from neuralmagicML.pytorch.recal import (
-    ScheduledModifierManager as PTScheduledModifierManager,
-    EpochRangeModifier as PTEpochRangeModifier,
-    GradualKSModifier as PTGradualKSModifier,
-    SetLearningRateModifier as PTSetLearningRateModifier,
-    LearningRateModifier as PTLearningRateModifier,
-)
-from neuralmagicML.tensorflow.recal import (
-    ScheduledModifierManager as TFScheduledModifierManager,
-    EpochRangeModifier as TFEpochRangeModifier,
-    GradualKSModifier as TFGradualKSModifier,
-    SetLearningRateModifier as TFSetLearningRateModifier,
-    LearningRateModifier as TFLearningRateModifier,
-)
-
 
 __all__ = ["PROJECT_OPTIM_PATH", "projects_optim_blueprint"]
 
@@ -75,119 +74,6 @@ _LOGGER = logging.getLogger(__name__)
 projects_optim_blueprint = Blueprint(
     PROJECT_OPTIM_PATH, __name__, url_prefix=PROJECT_OPTIM_PATH
 )
-
-
-def _get_config(
-    project_id: str,
-    optim_id: str,
-    manager_const: Callable,
-    epoch_const: Callable,
-    set_lr_const: Callable,
-    lr_const: Callable,
-    ks_const: Callable,
-) -> str:
-    """
-    Creates a optimization config yaml for a given project and optimization
-
-    :param project_id: project id
-    :param optim_id: project optimizer id
-    :param manager_const: constructor for a ScheduledModifierManager
-    :param epoch_const: constructor for an EpochRangeModifer
-    :param set_lr_const: constructor for a SetLearningRateModifier
-    :param lr_const: constructor for a LearnignRateModifier
-    :param ks_const: constructor for a GradualKSModifer
-    """
-    optim = get_project_optimizer_by_ids(project_id, optim_id)
-    project_model = get_project_model_by_project_id(project_id)
-    onnx_model = check_load_model(project_model.file_path)
-
-    mods = [
-        epoch_const(
-            start_epoch=optim.start_epoch if optim.start_epoch else -1,
-            end_epoch=optim.end_epoch if optim.end_epoch else -1,
-        )
-    ]
-
-    for lr_schedule_modifier in optim.lr_schedule_modifiers:
-        for mod in lr_schedule_modifier.lr_mods:
-            mod = ProjectOptimizationModifierLRSchema().dump(mod)
-            if "clazz" in mod:
-                mods.append(
-                    lr_const(
-                        lr_class=mod["clazz"],
-                        lr_kwargs=mod["args"],
-                        init_lr=mod["init_lr"],
-                        start_epoch=mod["start_epoch"] if mod["start_epoch"] else -1,
-                        end_epoch=mod["end_epoch"] if mod["end_epoch"] else -1,
-                    )
-                )
-            else:
-                mods.append(
-                    set_lr_const(
-                        learning_rate=mod["init_lr"],
-                        start_epoch=mod["start_epoch"] if mod["start_epoch"] else -1,
-                    )
-                )
-
-    node_to_weight_name = {}
-
-    for mod in optim.pruning_modifiers:
-        sparsity_to_nodes = {}
-        for node in mod.nodes:
-            sparsity = node["sparsity"]
-            node_id = node["node_id"]
-            if node_id in node_to_weight_name:
-                weight_name = node_to_weight_name[node_id]
-            else:
-                node = get_node_by_id(onnx_model, node_id)
-
-                weight_info, _ = get_node_params(onnx_model, node)
-                weight_name = weight_info.name
-                node_to_weight_name[node_id] = weight_name
-
-            if sparsity not in sparsity_to_nodes:
-                sparsity_to_nodes[sparsity] = [weight_name]
-            else:
-                sparsity_to_nodes[sparsity].append(weight_name)
-        for sparsity, nodes in sparsity_to_nodes.items():
-            grad_ks = ks_const(
-                init_sparsity=0.05,
-                final_sparsity=sparsity,
-                start_epoch=mod.start_epoch,
-                end_epoch=mod.end_epoch,
-                update_frequency=mod.update_frequency,
-                params=nodes,
-            )
-
-            if mod.mask_type:
-                grad_ks.mask_type(mod.mask_type)
-
-            mods.append(grad_ks)
-
-    return str(manager_const(mods))
-
-
-def _get_epochs_from_lr_mods(lr_mods: ProjectOptimizationModifierLRSchema):
-    start_epoch = None
-    end_epoch = None
-    for lr_mod in lr_mods:
-        if start_epoch is None or lr_mod["start_epoch"] < start_epoch:
-            start_epoch = lr_mod["start_epoch"]
-        if end_epoch is None or lr_mod["end_epoch"] > end_epoch:
-            end_epoch = lr_mod["end_epoch"]
-
-    return start_epoch, end_epoch
-
-
-def _validate_nodes(project_id: str, data: CreateProjectOptimizationSchema):
-    model = get_project_model_by_project_id(project_id)
-    node_ids = set(
-        [node.id_ for node in ModelAnalyzer(model.file_path).nodes if node.prunable]
-    )
-    for node in data["nodes"]:
-        if node["node_id"] not in node_ids:
-            _LOGGER.error("Node {} is not prunable".format(node["node_id"]))
-            raise ValidationError("Node {} is not prunable".format(node["node_id"]))
 
 
 @projects_optim_blueprint.route("/")
@@ -242,10 +128,22 @@ def _validate_nodes(project_id: str, data: CreateProjectOptimizationSchema):
 )
 def get_optims(project_id: str):
     """
-    :param project_id: project_id for optimizers
-    :return: List of project optimizers with project_id
+    Route for getting a list of optims for a given project
+    filtered by the flask request args.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to get optims for
+    :return: a tuple containing (json response, http status code)
     """
-    _LOGGER.info("getting all project optimizers for project {}".format(project_id))
+    args = {key: val for key, val in request.args.items()}
+    _LOGGER.info(
+        "getting project optims for project_id {} and request args {}".format(
+            project_id, args
+        )
+    )
+    args = SearchProjectOptimizationsSchema().load(args)
+    project = optim_validate_and_get_project_by_id(project_id)  # validate id
+
     query = (
         ProjectOptimization.select(
             ProjectOptimization,
@@ -268,8 +166,10 @@ def get_optims(project_id: str):
         .join_from(
             ProjectOptimization, ProjectOptimizationModifierTrainable, JOIN.LEFT_OUTER,
         )
-        .where(ProjectOptimization.project_id == project_id,)
+        .where(ProjectOptimization.project_id == project_id)
         .group_by(ProjectOptimization)
+        .order_by(ProjectOptimization.created)
+        .paginate(args["page"], args["page_length"])
     )
 
     optimizers = []
@@ -277,9 +177,12 @@ def get_optims(project_id: str):
     for res in query:
         optimizers.append(res)
 
-    response = ResponseProjectOptimizationsSchema().dump({"optims": optimizers})
+    resp_optims = data_dump_and_validation(
+        ResponseProjectOptimizationsSchema(), {"optims": optimizers}
+    )
+    _LOGGER.info("retrieved {} optims".format(len(optimizers)))
 
-    return jsonify(response), HTTPStatus.OK.value
+    return jsonify(resp_optims), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/", methods=["POST"])
@@ -325,63 +228,79 @@ def get_optims(project_id: str):
 )
 def create_optim(project_id: str):
     """
-    Creates a project optimizer for given project with project_id
-    :param project_id: project_id for optimizer
-    :return: Created optimizer
+    Route for creating a new optimizer for a given project.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to create a benchmark for
+    :return: a tuple containing (json response, http status code)
     """
-    project = get_project_by_id(project_id)
-
+    _LOGGER.info(
+        "creating optimizer for project_id {} and request json {}".format(
+            project_id, request.json
+        )
+    )
+    project = optim_validate_and_get_project_by_id(project_id)
     data = CreateProjectOptimizationSchema().dump(request.get_json(force=True))
+    profile_perf, profile_loss = get_profiles_by_id(
+        data["profile_perf_id"] if "profile_perf_id" in data else None,
+        data["profile_loss_id"] if "profile_loss_id" in data else None,
+    )
 
-    training_epochs = project.training_epochs
-    start_epoch = 0
-    stabilization_epochs = 1
-    pruning_epochs = int(training_epochs / 3)
-    fine_tuning_epochs = int(training_epochs / 4)
-    end_epoch = stabilization_epochs + pruning_epochs + fine_tuning_epochs
-
-    model = get_project_model_by_project_id(project_id)
-    node_ids = [
-        node.id_ for node in ModelAnalyzer(model.file_path).nodes if node.prunable
-    ]
     with database.atomic() as transaction:
         try:
-            optim = ProjectOptimization.create(
-                start_epoch=start_epoch, end_epoch=end_epoch, project=project, **data
+            epochs = default_epochs_distribution(project.training_epochs)
+            optim = ProjectOptimization.create(project=project)
+            optim_updater(
+                optim,
+                name=data["name"],
+                profile_perf=profile_perf,
+                profile_loss=profile_loss,
+                start_epoch=epochs.start_epoch,
+                end_epoch=epochs.end_epoch,
             )
-            if data["add_trainable"]:
-                ProjectOptimizationModifierTrainable.create(
-                    start_epoch=start_epoch,
-                    end_epoch=end_epoch,
-                    optim=optim,
-                    nodes=[
-                        {"node_id": node_id, "trainable": True} for node_id in node_ids
-                    ],
-                )
-            if data["add_pruning"]:
-                pruning_start_epochs = stabilization_epochs
-                ProjectOptimizationModifierPruning.create(
-                    start_epoch=pruning_start_epochs,
-                    end_epoch=pruning_start_epochs + pruning_epochs,
-                    optim=optim,
-                    update_frequency=1,
-                    sparsity=0.85,
-                    nodes=[
-                        {"node_id": node_id, "sparsity": 0.85} for node_id in node_ids
-                    ],
-                )
-            if data["add_quantization"]:
-                ProjectOptimizationModifierQuantization.create(
-                    start_epoch=start_epoch,
-                    end_epoch=end_epoch,
-                    optim=optim,
-                    nodes=[{"node_id": node_id} for node_id in node_ids],
-                )
-            if data["add_lr_schedule"]:
-                ProjectOptimizationModifierLRSchedule.create(
-                    start_epoch=start_epoch, end_epoch=end_epoch, optim=optim,
-                )
+            optim.save()
 
+            if data["add_pruning"]:
+                pruning_settings = default_pruning_settings()
+                pruning = ProjectOptimizationModifierPruning.create(optim=optim)
+                optim_pruning_updater(
+                    pruning,
+                    start_epoch=epochs.pruning_start_epoch,
+                    end_epoch=epochs.pruning_end_epoch,
+                    update_frequency=epochs.pruning_update_frequency,
+                    pruning_settings=pruning_settings,
+                    model=project.model,
+                    profile_perf=profile_perf,
+                    profile_loss=profile_loss,
+                    global_start_epoch=epochs.start_epoch,
+                    global_end_epoch=epochs.end_epoch,
+                )
+                pruning.save()
+
+            if data["add_quantization"]:
+                # TODO: fill in once quantization is added
+                raise ValidationError("add_quantization is currently not supported")
+
+            if data["add_trainable"]:
+                # TODO: fill in trainable
+                raise ValidationError("add_trainable is currently not supported")
+
+            if data["add_lr_schedule"]:
+                lr_mods = optim_lr_sched_default_mods(
+                    project.training_lr_init,
+                    project.training_lr_final,
+                    epochs.start_epoch,
+                    epochs.fine_tuning_start_epoch,
+                    epochs.end_epoch,
+                )
+                lr_schedule = ProjectOptimizationModifierLRSchedule.create(optim=optim)
+                optim_lr_sched_updater(
+                    lr_schedule,
+                    lr_mods,
+                    global_start_epoch=epochs.start_epoch,
+                    global_end_epoch=epochs.end_epoch,
+                )
+                lr_schedule.save()
         except Exception as err:
             _LOGGER.error(
                 "error while creating new optimizer, rolling back: {}".format(err)
@@ -389,9 +308,11 @@ def create_optim(project_id: str):
             transaction.rollback()
             raise err
 
-    response = ResponseProjectOptimizationSchema().dump({"optims": optim})
+    optims_resp = data_dump_and_validation(
+        ResponseProjectOptimizationSchema(), {"optim": optim}
+    )
 
-    return jsonify(response), HTTPStatus.OK.value
+    return jsonify(optims_resp), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/frameworks")
@@ -439,12 +360,12 @@ def get_available_frameworks(project_id: str):
     # make sure project exists
     # currently project_id doesn't do anything,
     # but gives us flexibility to edit the frameworks for a projects model in the future
-    project = get_project_by_id(project_id)
+    project = optim_validate_and_get_project_by_id(project_id)
 
-    resp_schema = ResponseProjectOptimizationFrameworksAvailableSchema()
-    resp_frameworks = resp_schema.dump({"frameworks": ML_FRAMEWORKS})
-    resp_schema.validate(resp_frameworks)
-
+    resp_frameworks = data_dump_and_validation(
+        ResponseProjectOptimizationFrameworksAvailableSchema(),
+        {"frameworks": ML_FRAMEWORKS},
+    )
     _LOGGER.info(
         "retrieved available frameworks for project_id {}: {}".format(
             project_id, resp_frameworks
@@ -465,6 +386,13 @@ def get_available_frameworks(project_id: str):
                 "in": "path",
                 "name": "project_id",
                 "description": "ID of the project to get the available modifiers for",
+                "required": True,
+                "type": "string",
+            },
+            {
+                "in": "path",
+                "name": "framework",
+                "description": "the ML framework to get available sample code types for",
                 "required": True,
                 "type": "string",
             },
@@ -504,7 +432,7 @@ def get_available_frameworks_samples(project_id: str, framework: str):
     # make sure project exists
     # currently project_id doesn't do anything,
     # but gives us flexibility to edit the frameworks for a projects model in the future
-    project = get_project_by_id(project_id)
+    project = optim_validate_and_get_project_by_id(project_id)
 
     code_samples_dir = os.path.join(
         os.path.dirname(clean_path(__file__)), "code_samples"
@@ -524,10 +452,10 @@ def get_available_frameworks_samples(project_id: str, framework: str):
         assert found_framework == framework
         samples.append(split[2])
 
-    resp_schema = ResponseProjectOptimizationFrameworksAvailableSamplesSchema()
-    resp_samples = resp_schema.dump({"framework": framework, "samples": samples})
-    resp_schema.validate(resp_samples)
-
+    resp_samples = data_dump_and_validation(
+        ResponseProjectOptimizationFrameworksAvailableSamplesSchema(),
+        {"framework": framework, "samples": samples},
+    )
     _LOGGER.info(
         "retrieved available samples for project_id {} and framework {}: {}".format(
             project_id, framework, resp_samples
@@ -606,7 +534,7 @@ def get_framework_sample(project_id: str, framework: str, sample: str):
     # make sure project exists
     # currently project_id doesn't do anything,
     # but gives us flexibility to edit the frameworks for a projects model in the future
-    project = get_project_by_id(project_id)
+    project = optim_validate_and_get_project_by_id(project_id)
 
     code_samples_dir = os.path.join(
         os.path.dirname(clean_path(__file__)), "code_samples"
@@ -626,6 +554,15 @@ def get_framework_sample(project_id: str, framework: str, sample: str):
                 "framework {} and sample {}"
             ).format(project_id, framework, sample)
         )
+
+    _LOGGER.info(
+        (
+            (
+                "retrieved available sample code for project_id {}, "
+                "framework {}, and sample {} from {}"
+            )
+        ).format(project_id, framework, sample, sample_file)
+    )
 
     return send_file(sample_file, mimetype="text/plain")
 
@@ -662,11 +599,29 @@ def get_framework_sample(project_id: str, framework: str, sample: str):
     },
 )
 def get_available_modifiers(project_id: str):
-    response = ResponseProjectOptimizationModifiersAvailable().dump(
-        {"modifiers": ["pruning", "lr_schedule"]}
+    """
+    Route for getting the available modifiers for a project
+
+    :param project_id: the project_id to get the available modifiers for
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        "getting the available frameworks for project_id {}".format(project_id)
     )
-    ResponseProjectOptimizationModifiersAvailable().validate(response)
-    return jsonify(response), HTTPStatus.OK.value
+
+    # make sure project exists
+    # currently project_id doesn't do anything,
+    # but gives us flexibility to edit the frameworks for a projects model in the future
+    project = optim_validate_and_get_project_by_id(project_id)
+
+    # TODO: add quantization once available
+    # TODO: add trainable if sparse transfer learning detected
+    resp_modifiers = data_dump_and_validation(
+        ResponseProjectOptimizationModifiersAvailable(),
+        {"modifiers": ["pruning", "lr_schedule"]},
+    )
+
+    return jsonify(resp_modifiers), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/modifiers/best-estimated")
@@ -683,6 +638,20 @@ def get_available_modifiers(project_id: str):
                 "description": "ID of the project to create a optim for",
                 "required": True,
                 "type": "string",
+            },
+            {
+                "in": "query",
+                "name": "profile_perf_id",
+                "type": "str",
+                "description": "id for the performance profile to use to "
+                "calculate estimates",
+            },
+            {
+                "in": "query",
+                "name": "profile_loss_id",
+                "type": "str",
+                "description": "id for the loss profile to use to "
+                "calculate estimates",
             },
         ],
         "responses": {
@@ -703,11 +672,41 @@ def get_available_modifiers(project_id: str):
     },
 )
 def get_modifiers_estimated_speedup(project_id: str):
-    response = ResponseProjectOptimizationModifiersBestEstimated().dump(
-        {"est_recovery": 0, "est_perf_gain": 0, "est_time": 0, "est_time_baseline": 0}
+    """
+    Route for getting the estimated metrics for a project's model after optimizing
+
+    :param project_id: the project_id to get the available frameworks for
+    :return: a tuple containing (json response, http status code)
+    """
+    args = {key: val for key, val in request.args.items()}
+    _LOGGER.info(
+        "getting best estimated speedup for project_id {} and request args {}".format(
+            project_id, args
+        )
     )
-    ResponseProjectOptimizationModifiersBestEstimated().validate(response)
-    return jsonify(response), HTTPStatus.OK.value
+    args = GetProjectOptimizationBestEstimatedResultsSchema().load(args)
+    project = optim_validate_and_get_project_by_id(project_id)
+    profile_perf, profile_loss = get_profiles_by_id(
+        args["profile_perf_id"], args["profile_loss_id"]
+    )
+
+    pruning_settings = default_pruning_settings()
+    model = PruningModelEvaluator(
+        project.model.analysis,
+        profile_perf.analysis if profile_perf is not None else None,
+        profile_loss.analysis if profile_loss is not None else None,
+    )
+    model.create_rescale_functions()
+    model.eval_baseline(default_pruning_settings().sparsity)
+    model.eval_pruning(pruning_settings)
+    _, model_res = model.to_dict_values()
+
+    resp_est = data_dump_and_validation(
+        ResponseProjectOptimizationModifiersBestEstimated(), model_res
+    )
+    _LOGGER.info("retrieved best estimated speedup {}".format(resp_est))
+
+    return jsonify(resp_est), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/<optim_id>")
@@ -754,18 +753,26 @@ def get_modifiers_estimated_speedup(project_id: str):
 )
 def get_optim(project_id: str, optim_id: str):
     """
-    :param project_id: project_id for optimizer
-    :param optim_id: optim_id for optimizer
-    :return: Project optimizers with matching project_id and optim_id
+    Route for getting a specific optimization for a given project.
+    Raises an HTTPNotFoundError if the project or optimization are
+    not found in the database.
+
+    :param project_id: the id of the project to get the optimization for
+    :param optim_id: the id of the optimization to get
+    :return: a tuple containing (json response, http status code)
     """
     _LOGGER.info(
         "getting project optimizer {} for project {}".format(optim_id, project_id)
     )
+    project = optim_validate_and_get_project_by_id(project_id)
     optim = get_project_optimizer_by_ids(project_id, optim_id)
 
-    response = ResponseProjectOptimizationSchema().dump({"optims": optim})
+    resp_optim = data_dump_and_validation(
+        ResponseProjectOptimizationSchema(), {"optim": optim}
+    )
     _LOGGER.info("retrieved project optimizer {}".format(project_id))
-    return jsonify(response), HTTPStatus.OK.value
+
+    return jsonify(resp_optim), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/<optim_id>", methods=["PUT"])
@@ -819,23 +826,86 @@ def get_optim(project_id: str, optim_id: str):
 )
 def update_optim(project_id: str, optim_id: str):
     """
-    Updates a project optimizer
-    :param project_id: project_id for optimizer
-    :param optim_id: optim_id for optimizer
-    :return: Updated project optimizers with matching project_id and optim_id
+    Route for updating a specific optimization for a given project.
+    Raises an HTTPNotFoundError if the project or optimization are
+    not found in the database.
+
+    :param project_id: the id of the project to update the optimization for
+    :param optim_id: the id of the optimization to update
+    :return: a tuple containing (json response, http status code)
     """
     _LOGGER.info(
         "updating project optimizer {} for project {}".format(optim_id, project_id)
     )
     data = UpdateProjectOptimizationSchema().dump(request.get_json(force=True))
+    project = optim_validate_and_get_project_by_id(project_id)
     optim = get_project_optimizer_by_ids(project_id, optim_id)
+    profiles_set = False
 
-    for key, val in data.items():
-        setattr(optim, key, val)
+    if "profile_perf_id" in data:
+        profile_perf_id = data["profile_perf_id"]
+        del data["profile_perf_id"]
+        profiles_set = True
+    else:
+        profile_perf_id = optim.profile_perf_id
 
-    optim.save()
-    response = ResponseProjectOptimizationSchema().dump({"optims": optim})
-    _LOGGER.info("updated project optimizer {}".format(response))
+    if "profile_loss_id" in data:
+        profile_loss_id = data["profile_loss_id"]
+        del data["profile_loss_id"]
+        profiles_set = True
+    else:
+        profile_loss_id = optim.profile_loss_id
+
+    profile_perf, profile_loss = get_profiles_by_id(profile_perf_id, profile_loss_id)
+
+    with database.atomic() as transaction:
+        try:
+            optim_updater(
+                optim, **data, profile_perf=profile_perf, profile_loss=profile_loss
+            )
+            optim.save()
+
+            if not profiles_set:
+                # set to None so we don't update the pruning modifiers if not needed
+                profile_perf = None
+                profile_loss = None
+
+            global_start_epoch = data["start_epoch"] if "start_epoch" in data else None
+            global_end_epoch = data["end_epoch"] if "end_epoch" in data else None
+
+            for pruning in optim.pruning_modifiers:
+                optim_pruning_updater(
+                    pruning,
+                    model=project.model,
+                    profile_perf=profile_perf,
+                    profile_loss=profile_loss,
+                    global_start_epoch=global_start_epoch,
+                    global_end_epoch=global_end_epoch,
+                )
+                pruning.save()
+
+            # todo: add quantization updates when ready
+            # todo: add trainable
+
+            for lr_schedule in optim.lr_schedule_modifiers:
+                optim_lr_sched_updater(
+                    lr_schedule,
+                    global_start_epoch=global_start_epoch,
+                    global_end_epoch=global_end_epoch,
+                )
+                lr_schedule.save()
+        except Exception as err:
+            _LOGGER.error(
+                "error while updating optimizer, rolling back: {}".format(err)
+            )
+            transaction.rollback()
+            raise err
+
+    resp_optim = data_dump_and_validation(
+        ResponseProjectOptimizationSchema(), {"optim": optim}
+    )
+    _LOGGER.info("updated project optimizer {}".format(resp_optim))
+
     return get_optim(project_id, optim_id)
 
 
@@ -882,32 +952,35 @@ def update_optim(project_id: str, optim_id: str):
     },
 )
 def delete_optim(project_id: str, optim_id: str):
+    """
+    Route for deleting a specific optimization for a given project.
+    Raises an HTTPNotFoundError if the project or optimization are
+    not found in the database.
+
+    :param project_id: the id of the project to delete the optimization for
+    :param optim_id: the id of the optimization to delete
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info(
         "deleting project optimizer {} for project {}".format(optim_id, project_id)
     )
-
+    project = get_project_by_id(project_id)  # make sure project exists
     optim = get_project_optimizer_by_ids(project_id, optim_id)
-
-    with database.atomic() as transaction:
-        try:
-            optim.delete_instance()
-        except Exception as err:
-            _LOGGER.error("error while deleting optim, rolling back: {}".format(err))
-            transaction.rollback()
-            raise err
-
-    response = ResponseProjectOptimizationDeletedSchema().dump(
-        {"optim_id": optim_id, "project_id": project_id}
+    optim.delete_instance()
+    resp_deleted = data_dump_and_validation(
+        ResponseProjectOptimizationDeletedSchema(),
+        {"optim_id": optim_id, "project_id": project_id},
     )
 
-    return jsonify(response), HTTPStatus.OK.value
+    return jsonify(resp_deleted), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/<optim_id>/frameworks/<framework>/config")
 @swag_from(
     {
         "tags": ["Projects Optimizations"],
-        "summary": "Get an optimization config for the projects model for given framework.",
+        "summary": "Get an optimization config for the projects model "
+        "for given framework.",
         "produces": ["text/yaml", "application/json"],
         "parameters": [
             {
@@ -946,30 +1019,29 @@ def delete_optim(project_id: str, optim_id: str):
     },
 )
 def get_optim_config(project_id: str, optim_id: str, framework: str):
-    get_project_by_id(project_id)
-    if framework == "pytorch":
-        config_string = _get_config(
-            project_id,
-            optim_id,
-            PTScheduledModifierManager,
-            PTEpochRangeModifier,
-            PTSetLearningRateModifier,
-            PTLearningRateModifier,
-            PTGradualKSModifier,
+    """
+    Route for getting the config yaml represnetation for a project's optimization.
+    Raises an HTTPNotFoundError if the project or optimization are
+    not found in the database.
+
+    :param project_id: the id of the project to get the config file for
+    :param optim_id: the id of the optimization to get the config file for
+    :param framework: the ML framework to get the config file for
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        "getting project optimizer config {} for project {} for framework {}".format(
+            optim_id, project_id, framework
         )
-    elif framework == "tensorflow":
-        config_string = _get_config(
-            project_id,
-            optim_id,
-            TFScheduledModifierManager,
-            TFEpochRangeModifier,
-            TFSetLearningRateModifier,
-            TFLearningRateModifier,
-            TFGradualKSModifier,
+    )
+    project = optim_validate_and_get_project_by_id(project_id)
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    config_string = create_config(project, optim, framework)
+    _LOGGER.info(
+        "retrieved project optimizer config {} for project {} for framework {}".format(
+            optim_id, project_id, framework
         )
-    else:
-        _LOGGER.error("Unsupported framework {} provided".format(framework))
-        raise ValidationError("Unsupported framework {} provided".format(framework))
+    )
 
     return Response(config_string, mimetype="text/yaml"), HTTPStatus.OK.value
 
@@ -1027,6 +1099,16 @@ def get_optim_config(project_id: str, optim_id: str, framework: str):
     },
 )
 def delete_optim_modifier(project_id: str, optim_id: str, modifier_id: str):
+    """
+    Route for deleting a modifier in a specific optimization for a given project.
+    Raises an HTTPNotFoundError if the project or optim are
+    not found in the database.
+
+    :param project_id: the id of the project to delete the modifier for
+    :param optim_id: the id of the optim to delete the modifier for
+    :param modifier_id: the id of the modifier to delete
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info("deleting modifier {} for optimizer {}".format(modifier_id, optim_id))
     mods = [
         ProjectOptimizationModifierLRSchedule.get_or_none(
@@ -1060,12 +1142,13 @@ def delete_optim_modifier(project_id: str, optim_id: str, modifier_id: str):
         )
 
     mod_for_deletion.delete_instance()
-
-    response = ResponseProjectOptimizationModifierDeletedSchema().dump(
-        {"project_id": project_id, "optim_id": optim_id}
+    resp_deleted = data_dump_and_validation(
+        ResponseProjectOptimizationModifierDeletedSchema(),
+        {"project_id": project_id, "optim_id": optim_id},
     )
+    _LOGGER.info("deleted modifier {} for optimizer {}".format(modifier_id, optim_id))
 
-    return jsonify(response), HTTPStatus.OK.value
+    return jsonify(resp_deleted), HTTPStatus.OK.value
 
 
 @projects_optim_blueprint.route("/<optim_id>/modifiers/pruning", methods=["POST"])
@@ -1118,30 +1201,80 @@ def delete_optim_modifier(project_id: str, optim_id: str, modifier_id: str):
     },
 )
 def create_optim_modifier_pruning(project_id: str, optim_id: str):
-    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    """
+    Route for creating a new pruning modifier for a given project optim.
+    Raises an HTTPNotFoundError if the project or optim are not found in the database.
 
-    data = CreateUpdateProjectOptimizationModifiersPruningSchema().dump(
+    :param project_id: the id of the project to create a pruning modifier for
+    :param optim_id: the id of the optim to create a pruning modifier for
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        "creating a pruning modifier for optim {} and project {} with data {}".format(
+            optim_id, project_id, request.json
+        )
+    )
+    project = optim_validate_and_get_project_by_id(project_id)
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    profile_perf, profile_loss = get_profiles_by_id(
+        optim.profile_perf_id, optim.profile_loss_id
+    )
+    data = CreateUpdateProjectOptimizationModifiersPruningSchema().load(
         request.get_json(force=True)
     )
 
-    _validate_nodes(project_id, data)
+    if "nodes" in data and data["nodes"]:
+        validate_pruning_nodes(project, data["nodes"])
+
+    default_epochs = default_epochs_distribution(project.training_epochs)
+    default_pruning = default_pruning_settings()
+
+    if "start_epoch" not in data:
+        data["start_epoch"] = default_epochs.pruning_start_epoch
+
+    if "end_epoch" not in data:
+        data["end_epoch"] = default_epochs.pruning_end_epoch
+
+    if "update_frequency" not in data:
+        data["update_frequency"] = default_epochs.pruning_update_frequency
+
+    if "mask_type" not in data:
+        data["mask_type"] = default_pruning.mask_type
+
+    if "nodes" not in data and "sparsity" not in data:
+        data["sparsity"] = default_pruning.sparsity
 
     with database.atomic() as transaction:
         try:
-            ProjectOptimizationModifierPruning.create(
-                optim=optim,
-                est_recovery=None,
-                est_perf_gain=None,
-                est_time=None,
-                est_time_baseline=None,
-                **data
+            pruning = ProjectOptimizationModifierPruning.create(optim=optim)
+            optim_pruning_updater(
+                pruning,
+                **data,
+                model=project.model,
+                profile_perf=profile_perf,
+                profile_loss=profile_loss,
             )
+            pruning.save()
+
+            # update optim in case bounds for new modifier went outside it
+            optim_updater(
+                optim,
+                mod_start_epoch=pruning.start_epoch,
+                mod_end_epoch=pruning.end_epoch,
+            )
+            optim.save()
         except Exception as err:
             _LOGGER.error(
                 "error while creating pruning modifier, rolling back: {}".format(err)
             )
             transaction.rollback()
             raise err
+
+    _LOGGER.info(
+        "created a pruning modifier with id {} for optim {} and project {}".format(
+            pruning.modifier_id, optim_id, project_id
+        )
+    )
 
     return get_optim(project_id, optim_id)
 
@@ -1205,34 +1338,68 @@ def create_optim_modifier_pruning(project_id: str, optim_id: str):
     },
 )
 def update_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: str):
-    pruning_mod = ProjectOptimizationModifierPruning.get_or_none(
+    """
+    Route for updating a pruning modifier for a given project optim.
+    Raises an HTTPNotFoundError if the project, optim, or modifier
+    are not found in the database.
+
+    :param project_id: the id of the project to update a pruning modifier for
+    :param optim_id: the id of the optim to update a pruning modifier for
+    :param modifier_id: the id of the modifier to update
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        (
+            "updating a pruning modifier with id {} for optim {} "
+            "and project {} with data {}"
+        ).format(modifier_id, optim_id, project_id, request.json)
+    )
+    project = optim_validate_and_get_project_by_id(project_id)
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    pruning = ProjectOptimizationModifierPruning.get_or_none(
         ProjectOptimizationModifierPruning.modifier_id == modifier_id
     )
-
-    if pruning_mod is None:
-        _LOGGER.error(
-            "could not find pruning modifier with modifier_id {}".format(modifier_id)
-        )
-        raise HTTPNotFoundError(
-            "could not find pruning modifier with modifier_id {}".format(modifier_id)
-        )
-
-    data = CreateUpdateProjectOptimizationModifiersPruningSchema().dump(
+    profile_perf, profile_loss = get_profiles_by_id(
+        optim.profile_perf_id, optim.profile_loss_id
+    )
+    data = CreateUpdateProjectOptimizationModifiersPruningSchema().load(
         request.get_json(force=True)
     )
 
-    if "nodes" in data:
-        _validate_nodes(project_id, data)
+    if "nodes" in data and data["nodes"]:
+        validate_pruning_nodes(project, data["nodes"])
 
-    for key, val in data.items():
-        setattr(pruning_mod, key, val)
+    with database.atomic() as transaction:
+        try:
+            optim_pruning_updater(
+                pruning,
+                **data,
+                model=project.model,
+                profile_perf=profile_perf,
+                profile_loss=profile_loss,
+            )
+            pruning.save()
 
-    setattr(pruning_mod, "est_recovery", None)
-    setattr(pruning_mod, "est_perf_gain", None)
-    setattr(pruning_mod, "est_time", None)
-    setattr(pruning_mod, "est_time_basline", None)
+            # update optim in case bounds for new modifier went outside it
+            optim_updater(
+                optim,
+                mod_start_epoch=pruning.start_epoch,
+                mod_end_epoch=pruning.end_epoch,
+            )
+            optim.save()
+        except Exception as err:
+            _LOGGER.error(
+                "error while updating pruning modifier, rolling back: {}".format(err)
+            )
+            transaction.rollback()
+            raise err
 
-    pruning_mod.save()
+    _LOGGER.info(
+        "updated pruning modifier with id {} for optim {} and project {}".format(
+            pruning.modifier_id, optim_id, project_id
+        )
+    )
+
     return get_optim(project_id, optim_id)
 
 
@@ -1286,7 +1453,7 @@ def update_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: s
     },
 )
 def create_optim_modifier_quantization(project_id: str, optim_id: str):
-    pass
+    raise NotImplementedError()
 
 
 @projects_optim_blueprint.route(
@@ -1350,7 +1517,7 @@ def create_optim_modifier_quantization(project_id: str, optim_id: str):
 def update_optim_modifier_quantization(
     project_id: str, optim_id: str, modifier_id: str
 ):
-    pass
+    raise NotImplementedError()
 
 
 @projects_optim_blueprint.route("/<optim_id>/modifiers/lr-schedule", methods=["POST"])
@@ -1403,26 +1570,63 @@ def update_optim_modifier_quantization(
     },
 )
 def create_optim_modifier_lr_schedule(project_id: str, optim_id: str):
-    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    """
+    Route for creating a new lr schedule modifier for a given project optim.
+    Raises an HTTPNotFoundError if the project or optim are not found in the database.
 
-    data = CreateUpdateProjectOptimizationModifiersLRScheduleSchema().dump(
+    :param project_id: the id of the project to create an lr schedule modifier for
+    :param optim_id: the id of the optim to create an lr schedule modifier for
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        (
+            "creating an lr schedule modifier for optim {} "
+            "and project {} with data {}"
+        ).format(optim_id, project_id, request.json)
+    )
+    project = optim_validate_and_get_project_by_id(project_id)
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    data = CreateUpdateProjectOptimizationModifiersLRScheduleSchema().load(
         request.get_json(force=True)
     )
 
+    if "lr_mods" not in data:
+        epochs = default_epochs_distribution(project.training_epochs)
+        data["lr_mods"] = optim_lr_sched_default_mods(
+            project.training_lr_init,
+            project.training_lr_final,
+            epochs.start_epoch,
+            epochs.fine_tuning_start_epoch,
+            epochs.end_epoch,
+        )
+
     with database.atomic() as transaction:
         try:
-            start_epoch, end_epoch = _get_epochs_from_lr_mods(data["lr_mods"])
-            ProjectOptimizationModifierLRSchedule.create(
-                optim=optim, start_epoch=start_epoch, end_epoch=end_epoch, **data
+            lr_sched = ProjectOptimizationModifierLRSchedule.create(optim=optim)
+            optim_lr_sched_updater(
+                lr_sched, lr_mods=data["lr_mods"] if data["lr_mods"] else [],
             )
+            lr_sched.save()
+
+            # update optim in case bounds for new modifier went outside it
+            optim_updater(
+                optim,
+                mod_start_epoch=lr_sched.start_epoch,
+                mod_end_epoch=lr_sched.end_epoch,
+            )
+            optim.save()
         except Exception as err:
             _LOGGER.error(
-                "error while creating lr schedule modifier, rolling back: {}".format(
-                    err
-                )
+                "error while creating lr_sched modifier, rolling back: {}".format(err)
             )
             transaction.rollback()
             raise err
+
+    _LOGGER.info(
+        "created an lr schedule modifier with id {} for optim {} and project {}".format(
+            lr_sched.modifier_id, optim_id, project_id
+        )
+    )
 
     return get_optim(project_id, optim_id)
 
@@ -1486,34 +1690,59 @@ def create_optim_modifier_lr_schedule(project_id: str, optim_id: str):
     },
 )
 def update_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_id: str):
-    pruning_mod = ProjectOptimizationModifierLRSchedule.get_or_none(
-        ProjectOptimizationModifierLRSchedule.modifier_id == modifier_id
+    """
+    Route for updating an lr schedule modifier for a given project optim.
+    Raises an HTTPNotFoundError if the project, optim, or modifier
+    are not found in the database.
+
+    :param project_id: the id of the project to update an lr schedule modifier for
+    :param optim_id: the id of the optim to update an lr schedule modifier for
+    :param modifier_id: the id of the modifier to update
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        (
+            "updating an lr schedule modifier with id {} for optim {} "
+            "and project {} with data {}"
+        ).format(modifier_id, optim_id, project_id, request.json)
     )
-
-    if pruning_mod is None:
-        _LOGGER.error(
-            "could not find lr schedule modifier with modifier_id {}".format(
-                modifier_id
-            )
-        )
-        raise HTTPNotFoundError(
-            "could not find lr schedule modifier with modifier_id {}".format(
-                modifier_id
-            )
-        )
-
-    data = CreateUpdateProjectOptimizationModifiersLRScheduleSchema().dump(
+    project = optim_validate_and_get_project_by_id(project_id)
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    lr_sched = ProjectOptimizationModifierLRSchedule.get_or_none(
+        ProjectOptimizationModifierPruning.modifier_id == modifier_id
+    )
+    data = CreateUpdateProjectOptimizationModifiersLRScheduleSchema().load(
         request.get_json(force=True)
     )
 
-    for key, val in data.items():
-        if key == "lr_mods":
-            start_epoch, end_epoch = _get_epochs_from_lr_mods(val)
-            setattr(pruning_mod, "start_epoch", start_epoch)
-            setattr(pruning_mod, "end_epoch", end_epoch)
-        setattr(pruning_mod, key, val)
+    with database.atomic() as transaction:
+        try:
+            optim_lr_sched_updater(
+                lr_sched,
+                lr_mods=[] if "lr_mods" not in data or not data["lr_mods"] else None,
+            )
+            lr_sched.save()
 
-    pruning_mod.save()
+            # update optim in case bounds for new modifier went outside it
+            optim_updater(
+                optim,
+                mod_start_epoch=lr_sched.start_epoch,
+                mod_end_epoch=lr_sched.end_epoch,
+            )
+            optim.save()
+        except Exception as err:
+            _LOGGER.error(
+                "error while updating lr_sched modifier, rolling back: {}".format(err)
+            )
+            transaction.rollback()
+            raise err
+
+    _LOGGER.info(
+        "updated pruning modifier with id {} for optim {} and project {}".format(
+            lr_sched.modifier_id, optim_id, project_id
+        )
+    )
+
     return get_optim(project_id, optim_id)
 
 
@@ -1567,7 +1796,7 @@ def update_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_i
     },
 )
 def create_optim_modifier_trainable(project_id: str, optim_id: str):
-    pass
+    raise NotImplementedError()
 
 
 @projects_optim_blueprint.route(
@@ -1629,4 +1858,4 @@ def create_optim_modifier_trainable(project_id: str, optim_id: str):
     },
 )
 def update_optim_modifier_trainable(project_id: str, optim_id: str, modifier_id: str):
-    pass
+    raise NotImplementedError()

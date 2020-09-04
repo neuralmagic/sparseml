@@ -47,11 +47,7 @@ class ProjectExtSchema(ProjectSchema):
     """
 
     model = fields.Nested(
-        ProjectModelSchema,
-        required=False,
-        default=None,
-        missing=None,
-        allow_none=True,
+        ProjectModelSchema, required=False, default=None, missing=None, allow_none=True,
     )
     data = fields.Nested(
         ProjectDataSchema,

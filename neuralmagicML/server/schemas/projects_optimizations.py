@@ -1,3 +1,7 @@
+"""
+Schemas for anything related to project optims routes, database models, and workers
+"""
+
 from marshmallow import Schema, fields, validate
 
 from neuralmagicML.server.schemas.helpers import (
@@ -22,13 +26,16 @@ __all__ = [
     "ProjectOptimizationModifierLRExponentialArgsSchema",
     "ProjectOptimizationModifierLRScheduleSchema",
     "ProjectOptimizationModifierTrainableSchema",
+    "ProjectOptimizationModifierTrainableNodeSchema",
     "ProjectOptimizationSchema",
+    "GetProjectOptimizationBestEstimatedResultsSchema",
     "CreateProjectOptimizationSchema",
     "UpdateProjectOptimizationSchema",
     "CreateUpdateProjectOptimizationModifiersPruningSchema",
     "CreateUpdateProjectOptimizationModifiersQuantizationSchema",
     "CreateUpdateProjectOptimizationModifiersLRScheduleSchema",
     "CreateUpdateProjectOptimizationModifiersTrainableSchema",
+    "SearchProjectOptimizationsSchema",
     "ResponseProjectOptimizationFrameworksAvailableSchema",
     "ResponseProjectOptimizationFrameworksAvailableSamplesSchema",
     "ResponseProjectOptimizationModifiersAvailable",
@@ -41,12 +48,20 @@ __all__ = [
 
 
 class ProjectAvailableModelModificationsSchema(Schema):
+    """
+    Schema for the available modifiers for a project
+    """
+
     pruning = fields.Bool(required=True)
     quantization = fields.Bool(required=True)
     sparse_transfer_learning = fields.Bool(required=True)
 
 
 class ProjectOptimizationModifierPruningNodeMetadataSchema(Schema):
+    """
+    Schema for a pruning nodes metadata
+    """
+
     node_id = fields.Str(required=True, allow_none=True)
     sparsity = fields.Float(required=True, allow_none=True)
 
@@ -54,45 +69,55 @@ class ProjectOptimizationModifierPruningNodeMetadataSchema(Schema):
 class ProjectOptimizationModifierPruningNodeSchema(
     ProjectOptimizationModifierPruningNodeMetadataSchema
 ):
-    est_recovery = fields.Float(required=True)
-    est_perf_gain = fields.Float(required=True)
-    est_time = fields.Float(required=True)
-    est_time_baseline = fields.Float(required=True)
-    est_loss_sensitivity = fields.Float(required=True)
-    est_loss_sensitivity_bucket = fields.Int(required=True)
-    est_perf_sensitivity = fields.Float(required=True)
-    est_perf_sensitivity_bucket = fields.Int(required=True)
+    """
+    Schema for a pruning node containing metadata and estimated values
+    """
+
+    est_recovery = fields.Float(required=True, allow_none=True)
+    est_perf_gain = fields.Float(required=True, allow_none=True)
+    est_time = fields.Float(required=True, allow_none=True)
+    est_time_baseline = fields.Float(required=True, allow_none=True)
+    est_loss_sensitivity = fields.Float(required=True, allow_none=True)
+    est_perf_sensitivity = fields.Float(required=True, allow_none=True)
 
 
 class ProjectOptimizationModifierPruningSchema(Schema):
+    """
+    Schema for a pruning modifier including metadata, settings, and estimated values
+    """
+
     modifier_id = fields.Str(required=True)
     optim_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
     modified = fields.DateTime(required=True)
-    start_epoch = fields.Float(required=True)
-    end_epoch = fields.Float(required=True)
-    update_frequency = fields.Float(required=True)
+    start_epoch = fields.Float(required=True, allow_none=True)
+    end_epoch = fields.Float(required=True, allow_none=True)
+    update_frequency = fields.Float(required=True, allow_none=True)
     mask_type = fields.Str(
-        required=True, validate=validate.OneOf(PRUNING_STRUCTURE_TYPES)
+        required=True, validate=validate.OneOf(PRUNING_STRUCTURE_TYPES), allow_none=True
     )
 
-    sparsity = fields.Float(required=True)
-    sparsity_perf_loss_balance = fields.Float(required=True)
-    filter_min_sparsity = fields.Float(required=True)
-    filter_min_perf_gain = fields.Float(required=True)
-    filter_max_loss_drop = fields.Float(required=True)
+    sparsity = fields.Float(required=True, allow_none=True)
+    balance_perf_loss = fields.Float(required=True)
+    filter_min_sparsity = fields.Float(required=True, allow_none=True)
+    filter_min_perf_gain = fields.Float(required=True, allow_none=True)
+    filter_max_loss_drop = fields.Float(required=True, allow_none=True)
 
     nodes = fields.Nested(
         ProjectOptimizationModifierPruningNodeSchema, required=True, many=True
     )
 
-    est_recovery = fields.Float(required=True)
-    est_perf_gain = fields.Float(required=True)
-    est_time = fields.Float(required=True)
-    est_time_baseline = fields.Float(required=True)
+    est_recovery = fields.Float(required=True, allow_none=True)
+    est_perf_gain = fields.Float(required=True, allow_none=True)
+    est_time = fields.Float(required=True, allow_none=True)
+    est_time_baseline = fields.Float(required=True, allow_none=True)
 
 
 class ProjectOptimizationModifierQuantizationNodeSchema(Schema):
+    """
+    Schema for a quantization node containing metadata
+    """
+
     node_id = fields.Str(required=True, allow_none=True)
     level = fields.Str(
         required=True, validate=validate.OneOf(QUANTIZATION_LEVELS), allow_none=True
@@ -100,31 +125,40 @@ class ProjectOptimizationModifierQuantizationNodeSchema(Schema):
 
 
 class ProjectOptimizationModifierQuantizationSchema(Schema):
+    """
+    Schema for a quantization modifier including metadata, settings,
+    and estimated values
+    """
+
     modifier_id = fields.Str(required=True)
     optim_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
     modified = fields.DateTime(required=True)
-    start_epoch = fields.Float(required=True)
-    end_epoch = fields.Float(required=True)
+    start_epoch = fields.Float(required=True, allow_none=True)
+    end_epoch = fields.Float(required=True, allow_none=True)
 
     level = fields.Str(
         required=True, validate=validate.OneOf(QUANTIZATION_LEVELS), allow_none=True
     )
-    sparsity_perf_loss_balance = fields.Float(required=True)
-    filter_min_perf_gain = fields.Float(required=True)
-    filter_max_loss_drop = fields.Float(required=True)
+    balance_perf_loss = fields.Float(required=True, allow_none=True)
+    filter_min_perf_gain = fields.Float(required=True, allow_none=True)
+    filter_max_loss_drop = fields.Float(required=True, allow_none=True)
 
     nodes = fields.Nested(
         ProjectOptimizationModifierQuantizationNodeSchema, required=True, many=True
     )
 
-    est_recovery = fields.Float(required=True)
-    est_perf_gain = fields.Float(required=True)
-    est_time = fields.Float(required=True)
-    est_time_baseline = fields.Float(required=True)
+    est_recovery = fields.Float(required=True, allow_none=True)
+    est_perf_gain = fields.Float(required=True, allow_none=True)
+    est_time = fields.Float(required=True, allow_none=True)
+    est_time_baseline = fields.Float(required=True, allow_none=True)
 
 
 class ProjectOptimizationModifierLRSchema(Schema):
+    """
+    Schema for an LR modifier
+    """
+
     clazz = fields.Str(required=True, validate=validate.OneOf(LR_CLASSES))
     start_epoch = fields.Float(required=True)
     end_epoch = fields.Float(required=True)
@@ -133,30 +167,52 @@ class ProjectOptimizationModifierLRSchema(Schema):
 
 
 class ProjectOptimizationModifierLRSetArgsSchema(Schema):
+    """
+    Schema for the args for a set LR modifier
+    """
+
     pass
 
 
 class ProjectOptimizationModifierLRStepArgsSchema(Schema):
+    """
+    Schema for the args for a step LR modifier
+    """
+
     step_size = fields.Float(required=True)
     gamma = fields.Float(required=False, default=0.1)
 
 
 class ProjectOptimizationModifierLRMultiStepArgsSchema(Schema):
+    """
+    Schema for the args for a multi step LR modifier
+    """
+
     milestones = fields.List(fields.Float(), required=True)
     gamma = fields.Float(required=False, default=0.1)
 
 
 class ProjectOptimizationModifierLRExponentialArgsSchema(Schema):
+    """
+    Schema for the args for an exponential LR modifier
+    """
+
     gamma = fields.Float(required=False, default=0.1)
 
 
 class ProjectOptimizationModifierLRScheduleSchema(Schema):
+    """
+    Schema for an LR schedule modifier including metadata and settings
+    """
+
     modifier_id = fields.Str(required=True)
     optim_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
     modified = fields.DateTime(required=True)
-    start_epoch = fields.Float(required=True)
-    end_epoch = fields.Float(required=True)
+    start_epoch = fields.Float(required=True, allow_none=True)
+    end_epoch = fields.Float(required=True, allow_none=True)
+    init_lr = fields.Float(required=True, allow_none=True)
+    final_lr = fields.Float(required=True, allow_none=True)
 
     lr_mods = fields.Nested(
         ProjectOptimizationModifierLRSchema, required=True, many=True
@@ -164,17 +220,25 @@ class ProjectOptimizationModifierLRScheduleSchema(Schema):
 
 
 class ProjectOptimizationModifierTrainableNodeSchema(Schema):
+    """
+    Schema for a trainable node containing metadata
+    """
+
     node_id = fields.Str(required=True, allow_none=True)
     trainable = fields.Bool(required=True, allow_none=True)
 
 
 class ProjectOptimizationModifierTrainableSchema(Schema):
+    """
+    Schema for a trainable modifier containing metadata and settings
+    """
+
     modifier_id = fields.Str(required=True)
     optim_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
     modified = fields.DateTime(required=True)
-    start_epoch = fields.Float(required=True)
-    end_epoch = fields.Float(required=True)
+    start_epoch = fields.Float(required=True, allow_none=True)
+    end_epoch = fields.Float(required=True, allow_none=True)
 
     nodes = fields.Nested(
         ProjectOptimizationModifierTrainableNodeSchema, required=True, many=True
@@ -182,6 +246,10 @@ class ProjectOptimizationModifierTrainableSchema(Schema):
 
 
 class ProjectOptimizationSchema(Schema):
+    """
+    Schema for a project optimization containing metadata and modifiers
+    """
+
     optim_id = fields.Str(required=True)
     project_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
@@ -205,132 +273,195 @@ class ProjectOptimizationSchema(Schema):
     )
 
 
-class CreateProjectOptimizationSchema(Schema):
-    name = fields.Str(required=False, default="")
-    profile_perf_id = fields.Str(required=False, allow_none=True, default=None)
-    loss_perf_id = fields.Str(required=False, allow_none=True, default=None)
-    add_pruning = fields.Bool(required=False, default=True)
-    add_quantization = fields.Bool(required=False, default=False)
-    add_lr_schedule = fields.Bool(required=False, default=True)
-    add_trainable = fields.Bool(required=False, default=False)
+class GetProjectOptimizationBestEstimatedResultsSchema(Schema):
+    """
+    Schema to use for getting a projects best estimated optimization results
+    """
+
+    profile_perf_id = fields.Str(
+        required=False, allow_none=True, default=None, missing=None
+    )
+    profile_loss_id = fields.Str(
+        required=False, allow_none=True, default=None, missing=None
+    )
+
+
+class CreateProjectOptimizationSchema(GetProjectOptimizationBestEstimatedResultsSchema):
+    """
+    Schema to use for creating a project optimization
+    """
+
+    name = fields.Str(required=False, default="", missing="")
+    add_pruning = fields.Bool(required=False, default=True, missing=True)
+    add_quantization = fields.Bool(required=False, default=False, missing=False)
+    add_lr_schedule = fields.Bool(required=False, default=True, missing=True)
+    add_trainable = fields.Bool(required=False, default=False, missing=False)
 
 
 class UpdateProjectOptimizationSchema(Schema):
+    """
+    Schema to use for updating a project optimization
+    """
+
     name = fields.Str(required=False)
-    profile_perf_id = fields.Str(required=False, allow_none=True, default=None)
-    loss_perf_id = fields.Str(required=False, allow_none=True, default=None)
-    start_epoch = fields.Float(required=True)
-    end_epoch = fields.Float(required=True)
+    profile_perf_id = fields.Str(required=False, allow_none=True)
+    loss_perf_id = fields.Str(required=False, allow_none=True)
+    start_epoch = fields.Float(required=False)
+    end_epoch = fields.Float(required=False)
 
 
 class CreateUpdateProjectOptimizationModifiersPruningSchema(Schema):
-    start_epoch = fields.Float(required=False, default=None, allow_none=True)
-    end_epoch = fields.Float(required=False, default=None, allow_none=True)
-    update_frequency = fields.Float(required=False, default=None, allow_none=True)
+    """
+    Schema to use for creating or updating a project optimization pruning modifier
+    """
 
-    sparsity = fields.Float(required=False, default=None, allow_none=True)
-    sparsity_perf_loss_balance = fields.Float(
-        required=False, default=None, allow_none=True
-    )
-    filter_min_sparsity = fields.Float(required=False, default=None, allow_none=True)
-    filter_min_perf_gain = fields.Float(required=False, default=None, allow_none=True)
-    filter_max_loss_drop = fields.Float(required=False, default=None, allow_none=True)
+    start_epoch = fields.Float(required=False)
+    end_epoch = fields.Float(required=False)
+    update_frequency = fields.Float(required=False)
+
+    sparsity = fields.Float(required=False)
+    balance_perf_loss = fields.Float(required=False, allow_none=False)
+    filter_min_sparsity = fields.Float(required=False)
+    filter_min_perf_gain = fields.Float(required=False)
+    filter_max_loss_drop = fields.Float(required=False)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierPruningNodeMetadataSchema,
-        required=False,
-        many=True,
-        default=None,
-        allow_none=True,
+        ProjectOptimizationModifierPruningNodeMetadataSchema, required=False, many=True,
     )
 
 
 class CreateUpdateProjectOptimizationModifiersQuantizationSchema(Schema):
-    start_epoch = fields.Float(required=False, default=None, allow_none=True)
-    end_epoch = fields.Float(required=False, default=None, allow_none=True)
+    """
+    Schema to use for creating or updating a project optimization quantization modifier
+    """
 
-    level = fields.Str(
-        required=False,
-        default=None,
-        validate=validate.OneOf(QUANTIZATION_LEVELS),
-        allow_none=True,
-    )
-    sparsity_perf_loss_balance = fields.Float(
-        required=False, default=None, allow_none=True
-    )
-    filter_min_perf_gain = fields.Float(required=False, default=None, allow_none=True)
-    filter_max_loss_drop = fields.Float(required=False, default=None, allow_none=True)
+    start_epoch = fields.Float(required=False)
+    end_epoch = fields.Float(required=False)
+
+    level = fields.Str(required=False, validate=validate.OneOf(QUANTIZATION_LEVELS),)
+    balance_perf_loss = fields.Float(required=False)
+    filter_min_perf_gain = fields.Float(required=False)
+    filter_max_loss_drop = fields.Float(required=False)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierQuantizationNodeSchema,
-        required=False,
-        default=None,
-        allow_none=True,
+        ProjectOptimizationModifierQuantizationNodeSchema, required=False,
     )
 
 
 class CreateUpdateProjectOptimizationModifiersLRScheduleSchema(Schema):
+    """
+    Schema to use for creating or updating a project optimization lr schedule modifier
+    """
+
     lr_mods = fields.Nested(
-        ProjectOptimizationModifierLRSchema,
-        required=False,
-        allow_none=True,
-        default=None,
-        many=True,
+        ProjectOptimizationModifierLRSchema, required=False, many=True,
     )
 
 
 class CreateUpdateProjectOptimizationModifiersTrainableSchema(Schema):
-    start_epoch = fields.Float(required=False, allow_none=True, default=None)
-    end_epoch = fields.Float(required=False, allow_none=True, default=None)
+    """
+    Schema to use for creating or updating a project optimization trainable modifier
+    """
+
+    start_epoch = fields.Float(required=False)
+    end_epoch = fields.Float(required=False)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierTrainableNodeSchema,
+        ProjectOptimizationModifierTrainableNodeSchema, required=False, many=True,
+    )
+
+
+class SearchProjectOptimizationsSchema(Schema):
+    """
+    Schema to use for querying project optimizations
+    """
+
+    page = fields.Int(
+        default=1,
+        missing=1,
+        validate=validate.Range(min=1, min_inclusive=True),
         required=False,
-        allow_none=True,
-        default=None,
-        many=True,
+    )
+    page_length = fields.Int(
+        default=20,
+        missing=20,
+        validate=validate.Range(min=1, min_inclusive=True),
+        required=False,
     )
 
 
 class ResponseProjectOptimizationFrameworksAvailableSchema(Schema):
+    """
+    Schema for returning the available frameworks for project optimization
+    """
+
     frameworks = fields.List(
         fields.Str(validate=validate.OneOf(ML_FRAMEWORKS)), required=True
     )
 
 
 class ResponseProjectOptimizationFrameworksAvailableSamplesSchema(Schema):
+    """
+    Schema for returning the available code samples for a framework
+    for project optimization
+    """
+
     framework = fields.Str(validate=validate.OneOf(ML_FRAMEWORKS), required=True)
     samples = fields.List(fields.Str(), required=True)
 
 
 class ResponseProjectOptimizationModifiersAvailable(Schema):
+    """
+    Schema for returning the available modifiers for project optimization
+    """
+
     modifiers = fields.List(
         fields.Str(validate=validate.OneOf(OPTIM_MODIFIER_TYPES)), required=True
     )
 
 
 class ResponseProjectOptimizationModifiersBestEstimated(Schema):
-    est_recovery = fields.Float(required=True)
-    est_perf_gain = fields.Float(required=True)
-    est_time = fields.Float(required=True)
-    est_time_baseline = fields.Float(required=True)
+    """
+    Schema for returning the best estimated results for project optimization
+    """
+
+    est_recovery = fields.Float(required=True, allow_none=True)
+    est_perf_gain = fields.Float(required=True, allow_none=True)
+    est_time = fields.Float(required=True, allow_none=True)
+    est_time_baseline = fields.Float(required=True, allow_none=True)
 
 
 class ResponseProjectOptimizationSchema(Schema):
-    optims = fields.Nested(ProjectOptimizationSchema, required=True)
+    """
+    Schema for returning a project optimization
+    """
+
+    optim = fields.Nested(ProjectOptimizationSchema, required=True)
 
 
 class ResponseProjectOptimizationsSchema(Schema):
+    """
+    Schema for returning multiple project optimizations
+    """
+
     optims = fields.Nested(ProjectOptimizationSchema, required=True, many=True)
 
 
 class ResponseProjectOptimizationDeletedSchema(Schema):
-    success = fields.Bool(required=False, default=True)
+    """
+    Schema for returning the results of deleting a project optimization
+    """
+
+    success = fields.Bool(required=False, default=True, missing=True)
     project_id = fields.Str(required=True)
     optim_id = fields.Str(required=True)
 
 
 class ResponseProjectOptimizationModifierDeletedSchema(Schema):
-    success = fields.Bool(required=False, default=True)
+    """
+    Schema for returning the results of deleting a project optimization modifier
+    """
+
+    success = fields.Bool(required=False, default=True, missing=True)
     project_id = fields.Str(required=True)
     optim_id = fields.Str(required=True)

@@ -8,7 +8,7 @@ from http import HTTPStatus
 from flask import Blueprint, request, jsonify
 from flasgger import swag_from
 
-from neuralmagicML.server.blueprints.helpers import API_ROOT_PATH
+from neuralmagicML.server.blueprints.utils import API_ROOT_PATH
 from neuralmagicML.server.schemas import (
     SearchModelRepoModels,
     ResponseModelRepoModels,

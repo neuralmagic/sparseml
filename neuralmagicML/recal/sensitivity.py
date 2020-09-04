@@ -76,6 +76,7 @@ class KSSensitivityResult(object):
             dictionary["name"],
             dictionary["index"],
             dictionary["baseline_measurement_index"],
+            dictionary["baseline_measurement_key"],
             OrderedDict(dictionary["sparse_measurements"]),
         )
 
@@ -85,12 +86,14 @@ class KSSensitivityResult(object):
         name: str,
         index: int,
         baseline_measurement_index: int = -1,
+        baseline_measurement_key: str = None,
         sparse_measurements: Dict[float, List[float]] = None,
     ):
         self._id = id_
         self._name = name
         self._index = index
         self._baseline_measurement_index = baseline_measurement_index
+        self._baseline_measurement_key = baseline_measurement_key
         self._sparse_measurements = (
             OrderedDict() if sparse_measurements is None else sparse_measurements
         )  # type: Dict[float, List[float]]
@@ -126,6 +129,14 @@ class KSSensitivityResult(object):
             is stored in the sparse_measurements, if any
         """
         return self._baseline_measurement_index
+
+    @property
+    def baseline_measurement_key(self) -> Union[None, float]:
+        """
+        :return: key for where the baseline measurement
+            is stored in the sparse_measurements, if any
+        """
+        return self._baseline_measurement_key
 
     @property
     def has_baseline(self) -> bool:
@@ -254,6 +265,7 @@ class KSSensitivityResult(object):
         if sparsity not in self._sparse_measurements:
             if baseline:
                 self._baseline_measurement_index = len(self._sparse_measurements)
+                self._baseline_measurement_key = sparsity
 
             self._sparse_measurements[sparsity] = []
 
@@ -297,6 +309,29 @@ class KSLossSensitivityAnalysis(object):
 
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, self.dict())
+
+    @property
+    def results_model(self) -> KSSensitivityResult:
+        """
+        :return: the overall results for the model
+        """
+        results_model = KSSensitivityResult(id_="__model__", name="__model__", index=-1)
+        measurements = {}
+        baseline_index = None
+
+        for res in self.results:
+            for key, val in res.averages.items():
+                if key not in measurements:
+                    measurements[key] = 0.0
+                measurements[key] += val
+
+            if res.has_baseline:
+                baseline_index = res.baseline_measurement_index
+
+        for index, (key, val) in enumerate(measurements.items()):
+            results_model.add_measurement(key, val, index == baseline_index)
+
+        return results_model
 
     @property
     def results(self) -> List[KSSensitivityResult]:

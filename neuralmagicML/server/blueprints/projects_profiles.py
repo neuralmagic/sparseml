@@ -1,18 +1,28 @@
+"""
+Server routes related to loss and performance profiles
+"""
+
+from typing import Dict
 import logging
+import datetime
+import json
 from http import HTTPStatus
 
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, request, jsonify
 from flasgger import swag_from
-import json
 from marshmallow import ValidationError
 
-from neuralmagicML.server.blueprints.helpers import (
+from neuralmagicML.onnx.utils import get_ml_sys_info
+from neuralmagicML.server.blueprints.utils import (
     HTTPNotFoundError,
     get_project_by_id,
 )
 from neuralmagicML.server.blueprints.projects import PROJECTS_ROOT_PATH
 from neuralmagicML.server.schemas import (
+    data_dump_and_validation,
     ErrorSchema,
+    ProjectLossProfileSchema,
+    ProjectPerfProfileSchema,
     CreateProjectPerfProfileSchema,
     CreateProjectLossProfileSchema,
     ResponseProjectLossProfileSchema,
@@ -20,12 +30,10 @@ from neuralmagicML.server.schemas import (
     ResponseProjectPerfProfileSchema,
     ResponseProjectPerfProfilesSchema,
     ResponseProjectProfileDeletedSchema,
-    SearchProjectsSchema,
+    SearchProjectProfilesSchema,
 )
 from neuralmagicML.server.models import (
     database,
-    Project,
-    ProjectModel,
     Job,
     ProjectLossProfile,
     ProjectPerfProfile,
@@ -53,7 +61,6 @@ projects_profiles_blueprint = Blueprint(
     {
         "tags": ["Projects Profiles"],
         "summary": "Get a list of loss profiles in the project",
-        "consumes": ["application/json"],
         "produces": ["application/json"],
         "parameters": [
             {
@@ -99,21 +106,33 @@ projects_profiles_blueprint = Blueprint(
     },
 )
 def get_loss_profiles(project_id: str):
-    _LOGGER.info("getting loss profiles for project {} ".format(project_id))
+    """
+    Route for getting a list of project loss profiles filtered by the flask request args
+    Raises an HTTPNotFoundError if the project is not found in the database.
 
+    :param project_id: the id of the project to get the loss profiles for
+    :return: a tuple containing (json response, http status code)
+    """
+    args = {key: val for key, val in request.args.items()}
+    _LOGGER.info(
+        "getting project optims for project_id {} and request args {}".format(
+            project_id, args
+        )
+    )
+    args = SearchProjectProfilesSchema().load(args)
     get_project_by_id(project_id)  # validate id
 
-    args = SearchProjectsSchema().load({key: val for key, val in request.args.items()})
     loss_profiles_query = (
         ProjectLossProfile.select()
         .where(ProjectLossProfile.project_id == project_id)
+        .order_by(ProjectLossProfile.created)
         .paginate(args["page"], args["page_length"])
     )
     loss_profiles = [res for res in loss_profiles_query]
 
-    resp_schema = ResponseProjectLossProfilesSchema()
-    resp_profiles = resp_schema.dump({"profiles": loss_profiles})
-    resp_schema.validate(resp_profiles)
+    resp_profiles = data_dump_and_validation(
+        ResponseProjectLossProfilesSchema(), {"profiles": loss_profiles}
+    )
     _LOGGER.info("retrieved {} profiles".format(len(loss_profiles)))
 
     return jsonify(resp_profiles), HTTPStatus.OK.value
@@ -165,6 +184,13 @@ def get_loss_profiles(project_id: str):
     },
 )
 def create_loss_profile(project_id: str):
+    """
+    Route for creating a new loss profile for a given project.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to create a loss profile for
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info(
         "creating loss profile for project {} for request json {}".format(
             project_id, request.json
@@ -176,11 +202,11 @@ def create_loss_profile(project_id: str):
         request.get_json(force=True)
     )
 
-    model = ProjectModel.get_or_none(ProjectModel.project == project)
+    model = project.model
     if model is None:
         raise ValidationError(
             (
-                "A model is has not been set for the project with id {}, "
+                "A model has not been set for the project with id {}, "
                 "project must set a model before running a loss profile."
             ).format(project_id)
         )
@@ -188,15 +214,14 @@ def create_loss_profile(project_id: str):
     with database.atomic() as transaction:
         try:
             loss_profile = ProjectLossProfile.create(
-                project=project, **loss_profile_params
+                project=project, source="generated", **loss_profile_params
             )
             job = Job.create(
                 project=project,
                 type_=CreateLossProfileJobWorker.get_type(),
                 worker_args=CreateLossProfileJobWorker.format_args(
+                    model_id=model.model_id,
                     profile_id=loss_profile.profile_id,
-                    model_path=model.file_path,
-                    name=loss_profile_params["name"],
                     pruning_estimations=loss_profile_params["pruning_estimations"],
                     pruning_estimation_type=loss_profile_params[
                         "pruning_estimation_type"
@@ -217,9 +242,9 @@ def create_loss_profile(project_id: str):
     # call into JobWorkerManager to kick off job if it's not already running
     JobWorkerManager().refresh()
 
-    resp_schema = ResponseProjectLossProfileSchema()
-    resp_profile = resp_schema.dump({"profile": loss_profile})
-    resp_schema.validate(resp_profile)
+    resp_profile = data_dump_and_validation(
+        ResponseProjectLossProfileSchema(), {"profile": loss_profile}
+    )
     _LOGGER.info("created loss profile and job: {}".format(resp_profile))
 
     return jsonify(resp_profile), HTTPStatus.OK.value
@@ -269,6 +294,13 @@ def create_loss_profile(project_id: str):
     },
 )
 def upload_loss_profile(project_id: str):
+    """
+    Route for creating a new loss profile for a given project from uploaded data.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to create a loss profile for
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info("uploading loss profile for project {}".format(project_id))
 
     project = get_project_by_id(project_id)  # validate id
@@ -279,30 +311,40 @@ def upload_loss_profile(project_id: str):
 
     # read loss analysis file
     try:
-        loss_analysis = json.load(request.files["loss_file"])
+        loss_analysis = json.load(request.files["loss_file"])  # type: Dict
     except Exception as err:
         _LOGGER.error("error while reading uploaded loss analysis file: {}".format(err))
         raise ValidationError(
             "error while reading uploaded loss analysis file: {}".format(err)
         )
 
-    loss_analysis["project_id"] = project.project_id  # override project_id
+    # override or default potential previous data fields
+    loss_analysis_args = CreateProjectLossProfileSchema().load(loss_analysis)
+    loss_analysis.update(loss_analysis_args)
+    loss_analysis["profile_id"] = "<none>"
+    loss_analysis["project_id"] = "<none>"
+    loss_analysis["created"] = datetime.datetime.now()
+    loss_analysis["source"] = "uploaded"
+    loss_analysis["job"] = None
 
-    with database.atomic() as transaction:
-        try:
-            loss_profile = ProjectLossProfile.create(**loss_analysis)
-            loss_profile.project = project
-            loss_profile.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new loss profile, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+    loss_analysis = data_dump_and_validation(ProjectLossProfileSchema(), loss_analysis)
+    del loss_analysis["profile_id"]  # delete to create a new one on DB insert
+    del loss_analysis["project_id"]  # delete because project is passed in on DB insert
 
-    resp_schema = ResponseProjectLossProfileSchema()
-    resp_profile = resp_schema.dump({"profile": loss_profile})
-    resp_schema.validate(resp_profile)
+    model = project.model
+    if model is None:
+        raise ValidationError(
+            (
+                "A model has not been set for the project with id {}, "
+                "project must set a model before running a loss profile."
+            ).format(project_id)
+        )
+
+    loss_profile = ProjectLossProfile.create(project=project, **loss_analysis)
+
+    resp_profile = data_dump_and_validation(
+        ResponseProjectLossProfileSchema(), {"profile": loss_profile}
+    )
     _LOGGER.info(
         "created loss profile: id: {}, name: {}".format(
             resp_profile["profile"]["profile_id"], resp_profile["profile"]["name"]
@@ -355,6 +397,15 @@ def upload_loss_profile(project_id: str):
     },
 )
 def get_loss_profile(project_id: str, profile_id: str):
+    """
+    Route for getting a specific loss profile for a given project.
+    Raises an HTTPNotFoundError if the project or loss profile are
+    not found in the database.
+
+    :param project_id: the id of the project to get the loss profile for
+    :param profile_id: the id of the loss profile to get
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info(
         "getting loss profile for project {} with id {}".format(project_id, profile_id)
     )
@@ -378,8 +429,9 @@ def get_loss_profile(project_id: str, profile_id: str):
             )
         )
 
-    resp_schema = ResponseProjectLossProfileSchema()
-    resp_profile = resp_schema.dump({"profile": loss_profile})
+    resp_profile = data_dump_and_validation(
+        ResponseProjectLossProfileSchema(), {"profile": loss_profile}
+    )
     _LOGGER.info(
         "found loss profile with profile_id {} and project_id: {}".format(
             profile_id, project_id
@@ -432,6 +484,15 @@ def get_loss_profile(project_id: str, profile_id: str):
     },
 )
 def delete_loss_profile(project_id: str, profile_id: str):
+    """
+    Route for deleting a specific loss profile for a given project.
+    Raises an HTTPNotFoundError if the project or loss profile are
+    not found in the database.
+
+    :param project_id: the id of the project to delete the loss profile for
+    :param profile_id: the id of the loss profile to delete
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info(
         "deleting loss profile for project {} with id {}".format(project_id, profile_id)
     )
@@ -457,11 +518,10 @@ def delete_loss_profile(project_id: str, profile_id: str):
 
     loss_profile.delete_instance()
 
-    resp_schema = ResponseProjectProfileDeletedSchema()
-    resp_del = resp_schema.dump(
-        {"success": True, "project_id": project_id, "profile_id": profile_id}
+    resp_del = data_dump_and_validation(
+        ResponseProjectProfileDeletedSchema(),
+        {"success": True, "project_id": project_id, "profile_id": profile_id},
     )
-    resp_schema.validate(resp_del)
     _LOGGER.info(
         "deleted loss profile with profile_id {} and project_id: {}".format(
             profile_id, project_id
@@ -522,21 +582,31 @@ def delete_loss_profile(project_id: str, profile_id: str):
     },
 )
 def get_perf_profiles(project_id: str):
+    """
+    Route for getting a list of project perf profiles filtered by the flask request args
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to get the perf profiles for
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info("getting perf profiles for project {} ".format(project_id))
 
     get_project_by_id(project_id)  # validate id
 
-    args = SearchProjectsSchema().load({key: val for key, val in request.args.items()})
+    args = SearchProjectProfilesSchema().load(
+        {key: val for key, val in request.args.items()}
+    )
     perf_profiles_query = (
         ProjectPerfProfile.select()
         .where(ProjectPerfProfile.project_id == project_id)
+        .order_by(ProjectPerfProfile.created)
         .paginate(args["page"], args["page_length"])
     )
     perf_profiles = [res for res in perf_profiles_query]
 
-    resp_schema = ResponseProjectPerfProfilesSchema()
-    resp_profiles = resp_schema.dump({"profiles": perf_profiles})
-    resp_schema.validate(resp_profiles)
+    resp_profiles = data_dump_and_validation(
+        ResponseProjectPerfProfilesSchema(), {"profiles": perf_profiles}
+    )
     _LOGGER.info("retrieved {} profiles".format(len(perf_profiles)))
 
     return jsonify(resp_profiles), HTTPStatus.OK.value
@@ -588,6 +658,13 @@ def get_perf_profiles(project_id: str):
     },
 )
 def create_perf_profile(project_id: str):
+    """
+    Route for creating a new perf profile for a given project.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to create a perf profile for
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info(
         "creating perf profile for project {} for request json {}".format(
             project_id, request.json
@@ -598,7 +675,18 @@ def create_perf_profile(project_id: str):
     perf_profile_params = CreateProjectPerfProfileSchema().load(
         request.get_json(force=True)
     )
-    model = ProjectModel.get_or_none(ProjectModel.project == project)
+    sys_info = get_ml_sys_info()
+
+    if not perf_profile_params["core_count"] or perf_profile_params["core_count"] < 1:
+        perf_profile_params["core_count"] = sys_info["cores_per_socket"]
+
+    if not perf_profile_params["core_count"]:
+        # extra check in case the system couldn't get cores_per_socket
+        perf_profile_params["core_count"] = -1
+
+    perf_profile_params["instruction_sets"] = sys_info["available_instructions"]
+
+    model = project.model
     if model is None:
         raise ValidationError(
             (
@@ -610,19 +698,22 @@ def create_perf_profile(project_id: str):
     with database.atomic() as transaction:
         try:
             perf_profile = ProjectPerfProfile.create(
-                project=project, **perf_profile_params
+                project=project, source="generated", **perf_profile_params
             )
             job = Job.create(
                 project=project,
                 type_=CreatePerfProfileJobWorker.get_type(),
                 worker_args=CreatePerfProfileJobWorker.format_args(
+                    model_id=model.model_id,
                     profile_id=perf_profile.profile_id,
-                    model_path=model.file_path,
-                    name=perf_profile_params["name"],
                     batch_size=perf_profile_params["batch_size"],
                     core_count=perf_profile_params["core_count"],
                     pruning_estimations=perf_profile_params["pruning_estimations"],
                     quantized_estimations=perf_profile_params["quantized_estimations"],
+                    iterations_per_check=perf_profile_params["iterations_per_check"],
+                    warmup_iterations_per_check=perf_profile_params[
+                        "warmup_iterations_per_check"
+                    ],
                 ),
             )
             perf_profile.job = job
@@ -638,9 +729,9 @@ def create_perf_profile(project_id: str):
     # call into JobWorkerManager to kick off job if it's not already running
     JobWorkerManager().refresh()
 
-    resp_schema = ResponseProjectPerfProfileSchema()
-    resp_profile = resp_schema.dump({"profile": perf_profile})
-    resp_schema.validate(resp_profile)
+    resp_profile = data_dump_and_validation(
+        ResponseProjectPerfProfileSchema(), {"profile": perf_profile}
+    )
     _LOGGER.info("created perf profile and job: {}".format(resp_profile))
 
     return jsonify(resp_profile), HTTPStatus.OK.value
@@ -690,6 +781,13 @@ def create_perf_profile(project_id: str):
     },
 )
 def upload_perf_profile(project_id: str):
+    """
+    Route for creating a new perf profile for a given project from uploaded data.
+    Raises an HTTPNotFoundError if the project is not found in the database.
+
+    :param project_id: the id of the project to create a perf profile for
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info("uploading perf profile for project {}".format(project_id))
 
     project = get_project_by_id(project_id)  # validate id
@@ -707,23 +805,33 @@ def upload_perf_profile(project_id: str):
             "error while reading uploaded perf analysis file: {}".format(err)
         )
 
-    perf_analysis["project_id"] = project.project_id
+    # override or default potential previous data fields
+    perf_analysis_args = CreateProjectPerfProfileSchema().load(perf_analysis)
+    perf_analysis.update(perf_analysis_args)
+    perf_analysis["profile_id"] = "<none>"
+    perf_analysis["project_id"] = "<none>"
+    perf_analysis["created"] = datetime.datetime.now()
+    perf_analysis["source"] = "uploaded"
+    perf_analysis["job"] = None
 
-    with database.atomic() as transaction:
-        try:
-            perf_profile = ProjectPerfProfile.create(**perf_analysis)
-            perf_profile.project = project
-            perf_profile.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new perf profile, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+    perf_analysis = data_dump_and_validation(ProjectPerfProfileSchema(), perf_analysis)
+    del perf_analysis["profile_id"]  # delete to create a new one on DB insert
+    del perf_analysis["project_id"]  # delete because project is passed in on DB insert
 
-    resp_schema = ResponseProjectPerfProfileSchema()
-    resp_profile = resp_schema.dump({"profile": perf_profile})
-    resp_schema.validate(resp_profile)
+    model = project.model
+    if model is None:
+        raise ValidationError(
+            (
+                "A model has not been set for the project with id {}, "
+                "project must set a model before running a perf profile."
+            ).format(project_id)
+        )
+
+    perf_profile = ProjectPerfProfile.create(project=project, **perf_analysis)
+
+    resp_profile = data_dump_and_validation(
+        ResponseProjectPerfProfileSchema(), {"profile": perf_profile}
+    )
     _LOGGER.info(
         "created perf profile: id: {}, name: {}".format(
             resp_profile["profile"]["profile_id"], resp_profile["profile"]["name"]
@@ -776,6 +884,15 @@ def upload_perf_profile(project_id: str):
     },
 )
 def get_perf_profile(project_id: str, profile_id: str):
+    """
+    Route for getting a specific perf profile for a given project.
+    Raises an HTTPNotFoundError if the project or perf profile are
+    not found in the database.
+
+    :param project_id: the id of the project to get the perf profile for
+    :param profile_id: the id of the perf profile to get
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info(
         "getting perf profile for project {} with id {}".format(project_id, profile_id)
     )
@@ -800,9 +917,9 @@ def get_perf_profile(project_id: str, profile_id: str):
             )
         )
 
-    resp_schema = ResponseProjectPerfProfileSchema()
-    resp_profile = resp_schema.dump({"profile": perf_profile})
-    resp_schema.validate(resp_profile)
+    resp_profile = data_dump_and_validation(
+        ResponseProjectPerfProfileSchema(), {"profile": perf_profile}
+    )
     _LOGGER.info(
         "found perf profile with profile_id {} and project_id: {}".format(
             profile_id, project_id
@@ -855,6 +972,15 @@ def get_perf_profile(project_id: str, profile_id: str):
     },
 )
 def delete_perf_profile(project_id: str, profile_id: str):
+    """
+    Route for deleting a specific perf profile for a given project.
+    Raises an HTTPNotFoundError if the project or perf profile are
+    not found in the database.
+
+    :param project_id: the id of the project to delete the perf profile for
+    :param profile_id: the id of the perf profile to delete
+    :return: a tuple containing (json response, http status code)
+    """
     _LOGGER.info(
         "deleting perf profile for project {} with id {}".format(project_id, profile_id)
     )
@@ -881,11 +1007,10 @@ def delete_perf_profile(project_id: str, profile_id: str):
 
     perf_profile.delete_instance()
 
-    resp_schema = ResponseProjectProfileDeletedSchema()
-    resp_del = resp_schema.dump(
-        {"success": True, "project_id": project_id, "profile_id": profile_id}
+    resp_del = data_dump_and_validation(
+        ResponseProjectProfileDeletedSchema(),
+        {"success": True, "project_id": project_id, "profile_id": profile_id},
     )
-    resp_schema.validate(resp_del)
     _LOGGER.info(
         "deleted perf profile with profile_id {} and project_id: {}".format(
             profile_id, project_id

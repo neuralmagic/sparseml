@@ -9,7 +9,7 @@ from marshmallow import ValidationError
 from flask import Blueprint, request, jsonify
 from flasgger import swag_from
 
-from neuralmagicML.server.blueprints.helpers import API_ROOT_PATH, HTTPNotFoundError
+from neuralmagicML.server.blueprints.utils import API_ROOT_PATH, HTTPNotFoundError
 from neuralmagicML.server.models import Job
 from neuralmagicML.server.schemas import (
     ResponseJobSchema,

@@ -9,7 +9,7 @@ from marshmallow import ValidationError
 from werkzeug.exceptions import BadRequest
 from flask import Blueprint, jsonify
 
-from neuralmagicML.server.blueprints.helpers import HTTPNotFoundError
+from neuralmagicML.server.blueprints.utils import HTTPNotFoundError
 from neuralmagicML.server.schemas import data_dump_and_validation, ErrorSchema
 
 __all__ = ["errors_blueprint"]

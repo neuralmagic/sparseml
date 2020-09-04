@@ -20,7 +20,7 @@ from neuralmagicML.server.schemas import (
     CreateUpdateProjectSchema,
     DeleteProjectSchema,
 )
-from neuralmagicML.server.blueprints.helpers import API_ROOT_PATH, get_project_by_id
+from neuralmagicML.server.blueprints.utils import API_ROOT_PATH, get_project_by_id
 
 
 __all__ = ["PROJECTS_ROOT_PATH", "projects_blueprint"]

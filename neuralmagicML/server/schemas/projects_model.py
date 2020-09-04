@@ -68,9 +68,7 @@ class ProjectModelSchema(Schema):
     )
     job = fields.Nested(JobSchema, required=True, allow_none=True)
     file = fields.Str(required=True, allow_none=True)
-    analysis = fields.Nested(
-        ProjectModelAnalysisSchema, required=True, allow_none=True
-    )
+    analysis = fields.Nested(ProjectModelAnalysisSchema, required=True, allow_none=True)
 
 
 class CreateUpdateProjectModelSchema(Schema):

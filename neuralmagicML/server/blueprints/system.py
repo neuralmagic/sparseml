@@ -3,36 +3,18 @@ Server routes related to the system
 """
 
 import logging
-import socket
-import psutil
 from http import HTTPStatus
 
 from flask import Blueprint, jsonify
 from flasgger import swag_from
 
-from neuralmagicML.onnx.utils import available_engines
-from neuralmagicML.server.blueprints.helpers import API_ROOT_PATH
+from neuralmagicML.onnx.utils import get_ml_sys_info, ml_engines_errors
+from neuralmagicML.server.blueprints.utils import API_ROOT_PATH
 from neuralmagicML.server.schemas import (
     data_dump_and_validation,
     ResponseSystemInfo,
     ErrorSchema,
 )
-
-try:
-    import neuralmagic
-
-    nm_import_exception = None
-except Exception as nm_err:
-    neuralmagic = None
-    nm_import_exception = nm_err
-
-try:
-    import onnxruntime
-
-    ort_import_execption = None
-except Exception as ort_err:
-    onnxruntime = None
-    ort_import_execption = ort_err
 
 
 __all__ = ["SYSTEM_PATH", "system_blueprint"]
@@ -75,27 +57,7 @@ def info():
     :return: a tuple containing (json response, http status code)
     """
     _LOGGER.info("getting system info")
-
-    sys_info = {
-        "available_engines": available_engines(),
-        "ip_address": socket.gethostbyname(socket.gethostname()),
-    }
-
-    # get sys info from neuralmagic.cpu
-    if neuralmagic is not None:
-        nm_info = neuralmagic.cpu.cpu_architecture()
-        nm_info = {k.lower(): v for k, v in nm_info.items()}  # standardize case
-        sys_info.update(nm_info)  # add to main dict
-
-        available_instructions = neuralmagic.cpu.VALID_VECTOR_EXTENSIONS
-        available_instructions = [ins.upper() for ins in available_instructions]
-        sys_info["available_instructions"] = available_instructions
-
-        _LOGGER.info("retrieved system info using neuralmagic.cpu")
-    else:
-        _LOGGER.info("retrieved basic system info")
-        sys_info["cores_per_socket"] = psutil.cpu_count(logical=False)
-
+    sys_info = get_ml_sys_info()
     resp_info = data_dump_and_validation(ResponseSystemInfo(), {"info": sys_info})
     _LOGGER.info("retrieved system info {}".format(resp_info))
 
@@ -131,12 +93,11 @@ def validate():
     :return: a tuple containing (response, http status code)
     """
     _LOGGER.info("validating system")
+    errors = ml_engines_errors()
 
-    if nm_import_exception is not None:
-        raise nm_import_exception
-
-    if ort_import_execption is not None:
-        raise ort_import_execption
+    for key, err in errors.items():
+        if err is not None:
+            raise Exception("error on import for {}: {}".format(key, err))
 
     _LOGGER.info("validated system")
 

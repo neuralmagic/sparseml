@@ -17,7 +17,7 @@ from flasgger import swag_from
 
 from neuralmagicML.onnx.utils import validate_onnx_file
 from neuralmagicML.onnx.recal import ModelAnalyzer
-from neuralmagicML.server.blueprints.helpers import (
+from neuralmagicML.server.blueprints.utils import (
     get_project_by_id,
     get_project_model_by_project_id,
     HTTPNotFoundError,

@@ -23,6 +23,7 @@ __all__ = [
     "bucket_iterable",
     "INTERPOLATION_FUNCS",
     "interpolate",
+    "interpolate_list_linear",
     "interpolated_integral",
     "clean_path",
     "create_dirs",
@@ -202,6 +203,38 @@ def interpolate(
 
     # scale the threshold based on what we want the current to be
     return y_per * (y1 - y0) + y0
+
+
+def interpolate_list_linear(
+    measurements: List[Tuple[float, float]], x_val: float
+) -> float:
+    """
+    interpolate for an input value within a list of measurements linearly
+
+    :param measurements: the measurements to interpolate the output value between
+    :param x_val: the target value to interpolate to the second dimension
+    :return: the interpolated value
+    """
+    assert len(measurements) > 1
+    measurements.sort(key=lambda v: v[0])
+    target_index = None
+
+    for index in range(len(measurements) - 1):
+        x_lower = measurements[index][0]
+        x_higher = measurements[index + 1][0]
+
+        if x_lower <= x_val <= x_higher:
+            target_index = index
+            break
+
+    if target_index is None:
+        x0, y0 = measurements[len(measurements) - 2]
+        x1, y1 = measurements[len(measurements) - 1]
+    else:
+        x0, y0 = measurements[target_index]
+        x1, y1 = measurements[target_index + 1]
+
+    return y0 + (x_val - x0) * ((y1 - y0) / (x1 - x0))
 
 
 def interpolated_integral(measurements: List[Tuple[float, float]]):

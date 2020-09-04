@@ -70,9 +70,7 @@ def validate_onnx_file(path: str):
         if not onnx_model.opset_import:
             raise ValueError("could not parse opset_import")
     except Exception as err:
-        raise ValueError(
-            "file at {} is not a valid onnx model: {}".format(path, err)
-        )
+        raise ValueError("file at {} is not a valid onnx model: {}".format(path, err))
 
 
 def check_load_model(model: Union[str, ModelProto]) -> ModelProto:

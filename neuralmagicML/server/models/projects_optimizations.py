@@ -42,7 +42,7 @@ class ProjectOptimization(BaseCreatedModifiedModel):
     """
 
     optim_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    project = ForeignKeyField(Project, backref="loss_profiles", on_delete="CASCADE")
+    project = ForeignKeyField(Project, backref="optims", on_delete="CASCADE")
     name = TextField(null=True, default="")
     profile_perf = ForeignKeyField(ProjectPerfProfile, null=True, default=None)
     profile_loss = ForeignKeyField(ProjectLossProfile, null=True, default=None)
@@ -62,7 +62,7 @@ class ProjectOptimizationModifierPruning(BaseCreatedModifiedModel):
     update_frequency = FloatField(null=True, default=None)
     mask_type = TextField(null=True, default=None)
     sparsity = FloatField(null=True, default=None)
-    sparsity_perf_loss_balance = FloatField(null=True, default=None)
+    balance_perf_loss = FloatField(null=True, default=None)
     filter_min_sparsity = FloatField(null=True, default=None)
     filter_min_perf_gain = FloatField(null=True, default=None)
     filter_max_loss_drop = FloatField(null=True, default=None)
@@ -85,7 +85,7 @@ class ProjectOptimizationModifierQuantization(BaseCreatedModifiedModel):
     start_epoch = FloatField(null=True, default=None)
     end_epoch = FloatField(null=True, default=None)
     level = TextField(null=True, default=None)
-    sparsity_perf_loss_balance = FloatField(null=True, default=None)
+    balance_perf_loss = FloatField(null=True, default=None)
     filter_min_perf_gain = FloatField(null=True, default=None)
     filter_max_loss_drop = FloatField(null=True, default=None)
     nodes = ListObjField(null=True, default=None)
@@ -106,6 +106,8 @@ class ProjectOptimizationModifierLRSchedule(BaseCreatedModifiedModel):
     )
     start_epoch = FloatField(null=True, default=None)
     end_epoch = FloatField(null=True, default=None)
+    init_lr = FloatField(null=True, default=None)
+    final_lr = FloatField(null=True, default=None)
     lr_mods = ListObjField(null=True, default=None)
 
 
