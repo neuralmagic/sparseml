@@ -33,9 +33,19 @@ python3 -m venv ./venv
 source ./venv/bin/activate
 ```
 
-### Supported ML Frameworks
+### ML Frameworks
+To use neuralmagicML framework specific tooling, the framework package(s) must already be installed in the environment.
+
+The currently supported framework versions are:
 - PyTorch supported versions: >= `1.1.0`
 - TensorFlow supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
+
+The following commands install versions of PyTorch and TensorFlow v1. For more installation information, see the [PyTorch](https://pytorch.org/get-started/locally/) and [TensorFlow](https://www.tensorflow.org/install/pip) websites.
+
+```
+pip3 install torch==1.5.0 torchvision==0.6.0
+pip3 install tensorflow==1.15.0
+```
 
 ### Installation
 1. Navigate to the parent directory of the `neuralmagicML` codebase.
