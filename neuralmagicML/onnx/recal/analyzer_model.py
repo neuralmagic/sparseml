@@ -317,9 +317,10 @@ class ModelAnalyzer(object):
         if model is not None:
             model = check_load_model(model)
             node_shapes = extract_node_shapes(model)
-
             self._nodes = [
-                NodeAnalyzer(model, node, node_shape=node_shapes[extract_node_id(node)])
+                NodeAnalyzer(
+                    model, node, node_shape=node_shapes.get(extract_node_id(node))
+                )
                 for node in model.graph.node
             ]
         else:

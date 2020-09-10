@@ -127,6 +127,7 @@ NodeInfoFixture = NamedTuple(
                 "name": "7",
                 "index": 0,
                 "baseline_measurement_index": 0,
+                "baseline_measurement_key": None,
                 "sparse_measurements": {0.0: [0.0], 0.8: [0.5]},
             },
             {
@@ -134,6 +135,7 @@ NodeInfoFixture = NamedTuple(
                 "name": "7",
                 "index": 0,
                 "baseline_measurement_index": 0,
+                "baseline_measurement_key": None,
                 "sparse_measurements": {0.0: [0.0], 0.8: [0.05]},
             },
             (1, 0.5),

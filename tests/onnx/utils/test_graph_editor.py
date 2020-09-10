@@ -1,8 +1,11 @@
 import numpy
 import pytest
 from typing import List
-from neuralmagicML.onnx.recal import prune_model_one_shot, prune_unstructured
-from neuralmagicML.onnx.utils import get_node_params
+from neuralmagicML.onnx.utils import (
+    get_node_params,
+    prune_model_one_shot,
+    prune_unstructured,
+)
 from onnx import load_model
 
 from tests.onnx.helpers import onnx_repo_models, OnnxRepoModelFixture
@@ -62,10 +65,10 @@ def test_prune_model_one_shot(
         for node in model.graph.node
         if node.op_type == "Conv" or node.op_type == "Gemm"
     ]
-    pruned_model = prune_model_one_shot(model, nodes, sparsity)
+    prune_model_one_shot(model, nodes, sparsity)
 
     for node in nodes:
-        weight, _ = get_node_params(pruned_model, node)
+        weight, _ = get_node_params(model, node)
         _test_correct_sparsity(weight.val, sparsity, 5.5e-3)
 
 
@@ -79,9 +82,9 @@ def test_prune_model_one_shot_sparsity_list(onnx_repo_models: OnnxRepoModelFixtu
     ]
     sparsities = numpy.random.random_sample([len(nodes)])
 
-    pruned_model = prune_model_one_shot(model, nodes, sparsities)
+    prune_model_one_shot(model, nodes, sparsities)
 
     for node, sparsity in zip(nodes, sparsities):
-        weight, _ = get_node_params(pruned_model, node)
+        weight, _ = get_node_params(model, node)
         weight_val = weight.val
         _test_correct_sparsity(weight_val, sparsity, 5.5e-3)

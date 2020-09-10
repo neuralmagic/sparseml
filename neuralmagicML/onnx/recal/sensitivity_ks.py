@@ -26,8 +26,9 @@ from neuralmagicML.onnx.utils import (
     NMBenchmarkModelRunner,
     kl_divergence,
     check_load_model,
+    prune_model_one_shot,
+    update_model_param,
 )
-from neuralmagicML.onnx.recal.mask_ks import prune_model_one_shot
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -212,14 +213,14 @@ def one_shot_ks_loss_sensitivity_iter(
                 float(update_num) / float(num_updates),
             )
 
-            pruned_model = prune_model_one_shot(model, [node], sparsity)
+            prune_model_one_shot(model, [node], sparsity)
             _LOGGER.debug(
                 "created one shot pruned model for sparsity {}".format(sparsity)
             )
             runner = (
-                ORTModelRunner(pruned_model)
+                ORTModelRunner(model)
                 if not use_neuralmagic_inference
-                else NMModelRunner(pruned_model, batch_size)
+                else NMModelRunner(model, batch_size)
             )
             _LOGGER.debug("created runner for one shot analysis {}".format(runner))
             pruned_outputs, _ = runner.run(
@@ -248,6 +249,8 @@ def one_shot_ks_loss_sensitivity_iter(
                     sum(batch_losses),
                     baseline=sparsity < 1e-9,
                 )
+        # reset node to its baseline density
+        update_model_param(model, weight.name, weight.val)
 
     yield analysis, KSSensitivityProgress(num_updates, None, num_updates, 1.0)
 

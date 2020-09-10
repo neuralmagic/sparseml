@@ -244,6 +244,7 @@ class KSSensitivityResult(object):
             "index": self.index,
             "baseline_measurement_index": self.baseline_measurement_index,
             "has_baseline": self.has_baseline,
+            "baseline_measurement_key": self.baseline_measurement_key,
             "sparse_measurements": [
                 (key, val) for key, val in self.sparse_measurements.items()
             ],

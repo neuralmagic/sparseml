@@ -6,6 +6,7 @@
       "index": 0,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -721,6 +722,7 @@
       "index": 1,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -1436,6 +1438,7 @@
       "index": 2,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -2151,6 +2154,7 @@
       "index": 3,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -2866,6 +2870,7 @@
       "index": 4,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -3581,6 +3586,7 @@
       "index": 5,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -4296,6 +4302,7 @@
       "index": 6,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -5011,6 +5018,7 @@
       "index": 7,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -5726,6 +5734,7 @@
       "index": 8,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -6441,6 +6450,7 @@
       "index": 9,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -7156,6 +7166,7 @@
       "index": 10,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -7871,6 +7882,7 @@
       "index": 11,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -8586,6 +8598,7 @@
       "index": 12,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -9301,6 +9314,7 @@
       "index": 13,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -10016,6 +10030,7 @@
       "index": 14,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -10731,6 +10746,7 @@
       "index": 15,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -11446,6 +11462,7 @@
       "index": 16,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -12161,6 +12178,7 @@
       "index": 17,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -12876,6 +12894,7 @@
       "index": 18,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -13591,6 +13610,7 @@
       "index": 19,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -14306,6 +14326,7 @@
       "index": 20,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -15021,6 +15042,7 @@
       "index": 21,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -15736,6 +15758,7 @@
       "index": 22,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -16451,6 +16474,7 @@
       "index": 23,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -17166,6 +17190,7 @@
       "index": 24,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -17881,6 +17906,7 @@
       "index": 25,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -18596,6 +18622,7 @@
       "index": 26,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -19311,6 +19338,7 @@
       "index": 27,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -20026,6 +20054,7 @@
       "index": 28,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -20741,6 +20770,7 @@
       "index": 29,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -21456,6 +21486,7 @@
       "index": 30,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -22171,6 +22202,7 @@
       "index": 31,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -22886,6 +22918,7 @@
       "index": 32,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -23601,6 +23634,7 @@
       "index": 33,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -24316,6 +24350,7 @@
       "index": 34,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -25031,6 +25066,7 @@
       "index": 35,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -25746,6 +25782,7 @@
       "index": 36,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -26461,6 +26498,7 @@
       "index": 37,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -27176,6 +27214,7 @@
       "index": 38,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -27891,6 +27930,7 @@
       "index": 39,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -28606,6 +28646,7 @@
       "index": 40,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -29321,6 +29362,7 @@
       "index": 41,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -30036,6 +30078,7 @@
       "index": 42,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -30751,6 +30794,7 @@
       "index": 43,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -31466,6 +31510,7 @@
       "index": 44,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -32181,6 +32226,7 @@
       "index": 45,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -32896,6 +32942,7 @@
       "index": 46,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -33611,6 +33658,7 @@
       "index": 47,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -34326,6 +34374,7 @@
       "index": 48,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -35041,6 +35090,7 @@
       "index": 49,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -35756,6 +35806,7 @@
       "index": 50,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -36471,6 +36522,7 @@
       "index": 51,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -37186,6 +37238,7 @@
       "index": 52,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
@@ -37901,6 +37954,7 @@
       "index": 53,
       "baseline_measurement_index": 0,
       "has_baseline": true,
+      "baseline_measurement_key": 0.0,
       "sparse_measurements": [
         [
           0.0,
