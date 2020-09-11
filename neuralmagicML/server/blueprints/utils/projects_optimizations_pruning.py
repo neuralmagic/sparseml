@@ -567,8 +567,8 @@ class PruningModelEvaluator(object):
 
         :param node_overrides: the override sparsity levels for nodes to set with
         """
-        for node in self._nodes:
-            for override in node_overrides:
+        for override in node_overrides:
+            for node in self._nodes:
                 if override["node_id"] == node.node.node_id:
                     node.optimized_sparsity = override["sparsity"]
                     break

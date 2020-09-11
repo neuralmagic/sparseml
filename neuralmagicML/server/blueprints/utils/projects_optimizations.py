@@ -465,13 +465,13 @@ def optim_pruning_updater(
         or profile_perf is not None
         or profile_loss is not None
     ):
-        model = PruningModelEvaluator(
+        model_eval = PruningModelEvaluator(
             model.analysis,
             profile_perf.analysis if profile_perf else None,
             profile_loss.analysis if profile_loss else None,
         )
-        model.create_rescale_functions()
-        model.eval_baseline(default_pruning_settings().sparsity)
+        model_eval.create_rescale_functions()
+        model_eval.eval_baseline(default_pruning_settings().sparsity)
 
         if sparsity is not None:
             settings = PruningSettings(
@@ -487,15 +487,15 @@ def optim_pruning_updater(
             pruning.filter_min_sparsity = settings.filter_min_sparsity
             pruning.filter_min_perf_gain = settings.filter_min_perf_gain
             pruning.filter_max_loss_drop = settings.filter_max_loss_drop
-            model.eval_pruning(settings)
-        elif profile_perf is not None or profile_loss is not None and nodes is None:
-            # only profiles changed, update with current nodes
-            nodes = pruning.nodes
+            model_eval.eval_pruning(settings)
+        elif pruning.nodes:
+            # not updating from sparsity, apply from the current nodes
+            model_eval.apply_node_overrides(pruning.nodes)
 
         if nodes is not None:
-            model.apply_node_overrides(nodes)
+            model_eval.apply_node_overrides(nodes)
 
-        nodes_res, model_res = model.to_dict_values()
+        nodes_res, model_res = model_eval.to_dict_values()
         pruning.nodes = nodes_res
         pruning.est_recovery = model_res["est_recovery"]
         pruning.est_perf_gain = model_res["est_perf_gain"]
