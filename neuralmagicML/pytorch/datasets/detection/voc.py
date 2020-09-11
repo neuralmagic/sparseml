@@ -8,8 +8,12 @@ PascalVOC_IJCV2009.pdf>`__.
 import os
 from PIL import Image
 import random
+import torch
 from torchvision import transforms
-from torchvision.transforms import functional as F
+from torchvision.transforms import (
+    ColorJitter,
+    functional as F,
+)
 
 try:
     from torchvision.datasets import VOCSegmentation, VOCDetection
@@ -18,8 +22,16 @@ except ModuleNotFoundError:
     VOCSegmentation = object
     VOCDetection = object
 
-from neuralmagicML.pytorch.datasets.detection.helpers import AnnotatedImageTransforms
+from neuralmagicML.pytorch.datasets.detection.helpers import (
+    AnnotatedImageTransforms,
+    ssd_random_crop_image_and_annotations,
+    random_horizontal_flip_image_and_annotations,
+)
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
+from neuralmagicML.pytorch.utils import (
+    DefaultBoxes,
+    get_default_boxes_300,
+)
 from neuralmagicML.utils.datasets import (
     default_dataset_path,
     IMAGENET_RGB_MEANS,
@@ -27,7 +39,11 @@ from neuralmagicML.utils.datasets import (
 )
 
 
-__all__ = ["VOCSegmentationDataset", "VOCDetectionDataset"]
+__all__ = [
+    "VOCSegmentationDataset",
+    "VOCDetectionDataset",
+    "VOC_CLASSES",
+]
 
 
 @DatasetRegistry.register(
@@ -102,7 +118,14 @@ class VOCSegmentationDataset(VOCSegmentation):
 )
 class VOCDetectionDataset(VOCDetection):
     """
-    Wrapper for the VOCDetection dataset to apply standard transforms.
+    Wrapper for the VOC Detection dataset to apply standard transforms
+    for input to detection models. Will return the processed image along
+    with a tuple of its bounding boxes in ltrb format and labels for each box.
+
+    If a DefaultBoxes object is provided, then will encode the box and labels
+    using that object returning a tensor of offsets to the default boxes and
+    labels for those boxes and return a three item tuple of the encoded boxes,
+    labels, and their original values.
 
     :param root: The root folder to find the dataset at, if not found will download
         here if download=True
@@ -113,6 +136,9 @@ class VOCDetectionDataset(VOCDetection):
     :param download: True to download the dataset, False otherwise.
         Base implementation does not support leaving as false if already downloaded
     :param image_size: the size of the image to output from the dataset
+    :param default_boxes: DefaultBoxes object used to encode bounding boxes and label
+        for model loss computation. Default object represents the default boxes used
+        in standard SSD 300 implementation.
     """
 
     def __init__(
@@ -123,6 +149,7 @@ class VOCDetectionDataset(VOCDetection):
         download: bool = True,
         year: str = "2012",
         image_size: int = 300,
+        default_boxes: DefaultBoxes = None,
     ):
         if VOCDetection == object:
             raise ValueError(
@@ -130,12 +157,30 @@ class VOCDetectionDataset(VOCDetection):
             )
 
         root = os.path.abspath(os.path.expanduser(root))
-        trans = [lambda img, ann: _resize_detection(img, ann, image_size)]
+        trans = [
+            # process annotations
+            lambda img, ann: (img, _extract_bounding_box_and_labels(img, ann)),
+        ]
         if rand_trans:
-            trans.append(lambda img, ann: _random_horizontal_flip_detection(img, ann))
+            # add random crop, flip, and jitter to pipeline
+            jitter_fn = ColorJitter(
+                brightness=0.125, contrast=0.5, saturation=0.5, hue=0.05
+            )
+            trans.extend(
+                [
+                    # Random cropping as implemented in SSD paper
+                    ssd_random_crop_image_and_annotations,
+                    # random horizontal flip
+                    random_horizontal_flip_image_and_annotations,
+                    # image color jitter
+                    lambda img, ann: (jitter_fn(img), ann),
+                ]
+            )
         trans.extend(
             [
-                # Convert to tensor
+                # resize image
+                lambda img, ann: (F.resize(img, (image_size, image_size)), ann),
+                # Convert image to tensor
                 lambda img, ann: (F.to_tensor(img), ann),
                 # Normalize image
                 lambda img, ann: (
@@ -145,6 +190,18 @@ class VOCDetectionDataset(VOCDetection):
             ]
         )
 
+        default_boxes = default_boxes or get_default_boxes_300(voc=True)
+        # encode the bounding boxes and labels with the default boxes
+        trans.append(
+            lambda img, ann: (
+                img,
+                (
+                    *default_boxes.encode_image_box_labels(*ann),
+                    ann,
+                ),  # encoded_boxes, encoded_labels, original_annotations
+            )
+        )
+
         super().__init__(
             root,
             year=year,
@@ -152,54 +209,63 @@ class VOCDetectionDataset(VOCDetection):
             download=download,
             transforms=AnnotatedImageTransforms(trans),
         )
+        self._default_boxes = default_boxes
+
+    @property
+    def default_boxes(self) -> DefaultBoxes:
+        """
+        :return: The DefaultBoxes object used to encode this datasets bounding boxes
+        """
+        return self._default_boxes
 
 
-def _resize_detection(image, annotations, image_size):
-    if not isinstance(image, Image.Image):
-        raise RuntimeError(
-            "Loaded image class not supported, expected PIL.Image, got {}".format(
-                image.__class__
-            )
+def _extract_bounding_box_and_labels(image, annotations):
+    # returns bounding boxes in ltrb format scaled to [0, 1] and labels
+    boxes = []
+    labels = []
+    for annotation in annotations["annotation"]["object"]:
+        boxes.append(
+            [
+                float(annotation["bndbox"]["xmin"]),
+                float(annotation["bndbox"]["ymin"]),
+                float(annotation["bndbox"]["xmax"]),
+                float(annotation["bndbox"]["ymax"]),
+            ]
         )
-    width_scale = image_size / image.size[0]
-    height_scale = image_size / image.size[1]
+        labels.append(_VOC_CLASS_NAME_TO_ID[annotation["name"]])
 
-    def update_bndbox_fn(bndbox):
-        bndbox["xmin"] = float(bndbox["xmin"]) * width_scale
-        bndbox["ymin"] = float(bndbox["ymin"]) * height_scale
-        bndbox["xmax"] = float(bndbox["xmax"]) * width_scale
-        bndbox["ymax"] = float(bndbox["ymax"]) * height_scale
-        return bndbox
+    boxes = torch.Tensor(boxes).float()
+    labels = torch.Tensor(labels).long()
 
-    image = F.resize(image, (image_size, image_size))
-    annotations = _update_bndbox_values(annotations, update_bndbox_fn)
+    # scale boxes to [0, 1]
+    boxes[:, [0, 2]] /= image.width  # scale width dimensions
+    boxes[:, [1, 3]] /= image.height  # scale height dimensions
 
-    return image, annotations
+    return boxes, labels
 
 
-def _random_horizontal_flip_detection(image, annotations, p=0.5):
-    if not isinstance(image, Image.Image):
-        raise RuntimeError(
-            "Loaded image class not supported, expected PIL.Image, got {}".format(
-                image.__class__
-            )
-        )
+_VOC_CLASS_NAME_TO_ID = {
+    "aeroplane": 1,
+    "bicycle": 2,
+    "bird": 3,
+    "boat": 4,
+    "bottle": 5,
+    "bus": 6,
+    "car": 7,
+    "cat": 8,
+    "chair": 9,
+    "cow": 10,
+    "diningtable": 11,
+    "dog": 12,
+    "horse": 13,
+    "motorbike": 14,
+    "person": 15,
+    "pottedplant": 16,
+    "sheep": 17,
+    "sofa": 18,
+    "train": 19,
+    "tvmonitor": 20,
+}
 
-    if random.random() < p:
-
-        def bndbox_horizontal_flip_fn(bndbox):
-            bndbox["xmin"] = image.size[0] - bndbox["xmax"]
-            bndbox["xmax"] = image.size[0] - bndbox["xmin"]
-            return bndbox
-
-        image = F.hflip(image)
-        annotations = _update_bndbox_values(annotations, bndbox_horizontal_flip_fn)
-
-    return image, annotations
-
-
-def _update_bndbox_values(annotations, update_bndbox_fn):
-    for idx, annotation in enumerate(annotations["annotation"]["object"]):
-        updated_bndbox = update_bndbox_fn(annotation["bndbox"])
-        annotations["annotation"]["object"][idx]["bndbox"] = updated_bndbox
-    return annotations
+# Map class ids to names for model post processing
+VOC_CLASSES = {(v, k) for (k, v) in _VOC_CLASS_NAME_TO_ID.items()}

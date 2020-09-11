@@ -15,6 +15,7 @@ from neuralmagicML.pytorch.utils import (
     KDLossWrapper,
     BinaryCrossEntropyLossWrapper,
     CrossEntropyLossWrapper,
+    SSDLossWrapper,
     Accuracy,
     TopKAccuracy,
 )
@@ -194,6 +195,38 @@ class TestBinaryCrossEntropyLossWrapperImpl(LossWrapperTest):
 @pytest.mark.parametrize("pred", [(torch.randn(8, 8), torch.randn(8, 8))])
 class TestCrossEntropyLossWrapperImpl(LossWrapperTest):
     pass
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize(
+    "wrapper,metrics", [(SSDLossWrapper({}), {})],
+)
+@pytest.mark.parametrize(
+    "data",
+    [
+        (
+            torch.randn(8, 3, 300, 300),
+            (
+                torch.randn(8, 4, 8732),
+                torch.randint(21, (8, 8732), dtype=torch.long),
+                [],
+            ),
+        )
+    ],
+)
+@pytest.mark.parametrize("pred", [(torch.randn(8, 4, 8732), torch.randn(8, 21, 8732))])
+class TestSSDLossWrapperImpl(LossWrapperTest):
+    def test_get_preds(self, wrapper, metrics, data, pred):
+        preds = wrapper.get_preds(data, pred, DEFAULT_LOSS_KEY)
+        assert torch.sum((pred[0] - preds[0]).abs()) < 0.00001
+        assert torch.sum((pred[1] - preds[1]).abs()) < 0.00001
+
+    def test_get_labels(self, wrapper, metrics, data, pred):
+        labels = wrapper.get_labels(data, pred, DEFAULT_LOSS_KEY)
+        assert torch.sum((data[1][0] - labels[0]).abs()) < 0.00001
+        assert torch.sum((data[1][1].float() - labels[1].float()).abs()) < 0.00001
 
 
 @pytest.mark.skipif(

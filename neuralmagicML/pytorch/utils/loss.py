@@ -3,8 +3,9 @@ Code related to convenience functions for controlling the calculation of losses 
 Additionally adds in support for knowledge distillation
 """
 
-from typing import Dict, Union, Callable, Tuple, Any, Iterable
+from typing import Dict, Union, Callable, Tuple, Any, Iterable, List
 import torch
+import torch.nn as nn
 import torch.nn.functional as TF
 from torch import Tensor
 from torch.nn import Module
@@ -21,6 +22,7 @@ __all__ = [
     "InceptionCrossEntropyLossWrapper",
     "KDSettings",
     "KDLossWrapper",
+    "SSDLossWrapper",
     "Accuracy",
     "TopKAccuracy",
 ]
@@ -424,6 +426,93 @@ class KDLossWrapper(LossWrapper):
             )
 
         return losses
+
+
+class SSDLossWrapper(LossWrapper):
+    """
+    Loss wrapper for SSD models.  Implements the loss as the sum of:
+
+    1. Confidence Loss: All labels, with hard negative mining
+    2. Localization Loss: Only on positive labels
+
+    :param extras: extras representing other metrics that should be
+        calculated in addition to the loss
+    """
+
+    def __init__(
+        self, extras: Union[None, Dict] = None,
+    ):
+        if extras is None:
+            extras = {}
+
+        self._localization_loss = nn.SmoothL1Loss(reduction="none")
+        self._confidence_loss = nn.CrossEntropyLoss(reduction="none")
+
+        super().__init__(self.loss, extras)
+
+    def loss(self, preds: Tuple[Tensor, Tensor], labels: Tuple[Tensor, Tensor, Tensor]):
+        """
+        Calculates the loss for a multibox SSD output as the sum of the confidence
+        and localization loss for the positive samples in the predictor with hard
+        negative mining.
+
+        :param preds: the predictions tuple containing [predicted_boxes,
+            predicted_lables].
+        :param labels: the labels to compare to
+        :return: the combined location and confidence losses
+        """
+        # extract predicted and ground truth boxes / labels
+        predicted_boxes, predicted_scores = preds
+        ground_boxes, ground_labels, _ = labels
+
+        # create positive label mask and count positive samples
+        positive_mask = ground_labels > 0
+        num_pos_labels = positive_mask.sum(dim=1)  # shape: BATCH_SIZE,1
+
+        # sum loss on localization values, and mask out negative results
+        loc_loss = self._localization_loss(predicted_boxes, ground_boxes).sum(dim=1)
+        loc_loss = (positive_mask.float() * loc_loss).sum(dim=1)
+
+        # confidence loss with hard negative mining
+        con_loss_init = self._confidence_loss(predicted_scores, ground_labels)
+
+        # create mask to select 3 negative samples for every positive sample per image
+        con_loss_neg_vals = con_loss_init.clone()
+        con_loss_neg_vals[positive_mask] = 0  # clear positive sample values
+
+        _, neg_sample_sorted_idx = con_loss_neg_vals.sort(dim=1, descending=True)
+        _, neg_sample_rank = neg_sample_sorted_idx.sort(dim=1)  # ascending value rank
+        neg_threshold = torch.clamp(  # set threshold to 3x number of positive samples
+            3 * num_pos_labels, max=positive_mask.size(1)
+        ).unsqueeze(-1)
+        neg_mask = neg_sample_rank < neg_threshold  # select samples with highest loss
+
+        con_loss = (con_loss_init * (positive_mask.float() + neg_mask.float())).sum(
+            dim=1
+        )
+
+        # take average total loss over number of positive samples
+        # sets loss to 0 for images with no objects
+        total_loss = loc_loss + con_loss
+        pos_label_mask = (num_pos_labels > 0).float()
+        num_pos_labels = num_pos_labels.float().clamp(min=1e-6)
+
+        return (total_loss * pos_label_mask / num_pos_labels).mean(dim=0)
+
+    def get_preds(
+        self, data: Any, pred: Tuple[Tensor, Tensor], name: str
+    ) -> Tuple[Tensor, Tensor]:
+        """
+        Override get_preds for SSD model output.
+
+        :param data: data from a data loader
+        :param pred: the prediction from an ssd model: two tensors
+            representing object location and object label respectively
+        :param name: the name of the loss function that is asking for the
+            information for calculation
+        :return: the predictions from the model without any changes
+        """
+        return pred[0], pred[1]  # predicted locations, predicted labels
 
 
 class Accuracy(Module):

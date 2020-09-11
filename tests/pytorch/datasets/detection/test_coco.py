@@ -21,9 +21,7 @@ def _validate_coco(dataset: Dataset, size: int):
     assert item[0].shape[0] == 3
     assert item[0].shape[1] == size
     assert item[0].shape[2] == size
-    assert len(item[1]) > 0
-    assert "bbox" in item[1][0]
-    assert "category_id" in item[1][0]
+    assert len(item[1]) == 3
 
 
 @pytest.mark.skipif(

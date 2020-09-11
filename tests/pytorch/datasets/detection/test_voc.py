@@ -19,8 +19,7 @@ def _validate_voc(dataset: Dataset, size: int):
     assert item[0].shape[0] == 3
     assert item[0].shape[1] == size
     assert item[0].shape[2] == size
-    assert isinstance(item[1], dict)
-    assert "annotation" in item[1]
+    assert len(item[1]) == 3
 
 
 @pytest.mark.skipif(
