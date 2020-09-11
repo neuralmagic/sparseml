@@ -77,7 +77,9 @@ class CreateUpdateProjectModelSchema(Schema):
     """
 
     file = fields.Str(required=False, allow_none=True)
-    source = fields.Str(required=False, allow_none=True)
+    source = fields.Str(
+        required=False, validate=validate.OneOf(MODEL_DATA_SOURCES), allow_none=True,
+    )
     job = fields.Nested(JobSchema, required=True, allow_none=True)
 
 

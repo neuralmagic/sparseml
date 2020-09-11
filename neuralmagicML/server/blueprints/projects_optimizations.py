@@ -1170,7 +1170,7 @@ def delete_optim_modifier(project_id: str, optim_id: str, modifier_id: str):
     mod_for_deletion.delete_instance()
     resp_deleted = data_dump_and_validation(
         ResponseProjectOptimizationModifierDeletedSchema(),
-        {"project_id": project_id, "optim_id": optim_id},
+        {"project_id": project_id, "optim_id": optim_id, "modifier_id": modifier_id},
     )
     _LOGGER.info("deleted modifier {} for optimizer {}".format(modifier_id, optim_id))
 

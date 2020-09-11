@@ -14,11 +14,8 @@ def schema_tester(
     formatted = schema.dump(expected_input)
     errors = schema.validate(formatted)
     if expect_validation_error is not None:
-        print(set(errors.keys()))
         assert set(errors.keys()) == set(expect_validation_error)
 
     else:
-        print(formatted)
-        print(errors)
         assert errors == {}
         assert formatted == expected_output

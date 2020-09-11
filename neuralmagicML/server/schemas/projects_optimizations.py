@@ -263,7 +263,7 @@ class ProjectOptimizationSchema(Schema):
         ProjectOptimizationModifierPruningSchema, required=True, many=True
     )
     quantization_modifiers = fields.Nested(
-        ProjectOptimizationModifierQuantizationNodeSchema, required=True, many=True
+        ProjectOptimizationModifierQuantizationSchema, required=True, many=True
     )
     lr_schedule_modifiers = fields.Nested(
         ProjectOptimizationModifierLRScheduleSchema, required=True, many=True
@@ -305,7 +305,7 @@ class UpdateProjectOptimizationSchema(Schema):
 
     name = fields.Str(required=False)
     profile_perf_id = fields.Str(required=False, allow_none=True)
-    loss_perf_id = fields.Str(required=False, allow_none=True)
+    profile_loss_id = fields.Str(required=False, allow_none=True)
     start_epoch = fields.Float(required=False)
     end_epoch = fields.Float(required=False)
 
@@ -340,17 +340,12 @@ class CreateUpdateProjectOptimizationModifiersQuantizationSchema(Schema):
     start_epoch = fields.Float(required=False)
     end_epoch = fields.Float(required=False)
 
-    level = fields.Str(
-        required=False,
-        validate=validate.OneOf(QUANTIZATION_LEVELS),
-    )
-    balance_perf_loss = fields.Float(required=False)
+    level = fields.Str(required=False, validate=validate.OneOf(QUANTIZATION_LEVELS))
+    balance_perf_loss = fields.Float(required=False, allow_none=False)
     filter_min_perf_gain = fields.Float(required=False)
     filter_max_loss_drop = fields.Float(required=False)
-
     nodes = fields.Nested(
-        ProjectOptimizationModifierQuantizationNodeSchema,
-        required=False,
+        ProjectOptimizationModifierQuantizationNodeSchema, required=False, many=True
     )
 
 
@@ -377,9 +372,7 @@ class CreateUpdateProjectOptimizationModifiersTrainableSchema(Schema):
     default_trainable = fields.Bool(required=False)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierTrainableNodeSchema,
-        required=False,
-        many=True,
+        ProjectOptimizationModifierTrainableNodeSchema, required=False, many=True
     )
 
 
@@ -477,3 +470,4 @@ class ResponseProjectOptimizationModifierDeletedSchema(Schema):
     success = fields.Bool(required=False, default=True, missing=True)
     project_id = fields.Str(required=True)
     optim_id = fields.Str(required=True)
+    modifer_id = fields.Str(required=True)
