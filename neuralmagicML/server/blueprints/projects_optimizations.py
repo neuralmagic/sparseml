@@ -32,6 +32,7 @@ from neuralmagicML.server.blueprints.utils import (
     create_config,
     validate_pruning_nodes,
     PruningModelEvaluator,
+    sparse_training_available,
 )
 from neuralmagicML.server.schemas import (
     data_dump_and_validation,
@@ -153,10 +154,14 @@ def get_optims(project_id: str):
             ProjectOptimizationModifierTrainable,
         )
         .join_from(
-            ProjectOptimization, ProjectOptimizationModifierLRSchedule, JOIN.LEFT_OUTER,
+            ProjectOptimization,
+            ProjectOptimizationModifierLRSchedule,
+            JOIN.LEFT_OUTER,
         )
         .join_from(
-            ProjectOptimization, ProjectOptimizationModifierPruning, JOIN.LEFT_OUTER,
+            ProjectOptimization,
+            ProjectOptimizationModifierPruning,
+            JOIN.LEFT_OUTER,
         )
         .join_from(
             ProjectOptimization,
@@ -164,7 +169,9 @@ def get_optims(project_id: str):
             JOIN.LEFT_OUTER,
         )
         .join_from(
-            ProjectOptimization, ProjectOptimizationModifierTrainable, JOIN.LEFT_OUTER,
+            ProjectOptimization,
+            ProjectOptimizationModifierTrainable,
+            JOIN.LEFT_OUTER,
         )
         .where(ProjectOptimization.project_id == project_id)
         .group_by(ProjectOptimization)
@@ -282,8 +289,17 @@ def create_optim(project_id: str):
                 raise ValidationError("add_quantization is currently not supported")
 
             if data["add_trainable"]:
-                # TODO: fill in trainable
-                raise ValidationError("add_trainable is currently not supported")
+                training = ProjectOptimizationModifierTrainable.create(optim=optim)
+                optim_trainable_updater(
+                    training,
+                    project.model.analysis,
+                    start_epoch=epochs.start_epoch,
+                    end_epoch=epochs.end_epoch,
+                    default_trainable=True,
+                    global_start_epoch=epochs.start_epoch,
+                    global_end_epoch=epochs.end_epoch,
+                )
+                training.save()
 
             if data["add_lr_schedule"]:
                 lr_mods = optim_lr_sched_default_mods(
@@ -615,10 +631,13 @@ def get_available_modifiers(project_id: str):
     project = optim_validate_and_get_project_by_id(project_id)
 
     # TODO: add quantization once available
-    # TODO: add trainable if sparse transfer learning detected
+    modifiers = ["pruning", "lr_schedule"]
+    if sparse_training_available(project):
+        modifiers.append("trainable")
+
     resp_modifiers = data_dump_and_validation(
         ResponseProjectOptimizationModifiersAvailable(),
-        {"modifiers": ["pruning", "lr_schedule"]},
+        {"modifiers": modifiers},
     )
 
     return jsonify(resp_modifiers), HTTPStatus.OK.value
@@ -885,7 +904,14 @@ def update_optim(project_id: str, optim_id: str):
                 pruning.save()
 
             # todo: add quantization updates when ready
-            # todo: add trainable
+            for trainable in optim.trainable_modifiers:
+                optim_trainable_updater(
+                    trainable,
+                    project.model.analysis,
+                    global_start_epoch=global_start_epoch,
+                    global_end_epoch=global_end_epoch,
+                )
+                trainable.save()
 
             for lr_schedule in optim.lr_schedule_modifiers:
                 optim_lr_sched_updater(
@@ -1359,6 +1385,17 @@ def update_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: s
     pruning = ProjectOptimizationModifierPruning.get_or_none(
         ProjectOptimizationModifierPruning.modifier_id == modifier_id
     )
+    if pruning is None:
+        _LOGGER.error(
+            "could not find pruning modifier {} for project {} with optim_id {}".format(
+                modifier_id, project_id, optim_id
+            )
+        )
+        raise HTTPNotFoundError(
+            "could not find pruning modifier {} for project {} with optim_id {}".format(
+                modifier_id, project_id, optim_id
+            )
+        )
     profile_perf, profile_loss = get_profiles_by_id(
         optim.profile_perf_id, optim.profile_loss_id
     )
@@ -1604,7 +1641,8 @@ def create_optim_modifier_lr_schedule(project_id: str, optim_id: str):
         try:
             lr_sched = ProjectOptimizationModifierLRSchedule.create(optim=optim)
             optim_lr_sched_updater(
-                lr_sched, lr_mods=data["lr_mods"] if data["lr_mods"] else [],
+                lr_sched,
+                lr_mods=data["lr_mods"] if data["lr_mods"] else [],
             )
             lr_sched.save()
 
@@ -1711,6 +1749,17 @@ def update_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_i
     lr_sched = ProjectOptimizationModifierLRSchedule.get_or_none(
         ProjectOptimizationModifierPruning.modifier_id == modifier_id
     )
+    if lr_sched is None:
+        _LOGGER.error(
+            "could not find lr schedule modifier {} for project {} with optim_id {}".format(
+                modifier_id, project_id, optim_id
+            )
+        )
+        raise HTTPNotFoundError(
+            "could not find lr schedule modifier {} for project {} with optim_id {}".format(
+                modifier_id, project_id, optim_id
+            )
+        )
     data = CreateUpdateProjectOptimizationModifiersLRScheduleSchema().load(
         request.get_json(force=True)
     )
@@ -1796,7 +1845,62 @@ def update_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_i
     },
 )
 def create_optim_modifier_trainable(project_id: str, optim_id: str):
-    raise NotImplementedError()
+    """
+    Route for creating a new trainable modifier for a given project optim.
+    Raises an HTTPNotFoundError if the project or the optim are not found in the database.
+
+    :param project_id: the id of the project to create a trainable modifier for
+    :param optim_id: the id of the optim to create a trainable modifier for
+    :return: a tuple containing (json response, http status code)
+    """
+
+    _LOGGER.info(
+        (
+            "creating an trainable modifier for optim {} " "and project {} with data {}"
+        ).format(optim_id, project_id, request.json)
+    )
+    project = optim_validate_and_get_project_by_id(project_id)
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    data = CreateUpdateProjectOptimizationModifiersTrainableSchema().load(
+        request.get_json(force=True)
+    )
+
+    with database.atomic() as transaction:
+        try:
+            training = ProjectOptimizationModifierTrainable.create(optim=optim)
+
+            optim_trainable_updater(
+                training,
+                project.model.analysis,
+                **data,
+                global_start_epoch=optim.start_epoch,
+                global_end_epoch=optim.end_epoch,
+            )
+            training.save()
+
+            # update optim in case bounds for new modifier went outside it
+            optim_updater(
+                optim,
+                mod_start_epoch=training.start_epoch,
+                mod_end_epoch=training.end_epoch,
+            )
+            optim.save()
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating new trainable modifier, rolling back: {}".format(
+                    err
+                )
+            )
+            transaction.rollback()
+            raise err
+
+    _LOGGER.info(
+        "created a training modifier with id {} for optim {} and project {}".format(
+            training.modifier_id, optim_id, project_id
+        )
+    )
+
+    return get_optim(project_id, optim_id)
 
 
 @projects_optim_blueprint.route(
@@ -1858,4 +1962,71 @@ def create_optim_modifier_trainable(project_id: str, optim_id: str):
     },
 )
 def update_optim_modifier_trainable(project_id: str, optim_id: str, modifier_id: str):
-    raise NotImplementedError()
+    """
+    Route for updating a trainable modifier for a given project optim.
+    Raises an HTTPNotFoundError if the project, optim, or modifier
+    are not found in the database.
+
+    :param project_id: the id of the project to update a trainable modifier for
+    :param optim_id: the id of the optim to update a trainable modifier for
+    :param modifier_id: the id of the modifier to update
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        (
+            "updating a trainable modifier with id {} for optim {} "
+            "and project {} with data {}"
+        ).format(modifier_id, optim_id, project_id, request.json)
+    )
+    project = optim_validate_and_get_project_by_id(project_id)
+    optim = get_project_optimizer_by_ids(project_id, optim_id)
+    training = ProjectOptimizationModifierTrainable.get_or_none(
+        ProjectOptimizationModifierTrainable.modifier_id == modifier_id
+    )
+    if training is None:
+        _LOGGER.error(
+            "could not find trainable modifier {} for project {} with optim_id {}".format(
+                modifier_id, project_id, optim_id
+            )
+        )
+        raise HTTPNotFoundError(
+            "could not find trainable modifier {} for project {} with optim_id {}".format(
+                modifier_id, project_id, optim_id
+            )
+        )
+    data = CreateUpdateProjectOptimizationModifiersTrainableSchema().load(
+        request.get_json(force=True)
+    )
+
+    with database.atomic() as transaction:
+        try:
+            optim_trainable_updater(
+                training,
+                project.model.analysis,
+                **data,
+                global_start_epoch=optim.start_epoch,
+                global_end_epoch=optim.end_epoch,
+            )
+            training.save()
+
+            # update optim in case bounds for new modifier went outside it
+            optim_updater(
+                optim,
+                mod_start_epoch=training.start_epoch,
+                mod_end_epoch=training.end_epoch,
+            )
+            optim.save()
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating trainable modifer, rolling back: {}".format(err)
+            )
+            transaction.rollback()
+            raise err
+
+    _LOGGER.info(
+        "updaed training modifier with id {} for optim {} and project {}".format(
+            training.modifier_id, optim_id, project_id
+        )
+    )
+
+    return get_optim(project_id, optim_id)

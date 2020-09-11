@@ -326,7 +326,9 @@ class CreateUpdateProjectOptimizationModifiersPruningSchema(Schema):
     filter_max_loss_drop = fields.Float(required=False)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierPruningNodeMetadataSchema, required=False, many=True,
+        ProjectOptimizationModifierPruningNodeMetadataSchema,
+        required=False,
+        many=True,
     )
 
 
@@ -338,13 +340,17 @@ class CreateUpdateProjectOptimizationModifiersQuantizationSchema(Schema):
     start_epoch = fields.Float(required=False)
     end_epoch = fields.Float(required=False)
 
-    level = fields.Str(required=False, validate=validate.OneOf(QUANTIZATION_LEVELS),)
+    level = fields.Str(
+        required=False,
+        validate=validate.OneOf(QUANTIZATION_LEVELS),
+    )
     balance_perf_loss = fields.Float(required=False)
     filter_min_perf_gain = fields.Float(required=False)
     filter_max_loss_drop = fields.Float(required=False)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierQuantizationNodeSchema, required=False,
+        ProjectOptimizationModifierQuantizationNodeSchema,
+        required=False,
     )
 
 
@@ -354,7 +360,9 @@ class CreateUpdateProjectOptimizationModifiersLRScheduleSchema(Schema):
     """
 
     lr_mods = fields.Nested(
-        ProjectOptimizationModifierLRSchema, required=False, many=True,
+        ProjectOptimizationModifierLRSchema,
+        required=False,
+        many=True,
     )
 
 
@@ -366,8 +374,12 @@ class CreateUpdateProjectOptimizationModifiersTrainableSchema(Schema):
     start_epoch = fields.Float(required=False)
     end_epoch = fields.Float(required=False)
 
+    default_trainable = fields.Bool(required=False)
+
     nodes = fields.Nested(
-        ProjectOptimizationModifierTrainableNodeSchema, required=False, many=True,
+        ProjectOptimizationModifierTrainableNodeSchema,
+        required=False,
+        many=True,
     )
 
 

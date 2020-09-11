@@ -5,6 +5,7 @@ Helper functions and classes for flask blueprints specific to project optimizati
 from typing import Union, NamedTuple, Tuple, Dict, List, Any
 import logging
 import math
+import numpy
 
 from marshmallow import ValidationError
 from peewee import JOIN
@@ -19,6 +20,7 @@ from neuralmagicML.server.schemas import (
     data_dump_and_validation,
     ProjectOptimizationModifierTrainableNodeSchema,
     ProjectOptimizationModifierLRSchema,
+    ProjectOptimizationModifierTrainableSchema,
 )
 from neuralmagicML.server.models import (
     Project,
@@ -47,6 +49,7 @@ __all__ = [
     "optim_lr_sched_updater",
     "optim_updater",
     "create_config",
+    "sparse_training_available",
     "validate_pruning_nodes",
 ]
 
@@ -99,10 +102,14 @@ def get_project_optimizer_by_ids(project_id: str, optim_id: str) -> ProjectOptim
             ProjectOptimizationModifierTrainable,
         )
         .join_from(
-            ProjectOptimization, ProjectOptimizationModifierLRSchedule, JOIN.LEFT_OUTER,
+            ProjectOptimization,
+            ProjectOptimizationModifierLRSchedule,
+            JOIN.LEFT_OUTER,
         )
         .join_from(
-            ProjectOptimization, ProjectOptimizationModifierPruning, JOIN.LEFT_OUTER,
+            ProjectOptimization,
+            ProjectOptimizationModifierPruning,
+            JOIN.LEFT_OUTER,
         )
         .join_from(
             ProjectOptimization,
@@ -110,7 +117,9 @@ def get_project_optimizer_by_ids(project_id: str, optim_id: str) -> ProjectOptim
             JOIN.LEFT_OUTER,
         )
         .join_from(
-            ProjectOptimization, ProjectOptimizationModifierTrainable, JOIN.LEFT_OUTER,
+            ProjectOptimization,
+            ProjectOptimizationModifierTrainable,
+            JOIN.LEFT_OUTER,
         )
         .where(
             ProjectOptimization.project_id == project_id,
@@ -240,7 +249,7 @@ def default_pruning_settings():
 def optim_trainable_default_nodes(
     default_trainable: bool,
     model_analysis: Dict,
-    node_overrides: Union[None, List[Dict[str, Any]]],
+    node_overrides: Union[None, List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Create the default trainable nodes for optimizing a model.
@@ -348,9 +357,11 @@ def optim_lr_sched_default_mods(
 
 def optim_trainable_updater(
     trainable: ProjectOptimizationModifierTrainable,
+    analysis: Dict[str, List],
     start_epoch: Union[None, float] = None,
     end_epoch: Union[None, float] = None,
     nodes: Union[None, List[Dict[str, Any]]] = None,
+    default_trainable: Union[None, bool] = None,
     global_start_epoch: Union[None, float] = None,
     global_end_epoch: Union[None, float] = None,
 ):
@@ -358,9 +369,11 @@ def optim_trainable_updater(
     Update a trainable DB model
 
     :param trainable: the DB model
+    :param analysis: model analysis
     :param start_epoch: the start_epoch to set, if any
     :param end_epoch: the end_epoch to set, if any
     :param nodes: the nodes to set, if any
+    :param default_trainable: the default trainable to set, if any
     :param global_start_epoch: the optim's start epoch,
         if set and greater than current start_epoch will set start_epoch to this
     :param global_end_epoch: the optim's end epoch,
@@ -372,8 +385,21 @@ def optim_trainable_updater(
     if end_epoch is not None:
         trainable.end_epoch = end_epoch
 
-    if nodes is not None:
+    if default_trainable is not None:
+        trainable.nodes = optim_trainable_default_nodes(
+            default_trainable, analysis, nodes
+        )
+
+    if trainable.nodes is None:
         trainable.nodes = nodes
+    else:
+        node_id_to_trainable = {}
+        for node in nodes:
+            node_id_to_trainable[node["node_id"]] = node["trainable"]
+
+        for node in trainable.nodes:
+            if node["node_id"] in node_id_to_trainable:
+                node["trainable"] = node_id_to_trainable[node["node_id"]]
 
     if (
         global_start_epoch is not None
@@ -651,6 +677,7 @@ def create_config(project: Project, optim: ProjectOptimization, framework: str) 
             SetLearningRateModifier,
             LearningRateModifier,
             GradualKSModifier,
+            TrainableParamsModifier,
         )
     elif framework == "tensorflow":
         from neuralmagicML.pytorch.recal import (
@@ -659,6 +686,7 @@ def create_config(project: Project, optim: ProjectOptimization, framework: str) 
             SetLearningRateModifier,
             LearningRateModifier,
             GradualKSModifier,
+            TrainableParamsModifier,
         )
     else:
         _LOGGER.error("Unsupported framework {} provided".format(framework))
@@ -720,7 +748,8 @@ def create_config(project: Project, optim: ProjectOptimization, framework: str) 
             if mod["clazz"] == "set":
                 mods.append(
                     SetLearningRateModifier(
-                        learning_rate=mod["init_lr"], start_epoch=start_epoch,
+                        learning_rate=mod["init_lr"],
+                        start_epoch=start_epoch,
                     )
                 )
             else:
@@ -740,10 +769,63 @@ def create_config(project: Project, optim: ProjectOptimization, framework: str) 
                     )
                 )
 
-    # TODO: add trainable
+    for trainable_modifier in optim.trainable_modifiers:
+        mod = ProjectOptimizationModifierTrainableSchema().dump(trainable_modifier)
+        start_epoch = mod["start_epoch"] if mod["start_epoch"] is not None else -1
+        end_epoch = mod["end_epoch"] if mod["end_epoch"] is not None else -1
+
+        if "nodes" not in mod:
+            continue
+        trainable_nodes = []
+        untrainable_nodes = []
+        for node in mod["nodes"]:
+            assert node["node_id"] in node_weight_name_lookup
+
+            weight_name = node_weight_name_lookup[node["node_id"]]
+            if node["trainable"]:
+                trainable_nodes.append(weight_name)
+            else:
+                untrainable_nodes.append(weight_name)
+
+        if len(trainable_nodes) > 0:
+            mods.append(
+                TrainableParamsModifier(
+                    trainable_nodes, True, start_epoch=start_epoch, end_epoch=end_epoch
+                )
+            )
+
+        if len(untrainable_nodes) > 0:
+            mods.append(
+                TrainableParamsModifier(
+                    untrainable_nodes,
+                    False,
+                    start_epoch=start_epoch,
+                    end_epoch=end_epoch,
+                )
+            )
     # TODO: add quantization support when ready
 
     return str(ScheduledModifierManager(mods))
+
+
+def sparse_training_available(project: Project):
+    prunable_params_pairs = [
+        (node["prunable_params_zeroed"], node["prunable_params"])
+        for node in project.model.analysis["nodes"]
+        if node["prunable"]
+        and isinstance(node["prunable_params_zeroed"], (int, float))
+        and isinstance(node["prunable_params"], (int, float))
+        and node["prunable_params"] > 0
+    ]
+
+    sum_prunable_params_zeroed, prunable_params = numpy.sum(
+        prunable_params_pairs, axis=0
+    )
+    return (
+        sum_prunable_params_zeroed / prunable_params > 0.4
+        if prunable_params > 0
+        else False
+    )
 
 
 def validate_pruning_nodes(project: Project, nodes: List[Dict[str, Any]]):

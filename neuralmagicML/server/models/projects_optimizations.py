@@ -56,7 +56,7 @@ class ProjectOptimizationModifierPruning(BaseCreatedModifiedModel):
     """
 
     modifier_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    optim = ForeignKeyField(ProjectOptimization, backref="pruning_modifiers")
+    optim = ForeignKeyField(ProjectOptimization, backref="pruning_modifiers", on_delete="CASCADE")
     start_epoch = FloatField(null=True, default=None)
     end_epoch = FloatField(null=True, default=None)
     update_frequency = FloatField(null=True, default=None)
