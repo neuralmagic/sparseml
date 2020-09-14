@@ -2,13 +2,42 @@
 Helper functions for jupyter notebooks
 """
 
-__all__ = ["check_notebook_setup", "format_html"]
+__all__ = [
+    "check_pytorch_notebook_setup",
+    "check_tensorflow_notebook_setup",
+    "format_html",
+]
 
 
-def check_notebook_setup():
+def check_pytorch_notebook_setup():
     try:
         import torch
+
+        if torch.__version__[0] != "1":
+            raise Exception
+
+        import torchvision
+
+        import tensorboard
+    except Exception:
+        raise ModuleNotFoundError(
+            "please install all requirements for neuralmagicML before continuing, "
+            "these are listed in the requirements.txt folder and can be installed "
+            "using the setup.py or pip -r ./requirements.txt. Additionally, "
+            "torch>=1.0.0 and a compatable version of torchvision are required to "
+            "use neuralmagicML.pytorch."
+        )
+
+    print("notebook setup check complete!")
+
+
+def check_tensorflow_notebook_setup():
+    try:
         import tensorflow
+
+        version = [int(v) for v in tensorflow.__version__.split(".")]
+        if version[0] != 1 or version[1] < 8:
+            raise Exception
 
         from neuralmagicML.tensorflow.utils import tf_compat
 
@@ -19,7 +48,8 @@ def check_notebook_setup():
         raise ModuleNotFoundError(
             "please install all requirements for neuralmagicML before continuing, "
             "these are listed in the requirements.txt folder and can be installed "
-            "using the setup.py or pip -r ./requirements.txt"
+            "using the setup.py or pip -r ./requirements.txt. Additionally, "
+            "tensorflow>=1.8,<2.0 is required to use neuralmagicML.tensorflow."
         )
 
     print("notebook setup check complete!")

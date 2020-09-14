@@ -7,19 +7,7 @@ from typing import List, Union
 import ipywidgets as widgets
 
 from neuralmagicML.recal import KSLossSensitivityAnalysis
-from neuralmagicML.pytorch.recal import (
-    PYTORCH_FRAMEWORK,
-    EpochRangeModifier as EpochRangeModifier_pt,
-    GradualKSModifier as GradualKSModifier_pt,
-    ScheduledModifierManager as ScheduledModifierManager_pt,
-)
-from neuralmagicML.tensorflow.recal import (
-    TENSORFLOW_FRAMEWORK,
-    EpochRangeModifier as EpochRangeModifier_tf,
-    GradualKSModifier as GradualKSModifier_tf,
-    ScheduledModifierManager as ScheduledModifierManager_tf,
-)
-from neuralmagicML.tensorflow.utils import clean_tensor_name
+from neuralmagicML.utils import PYTORCH_FRAMEWORK, TENSORFLOW_FRAMEWORK
 from neuralmagicML.utilsnb.helpers import format_html
 
 
@@ -277,12 +265,13 @@ class PruningEpochWidget(_Widget):
         :return: the list of modifiers for the given config settings
         """
         if framework == PYTORCH_FRAMEWORK:
-            return [EpochRangeModifier_pt(start_epoch=0.0, end_epoch=self.total_epochs)]
+            from neuralmagicML.pytorch.recal import EpochRangeModifier
+        elif framework == TENSORFLOW_FRAMEWORK:
+            from neuralmagicML.tensorflow.recal import EpochRangeModifier
+        else:
+            raise ValueError("unknown framework given of {}".format(framework))
 
-        if framework == TENSORFLOW_FRAMEWORK:
-            return [EpochRangeModifier_tf(start_epoch=0.0, end_epoch=self.total_epochs)]
-
-        raise ValueError("unknown framework given of {}".format(framework))
+        return [EpochRangeModifier(start_epoch=0.0, end_epoch=self.total_epochs)]
 
 
 class PruneParamWidget(_Widget):
@@ -413,30 +402,27 @@ class PruneParamWidget(_Widget):
             return []
 
         if framework == PYTORCH_FRAMEWORK:
-            return [
-                GradualKSModifier_pt(
-                    params=[self._name],
-                    init_sparsity=0.05,
-                    final_sparsity=self._end_sparsity,
-                    start_epoch=0.0,
-                    end_epoch=1.0,
-                    update_frequency=1.0,
-                )
-            ]
+            from neuralmagicML.pytorch.recal import GradualKSModifier
 
-        if framework == TENSORFLOW_FRAMEWORK:
-            return [
-                GradualKSModifier_tf(
-                    params=[clean_tensor_name(self._name)],
-                    init_sparsity=0.05,
-                    final_sparsity=self._end_sparsity,
-                    start_epoch=0.0,
-                    end_epoch=1.0,
-                    update_frequency=1.0,
-                )
-            ]
+            params = [self._name]
+        elif framework == TENSORFLOW_FRAMEWORK:
+            from neuralmagicML.tensorflow.recal import GradualKSModifier
+            from neuralmagicML.tensorflow.utils import clean_tensor_name
 
-        raise ValueError("unknown framework given of {}".format(framework))
+            params = [clean_tensor_name(self._name)]
+        else:
+            raise ValueError("unknown framework given of {}".format(framework))
+
+        return [
+            GradualKSModifier(
+                params=params,
+                init_sparsity=0.05,
+                final_sparsity=self._end_sparsity,
+                start_epoch=0.0,
+                end_epoch=1.0,
+                update_frequency=1.0,
+            )
+        ]
 
 
 class PruningParamsWidget(_Widget):
@@ -593,9 +579,9 @@ class KSWidgetContainer(object):
         modifiers.extend(param_modifiers)
 
         if framework == PYTORCH_FRAMEWORK:
-            return ScheduledModifierManager_pt(modifiers)
-
-        if framework == TENSORFLOW_FRAMEWORK:
-            return ScheduledModifierManager_tf(modifiers)
-
-        raise ValueError("unknown framework given of {}".format(framework))
+            from neuralmagicML.pytorch.recal import ScheduledModifierManager
+        elif framework == TENSORFLOW_FRAMEWORK:
+            from neuralmagicML.tensorflow.recal import ScheduledModifierManager
+        else:
+            raise ValueError("unknown framework given of {}".format(framework))
+        return ScheduledModifierManager(modifiers)
