@@ -25,19 +25,7 @@ from neuralmagicML.server.blueprints import (
     ui_blueprint,
 )
 from neuralmagicML.server.models import (
-    database,
-    storage,
-    Job,
-    Project,
-    ProjectModel,
-    ProjectData,
-    ProjectLossProfile,
-    ProjectPerfProfile,
-    ProjectOptimization,
-    ProjectOptimizationModifierPruning,
-    ProjectOptimizationModifierQuantization,
-    ProjectOptimizationModifierLRSchedule,
-    ProjectOptimizationModifierTrainable,
+    database_setup,
 )
 from neuralmagicML.server.workers import JobWorkerManager
 
@@ -78,40 +66,6 @@ def _setup_logging(logging_level: str):
         )
 
     set_server_logging_level(logging_level)
-
-
-def _database_setup(app: Flask, working_dir: str):
-    storage.init(working_dir)
-    db_path = os.path.join(working_dir, "db.sqlite")
-    database.init(
-        db_path,
-        max_connections=10,
-        stale_timeout=300,
-        timeout=0,
-        check_same_thread=False,
-    )
-    FlaskDB(app, database)
-
-    database.connect()
-    models = [
-        Job,
-        Project,
-        ProjectModel,
-        ProjectData,
-        ProjectLossProfile,
-        ProjectPerfProfile,
-        ProjectOptimization,
-        ProjectOptimizationModifierPruning,
-        ProjectOptimizationModifierQuantization,
-        ProjectOptimizationModifierLRSchedule,
-        ProjectOptimizationModifierTrainable,
-    ]
-    database.create_tables(
-        models=models, safe=True,
-    )
-    for model in models:
-        model.raw("PRAGMA foreign_keys=ON").execute()
-    database.close()
 
 
 def _blueprints_setup(app: Flask):
@@ -162,7 +116,8 @@ def run(
     app.config["UI_PATH"] = ui_path
     CORS(app)
 
-    _database_setup(app, working_dir)
+    # _database_setup(app, working_dir)
+    database_setup(working_dir, app)
     _blueprints_setup(app)
     _api_docs_setup(app)
     _worker_setup()
@@ -189,7 +144,10 @@ def parse_args() -> Any:
         "--port", default=5543, type=int, help="The local port to launch the server on"
     )
     parser.add_argument(
-        "--debug", default=False, action="store_true", help="Set to run in debug mode",
+        "--debug",
+        default=False,
+        action="store_true",
+        help="Set to run in debug mode",
     )
     parser.add_argument(
         "--logging-level",

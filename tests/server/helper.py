@@ -1,7 +1,21 @@
+import os
+import pytest
 from typing import Dict, List, Union
 from marshmallow import Schema
+from neuralmagicML.server.models import (
+    database_setup,
+)
 
-__all__ = ["schema_tester"]
+TEMP_DIR = os.path.expanduser("~/.cache/nm_database")
+
+__all__ = ["schema_tester", "database_fixture"]
+
+
+@pytest.fixture(scope="session")
+def database_fixture():
+    database_setup(TEMP_DIR)
+    yield
+    os.remove(os.path.join(TEMP_DIR, "db.sqlite"))
 
 
 def schema_tester(
