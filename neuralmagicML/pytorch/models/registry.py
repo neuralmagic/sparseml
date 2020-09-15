@@ -81,7 +81,7 @@ class ModelRegistry(object):
             pretrained_dataset=pretrained_dataset,
             load_strict=load_strict,
             ignore_error_tensors=ignore_error_tensors,
-            **kwargs
+            **kwargs,
         )
 
     @staticmethod
@@ -236,6 +236,12 @@ class ModelRegistry(object):
                 ignore.extend(ignore_error_tensors)
             elif attributes.ignore_error_tensors:
                 ignore.extend(attributes.ignore_error_tensors)
+
+            if isinstance(pretrained, str):
+                if pretrained.lower() == "true":
+                    pretrained = True
+                elif pretrained.lower() in ["false", "none"]:
+                    pretrained = False
 
             if pretrained_path:
                 load_model(pretrained_path, model, load_strict, ignore)

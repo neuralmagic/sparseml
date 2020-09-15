@@ -1,22 +1,20 @@
 """
-Image classification export script. Exports models to a standard structure
+Model export script. Exports models to a standard structure
 including an ONNX export as well as sample inputs, outputs, and labels
 
 
 ##########
 Command help:
-python scripts/pytorch/classification_export.py -h
-usage: classification_export.py [-h] [--num-samples NUM_SAMPLES] --arch-key
-                                ARCH_KEY [--pretrained PRETRAINED]
-                                [--pretrained-dataset PRETRAINED_DATASET]
-                                [--checkpoint-path CHECKPOINT_PATH]
-                                [--class-type CLASS_TYPE] --dataset DATASET
-                                --dataset-path DATASET_PATH
-                                [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
-                                [--onnx-opset ONNX_OPSET]
+python scripts/pytorch/model_export.py -h
+usage: model_export.py [-h] [--num-samples NUM_SAMPLES] --arch-key ARCH_KEY
+                 [--pretrained PRETRAINED]
+                 [--pretrained-dataset PRETRAINED_DATASET]
+                 [--checkpoint-path CHECKPOINT_PATH]
+                 [--model-kwargs MODEL_KWARGS] --dataset DATASET
+                 --dataset-path DATASET_PATH [--model-tag MODEL_TAG]
+                 [--save-dir SAVE_DIR] [--onnx-opset ONNX_OPSET]
 
-Export an image classification model to onnx as well as store sample inputs,
-outputs, and labels
+Export a model to onnx as well as store sample inputs, outputs, and labels
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -42,14 +40,15 @@ optional arguments:
                         A path to a previous checkpoint to load the state from
                         and resume the state for. If provided, pretrained will
                         be ignored
-  --class-type CLASS_TYPE
-                        One of [single, multi] where single is for single
-                        class training using a softmax and multi is for multi
-                        class training using a sigmoid
+  --model-kwargs MODEL_KWARGS
+                        Comma separated string key word arguments for the
+                        model constructor in the form of
+                        key1=value1,key2=value2
   --dataset DATASET     The dataset to use for training, ex: imagenet,
                         imagenette, cifar10, etc. Set to imagefolder for a
-                        generic image classification dataset setup with an
-                        image folder structure setup like imagenet.
+                        generic dataset setup with an image folder structure
+                        setup like imagenet or loadable by a dataset in
+                        neuralmagicML.pytorch.datasets
   --dataset-path DATASET_PATH
                         The root path to where the dataset is stored
   --model-tag MODEL_TAG
@@ -62,8 +61,17 @@ optional arguments:
 
 ##########
 Example command for exporting ResNet50:
-python scripts/pytorch/classification_export.py \
+python scripts/pytorch/model_export.py \
     --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012
+
+Example command for exporting multiclass MobilenetV1 predictor
+python scripts/pytorch/model_export.py \
+    --arch-key mobilenet-v1 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
+    --model-kwargs class_type=multi
+
+Example command for exporting ssd300_resnet50:
+python scripts/pytorch/model_export.py \
+    --arch-key ssd300_resnet50 --dataset coco --dataset-path ~/data/coco-detection --pretrained false
 """
 
 import argparse
@@ -84,7 +92,7 @@ LOGGER = get_main_logger()
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Export an image classification model to onnx as well as "
+        description="Export a model to onnx as well as "
         "store sample inputs, outputs, and labels"
     )
 
@@ -131,11 +139,11 @@ def parse_args():
         "resume the state for. If provided, pretrained will be ignored",
     )
     parser.add_argument(
-        "--class-type",
+        "--model-kwargs",
         type=str,
-        default="single",
-        help="One of [single, multi] where single is for single class training "
-        "using a softmax and multi is for multi class training using a sigmoid",
+        default="",
+        help="Comma separated string key word arguments for the model constructor "
+        "in the form of key1=value1,key2=value2",
     )
 
     # dataset args
@@ -145,8 +153,9 @@ def parse_args():
         required=True,
         help="The dataset to use for training, "
         "ex: imagenet, imagenette, cifar10, etc. "
-        "Set to imagefolder for a generic image classification dataset setup "
-        "with an image folder structure setup like imagenet.",
+        "Set to imagefolder for a generic dataset setup "
+        "with an image folder structure setup like imagenet or loadable by a "
+        "dataset in neuralmagicML.pytorch.datasets",
     )
     parser.add_argument(
         "--dataset-path",
@@ -166,7 +175,7 @@ def parse_args():
     parser.add_argument(
         "--save-dir",
         type=str,
-        default="pytorch_classification_export",
+        default="pytorch_model_export",
         help="The path to the directory for saving results",
     )
     parser.add_argument(
@@ -176,7 +185,14 @@ def parse_args():
         help="The onnx opset to use for export. Default is 11",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.model_kwargs = (
+        dict(arg.strip().split("=") for arg in args.model_kwargs.strip().split(","))
+        if args.model_kwargs
+        else {}
+    )
+
+    return args
 
 
 def main(args):
@@ -229,7 +245,7 @@ def main(args):
         args.checkpoint_path,
         args.pretrained_dataset,
         num_classes=num_classes,
-        class_type=args.class_type,
+        **args.model_kwargs,
     )
     LOGGER.info("created model: {}".format(model))
 
