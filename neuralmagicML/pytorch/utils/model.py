@@ -145,7 +145,7 @@ def save_model(
         torch.save(save_dict, path)
     else:
         torch.save(
-            state_dict,
+            save_dict,
             path,
             _use_new_zipfile_serialization=use_zipfile_serialization_if_available,
         )
