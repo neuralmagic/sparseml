@@ -372,13 +372,13 @@ def test_onnx_node_sparsities():
 
             if "sections" not in node and "classifier" not in node:
                 continue
-
             if (
                 "depth" in node
                 or "sections.0" in node
                 or "sections_0" in node
                 or "sections.1" in node
                 or "sections_1" in node
+                or "output" in node
             ):
                 continue
 

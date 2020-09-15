@@ -13,6 +13,7 @@ usage: model_export.py [-h] [--num-samples NUM_SAMPLES] --arch-key ARCH_KEY
                  [--model-kwargs MODEL_KWARGS] --dataset DATASET
                  --dataset-path DATASET_PATH [--model-tag MODEL_TAG]
                  [--save-dir SAVE_DIR] [--onnx-opset ONNX_OPSET]
+                 [--use-zipfile-serialization-if-available USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE]
 
 Export a model to onnx as well as store sample inputs, outputs, and labels
 
@@ -57,6 +58,10 @@ optional arguments:
   --save-dir SAVE_DIR   The path to the directory for saving results
   --onnx-opset ONNX_OPSET
                         The onnx opset to use for export. Default is 11
+  --use-zipfile-serialization-if-available USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE
+                        for torch >= 1.6.0 only exports the Module's state
+                        dict using the new zipfile serialization. Default is
+                        True, has no affect on lower torch versions
 
 
 ##########
@@ -84,7 +89,7 @@ from neuralmagicML import get_main_logger
 from neuralmagicML.pytorch.datasets import DatasetRegistry
 from neuralmagicML.pytorch.models import ModelRegistry
 from neuralmagicML.pytorch.utils import ModuleExporter, early_stop_data_loader
-from neuralmagicML.utils import create_dirs
+from neuralmagicML.utils import convert_to_bool, create_dirs
 
 
 LOGGER = get_main_logger()
@@ -184,6 +189,14 @@ def parse_args():
         default=11,
         help="The onnx opset to use for export. Default is 11",
     )
+    parser.add_argument(
+        "--use-zipfile-serialization-if-available",
+        type=convert_to_bool,
+        default=True,
+        help="for torch >= 1.6.0 only exports the Module's state dict "
+        "using the new zipfile serialization. Default is True, has no "
+        "affect on lower torch versions",
+    )
 
     args = parser.parse_args()
     args.model_kwargs = (
@@ -253,7 +266,9 @@ def main(args):
     exporter = ModuleExporter(model, save_dir)
 
     LOGGER.info("exporting pytorch in {}".format(save_dir))
-    exporter.export_pytorch()
+    exporter.export_pytorch(
+        use_zipfile_serialization_if_available=args.use_zipfile_serialization_if_available
+    )
     onnx_exported = False
 
     for batch, data in auto.tqdm(

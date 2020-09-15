@@ -223,7 +223,10 @@ def _extract_bounding_box_and_labels(image, annotations):
     # returns bounding boxes in ltrb format scaled to [0, 1] and labels
     boxes = []
     labels = []
-    for annotation in annotations["annotation"]["object"]:
+    box_objects = annotations["annotation"]["object"]
+    if isinstance(box_objects, dict):
+        box_objects = [box_objects]
+    for annotation in box_objects:
         boxes.append(
             [
                 float(annotation["bndbox"]["xmin"]),

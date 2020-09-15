@@ -109,6 +109,7 @@ def save_model(
     model: Module,
     optimizer: Optimizer = None,
     epoch: Union[int, None] = None,
+    use_zipfile_serialization_if_available: bool = True,
 ):
     """
     Save a model's state dict into a file at the given path.
@@ -118,6 +119,8 @@ def save_model(
     :param model: the model to save state for
     :param optimizer: the optimizer, if any, to save state for
     :param epoch: the epoch to save
+    :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
+        exports the model's state dict using the new zipfile serialization
     """
     create_parent_dirs(path)
 
@@ -138,7 +141,14 @@ def save_model(
     if epoch:
         save_dict["epoch"] = epoch
 
-    torch.save(save_dict, path)
+    if torch.__version__ < "1.6":
+        torch.save(save_dict, path)
+    else:
+        torch.save(
+            state_dict,
+            path,
+            _use_new_zipfile_serialization=use_zipfile_serialization_if_available,
+        )
 
 
 class _DataParallel(DataParallel):

@@ -100,7 +100,11 @@ class ModuleExporter(object):
         )
 
     def export_pytorch(
-        self, optimizer: Optimizer = None, epoch: int = None, name: str = "model.pth"
+        self,
+        optimizer: Optimizer = None,
+        epoch: int = None,
+        name: str = "model.pth",
+        use_zipfile_serialization_if_available: bool = True,
     ):
         """
         Export the pytorch state dicts into pth file within a
@@ -109,11 +113,19 @@ class ModuleExporter(object):
         :param optimizer: optional optimizer to export along with the module
         :param epoch: optional epoch to export along with the module
         :param name: name of the pytorch file to save
+        :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
+            exports the Module's state dict using the new zipfile serialization
         """
         pytorch_path = os.path.join(self._output_dir, "pytorch")
         pth_path = os.path.join(pytorch_path, name)
         create_parent_dirs(pth_path)
-        save_model(pth_path, self._module, optimizer, epoch)
+        save_model(
+            pth_path,
+            self._module,
+            optimizer,
+            epoch,
+            use_zipfile_serialization_if_available=use_zipfile_serialization_if_available,
+        )
 
     def export_samples(
         self,
