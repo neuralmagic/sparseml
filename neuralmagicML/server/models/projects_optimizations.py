@@ -56,7 +56,9 @@ class ProjectOptimizationModifierPruning(BaseCreatedModifiedModel):
     """
 
     modifier_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    optim = ForeignKeyField(ProjectOptimization, backref="pruning_modifiers", on_delete="CASCADE")
+    optim = ForeignKeyField(
+        ProjectOptimization, backref="pruning_modifiers", on_delete="CASCADE"
+    )
     start_epoch = FloatField(null=True, default=None)
     end_epoch = FloatField(null=True, default=None)
     update_frequency = FloatField(null=True, default=None)
@@ -71,6 +73,10 @@ class ProjectOptimizationModifierPruning(BaseCreatedModifiedModel):
     est_perf_gain = FloatField(null=True, default=None)
     est_time = FloatField(null=True, default=None)
     est_time_baseline = FloatField(null=True, default=None)
+    flops = FloatField(null=True, default=None)
+    flops_baseline = FloatField(null=True, default=None)
+    params = FloatField(null=True, default=None)
+    params_baseline = FloatField(null=True, default=None)
 
 
 class ProjectOptimizationModifierQuantization(BaseCreatedModifiedModel):

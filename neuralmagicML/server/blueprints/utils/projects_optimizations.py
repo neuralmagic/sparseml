@@ -392,7 +392,7 @@ def optim_trainable_updater(
 
     if trainable.nodes is None:
         trainable.nodes = nodes
-    else:
+    elif nodes is not None:
         node_id_to_trainable = {}
         for node in nodes:
             node_id_to_trainable[node["node_id"]] = node["trainable"]
@@ -527,6 +527,10 @@ def optim_pruning_updater(
         pruning.est_perf_gain = model_res["est_perf_gain"]
         pruning.est_time = model_res["est_time"]
         pruning.est_time_baseline = model_res["est_time_baseline"]
+        pruning.params = model_res["params"]
+        pruning.flops = model_res["flops"]
+        pruning.params_baseline = model_res["params_baseline"]
+        pruning.flops_baseline = model_res["flops_baseline"]
 
     if (
         global_start_epoch is not None

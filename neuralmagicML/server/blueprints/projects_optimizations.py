@@ -1255,6 +1255,9 @@ def create_optim_modifier_pruning(project_id: str, optim_id: str):
     default_epochs = default_epochs_distribution(project.training_epochs)
     default_pruning = default_pruning_settings()
 
+    if "balance_perf_loss" not in data:
+        data["balance_perf_loss"] = default_pruning.balance_perf_loss
+
     if "start_epoch" not in data:
         data["start_epoch"] = default_epochs.pruning_start_epoch
 

@@ -80,6 +80,11 @@ class ProjectOptimizationModifierPruningNodeSchema(
     est_loss_sensitivity = fields.Float(required=True, allow_none=True)
     est_perf_sensitivity = fields.Float(required=True, allow_none=True)
 
+    flops = fields.Float(required=True, allow_none=True)
+    flops_baseline = fields.Float(required=True, allow_none=True)
+    params = fields.Float(required=True, allow_none=True)
+    params_baseline = fields.Float(required=True, allow_none=True)
+
 
 class ProjectOptimizationModifierPruningSchema(Schema):
     """
@@ -111,6 +116,11 @@ class ProjectOptimizationModifierPruningSchema(Schema):
     est_perf_gain = fields.Float(required=True, allow_none=True)
     est_time = fields.Float(required=True, allow_none=True)
     est_time_baseline = fields.Float(required=True, allow_none=True)
+
+    flops = fields.Float(required=True, allow_none=True)
+    flops_baseline = fields.Float(required=True, allow_none=True)
+    params = fields.Float(required=True, allow_none=True)
+    params_baseline = fields.Float(required=True, allow_none=True)
 
 
 class ProjectOptimizationModifierQuantizationNodeSchema(Schema):

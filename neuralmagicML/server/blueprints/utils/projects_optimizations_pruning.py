@@ -125,6 +125,20 @@ class PruningNodeEvaluator(object):
         """
         return self._node_analysis["prunable_params"]
 
+    @property
+    def params_baseline(self) -> Union[int, None]:
+        """
+        :return: number of params in the node at baseline
+        """
+        return self._node_analysis["params"]
+
+    @property
+    def flops_baseline(self) -> Union[int, None]:
+        """
+        :return: number of flops in the node at baseline
+        """
+        return self._node_analysis["flops"]
+
     def sparse_evaluation(
         self,
         sparsity: Union[None, float],
@@ -414,6 +428,30 @@ class _PruningNodeEvalWrapper(object):
         self.baseline_sparsity = None
         self.optimized_sparsity = None
 
+    @property
+    def optimized_params(self) -> int:
+        """
+        :return: the params at optimized sparsity if optimized sparsity is not none,
+            otherwise return baseline params
+        """
+        if self.optimized_sparsity:
+            return (self.node.prunable_params) * (1 - self.optimized_sparsity) + (
+                self.node.params_baseline - self.node.prunable_params
+            )
+        else:
+            return self.node.params_baseline
+
+    @property
+    def optimized_flops(self) -> int:
+        """
+        :return: the flops at optimized sparsity if optimized sparsity is not none,
+            otherwise return baseline params
+        """
+        if self.optimized_sparsity:
+            return self.node.flops_baseline * (1 - self.optimized_sparsity)
+        else:
+            return self.node.flops_baseline
+
 
 class PruningModelEvaluator(object):
     """
@@ -605,6 +643,10 @@ class PruningModelEvaluator(object):
                         PruningModelEvaluator.EVAL_SENSITIVITY_SPARSITY,
                         self._rescale_perf_func,
                     ),
+                    "params_baseline": node.node.params_baseline,
+                    "flops_baseline": node.node.flops_baseline,
+                    "params": node.optimized_params,
+                    "flops": node.optimized_flops,
                 }
             )
 
@@ -636,7 +678,17 @@ class PruningModelEvaluator(object):
             "est_perf_gain": est_perf_gain,
             "est_time": est_time,
             "est_time_baseline": self._baseline_time,
+            "params_baseline": 0,
+            "flops_baseline": 0,
+            "params": 0,
+            "flops": 0,
         }
+
+        for node in self._nodes:
+            model_values["params_baseline"] += node.node.params_baseline
+            model_values["flops_baseline"] += node.node.params_baseline
+            model_values["params"] += node.optimized_params
+            model_values["flops"] += node.optimized_flops
 
         return node_values, model_values
 
