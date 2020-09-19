@@ -7,10 +7,13 @@ from tqdm import tqdm
 
 import numpy as np
 
-from neuralmagicML.tensorflow.utils import tf_compat
+from neuralmagicML.tensorflow.utils import tf_compat, tf_compat_div
 from neuralmagicML.utils import create_dirs, download_file
 from neuralmagicML.utils.datasets import default_dataset_path
-from neuralmagicML.tensorflow.datasets.dataset import ImageFolderDataset
+from neuralmagicML.tensorflow.datasets.classification import (
+    ImageFolderDataset,
+    SplitsTransforms,
+)
 from neuralmagicML.tensorflow.datasets.registry import DatasetRegistry
 
 
@@ -19,6 +22,48 @@ __all__ = ["Cifar10DataSet", "Cifar100DataSet"]
 
 _CIFAR_IMAGE_SIZE = 32
 _PADDING = 4
+
+
+def preprocess_for_train(image: tf_compat.Tensor):
+    """
+    The default preprocessing function for train set as defined in Resnet paper
+    for Cifar datasets
+
+    :param image: the image tensor
+
+    :return: the preprocessed image
+    """
+    with tf_compat.name_scope("train_preprocess"):
+        image = tf_compat.cast(image, dtype=tf_compat.float32)
+        rand_choice = tf_compat.random.uniform(
+            shape=[], minval=0, maxval=2, dtype=tf_compat.int32
+        )
+        padding = _PADDING
+        image = tf_compat.cond(
+            tf_compat.equal(rand_choice, 0),
+            lambda: tf_compat.pad(
+                image, [[padding, padding], [padding, padding], [0, 0]]
+            ),
+            lambda: tf_compat.image.random_flip_left_right(image),
+        )
+        distorted_image = tf_compat.image.random_crop(image, [32, 32, 3])
+        return distorted_image
+
+
+def preprocess_for_eval(image: tf_compat.Tensor):
+    """
+    The default preprocessing function for test set as defined in Resnet paper
+    for Cifar datasets
+
+    :param image: the image tensor
+
+    :return: the preprocessed image
+    """
+    with tf_compat.name_scope("test_preprocess"):
+        image = tf_compat.cast(image, dtype=tf_compat.float32)
+        image = tf_compat_div(image, 255.0)
+        image = tf_compat.image.random_crop(image, [32, 32, 3])
+        return image
 
 
 class CifarDataSet(ImageFolderDataset):
@@ -36,8 +81,14 @@ class CifarDataSet(ImageFolderDataset):
     def __init__(
         self,
         root: str,
-        split: str = "train",
-        preprocess_fn: Union[None, str, Callable] = "auto",
+        train: bool = True,
+        image_size: int = 32,
+        pre_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
+            train=(preprocess_for_train,), val=(preprocess_for_eval,)
+        ),
+        post_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
+            train=None, val=None,
+        ),
         download: bool = True,
     ):
         create_dirs(root)
@@ -45,45 +96,27 @@ class CifarDataSet(ImageFolderDataset):
         self._extract_dir = os.path.join(root, "extract")
         self._train_dir = os.path.join(root, "train")
         self._test_dir = os.path.join(root, "test")
-        self._split = split
-        if preprocess_fn == "auto":
-            self._preprocess_fn = self._preprocess_image
-        else:
-            self._preprocess_fn = preprocess_fn
         if download and not os.path.exists(self._download_dir):
             self._download_and_extract()
             self._create_image_folders()
 
         self._per_pixel_mean = None
-        root = self._train_dir if self._split == "train" else self._test_dir
         super().__init__(
-            root, transforms=[self._preprocess_fn], normalizer=self._normalize_image
+            root,
+            train,
+            image_size=image_size,
+            pre_resize_transforms=pre_resize_transforms,
+            post_resize_transforms=post_resize_transforms,
         )
 
     def __len__(self):
         """
         Number of images
         """
-        if self._split == "train":
+        if self._train:
             return 50000
         else:
             return 10000
-
-    def processor(self, file_path: tf_compat.Tensor, label: tf_compat.Tensor):
-        """
-        Preprocessing an example (image, label)
-
-        :param file_path: path to the image
-        :param label: label of the image
-
-        :return: proprocessed image and the original label
-        """
-        with tf_compat.name_scope("img_to_tensor"):
-            img = tf_compat.read_file(file_path)
-            img = tf_compat.image.decode_image(img)
-        if self._preprocess_fn is not None:
-            img = self._preprocess_fn(img)
-        return img, label
 
     def name_scope(self) -> str:
         raise NotImplementedError()
@@ -133,69 +166,30 @@ class CifarDataSet(ImageFolderDataset):
         """
         return image - self.per_pixel_mean()
 
-    def _preprocess_image(self, image: tf_compat.Tensor):
-        """
-        The default preprocessing function as defined in Resnet paper
-        for Cifar datasets
-
-        :param image: the image tensor
-
-        :return: the preprocessed image
-        """
-        if self._split == "train":
-            return self._preprocess_for_train(image)
-        elif self._split == "test":
-            return self._preprocess_for_eval(image)
-
-    def _preprocess_for_train(self, image: tf_compat.Tensor):
-        """
-        The default preprocessing function for train set as defined in Resnet paper
-        for Cifar datasets
-
-        :param image: the image tensor
-
-        :return: the preprocessed image
-        """
-        with tf_compat.name_scope("train_preprocess"):
-            image = tf_compat.cast(image, dtype=tf_compat.float32)
-            rand_choice = tf_compat.random.uniform(
-                shape=[], minval=0, maxval=2, dtype=tf_compat.int32
-            )
-            padding = _PADDING
-            image = tf_compat.cond(
-                tf_compat.equal(rand_choice, 0),
-                lambda: tf_compat.pad(
-                    image, [[padding, padding], [padding, padding], [0, 0]]
-                ),
-                lambda: tf_compat.image.random_flip_left_right(image),
-            )
-            distorted_image = tf_compat.image.random_crop(image, [32, 32, 3])
-            return distorted_image
-
-    def _preprocess_for_eval(self, image: tf_compat.Tensor):
-        """
-        The default preprocessing function for test set as defined in Resnet paper
-        for Cifar datasets
-
-        :param image: the image tensor
-
-        :return: the preprocessed image
-        """
-        with tf_compat.name_scope("test_preprocess"):
-            image = tf_compat.cast(image, dtype=tf_compat.float32) / 255
-            return image
-
 
 @DatasetRegistry.register(key=["cifar10"], attributes={"num_classes": 10})
 class Cifar10DataSet(CifarDataSet):
     def __init__(
         self,
-        root: str = default_dataset_path("cifar10"),
-        split: str = "train",
-        preprocess_fn: Union[None, str, Callable] = "auto",
+        root: str,
+        train: bool = True,
+        image_size: int = 32,
+        pre_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
+            train=(preprocess_for_train,), val=(preprocess_for_eval,)
+        ),
+        post_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
+            train=None, val=None
+        ),
         download: bool = True,
     ):
-        super().__init__(root, split, preprocess_fn, download)
+        super().__init__(
+            root,
+            train,
+            image_size=image_size,
+            pre_resize_transforms=pre_resize_transforms,
+            post_resize_transforms=post_resize_transforms,
+            download=download,
+        )
         self._per_pixel_mean = np.load(
             os.path.join(self._train_dir, os.pardir, "per_pixel_mean_image.npy")
         )
@@ -271,12 +265,25 @@ class Cifar10DataSet(CifarDataSet):
 class Cifar100DataSet(CifarDataSet):
     def __init__(
         self,
-        root: str = default_dataset_path("cifar100"),
-        split: str = "train",
-        preprocess_fn: Union[None, str, Callable] = "auto",
+        root: str,
+        train: bool = True,
+        image_size: int = 32,
+        pre_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
+            train=(preprocess_for_train,), val=(preprocess_for_eval,)
+        ),
+        post_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
+            train=None, val=None
+        ),
         download: bool = True,
     ):
-        super().__init__(root, split, preprocess_fn, download)
+        super().__init__(
+            root,
+            train,
+            image_size=image_size,
+            pre_resize_transforms=pre_resize_transforms,
+            post_resize_transforms=post_resize_transforms,
+            download=download,
+        )
         self._per_pixel_mean = np.load(
             os.path.join(self._train_dir, os.pardir, "per_pixel_mean_image.npy")
         )

@@ -2,13 +2,13 @@
 Code related to the PyTorch model registry for easily creating models.
 """
 
-from typing import Union, List, Callable, Any, Dict
+from typing import Union, List, Callable, Any, Dict, Optional
 import re
 
 from neuralmagicML.utils import TENSORFLOW_FRAMEWORK
 from neuralmagicML.utils import RepoModel
 from neuralmagicML.tensorflow.utils import tf_compat
-
+from neuralmagicML.tensorflow.models.estimator import EstimatorModelFn
 
 __all__ = ["ModelRegistry"]
 
@@ -23,6 +23,7 @@ class _ModelAttributes(object):
         sub_architecture: str,
         default_dataset: str,
         default_desc: str,
+        default_model_fn_creator: EstimatorModelFn,
         base_name_scope: str,
         tl_ignore_tens: List[str],
     ):
@@ -33,6 +34,7 @@ class _ModelAttributes(object):
         self.sub_architecture = sub_architecture
         self.default_dataset = default_dataset
         self.default_desc = default_desc
+        self.default_model_fn_creator = default_model_fn_creator
         self.base_name_scope = base_name_scope
         self.tl_ignore_tens = tl_ignore_tens
 
@@ -68,8 +70,40 @@ class ModelRegistry(object):
                     key, ModelRegistry._CONSTRUCTORS
                 )
             )
-
         return ModelRegistry._CONSTRUCTORS[key](*args, **kwargs)
+
+    @staticmethod
+    def create_estimator(
+        key: str,
+        model_dir: str,
+        model_fn_params: Optional[Dict[str, Any]],
+        run_config: tf_compat.estimator.RunConfig,
+        *args,
+        **kwargs
+    ) -> tf_compat.estimator.Estimator:
+        """
+        Create Estimator for a model given the key and extra parameters
+
+        :param key: the key that the model was registered with
+        :param model_dir: directory to save results
+        :param model_fn_params: parameters for model function
+        :param run_config: RunConfig used by the estimator during training
+        :param args: additional positional arguments to pass into model constructor
+        :param kwargs: additional keyword arguments to pass into model constructor
+        :return: an Estimator instance
+        """
+        model_const = ModelRegistry._CONSTRUCTORS[key]
+        attributes = ModelRegistry._ATTRIBUTES[key]
+        model_fn_creator = attributes.default_model_fn_creator()
+        model_fn = model_fn_creator.create(model_const, *args, **kwargs)
+        model_fn_params = {} if model_fn_params is None else model_fn_params
+        classifier = tf_compat.estimator.Estimator(
+            config=run_config,
+            model_dir=model_dir,
+            model_fn=model_fn,
+            params=model_fn_params,
+        )
+        return classifier
 
     @staticmethod
     def create_repo(
@@ -214,7 +248,6 @@ class ModelRegistry(object):
                     key, ModelRegistry._CONSTRUCTORS
                 )
             )
-
         base_name = ModelRegistry._ATTRIBUTES[key].base_name_scope
         saver_vars = [
             var
@@ -256,6 +289,7 @@ class ModelRegistry(object):
         sub_architecture: str,
         default_dataset: str,
         default_desc: str,
+        default_model_fn_creator: EstimatorModelFn,
         base_name_scope: str,
         tl_ignore_tens: List[str],
     ):
@@ -275,6 +309,8 @@ class ModelRegistry(object):
             pretrained if not supplied
         :param default_desc: the description to use by default for loading
             pretrained if not supplied
+        :param default_model_fn_creator: default model creator to use when creating
+            estimator instance
         :param base_name_scope: the base string used to create the graph under
         :param tl_ignore_tens: a list of tensors to ignore restoring for
             if transfer learning
@@ -297,6 +333,7 @@ class ModelRegistry(object):
                     sub_architecture,
                     default_dataset,
                     default_desc,
+                    default_model_fn_creator,
                     base_name_scope,
                     tl_ignore_tens,
                 )

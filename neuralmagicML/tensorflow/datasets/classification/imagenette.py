@@ -1,3 +1,9 @@
+"""
+Imagenette and Imagewoof dataset implementations for the image classification field in
+computer vision.
+More info for the dataset can be found `here <https://github.com/fastai/imagenette>`__.
+"""
+
 from typing import Union
 
 from neuralmagicML.utils.datasets import (
@@ -8,15 +14,11 @@ from neuralmagicML.utils.datasets import (
     IMAGENET_RGB_MEANS,
     IMAGENET_RGB_STDS,
 )
-from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.datasets.registry import DatasetRegistry
-from neuralmagicML.tensorflow.datasets.dataset import (
-    random_scaling_crop,
-    center_square_crop,
+from neuralmagicML.tensorflow.datasets.classification.imagefolder import (
     ImageFolderDataset,
 )
 
-from neuralmagicML.tensorflow.datasets.classification import imagenet_normalizer
 
 __all__ = ["ImagenetteSize", "ImagenetteDataset", "ImagewoofDataset"]
 
@@ -38,8 +40,6 @@ class ImagenetteDataset(ImageFolderDataset, ImagenetteDownloader):
         if not found will download here if download=True
     :param train: True if this is for the training distribution,
         False for the validation
-    :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data,
-        False otherwise
     :param dataset_size: The size of the dataset to use and download:
         See ImagenetteSize for options
     :param image_size: The image size to output from the dataset
@@ -50,7 +50,6 @@ class ImagenetteDataset(ImageFolderDataset, ImagenetteDownloader):
         self,
         root: str = default_dataset_path("imagenette"),
         train: bool = True,
-        rand_trans: bool = False,
         dataset_size: ImagenetteSize = ImagenetteSize.s160,
         image_size: Union[int, None] = None,
         download: bool = True,
@@ -61,18 +60,7 @@ class ImagenetteDataset(ImageFolderDataset, ImagenetteDownloader):
         if image_size is None:
             image_size = 160 if dataset_size == ImagenetteSize.s160 else 224
 
-        if rand_trans:
-            transforms = [
-                random_scaling_crop(),
-                tf_compat.image.random_flip_left_right,
-                tf_compat.image.random_flip_up_down,
-            ]
-        else:
-            transforms = [center_square_crop()]
-
-        super().__init__(
-            self.split_root(train), image_size, transforms, imagenet_normalizer
-        )
+        super().__init__(self.extracted_root, train, image_size)
 
     def name_scope(self) -> str:
         """
@@ -111,7 +99,6 @@ class ImagewoofDataset(ImageFolderDataset, ImagewoofDownloader):
         self,
         root: str = default_dataset_path("imagewoof"),
         train: bool = True,
-        rand_trans: bool = False,
         dataset_size: ImagenetteSize = ImagenetteSize.s160,
         image_size: Union[int, None] = None,
         download: bool = True,
@@ -122,18 +109,7 @@ class ImagewoofDataset(ImageFolderDataset, ImagewoofDownloader):
         if image_size is None:
             image_size = 160 if dataset_size == ImagenetteSize.s160 else 224
 
-        if rand_trans:
-            transforms = [
-                random_scaling_crop(),
-                tf_compat.image.random_flip_left_right,
-                tf_compat.image.random_flip_up_down,
-            ]
-        else:
-            transforms = [center_square_crop()]
-
-        super().__init__(
-            self.split_root(train), image_size, transforms, imagenet_normalizer
-        )
+        super().__init__(self.extracted_root, train, image_size)
 
     def name_scope(self) -> str:
         """

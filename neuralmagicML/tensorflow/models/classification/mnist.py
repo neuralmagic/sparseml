@@ -1,7 +1,7 @@
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.nn import conv2d, fc, activation
 from neuralmagicML.tensorflow.models.registry import ModelRegistry
-
+from neuralmagicML.tensorflow.models.estimator import ClassificationEstimatorModelFn
 
 __all__ = ["mnist_net"]
 
@@ -18,6 +18,7 @@ BASE_NAME_SCOPE = "mnist_net"
     sub_architecture="none",
     default_dataset="mnist",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[],
 )

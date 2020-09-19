@@ -7,6 +7,7 @@ from typing import List, Union
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.nn import conv2d_block, dense_block, pool2d
 from neuralmagicML.tensorflow.models.registry import ModelRegistry
+from neuralmagicML.tensorflow.models.estimator import ClassificationEstimatorModelFn
 
 
 __all__ = [
@@ -232,6 +233,7 @@ def vgg_const(
     sub_architecture="11",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
@@ -292,6 +294,7 @@ def vgg11(
     sub_architecture="11-bn",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
@@ -352,6 +355,7 @@ def vgg11bn(
     sub_architecture="13",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
@@ -412,6 +416,7 @@ def vgg13(
     sub_architecture="13-bn",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
@@ -472,6 +477,7 @@ def vgg13bn(
     sub_architecture="16",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
@@ -532,6 +538,7 @@ def vgg16(
     sub_architecture="16-bn",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
@@ -592,6 +599,7 @@ def vgg16bn(
     sub_architecture="19",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )
@@ -652,6 +660,7 @@ def vgg19(
     sub_architecture="19-bn",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/mlp_2/fc/.+"],
 )

@@ -12,6 +12,7 @@ from neuralmagicML.tensorflow.nn import (
     pool2d,
 )
 from neuralmagicML.tensorflow.models.registry import ModelRegistry
+from neuralmagicML.tensorflow.models.estimator import ClassificationEstimatorModelFn
 
 
 __all__ = [
@@ -492,6 +493,7 @@ def mobilenet_v2_width(
     sub_architecture="1.0",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )

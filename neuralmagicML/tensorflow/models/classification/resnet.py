@@ -8,7 +8,7 @@ from typing import List, Union
 from neuralmagicML.tensorflow.utils import tf_compat
 from neuralmagicML.tensorflow.nn import activation, conv2d_block, dense_block, pool2d
 from neuralmagicML.tensorflow.models.registry import ModelRegistry
-
+from neuralmagicML.tensorflow.models.estimator import ClassificationEstimatorModelFn
 
 __all__ = [
     "ResNetSection",
@@ -433,6 +433,7 @@ def resnet_const(
     sub_architecture="18",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
@@ -492,6 +493,7 @@ def resnet18(
     sub_architecture="20",
     default_dataset="Cifar10",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
@@ -537,6 +539,7 @@ def resnet20(
     sub_architecture="34",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
@@ -596,6 +599,7 @@ def resnet34(
     sub_architecture="50",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
@@ -663,6 +667,7 @@ def resnet50(
     sub_architecture="101",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )
@@ -730,6 +735,7 @@ def resnet101(
     sub_architecture="152",
     default_dataset="imagenet",
     default_desc="base",
+    default_model_fn_creator=ClassificationEstimatorModelFn,
     base_name_scope=BASE_NAME_SCOPE,
     tl_ignore_tens=[".+/classifier/dense/fc/.+"],
 )

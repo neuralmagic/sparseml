@@ -102,6 +102,72 @@ class Modifier(BaseModifier):
         """
         return None
 
+    def modify_estimator(
+        self, estimator: tf_compat.estimator.Estimator, steps_per_epoch: int
+    ):
+        """
+        Modify a tf Estimator. Overrides the model_fn so that on invocation
+        it creates the original graph and then calls into create_ops.
+        Additionally will recreate the Scaffold with a new Save instance
+        to save all variables in the modified graph.
+
+        Note, learning_rate and other specific tensors that needed to be
+        retrieved from the extras in create_ops and passed to another implementation
+        will not work with this flow.
+
+        :param estimator: the tf Estimator to modify
+        :param steps_per_epoch: number of steps per training epoch
+        """
+        orig_model_func = (
+            estimator._model_fn
+        )  # type: Callable[[Any...], tf_compat.estimator.EstimatorSpec]
+
+        def _model_func(
+            features: Dict[str, tf_compat.Tensor],
+            labels: Dict[str, tf_compat.Tensor],
+            mode: tf_compat.estimator.ModeKeys,
+            **kwargs
+        ):
+            spec = orig_model_func(
+                features=features, labels=labels, mode=mode, **kwargs
+            )
+            graph = tf_compat.get_default_graph()
+
+            with graph.as_default():
+                global_step = tf_compat.train.get_or_create_global_step()
+
+            mod_ops, mod_extras = self.create_ops(steps_per_epoch, global_step, graph)
+            hook = ModifierSessionRunHook(self, steps_per_epoch, mod_ops, mod_extras)
+            replace_kwargs = {}
+
+            if mode == tf_compat.estimator.ModeKeys.TRAIN:
+                replace_kwargs = {"training_hooks": [hook]}
+
+                if spec.training_hooks:
+                    replace_kwargs["training_hooks"].extend(spec.training_hooks)
+
+            orig_saver = spec.scaffold.saver
+            saver = tf_compat.train.Saver(
+                var_list=None,
+                reshape=orig_saver._reshape,
+                sharded=orig_saver._sharded,
+                max_to_keep=orig_saver._max_to_keep,
+                keep_checkpoint_every_n_hours=orig_saver._keep_checkpoint_every_n_hours,
+                name=orig_saver._name,
+                restore_sequentially=orig_saver._restore_sequentially,
+                pad_step_number=orig_saver._pad_step_number,
+                save_relative_paths=orig_saver._save_relative_paths,
+                filename=orig_saver._filename,
+            )
+            replace_kwargs["scaffold"] = tf_compat.train.Scaffold(
+                saver=saver, copy_from_scaffold=spec.scaffold
+            )
+            spec = spec._replace(**replace_kwargs)
+
+            return spec
+
+        estimator._model_fn = _model_func
+
     def create_ops(
         self,
         steps_per_epoch: int,
@@ -324,3 +390,38 @@ def epoch_to_steps(epoch: float, steps_per_epoch: int, min_epoch: float = 0.0) -
         epoch = min_epoch
 
     return round(steps_per_epoch * epoch)
+
+
+class ModifierSessionRunHook(tf_compat.estimator.SessionRunHook):
+    """
+    A session run hook for the tf Estimator flow.
+    Used to integrate so that any extra ops for modifying the graph
+    can be executed each on each step of the estimator training process.
+
+    :param modifier: the modifier to run the hook for
+    :param steps_per_epoch: number of steps (or batches) taken per epoch
+    :param mod_ops: the ops returned from calling create_ops on the modifier
+    :param mod_extras: the extras returned from calling create_ops on the modifier
+    """
+
+    def __init__(
+        self,
+        modifier: Modifier,
+        steps_per_epoch: int,
+        mod_ops: List[Union[tf_compat.Tensor, tf_compat.Operation]],
+        mod_extras: Dict[str, Any],
+    ):
+        self._modifier = modifier
+        self._steps_per_epoch = steps_per_epoch
+        self._mod_ops = mod_ops
+        self._mod_extras = mod_extras
+
+    def before_run(self, run_context):
+        """
+        Called before each call to run(). Returns a SessionRunArgs instance
+        for running the mod_ops passed in in the constructor
+
+        :param run_context: run_context passed from the estimator system
+        :return: SessionRunArgs containing the mod_ops reference
+        """
+        return tf_compat.estimator.SessionRunArgs(fetches=self._mod_ops)
