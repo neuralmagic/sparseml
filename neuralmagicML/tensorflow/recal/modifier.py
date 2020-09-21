@@ -126,10 +126,10 @@ class Modifier(BaseModifier):
             features: Dict[str, tf_compat.Tensor],
             labels: Dict[str, tf_compat.Tensor],
             mode: tf_compat.estimator.ModeKeys,
-            **kwargs
+            params: Dict[str, Any],
         ):
             spec = orig_model_func(
-                features=features, labels=labels, mode=mode, **kwargs
+                features=features, labels=labels, mode=mode, params=params
             )
             graph = tf_compat.get_default_graph()
 
@@ -416,12 +416,13 @@ class ModifierSessionRunHook(tf_compat.estimator.SessionRunHook):
         self._mod_ops = mod_ops
         self._mod_extras = mod_extras
 
-    def before_run(self, run_context):
+    def after_run(self, run_context, run_values):
         """
         Called before each call to run(). Returns a SessionRunArgs instance
         for running the mod_ops passed in in the constructor
 
-        :param run_context: run_context passed from the estimator system
+        :param run_context: run_context passed in during training
+        :param run_values: a SessionRunValues object passed in during training
         :return: SessionRunArgs containing the mod_ops reference
         """
         return tf_compat.estimator.SessionRunArgs(fetches=self._mod_ops)

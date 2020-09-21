@@ -1,6 +1,7 @@
 import pytest
 
 import os
+import numpy as np
 
 from typing import Callable, Dict, List, Union
 
@@ -40,7 +41,8 @@ def conv_graph_lambda():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow tests",
 )
 class ModifierTest(BaseModifierTest):
     # noinspection PyMethodOverriding
@@ -108,6 +110,25 @@ class ModifierTest(BaseModifierTest):
         assert isinstance(mod_extras, Dict)
         assert modifier.initialized
 
+    def test_modify_estimator(
+        self,
+        modifier_lambda: Callable[[], Modifier],
+        graph_lambda: Callable[[], tf_compat.Graph],
+        steps_per_epoch: int,
+    ):
+        def model_fn(features, labels, mode, params):
+            graph_lambda()
+            return tf_compat.estimator.EstimatorSpec(mode)
+
+        modifier = modifier_lambda()
+        graph = tf_compat.get_default_graph()
+        estimator = tf_compat.estimator.Estimator(
+            model_fn=model_fn,
+        )
+        assert estimator._model_fn == model_fn
+        modifier.modify_estimator(estimator, steps_per_epoch)
+        assert estimator._model_fn != model_fn
+
     def test_initialize_session(
         self,
         modifier_lambda: Callable[[], Modifier],
@@ -155,7 +176,8 @@ class ModifierTest(BaseModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow tests",
 )
 class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
     # noinspection PyMethodOverriding
@@ -178,7 +200,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow tests",
 )
 class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
     # noinspection PyMethodOverriding
@@ -198,7 +221,8 @@ class ModifierImpl(Modifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow tests",
 )
 @pytest.mark.parametrize("modifier_lambda", [ModifierImpl], scope="function")
 @pytest.mark.parametrize(
@@ -242,7 +266,8 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda", [ScheduledUpdateModifierImpl], scope="function"
