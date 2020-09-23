@@ -392,7 +392,7 @@ def epoch_to_steps(epoch: float, steps_per_epoch: int, min_epoch: float = 0.0) -
     return round(steps_per_epoch * epoch)
 
 
-class ModifierSessionRunHook(tf_compat.estimator.SessionRunHook):
+class ModifierSessionRunHook(tf_compat.train.SessionRunHook):
     """
     A session run hook for the tf Estimator flow.
     Used to integrate so that any extra ops for modifying the graph

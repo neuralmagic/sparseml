@@ -28,8 +28,18 @@ def create_split_iterators_handle(split_datasets: Iterable) -> Tuple[Any, Any, L
     split_iterators = []
 
     for split_dataset in split_datasets:
-        output_types = tf_compat.data.get_output_types(split_dataset)
-        output_shapes = tf_compat.data.get_output_shapes(split_dataset)
+        # get_output_types and shapes are not available in TF 1.13 and prior
+        # hence the following conditional assignments
+        output_types = (
+            tf_compat.data.get_output_types(split_dataset)
+            if hasattr(tf_compat.data, "get_output_types")
+            else split_dataset.output_types
+        )
+        output_shapes = (
+            tf_compat.data.get_output_shapes(split_dataset)
+            if hasattr(tf_compat.data, "get_output_shapes")
+            else split_dataset.output_shapes
+        )
         split_iterators.append(
             tf_compat.data.make_initializable_iterator(split_dataset)
         )

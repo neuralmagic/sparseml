@@ -94,7 +94,10 @@ class ImageFolderDataset(Dataset):
         ),
         post_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
             train=(imagenet_normalizer,),
-            val=(center_square_crop(), imagenet_normalizer,),
+            val=(
+                center_square_crop(),
+                imagenet_normalizer,
+            ),
         ),
     ):
         self._root = os.path.join(clean_path(root), "train" if train else "val")
@@ -172,7 +175,13 @@ class ImageFolderDataset(Dataset):
         """
         with tf_compat.name_scope("img_to_tensor"):
             img = tf_compat.read_file(file_path)
-            img = tf_compat.image.decode_image(img, expand_animations=False)
+
+            # Decode and reshape the image to 3 dimensional tensor
+            # Note: "expand_animations" not available for TF 1.13 and prior,
+            # hence the reshape trick below
+            img = tf_compat.image.decode_image(img)
+            img_shape = tf_compat.shape(img)
+            img = tf_compat.reshape(img, [img_shape[0], img_shape[1], img_shape[2]])
             img = tf_compat.cast(img, dtype=tf_compat.float32)
 
         if self.pre_resize_transforms:
