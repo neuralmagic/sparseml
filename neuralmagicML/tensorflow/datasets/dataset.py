@@ -14,6 +14,19 @@ __all__ = [
 ]
 
 
+def _make_initializable_iterator(dataset: tf_compat.data.Dataset):
+    """
+    Make initializable iterator with different versions of TF
+
+    :param dataset: the dataset to create the iterator
+    :return: an iterator
+    """
+    if hasattr(tf_compat.data, "make_initializable_iterator"):
+        return tf_compat.data.make_initializable_iterator(dataset)
+    else:
+        return dataset.make_initializable_iterator()
+
+
 def create_split_iterators_handle(split_datasets: Iterable) -> Tuple[Any, Any, List]:
     """
     Create an iterators handle for switching between datasets easily while training.
@@ -40,9 +53,7 @@ def create_split_iterators_handle(split_datasets: Iterable) -> Tuple[Any, Any, L
             if hasattr(tf_compat.data, "get_output_shapes")
             else split_dataset.output_shapes
         )
-        split_iterators.append(
-            tf_compat.data.make_initializable_iterator(split_dataset)
-        )
+        split_iterators.append(_make_initializable_iterator(split_dataset))
 
     handle = tf_compat.placeholder(tf_compat.string, shape=[])
     iterator = tf_compat.data.Iterator.from_string_handle(
@@ -140,7 +151,7 @@ class Dataset(metaclass=ABCMeta):
                 prefetch_buffer_size,
                 num_parallel_calls,
             )
-            dataset_iter = tf_compat.data.make_initializable_iterator(dataset)
+            dataset_iter = _make_initializable_iterator(dataset)
             tf_compat.add_to_collection(
                 tf_compat.GraphKeys.TABLE_INITIALIZERS, dataset_iter.initializer
             )

@@ -55,13 +55,13 @@ def random_scaling_crop(
     def rand_crop(img: tf_compat.Tensor):
         with tf_compat.name_scope(name):
             orig_shape = tf_compat.shape(img)
-            scale = tf_compat.random.uniform(
+            scale = tf_compat.random_uniform(
                 shape=[1], minval=scale_range[0], maxval=scale_range[1]
             )[0]
-            ratio = tf_compat.random.uniform(
+            ratio = tf_compat.random_uniform(
                 shape=[1], minval=ratio_range[0], maxval=ratio_range[1]
             )[0]
-            height = tf_compat.math.minimum(
+            height = tf_compat.minimum(
                 tf_compat.cast(
                     tf_compat.round(
                         tf_compat.cast(orig_shape[0], dtype=tf_compat.float32)
@@ -72,7 +72,7 @@ def random_scaling_crop(
                 ),
                 orig_shape[0],
             )
-            width = tf_compat.math.minimum(
+            width = tf_compat.minimum(
                 tf_compat.cast(
                     tf_compat.round(
                         tf_compat.cast(orig_shape[1], dtype=tf_compat.float32) * scale
@@ -81,7 +81,7 @@ def random_scaling_crop(
                 ),
                 orig_shape[1],
             )
-            img = tf_compat.image.random_crop(img, [height, width, orig_shape[2]])
+            img = tf_compat.random_crop(img, [height, width, orig_shape[2]])
 
             return img
 
