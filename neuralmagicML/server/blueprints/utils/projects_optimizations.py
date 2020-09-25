@@ -524,6 +524,8 @@ def optim_pruning_updater(
         nodes_res, model_res = model_eval.to_dict_values()
         pruning.nodes = nodes_res
         pruning.est_recovery = model_res["est_recovery"]
+        pruning.est_loss_sensitivity = model_res["est_loss_sensitivity"]
+        pruning.est_perf_sensitivity = model_res["est_perf_sensitivity"]
         pruning.est_perf_gain = model_res["est_perf_gain"]
         pruning.est_time = model_res["est_time"]
         pruning.est_time_baseline = model_res["est_time_baseline"]

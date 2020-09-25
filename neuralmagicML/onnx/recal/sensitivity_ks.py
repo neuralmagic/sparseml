@@ -4,6 +4,7 @@ Sensitivity analysis implementations for kernel sparsity on Models against loss 
 
 from typing import Union, List, Tuple, Generator, NamedTuple, Any
 import logging
+import numbers
 from tqdm import auto
 import numpy
 from onnx import ModelProto
@@ -16,6 +17,7 @@ from neuralmagicML.recal import (
     KSPerfSensitivityAnalysis,
     KSSensitivityResult,
 )
+from neuralmagicML.utils import flatten_iterable
 from neuralmagicML.onnx.utils import (
     get_prunable_nodes,
     extract_node_id,
@@ -35,6 +37,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 __all__ = [
+    "equation_ks_loss_sensitivity",
     "approx_ks_loss_sensitivity",
     "one_shot_ks_loss_sensitivity",
     "one_shot_ks_perf_sensitivity",
@@ -54,6 +57,54 @@ KSSensitivityProgress = NamedTuple(
     "KSSensitivityProgress",
     [("current", int), ("current_metadata", Any), ("total", int), ("val", float)],
 )
+
+
+def equation_ks_loss_sensitivity(
+    input_shape: Union[None, List[int], List[List[int]]],
+    output_shape: Union[None, List[int]],
+    params: int,
+    apply_shape_change_mult: bool = True,
+) -> float:
+    """
+    Approximate the pruning sensitivity of a Neural Network's layer
+    based on the params and metadata for a given layer
+
+    :param input_shape: the input shape to the layer
+    :param output_shape: the output shape from the layer
+    :param params: the number of params in the layer
+    :param apply_shape_change_mult: True to adjust the sensitivity based on
+        a weight derived from a change in input to output shape
+        (any change is considered to be more sensitive), False to not apply
+    :return: the approximated pruning sensitivity for the layer's settings
+    """
+    if not params:
+        return 0.0
+
+    if input_shape:
+        input_shape = flatten_iterable(input_shape)
+        input_shape = [
+            size for size in input_shape if size and isinstance(size, numbers.Number)
+        ]
+
+    input_volume = 0 if not input_shape else numpy.prod(input_shape).item()
+
+    if output_shape:
+        output_shape = flatten_iterable(output_shape)
+        output_shape = [
+            size for size in output_shape if size and isinstance(size, numbers.Number)
+        ]
+
+    output_volume = 0 if not output_shape else numpy.prod(output_shape).item()
+    total_volume = input_volume + output_volume
+
+    features_per_params = total_volume / float(params)
+    shape_change_mult = (
+        1.0
+        if not apply_shape_change_mult or not input_volume or not output_volume
+        else max(input_volume / output_volume, output_volume / input_volume)
+    )
+
+    return features_per_params * shape_change_mult
 
 
 def approx_ks_loss_sensitivity_iter(

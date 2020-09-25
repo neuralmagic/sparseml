@@ -134,7 +134,7 @@ def upload_model(project_id: str) -> Tuple[Response, int]:
     with NamedTemporaryFile() as temp:
         # Verify onnx model is valid and contains opset field
         tempname = os.path.join(gettempdir(), temp.name)
-        model_file.save(temp)
+        model_file.save(tempname)
         validate_onnx_file(tempname)
 
         with database.atomic() as transaction:

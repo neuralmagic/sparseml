@@ -39,6 +39,7 @@ class ProjectModelAnalysisNodeSchema(Schema):
     prunable = fields.Bool(required=True)
     prunable_params = fields.Int(required=True)
     prunable_params_zeroed = fields.Int(required=True)
+    prunable_equation_sensitivity = fields.Float(required=True, allow_none=True)
     flops = fields.Int(required=True, allow_none=True)
     weight_name = fields.Str(required=True, allow_none=True)
     weight_shape = fields.List(fields.Int(), required=True, allow_none=True)

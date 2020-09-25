@@ -655,6 +655,16 @@ class PruningModelEvaluator(object):
             for node in node_values
             if node["est_recovery"] is not None
         ]
+        loss_sensitivities = [
+            node["est_loss_sensitivity"]
+            for node in node_values
+            if node["est_loss_sensitivity"] is not None
+        ]
+        perf_sensitivities = [
+            node["est_perf_sensitivity"]
+            for node in node_values
+            if node["est_perf_sensitivity"] is not None
+        ]
         est_time_deltas = [
             node["est_time_baseline"] - node["est_time"]
             for node in node_values
@@ -675,6 +685,12 @@ class PruningModelEvaluator(object):
 
         model_values = {
             "est_recovery": numpy.average(recoveries).item() if recoveries else None,
+            "est_loss_sensitivity": (
+                numpy.average(loss_sensitivities).item() if loss_sensitivities else None
+            ),
+            "est_perf_sensitivity": (
+                numpy.average(perf_sensitivities).item() if perf_sensitivities else None
+            ),
             "est_perf_gain": est_perf_gain,
             "est_time": est_time,
             "est_time_baseline": self._baseline_time,
@@ -686,7 +702,7 @@ class PruningModelEvaluator(object):
 
         for node in self._nodes:
             model_values["params_baseline"] += node.node.params_baseline
-            model_values["flops_baseline"] += node.node.params_baseline
+            model_values["flops_baseline"] += node.node.flops_baseline
             model_values["params"] += node.optimized_params
             model_values["flops"] += node.optimized_flops
 

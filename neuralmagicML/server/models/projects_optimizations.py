@@ -70,6 +70,8 @@ class ProjectOptimizationModifierPruning(BaseCreatedModifiedModel):
     filter_max_loss_drop = FloatField(null=True, default=None)
     nodes = ListObjField(null=True, default=None)
     est_recovery = FloatField(null=True, default=None)
+    est_loss_sensitivity = FloatField(null=True, default=None)
+    est_perf_sensitivity = FloatField(null=True, default=None)
     est_perf_gain = FloatField(null=True, default=None)
     est_time = FloatField(null=True, default=None)
     est_time_baseline = FloatField(null=True, default=None)

@@ -336,9 +336,7 @@ class CreateUpdateProjectOptimizationModifiersPruningSchema(Schema):
     filter_max_loss_drop = fields.Float(required=False)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierPruningNodeMetadataSchema,
-        required=False,
-        many=True,
+        ProjectOptimizationModifierPruningNodeMetadataSchema, required=False, many=True,
     )
 
 
@@ -365,9 +363,7 @@ class CreateUpdateProjectOptimizationModifiersLRScheduleSchema(Schema):
     """
 
     lr_mods = fields.Nested(
-        ProjectOptimizationModifierLRSchema,
-        required=False,
-        many=True,
+        ProjectOptimizationModifierLRSchema, required=False, many=True,
     )
 
 
@@ -441,9 +437,15 @@ class ResponseProjectOptimizationModifiersBestEstimated(Schema):
     """
 
     est_recovery = fields.Float(required=True, allow_none=True)
+    est_loss_sensitivity = fields.Float(required=True, allow_none=True)
+    est_perf_sensitivity = fields.Float(required=True, allow_none=True)
     est_perf_gain = fields.Float(required=True, allow_none=True)
     est_time = fields.Float(required=True, allow_none=True)
     est_time_baseline = fields.Float(required=True, allow_none=True)
+    params_baseline = fields.Float(required=True, allow_none=True)
+    flops_baseline = fields.Float(required=True, allow_none=True)
+    params = fields.Float(required=True, allow_none=True)
+    flops = fields.Float(required=True, allow_none=True)
 
 
 class ResponseProjectOptimizationSchema(Schema):

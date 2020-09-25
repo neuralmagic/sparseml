@@ -6,8 +6,7 @@ Records things like FLOPS, input and output shapes, kernel shapes, etc.
 from typing import List, Dict, Any, Union
 import json
 import numpy
-from functools import reduce
-from onnx import ModelProto, load_model
+from onnx import ModelProto
 
 from neuralmagicML.utils import clean_path, create_parent_dirs
 from neuralmagicML.onnx.utils import (
@@ -23,6 +22,7 @@ from neuralmagicML.onnx.utils import (
     get_kernel_shape,
     calculate_flops,
 )
+from neuralmagicML.onnx.recal.sensitivity_ks import equation_ks_loss_sensitivity
 
 
 __all__ = ["NodeAnalyzer", "ModelAnalyzer"]
@@ -32,8 +32,10 @@ class NodeAnalyzer(object):
     """
     Analyzer instance for an individual node in a model
 
-    :param model: the loaded onnx.ModelProto, can also be set to None if a node's kwargs are supplied
-    :param node: the individual node in model, can alse be set to None if a node's kwargs are supplied
+    :param model: the loaded onnx.ModelProto,
+        can also be set to None if a node's kwargs are supplied
+    :param node: the individual node in model,
+        can also be set to None if a node's kwargs are supplied
     :param node_shape: the node's NodeShape object
     :param kwargs: additional kwargs to pass to the node
     """
@@ -114,6 +116,17 @@ class NodeAnalyzer(object):
             bias_shape=self._bias_shape,
         )
 
+        self._prunable_equation_sensitivity = (
+            equation_ks_loss_sensitivity(
+                self._input_shapes,
+                self._output_shapes,
+                self._params,
+                apply_shape_change_mult=True,
+            )
+            if self._prunable
+            else None
+        )
+
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, self.dict())
 
@@ -191,6 +204,14 @@ class NodeAnalyzer(object):
         return self._prunable_params_zeroed
 
     @property
+    def prunable_equation_sensitivity(self) -> Union[None, float]:
+        """
+        :return: approximated sensitivity for the layer towards pruning
+            based on the layer structure and params
+        """
+        return self._prunable_equation_sensitivity
+
+    @property
     def flops(self) -> int:
         """
         :return: number of flops to run the node
@@ -248,6 +269,7 @@ class NodeAnalyzer(object):
             "prunable": self.prunable,
             "prunable_params": self.prunable_params,
             "prunable_params_zeroed": self.prunable_params_zeroed,
+            "prunable_equation_sensitivity": self.prunable_equation_sensitivity,
             "flops": self.flops,
             "weight_name": self.weight_name,
             "weight_shape": self.weight_shape,
