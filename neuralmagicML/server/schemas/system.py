@@ -10,7 +10,14 @@ from neuralmagicML.server.schemas.helpers import (
 )
 
 
-__all__ = ["SystemInfo", "ResponseSystemInfo"]
+__all__ = ["VersionInfoSchema", "SystemInfo", "ResponseSystemInfo"]
+
+
+class VersionInfoSchema(Schema):
+    neuralmagic = fields.Str(allow_none=True)
+    neuralmagicML = fields.Str(allow_none=True)
+    onnx = fields.Str(allow_none=True)
+    onnxruntime = fields.Str(allow_none=True)
 
 
 class SystemInfo(Schema):
@@ -56,6 +63,9 @@ class SystemInfo(Schema):
         default=None,
         missing=None,
         allow_none=True,
+    )
+    version_info = fields.Nested(
+        VersionInfoSchema, allow_none=True, default=None, required=False
     )
 
 

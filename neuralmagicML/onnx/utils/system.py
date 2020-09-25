@@ -6,6 +6,10 @@ from typing import List, Any, Dict
 import socket
 import psutil
 
+from pkg_resources import get_distribution
+import neuralmagicML
+import onnx
+
 try:
     import neuralmagic
 
@@ -61,6 +65,31 @@ def ml_engines_errors() -> Dict[str, Exception]:
     }
 
 
+def _get_package_version(package: str) -> str:
+    try:
+        return get_distribution(package).version
+    except:
+        return None
+
+
+def get_ml_version_info() -> Dict[str, str]:
+    """
+    :return: a dictionary containing the version information of neuralmagicML, neuralmagic, onnxruntime
+        and onnx if installed.
+    """
+    neuralmagicML_version = _get_package_version("neuralmagicML")
+    neuralmagic_version = _get_package_version("neuralmagic")
+    onnxruntime_version = _get_package_version("onnxruntime")
+    onnx_version = _get_package_version("onnx")
+
+    return {
+        "neuralmagicML": neuralmagicML_version,
+        "onnxruntime": onnxruntime_version,
+        "neuralmagic": neuralmagic_version,
+        "onnx": onnx_version,
+    }
+
+
 def get_ml_sys_info() -> Dict[str, Any]:
     """
     :return: a dictionary containing info for the system and ML engines on the system.
@@ -70,6 +99,8 @@ def get_ml_sys_info() -> Dict[str, Any]:
         "available_engines": available_ml_engines(),
         "ip_address": socket.gethostbyname(socket.gethostname()),
     }
+
+    sys_info["version_info"] = get_ml_version_info()
 
     # get sys info from neuralmagic.cpu
     if neuralmagic is not None:

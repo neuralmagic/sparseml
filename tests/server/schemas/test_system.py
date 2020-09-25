@@ -1,7 +1,51 @@
 from typing import Dict, List, Union
 import pytest
-from neuralmagicML.server.schemas.system import SystemInfo, ResponseSystemInfo
+from neuralmagicML.server.schemas.system import (
+    VersionInfoSchema,
+    SystemInfo,
+    ResponseSystemInfo,
+)
 from tests.server.helper import schema_tester
+
+
+@pytest.mark.parametrize(
+    "expected_input,expected_output",
+    [
+        (
+            {
+                "neuralmagic": None,
+                "neuralmagicML": None,
+                "onnx": None,
+                "onnxruntime": None,
+            },
+            {
+                "neuralmagic": None,
+                "neuralmagicML": None,
+                "onnx": None,
+                "onnxruntime": None,
+            },
+        ),
+        (
+            {
+                "neuralmagic": "1.2",
+                "neuralmagicML": "1.2",
+                "onnx": "1.7",
+                "onnxruntime": "1.7",
+            },
+            {
+                "neuralmagic": "1.2",
+                "neuralmagicML": "1.2",
+                "onnx": "1.7",
+                "onnxruntime": "1.7",
+            },
+        ),
+    ],
+)
+def test_version_info(
+    expected_input: Dict,
+    expected_output: Dict,
+):
+    schema_tester(VersionInfoSchema, expected_input, expected_output)
 
 
 @pytest.mark.parametrize(
@@ -23,6 +67,7 @@ from tests.server.helper import schema_tester
                 "ip_address": None,
                 "available_engines": None,
                 "available_instructions": None,
+                "version_info": None,
             },
             None,
         ),
@@ -41,6 +86,12 @@ from tests.server.helper import schema_tester
                 "ip_address": "127.0.0.1",
                 "available_engines": ["ort_cpu"],
                 "available_instructions": ["AVX2"],
+                "version_info": {
+                    "neuralmagic": "1.2",
+                    "neuralmagicML": "1.2",
+                    "onnx": "1.7",
+                    "onnxruntime": "1.7",
+                },
             },
             {
                 "vendor": "vendor",
@@ -56,6 +107,12 @@ from tests.server.helper import schema_tester
                 "ip_address": "127.0.0.1",
                 "available_engines": ["ort_cpu"],
                 "available_instructions": ["AVX2"],
+                "version_info": {
+                    "neuralmagic": "1.2",
+                    "neuralmagicML": "1.2",
+                    "onnx": "1.7",
+                    "onnxruntime": "1.7",
+                },
             },
             None,
         ),
@@ -74,6 +131,7 @@ from tests.server.helper import schema_tester
                 "ip_address": "127.0.0.1",
                 "available_engines": ["fail"],
                 "available_instructions": ["fail"],
+                "version_info": None,
             },
             None,
             ["available_engines", "available_instructions"],
