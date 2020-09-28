@@ -12,6 +12,7 @@ __all__ = [
     "clean_tensor_name",
     "get_op_input_var",
     "get_tensor_var",
+    "is_prunable_op",
     "get_prunable_ops",
     "get_ops_and_inputs_by_name_or_regex",
     "any_str_or_regex_matches_tensor_name",
@@ -121,6 +122,20 @@ def get_tensor_var(tens: tf_compat.Tensor) -> tf_compat.Variable:
     )
 
 
+def is_prunable_op(op: tf_compat.Operation):
+    """
+    Check whether an op is prunable
+
+    :param op: the operation to check
+    :return: True if the op is prunable; False otherwise
+    """
+    return (
+        op.type in ["MatMul", "Conv1D", "Conv2D", "Conv3D", "DepthwiseConv2dNative"]
+        and "gradients/" not in op.name
+        and "_grad/" not in op.name
+    )
+
+
 def get_prunable_ops(
     graph: tf_compat.Graph = None,
 ) -> List[Tuple[str, tf_compat.Operation]]:
@@ -134,22 +149,16 @@ def get_prunable_ops(
     """
     if not graph:
         graph = tf_compat.get_default_graph()
-
     ops = []
-
     for op in graph.get_operations():
-        if (
-            op.type in ["MatMul", "Conv1D", "Conv2D", "Conv3D", "DepthwiseConv2dNative"]
-            and "gradients/" not in op.name
-            and "_grad/" not in op.name
-        ):
+        if is_prunable_op(op):
             ops.append((op.name, op))
-
     return ops
 
 
 def get_ops_and_inputs_by_name_or_regex(
-    var_names: List[str], graph: tf_compat.Graph = None,
+    var_names: List[str],
+    graph: tf_compat.Graph = None,
 ) -> List[Tuple[tf_compat.Operation, tf_compat.Tensor]]:
     """
     Get tuples of operations and the inputs for inputs of operations that match
@@ -210,7 +219,8 @@ def get_ops_and_inputs_by_name_or_regex(
 
 
 def any_str_or_regex_matches_tensor_name(
-    tensor_name: str, name_or_regex_patterns: List[str],
+    tensor_name: str,
+    name_or_regex_patterns: List[str],
 ):
     """
     :param tensor_name: The name of a tensor

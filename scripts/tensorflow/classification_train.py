@@ -82,14 +82,10 @@ optional arguments:
                         Name of the loss function
   --num-epochs NUM_EPOCHS
                         Number of training epochs
-  --num-examples-per-epoch NUM_EXAMPLES
-                        Number of examples processed in one training epoch
   --train-build-config TRAIN_BUILD_CONFIG
                         Additional parameter dictionary to build the train TF dataset;
                         default to '{"shuffle_buffer_size": 100,
                         "prefetch_buffer_size": 512, "num_parallel_calls": 4}'
-  --num-eval-examples  EVAL_EXAMPLES
-                        Number of examples in one eval epoch
   --metrics METRICS
                         Metrics to collect during evaluation phase; must be a metric
                         defined in tf.compat.v1.metrics
@@ -116,54 +112,49 @@ optional arguments:
 
 
 ##########
-Example command for training mobilenet on imagenet dataset:
-python scripts/tensorflow/classification_train.py \
-    --recal-config-path scripts/tensorflow/configs/imagenet_training.yaml \
-    --arch-key mobilenet --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
-    --train-batch-size 256 --eval-batch-size 1024
-
-
-##########
-Example command for pruning resnet50 on imagenet dataset:
-python scripts/tensorflow/classification_train.py \
-    --recal-config-path scripts/tensorflow/configs/pruning_resnet50.yaml \
-    --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
-    --train-batch-size 256 --eval-batch-size 1024
-
-
-##########
-Example command for transfer learning sparse resnet50 on an image folder dataset:
-python scripts/tensorflow/classification_train.py \
-    --sparse-transfer-learn \
-    --recal-config-path scripts/tensorflow/configs/pruning_resnet50.yaml \
-    --arch-key resnet50 --pretrained recal-perf \
-    --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
-    --train-batch-size 256 --eval-batch-size 1024
-
-
-##########
-Example command for evaluating a mobilenetv2 model on imagenet dataset:
-python scripts/tensorflow/classification_train.py \
-    --eval-mode --arch-key mobilenetv2 --dataset imagenet \
-    --dataset-path ~/datasets/ILSVRC2012 --train-batch-size 256 --eval-batch-size 1024
-
-
-#########
-Example command for training resnet20 model on cifar10
-python scripts/tensorflow/classification_train.py \
-    --arch-key resnet20 --save-dir resnet20_cifar10 \
-    --dataset cifar10 --dataset-path datasets/cifar10 \
-    --num-epochs 5 --num-examples-per-epoch 50000 --num-eval-examples 10000
-
-
-###########
-Example command evaluating a resnet20 model on cifar10 given a checkpoint
+Example: training resnet20 on cifar10 dataset using the Adam optimizer
 
 python scripts/tensorflow/classification_train.py \
     --arch-key resnet20 --dataset cifar10 \
-    --eval-checkpoint-path tensorflow_classification_train/resnet20_cifar10__51/model.ckpt-1955 \
-    --eval-batch-size 1024 --num-eval-examples 10000 --tf-log 10 \
-    --dataset-path datasets/cifar10/ --eval-mode
+    --dataset-path datasets/cifar10/ \
+    --train-batch-size 128 --eval-batch-size 1000 \
+    --optimizer AdamOptimizer --optimizer-params '{"learning_rate": 0.001}' \
+    --num-epochs 200 \
+    --save-dir resnet20_cifar10/
+
+##########
+Example: training/pruning resnet20 on cifar10 dataset using the Adam optimizer with
+learning rate and pruning schedule defined in a recalibration config file
+
+python scripts/tensorflow/classification_train.py \
+    --arch-key resnet20 --dataset cifar10 \
+    --dataset-path datasets/cifar10/ \
+    --train-batch-size 128 --eval-batch-size 1000 \
+    --optimizer AdamOptimizer \
+    --recal-config-path configs/resnet20_cifar10_training.yaml \
+    --num-epochs 200 \
+    --save-dir resnet20_cifar10/
+
+##########
+Example: fine-tuning a trained model
+
+python scripts/tensorflow/classification_train.py \
+    --arch-key resnet20 --dataset cifar10 \
+    --dataset-path datasets/cifar10/ \
+    --checkpoint-path resnet20_cifar10/resnet20_cifar10/model.ckpt-1955
+    --train-batch-size 128 --eval-batch-size 1000 \
+    --num-epochs 50
+    --save-dir resnet20_cifar10/
+
+
+##########
+Example: evaluating a resnet20 model on cifar10 given a checkpoint
+
+python scripts/tensorflow/classification_train.py \
+    --arch-key resnet20 --dataset cifar10 \
+    --dataset-path datasets/cifar10/ \
+    --eval-mode --eval-checkpoint-path resnet20_cifar10/model.ckpt-1955 \
+    --eval-batch-size 1024
 
 """
 
@@ -308,12 +299,6 @@ def parse_args():
         "--num-epochs", type=int, default=None, help="Number of training epochs"
     )
     parser.add_argument(
-        "--num-examples-per-epoch",
-        type=int,
-        default=None,
-        help="Number of examples processed one training epoch",
-    )
-    parser.add_argument(
         "--train-batch-size",
         type=int,
         default=None,
@@ -330,12 +315,6 @@ def parse_args():
     #################################
     # Options for evaluation
     #################################
-    parser.add_argument(
-        "--num-eval-examples",
-        type=int,
-        required=True,
-        help="Number of examples in one eval epoch",
-    )
     parser.add_argument(
         "--eval-batch-size",
         type=int,
@@ -407,7 +386,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def populate_model_fn_params(logs_dir, args):
+def populate_model_fn_params(num_examples, logs_dir, args):
     """
     Create parameters for model function
 
@@ -415,9 +394,6 @@ def populate_model_fn_params(logs_dir, args):
     :param args: commandline input arguments
     :return: dictionary of parameters
     """
-    num_examples = (
-        args.num_eval_examples if args.eval_mode else args.num_examples_per_epoch
-    )
     batch_size = args.eval_batch_size if args.eval_mode else args.train_batch_size
     steps_per_epoch = int(num_examples / batch_size)
     base_name_scope = ModelRegistry._ATTRIBUTES[args.arch_key].base_name_scope
@@ -483,13 +459,17 @@ def main(args):
 
     LOGGER.info("Model id is set to {}".format(model_id))
 
+    train = not args.eval_mode
+    dataset = DatasetRegistry.create(args.dataset, root=args.dataset_path, train=train)
+    num_examples_per_epoch = len(dataset)
+
     if args.dataset == "imagefolder":
-        num_classes = val_dataset.num_classes
+        num_classes = dataset.num_classes
     else:
         dataset_attributes = DatasetRegistry.attributes(args.dataset)
         num_classes = dataset_attributes["num_classes"]
 
-    model_fn_params = populate_model_fn_params(logs_dir, args)
+    model_fn_params = populate_model_fn_params(num_examples_per_epoch, logs_dir, args)
     run_config = populate_run_config(args)
 
     classifier = ModelRegistry.create_estimator(
@@ -500,8 +480,6 @@ def main(args):
         num_classes=num_classes,
         class_type=args.class_type,
     )
-    train = not args.eval_mode
-    dataset = DatasetRegistry.create(args.dataset, root=args.dataset_path, train=train)
     if args.eval_mode:
         # Evaluation mode
         input_fn = dataset.build_input_fn(
@@ -509,15 +487,21 @@ def main(args):
         )
         metrics = classifier.evaluate(
             input_fn=input_fn,
-            steps=args.num_eval_examples / args.eval_batch_size,
+            steps=num_examples_per_epoch / args.eval_batch_size,
             checkpoint_path=args.eval_checkpoint_path,
             name=args.eval_session_name,
         )
         LOGGER.info("Evaluation metrics: {}".format(metrics))
     else:
         # Training mode
-        steps_per_epoch = math.ceil(args.num_examples_per_epoch / args.train_batch_size)
+        val_dataset = DatasetRegistry.create(
+            args.dataset, root=args.dataset_path, train=False
+        )
+        num_eval_examples = len(val_dataset)
+
+        steps_per_epoch = math.ceil(num_examples_per_epoch / args.train_batch_size)
         max_steps = steps_per_epoch * args.num_epochs
+
         train_input_fn = dataset.build_input_fn(
             args.train_batch_size, **args.train_build_config
         )
@@ -529,7 +513,7 @@ def main(args):
         )
         eval_spec = tf_compat.estimator.EvalSpec(
             input_fn=eval_input_fn,
-            steps=args.num_eval_examples / args.eval_batch_size,
+            steps=num_eval_examples / args.eval_batch_size,
             throttle_secs=1,
         )
         tf_compat.estimator.train_and_evaluate(classifier, train_spec, eval_spec)

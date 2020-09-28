@@ -5,6 +5,12 @@ Object detection recal script. Setup to support the following use cases:
 - transfer learning object detection architectures
 - evaluating object detection architectures
 
+Tensorflow Object Detection API needs to be installed before using the script,
+following the instruction here, specially in the section "Python Package Installation":
+https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/tf1.md
+
+Note: If you encounter an error reporting "params are not passed to Estimator", using
+a new model directory should resolve the issue.
 
 ##########
 Command help:

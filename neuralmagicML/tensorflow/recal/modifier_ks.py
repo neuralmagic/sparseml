@@ -168,7 +168,12 @@ class ConstantKSModifier(ScheduledModifier):
 
         with graph.as_default():
             update_op, prune_op_vars = create_ks_scheduled_constant_graph_ops(
-                graph, global_step, params, start_step, end_step, self.ks_group,
+                graph,
+                global_step,
+                params,
+                start_step,
+                end_step,
+                self.ks_group,
             )
 
             if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:
@@ -297,6 +302,7 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._prune_op_vars = None
         self._update_ready = None
         self._sparsity = None
+        self._mask_initializer = None
 
         self.validate()
 
@@ -536,6 +542,16 @@ class GradualKSModifier(ScheduledUpdateModifier):
         self._update_ready = update_ready
         self._sparsity = sparsity
 
+        # Create and cache the mask initializers to be run
+        # through initialize_session. When using the estimator,
+        # the initialization is done as part of the init_fn of
+        # the training scaffold object, at which the graph cannot
+        # be changed (hence the creation and caching)
+        masks = [op_vars.mask for op_vars in self._prune_op_vars]
+        self._mask_initializer = (
+            tf_compat.variables_initializer(masks) if masks else None
+        )
+
         return mod_ops, mod_extras
 
     def initialize_session(self, sess: tf_compat.Session):
@@ -545,10 +561,8 @@ class GradualKSModifier(ScheduledUpdateModifier):
         :param sess: the session to use for initializing
         """
         super().initialize_session(sess)
-        masks = [op_vars.mask for op_vars in self._prune_op_vars]
-
-        if masks:
-            sess.run(tf_compat.variables_initializer(masks))
+        if self._mask_initializer:
+            sess.run(self._mask_initializer)
 
     def complete_graph(self, graph: tf_compat.Graph, sess: tf_compat.Session):
         """

@@ -28,6 +28,7 @@ __all__ = [
     "Modifier",
     "ScheduledModifier",
     "ScheduledUpdateModifier",
+    "ModifierSessionRunHook",
 ]
 
 
@@ -406,23 +407,17 @@ class ModifierSessionRunHook(tf_compat.train.SessionRunHook):
 
     def __init__(
         self,
-        modifier: Modifier,
-        steps_per_epoch: int,
         mod_ops: List[Union[tf_compat.Tensor, tf_compat.Operation]],
-        mod_extras: Dict[str, Any],
     ):
-        self._modifier = modifier
-        self._steps_per_epoch = steps_per_epoch
         self._mod_ops = mod_ops
-        self._mod_extras = mod_extras
 
     def after_run(self, run_context, run_values):
         """
-        Called before each call to run(). Returns a SessionRunArgs instance
-        for running the mod_ops passed in in the constructor
+        Called by the estimator after each call to run()
 
         :param run_context: run_context passed in during training
         :param run_values: a SessionRunValues object passed in during training
-        :return: SessionRunArgs containing the mod_ops reference
         """
-        return tf_compat.estimator.SessionRunArgs(fetches=self._mod_ops)
+        if self._mod_ops:
+            sess = run_context.session
+            sess.run(self._mod_ops)

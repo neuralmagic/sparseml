@@ -11,6 +11,7 @@ from neuralmagicML.tensorflow.utils import (
     tf_compat,
     tf_compat_div,
     clean_tensor_name,
+    is_prunable_op,
     get_op_input_var,
     get_tensor_var,
     get_ops_and_inputs_by_name_or_regex,
@@ -243,7 +244,10 @@ def create_op_pruning(
         # create the update ops using the target sparsity tensor
         with tf_compat.name_scope(
             KSScope.model(
-                op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,
+                op,
+                ks_group,
+                additional=KSScope.OPS_UPDATE,
+                trailing_slash=True,
             )
         ):
             new_mask = mask_creator.create_sparsity_mask(op_var_tens, sparsity)
@@ -260,7 +264,10 @@ def create_op_pruning(
     def _no_update():
         with tf_compat.name_scope(
             KSScope.model(
-                op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,
+                op,
+                ks_group,
+                additional=KSScope.OPS_UPDATE,
+                trailing_slash=True,
             )
         ):
             # return no op wrapped in group to match update type
@@ -271,7 +278,12 @@ def create_op_pruning(
             )
 
     with tf_compat.name_scope(
-        KSScope.model(op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,)
+        KSScope.model(
+            op,
+            ks_group,
+            additional=KSScope.OPS_UPDATE,
+            trailing_slash=True,
+        )
     ):
         mask_update = tf_compat.cond(
             update_ready, _update, _no_update, name=KSScope.OP_MASK_UPDATE
@@ -319,7 +331,10 @@ def create_constant_op_pruning(
         # On end step, revert mask to be all 1s
         with tf_compat.name_scope(
             KSScope.model(
-                op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,
+                op,
+                ks_group,
+                additional=KSScope.OPS_UPDATE,
+                trailing_slash=True,
             )
         ):
             new_mask = tf_compat.cond(
@@ -338,7 +353,10 @@ def create_constant_op_pruning(
     def _no_op():
         with tf_compat.name_scope(
             KSScope.model(
-                op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,
+                op,
+                ks_group,
+                additional=KSScope.OPS_UPDATE,
+                trailing_slash=True,
             )
         ):
             # return no op wrapped in group to match update type
@@ -349,7 +367,12 @@ def create_constant_op_pruning(
             )
 
     with tf_compat.name_scope(
-        KSScope.model(op, ks_group, additional=KSScope.OPS_UPDATE, trailing_slash=True,)
+        KSScope.model(
+            op,
+            ks_group,
+            additional=KSScope.OPS_UPDATE,
+            trailing_slash=True,
+        )
     ):
         mask_update = tf_compat.cond(
             is_start_or_end_step,
@@ -523,11 +546,12 @@ def create_summaries_pruning(pruning_op_vars: List[PruningOpVars]):
 
                 return 1 - tf_compat_div(nonzero, size)
 
-        sum_op = tf_compat.summary.scalar(
-            "Modifier KS/{}".format(clean_tensor_name(op_vars.op)),
-            zero_fraction(op_vars.masked),
-        )
-        summaries.append(sum_op)
+        if is_prunable_op(op_vars.op):
+            sum_op = tf_compat.summary.scalar(
+                "Modifier KS/{}".format(clean_tensor_name(op_vars.op)),
+                zero_fraction(op_vars.masked),
+            )
+            summaries.append(sum_op)
 
     return summaries
 
@@ -628,7 +652,9 @@ def create_ks_schedule_ops(
         # create the update ready tensor and sparsity tensor
     with tf_compat.name_scope(KSScope.general(ks_group, trailing_slash=True)):
         update_ready = tf_compat.logical_and(
-            sched_active_inclusive, sched_update_ready, name=KSScope.OP_UPDATE_READY,
+            sched_active_inclusive,
+            sched_update_ready,
+            name=KSScope.OP_UPDATE_READY,
         )
         sparsity = tf_compat.case(
             [
@@ -716,7 +742,8 @@ def get_or_create_ks_schedule_ops(
 
 
 def get_scheduled_update_op(
-    pruning_op_vars: List[PruningOpVars], ks_group: str,
+    pruning_op_vars: List[PruningOpVars],
+    ks_group: str,
 ):
     """
     Creates model pruning (kernel sparsity) ops and vars in the graph

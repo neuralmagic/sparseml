@@ -9,6 +9,7 @@ from neuralmagicML.tensorflow.recal import (
     NM_RECAL,
     ScheduledModifierManager,
     ConstantKSModifier,
+    ModifierSessionRunHook,
 )
 from neuralmagicML.tensorflow.utils import tf_compat
 
@@ -27,36 +28,8 @@ class MetricUpdateOpsHook(tf_compat.train.SessionRunHook):
         self._metrics_update_ops = metrics_update_ops
 
     def after_run(self, run_context, run_values):
-        return tf_compat.train.SessionRunArgs(fetches=self._metrics_update_ops)
-
-
-class RecalOpsUpdateHook(tf_compat.train.SessionRunHook):
-    """
-    Class to update the recal ops right after the training op runs
-    """
-
-    def after_run(self, run_context, run_values):
-        try:
-            graph = tf_compat.get_default_graph()
-            recal_update_op = graph.get_operation_by_name(
-                "{}/{}".format(NM_RECAL, ScheduledModifierManager.RECAL_UPDATE)
-            )
-            return tf_compat.train.SessionRunArgs(fetches=recal_update_op)
-        except KeyError:
-            pass
-
-
-class SessionInitializerHook(tf_compat.train.SessionRunHook):
-    """
-    Class to initialize the session for modifiers
-    """
-
-    def __init__(self, manager: ScheduledModifierManager):
-        self._manager = manager
-
-    def begin(self):
-        if self._manager is not None:
-            self._manager.initialize_session()
+        sess = run_context.session
+        sess.run(self._metrics_update_ops)
 
 
 class EstimatorModelFn(ABC):
@@ -99,13 +72,11 @@ class EstimatorModelFn(ABC):
             # Train mode only
             training_op = self.create_training_op(loss, params)
             (
-                init_sess_hook,
+                mod_manager,
                 mod_update_ops_hook,
             ) = self.create_modifier_ops_and_update_hook(params)
 
             training_hooks = [metric_update_ops_hook, summary_train_hook]
-            if init_sess_hook is not None:
-                training_hooks.append(init_sess_hook)
             if mod_update_ops_hook is not None:
                 training_hooks.append(mod_update_ops_hook)
 
@@ -117,7 +88,7 @@ class EstimatorModelFn(ABC):
                     {"{}/".format(base_name_scope): "{}/".format(base_name_scope)},
                 )
 
-            scaffold = self.create_scaffold(params)
+            scaffold = self.create_scaffold(mod_manager, params)
             return tf_compat.estimator.EstimatorSpec(
                 mode,
                 loss=loss,
@@ -349,7 +320,8 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
         Create summary op given metric dictionary
         """
         for metric in metrics_dict:
-            tf_compat.summary.scalar(metric, metrics_dict[metric][1])
+            metric_tensor = metrics_dict[metric][0]
+            tf_compat.summary.scalar(metric, metric_tensor)
         summary_op = tf_compat.summary.merge_all()
         return summary_op
 
@@ -417,19 +389,20 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
             else None
         )
 
-        init_sess_hook = None
         mod_update_ops_hook = None
+        manager = None
         recal_config_path = params.get("recal_config_path")
         if recal_config_path is not None:
             global_step = tf_compat.train.get_or_create_global_step()
             steps_per_epoch = params["steps_per_epoch"]
             manager = ScheduledModifierManager.from_yaml(recal_config_path, add_mods)
-            init_sess_hook = SessionInitializerHook(manager)
             mod_ops, mod_extras = manager.create_ops(steps_per_epoch, global_step)
-            mod_update_ops_hook = RecalOpsUpdateHook() if mod_ops is not None else None
-        return init_sess_hook, mod_update_ops_hook
+            mod_update_ops_hook = ModifierSessionRunHook(mod_ops)
+        return manager, mod_update_ops_hook
 
-    def create_scaffold(self, params: Dict[str, Any]):
+    def create_scaffold(
+        self, modifier_manager: ScheduledModifierManager, params: Dict[str, Any]
+    ):
         """
         Create scaffold to be attached to the train estimator spec, containing
         at least the saver
@@ -437,8 +410,13 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
         :param params: the model function params
         :return: a Scaffold instance
         """
+
+        def init_fn(scaffold, session):
+            if modifier_manager is None:
+                return
+            for mod in modifier_manager.modifiers:
+                mod.initialize_session(session)
+
         saver = tf_compat.train.Saver()
-        scaffold = tf_compat.train.Scaffold(
-            saver=saver,
-        )
+        scaffold = tf_compat.train.Scaffold(saver=saver, init_fn=init_fn)
         return scaffold

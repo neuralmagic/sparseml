@@ -158,6 +158,9 @@ The following scripts are currently maintained for use:
 The `tensorflow` subdirectory is provided for working with models trained in the 
 [TensorFlow](https://www.tensorflow.org/) framework.
 The following scripts are currently maintained for use:
+- `classification_export.py`: Export an image classification model to a standard structure including an ONNX format, sample inputs, sample outputs, and sample labels.
+- `classification_train.py`: Train and evaluate an image classification model, optionally with a configuration yaml file for model pruning and sparse transfer learning.
+- `tf_object_detection_api_train.py`: Train and evaluate an object detection model, optionally with a configuration yaml file for model pruning. 
 - `model_download.py`: Download a model from the Neural Magic [Model Repo](#model-repository). 
   
 
