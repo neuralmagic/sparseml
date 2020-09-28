@@ -6,6 +6,7 @@ from typing import List, Dict, Union
 import os
 from collections import OrderedDict
 import numpy
+import onnx
 
 from neuralmagicML.utils import (
     clean_path,
@@ -17,7 +18,11 @@ from neuralmagicML.tensorflow.utils.helpers import tf_compat, tensors_export
 from neuralmagicML.tensorflow.utils.variable import clean_tensor_name
 
 
-__all__ = ["GraphExporter"]
+__all__ = ["default_onnx_opset", "GraphExporter"]
+
+
+def default_onnx_opset() -> int:
+    return 9 if onnx.__version__ < "1.6" else 11
 
 
 class GraphExporter(object):
@@ -61,7 +66,7 @@ class GraphExporter(object):
         outputs: List[Union[str, tf_compat.Tensor]],
         pb_path: str,
         onnx_path: str,
-        opset: int = 11,
+        opset: int = default_onnx_opset(),
         custom_op_handlers=None,
         extra_opset=None,
         shape_override: Dict[str, List] = None,
