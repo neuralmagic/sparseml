@@ -34,7 +34,7 @@ source ./venv/bin/activate
 ```
 
 ### ML Frameworks
-To use neuralmagicML framework specific tooling, the framework package(s) must already be installed in the environment.
+To use neuralmagicML framework-specific tooling, the framework package(s) must already be installed in the environment.
 
 The currently supported framework versions are:
 - PyTorch supported versions: >= `1.1.0`
@@ -88,6 +88,11 @@ A tutorial for pruning models in TensorFlow using an Adam optimizer.
 A step-by-step process, along with simple UIs, is given to make the process easier and more intuitive. 
 It is used to increase the performance of models when executing in the Neural Magic Inference Engine.
 
+### quantize_model_post_training.ipynb
+A tutorial for using `neuralmagicML.onnx.quantization` to perform post-training quantization on a
+trained model from an ONNX file. A step-by-step example is given that walks through preparing a
+calibration dataset, quantizing the model, and validating the results.
+
 ### transfer_learning_pytorch.ipynb
 A tutorial for transfer learning from a model in the [Model Repository](#model-repository) 
 within PyTorch using an Adam optimizer.
@@ -135,6 +140,8 @@ The following scripts are currently maintained for use:
 - `model_pruning_perf_sensitivity.py`: Calculate the sensitivity for each prunable layer in a model towards 
   the performance, where, for example, a higher score means the layer did not give as much net speedup for pruning and 
   therefore should be pruned less.
+- `model_quantize_post_training.py`: Perform post-training quantization on a trained model from an ONNX file. Supports
+  static quantization which requires a sample dataset to calibrate quantization parameters with.
   
   
 ### PyTorch
@@ -150,8 +157,15 @@ The following scripts are currently maintained for use:
   the loss more and therefore should be pruned less.
 - `classification_train.py`: Train an image classification model using a config.yaml file 
   to modify the training process such as for pruning or sparse transfer learning.
+- `detection_train.py`: Train an object detection model using a config.yaml file
+  to modify the training process, such as for pruning or sparse transfer learning.
+- `detection_validation.py`: Calculate the mean average precision (mAP) for a given object detection model at
+  a single IoU value or given range and output per class, per IoU averages.
 - `model_download.py`: Download a model from the Neural Magic [Model Repo](#model-repository). 
-
+- `model_export.py`: Convert a PyTorch model to an ONNX file, saving it along with the model checkpoint,
+  sample input, and sample output data.
+- `torchvision_export.py`: Download a model from the [torchvision](https://pytorch.org/docs/stable/torchvision/models.html)
+  model zoo, saving it as an ONNX file along with the model checkpoint, sample input, and sample output data.
 
 ### TensorFlow
 
@@ -248,6 +262,8 @@ Possible types are:
 | InceptionV3        | ImageNet | base, recal, recal-perf | ONNX, PyTorch              | 77.45% top1 accuracy       |
 | MobileNetV1        | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 70.9% top1 accuracy        |
 | MobileNetV2        | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.88% top1 accuracy       |
+| ResNet-18          | ImageNet | base, recal,            | ONNX, PyTorch, TensorFlow  | 69.8% top1 accuracy        |
+| ResNet-34          | ImageNet | base, recal,            | ONNX, PyTorch, TensorFlow  | 73.3% top1 accuracy        |
 | ResNet-50          | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 76.1% top1 accuracy        |
 | ResNet-50 2xwidth  | ImageNet | base                    | ONNX, PyTorch              | 78.51% top1 accuracy       |
 | ResNet-101         | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 77.37% top1 accuracy       |
@@ -261,6 +277,8 @@ Possible types are:
 | VGG-16bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
 | VGG-19             | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 72.38% top1 accuracy       |
 | VGG-19bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 74.24% top1 accuracy       |
+| SSD-300-ResNet-50  | COCO     | base, recal-perf        | ONNX, PyTorch              | 42.7% mAP@0.5              |
+| SSD-300-ResNet-50  | VOC      | base, recal-perf        | ONNX, PyTorch              | 52.2% mAP@0.5              |
 
 ### Downloading and Usage
 Tutorial notebooks are provided for easily integrating and using the models in the Neural Magic Model Repo. 
@@ -703,8 +721,7 @@ train_op = tf_compat.train.AdamOptimizer(learning_rate=1e-4).minimize(
 ```
 
 ## Licenses and Agreements
-* All implementations in this repository are subject to Neural Magic's [Privacy Policy.](https://neuralmagic.com/privacy-policy/)
-* All implementations in this repository are subject to Neural Magic's [Terms of Use.](https://neuralmagic.com/evaluation-license-agreement)
+* All implementations in this repository are subject to Neural Magic's [Legal Policies](https://www.neuralmagic.com/legal)
 * All packages as defined in the requirements.txt and their associated licenses.
 * PyTorch [License.](https://github.com/pytorch/pytorch/blob/master/LICENSE)
 * PyTorch torchvision and models [License.](https://github.com/pytorch/vision/blob/master/LICENSE)
