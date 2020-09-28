@@ -262,8 +262,8 @@ Possible types are:
 | InceptionV3        | ImageNet | base, recal, recal-perf | ONNX, PyTorch              | 77.45% top1 accuracy       |
 | MobileNetV1        | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 70.9% top1 accuracy        |
 | MobileNetV2        | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.88% top1 accuracy       |
-| ResNet-18          | ImageNet | base, recal,            | ONNX, PyTorch, TensorFlow  | 69.8% top1 accuracy        |
-| ResNet-34          | ImageNet | base, recal,            | ONNX, PyTorch, TensorFlow  | 73.3% top1 accuracy        |
+| ResNet-18          | ImageNet | base, recal             | ONNX, PyTorch, TensorFlow  | 69.8% top1 accuracy        |
+| ResNet-34          | ImageNet | base, recal             | ONNX, PyTorch, TensorFlow  | 73.3% top1 accuracy        |
 | ResNet-50          | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 76.1% top1 accuracy        |
 | ResNet-50 2xwidth  | ImageNet | base                    | ONNX, PyTorch              | 78.51% top1 accuracy       |
 | ResNet-101         | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 77.37% top1 accuracy       |
