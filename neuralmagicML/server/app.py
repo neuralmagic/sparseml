@@ -108,10 +108,10 @@ def run(
     working_dir = _validate_working_dir(working_dir)
     _setup_logging(logging_level)
 
-    app = Flask("neuralmagicML.server")
-
     if ui_path is None:
         ui_path = os.path.join(os.path.dirname(clean_path(__file__)), "ui")
+
+    app = Flask("neuralmagicML.server", static_folder=os.path.join(ui_path, "static"))
 
     app.config["UI_PATH"] = ui_path
     CORS(app)
