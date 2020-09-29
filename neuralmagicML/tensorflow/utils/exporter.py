@@ -195,7 +195,7 @@ class GraphExporter(object):
         self,
         inputs: List[Union[str, tf_compat.Tensor]],
         outputs: List[Union[str, tf_compat.Tensor]],
-        opset: int = 11,
+        opset: int = default_onnx_opset(),
         custom_op_handlers=None,
         extra_opset=None,
         shape_override: Dict[str, List] = None,
