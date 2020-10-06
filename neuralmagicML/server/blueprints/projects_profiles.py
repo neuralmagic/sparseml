@@ -414,8 +414,8 @@ def get_loss_profile(project_id: str, profile_id: str):
 
     # search for loss profile and verify that project_id matches
     loss_profile = ProjectLossProfile.get_or_none(
-        ProjectLossProfile.profile_id == profile_id
-        and ProjectLossProfile.project_id == project_id
+        ProjectLossProfile.profile_id == profile_id,
+        ProjectLossProfile.project_id == project_id
     )
     if loss_profile is None:
         _LOGGER.error(
@@ -501,8 +501,8 @@ def delete_loss_profile(project_id: str, profile_id: str):
 
     # search for loss profile and verify that project_id matches
     loss_profile = ProjectLossProfile.get_or_none(
-        ProjectLossProfile.profile_id == profile_id
-        and ProjectLossProfile.project_id == project_id
+        ProjectLossProfile.profile_id == profile_id,
+        ProjectLossProfile.project_id == project_id
     )
     if loss_profile is None:
         _LOGGER.error(
@@ -901,8 +901,8 @@ def get_perf_profile(project_id: str, profile_id: str):
 
     # search for perf profile and verify that project_id matches
     perf_profile = ProjectPerfProfile.get_or_none(
-        ProjectPerfProfile.profile_id == profile_id
-        and ProjectPerfProfile.project_id == project_id
+        ProjectPerfProfile.profile_id == profile_id,
+        ProjectPerfProfile.project_id == project_id
     )
 
     if perf_profile is None:
@@ -989,8 +989,8 @@ def delete_perf_profile(project_id: str, profile_id: str):
 
     # search for perf profile and verify that project_id matches
     perf_profile = ProjectPerfProfile.get_or_none(
-        ProjectPerfProfile.profile_id == profile_id
-        and ProjectPerfProfile.project_id == project_id
+        ProjectPerfProfile.profile_id == profile_id,
+        ProjectPerfProfile.project_id == project_id
     )
 
     if perf_profile is None:
