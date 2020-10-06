@@ -49,6 +49,13 @@ class JobWorkerWrapper(object):
         self._error = None
 
     @property
+    def job_id(self) -> str:
+        """
+        :return: the job id
+        """
+        return self._worker.job_id
+
+    @property
     def worker(self) -> BaseJobWorker:
         """
         :return: the worker instance to run

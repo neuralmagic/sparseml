@@ -225,6 +225,7 @@ def cancel_job(job_id: str):
 
     try:
         JobWorkerManager().cancel_job(job_id)
+        JobWorkerManager().refresh()
     except JobNotFoundError:
         raise HTTPNotFoundError("could not find job with job_id {}".format(job_id))
     except JobCancelationFailureError:

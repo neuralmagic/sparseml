@@ -87,7 +87,7 @@ class JobWorkerManager(object, metaclass=Singleton):
 
                 return
 
-            with database.connection_context:
+            with database.connection_context():
                 job = Job.get_or_none(Job.job_id == job_id)
 
                 if job is None:
