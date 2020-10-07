@@ -46,7 +46,7 @@ class ProjectLossProfile(BaseProjectProfile):
     A project may have multiple loss profiles stored in the DB.
     """
 
-    project = ForeignKeyField(Project, backref="profiles_loss")
+    project = ForeignKeyField(Project, backref="profiles_loss", on_delete="CASCADE")
     pruning_estimations = BooleanField(default=False)
     pruning_estimation_type = TextField(null=True, default=None)
     pruning_structure = TextField(null=True, default=None)
@@ -60,7 +60,7 @@ class ProjectPerfProfile(BaseProjectProfile):
     A project may have multiple perf profiles stored in the DB
     """
 
-    project = ForeignKeyField(Project, backref="profiles_perf")
+    project = ForeignKeyField(Project, backref="profiles_perf", on_delete="CASCADE")
     batch_size = IntegerField(null=True, default=None)
     core_count = IntegerField(null=True, default=None)
     instruction_sets = CSVField(null=True, default=None)

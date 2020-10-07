@@ -217,7 +217,7 @@ def create_loss_profile(project_id: str):
                 project=project, source="generated", **loss_profile_params
             )
             job = Job.create(
-                project=project,
+                project_id=project_id,
                 type_=CreateLossProfileJobWorker.get_type(),
                 worker_args=CreateLossProfileJobWorker.format_args(
                     model_id=model.model_id,
@@ -415,7 +415,7 @@ def get_loss_profile(project_id: str, profile_id: str):
     # search for loss profile and verify that project_id matches
     loss_profile = ProjectLossProfile.get_or_none(
         ProjectLossProfile.profile_id == profile_id,
-        ProjectLossProfile.project_id == project_id
+        ProjectLossProfile.project_id == project_id,
     )
     if loss_profile is None:
         _LOGGER.error(
@@ -502,7 +502,7 @@ def delete_loss_profile(project_id: str, profile_id: str):
     # search for loss profile and verify that project_id matches
     loss_profile = ProjectLossProfile.get_or_none(
         ProjectLossProfile.profile_id == profile_id,
-        ProjectLossProfile.project_id == project_id
+        ProjectLossProfile.project_id == project_id,
     )
     if loss_profile is None:
         _LOGGER.error(
@@ -701,7 +701,7 @@ def create_perf_profile(project_id: str):
                 project=project, source="generated", **perf_profile_params
             )
             job = Job.create(
-                project=project,
+                project_id=project_id,
                 type_=CreatePerfProfileJobWorker.get_type(),
                 worker_args=CreatePerfProfileJobWorker.format_args(
                     model_id=model.model_id,
@@ -902,7 +902,7 @@ def get_perf_profile(project_id: str, profile_id: str):
     # search for perf profile and verify that project_id matches
     perf_profile = ProjectPerfProfile.get_or_none(
         ProjectPerfProfile.profile_id == profile_id,
-        ProjectPerfProfile.project_id == project_id
+        ProjectPerfProfile.project_id == project_id,
     )
 
     if perf_profile is None:
@@ -990,7 +990,7 @@ def delete_perf_profile(project_id: str, profile_id: str):
     # search for perf profile and verify that project_id matches
     perf_profile = ProjectPerfProfile.get_or_none(
         ProjectPerfProfile.profile_id == profile_id,
-        ProjectPerfProfile.project_id == project_id
+        ProjectPerfProfile.project_id == project_id,
     )
 
     if perf_profile is None:

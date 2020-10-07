@@ -237,10 +237,11 @@ def load_model_from_path(project_id: str) -> Tuple[Response, int]:
                 project=project, source="downloaded_path", job=None
             )
             job = Job.create(
-                project=project,
+                project_id=project.project_id,
                 type_=ModelFromPathJobWorker.get_type(),
                 worker_args=ModelFromPathJobWorker.format_args(
-                    model_id=project_model.model_id, uri=data["uri"],
+                    model_id=project_model.model_id,
+                    uri=data["uri"],
                 ),
             )
             project_model.job = job
@@ -337,10 +338,11 @@ def load_model_from_repo(project_id: str) -> Tuple[Response, int]:
                 project=project, source="downloaded_repo", job=None
             )
             job = Job.create(
-                project=project,
+                project_id=project.project_id,
                 type_=ModelFromRepoJobWorker.get_type(),
                 worker_args=ModelFromRepoJobWorker.format_args(
-                    model_id=project_model.model_id, uri=data["uri"],
+                    model_id=project_model.model_id,
+                    uri=data["uri"],
                 ),
             )
             project_model.job = job
@@ -411,11 +413,8 @@ def get_model_details(project_id: str) -> Tuple[Response, int]:
     """
     _LOGGER.info("getting the model details for project_id {}".format(project_id))
     project = get_project_by_id(project_id)
-    query = (
-        ProjectModel.select(ProjectModel, Job)
-        .join_from(ProjectModel, Job, JOIN.LEFT_OUTER)
-        .where(ProjectModel.project == project)
-    )
+
+    query = ProjectModel.select(ProjectModel).where(ProjectModel.project == project)
     project_model = None
 
     for res in query:

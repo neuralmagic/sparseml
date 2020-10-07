@@ -50,6 +50,8 @@ def index(path: str):
         uses send_from_directory. Targets "/" and "/index.html"
     """
     _LOGGER.info(
-        "sending index.html file at {} from {}".format(path, current_app.config["UI_PATH"])
+        "sending index.html file at {} from {}".format(
+            path, current_app.config["UI_PATH"]
+        )
     )
     return send_from_directory(current_app.config["UI_PATH"], "index.html")

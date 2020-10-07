@@ -59,7 +59,7 @@ class Job(BaseModel):
     """
 
     job_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
-    project = ForeignKeyField(Project, backref="jobs")
+    project_id = CharField()
     created = DateTimeField(default=datetime.datetime.now)
     modified = DateTimeField(default=datetime.datetime.now)
     type_ = CharField()
