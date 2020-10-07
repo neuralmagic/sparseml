@@ -5,6 +5,7 @@ Model function creator classes to be used with estimator
 from typing import List, Tuple, Callable, Dict, Any, NamedTuple, Union, Optional
 from abc import ABC, abstractmethod
 import inspect
+from neuralmagicML import get_main_logger
 from neuralmagicML.tensorflow.recal import (
     NM_RECAL,
     ScheduledModifierManager,
@@ -15,6 +16,8 @@ from neuralmagicML.tensorflow.utils import tf_compat
 
 __all__ = ["EstimatorModelFn", "ClassificationEstimatorModelFn"]
 
+LOGGER = get_main_logger()
+
 
 class MetricUpdateOpsHook(tf_compat.train.SessionRunHook):
     """
@@ -24,12 +27,32 @@ class MetricUpdateOpsHook(tf_compat.train.SessionRunHook):
     tensors, therefore must be done explicitly
     """
 
-    def __init__(self, metrics_update_ops: List[tf_compat.Operation]):
+    def __init__(
+        self,
+        metrics_update_ops: List[tf_compat.Operation],
+        metrics_initializer_ops: List[tf_compat.Operation],
+        eval_every_n_steps: int    
+    ):
         self._metrics_update_ops = metrics_update_ops
+        self._metrics_initializer_ops = metrics_initializer_ops
+        self._eval_every_n_steps = eval_every_n_steps
+
+    def before_run(self, run_context):
+        # Metrics such as accuracy has a dependency link to the dataset
+        # iterator through the label tensor, therefore its update must be
+        # executed in the same run of the training op; otherwise the iterator
+        # would pull an extra batch from the dataset
+        return tf_compat.train.SessionRunArgs(
+            fetches=[self._metrics_update_ops]
+        )
 
     def after_run(self, run_context, run_values):
         sess = run_context.session
-        sess.run(self._metrics_update_ops)
+        global_step = tf_compat.train.get_or_create_global_step()
+        global_step_val = sess.run(global_step)
+        if global_step_val % self._eval_every_n_steps == 0:
+            LOGGER.info("Reset metrics local variables at the end of step {}".format(global_step_val))
+            sess.run(self._metrics_initializer_ops)
 
 
 class EstimatorModelFn(ABC):
@@ -49,7 +72,11 @@ class EstimatorModelFn(ABC):
         def model_fn(features, labels, mode, params):
             net_outputs = model_const(features, *args, **kwargs)
 
+            ############################
+            #
             # Prediction mode
+            #
+            ############################
             if mode == tf_compat.estimator.ModeKeys.PREDICT:
                 predictions = self.create_predictions(net_outputs, params)
                 return tf_compat.estimator.EstimatorSpec(
@@ -57,28 +84,50 @@ class EstimatorModelFn(ABC):
                     predictions=predictions,
                 )
 
+            ############################
+            #
             # Train and eval mode
-            loss = self.create_loss(net_outputs, labels, params)
-            metrics_dict = self.create_metrics(net_outputs, labels, params)
-            metric_update_ops_hook = self.create_metric_update_ops_hook(
-                metrics_dict, params
-            )
-            summary_train_hook = self.create_train_summary_hook(metrics_dict, params)
+            #
+            ############################
 
-            if mode == tf_compat.estimator.ModeKeys.EVAL:
-                return tf_compat.estimator.EstimatorSpec(
-                    mode, loss=loss, eval_metric_ops=metrics_dict
-                )
-            # Train mode only
-            training_op = self.create_training_op(loss, params)
+            # Loss function
+            loss = self.create_loss(net_outputs, labels, params)
+
+            # Metrics to collect and their initialiers
+            metrics_dict, metrics_initializers_dict = self.create_metrics(
+                net_outputs, labels, params
+            )
+
+            # Modifier ops and extras
+            # Note that extras such as for pruning masks are needed for eval mode as well
             (
                 mod_manager,
                 mod_update_ops_hook,
             ) = self.create_modifier_ops_and_update_hook(params)
 
-            training_hooks = [metric_update_ops_hook, summary_train_hook]
-            if mod_update_ops_hook is not None:
-                training_hooks.append(mod_update_ops_hook)
+            if mode == tf_compat.estimator.ModeKeys.EVAL:
+                return tf_compat.estimator.EstimatorSpec(
+                    mode, loss=loss, eval_metric_ops=metrics_dict
+                )
+
+            # Training op
+            training_op = self.create_training_op(loss, params)
+
+            # Ops to update metrics
+            # During training, we call these ops to gather metrics on the current batch
+            # at the time of evaluation
+            metric_update_ops_hook = self.create_metric_update_ops_hook(
+                metrics_dict, metrics_initializers_dict, params
+            )
+
+            # Summaries to display on Tensorboard
+            summary_train_hook = self.create_train_summary_hook(metrics_dict, params)
+
+            training_hooks = [
+                mod_update_ops_hook,
+                metric_update_ops_hook,
+                summary_train_hook,
+            ]
 
             if params["checkpoint_path"] is not None:
                 # Finetuning
@@ -138,19 +187,28 @@ class EstimatorModelFn(ABC):
         net_outputs: Union[tf_compat.Tensor, Dict[str, tf_compat.Tensor]],
         labels: Union[tf_compat.Tensor, Dict[str, tf_compat.Tensor]],
         params: Dict[str, Any],
-    ) -> Dict[str, Tuple[tf_compat.Tensor, tf_compat.Operation]]:
+    ) -> (
+        Dict[str, Tuple[tf_compat.Tensor, tf_compat.Operation]],
+        List[tf_compat.Tensor],
+    ):
         """
         Create metrics for evaluation
 
         :param net_outputs: output tensors of the model graph
         :param labels: ground truth labels
         :param params: the model function params
-        :return: dictionary of metric tensors and their update operations
+        :return: (1) dictionary of metric tensors and their update operations;
+                 (2) list of extra/internal vars created for the metrics if any
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def create_metric_update_ops_hook(self, metrics_dict, params):
+    def create_metric_update_ops_hook(
+        self,
+        metrics_dict: Dict[str, Tuple[tf_compat.Tensor, tf_compat.Operation]],
+        metrics_initializers_dict: Dict[str, List[tf_compat.Tensor]],
+        params: Dict[str, Any],
+    ) -> MetricUpdateOpsHook:
         """
         Create hooks for the update operations of the collected metrics
 
@@ -162,19 +220,25 @@ class EstimatorModelFn(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def create_train_summary_hook(self, metrics_dict, params):
+    def create_train_summary_hook(
+        self,
+        metrics_dict: Dict[str, Tuple[tf_compat.Tensor, tf_compat.Operation]],
+        params: Dict[str, Any],
+    ) -> tf_compat.train.SummarySaverHook:
         """
         Create hook for the summary of metrics
 
         :param metrics_dict: dictionary of metrics, created as a result of
             create_metrics function
         :param params: the model function params
-        :return: a SessionRunHook instance
+        :return: a SummarySaverHook instance
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def create_training_op(self, loss, params: Dict[str, Any]):
+    def create_training_op(
+        self, loss: tf_compat.Tensor, params: Dict[str, Any]
+    ) -> tf_compat.Operation:
         """
         Create training op for optimization
 
@@ -185,7 +249,9 @@ class EstimatorModelFn(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def create_modifier_ops_and_update_hook(self, params: Dict[str, Any]):
+    def create_modifier_ops_and_update_hook(
+        self, params: Dict[str, Any]
+    ) -> (ScheduledModifierManager, ModifierSessionRunHook):
         """
         Create modifier ops and their update hook to run
 
@@ -195,7 +261,9 @@ class EstimatorModelFn(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def create_scaffold(self, params):
+    def create_scaffold(
+        self, modifier_manager: ScheduledModifierManager, params: Dict[str, Any]
+    ) -> tf_compat.train.Scaffold:
         """
         Create scaffold to be attached to the train estimator spec, containing
         at least the saver
@@ -265,18 +333,22 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
         net_outputs: Union[tf_compat.Tensor, Dict[str, tf_compat.Tensor]],
         labels: Union[tf_compat.Tensor, Dict[str, tf_compat.Tensor]],
         params: Dict[str, Any],
-    ) -> Dict[str, Tuple[tf_compat.Tensor, tf_compat.Operation]]:
+    ) -> (
+        Dict[str, Tuple[tf_compat.Tensor, tf_compat.Operation]],
+        Dict[str, tf_compat.Operation],
+    ):
         """
         Create metrics for evaluation
 
         :param net_outputs: output tensors of the model graph
         :param labels: ground truth labels
         :param params: the model function params
-        :return: dictionary of metric tensors and their update operations
+        :return: dictionary of metrics and their reset operations
         """
         metrics = params.get("metrics", [])
 
         metrics_dict = {}
+        metrics_initializers_dict = {}
         with tf_compat.name_scope("metrics"):
             for metric in metrics:
                 if metric == "accuracy":
@@ -287,16 +359,24 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
                         net_outputs_argmax,
                         name="accuracy_metric",
                     )
+                    # The total and count variables created to support accuracy
+                    running_vars = tf_compat.get_collection(
+                        tf_compat.GraphKeys.LOCAL_VARIABLES,
+                        scope="metrics/accuracy_metric",
+                    )
+                    running_vars_initializer = tf_compat.variables_initializer(var_list=running_vars)
+                    metrics_initializers_dict[metric] = running_vars_initializer
                 else:
                     raise ValueError("Unsupported metric: {}".format(metric))
 
-        return metrics_dict
+        return (metrics_dict, metrics_initializers_dict)
 
     def create_metric_update_ops_hook(
         self,
         metrics_dict: Dict[str, Tuple[tf_compat.Tensor, tf_compat.Operation]],
+        metrics_initializers_dict: Dict[str, List[tf_compat.Tensor]],
         params: Dict[str, Any],
-    ):
+    ) -> MetricUpdateOpsHook:
         """
         Create hooks for the update operations of the collected metrics
 
@@ -308,7 +388,12 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
         metrics_update_ops = [
             metrics_dict[metric_key][1] for metric_key in metrics_dict
         ]
-        metric_update_ops_hook = MetricUpdateOpsHook(metrics_update_ops)
+        metrics_initializer_ops = [
+            metrics_initializers_dict[metric_key] for metric_key in metrics_initializers_dict
+        ]
+        metric_update_ops_hook = MetricUpdateOpsHook(
+            metrics_update_ops, metrics_initializer_ops, params["eval_every_n_steps"]
+        )
         return metric_update_ops_hook
 
     def create_summary_op(
@@ -329,17 +414,17 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
         self,
         metrics_dict: Dict[str, Tuple[tf_compat.Tensor, tf_compat.Operation]],
         params: Dict[str, Any],
-    ):
+    ) -> tf_compat.train.SummarySaverHook:
         """
         Create hook for the summary of metrics
 
         :param metrics_dict: dictionary of metrics, created as a result of
             create_metrics function
         :param params: the model function params
-        :return: a SessionRunHook instance
+        :return: a SsummarySaverHook instance
         """
         summary_op = self.create_summary_op(metrics_dict, params)
-        save_steps = params.get("eval_every_n_steps", 100)
+        save_steps = params.get("eval_every_n_steps", params["eval_every_n_steps"])
         logs_dir = params.get("logs_dir", "logs")
         summary_train_hook = tf_compat.train.SummarySaverHook(
             save_steps=save_steps,
@@ -348,7 +433,9 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
         )
         return summary_train_hook
 
-    def create_training_op(self, loss: tf_compat.Tensor, params: Dict[str, Any]):
+    def create_training_op(
+        self, loss: tf_compat.Tensor, params: Dict[str, Any]
+    ) -> tf_compat.Operation:
         """
         Create training op for optimization
 
@@ -373,10 +460,17 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
         optimizer = optimizer_const[optimizer_name](**optimizer_params)
 
         with tf_compat.name_scope("train"):
-            training_op = optimizer.minimize(loss, global_step=global_step)
+            # We are using tf.layers.batch_normalization to support previous versions
+            # of TF, which requires us explicite model the dependency between the update of
+            # moving average and variance with training op
+            update_ops = tf_compat.get_collection(tf_compat.GraphKeys.UPDATE_OPS)
+            with tf_compat.control_dependencies(update_ops):
+                training_op = optimizer.minimize(loss, global_step=global_step)
         return training_op
 
-    def create_modifier_ops_and_update_hook(self, params: Dict[str, Any]):
+    def create_modifier_ops_and_update_hook(
+        self, params: Dict[str, Any]
+    ) -> (ScheduledModifierManager, ModifierSessionRunHook):
         """
         Create modifier ops and their update hook to run
 
@@ -402,7 +496,7 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
 
     def create_scaffold(
         self, modifier_manager: ScheduledModifierManager, params: Dict[str, Any]
-    ):
+    ) -> tf_compat.train.Scaffold:
         """
         Create scaffold to be attached to the train estimator spec, containing
         at least the saver

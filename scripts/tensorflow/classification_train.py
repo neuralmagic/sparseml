@@ -331,7 +331,7 @@ def parse_args():
     parser.add_argument(
         "--eval-build-config",
         type=json.loads,
-        default='{"shuffle_buffer_size": 100, "prefetch_buffer_size": 512, "num_parallel_calls": 4}',
+        default='{"repeat_count": 1, "prefetch_buffer_size": 512, "num_parallel_calls": 4}',
         help="Additional parameter dictionary to build the eval dataset",
     )
 
@@ -462,6 +462,7 @@ def main(args):
     train = not args.eval_mode
     dataset = DatasetRegistry.create(args.dataset, root=args.dataset_path, train=train)
     num_examples_per_epoch = len(dataset)
+    LOGGER.info("Number of examples per epoch: {}".format(num_examples_per_epoch))
 
     if args.dataset == "imagefolder":
         num_classes = dataset.num_classes
@@ -479,6 +480,7 @@ def main(args):
         run_config,
         num_classes=num_classes,
         class_type=args.class_type,
+        training=train,
     )
     if args.eval_mode:
         # Evaluation mode
@@ -487,33 +489,32 @@ def main(args):
         )
         metrics = classifier.evaluate(
             input_fn=input_fn,
-            steps=num_examples_per_epoch / args.eval_batch_size,
+            steps=math.ceil(num_examples_per_epoch / args.eval_batch_size),
             checkpoint_path=args.eval_checkpoint_path,
             name=args.eval_session_name,
         )
         LOGGER.info("Evaluation metrics: {}".format(metrics))
     else:
         # Training mode
-        val_dataset = DatasetRegistry.create(
-            args.dataset, root=args.dataset_path, train=False
-        )
-        num_eval_examples = len(val_dataset)
-
         steps_per_epoch = math.ceil(num_examples_per_epoch / args.train_batch_size)
         max_steps = steps_per_epoch * args.num_epochs
-
         train_input_fn = dataset.build_input_fn(
             args.train_batch_size, **args.train_build_config
         )
         train_spec = tf_compat.estimator.TrainSpec(
             input_fn=train_input_fn, max_steps=max_steps
         )
-        eval_input_fn = dataset.build_input_fn(
+
+        val_dataset = DatasetRegistry.create(
+            args.dataset, root=args.dataset_path, train=False
+        )
+        num_eval_examples = len(val_dataset)
+        eval_input_fn = val_dataset.build_input_fn(
             args.eval_batch_size, **args.eval_build_config
         )
         eval_spec = tf_compat.estimator.EvalSpec(
             input_fn=eval_input_fn,
-            steps=num_eval_examples / args.eval_batch_size,
+            steps=math.ceil(num_eval_examples / args.eval_batch_size),
             throttle_secs=1,
         )
         tf_compat.estimator.train_and_evaluate(classifier, train_spec, eval_spec)
