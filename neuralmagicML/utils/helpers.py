@@ -206,35 +206,39 @@ def interpolate(
 
 
 def interpolate_list_linear(
-    measurements: List[Tuple[float, float]], x_val: float
-) -> float:
+    measurements: List[Tuple[float, float]], x_val: Union[float, List[float]]
+) -> List[Tuple[float, float]]:
     """
-    interpolate for an input value within a list of measurements linearly
+    interpolate for input values within a list of measurements linearly
 
     :param measurements: the measurements to interpolate the output value between
-    :param x_val: the target value to interpolate to the second dimension
-    :return: the interpolated value
+    :param x_val: the target values to interpolate to the second dimension
+    :return: a list of tuples containing the target values, interpolated values
     """
     assert len(measurements) > 1
     measurements.sort(key=lambda v: v[0])
-    target_index = None
 
-    for index in range(len(measurements) - 1):
-        x_lower = measurements[index][0]
-        x_higher = measurements[index + 1][0]
+    x_vals = [x_val] if isinstance(x_val, float) else x_val
+    x_vals.sort()
 
-        if x_lower <= x_val <= x_higher:
-            target_index = index
-            break
+    interpolated = []
+    lower_index = 0
+    higher_index = 1
 
-    if target_index is None:
-        x0, y0 = measurements[len(measurements) - 2]
-        x1, y1 = measurements[len(measurements) - 1]
-    else:
-        x0, y0 = measurements[target_index]
-        x1, y1 = measurements[target_index + 1]
+    for x_val in x_vals:
+        while (
+            x_val > measurements[higher_index][0]
+            and higher_index < len(measurements) - 1
+        ):
+            lower_index += 1
+            higher_index += 1
 
-    return y0 + (x_val - x0) * ((y1 - y0) / (x1 - x0))
+        x0, y0 = measurements[lower_index]
+        x1, y1 = measurements[higher_index]
+        y_val = y0 + (x_val - x0) * ((y1 - y0) / (x1 - x0))
+        interpolated.append((x_val, y_val))
+
+    return interpolated
 
 
 def interpolated_integral(measurements: List[Tuple[float, float]]):

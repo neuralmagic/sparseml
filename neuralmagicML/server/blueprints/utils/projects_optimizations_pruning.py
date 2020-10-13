@@ -4,7 +4,9 @@ for pruning
 """
 
 
-from typing import Callable, Union, NamedTuple, Tuple, Dict, List, Any
+from typing import Union, NamedTuple, Tuple, Dict, List, Any
+from collections import OrderedDict
+from enum import Enum
 import logging
 import numpy
 
@@ -34,6 +36,320 @@ PruningSettings = NamedTuple(
 )
 
 
+class ValueRescaler(object):
+    """
+    Convenience class for normalizing / rescaling values
+    """
+
+    def __init__(self):
+        self._data = []  # type: List[Tuple[float, float, float]]
+        self._avg_mins = None
+        self._avg_ranges = None
+
+    def add_rescale_point(self, values: List[float]):
+        """
+        :param values: a list of values to add a point (min, max) for later rescaling
+        """
+        minimum = numpy.min(values).item() if values else 0.0
+        maximum = numpy.max(values).item() if values else 0.0
+        self._data.append((minimum, maximum, maximum - minimum))
+
+    def rescale(self, val: float) -> float:
+        """
+        :param val: the value to rescale
+        :return: the rescaled / normalized value based off of previously added points
+        """
+        if self._avg_mins is None or self._avg_ranges is None:
+            self._set_averages()
+
+        rescaled = val - self._avg_mins
+        if self._avg_ranges:
+            rescaled = rescaled / self._avg_ranges
+
+        return rescaled
+
+    def _set_averages(self):
+        self._avg_mins = (
+            numpy.average([d[0] for d in self._data]).item() if self._data else 0.0
+        )
+        self._avg_ranges = (
+            numpy.average([d[2] for d in self._data]).item() if self._data else 0.0
+        )
+
+
+class PruningNodeSeriesSmoothingType(Enum):
+    """
+    Enum for how to smooth a node's pruning estimations / measurements
+    """
+
+    none = "none"
+    maximum = "maximum"
+    minimum = "minimum"
+
+
+class PruningNodeSeries(object):
+    """
+    Series of measurements / estimations for a pruning node
+
+    :param measurements: a dictionary containing the measurements for the series
+    :param baseline_measurement_key: the baseline key that should be used
+        for series comparisons
+    :param smoothing_type: the smoothing type to apply to the measurements;
+        useful for smoothing out sensitivity measurements for pruning
+    :param invert_sensitivity: True to invert the sensitivity values,
+        False otherwise
+    """
+
+    def __init__(
+        self,
+        measurements: Union[None, Dict[str, float]],
+        baseline_measurement_key: str,
+        smoothing_type: PruningNodeSeriesSmoothingType,
+        invert_sensitivity: bool,
+    ):
+        self._baseline = None  # type: Union[None, float]
+        self._measurements = []  # type: List[Tuple[float, float]]
+        self._measurements_smoothed = []  # type: List[Tuple[float, float]]
+        self._smoothing_type = smoothing_type
+        self._set_measurements(measurements, baseline_measurement_key)
+        self._invert_sensitivity = invert_sensitivity
+
+    @property
+    def baseline(self) -> Union[None, float]:
+        """
+        :return: the baseline measurement value
+        """
+        return self._baseline
+
+    @property
+    def measurements(self) -> List[Tuple[float, float]]:
+        """
+        :return: the list of measurement tuples (sparsity, measurement)
+        """
+        return self._measurements
+
+    @property
+    def measurements_smoothed(self) -> List[Tuple[float, float]]:
+        """
+        :return: the list of measurement tuples (sparsity, measurement)
+            after applying the smoothing type
+        """
+        return self._measurements_smoothed
+
+    @property
+    def smoothing_type(self) -> PruningNodeSeriesSmoothingType:
+        """
+        :return: the smoothing type to apply to the measurements;
+            useful for smoothing out sensitivity measurements for pruning
+        """
+        return self._smoothing_type
+
+    @property
+    def invert_sensitivity(self) -> bool:
+        """
+        :return: True to invert the sensitivity values,
+            False otherwise
+        """
+        return self._invert_sensitivity
+
+    def sparse(
+        self, sparsity: Union[None, float], smooth: bool = False
+    ) -> Union[None, float]:
+        """
+        :param sparsity: the sparsity to get a measurement for
+        :param smooth: True to pull from the measurements_smoothed,
+            False otherwise
+        :return: the measurement at the given sparsity
+        """
+        if not self._measurements:
+            return None
+
+        if not sparsity:
+            return self.baseline
+
+        _, interpolated = interpolate_list_linear(
+            self._measurements if not smooth else self._measurements_smoothed, sparsity
+        )[0]
+
+        return interpolated
+
+    def sparse_measurements(
+        self, smooth: bool = False
+    ) -> List[Tuple[float, Union[None, float]]]:
+        """
+        :param smooth: True to pull from the measurements_smoothed,
+            False otherwise
+        :return: a list of tuples containing the sparsity from
+            0 to 99% at increments of 1% and the associated measurements
+        """
+        sparsities = [v / 100.0 for v in range(100)]
+
+        if not self._measurements:
+            return [v for v in zip(sparsities, [None for _ in range(len(sparsities))])]
+
+        interpolated = interpolate_list_linear(
+            self._measurements if not smooth else self._measurements_smoothed,
+            sparsities,
+        )
+
+        return interpolated
+
+    def sparse_gain(
+        self, sparsity: Union[None, float], smooth: bool = False
+    ) -> Union[None, float]:
+        """
+        :param sparsity: the sparsity to get the gain value for
+        :param smooth: True to pull from the measurements_smoothed,
+            False otherwise
+        :return: the ratio of the predicted value at the given sparsity
+            as compared with the baseline value
+        """
+        if not self._measurements:
+            return None
+
+        if not sparsity:
+            return 1.0
+
+        sparse = self.sparse(sparsity, smooth)
+
+        if not sparse or not self._baseline:
+            return 0.0
+
+        return self._baseline / sparse
+
+    def sparse_sensitivity(
+        self, sparsity: Union[None, float], smooth: bool = False
+    ) -> Union[None, float]:
+        """
+        :param sparsity: the sparsity to get the sensitivity value for
+        :param smooth: True to pull from the measurements_smoothed,
+            False otherwise
+        :return: the sensitivity comparison (difference) of the measurement
+            at the given sparsity compared with the baseline
+        """
+        sparse = self.sparse(sparsity, smooth)
+        baseline = self.baseline
+
+        return PruningNodeSeries._sensitivity(sparse, baseline, self.invert_sensitivity)
+
+    def sparse_desensitivity(
+        self, sparsity: Union[None, float], smooth: bool = False
+    ) -> Union[None, float]:
+        """
+        :param sparsity: the sparsity to get the desensitivity value for
+        :param smooth: True to pull from the measurements_smoothed,
+            False otherwise
+        :return: the desensitivity comparison (-1 * difference) of the measurement
+            at the given sparsity compared with the baseline
+        """
+        sparse = self.sparse(sparsity, smooth)
+        baseline = self.baseline
+
+        return PruningNodeSeries._sensitivity(
+            sparse, baseline, not self.invert_sensitivity
+        )
+
+    def sparse_sensitivities(
+        self, smooth: bool = False
+    ) -> List[Tuple[float, Union[None, float]]]:
+        """
+        :param smooth: True to pull from the measurements_smoothed,
+            False otherwise
+        :return: a list of tuples containing the sparsity from
+            0 to 99% at increments of 1% and the associated sensitivity value
+        """
+        measurements = self.sparse_measurements(smooth)
+        baseline = self.baseline
+
+        return PruningNodeSeries._sensitivities(
+            measurements, baseline, self.invert_sensitivity
+        )
+
+    def sparse_desensitivies(
+        self, smooth: bool = False
+    ) -> List[Tuple[float, Union[None, float]]]:
+        """
+        :param smooth: True to pull from the measurements_smoothed,
+            False otherwise
+        :return: a list of tuples containing the sparsity from
+            0 to 99% at increments of 1% and the associated desensitivity value
+        """
+        measurements = self.sparse_measurements(smooth)
+        baseline = self.baseline
+
+        return PruningNodeSeries._sensitivities(
+            measurements, baseline, not self.invert_sensitivity
+        )
+
+    def _set_measurements(
+        self, measurements: Dict[str, float], baseline_measurement_key: str,
+    ):
+        if not measurements:
+            return
+
+        meas_min = None
+        meas_max = None
+
+        for key, meas in measurements.items():
+            meas_smoothed = meas
+
+            if key == baseline_measurement_key:
+                self._baseline = meas
+            else:
+                if meas_min is None or meas < meas_min:
+                    meas_min = meas
+
+                if meas_max is None or meas < meas_max:
+                    meas_max = meas
+
+                if (
+                    self._smoothing_type == PruningNodeSeriesSmoothingType.minimum
+                    and meas > meas_min
+                ):
+                    meas_smoothed = meas_min
+
+                if (
+                    self._smoothing_type == PruningNodeSeriesSmoothingType.maximum
+                    and meas < meas_max
+                ):
+                    meas_smoothed = meas_max
+
+            self._measurements.append((float(key), meas))
+            self._measurements_smoothed.append((float(key), meas_smoothed))
+
+        self._measurements.sort(key=lambda x: x[0])
+        self._measurements_smoothed.sort(key=lambda x: x[0])
+
+    @staticmethod
+    def _sensitivity(
+        sparse: Union[float, None], baseline: Union[float, None], invert: bool
+    ) -> Union[float, None]:
+        if sparse is None or baseline is None:
+            return None
+
+        sensitivity = (baseline - sparse) if invert else (sparse - baseline)
+
+        return sensitivity
+
+    @staticmethod
+    def _sensitivities(
+        measurements: List[Tuple[float, Union[float, None]]],
+        baseline: Union[float, None],
+        invert: bool,
+    ):
+        sensitivities = []
+
+        for (sparsity, measurement) in measurements:
+            sensitivities.append(
+                (
+                    sparsity,
+                    PruningNodeSeries._sensitivity(measurement, baseline, invert),
+                )
+            )
+
+        return sensitivities
+
+
 class PruningNodeEvaluator(object):
     """
     Evaluator for a model's node for pruning.
@@ -53,62 +369,68 @@ class PruningNodeEvaluator(object):
         loss_analysis: Union[None, Dict],
     ):
         self._node_id = node_id
-        self._node_analysis = None
-        for node in model_analysis["nodes"]:
-            if node["id"] == node_id:
-                self._node_analysis = node
-                break
-        assert self._node_analysis
-        self._model_perf_set = perf_analysis and perf_analysis["pruning"]
-        self._model_loss_set = loss_analysis and loss_analysis["pruning"]
-        self._node_perf = None
-        self._node_loss = None
-
-        if self._model_perf_set:
-            for op in perf_analysis["pruning"]["ops"]:
-                if op["id"] == node_id:
-                    self._node_perf = op
-                    break
-
-        if self._model_loss_set:
-            for op in loss_analysis["pruning"]["ops"]:
-                if op["id"] == node_id:
-                    self._node_loss = op
-                    break
-
-        self._node_perf_measurements = (
-            PruningNodeEvaluator._correct_node_measurements(
-                self._node_perf["measurements"],
-                self._node_perf["baseline_measurement_key"],
-            )
-            if self._node_perf
-            else None
+        self._analysis = PruningNodeEvaluator._extract_node_analysis(
+            node_id, model_analysis
         )
-        self._node_perf_measurements_smooth = (
-            PruningNodeEvaluator._correct_node_measurements(
-                self._node_perf["measurements"],
-                self._node_perf["baseline_measurement_key"],
-                smooth_min=True,
-            )
-            if self._node_perf
-            else None
+        self._perf_analysis = PruningNodeEvaluator._extract_node_perf_analysis(
+            node_id, perf_analysis
         )
-        self._node_loss_measurements = (
-            PruningNodeEvaluator._correct_node_measurements(
-                self._node_loss["measurements"],
-                self._node_loss["baseline_measurement_key"],
-            )
-            if self._node_loss
-            else None
+        self._loss_analysis = PruningNodeEvaluator._extract_node_loss_analysis(
+            node_id, loss_analysis
         )
-        self._node_loss_measurements_smooth = (
-            PruningNodeEvaluator._correct_node_measurements(
-                self._node_loss["measurements"],
-                self._node_loss["baseline_measurement_key"],
-                smooth_max=True,
-            )
-            if self._node_loss
-            else None
+
+        self._params = PruningNodeSeries(
+            measurements=OrderedDict(
+                [
+                    ("0.0", self._analysis["params"]),
+                    (
+                        "1.0",
+                        self._analysis["params"] - self._analysis["prunable_params"],
+                    ),
+                ]
+            ),
+            baseline_measurement_key="0.0",
+            smoothing_type=PruningNodeSeriesSmoothingType.none,
+            invert_sensitivity=False,
+        )
+        self._flops = PruningNodeSeries(
+            measurements=OrderedDict([("0.0", self._analysis["flops"]), ("1.0", 0.0)])
+            if self._analysis["flops"]
+            else None,
+            baseline_measurement_key="0.0",
+            smoothing_type=PruningNodeSeriesSmoothingType.none,
+            invert_sensitivity=True,
+        )
+        self._performance = PruningNodeSeries(
+            measurements=self._perf_analysis["measurements"]
+            if self._perf_analysis
+            else None,
+            baseline_measurement_key=self._perf_analysis["baseline_measurement_key"]
+            if self._perf_analysis
+            else None,
+            smoothing_type=PruningNodeSeriesSmoothingType.minimum,
+            invert_sensitivity=True,
+        )
+        self._loss = PruningNodeSeries(
+            measurements=self._loss_analysis["measurements"]
+            if self._loss_analysis
+            else None,
+            baseline_measurement_key=self._loss_analysis["baseline_measurement_key"]
+            if self._loss_analysis
+            else None,
+            smoothing_type=PruningNodeSeriesSmoothingType.maximum,
+            invert_sensitivity=False,
+        )
+        self._loss_estimated = PruningNodeSeries(
+            OrderedDict(
+                [
+                    ("0.0", 0.0),
+                    ("1.0", self._analysis["prunable_equation_sensitivity"]),
+                ]
+            ),
+            baseline_measurement_key="0.0",
+            smoothing_type=PruningNodeSeriesSmoothingType.none,
+            invert_sensitivity=False,
         )
 
     @property
@@ -123,334 +445,181 @@ class PruningNodeEvaluator(object):
         """
         :return: number of prunable params in the node
         """
-        return self._node_analysis["prunable_params"]
+        return self._analysis["prunable_params"]
 
     @property
-    def params_baseline(self) -> Union[int, None]:
+    def params(self) -> PruningNodeSeries:
         """
-        :return: number of params in the node at baseline
+        :return: the params pruning series for the node
         """
-        return self._node_analysis["params"]
+        return self._params
 
     @property
-    def flops_baseline(self) -> Union[int, None]:
+    def flops(self) -> PruningNodeSeries:
         """
-        :return: number of flops in the node at baseline
+        :return: the flops pruning series for the node
         """
-        return self._node_analysis["flops"]
+        return self._flops
 
-    def sparse_evaluation(
-        self,
-        sparsity: Union[None, float],
-        balance_perf_loss: float,
-        rescale_perf_func: Union[None, Callable[[float], float]],
-        rescale_loss_func: Union[None, Callable[[float], float]],
-    ):
+    @property
+    def performance(self) -> PruningNodeSeries:
         """
-        Evaluate the effect of setting a specific sparsity on the node
-
-        :param sparsity: the sparsity to evaluate with
-        :param balance_perf_loss: the perf loss balance weight;
-            0.0 for all perf, 1.0 for all loss
-        :param rescale_perf_func: a rescale function to normalize the perf values
-        :param rescale_loss_func: a rescale function to normalize the loss values
-        :return: the effect of the given sparsity on the node
+        :return: the performance timings pruning series for the node
         """
-        if sparsity is None:
-            return None
+        return self._performance
 
-        if balance_perf_loss <= 0.0:
-            # all perf
-            return self.est_perf_sensitivity(sparsity, rescale_perf_func)
-
-        if balance_perf_loss >= 1.0:
-            # all loss
-            return self.est_loss_sensitivity(sparsity, rescale_loss_func)
-
-        perf = self.est_perf_sensitivity(sparsity, rescale_perf_func)
-        loss = self.est_loss_sensitivity(sparsity, rescale_loss_func)
-
-        if perf is None or loss is None:
-            return None
-
-        # subtract perf, we want the most sensitive there
-        return balance_perf_loss * loss - (1.0 - balance_perf_loss) * perf
-
-    def est_time(
-        self, sparsity: Union[float, None], smooth: bool = False
-    ) -> Union[float, None]:
+    @property
+    def performance_metric(self) -> PruningNodeSeries:
         """
-        :param sparsity: the sparsity to evaluate with
-        :param smooth: True to use smoothed timing info,
-            False to use the measured data as is
-        :return: the estimated time for the node at a given sparsity level
+        :return: the available performance metric,
+            falls back on flops if perf sensitivity is not available
         """
-        if sparsity is None:
-            return None
+        return self.performance if self._perf_analysis is not None else self.flops
 
-        perf_measurements = (
-            self._node_perf_measurements
-            if not smooth
-            else self._node_perf_measurements_smooth
+    @property
+    def loss(self) -> PruningNodeSeries:
+        """
+        :return: the loss measurements pruning series for the node
+        """
+        return self._loss
+
+    @property
+    def loss_estimated(self) -> PruningNodeSeries:
+        """
+        :return: the estimated loss measurements pruning series for the node
+        """
+        return self._loss_estimated
+
+    @property
+    def loss_metric(self) -> PruningNodeSeries:
+        """
+        :return: the available loss metric,
+            falls back on estimated loss if loss sensitivity is not available
+        """
+        return self.loss if self._loss_analysis is not None else self.loss_estimated
+
+    @property
+    def structurally_pruned(self) -> bool:
+        """
+        :return: True if the node is structurally pruned (group convolutions),
+            False otherwise
+        """
+        attributes = (
+            self._analysis["attributes"] if "attributes" in self._analysis else None
         )
 
-        if not perf_measurements:
-            return None
+        return attributes and "group" in attributes and attributes["group"] > 1
 
-        return interpolate_list_linear(perf_measurements, sparsity)
-
-    def est_time_baseline(self) -> Union[float, None]:
-        """
-        :return: the baseline estimated time for the node
-        """
-        if not self._node_perf:
-            return None
-
-        return self._node_perf["measurements"][
-            self._node_perf["baseline_measurement_key"]
-        ]
-
-    def est_perf_gain(self, sparsity: Union[float, None]) -> Union[float, None]:
-        """
-        :param sparsity: the sparsity to evaluate with
-        :return: the estimated performance gain from setting at a given sparsity level,
-            baseline / sparse time
-        """
-        if sparsity is None:
-            return None
-
-        est_baseline = self.est_time_baseline()
-        est_sparse = self.est_time(sparsity)
-
-        if est_baseline is None or est_sparse is None:
-            return None
-
-        return est_baseline / est_sparse if est_sparse > 0.0 else 0.0
-
-    def est_perf_sensitivity(
-        self,
-        sparsity: Union[float, None],
-        rescale_func: Union[None, Callable[[float], float]],
+    def recoverability(
+        self, sparsity: Union[float, None], baseline_sparsity: Union[float, None],
     ) -> Union[float, None]:
         """
-        :param sparsity: the sparsity to evaluate with
-        :param rescale_func: a rescale function to normalize the perf values
-        :return: the estimated performance sensitivity at a given sparsity level,
-            higher is more sensitive and lower is less sensitive
+        :param sparsity: the sparsity to get recoverability for
+        :param baseline_sparsity: the baseline sparsity to use for recoverability
+        :return: the estimated confidence of recoverability for the given sparsity
+            as compared to the baseline
         """
-        if sparsity is None:
-            return None
-
-        sensitivity = None
-
-        if not self._model_perf_set and self._node_analysis["flops"]:
-            # fall back on flops if no performance info is set
-            base_flops = self._node_analysis["flops"]
-            sparse_flops = (1.0 - sparsity) * base_flops
-            # flip so smaller sparse flops give more sensitivity
-            sensitivity = -1.0 * (sparse_flops - base_flops)
-        elif self._model_perf_set and self._node_perf:
-            est_baseline = self.est_time_baseline()
-            est_sparse = self.est_time(sparsity, smooth=True)
-            # flip so smaller sparse time decreases give more sensitivity
-            sensitivity = (
-                -1.0 * (est_sparse - est_baseline)
-                if est_baseline is not None and est_sparse is not None
-                else None
-            )
-
-        return (
-            rescale_func(sensitivity)
-            if rescale_func is not None and sensitivity is not None
-            else sensitivity
-        )
-
-    def est_loss(
-        self, sparsity: Union[float, None], smooth: bool = False
-    ) -> Union[float, None]:
-        """
-        :param sparsity: the sparsity to evaluate with
-        :param smooth: True to use smoothed timing info,
-            False to use the measured data as is
-        :return: the estimated loss for the node at a given sparsity level
-        """
-        if sparsity is None:
-            return None
-
-        loss_measurements = (
-            self._node_loss_measurements
-            if not smooth
-            else self._node_loss_measurements_smooth
-        )
-
-        if not loss_measurements:
-            return None
-
-        return interpolate_list_linear(loss_measurements, sparsity)
-
-    def est_loss_baseline(self) -> Union[float, None]:
-        """
-        :return: the baseline estimated loss for the node
-        """
-        if not self._node_loss:
-            return None
-
-        return self._node_loss["measurements"][
-            self._node_loss["baseline_measurement_key"]
-        ]
-
-    def est_loss_sensitivity(
-        self,
-        sparsity: Union[float, None],
-        rescale_func: Union[None, Callable[[float], float]],
-    ) -> Union[float, None]:
-        """
-        :param sparsity: the sparsity to evaluate with
-        :param rescale_func: a rescale function to normalize the loss values
-        :return: the estimated loss sensitivity at a given sparsity level,
-            higher is more sensitive and lower is less sensitive
-        """
-        if sparsity is None:
-            return None
-
-        sensitivity = None
-
-        if (
-            not self._model_loss_set
-            and self.prunable_params
-            and self._node_analysis["input_shapes"]
-            and self._node_analysis["output_shapes"]
-        ):
-            input_size = numpy.prod(
-                [
-                    numpy.prod([s for i, s in enumerate(shape) if s and i > 0])
-                    for shape in self._node_analysis["input_shapes"]
-                    if shape
-                ]
-            )
-            output_size = numpy.prod(
-                [
-                    numpy.prod([s for i, s in enumerate(shape) if s and i > 0])
-                    for shape in self._node_analysis["output_shapes"]
-                    if shape
-                ]
-            )
-            node_volume = input_size + output_size
-            baseline_params = self.prunable_params
-            sparse_params = (1.0 - sparsity) * baseline_params
-            baseline = node_volume / baseline_params if baseline_params > 0 else 0.0
-            sparse = node_volume / sparse_params if sparse_params > 0 else 0.0
-            sensitivity = sparse - baseline
-        elif self._model_loss_set and self._node_loss:
-            est_baseline = self.est_loss_baseline()
-            est_sparse = self.est_loss(sparsity, smooth=True)
-            sensitivity = (
-                (est_sparse - est_baseline)
-                if est_baseline is not None and est_sparse is not None
-                else None
-            )
-
-        return (
-            rescale_func(sensitivity)
-            if rescale_func is not None and sensitivity is not None
-            else sensitivity
-        )
-
-    def est_recoverability(
-        self,
-        sparsity: Union[float, None],
-        baseline_sparsity: Union[float, None],
-        rescale_func: Union[None, Callable[[float], float]],
-    ) -> Union[None, float]:
-        """
-        :param sparsity: the sparsity to evaluate with
-        :param baseline_sparsity: the baseline sparsity to compare against
-        :param rescale_func: a rescale function to normalize the loss values
-        :return: the estimated likelihood of recovery at a given sparsity level,
-            baseline_loss_sensitivity / sparse_loss_sensitivity
-        """
-        if sparsity is None:
-            return None
-
-        if baseline_sparsity is None:
-            return None
-
-        baseline = self.est_loss_sensitivity(baseline_sparsity, rescale_func)
-        estimated = self.est_loss_sensitivity(sparsity, rescale_func)
+        baseline = self.loss_metric.sparse_sensitivity(baseline_sparsity)
+        estimated = self.loss_metric.sparse_sensitivity(sparsity)
 
         if baseline is None or estimated is None:
             return None
 
-        return baseline / (estimated if estimated > 0.0 else 0.001)
+        if not estimated:
+            return 0.0
+
+        return baseline / estimated
+
+    def sparse_costs(
+        self,
+        balance_perf_loss: float,
+        perf_rescaler: ValueRescaler,
+        loss_rescaler: ValueRescaler,
+    ) -> List[Tuple[str, float, Union[float, None]]]:
+        """
+        :param balance_perf_loss: the weight [0.0, 1.0] for balancing perf vs loss;
+            0.0 for all performance, 1.0 for all loss
+        :param perf_rescaler: rescaler to use to rescale vales for performance
+            before calculating cost
+        :param loss_rescaler: rescaler to use to rescale vales for loss
+            before calculating cost
+        :return: a list of tuples containing the sparsities from 0% to 99% and
+            their associated cost for pruning the node to that sparsity
+        """
+        perfs = self.performance_metric.sparse_sensitivities(True)
+        losses = self.loss_metric.sparse_sensitivities(True)
+        costs = []
+
+        for ((sparsity, perf), (_, loss)) in zip(
+            perfs, losses
+        ):
+            perf = (
+                perf_rescaler.rescale(perf)
+                if perf is not None and perf_rescaler
+                else perf
+            )
+            loss = (
+                loss_rescaler.rescale(loss)
+                if loss is not None and loss_rescaler
+                else loss
+            )
+
+            if balance_perf_loss <= 0.0:
+                # all performance
+                cost = perf
+            elif balance_perf_loss >= 1.0:
+                # all loss
+                cost = loss
+            else:
+                cost = (
+                    balance_perf_loss * loss + (1.0 - balance_perf_loss) * perf
+                    if loss is not None and perf is not None
+                    else None
+                )
+
+            costs.append((self.node_id, sparsity, cost))
+
+        return costs
 
     @staticmethod
-    def _correct_node_measurements(
-        orig_measurements: Dict[str, float],
-        baseline_measurement_key: str,
-        smooth_max: bool = False,
-        smooth_min: bool = False,
-    ) -> List[Tuple[float, float]]:
-        measurements = []
-        min_sparse_meas = None
-        max_sparse_meas = None
+    def _extract_node_analysis(node_id: str, model_analysis: Dict) -> Dict:
+        analysis = None
 
-        for key, meas in orig_measurements.items():
-            if (
-                min_sparse_meas is None
-                or meas < min_sparse_meas
-                and key != baseline_measurement_key
-            ):
-                min_sparse_meas = meas
+        for node in model_analysis["nodes"]:
+            if node["id"] == node_id:
+                analysis = node
+                break
+        assert analysis
 
-            if (
-                max_sparse_meas is None
-                or meas < max_sparse_meas
-                and key != baseline_measurement_key
-            ):
-                max_sparse_meas = meas
+        return analysis
 
-            if smooth_min and meas > min_sparse_meas:
-                meas = min_sparse_meas
+    @staticmethod
+    def _extract_node_perf_analysis(
+        node_id: str, perf_analysis: Union[None, Dict]
+    ) -> Union[None, bool, Dict]:
+        if not perf_analysis:
+            return None
 
-            if smooth_max and meas < max_sparse_meas:
-                meas = max_sparse_meas
+        analysis = False
+        for op in perf_analysis["pruning"]["ops"]:
+            if op["id"] == node_id:
+                analysis = op
 
-            measurements.append((float(key), meas))
+        return analysis
 
-        measurements.sort(key=lambda x: x[0])
+    @staticmethod
+    def _extract_node_loss_analysis(
+        node_id: str, loss_analysis: Union[None, Dict]
+    ) -> Union[None, bool, Dict]:
+        if not loss_analysis:
+            return None
 
-        return measurements
+        analysis = False
+        for op in loss_analysis["pruning"]["ops"]:
+            if op["id"] == node_id:
+                analysis = op
 
-
-class _PruningNodeEvalWrapper(object):
-    def __init__(self, node: PruningNodeEvaluator):
-        self.node = node
-        self.baseline_sparsity = None
-        self.optimized_sparsity = None
-
-    @property
-    def optimized_params(self) -> int:
-        """
-        :return: the params at optimized sparsity if optimized sparsity is not none,
-            otherwise return baseline params
-        """
-        if self.optimized_sparsity:
-            return (self.node.prunable_params) * (1 - self.optimized_sparsity) + (
-                self.node.params_baseline - self.node.prunable_params
-            )
-        else:
-            return self.node.params_baseline
-
-    @property
-    def optimized_flops(self) -> int:
-        """
-        :return: the flops at optimized sparsity if optimized sparsity is not none,
-            otherwise return baseline params
-        """
-        if self.optimized_sparsity:
-            return self.node.flops_baseline * (1 - self.optimized_sparsity)
-        else:
-            return self.node.flops_baseline
+        return analysis
 
 
 class PruningModelEvaluator(object):
@@ -484,21 +653,19 @@ class PruningModelEvaluator(object):
             else None
         )
 
-        self._nodes = []  # type: List[_PruningNodeEvalWrapper]
-        self._rescale_perf_func = None
-        self._rescale_loss_func = None
-        self._baseline_sparsities = []
-        self._optimized_sparsities = []
+        self._nodes = []  # type: List[PruningNodeEvaluator]
+        self._baseline_sparsities = {}  # type: Dict[str, float]
+        self._optimized_sparsities = {}  # type: Dict[str, float]
+        self._perf_rescaler = None
+        self._loss_rescaler = None
 
         for node in model_analysis["nodes"]:
             if not node["prunable"]:
                 continue
 
             self._nodes.append(
-                _PruningNodeEvalWrapper(
-                    PruningNodeEvaluator(
-                        node["id"], model_analysis, perf_analysis, loss_analysis
-                    )
+                PruningNodeEvaluator(
+                    node["id"], model_analysis, perf_analysis, loss_analysis
                 )
             )
 
@@ -507,38 +674,25 @@ class PruningModelEvaluator(object):
         Create the loss and performance rescale functions so that later calls
         will be more balanced for optimizing between loss and performance
         """
-
-        def _create_rescale_func(
-            mins: List[float], ranges: List[float]
-        ) -> Callable[[float], float]:
-            mins_avg = numpy.average(mins).item() if mins else 0.0
-            ranges_avg = numpy.average(ranges).item() if ranges else 1.0
-
-            # shift so mins are at 0 on average and ranges + mins are at 1 on average
-            return lambda val: (val - mins_avg) / ranges_avg
-
-        perf_mins = []
-        perf_ranges = []
-        loss_mins = []
-        loss_ranges = []
+        self._perf_rescaler = ValueRescaler()
+        self._loss_rescaler = ValueRescaler()
 
         for node in self._nodes:
-            perf_min = node.node.est_perf_sensitivity(0.0, None)
-            perf_max = node.node.est_perf_sensitivity(0.95, None)  # 95% ignore extrema
-            if perf_min is not None:
-                perf_mins.append(perf_min)
-                if perf_max is not None:
-                    perf_ranges.append(perf_max - perf_min)
+            if node.performance_metric.measurements:
+                self._perf_rescaler.add_rescale_point(
+                    [
+                        node.performance_metric.sparse_desensitivity(0.0, True),
+                        node.performance_metric.sparse_desensitivity(0.95, True),
+                    ]
+                )
 
-            loss_min = node.node.est_loss_sensitivity(0.0, None)
-            loss_max = node.node.est_loss_sensitivity(0.95, None)  # 95% ignore extrema
-            if loss_min is not None:
-                loss_mins.append(loss_min)
-                if loss_max is not None:
-                    loss_ranges.append(loss_max - loss_min)
-
-        self._rescale_perf_func = _create_rescale_func(perf_mins, perf_ranges)
-        self._rescale_loss_func = _create_rescale_func(loss_mins, loss_ranges)
+            if node.loss_metric.measurements:
+                self._loss_rescaler.add_rescale_point(
+                    [
+                        node.loss_metric.sparse_sensitivity(0.0, True),
+                        node.loss_metric.sparse_sensitivity(0.95, True),
+                    ]
+                )
 
     def eval_baseline(self, baseline_sparsity: float):
         """
@@ -547,16 +701,13 @@ class PruningModelEvaluator(object):
 
         :param baseline_sparsity: the baseline_sparsity to use and evaluate with
         """
-        sparsities = PruningModelEvaluator._optimize_nodes_sparsity(
-            [node.node for node in self._nodes],
+        self._baseline_sparsities = PruningModelEvaluator._optimize_nodes_sparsity(
+            self._nodes,
             baseline_sparsity,
             balance_perf_loss=1.0,
-            rescale_perf_func=self._rescale_perf_func,
-            rescale_loss_func=self._rescale_loss_func,
+            perf_rescaler=self._perf_rescaler,
+            loss_rescaler=self._loss_rescaler,
         )
-
-        for node, sparsity in zip(self._nodes, sparsities):
-            node.baseline_sparsity = sparsity
 
     def eval_pruning(self, settings: PruningSettings):
         """
@@ -565,17 +716,18 @@ class PruningModelEvaluator(object):
 
         :param settings: the pruning settings to use and evaluate with
         """
-        sparsities = PruningModelEvaluator._optimize_nodes_sparsity(
-            [node.node for node in self._nodes],
+        self._optimized_sparsities = PruningModelEvaluator._optimize_nodes_sparsity(
+            self._nodes,
             settings.sparsity,
             balance_perf_loss=settings.balance_perf_loss,
-            rescale_perf_func=self._rescale_perf_func,
-            rescale_loss_func=self._rescale_loss_func,
+            perf_rescaler=self._perf_rescaler,
+            loss_rescaler=self._loss_rescaler,
         )
 
-        for node, sparsity in zip(self._nodes, sparsities):
-            est_perf_gain = node.node.est_perf_gain(sparsity)
-            est_loss = node.node.est_loss(sparsity)
+        for node in self._nodes:
+            sparsity = self._optimized_sparsities[node.node_id]
+            est_perf_gain = node.performance_metric.sparse_gain(sparsity)
+            est_loss = node.loss_metric.sparse(sparsity)
 
             if sparsity is None or (
                 (
@@ -593,9 +745,7 @@ class PruningModelEvaluator(object):
                     and est_loss > settings.filter_max_loss_drop
                 )
             ):
-                node.optimized_sparsity = None
-            else:
-                node.optimized_sparsity = sparsity
+                self._optimized_sparsities[node.node_id] = None
 
     def apply_node_overrides(self, node_overrides: List[Dict[str, Any]]):
         """
@@ -606,10 +756,7 @@ class PruningModelEvaluator(object):
         :param node_overrides: the override sparsity levels for nodes to set with
         """
         for override in node_overrides:
-            for node in self._nodes:
-                if override["node_id"] == node.node.node_id:
-                    node.optimized_sparsity = override["sparsity"]
-                    break
+            self._optimized_sparsities[override["node_id"]] = override["sparsity"]
 
     def to_dict_values(self) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
@@ -623,30 +770,26 @@ class PruningModelEvaluator(object):
         node_values = []
 
         for node in self._nodes:
+            sparsity = self._optimized_sparsities[node.node_id]
+            baseline_sparsity = self._baseline_sparsities[node.node_id]
             node_values.append(
                 {
-                    "node_id": node.node.node_id,
-                    "sparsity": node.optimized_sparsity,
-                    "est_recovery": node.node.est_recoverability(
-                        node.optimized_sparsity,
-                        node.baseline_sparsity,
-                        self._rescale_loss_func,
-                    ),
-                    "est_perf_gain": node.node.est_perf_gain(node.optimized_sparsity),
-                    "est_time": node.node.est_time(node.optimized_sparsity),
-                    "est_time_baseline": node.node.est_time_baseline(),
-                    "est_loss_sensitivity": node.node.est_loss_sensitivity(
+                    "node_id": node.node_id,
+                    "sparsity": sparsity,
+                    "est_recovery": node.recoverability(sparsity, baseline_sparsity),
+                    "est_perf_gain": node.performance_metric.sparse_gain(sparsity),
+                    "est_time": node.performance.sparse(sparsity),
+                    "est_time_baseline": node.performance.baseline,
+                    "est_loss_sensitivity": node.loss_metric.sparse_sensitivity(
                         PruningModelEvaluator.EVAL_SENSITIVITY_SPARSITY,
-                        self._rescale_loss_func,
                     ),
-                    "est_perf_sensitivity": node.node.est_perf_sensitivity(
+                    "est_perf_sensitivity": node.performance_metric.sparse_sensitivity(
                         PruningModelEvaluator.EVAL_SENSITIVITY_SPARSITY,
-                        self._rescale_perf_func,
                     ),
-                    "params_baseline": node.node.params_baseline,
-                    "flops_baseline": node.node.flops_baseline,
-                    "params": node.optimized_params,
-                    "flops": node.optimized_flops,
+                    "params_baseline": node.params.baseline,
+                    "flops_baseline": node.flops.baseline,
+                    "params": node.params.sparse(sparsity),
+                    "flops": node.flops.sparse(sparsity),
                 }
             )
 
@@ -670,6 +813,18 @@ class PruningModelEvaluator(object):
             for node in node_values
             if node["est_time_baseline"] is not None and node["est_time"] is not None
         ]
+        params_baseline = [
+            node["params_baseline"]
+            for node in node_values
+            if node["params_baseline"] is not None
+        ]
+        flops_baseline = [
+            node["flops_baseline"]
+            for node in node_values
+            if node["flops_baseline"] is not None
+        ]
+        params = [node["params"] for node in node_values if node["params"] is not None]
+        flops = [node["flops"] for node in node_values if node["flops"] is not None]
 
         if est_time_deltas and self._baseline_time and self._baseline_pruning_time:
             est_pruning_time = (
@@ -694,17 +849,11 @@ class PruningModelEvaluator(object):
             "est_perf_gain": est_perf_gain,
             "est_time": est_time,
             "est_time_baseline": self._baseline_time,
-            "params_baseline": 0,
-            "flops_baseline": 0,
-            "params": 0,
-            "flops": 0,
+            "params_baseline": sum(params_baseline),
+            "flops_baseline": sum(flops_baseline),
+            "params": sum(params),
+            "flops": sum(flops),
         }
-
-        for node in self._nodes:
-            model_values["params_baseline"] += node.node.params_baseline
-            model_values["flops_baseline"] += node.node.flops_baseline
-            model_values["params"] += node.optimized_params
-            model_values["flops"] += node.optimized_flops
 
         return node_values, model_values
 
@@ -713,95 +862,50 @@ class PruningModelEvaluator(object):
         nodes: List[PruningNodeEvaluator],
         sparsity: float,
         balance_perf_loss: float,
-        rescale_perf_func: Union[None, Callable[[float], float]],
-        rescale_loss_func: Union[None, Callable[[float], float]],
-    ):
-        sparsities = [
-            0.0
-            if node.prunable_params
-            and node.sparse_evaluation(
-                sparsity, balance_perf_loss, rescale_perf_func, rescale_loss_func
-            )
-            else None
-            for node in nodes
-        ]
-        total_sparsity = PruningModelEvaluator._eval_total_sparsity(nodes, sparsities)
+        perf_rescaler: ValueRescaler,
+        loss_rescaler: ValueRescaler,
+    ) -> Dict[str, float]:
+        sparsities = {}
+        nodes_costs = {}
+        costs = []
 
-        while total_sparsity is not None and total_sparsity < sparsity:
-            PruningModelEvaluator._apply_cheapest_node_step(
-                nodes,
-                sparsities,
-                balance_perf_loss,
-                rescale_perf_func,
-                rescale_loss_func,
-                step_size=0.01,
-            )
-            total_sparsity = PruningModelEvaluator._eval_total_sparsity(
-                nodes, sparsities
-            )
+        for node in nodes:
+            sparsities[node.node_id] = None
+
+            if node.structurally_pruned:
+                continue
+
+            costs = node.sparse_costs(balance_perf_loss, perf_rescaler, loss_rescaler)
+
+            if costs and costs[0][2] is not None:
+                nodes_costs[node.node_id] = costs
+
+        if not nodes_costs:
+            return sparsities
+
+        nodes_costs_indices = {node_id: 0 for node_id in nodes_costs.keys()}
+        available_steps = len(nodes_costs) * len(costs)
+        num_optim_steps = round(available_steps * sparsity)
+
+        for step in range(num_optim_steps):
+            smallest_id = None
+            smallest_cost = None
+
+            for node_id, cost_index in nodes_costs_indices.items():
+                _, cost_sparsity, cost = nodes_costs[node_id][cost_index + 1]
+
+                if cost_sparsity < PruningModelEvaluator.MAX_NODE_SPARSITY and (
+                    smallest_cost is None or cost < smallest_cost
+                ):
+                    smallest_id = node_id
+                    smallest_cost = cost
+
+            if smallest_id is None:
+                break
+
+            nodes_costs_indices[smallest_id] += 1
+
+        for node_id, cost_index in nodes_costs_indices.items():
+            sparsities[node_id] = nodes_costs[node_id][cost_index][1]
 
         return sparsities
-
-    @staticmethod
-    def _eval_total_sparsity(
-        nodes: List[PruningNodeEvaluator], sparsities: List[Union[float, None]]
-    ) -> Union[None, float]:
-        current = 0.0
-        total = 0.0
-
-        for node, sparsity in zip(nodes, sparsities):
-            if sparsity is None:
-                continue
-
-            total += node.prunable_params
-            current += sparsity * node.prunable_params
-
-        return current / total if total > 0.0 else None
-
-    @staticmethod
-    def _apply_cheapest_node_step(
-        nodes: List[PruningNodeEvaluator],
-        sparsities: List[Union[float, None]],
-        balance_perf_loss: float,
-        rescale_perf_func: Union[None, Callable[[float], float]],
-        rescale_loss_func: Union[None, Callable[[float], float]],
-        step_size: float,
-    ):
-        sparsity_costs = [None for _ in sparsities]  # type: List[Union[None, float]]
-
-        for index, (node, sparsity) in enumerate(zip(nodes, sparsities)):
-            if sparsity is None or sparsity >= PruningModelEvaluator.MAX_NODE_SPARSITY:
-                continue
-
-            current_eval = node.sparse_evaluation(
-                sparsity, balance_perf_loss, rescale_perf_func, rescale_loss_func
-            )
-            next_eval = node.sparse_evaluation(
-                sparsity + step_size,
-                balance_perf_loss,
-                rescale_perf_func,
-                rescale_loss_func,
-            )
-            cost = next_eval - current_eval
-            sparsity_costs[index] = cost
-
-        # zero costs
-        valid_costs = [c for c in sparsity_costs if c is not None]
-        costs_min = min(valid_costs) if valid_costs else 0.0
-        sparsity_costs = [
-            c - costs_min if c is not None else None for c in sparsity_costs
-        ]
-
-        # normalize and flip costs to adjustments
-        # more cost == smaller gradient
-        # distribute step size
-        costs_sum = sum([c for c in sparsity_costs if c is not None])
-        sparsity_adjustments = [
-            (1.0 - (c / costs_sum)) * step_size if c is not None else 0.0
-            for c in sparsity_costs
-        ]
-
-        for index, (sparsity, adjustment) in enumerate(
-            zip(sparsities, sparsity_adjustments)
-        ):
-            sparsities[index] = sparsity + adjustment

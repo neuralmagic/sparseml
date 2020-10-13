@@ -97,10 +97,15 @@ def get_ml_sys_info() -> Dict[str, Any]:
     """
     sys_info = {
         "available_engines": available_ml_engines(),
-        "ip_address": socket.gethostbyname(socket.gethostname()),
+        "ip_address": None,
+        "version_info": get_ml_version_info(),
     }
 
-    sys_info["version_info"] = get_ml_version_info()
+    try:
+        # sometimes this isn't available, wrap to protect and not fail
+        sys_info["ip_address"] = socket.gethostbyname(socket.gethostname())
+    except:
+        pass
 
     # get sys info from neuralmagic.cpu
     if neuralmagic is not None:
