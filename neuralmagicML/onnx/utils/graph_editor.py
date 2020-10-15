@@ -18,10 +18,15 @@ __all__ = [
     "override_model_batch_size",
     "prune_unstructured",
     "prune_model_one_shot",
+    "prune_model_one_shot_iter",
 ]
 
 
-def update_model_param(model: ModelProto, param_name: str, val: numpy.ndarray,) -> None:
+def update_model_param(
+    model: ModelProto,
+    param_name: str,
+    val: numpy.ndarray,
+) -> None:
     """
     Removes the parameter with name param_name from the model
     Creates a new parameter using val
@@ -145,3 +150,33 @@ def prune_model_one_shot(
         weight, bias = get_node_params(model, node)
         pruned_weight_val = prune_unstructured(weight.val, sparsity)
         update_model_param(model, weight.name, pruned_weight_val)
+
+
+def prune_model_one_shot_iter(
+    model: ModelProto, nodes: List[NodeProto], sparsity: Union[float, List[float]]
+):
+    """
+    Iteratively prune a model in-place with one shot pruning (no retraining) according to
+    magnitude pruning. Does so in an unstructured way currently
+
+    :param model: the model to apply pruning to
+    :param nodes: the nodes within the model to prune to the desired sparsities
+    :param sparsity: the sparsity level to prune all nodes to if a float,
+        or the sparsity level to prune each node to if a list of floats
+    """
+    if not isinstance(sparsity, Iterable):
+        tmp = float(sparsity)
+        sparsity = [tmp for _ in range(len(nodes))]
+
+    if len(nodes) != len(sparsity):
+        raise ValueError(
+            "len(nodes) {} does not match len(sparsity) {}".format(
+                len(nodes), len(sparsity)
+            )
+        )
+
+    for index, (node, sparsity) in enumerate(zip(nodes, sparsity)):
+        weight, bias = get_node_params(model, node)
+        pruned_weight_val = prune_unstructured(weight.val, sparsity)
+        update_model_param(model, weight.name, pruned_weight_val)
+        yield (index + 1) / len(nodes)

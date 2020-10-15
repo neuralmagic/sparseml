@@ -123,6 +123,35 @@ class ModelRunner(ABC):
         :return: a tuple containing the list of outputs and the list of times
             for running the data
         """
+        outputs = []
+        times = []
+        for output, time in self.run_iter(data_loader, desc, show_progress, max_steps, *args, **kwargs):
+            outputs.append(output)
+            times.append(time)
+
+        return outputs, times
+
+    def run_iter(
+        self,
+        data_loader: DataLoader,
+        desc: str = "",
+        show_progress: bool = True,
+        max_steps: int = -1,
+        *args,
+        **kwargs
+    ):
+        """
+        Iteratively runs inference for a model for the data given in the data_loader iterator
+
+        :param data_loader: the data_loader used to load batches of data to
+            run through the model
+        :param desc: str to display if show_progress is True
+        :param show_progress: True to show a tqdm bar when running, False otherwise
+        :param max_steps: maximum number of steps to take for the data_loader
+            instead of running over all the data
+        :return: a tuple containing the list of outputs and the list of times
+            for running the data
+        """
         counter_len = len(data_loader) if not data_loader.infinite else None
 
         if max_steps > 0 and counter_len is not None and counter_len > 0:
@@ -148,14 +177,10 @@ class ModelRunner(ABC):
             _LOGGER.debug("calling batch_forward for batch {}".format(batch))
             pred, pred_time = self.batch_forward(data, *args, **kwargs)
             _LOGGER.debug("prediction completed in {}".format(pred_time))
-            times.append(pred_time)
             output = self._loss(pred, label) if self._loss is not None else pred
-            outputs.append(output)
-
+            yield output, pred_time
             if batch >= max_steps - 1 and max_steps > -1:
                 break
-
-        return outputs, times
 
     @abstractmethod
     def batch_forward(
@@ -201,6 +226,7 @@ class ORTModelRunner(ModelRunner):
         sess_options.graph_optimization_level = (
             onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
         )
+
         self._session = onnxruntime.InferenceSession(
             self._model.SerializeToString()
             if not isinstance(self._model, str)

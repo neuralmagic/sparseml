@@ -68,7 +68,7 @@ from tests.server.helper import schema_tester
             {
                 "iter_indefinite": False,
                 "iter_class": "class",
-                "iter_val": 10,
+                "iter_val": -1,
                 "num_steps": 100,
                 "step_class": "Step class",
                 "step_index": 10,
@@ -76,7 +76,7 @@ from tests.server.helper import schema_tester
             {
                 "iter_indefinite": False,
                 "iter_class": "class",
-                "iter_val": 10,
+                "iter_val": -1,
                 "num_steps": 100,
                 "step_class": "Step class",
                 "step_index": 10,

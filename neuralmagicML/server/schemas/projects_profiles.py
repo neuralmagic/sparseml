@@ -51,7 +51,9 @@ class ProjectProfileMeasurementsSchema(Schema):
 
     baseline_measurement_key = fields.Str(required=True, allow_none=True)
     measurements = fields.Dict(
-        keys=fields.Str(allow_none=True), values=fields.Float(), required=True,
+        keys=fields.Str(allow_none=True),
+        values=fields.Float(),
+        required=True,
     )
 
 
@@ -140,7 +142,9 @@ class ProjectProfileSchema(Schema):
     project_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
     source = fields.Str(
-        required=True, validate=validate.OneOf(FILE_SOURCES), allow_none=True,
+        required=True,
+        validate=validate.OneOf(FILE_SOURCES),
+        allow_none=True,
     )
     job = fields.Nested(JobSchema, required=True, allow_none=True)
     analysis = fields.Nested(

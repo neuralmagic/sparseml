@@ -119,10 +119,16 @@ def test_project_benchmark_result_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": None,
-                "inference_engine": "neural_magic",
-                "inference_model_optimization": None,
-                "comparison_engine": None,
-                "comparison_model_optimization": None,
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": None,
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": None,
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["AVX2"],
@@ -134,10 +140,16 @@ def test_project_benchmark_result_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": None,
-                "inference_engine": "neural_magic",
-                "inference_model_optimization": None,
-                "comparison_engine": None,
-                "comparison_model_optimization": None,
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": None,
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": None,
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["AVX2"],
@@ -152,31 +164,63 @@ def test_project_benchmark_result_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": "name",
-                "inference_engine": "ort_cpu",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "ort_cpu",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": None,
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": None,
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["AVX2"],
                 "source": "generated",
                 "job": None,
-                "result": "success",
+                "result": {
+                    "benchmarks": [
+                        {
+                            "core_count": 1,
+                            "batch_size": 1,
+                            "inference_engine": "neural_magic",
+                            "inference_model_optimization": "optimization",
+                            "measurements": [0.1, 0.2, 0.3],
+                        }
+                    ]
+                },
             },
             {
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": "name",
-                "inference_engine": "ort_cpu",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "ort_cpu",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": None,
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": None,
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["AVX2"],
                 "source": "generated",
                 "job": None,
-                "result": "success",
+                "result": {
+                    "benchmarks": [
+                        {
+                            "core_count": 1,
+                            "batch_size": 1,
+                            "inference_engine": "neural_magic",
+                            "inference_model_optimization": "optimization",
+                            "measurements": [0.1, 0.2, 0.3],
+                        }
+                    ]
+                },
             },
             None,
         ),
@@ -185,19 +229,35 @@ def test_project_benchmark_result_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": "name",
-                "inference_engine": "fail",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "fail",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "fail",
+                        "inference_model_optimization": None,
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": None,
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["fail"],
                 "source": "fail",
                 "job": None,
-                "result": "success",
+                "result": {
+                    "benchmarks": [
+                        {
+                            "core_count": 1,
+                            "batch_size": 1,
+                            "inference_engine": "neural_magic",
+                            "inference_model_optimization": "optimization",
+                            "measurements": [0.1, 0.2, 0.3],
+                        }
+                    ]
+                },
             },
             None,
-            ["inference_engine", "comparison_engine", "instruction_sets", "source"],
+            ["inference_models", "instruction_sets", "source"],
         ),
     ],
 )
@@ -223,10 +283,16 @@ def test_project_benchmark_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": None,
-                "inference_engine": "neural_magic",
-                "inference_model_optimization": None,
-                "comparison_engine": None,
-                "comparison_model_optimization": None,
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": None,
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": None,
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["AVX2"],
@@ -239,10 +305,16 @@ def test_project_benchmark_schema(
                     "benchmark_id": "benchmark id",
                     "project_id": "project id",
                     "name": None,
-                    "inference_engine": "neural_magic",
-                    "inference_model_optimization": None,
-                    "comparison_engine": None,
-                    "comparison_model_optimization": None,
+                    "inference_models": [
+                        {
+                            "inference_engine": "ort_gpu",
+                            "inference_model_optimization": None,
+                        },
+                        {
+                            "inference_engine": "neural_magic",
+                            "inference_model_optimization": None,
+                        },
+                    ],
                     "core_counts": [1, 2, 3],
                     "batch_sizes": [3, 6, 9],
                     "instruction_sets": ["AVX2"],
@@ -258,32 +330,64 @@ def test_project_benchmark_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": "name",
-                "inference_engine": "ort_cpu",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "ort_cpu",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": None,
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": None,
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["AVX2"],
                 "source": "generated",
                 "job": None,
-                "result": "success",
+                "result": {
+                    "benchmarks": [
+                        {
+                            "core_count": 1,
+                            "batch_size": 1,
+                            "inference_engine": "neural_magic",
+                            "inference_model_optimization": "optimization",
+                            "measurements": [0.1, 0.2, 0.3],
+                        }
+                    ]
+                },
             },
             {
                 "benchmark": {
                     "benchmark_id": "benchmark id",
                     "project_id": "project id",
                     "name": "name",
-                    "inference_engine": "ort_cpu",
-                    "inference_model_optimization": "optimization",
-                    "comparison_engine": "ort_cpu",
-                    "comparison_model_optimization": "comparison",
+                    "inference_models": [
+                        {
+                            "inference_engine": "ort_gpu",
+                            "inference_model_optimization": None,
+                        },
+                        {
+                            "inference_engine": "neural_magic",
+                            "inference_model_optimization": None,
+                        },
+                    ],
                     "core_counts": [1, 2, 3],
                     "batch_sizes": [3, 6, 9],
                     "instruction_sets": ["AVX2"],
                     "source": "generated",
                     "job": None,
-                    "result": "success",
+                    "result": {
+                        "benchmarks": [
+                            {
+                                "core_count": 1,
+                                "batch_size": 1,
+                                "inference_engine": "neural_magic",
+                                "inference_model_optimization": "optimization",
+                                "measurements": [0.1, 0.2, 0.3],
+                            }
+                        ]
+                    },
                 }
             },
             None,
@@ -293,16 +397,32 @@ def test_project_benchmark_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": "name",
-                "inference_engine": "fail",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "fail",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": None,
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": None,
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["fail"],
                 "source": "fail",
                 "job": None,
-                "result": "success",
+                "result": {
+                    "benchmarks": [
+                        {
+                            "core_count": 1,
+                            "batch_size": 1,
+                            "inference_engine": "neural_magic",
+                            "inference_model_optimization": "optimization",
+                            "measurements": [0.1, 0.2, 0.3],
+                        }
+                    ]
+                },
             },
             None,
             ["benchmark"],
@@ -334,10 +454,16 @@ def test_response_project_benchmark_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": None,
-                "inference_engine": "neural_magic",
-                "inference_model_optimization": None,
-                "comparison_engine": None,
-                "comparison_model_optimization": None,
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": None,
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": None,
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["AVX2"],
@@ -351,10 +477,16 @@ def test_response_project_benchmark_schema(
                         "benchmark_id": "benchmark id",
                         "project_id": "project id",
                         "name": None,
-                        "inference_engine": "neural_magic",
-                        "inference_model_optimization": None,
-                        "comparison_engine": None,
-                        "comparison_model_optimization": None,
+                        "inference_models": [
+                            {
+                                "inference_engine": "ort_gpu",
+                                "inference_model_optimization": None,
+                            },
+                            {
+                                "inference_engine": "neural_magic",
+                                "inference_model_optimization": None,
+                            },
+                        ],
                         "core_counts": [1, 2, 3],
                         "batch_sizes": [3, 6, 9],
                         "instruction_sets": ["AVX2"],
@@ -371,16 +503,32 @@ def test_response_project_benchmark_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": "name",
-                "inference_engine": "ort_cpu",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "ort_cpu",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": "optimization",
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": "optimization",
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["AVX2"],
                 "source": "generated",
                 "job": None,
-                "result": "success",
+                "result": {
+                    "benchmarks": [
+                        {
+                            "core_count": 1,
+                            "batch_size": 1,
+                            "inference_engine": "neural_magic",
+                            "inference_model_optimization": "optimization",
+                            "measurements": [0.1, 0.2, 0.3],
+                        }
+                    ]
+                },
             },
             {
                 "benchmarks": [
@@ -388,16 +536,32 @@ def test_response_project_benchmark_schema(
                         "benchmark_id": "benchmark id",
                         "project_id": "project id",
                         "name": "name",
-                        "inference_engine": "ort_cpu",
-                        "inference_model_optimization": "optimization",
-                        "comparison_engine": "ort_cpu",
-                        "comparison_model_optimization": "comparison",
+                        "inference_models": [
+                            {
+                                "inference_engine": "ort_gpu",
+                                "inference_model_optimization": "optimization",
+                            },
+                            {
+                                "inference_engine": "neural_magic",
+                                "inference_model_optimization": "optimization",
+                            },
+                        ],
                         "core_counts": [1, 2, 3],
                         "batch_sizes": [3, 6, 9],
                         "instruction_sets": ["AVX2"],
                         "source": "generated",
                         "job": None,
-                        "result": "success",
+                        "result": {
+                            "benchmarks": [
+                                {
+                                    "core_count": 1,
+                                    "batch_size": 1,
+                                    "inference_engine": "neural_magic",
+                                    "inference_model_optimization": "optimization",
+                                    "measurements": [0.1, 0.2, 0.3],
+                                }
+                            ]
+                        },
                     }
                 ]
             },
@@ -408,10 +572,16 @@ def test_response_project_benchmark_schema(
                 "benchmark_id": "benchmark id",
                 "project_id": "project id",
                 "name": "name",
-                "inference_engine": "fail",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "fail",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": "optimization",
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": "optimization",
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
                 "instruction_sets": ["fail"],
@@ -446,16 +616,31 @@ def test_response_project_benchmarks_schema(
     [
         (
             {
-                "inference_engine": "ort_gpu",
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": "optimization",
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": "optimization",
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
             },
             {
                 "name": None,
-                "inference_engine": "ort_gpu",
-                "inference_model_optimization": None,
-                "comparison_engine": None,
-                "comparison_model_optimization": None,
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": "optimization",
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": "optimization",
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
             },
@@ -464,19 +649,31 @@ def test_response_project_benchmarks_schema(
         (
             {
                 "name": "benchmark",
-                "inference_engine": "ort_gpu",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "ort_cpu",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": "optimization",
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": "optimization",
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
             },
             {
                 "name": "benchmark",
-                "inference_engine": "ort_gpu",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "ort_cpu",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "ort_gpu",
+                        "inference_model_optimization": "optimization",
+                    },
+                    {
+                        "inference_engine": "neural_magic",
+                        "inference_model_optimization": "optimization",
+                    },
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
             },
@@ -485,15 +682,17 @@ def test_response_project_benchmarks_schema(
         (
             {
                 "name": "benchmark",
-                "inference_engine": "fail",
-                "inference_model_optimization": "optimization",
-                "comparison_engine": "fail",
-                "comparison_model_optimization": "comparison",
+                "inference_models": [
+                    {
+                        "inference_engine": "fail",
+                        "inference_model_optimization": "optimization",
+                    }
+                ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
             },
             None,
-            ["inference_engine", "comparison_engine"],
+            ["inference_models"],
         ),
     ],
 )
@@ -539,5 +738,7 @@ def test_response_project_benchmark_deleted_schema(
     expected_input: Dict, expected_output: Dict
 ):
     schema_tester(
-        ResponseProjectBenchmarkDeletedSchema, expected_input, expected_output,
+        ResponseProjectBenchmarkDeletedSchema,
+        expected_input,
+        expected_output,
     )

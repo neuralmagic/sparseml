@@ -1,22 +1,42 @@
 """
 Server routes related to benchmarks
 """
-
+import datetime
+import json
 import logging
 from http import HTTPStatus
 
 from flask import Blueprint, current_app, request, jsonify
 from flasgger import swag_from
+from marshmallow import ValidationError
 
+from neuralmagicML.onnx.utils import get_ml_sys_info
 from neuralmagicML.server.blueprints.projects import PROJECTS_ROOT_PATH
+from neuralmagicML.server.blueprints.utils import (
+    get_project_benchmark_by_ids,
+    get_project_by_id,
+)
 from neuralmagicML.server.schemas import (
+    data_dump_and_validation,
     ErrorSchema,
     CreateProjectBenchmarkSchema,
+    ProjectBenchmarkSchema,
     ResponseProjectBenchmarkSchema,
     ResponseProjectBenchmarksSchema,
     ResponseProjectBenchmarkDeletedSchema,
+    SearchProjectBenchmarksSchema,
 )
 
+from neuralmagicML.server.models import (
+    database,
+    Job,
+    ProjectBenchmark,
+)
+
+from neuralmagicML.server.workers import (
+    JobWorkerManager,
+    CreateBenchmarkJobWorker,
+)
 
 __all__ = ["PROJECT_BENCHMARK_PATH", "projects_benchmark_blueprint"]
 
@@ -89,7 +109,23 @@ def get_benchmarks(project_id: str):
     :param project_id: the id of the project to get benchmarks for
     :return: a tuple containing (json response, http status code)
     """
-    pass
+    args = {key: val for key, val in request.args.items()}
+    _LOGGER.info("getting project benchmark for project_id {}".format(project_id))
+
+    args = SearchProjectBenchmarksSchema().load(args)
+    query = (
+        ProjectBenchmark.select()
+        .where(ProjectBenchmark.project_id == project_id)
+        .order_by(ProjectBenchmark.created)
+        .paginate(args["page"], args["page_length"])
+    )
+    benchmarks = [res for res in query]
+    resp_benchmarks = data_dump_and_validation(
+        ResponseProjectBenchmarksSchema(), {"benchmarks": benchmarks}
+    )
+    _LOGGER.info("retrieved {} benchmarks".format(len(benchmarks)))
+
+    return jsonify(resp_benchmarks), HTTPStatus.OK.value
 
 
 @projects_benchmark_blueprint.route("/", methods=["POST"])
@@ -145,7 +181,69 @@ def create_benchmark(project_id: str):
     :param project_id: the id of the project to create a benchmark for
     :return: a tuple containing (json response, http status code)
     """
-    pass
+    _LOGGER.info(
+        "creating benchmark for project {} for request json {}".format(
+            project_id, request.get_json()
+        )
+    )
+
+    project = get_project_by_id(project_id)
+
+    benchmark_params = CreateProjectBenchmarkSchema().load(request.get_json(force=True))
+
+    model = project.model
+    if model is None:
+        raise ValidationError(
+            (
+                "A model has not been set for the project with id {}, "
+                "project must set a model before running a benchmark."
+            ).format(project_id)
+        )
+
+    sys_info = get_ml_sys_info()
+
+    with database.atomic() as transaction:
+        try:
+            benchmark_params["instruction_sets"] = (
+                sys_info["available_instructions"]
+                if "available_instructions" in sys_info
+                else []
+            )
+            benchmark = ProjectBenchmark.create(
+                project=project, source="generated", **benchmark_params
+            )
+
+            job = Job.create(
+                project_id=project.project_id,
+                type_=CreateBenchmarkJobWorker.get_type(),
+                worker_args=CreateBenchmarkJobWorker.format_args(
+                    model_id=model.model_id,
+                    benchmark_id=benchmark.benchmark_id,
+                    core_counts=benchmark.core_counts,
+                    batch_sizes=benchmark.batch_sizes,
+                    instruction_sets=benchmark.instruction_sets,
+                    inference_models=benchmark.inference_models,
+                    warmup_iterations_per_check=benchmark.warmup_iterations_per_check,
+                    iterations_per_check=benchmark.iterations_per_check,
+                ),
+            )
+            benchmark.job = job
+            benchmark.save()
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating new benchmark, rolling back: {}".format(err)
+            )
+            transaction.rollback()
+            raise err
+
+    JobWorkerManager().refresh()
+
+    resp_benchmark = data_dump_and_validation(
+        ResponseProjectBenchmarkSchema(), {"benchmark": benchmark}
+    )
+    _LOGGER.info("created benchmark and job: {}".format(resp_benchmark))
+
+    return jsonify(resp_benchmark), HTTPStatus.OK.value
 
 
 @projects_benchmark_blueprint.route("/upload", methods=["POST"])
@@ -199,7 +297,64 @@ def upload_benchmark(project_id: str):
     :param project_id: the id of the project to create a benchmark for
     :return: a tuple containing (json response, http status code)
     """
-    pass
+    _LOGGER.info("uploading benchmark for project {}".format(project_id))
+
+    project = get_project_by_id(project_id)  # validate id
+
+    if "benchmark_file" not in request.files:
+        _LOGGER.error("missing uploaded file 'benchmark_file'")
+        raise ValidationError("missing uploaded file 'benchmark_file'")
+
+    # read benchmark file
+    try:
+        benchmark = json.load(request.files["benchmark_file"])  # type: Dict
+    except Exception as err:
+        _LOGGER.error("error while reading uploaded benchmark file: {}".format(err))
+        raise ValidationError(
+            "error while reading uploaded benchmark file: {}".format(err)
+        )
+
+    benchmark["benchmark_id"] = "<none>"
+    benchmark["project_id"] = "<none>"
+    benchmark["source"] = "uploaded"
+    benchmark["job"] = None
+    benchmark["created"] = datetime.datetime.now()
+
+    benchmark = data_dump_and_validation(ProjectBenchmarkSchema(), benchmark)
+    del benchmark["benchmark_id"]
+    del benchmark["project_id"]
+    del benchmark["created"]
+
+    model = project.model
+    if model is None:
+        raise ValidationError(
+            (
+                "A model has not been set for the project with id {}, "
+                "project must set a model before running a benchmark."
+            ).format(project_id)
+        )
+
+    with database.atomic() as transaction:
+        try:
+            benchmark_model = ProjectBenchmark.create(project=project, **benchmark)
+            resp_benchmark = data_dump_and_validation(
+                ResponseProjectBenchmarkSchema(), {"benchmark": benchmark_model}
+            )
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating new benchmark, rolling back: {}".format(err)
+            )
+            transaction.rollback()
+            raise err
+
+    _LOGGER.info(
+        "created benchmark: id: {}, name: {}".format(
+            resp_benchmark["benchmark"]["benchmark_id"],
+            resp_benchmark["benchmark"]["name"],
+        )
+    )
+
+    return jsonify(resp_benchmark), HTTPStatus.OK.value
 
 
 @projects_benchmark_blueprint.route("/<benchmark_id>")
@@ -254,7 +409,24 @@ def get_benchmark(project_id: str, benchmark_id: str):
     :param benchmark_id: the id of the benchmark to get
     :return: a tuple containing (json response, http status code)
     """
-    pass
+    _LOGGER.info(
+        "getting benchmark for project {} with id {}".format(project_id, benchmark_id)
+    )
+
+    get_project_by_id(project_id)
+
+    benchmark = get_project_benchmark_by_ids(project_id, benchmark_id)
+
+    resp_benchmark = data_dump_and_validation(
+        ResponseProjectBenchmarkSchema(), {"benchmark": benchmark}
+    )
+    _LOGGER.info(
+        "found benchmark with benchmark_id {} and project_id: {}".format(
+            benchmark_id, project_id
+        )
+    )
+
+    return jsonify(resp_benchmark), HTTPStatus.OK.value
 
 
 @projects_benchmark_blueprint.route("/<benchmark_id>", methods=["DELETE"])
@@ -309,4 +481,23 @@ def delete_benchmark(project_id: str, benchmark_id: str):
     :param benchmark_id: the id of the benchmark to delete
     :return: a tuple containing (json response, http status code)
     """
-    pass
+    _LOGGER.info(
+        "deleting benchmark for project {} with id {}".format(project_id, benchmark_id)
+    )
+
+    get_project_by_id(project_id)
+
+    benchmark = get_project_benchmark_by_ids(project_id, benchmark_id)
+    benchmark.delete_instance()
+
+    resp_del = data_dump_and_validation(
+        ResponseProjectBenchmarkDeletedSchema(),
+        {"success": True, "project_id": project_id, "benchmark_id": benchmark_id},
+    )
+    _LOGGER.info(
+        "deleted benchmark with benchmark_id {} and project_id: {}".format(
+            benchmark_id, project_id
+        )
+    )
+
+    return jsonify(resp_del), HTTPStatus.OK.value

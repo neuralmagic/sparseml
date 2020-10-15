@@ -20,6 +20,7 @@ __all__ = [
     "ResponseProjectBenchmarkSchema",
     "ResponseProjectBenchmarksSchema",
     "ResponseProjectBenchmarkDeletedSchema",
+    "SearchProjectBenchmarksSchema",
 ]
 
 
@@ -31,7 +32,8 @@ class ProjectBenchmarkResultSchema(Schema):
     core_count = fields.Int(required=True)
     batch_size = fields.Int(required=True)
     inference_engine = fields.Str(
-        required=True, validate=validate.OneOf(INFERENCE_ENGINE_TYPES),
+        required=True,
+        validate=validate.OneOf(INFERENCE_ENGINE_TYPES),
     )
     inference_model_optimization = fields.Str(required=True, allow_none=True)
     measurements = fields.List(fields.Float(), required=True)
@@ -45,6 +47,18 @@ class ProjectBenchmarkResultsSchema(Schema):
     benchmarks = fields.Nested(ProjectBenchmarkResultSchema, many=True, required=True)
 
 
+class ProjectBenchmarkInferenceModelSchema(Schema):
+    """
+    Schema for a project benchmark object's inference model being used for comparison
+    """
+
+    inference_engine = fields.Str(
+        required=True,
+        validate=validate.OneOf(INFERENCE_ENGINE_TYPES),
+    )
+    inference_model_optimization = fields.Str(missing=None, allow_none=True)
+
+
 class ProjectBenchmarkSchema(Schema):
     """
     Schema for a project benchmark object (metadata and result) as stored in the DB and
@@ -55,25 +69,26 @@ class ProjectBenchmarkSchema(Schema):
     project_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
     name = fields.Str(required=True, allow_none=True)
-    inference_engine = fields.Str(
-        required=True, validate=validate.OneOf(INFERENCE_ENGINE_TYPES),
+    inference_models = fields.Nested(
+        ProjectBenchmarkInferenceModelSchema, required=True, many=True
     )
-    inference_model_optimization = fields.Str(required=True, allow_none=True)
-    comparison_engine = fields.Str(
-        required=True, validate=validate.OneOf(INFERENCE_ENGINE_TYPES), allow_none=True
-    )
-    comparison_model_optimization = fields.Str(required=True, allow_none=True)
     core_counts = fields.List(fields.Int(), required=True)
     batch_sizes = fields.List(fields.Int(), required=True)
+    iterations_per_check = fields.Int(required=True)
+    warmup_iterations_per_check = fields.Int(required=True)
     instruction_sets = fields.List(
         fields.Str(required=True, validate=validate.OneOf(INSTRUCTION_SETS)),
         required=True,
     )
     source = fields.Str(
-        required=True, validate=validate.OneOf(FILE_SOURCES), allow_none=True,
+        required=True,
+        validate=validate.OneOf(FILE_SOURCES),
+        allow_none=True,
     )
     job = fields.Nested(JobSchema, required=True, allow_none=True)
-    result = fields.Str(required=True, allow_none=True)
+    result = fields.Nested(
+        ProjectBenchmarkResultsSchema, required=True, allow_none=True
+    )
 
 
 class CreateProjectBenchmarkSchema(Schema):
@@ -82,23 +97,17 @@ class CreateProjectBenchmarkSchema(Schema):
     """
 
     name = fields.Str(required=False, allow_none=True, default=None)
-    inference_engine = fields.Str(
-        required=True, validate=validate.OneOf(INFERENCE_ENGINE_TYPES),
-    )
-    inference_model_optimization = fields.Str(
-        required=False, allow_none=True, default=None
-    )
-    comparison_engine = fields.Str(
-        required=False,
-        validate=validate.OneOf(INFERENCE_ENGINE_TYPES),
-        allow_none=True,
-        default=None,
-    )
-    comparison_model_optimization = fields.Str(
-        required=False, allow_none=True, default=None
+    inference_models = fields.Nested(
+        ProjectBenchmarkInferenceModelSchema, required=True, many=True
     )
     core_counts = fields.List(fields.Int(), required=True)
     batch_sizes = fields.List(fields.Int(), required=True)
+    iterations_per_check = fields.Int(
+        required=False, default=None, validate=validate.Range(min=1)
+    )
+    warmup_iterations_per_check = fields.Int(
+        required=False, default=None, validate=validate.Range(min=0)
+    )
 
 
 class ResponseProjectBenchmarkSchema(Schema):
@@ -125,3 +134,22 @@ class ResponseProjectBenchmarkDeletedSchema(Schema):
     success = fields.Bool(required=False, default=True)
     project_id = fields.Str(required=True)
     benchmark_id = fields.Str(required=True)
+
+
+class SearchProjectBenchmarksSchema(Schema):
+    """
+    Schema to use for querying project benchmarks
+    """
+
+    page = fields.Int(
+        default=1,
+        missing=1,
+        validate=validate.Range(min=1, min_inclusive=True),
+        required=False,
+    )
+    page_length = fields.Int(
+        default=20,
+        missing=20,
+        validate=validate.Range(min=1, min_inclusive=True),
+        required=False,
+    )

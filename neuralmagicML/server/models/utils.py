@@ -7,6 +7,7 @@ from neuralmagicML.server.models import (
     storage,
     Job,
     Project,
+    ProjectBenchmark,
     ProjectModel,
     ProjectData,
     ProjectLossProfile,
@@ -38,6 +39,7 @@ def database_setup(working_dir: str, app: Flask = None):
     models = [
         Job,
         Project,
+        ProjectBenchmark,
         ProjectModel,
         ProjectData,
         ProjectLossProfile,

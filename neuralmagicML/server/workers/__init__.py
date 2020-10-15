@@ -8,3 +8,4 @@ from .base_wrapper import *
 
 from .projects_model import *
 from .projects_profiles import *
+from .projects_benchmark import *
