@@ -113,9 +113,12 @@ def get_ml_sys_info() -> Dict[str, Any]:
         nm_info = {k.lower(): v for k, v in nm_info.items()}  # standardize case
         sys_info.update(nm_info)  # add to main dict
 
-        available_instructions = neuralmagic.cpu.VALID_VECTOR_EXTENSIONS
-        available_instructions = [ins.upper() for ins in available_instructions]
-        sys_info["available_instructions"] = available_instructions
+        sys_info["available_instructions"] = (
+            nm_info["isa"] if isinstance(nm_info["isa"], list) else [nm_info["isa"]]
+        )
+        sys_info["available_instructions"] = [
+            ins.upper() for ins in sys_info["available_instructions"]
+        ]
     else:
         sys_info["cores_per_socket"] = psutil.cpu_count(logical=False)
 
