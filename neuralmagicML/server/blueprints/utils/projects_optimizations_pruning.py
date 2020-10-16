@@ -31,7 +31,7 @@ PruningSettings = NamedTuple(
         ("balance_perf_loss", float),
         ("filter_min_sparsity", Union[float, None]),
         ("filter_min_perf_gain", Union[float, None]),
-        ("filter_max_loss_drop", Union[float, None]),
+        ("filter_min_recovery", Union[float, None]),
     ],
 )
 
@@ -232,23 +232,6 @@ class PruningNodeSeries(object):
 
         return PruningNodeSeries._sensitivity(sparse, baseline, self.invert_sensitivity)
 
-    def sparse_desensitivity(
-        self, sparsity: Union[None, float], smooth: bool = False
-    ) -> Union[None, float]:
-        """
-        :param sparsity: the sparsity to get the desensitivity value for
-        :param smooth: True to pull from the measurements_smoothed,
-            False otherwise
-        :return: the desensitivity comparison (-1 * difference) of the measurement
-            at the given sparsity compared with the baseline
-        """
-        sparse = self.sparse(sparsity, smooth)
-        baseline = self.baseline
-
-        return PruningNodeSeries._sensitivity(
-            sparse, baseline, not self.invert_sensitivity
-        )
-
     def sparse_sensitivities(
         self, smooth: bool = False
     ) -> List[Tuple[float, Union[None, float]]]:
@@ -263,22 +246,6 @@ class PruningNodeSeries(object):
 
         return PruningNodeSeries._sensitivities(
             measurements, baseline, self.invert_sensitivity
-        )
-
-    def sparse_desensitivies(
-        self, smooth: bool = False
-    ) -> List[Tuple[float, Union[None, float]]]:
-        """
-        :param smooth: True to pull from the measurements_smoothed,
-            False otherwise
-        :return: a list of tuples containing the sparsity from
-            0 to 99% at increments of 1% and the associated desensitivity value
-        """
-        measurements = self.sparse_measurements(smooth)
-        baseline = self.baseline
-
-        return PruningNodeSeries._sensitivities(
-            measurements, baseline, not self.invert_sensitivity
         )
 
     def _set_measurements(
@@ -510,25 +477,75 @@ class PruningNodeEvaluator(object):
 
         return attributes and "group" in attributes and attributes["group"] > 1
 
-    def recoverability(
+    def eval_dict(
+        self,
+        sparsity: Union[float, None],
+        baseline_sparsity: Union[float, None],
+        overridden: bool,
+    ) -> Dict[str, Any]:
+        sensitivity_sparsities = [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99]
+        perf_sensitivities = [
+            (sparsity, self.performance_metric.sparse_sensitivity(sparsity))
+            for sparsity in sensitivity_sparsities
+        ]
+        loss_sensitivities = [
+            (sparsity, self.loss_metric.sparse_sensitivity(sparsity))
+            for sparsity in sensitivity_sparsities
+        ]
+
+        return {
+            "node_id": self.node_id,
+            "sparsity": sparsity,
+            "overridden": overridden,
+            "perf_sensitivities": perf_sensitivities,
+            "loss_sensitivities": loss_sensitivities,
+            "est_recovery": self.recovery(sparsity, baseline_sparsity),
+            "est_loss_sensitivity": self.loss_metric.sparse_sensitivity(
+                PruningModelEvaluator.EVAL_SENSITIVITY_SPARSITY,
+            ),
+            "est_perf_sensitivity": self.performance_metric.sparse_sensitivity(
+                PruningModelEvaluator.EVAL_SENSITIVITY_SPARSITY,
+            ),
+            "est_time": self.performance.sparse(sparsity),
+            "est_time_baseline": self.performance.baseline,
+            "est_time_gain": self.performance.sparse_gain(sparsity),
+            "params_baseline": self.params.baseline,
+            "params": self.params.sparse(sparsity),
+            "compression": self.params.sparse_gain(sparsity),
+            "flops_baseline": self.flops.baseline,
+            "flops": self.flops.sparse(sparsity),
+            "flops_gain": self.flops.sparse_gain(sparsity),
+        }
+
+    def recovery(
         self, sparsity: Union[float, None], baseline_sparsity: Union[float, None],
     ) -> Union[float, None]:
         """
-        :param sparsity: the sparsity to get recoverability for
-        :param baseline_sparsity: the baseline sparsity to use for recoverability
-        :return: the estimated confidence of recoverability for the given sparsity
+        :param sparsity: the sparsity to get recovery for
+        :param baseline_sparsity: the baseline sparsity to use for recovery
+        :return: the estimated confidence of recovery for the given sparsity
             as compared to the baseline
         """
         baseline = self.loss_metric.sparse_sensitivity(baseline_sparsity)
         estimated = self.loss_metric.sparse_sensitivity(sparsity)
 
-        if baseline is None or estimated is None:
-            return None
+        if baseline == estimated or not sparsity:
+            # baseline equals estimated or layer is not pruned
+            # set recovery to 1
+            return 1.0
 
-        if not estimated:
+        if not baseline or not baseline_sparsity:
+            # baseline says layer should not be pruned and it is
+            # set recovery to 0
             return 0.0
 
-        return baseline / estimated
+        # use percent difference to determine recovery between the
+        # loss optimal baseline sensitivity and the target sparsity sensitivity
+        # add 1 to it such that perfect recovery is predicted at 1.0
+        # less than 1.0 gives a worse chance of recovery
+        # greater than 1.0 gives a better chance of recovery
+
+        return (baseline - estimated) / baseline + 1.0
 
     def sparse_costs(
         self,
@@ -550,9 +567,7 @@ class PruningNodeEvaluator(object):
         losses = self.loss_metric.sparse_sensitivities(True)
         costs = []
 
-        for ((sparsity, perf), (_, loss)) in zip(
-            perfs, losses
-        ):
+        for ((sparsity, perf), (_, loss)) in zip(perfs, losses):
             perf = (
                 perf_rescaler.rescale(perf)
                 if perf is not None and perf_rescaler
@@ -622,6 +637,13 @@ class PruningNodeEvaluator(object):
         return analysis
 
 
+class _PruningNodeSetting(object):
+    def __init__(self):
+        self.baseline_sparsity = None
+        self.sparsity = None
+        self.overridden = False
+
+
 class PruningModelEvaluator(object):
     """
     Evaluator for a model for pruning.
@@ -642,6 +664,9 @@ class PruningModelEvaluator(object):
         perf_analysis: Union[None, Dict],
         loss_analysis: Union[None, Dict],
     ):
+        self._model_analysis = model_analysis
+        self._perf_analysis = perf_analysis
+        self._loss_analysis = loss_analysis
         self._baseline_time = (
             perf_analysis["baseline"]["model"]["measurement"] if perf_analysis else None
         )
@@ -654,43 +679,33 @@ class PruningModelEvaluator(object):
         )
 
         self._nodes = []  # type: List[PruningNodeEvaluator]
-        self._baseline_sparsities = {}  # type: Dict[str, float]
-        self._optimized_sparsities = {}  # type: Dict[str, float]
-        self._perf_rescaler = None
-        self._loss_rescaler = None
+        self._nodes_settings = {}  # type: Dict[str, _PruningNodeSetting]
+        self._perf_rescaler = ValueRescaler()
+        self._loss_rescaler = ValueRescaler()
 
         for node in model_analysis["nodes"]:
             if not node["prunable"]:
                 continue
 
-            self._nodes.append(
-                PruningNodeEvaluator(
-                    node["id"], model_analysis, perf_analysis, loss_analysis
-                )
+            pruning_node = PruningNodeEvaluator(
+                node["id"], model_analysis, perf_analysis, loss_analysis
             )
+            self._nodes.append(pruning_node)
+            self._nodes_settings[pruning_node.node_id] = _PruningNodeSetting()
 
-    def create_rescale_functions(self):
-        """
-        Create the loss and performance rescale functions so that later calls
-        will be more balanced for optimizing between loss and performance
-        """
-        self._perf_rescaler = ValueRescaler()
-        self._loss_rescaler = ValueRescaler()
-
-        for node in self._nodes:
-            if node.performance_metric.measurements:
+            if pruning_node.performance_metric.measurements:
                 self._perf_rescaler.add_rescale_point(
                     [
-                        node.performance_metric.sparse_desensitivity(0.0, True),
-                        node.performance_metric.sparse_desensitivity(0.95, True),
+                        pruning_node.performance_metric.sparse_sensitivity(0.0, True),
+                        pruning_node.performance_metric.sparse_sensitivity(0.95, True),
                     ]
                 )
 
-            if node.loss_metric.measurements:
+            if pruning_node.loss_metric.measurements:
                 self._loss_rescaler.add_rescale_point(
                     [
-                        node.loss_metric.sparse_sensitivity(0.0, True),
-                        node.loss_metric.sparse_sensitivity(0.95, True),
+                        pruning_node.loss_metric.sparse_sensitivity(0.0, True),
+                        pruning_node.loss_metric.sparse_sensitivity(0.95, True),
                     ]
                 )
 
@@ -701,13 +716,16 @@ class PruningModelEvaluator(object):
 
         :param baseline_sparsity: the baseline_sparsity to use and evaluate with
         """
-        self._baseline_sparsities = PruningModelEvaluator._optimize_nodes_sparsity(
+        node_sparsities = PruningModelEvaluator._optimize_nodes_sparsity(
             self._nodes,
             baseline_sparsity,
             balance_perf_loss=1.0,
             perf_rescaler=self._perf_rescaler,
             loss_rescaler=self._loss_rescaler,
         )
+
+        for node_id, sparsity in node_sparsities.items():
+            self._nodes_settings[node_id].baseline_sparsity = sparsity
 
     def eval_pruning(self, settings: PruningSettings):
         """
@@ -716,7 +734,7 @@ class PruningModelEvaluator(object):
 
         :param settings: the pruning settings to use and evaluate with
         """
-        self._optimized_sparsities = PruningModelEvaluator._optimize_nodes_sparsity(
+        node_sparsities = PruningModelEvaluator._optimize_nodes_sparsity(
             self._nodes,
             settings.sparsity,
             balance_perf_loss=settings.balance_perf_loss,
@@ -725,9 +743,11 @@ class PruningModelEvaluator(object):
         )
 
         for node in self._nodes:
-            sparsity = self._optimized_sparsities[node.node_id]
+            sparsity = node_sparsities[node.node_id]
             est_perf_gain = node.performance_metric.sparse_gain(sparsity)
-            est_loss = node.loss_metric.sparse(sparsity)
+            est_recovery = node.recovery(
+                sparsity, self._nodes_settings[node.node_id].baseline_sparsity
+            )
 
             if sparsity is None or (
                 (
@@ -740,12 +760,15 @@ class PruningModelEvaluator(object):
                     and est_perf_gain < settings.filter_min_perf_gain
                 )
                 or (
-                    settings.filter_max_loss_drop
-                    and est_loss is not None
-                    and est_loss > settings.filter_max_loss_drop
+                    settings.filter_min_recovery
+                    and est_recovery is not None
+                    and est_recovery < settings.filter_min_recovery
                 )
             ):
-                self._optimized_sparsities[node.node_id] = None
+                sparsity = None
+
+            self._nodes_settings[node.node_id].sparsity = sparsity
+            self._nodes_settings[node.node_id].overridden = False
 
     def apply_node_overrides(self, node_overrides: List[Dict[str, Any]]):
         """
@@ -756,7 +779,8 @@ class PruningModelEvaluator(object):
         :param node_overrides: the override sparsity levels for nodes to set with
         """
         for override in node_overrides:
-            self._optimized_sparsities[override["node_id"]] = override["sparsity"]
+            self._nodes_settings[override["node_id"]].sparsity = override["sparsity"]
+            self._nodes_settings[override["node_id"]].overridden = True
 
     def to_dict_values(self) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
@@ -770,27 +794,11 @@ class PruningModelEvaluator(object):
         node_values = []
 
         for node in self._nodes:
-            sparsity = self._optimized_sparsities[node.node_id]
-            baseline_sparsity = self._baseline_sparsities[node.node_id]
+            settings = self._nodes_settings[node.node_id]
             node_values.append(
-                {
-                    "node_id": node.node_id,
-                    "sparsity": sparsity,
-                    "est_recovery": node.recoverability(sparsity, baseline_sparsity),
-                    "est_perf_gain": node.performance_metric.sparse_gain(sparsity),
-                    "est_time": node.performance.sparse(sparsity),
-                    "est_time_baseline": node.performance.baseline,
-                    "est_loss_sensitivity": node.loss_metric.sparse_sensitivity(
-                        PruningModelEvaluator.EVAL_SENSITIVITY_SPARSITY,
-                    ),
-                    "est_perf_sensitivity": node.performance_metric.sparse_sensitivity(
-                        PruningModelEvaluator.EVAL_SENSITIVITY_SPARSITY,
-                    ),
-                    "params_baseline": node.params.baseline,
-                    "flops_baseline": node.flops.baseline,
-                    "params": node.params.sparse(sparsity),
-                    "flops": node.flops.sparse(sparsity),
-                }
+                node.eval_dict(
+                    settings.sparsity, settings.baseline_sparsity, settings.overridden
+                )
             )
 
         recoveries = [
@@ -833,26 +841,36 @@ class PruningModelEvaluator(object):
             est_time = self._baseline_time * (
                 est_pruning_time / self._baseline_pruning_time
             )
-            est_perf_gain = self._baseline_time / est_time
+            est_time_gain = self._baseline_time / est_time
         else:
             est_time = None
-            est_perf_gain = None
+            est_time_gain = None
+
+        params_baseline = sum(params_baseline)
+        params = sum(params)
+        compression = params_baseline / params if params and params_baseline else None
+
+        flops_baseline = sum(flops_baseline)
+        flops = sum(flops)
+        flops_gain = flops_baseline / flops if flops and flops_baseline else None
 
         model_values = {
             "est_recovery": numpy.average(recoveries).item() if recoveries else None,
-            "est_loss_sensitivity": (
-                numpy.average(loss_sensitivities).item() if loss_sensitivities else None
-            ),
-            "est_perf_sensitivity": (
-                numpy.average(perf_sensitivities).item() if perf_sensitivities else None
-            ),
-            "est_perf_gain": est_perf_gain,
+            "est_loss_sensitivity": numpy.average(loss_sensitivities).item()
+            if loss_sensitivities
+            else None,
+            "est_perf_sensitivity": numpy.average(perf_sensitivities).item()
+            if perf_sensitivities
+            else None,
             "est_time": est_time,
             "est_time_baseline": self._baseline_time,
-            "params_baseline": sum(params_baseline),
-            "flops_baseline": sum(flops_baseline),
-            "params": sum(params),
-            "flops": sum(flops),
+            "est_time_gain": est_time_gain,
+            "params_baseline": params_baseline,
+            "params": params,
+            "compression": compression,
+            "flops_baseline": flops_baseline,
+            "flops": flops,
+            "flops_gain": flops_gain,
         }
 
         return node_values, model_values
@@ -869,10 +887,14 @@ class PruningModelEvaluator(object):
         nodes_costs = {}
         costs = []
 
-        for node in nodes:
+        for index, node in enumerate(nodes):
             sparsities[node.node_id] = None
 
-            if node.structurally_pruned:
+            if index == 0 or node.structurally_pruned:
+                # skip the first node in a graph since this is almost always '
+                # one of the most sensitive for loss.
+                # additionally skip any structurally pruned nodes (group convolutions)
+                # since those already have removed connections
                 continue
 
             costs = node.sparse_costs(balance_perf_loss, perf_rescaler, loss_rescaler)

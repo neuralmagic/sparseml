@@ -156,7 +156,7 @@ def test_project_optimization_modifier_pruning_node_schema(
                 "balance_perf_loss": 0,
                 "filter_min_sparsity": None,
                 "filter_min_perf_gain": None,
-                "filter_max_loss_drop": None,
+                "filter_min_recovery": None,
                 "nodes": [],
                 "est_recovery": None,
                 "est_perf_gain": None,
@@ -178,7 +178,7 @@ def test_project_optimization_modifier_pruning_node_schema(
                 "balance_perf_loss": 0,
                 "filter_min_sparsity": None,
                 "filter_min_perf_gain": None,
-                "filter_max_loss_drop": None,
+                "filter_min_recovery": None,
                 "nodes": [],
                 "est_recovery": None,
                 "est_perf_gain": None,
@@ -203,7 +203,7 @@ def test_project_optimization_modifier_pruning_node_schema(
                 "balance_perf_loss": 1,
                 "filter_min_sparsity": 0.4,
                 "filter_min_perf_gain": 0.005,
-                "filter_max_loss_drop": 1.5,
+                "filter_min_recovery": 1.5,
                 "nodes": [
                     {
                         "node_id": "node id",
@@ -240,7 +240,7 @@ def test_project_optimization_modifier_pruning_node_schema(
                 "balance_perf_loss": 1,
                 "filter_min_sparsity": 0.4,
                 "filter_min_perf_gain": 0.005,
-                "filter_max_loss_drop": 1.5,
+                "filter_min_recovery": 1.5,
                 "nodes": [
                     {
                         "node_id": "node id",
@@ -280,7 +280,7 @@ def test_project_optimization_modifier_pruning_node_schema(
                 "balance_perf_loss": 2,
                 "filter_min_sparsity": 0.4,
                 "filter_min_perf_gain": 0.005,
-                "filter_max_loss_drop": 1.5,
+                "filter_min_recovery": 1.5,
                 "nodes": [
                     {
                         "node_id": "node id",
@@ -368,7 +368,7 @@ def test_project_optimization_modifier_quantization_node_schema(
                 "level": None,
                 "balance_perf_loss": 0,
                 "filter_min_perf_gain": None,
-                "filter_max_loss_drop": None,
+                "filter_min_recovery": None,
                 "nodes": [],
                 "est_recovery": None,
                 "est_perf_gain": None,
@@ -383,7 +383,7 @@ def test_project_optimization_modifier_quantization_node_schema(
                 "level": None,
                 "balance_perf_loss": 0,
                 "filter_min_perf_gain": None,
-                "filter_max_loss_drop": None,
+                "filter_min_recovery": None,
                 "nodes": [],
                 "est_recovery": None,
                 "est_perf_gain": None,
@@ -401,7 +401,7 @@ def test_project_optimization_modifier_quantization_node_schema(
                 "level": "int16",
                 "balance_perf_loss": 1,
                 "filter_min_perf_gain": 0.005,
-                "filter_max_loss_drop": 1.5,
+                "filter_min_recovery": 1.5,
                 "nodes": [
                     {"node_id": "node id", "level": "int16"},
                 ],
@@ -418,7 +418,7 @@ def test_project_optimization_modifier_quantization_node_schema(
                 "level": "int16",
                 "balance_perf_loss": 1,
                 "filter_min_perf_gain": 0.005,
-                "filter_max_loss_drop": 1.5,
+                "filter_min_recovery": 1.5,
                 "nodes": [
                     {"node_id": "node id", "level": "int16"},
                 ],
@@ -438,7 +438,7 @@ def test_project_optimization_modifier_quantization_node_schema(
                 "level": "fail",
                 "balance_perf_loss": 1,
                 "filter_min_perf_gain": 0.005,
-                "filter_max_loss_drop": 1.5,
+                "filter_min_recovery": 1.5,
                 "nodes": [
                     {"node_id": "node id", "level": "int16"},
                 ],
@@ -869,7 +869,7 @@ def test_project_optimization_modifier_trainable_schema(
                         "balance_perf_loss": 1,
                         "filter_min_sparsity": 0.4,
                         "filter_min_perf_gain": 0.005,
-                        "filter_max_loss_drop": 1.5,
+                        "filter_min_recovery": 1.5,
                         "flops": 200,
                         "flops_baseline": 200,
                         "params": 20,
@@ -905,7 +905,7 @@ def test_project_optimization_modifier_trainable_schema(
                         "level": "int16",
                         "balance_perf_loss": 1,
                         "filter_min_perf_gain": 0.005,
-                        "filter_max_loss_drop": 1.5,
+                        "filter_min_recovery": 1.5,
                         "nodes": [
                             {"node_id": "node id", "level": "int16"},
                         ],
@@ -980,7 +980,7 @@ def test_project_optimization_modifier_trainable_schema(
                         "balance_perf_loss": 1,
                         "filter_min_sparsity": 0.4,
                         "filter_min_perf_gain": 0.005,
-                        "filter_max_loss_drop": 1.5,
+                        "filter_min_recovery": 1.5,
                         "flops": 200,
                         "flops_baseline": 200,
                         "params": 20,
@@ -1016,7 +1016,7 @@ def test_project_optimization_modifier_trainable_schema(
                         "level": "int16",
                         "balance_perf_loss": 1,
                         "filter_min_perf_gain": 0.005,
-                        "filter_max_loss_drop": 1.5,
+                        "filter_min_recovery": 1.5,
                         "nodes": [
                             {"node_id": "node id", "level": "int16"},
                         ],
@@ -1209,7 +1209,7 @@ def test_update_project_optimization_schema(
                 "balance_perf_loss": 0,
                 "filter_min_sparsity": 0.4,
                 "filter_min_perf_gain": 2,
-                "filter_max_loss_drop": 1,
+                "filter_min_recovery": 1,
                 "nodes": [
                     {
                         "node_id": "node id",
@@ -1225,7 +1225,7 @@ def test_update_project_optimization_schema(
                 "balance_perf_loss": 0,
                 "filter_min_sparsity": 0.4,
                 "filter_min_perf_gain": 2,
-                "filter_max_loss_drop": 1,
+                "filter_min_recovery": 1,
                 "nodes": [
                     {
                         "node_id": "node id",
@@ -1258,7 +1258,7 @@ def test_create_update_project_optimization_pruning_schema(
                 "level": "int8",
                 "balance_perf_loss": 0,
                 "filter_min_perf_gain": 2,
-                "filter_max_loss_drop": 1,
+                "filter_min_recovery": 1,
                 "nodes": [
                     {"node_id": "node id", "level": "int16"},
                 ],
@@ -1269,7 +1269,7 @@ def test_create_update_project_optimization_pruning_schema(
                 "level": "int8",
                 "balance_perf_loss": 0,
                 "filter_min_perf_gain": 2.0,
-                "filter_max_loss_drop": 1.0,
+                "filter_min_recovery": 1.0,
                 "nodes": [
                     {"node_id": "node id", "level": "int16"},
                 ],
@@ -1283,7 +1283,7 @@ def test_create_update_project_optimization_pruning_schema(
                 "level": "fail",
                 "balance_perf_loss": 0,
                 "filter_min_perf_gain": 2,
-                "filter_max_loss_drop": 1,
+                "filter_min_recovery": 1,
                 "nodes": [
                     {"node_id": "node id", "level": "int16"},
                 ],

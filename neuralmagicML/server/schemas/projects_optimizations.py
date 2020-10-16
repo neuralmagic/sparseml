@@ -57,6 +57,28 @@ class ProjectAvailableModelModificationsSchema(Schema):
     sparse_transfer_learning = fields.Bool(required=True)
 
 
+class ProjectOptimizationModifierEstimationsSchema(Schema):
+    """
+    Schema for estimated modifier measurements such as timings, flops, params, etc
+    """
+
+    est_recovery = fields.Float(required=True, allow_none=True)
+    est_loss_sensitivity = fields.Float(required=True, allow_none=True)
+    est_perf_sensitivity = fields.Float(required=True, allow_none=True)
+
+    est_time = fields.Float(required=True, allow_none=True)
+    est_time_baseline = fields.Float(required=True, allow_none=True)
+    est_time_gain = fields.Float(required=True, allow_none=True)
+
+    params_baseline = fields.Float(required=True, allow_none=True)
+    params = fields.Float(required=True, allow_none=True)
+    compression = fields.Float(required=True, allow_none=True)
+
+    flops_baseline = fields.Float(required=True, allow_none=True)
+    flops = fields.Float(required=True, allow_none=True)
+    flops_gain = fields.Float(required=True, allow_none=True)
+
+
 class ProjectOptimizationModifierPruningNodeMetadataSchema(Schema):
     """
     Schema for a pruning nodes metadata
@@ -67,26 +89,29 @@ class ProjectOptimizationModifierPruningNodeMetadataSchema(Schema):
 
 
 class ProjectOptimizationModifierPruningNodeSchema(
-    ProjectOptimizationModifierPruningNodeMetadataSchema
+    ProjectOptimizationModifierPruningNodeMetadataSchema,
+    ProjectOptimizationModifierEstimationsSchema,
 ):
     """
     Schema for a pruning node containing metadata and estimated values
     """
 
-    est_recovery = fields.Float(required=True, allow_none=True)
-    est_perf_gain = fields.Float(required=True, allow_none=True)
-    est_time = fields.Float(required=True, allow_none=True)
-    est_time_baseline = fields.Float(required=True, allow_none=True)
-    est_loss_sensitivity = fields.Float(required=True, allow_none=True)
-    est_perf_sensitivity = fields.Float(required=True, allow_none=True)
+    overridden = fields.Bool(required=True, allow_none=False)
+    perf_sensitivities = fields.List(
+        fields.Tuple([fields.Float(allow_none=True), fields.Float(allow_none=True)]),
+        required=True,
+        allow_none=False,
+    )
+    loss_sensitivities = fields.List(
+        fields.Tuple([fields.Float(allow_none=True), fields.Float(allow_none=True)]),
+        required=True,
+        allow_none=False,
+    )
 
-    flops = fields.Float(required=True, allow_none=True)
-    flops_baseline = fields.Float(required=True, allow_none=True)
-    params = fields.Float(required=True, allow_none=True)
-    params_baseline = fields.Float(required=True, allow_none=True)
 
-
-class ProjectOptimizationModifierPruningSchema(Schema):
+class ProjectOptimizationModifierPruningSchema(
+    ProjectOptimizationModifierEstimationsSchema
+):
     """
     Schema for a pruning modifier including metadata, settings, and estimated values
     """
@@ -106,21 +131,11 @@ class ProjectOptimizationModifierPruningSchema(Schema):
     balance_perf_loss = fields.Float(required=True)
     filter_min_sparsity = fields.Float(required=True, allow_none=True)
     filter_min_perf_gain = fields.Float(required=True, allow_none=True)
-    filter_max_loss_drop = fields.Float(required=True, allow_none=True)
+    filter_min_recovery = fields.Float(required=True, allow_none=True)
 
     nodes = fields.Nested(
         ProjectOptimizationModifierPruningNodeSchema, required=True, many=True
     )
-
-    est_recovery = fields.Float(required=True, allow_none=True)
-    est_perf_gain = fields.Float(required=True, allow_none=True)
-    est_time = fields.Float(required=True, allow_none=True)
-    est_time_baseline = fields.Float(required=True, allow_none=True)
-
-    flops = fields.Float(required=True, allow_none=True)
-    flops_baseline = fields.Float(required=True, allow_none=True)
-    params = fields.Float(required=True, allow_none=True)
-    params_baseline = fields.Float(required=True, allow_none=True)
 
 
 class ProjectOptimizationModifierQuantizationNodeSchema(Schema):
@@ -152,7 +167,7 @@ class ProjectOptimizationModifierQuantizationSchema(Schema):
     )
     balance_perf_loss = fields.Float(required=True, allow_none=True)
     filter_min_perf_gain = fields.Float(required=True, allow_none=True)
-    filter_max_loss_drop = fields.Float(required=True, allow_none=True)
+    filter_min_recovery = fields.Float(required=True, allow_none=True)
 
     nodes = fields.Nested(
         ProjectOptimizationModifierQuantizationNodeSchema, required=True, many=True
@@ -333,7 +348,7 @@ class CreateUpdateProjectOptimizationModifiersPruningSchema(Schema):
     balance_perf_loss = fields.Float(required=False, allow_none=False)
     filter_min_sparsity = fields.Float(required=False)
     filter_min_perf_gain = fields.Float(required=False)
-    filter_max_loss_drop = fields.Float(required=False)
+    filter_min_recovery = fields.Float(required=False)
 
     nodes = fields.Nested(
         ProjectOptimizationModifierPruningNodeMetadataSchema, required=False, many=True,
@@ -351,7 +366,7 @@ class CreateUpdateProjectOptimizationModifiersQuantizationSchema(Schema):
     level = fields.Str(required=False, validate=validate.OneOf(QUANTIZATION_LEVELS))
     balance_perf_loss = fields.Float(required=False, allow_none=False)
     filter_min_perf_gain = fields.Float(required=False)
-    filter_max_loss_drop = fields.Float(required=False)
+    filter_min_recovery = fields.Float(required=False)
     nodes = fields.Nested(
         ProjectOptimizationModifierQuantizationNodeSchema, required=False, many=True
     )
@@ -431,21 +446,14 @@ class ResponseProjectOptimizationModifiersAvailable(Schema):
     )
 
 
-class ResponseProjectOptimizationModifiersBestEstimated(Schema):
+class ResponseProjectOptimizationModifiersBestEstimated(
+    ProjectOptimizationModifierEstimationsSchema
+):
     """
     Schema for returning the best estimated results for project optimization
     """
 
-    est_recovery = fields.Float(required=True, allow_none=True)
-    est_loss_sensitivity = fields.Float(required=True, allow_none=True)
-    est_perf_sensitivity = fields.Float(required=True, allow_none=True)
-    est_perf_gain = fields.Float(required=True, allow_none=True)
-    est_time = fields.Float(required=True, allow_none=True)
-    est_time_baseline = fields.Float(required=True, allow_none=True)
-    params_baseline = fields.Float(required=True, allow_none=True)
-    flops_baseline = fields.Float(required=True, allow_none=True)
-    params = fields.Float(required=True, allow_none=True)
-    flops = fields.Float(required=True, allow_none=True)
+    pass
 
 
 class ResponseProjectOptimizationSchema(Schema):

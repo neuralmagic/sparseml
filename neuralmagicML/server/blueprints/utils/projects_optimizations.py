@@ -231,10 +231,10 @@ def default_pruning_settings():
     """
     mask_type = "unstructured"  # TODO: update based on quantization
     sparsity = 0.85  # TODO: dynamically choose sparsity level
-    balance_perf_loss = 0.5
+    balance_perf_loss = 1.0
     filter_min_sparsity = 0.4
-    filter_min_perf_gain = 0.9
-    filter_max_loss_drop = None  # TODO: dynamically fill in from model
+    filter_min_perf_gain = 0.75
+    filter_min_recovery = -1.0
 
     return PruningSettings(
         mask_type,
@@ -242,7 +242,7 @@ def default_pruning_settings():
         balance_perf_loss,
         filter_min_sparsity,
         filter_min_perf_gain,
-        filter_max_loss_drop,
+        filter_min_recovery,
     )
 
 
@@ -344,9 +344,9 @@ def optim_lr_sched_default_mods(
                     ProjectOptimizationModifierLRSchema(),
                     {
                         "clazz": "step",
-                        "start_epoch": start_epoch,
+                        "start_epoch": start_fine_tuning_epoch,
                         "end_epoch": -1.0,
-                        "init_lr": pruning_lr,
+                        "init_lr": init_lr,
                         "args": {"step_size": step_size, "gamma": gamma},
                     },
                 )
@@ -427,7 +427,7 @@ def optim_pruning_updater(
     balance_perf_loss: Union[float, None] = None,
     filter_min_sparsity: Union[float, None] = None,
     filter_min_perf_gain: Union[float, None] = None,
-    filter_max_loss_drop: Union[float, None] = None,
+    filter_min_recovery: Union[float, None] = None,
     nodes: Union[None, List[Dict[str, Any]]] = None,
     model: Union[None, ProjectModel] = None,
     profile_perf: Union[None, ProjectPerfProfile] = None,
@@ -445,14 +445,14 @@ def optim_pruning_updater(
     :param pruning_settings: the pruning_settings to use for updating /
         automatically generating new sparsity levels for nodes.
         If provided, overrides mask_type, sparsity, balance_perf_loss,
-        filter_min_sparsity, filter_min_perf_gain, and filter_max_loss_drop
+        filter_min_sparsity, filter_min_perf_gain, and filter_min_recovery
     :param mask_type: the mask_type to set, if any
     :param sparsity: the sparsity level to set, if set will update /
         automatically generate new sparsity levels for nodes
     :param balance_perf_loss: the balance_perf_loss to set, if any
     :param filter_min_sparsity: the filter_min_sparsity to set, if any
     :param filter_min_perf_gain: the filter_min_perf_gain to set, if any
-    :param filter_max_loss_drop: the filter_max_loss_drop to set, if any
+    :param filter_min_recovery: the filter_min_recovery to set, if any
     :param nodes: the nodes to set, if set will update
         node and model metrics for perf and loss
     :param model: the model to use to update values with
@@ -480,7 +480,7 @@ def optim_pruning_updater(
         balance_perf_loss = pruning_settings.balance_perf_loss
         filter_min_sparsity = pruning_settings.filter_min_sparsity
         filter_min_perf_gain = pruning_settings.filter_min_perf_gain
-        filter_max_loss_drop = pruning_settings.filter_max_loss_drop
+        filter_min_recovery = pruning_settings.filter_min_recovery
 
     if mask_type is not None:
         pruning.mask_type = mask_type
@@ -496,7 +496,6 @@ def optim_pruning_updater(
             profile_perf.analysis if profile_perf else None,
             profile_loss.analysis if profile_loss else None,
         )
-        model_eval.create_rescale_functions()
         model_eval.eval_baseline(default_pruning_settings().sparsity)
 
         if sparsity is not None:
@@ -506,13 +505,13 @@ def optim_pruning_updater(
                 balance_perf_loss if balance_perf_loss is not None else 0.5,
                 filter_min_sparsity,
                 filter_min_perf_gain,
-                filter_max_loss_drop,
+                filter_min_recovery,
             )
             pruning.sparsity = settings.sparsity
             pruning.balance_perf_loss = settings.balance_perf_loss
             pruning.filter_min_sparsity = settings.filter_min_sparsity
             pruning.filter_min_perf_gain = settings.filter_min_perf_gain
-            pruning.filter_max_loss_drop = settings.filter_max_loss_drop
+            pruning.filter_min_recovery = settings.filter_min_recovery
             model_eval.eval_pruning(settings)
         elif pruning.nodes:
             # not updating from sparsity, apply from the current nodes
@@ -526,13 +525,15 @@ def optim_pruning_updater(
         pruning.est_recovery = model_res["est_recovery"]
         pruning.est_loss_sensitivity = model_res["est_loss_sensitivity"]
         pruning.est_perf_sensitivity = model_res["est_perf_sensitivity"]
-        pruning.est_perf_gain = model_res["est_perf_gain"]
         pruning.est_time = model_res["est_time"]
         pruning.est_time_baseline = model_res["est_time_baseline"]
+        pruning.est_time_gain = model_res["est_time_gain"]
         pruning.params = model_res["params"]
-        pruning.flops = model_res["flops"]
         pruning.params_baseline = model_res["params_baseline"]
+        pruning.compression = model_res["compression"]
+        pruning.flops = model_res["flops"]
         pruning.flops_baseline = model_res["flops_baseline"]
+        pruning.flops_gain = model_res["flops_gain"]
 
     if (
         global_start_epoch is not None
@@ -632,9 +633,9 @@ def optim_updater(
     :param start_epoch: the start_epoch to set, if any
     :param end_epoch: the end_epoch to set, if any
     :param mod_start_epoch: a contained modifier's updated start epoch,
-        if set and greater than current start_epoch will set start_epoch to this
+        if set and less than current start_epoch will set start_epoch to this
     :param mod_end_epoch: a contained modifier's updated end epoch,
-        if set and less than current end_epoch will set end_epoch to this
+        if set and greater than current end_epoch will set end_epoch to this
     """
     if name is not None:
         optim.name = name
@@ -661,7 +662,7 @@ def optim_updater(
     if (
         mod_end_epoch is not None
         and optim.end_epoch is not None
-        and mod_end_epoch < optim.end_epoch
+        and mod_end_epoch > optim.end_epoch
     ):
         optim.end_epoch = mod_end_epoch
 

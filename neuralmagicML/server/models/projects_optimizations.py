@@ -67,18 +67,21 @@ class ProjectOptimizationModifierPruning(BaseCreatedModifiedModel):
     balance_perf_loss = FloatField(null=True, default=None)
     filter_min_sparsity = FloatField(null=True, default=None)
     filter_min_perf_gain = FloatField(null=True, default=None)
-    filter_max_loss_drop = FloatField(null=True, default=None)
+    filter_min_recovery = FloatField(null=True, default=None)
     nodes = ListObjField(null=True, default=None)
+
     est_recovery = FloatField(null=True, default=None)
     est_loss_sensitivity = FloatField(null=True, default=None)
     est_perf_sensitivity = FloatField(null=True, default=None)
-    est_perf_gain = FloatField(null=True, default=None)
     est_time = FloatField(null=True, default=None)
     est_time_baseline = FloatField(null=True, default=None)
-    flops = FloatField(null=True, default=None)
-    flops_baseline = FloatField(null=True, default=None)
+    est_time_gain = FloatField(null=True, default=None)
     params = FloatField(null=True, default=None)
     params_baseline = FloatField(null=True, default=None)
+    compression = FloatField(null=True, default=None)
+    flops = FloatField(null=True, default=None)
+    flops_baseline = FloatField(null=True, default=None)
+    flops_gain = FloatField(null=True, default=None)
 
 
 class ProjectOptimizationModifierQuantization(BaseCreatedModifiedModel):
@@ -95,12 +98,21 @@ class ProjectOptimizationModifierQuantization(BaseCreatedModifiedModel):
     level = TextField(null=True, default=None)
     balance_perf_loss = FloatField(null=True, default=None)
     filter_min_perf_gain = FloatField(null=True, default=None)
-    filter_max_loss_drop = FloatField(null=True, default=None)
+    filter_min_recovery = FloatField(null=True, default=None)
     nodes = ListObjField(null=True, default=None)
+
     est_recovery = FloatField(null=True, default=None)
-    est_perf_gain = FloatField(null=True, default=None)
+    est_loss_sensitivity = FloatField(null=True, default=None)
+    est_perf_sensitivity = FloatField(null=True, default=None)
     est_time = FloatField(null=True, default=None)
     est_time_baseline = FloatField(null=True, default=None)
+    est_time_gain = FloatField(null=True, default=None)
+    params = FloatField(null=True, default=None)
+    params_baseline = FloatField(null=True, default=None)
+    compression = FloatField(null=True, default=None)
+    flops = FloatField(null=True, default=None)
+    flops_baseline = FloatField(null=True, default=None)
+    flops_gain = FloatField(null=True, default=None)
 
 
 class ProjectOptimizationModifierLRSchedule(BaseCreatedModifiedModel):

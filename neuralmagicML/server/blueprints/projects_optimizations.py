@@ -154,14 +154,10 @@ def get_optims(project_id: str):
             ProjectOptimizationModifierTrainable,
         )
         .join_from(
-            ProjectOptimization,
-            ProjectOptimizationModifierLRSchedule,
-            JOIN.LEFT_OUTER,
+            ProjectOptimization, ProjectOptimizationModifierLRSchedule, JOIN.LEFT_OUTER,
         )
         .join_from(
-            ProjectOptimization,
-            ProjectOptimizationModifierPruning,
-            JOIN.LEFT_OUTER,
+            ProjectOptimization, ProjectOptimizationModifierPruning, JOIN.LEFT_OUTER,
         )
         .join_from(
             ProjectOptimization,
@@ -169,9 +165,7 @@ def get_optims(project_id: str):
             JOIN.LEFT_OUTER,
         )
         .join_from(
-            ProjectOptimization,
-            ProjectOptimizationModifierTrainable,
-            JOIN.LEFT_OUTER,
+            ProjectOptimization, ProjectOptimizationModifierTrainable, JOIN.LEFT_OUTER,
         )
         .where(ProjectOptimization.project_id == project_id)
         .group_by(ProjectOptimization)
@@ -636,8 +630,7 @@ def get_available_modifiers(project_id: str):
         modifiers.append("trainable")
 
     resp_modifiers = data_dump_and_validation(
-        ResponseProjectOptimizationModifiersAvailable(),
-        {"modifiers": modifiers},
+        ResponseProjectOptimizationModifiersAvailable(), {"modifiers": modifiers},
     )
 
     return jsonify(resp_modifiers), HTTPStatus.OK.value
@@ -715,7 +708,6 @@ def get_modifiers_estimated_speedup(project_id: str):
         profile_perf.analysis if profile_perf is not None else None,
         profile_loss.analysis if profile_loss is not None else None,
     )
-    model.create_rescale_functions()
     model.eval_baseline(default_pruning_settings().sparsity)
     model.eval_pruning(pruning_settings)
     _, model_res = model.to_dict_values()
@@ -1644,8 +1636,7 @@ def create_optim_modifier_lr_schedule(project_id: str, optim_id: str):
         try:
             lr_sched = ProjectOptimizationModifierLRSchedule.create(optim=optim)
             optim_lr_sched_updater(
-                lr_sched,
-                lr_mods=data["lr_mods"] if data["lr_mods"] else [],
+                lr_sched, lr_mods=data["lr_mods"] if data["lr_mods"] else [],
             )
             lr_sched.save()
 
@@ -1750,7 +1741,7 @@ def update_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_i
     project = optim_validate_and_get_project_by_id(project_id)
     optim = get_project_optimizer_by_ids(project_id, optim_id)
     lr_sched = ProjectOptimizationModifierLRSchedule.get_or_none(
-        ProjectOptimizationModifierPruning.modifier_id == modifier_id
+        ProjectOptimizationModifierLRSchedule.modifier_id == modifier_id
     )
     if lr_sched is None:
         _LOGGER.error(
@@ -1771,7 +1762,9 @@ def update_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_i
         try:
             optim_lr_sched_updater(
                 lr_sched,
-                lr_mods=[] if "lr_mods" not in data or not data["lr_mods"] else None,
+                lr_mods=[]
+                if "lr_mods" not in data or not data["lr_mods"]
+                else data["lr_mods"],
             )
             lr_sched.save()
 
