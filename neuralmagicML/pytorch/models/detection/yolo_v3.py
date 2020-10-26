@@ -136,7 +136,7 @@ class _YoloDetectionBlock(Module):
 
         self.num_classes = num_classes
         self.num_anchors = num_anchors
-        self.num_outputs_per_anchor = 5 + num_classes
+        self.num_outputs_per_anchor = 5 + num_classes  # 4 bbox coords + 1 obj. score
 
         conv_out_channels = self.num_anchors * self.num_outputs_per_anchor
         self.conv = Conv2d(
@@ -192,6 +192,8 @@ class YoloV3(Module):
         super().__init__()
         self.num_classes = num_classes
         self.backbone = backbone
+
+        assert len(backbone_out_channels) == 3  # only 3 supported for now
         self.head = ModuleList(
             [
                 _YoloConvsBlock(

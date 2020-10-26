@@ -171,7 +171,7 @@ class _DownsampleBlock(Module):
 class _Classifier(Module):
     def __init__(self, in_channels: int, num_classes: int, class_type: str = "single"):
         super().__init__()
-        self.avgpool = AdaptiveAvgPool2d(1)
+        self.avgpool = AdaptiveAvgPool2d(output_size=1)
         self.fc = Linear(in_channels, num_classes)
 
         if class_type == "single":

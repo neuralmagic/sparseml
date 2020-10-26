@@ -355,7 +355,7 @@ def main(args):
 
     if args.model_type == "yolo":
         yolo_grids = YoloGrids()
-        input_shape = [args.image_size] * 2
+        input_shape = [args.image_size, args.image_size]
 
         def _postprocess_yolo(outputs):
             return postprocess_yolo(outputs, input_shape, yolo_grids)

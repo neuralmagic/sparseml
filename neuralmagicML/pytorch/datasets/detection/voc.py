@@ -139,7 +139,7 @@ class VOCDetectionDataset(VOCDetection):
     :param image_size: the size of the image to output from the dataset
     :param preprocessing_type: Type of standard pre-processing to perform.
         Options are 'yolo', 'ssd', or None.  None defaults to just image normalization
-        with no extra processing of boudning boxes.
+        with no extra processing of bounding boxes.
     :param default_boxes: DefaultBoxes object used to encode bounding boxes and label
         for model loss computation for SSD models. Only used when preprocessing_type=
         'ssd'. Default object represents the default boxes used in standard SSD 300
@@ -217,7 +217,7 @@ class VOCDetectionDataset(VOCDetection):
                     ),  # encoded_boxes, encoded_labels, original_annotations
                 )
             )
-        if preprocessing_type == "yolo":
+        elif preprocessing_type == "yolo":
             trans.append(
                 lambda img, ann: (img, (bounding_box_and_labels_to_yolo_fmt(ann), ann),)
             )

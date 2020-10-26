@@ -146,14 +146,14 @@ def box_giou(boxes_a: Tensor, boxes_b: Tensor) -> Tensor:
     :return: Shape N Tensor of GIoU values between boxes in the input tensors
     """
     # get ltrb coordinates
-    lt_x_a = boxes_a[0] - boxes_a[2] / 2
-    lt_y_a = boxes_a[1] - boxes_a[3] / 2
-    rb_x_a = boxes_a[0] + boxes_a[2] / 2
-    rb_y_a = boxes_a[1] + boxes_a[3] / 2
-    lt_x_b = boxes_b[0] - boxes_b[2] / 2
-    lt_y_b = boxes_b[1] - boxes_b[3] / 2
-    rb_x_b = boxes_b[0] + boxes_b[2] / 2
-    rb_y_b = boxes_b[1] + boxes_b[3] / 2
+    lt_x_a = boxes_a[0] - boxes_a[2] / 2.0
+    lt_y_a = boxes_a[1] - boxes_a[3] / 2.0
+    rb_x_a = boxes_a[0] + boxes_a[2] / 2.0
+    rb_y_a = boxes_a[1] + boxes_a[3] / 2.0
+    lt_x_b = boxes_b[0] - boxes_b[2] / 2.0
+    lt_y_b = boxes_b[1] - boxes_b[3] / 2.0
+    rb_x_b = boxes_b[0] + boxes_b[2] / 2.0
+    rb_y_b = boxes_b[1] + boxes_b[3] / 2.0
 
     # base IoU
     inter = (torch.min(rb_x_a, rb_x_b) - torch.max(lt_x_a, lt_x_b)).clamp(0) * (
@@ -222,12 +222,12 @@ def _xywh_to_ltrb(boxes, in_place: bool = False):
     if not in_place:
         boxes = boxes.clone()
     boxes[:, 0], boxes[:, 2] = (  # ltrb x
-        boxes[:, 0] - boxes[:, 2] / 2,
-        boxes[:, 0] + boxes[:, 2] / 2,
+        boxes[:, 0] - boxes[:, 2] / 2.0,
+        boxes[:, 0] + boxes[:, 2] / 2.0,
     )
     boxes[:, 1], boxes[:, 3] = (  # ltrb y
-        boxes[:, 1] - boxes[:, 3] / 2,
-        boxes[:, 1] + boxes[:, 3] / 2,
+        boxes[:, 1] - boxes[:, 3] / 2.0,
+        boxes[:, 1] + boxes[:, 3] / 2.0,
     )
     return boxes
 
