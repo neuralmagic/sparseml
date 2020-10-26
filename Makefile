@@ -44,7 +44,7 @@ tensorflow_testing:
 
 pytorch_testing:
 	@source .venv/bin/activate;
-	for torch_version in 1.1 1.2 1.3 1.4 1.5; do \
+	for torch_version in 1.1 1.2 1.3 1.4 1.5 1.6; do \
 		torch="torch==$$torch_version.*"; \
 		if (( $$(echo "$$torch_version < 1.1" | bc -l) )); then \
 			torchvision="torchvision==0.2.*"; \
@@ -56,8 +56,10 @@ pytorch_testing:
 			torchvision="torchvision==0.4.2"; \
 		elif (( $$(echo "$$torch_version < 1.5" | bc -l) )); then \
 			torchvision="torchvision==0.5.0"; \
-		else \
+		elif (( $$(echo "$$torch_version < 1.6" | bc -l) )); then \
 			torchvision="torchvision==0.6.0"; \
+		else \
+			torchvision="torchvision==0.7.0"; \
 		fi; \
 		pip3 install . "$$torch" "$$torchvision" &> /dev/null; \
 		echo "Running tests with $$(pip3 freeze | grep torch==)"; \
@@ -70,7 +72,7 @@ pytorch_testing:
 test_latest:
 	@source .venv/bin/activate;
 	pip3 uninstall -y tensorflow torch torchvision tensorboard &> /dev/null;
-	pip3 install . &> /dev/null;
+	pip3 install . torch==1.6 torchvision==0.7 tensorflow==1.15 &> /dev/null;
 	if [ ! -z $$NM_ML_GPU_TESTS ]; then \
 		tfversion="$$(pip3 freeze | grep tensorflow==)";\
 		tfgpuversion=$$(echo "$${tfversion/tensorflow/tensorflow-gpu}");\
