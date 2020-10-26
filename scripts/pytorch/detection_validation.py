@@ -30,6 +30,7 @@ usage: detection_validation.py neuralmagic [-h] --onnx-file-path
                                            [--loader-num-workers LOADER_NUM_WORKERS]
                                            [--map-iou-threshold MAP_IOU_THRESHOLD]
                                            [--map-iou-threshold-max MAP_IOU_THRESHOLD_MAX]
+                                           [--results-file-path RESULTS_FILE_PATH]
                                            [--map-iou-steps MAP_IOU_STEPS]
                                            [--model-type {ssd,yolo}]
 
@@ -68,6 +69,9 @@ optional arguments:
   --map-iou-steps MAP_IOU_STEPS
                         Spacing to use between steps in IoU threshold range
                         when calculating the mAP. Default is 0.05
+  --results-file-path RESULTS_FILE_PATH
+                        If set to a file path, will save the dictionary of
+                        average precision results by IoU by class.
 
 
 ##########
@@ -82,6 +86,7 @@ usage: detection_validation.py onnxruntime [-h] --onnx-file-path
                                            [--map-iou-threshold MAP_IOU_THRESHOLD]
                                            [--map-iou-threshold-max MAP_IOU_THRESHOLD_MAX]
                                            [--map-iou-steps MAP_IOU_STEPS]
+                                           [--results-file-path RESULTS_FILE_PATH]
                                            [--model-type {ssd,yolo}]
                                            [--no-batch-override]
 
@@ -117,6 +122,9 @@ optional arguments:
   --map-iou-steps MAP_IOU_STEPS
                         Spacing to use between steps in IoU threshold range
                         when calculating the mAP. Default is 0.05
+  --results-file-path RESULTS_FILE_PATH
+                        If set to a file path, will save the dictionary of
+                        average precision results by IoU by class.
   --model-type {ssd,yolo}
                         Type of model evaluate. Options are 'yolo' and 'ssd'.
                         Default is 'ssd'
@@ -153,6 +161,7 @@ python detection_validation.py neuralmagic  \
 """
 
 import argparse
+import json
 from tqdm import auto
 
 import torch
@@ -273,6 +282,13 @@ def parse_args():
             " the mAP. Default is 0.05",
         )
         par.add_argument(
+            "--results-file-path",
+            type=str,
+            default=None,
+            help="If set to a file path, will save the dictionary of average precision"
+            " results by IoU by class.",
+        )
+        par.add_argument(
             "--model-type",
             type=str,
             default="ssd",
@@ -377,11 +393,21 @@ def main(args):
         map_calculator.batch_forward(pred_pth, data[1][-1])
 
     # print out results instead of log so they can't be filtered
-    print("\n\n{} mAP results:".format(args.dataset))
+    print("\n\ncalculating {} mAP results...".format(args.dataset))
     num_recall_levels = 101 if "coco" in args.dataset.lower() else 11
     mean_average_precision, ap_dict = map_calculator.calculate_map(num_recall_levels)
 
-    print("average precision by IoU treshold by class:\n{}".format(ap_dict))
+    if args.results_file_path:
+        print(
+            "Saving average precision by IoU threshold by class to {}".format(
+                args.results_file_path
+            )
+        )
+        with open(args.results_file_path, "w") as res_file:
+            json.dump(ap_dict, res_file)
+    else:
+        print("average precision by IoU threshold by class:\n{}".format(ap_dict))
+
     print("{}: {}".format(str(map_calculator), mean_average_precision))
 
 
