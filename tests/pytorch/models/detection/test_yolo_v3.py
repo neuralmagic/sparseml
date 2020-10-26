@@ -6,11 +6,7 @@ import torch
 
 from neuralmagicML.pytorch.models import (
     ModelRegistry,
-    ssd300_resnet18,
-    ssd300_resnet34,
-    ssd300_resnet50,
-    ssd300_resnet101,
-    ssd300_resnet152,
+    yolo_v3,
 )
 
 from tests.pytorch.models.utils import compare_model
@@ -24,16 +20,9 @@ from tests.pytorch.models.utils import compare_model
 )
 @pytest.mark.parametrize(
     "key,pretrained,pretrained_backbone,test_input,match_const",
-    [
-        ("ssd300_resnet18", False, True, True, ssd300_resnet18),
-        ("ssd300_resnet34", False, True, True, ssd300_resnet34),
-        ("ssd300_resnet50", False, True, True, ssd300_resnet50),
-        ("ssd300_resnet50", False, "recal-perf", True, ssd300_resnet50),
-        ("ssd300_resnet101", False, True, True, ssd300_resnet101),
-        ("ssd300_resnet152", False, True, True, ssd300_resnet152),
-    ],
+    [("yolo_v3", False, False, True, yolo_v3)],
 )
-def test_ssd_resnsets(
+def test_yolo_v3(
     key: str,
     pretrained: Union[bool, str],
     pretrained_backbone: Union[bool, str],
@@ -49,22 +38,17 @@ def test_ssd_resnsets(
         compare_model(model, match_model, same=True)
 
     if pretrained_backbone and pretrained_backbone is not True:
-        compare_model(model.feature_extractor, diff_model.feature_extractor, same=False)
+        compare_model(model.backbone, diff_model.backbone, same=False)
         match_model = ModelRegistry.create(key, pretrained_backbone=pretrained_backbone)
-        compare_model(
-            diff_model.feature_extractor, match_model.feature_extractor, same=True
-        )
+        compare_model(diff_model.backbone, match_model.backbone, same=True)
 
     if test_input:
         input_shape = ModelRegistry.input_shape(key)
         batch = torch.randn(1, *input_shape)
         model.eval()
-        boxes, scores = model(batch)
-        assert isinstance(boxes, torch.Tensor)
-        assert isinstance(scores, torch.Tensor)
-        assert boxes.dim() == 3
-        assert scores.dim() == 3
-        assert boxes.size(0) == 1
-        assert boxes.size(1) == 4
-        assert scores.size(0) == 1
-        assert boxes.size(2) == scores.size(2)  # check same num default boxes
+        outputs = model(batch)
+        assert isinstance(outputs, list)
+        for output in outputs:
+            assert isinstance(output, torch.Tensor)
+            assert output.dim() == 5
+            assert output.size(-1) == 85

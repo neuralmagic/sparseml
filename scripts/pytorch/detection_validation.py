@@ -31,6 +31,7 @@ usage: detection_validation.py neuralmagic [-h] --onnx-file-path
                                            [--map-iou-threshold MAP_IOU_THRESHOLD]
                                            [--map-iou-threshold-max MAP_IOU_THRESHOLD_MAX]
                                            [--map-iou-steps MAP_IOU_STEPS]
+                                           [--model-type {ssd,yolo}]
 
 Run validation in the Neural Magic inference engine
 
@@ -81,6 +82,7 @@ usage: detection_validation.py onnxruntime [-h] --onnx-file-path
                                            [--map-iou-threshold MAP_IOU_THRESHOLD]
                                            [--map-iou-threshold-max MAP_IOU_THRESHOLD_MAX]
                                            [--map-iou-steps MAP_IOU_STEPS]
+                                           [--model-type {ssd,yolo}]
                                            [--no-batch-override]
 
 Run validation in onnxruntime
@@ -115,12 +117,15 @@ optional arguments:
   --map-iou-steps MAP_IOU_STEPS
                         Spacing to use between steps in IoU threshold range
                         when calculating the mAP. Default is 0.05
+  --model-type {ssd,yolo}
+                        Type of model evaluate. Options are 'yolo' and 'ssd'.
+                        Default is 'ssd'
   --no-batch-override   Do not override batch dimension of the ONNX model
                         before running in ORT
 
 
 ##########
-Example for VOC dataset with mAP@[0.5,0.95] in neuralmagic:
+Example for COCO dataset with mAP@[0.5,0.95] in neuralmagic:
 python detection_validation.py neuralmagic  \
     --onnx-file-path /PATH/TO/model.onnx \
     --dataset coco \
@@ -136,6 +141,15 @@ python detection_validation.py onnxruntime  \
     --dataset-path /PATH/TO/voc-detection/ \
     --loader-num-workers 10 \
     --image-size 300
+
+Example for Yolo model and COCO dataset with mAP@0.5 in neuralmagic:
+python detection_validation.py neuralmagic  \
+    --onnx-file-path /PATH/TO/model.onnx \
+    --model-type yolo \
+    --dataset coco \
+    --dataset-path /PATH/TO/coco-detection/ \
+    --loader-num-workers 10 \
+    --image-size 640 \
 """
 
 import argparse
@@ -146,10 +160,16 @@ from torch.utils.data import DataLoader
 
 from neuralmagicML import get_main_logger
 from neuralmagicML.onnx.utils import ORTModelRunner, NMModelRunner
-from neuralmagicML.pytorch.datasets import DatasetRegistry, detection_collate_fn
+from neuralmagicML.pytorch.datasets import (
+    DatasetRegistry,
+    ssd_collate_fn,
+    yolo_collate_fn,
+)
 from neuralmagicML.pytorch.utils import (
     SSDLossWrapper,
     MeanAveragePrecision,
+    YoloGrids,
+    postprocess_yolo,
 )
 
 
@@ -252,6 +272,13 @@ def parse_args():
             help="Spacing to use between steps in IoU threshold range when calculating"
             " the mAP. Default is 0.05",
         )
+        par.add_argument(
+            "--model-type",
+            type=str,
+            default="ssd",
+            choices=["ssd", "yolo"],
+            help="Type of model evaluate. Options are 'yolo' and 'ssd'. Default is 'ssd'",
+        )
 
     onnxruntime_parser.add_argument(
         "--no-batch-override",
@@ -266,6 +293,11 @@ def main(args):
     # dataset creation
     LOGGER.info("Creating dataset...")
     dataset_kwargs = {} if args.dataset_year is None else {"year": args.dataset_year}
+    if "coco" in args.dataset.lower() or "voc" in args.dataset.lower():
+        if args.model_type == "ssd":
+            dataset_kwargs["preprocessing_type"] = "ssd"
+        elif args.model_type == "yolo":
+            dataset_kwargs["preprocessing_type"] = "yolo"
     val_dataset = DatasetRegistry.create(
         key=args.dataset,
         root=args.dataset_path,
@@ -277,7 +309,7 @@ def main(args):
     val_loader = DataLoader(
         val_dataset,
         batch_size=args.batch_size,
-        collate_fn=detection_collate_fn,
+        collate_fn=ssd_collate_fn if args.model_type == "ssd" else yolo_collate_fn,
         shuffle=False,
         num_workers=args.loader_num_workers,
     )
@@ -304,8 +336,24 @@ def main(args):
         iou_threshold = args.map_iou_threshold
     else:
         iou_threshold = [args.map_iou_threshold, args.map_iou_threshold_max]
+
+    if args.model_type == "yolo":
+        yolo_grids = YoloGrids()
+        input_shape = [args.image_size] * 2
+
+        def _postprocess_yolo(outputs):
+            return postprocess_yolo(outputs, input_shape, yolo_grids)
+
+        postprocessing_fn = _postprocess_yolo
+    else:
+
+        def _postprocess_coco(outputs):
+            return val_dataset.default_boxes.decode_output_batch(*outputs)
+
+        postprocessing_fn = _postprocess_coco
+
     map_calculator = MeanAveragePrecision(
-        val_dataset.default_boxes, iou_threshold, args.map_iou_steps
+        postprocessing_fn, iou_threshold, args.map_iou_steps
     )
     LOGGER.info("created mAP calculator for validation: {}".format(str(map_calculator)))
 
@@ -326,7 +374,7 @@ def main(args):
 
         pred, pred_time = runner.batch_forward(batch_x)
         pred_pth = [torch.from_numpy(val) for val in pred.values()]
-        map_calculator.batch_forward(pred_pth, data[1][2])
+        map_calculator.batch_forward(pred_pth, data[1][-1])
 
     # print out results instead of log so they can't be filtered
     print("\n\n{} mAP results:".format(args.dataset))

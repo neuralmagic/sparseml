@@ -18,7 +18,9 @@ __all__ = [
     "AnnotatedImageTransforms",
     "ssd_random_crop_image_and_annotations",
     "random_horizontal_flip_image_and_annotations",
-    "detection_collate_fn",
+    "yolo_collate_fn",
+    "ssd_collate_fn",
+    "bounding_box_and_labels_to_yolo_fmt",
 ]
 
 
@@ -82,7 +84,32 @@ def random_horizontal_flip_image_and_annotations(
     return image, (boxes, labels)
 
 
-def detection_collate_fn(
+def yolo_collate_fn(
+    batch: List[Any],
+) -> Tuple[Tensor, Tuple[Tensor, Tensor, List[Tuple[Tensor, Tensor]]]]:
+    """
+    Collate function to be used for creating a DataLoader with values for Yolo model
+    input.
+    :param batch: a batch of data points and annotations transformed by
+        bounding_box_and_labels_to_yolo_fmt
+    :return: the batch stacked as tensors for all values except for the original annotations
+    """
+    images = []
+    targets = []
+    annotations = []
+    for idx, (image, (target, annotation)) in enumerate(batch):
+        images.append(image.unsqueeze(0))
+        img_label = torch.ones(target.size(0), 1)
+        targets.append(torch.cat((img_label, target), 1))
+        annotations.append(annotation)
+
+    images = torch.cat(images, 0)
+    targets = torch.cat(targets, 0)
+
+    return images, (targets, annotations)
+
+
+def ssd_collate_fn(
     batch: List[Any],
 ) -> Tuple[Tensor, Tuple[Tensor, Tensor, List[Tuple[Tensor, Tensor]]]]:
     """
@@ -107,3 +134,17 @@ def detection_collate_fn(
     enc_labels = torch.cat(enc_labels, 0)
 
     return images, (enc_boxes, enc_labels, annotations)
+
+
+def bounding_box_and_labels_to_yolo_fmt(annotations):
+    boxes, labels = annotations
+
+    if boxes.numel() == 0:
+        return torch.zeros(0, 5)
+
+    cx = (boxes[:, 0] + boxes[:, 2]) / 2
+    cy = (boxes[:, 1] + boxes[:, 3]) / 2
+    w = boxes[:, 2] - boxes[:, 0]
+    h = boxes[:, 3] - boxes[:, 1]
+
+    return torch.stack((labels, cx, cy, w, h)).T

@@ -13,7 +13,7 @@ from collections import defaultdict
 from PIL import Image
 from torch import Tensor
 from torchvision.ops.boxes import box_iou, batched_nms
-from typing import List, Tuple, Union, Dict, NamedTuple
+from typing import List, Tuple, Union, Dict, NamedTuple, Callable, Any
 
 
 __all__ = [
@@ -459,27 +459,30 @@ DetectionResult = NamedTuple(
 class MeanAveragePrecision(object):
     """
     Class for computing the mean average precision of an object detection model output.
-    Inputs will be decoded by the provided default boxes object.
+    Inputs will be decoded by the provided post-processing function.
     Each batch update tracks the cumulative ground truth objects of each class, and the
     scores the model gives each class.
 
     calculate_map object uses the aggregated results to find the mAP at the given
     threshold(s)
 
-    :param default_box_encoder: DefaultBoxes object used to decode model outputs
-    :param iou_threshold: IoU thresholds to match predicted objects to ground truth objects.
-        Can provide a single IoU or a tuple of two representing a range.  mAP will be averaged
-        over the range of values at each IoU
-    :param iou_steps: the amount of IoU to shift between measurements between iou_threshold values
+    :param postprocessing_fn: function that takes in detection model output and returns
+        post-processed tuple of predicted bounding boxes, classification labels, and
+        scores
+    :param iou_threshold: IoU thresholds to match predicted objects to ground truth
+        objects. Can provide a single IoU or a tuple of two representing a range.
+        mAP will be averaged over the range of values at each IoU
+    :param iou_steps: the amount of IoU to shift between measurements between
+        iou_threshold values
     """
 
     def __init__(
         self,
-        default_box_encoder: DefaultBoxes,
+        postprocessing_fn: Callable[[Any], Tuple[Tensor, Tensor, Tensor]],
         iou_threshold: Union[float, Tuple[float, float]] = 0.5,
         iou_steps: float = 0.05,
     ):
-        self._default_box_encoder = default_box_encoder
+        self._postprocessing_fn = postprocessing_fn
         if isinstance(iou_threshold, float):
             self._iou_thresholds = [iou_threshold]
         else:
@@ -548,19 +551,18 @@ class MeanAveragePrecision(object):
         :param ground_truth_annotations: annotations from data loader to compare the
             batch results to, should be
         """
-        # extract predicted and ground truth boxes / labels
-        predicted_boxes, predicted_scores = model_output
-
-        nms_results = self._default_box_encoder.decode_output_batch(
-            predicted_boxes, predicted_scores
-        )
+        # run postprocessing / nms
+        nms_results = self._postprocessing_fn(model_output)
 
         # match nms results to ground truth objects for each image in the batch and store
         for prediction, annotations in zip(nms_results, ground_truth_annotations):
-            pred_boxes, pred_labels, pred_scores = prediction
             actual_boxes, actual_labels = annotations
 
             self._update_class_counts(actual_labels)
+
+            if prediction is None or len(prediction) == 0:
+                continue
+            pred_boxes, pred_labels, pred_scores = prediction
 
             if pred_boxes.size(0) == 0:
                 continue
@@ -607,6 +609,8 @@ class MeanAveragePrecision(object):
         for threshold in self._iou_thresholds:
             aps_by_class = {}
             for label, results in self._detection_results_by_class[threshold].items():
+                if self._ground_truth_classes_count[label] == 0:
+                    continue
                 results = sorted(results, key=lambda r: r.score, reverse=True)
                 prediction_is_true_positive = [
                     result.is_true_positive for result in results

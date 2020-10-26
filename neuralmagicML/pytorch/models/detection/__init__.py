@@ -6,3 +6,5 @@ from .ssd import *
 from .ssd_lite import *
 from .ssd_resnet import *
 from .ssd_mobilenet import *
+from .yolo_v3 import *
+

@@ -2,6 +2,7 @@
 Models related to image classification field in computer vision
 """
 
+from .darknet import *
 from .efficientnet import *
 from .inception_v3 import *
 from .mnist import *

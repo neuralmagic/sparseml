@@ -16,6 +16,7 @@ from neuralmagicML.pytorch.datasets.detection.helpers import (
     AnnotatedImageTransforms,
     ssd_random_crop_image_and_annotations,
     random_horizontal_flip_image_and_annotations,
+    bounding_box_and_labels_to_yolo_fmt,
 )
 from neuralmagicML.pytorch.datasets.registry import DatasetRegistry
 from neuralmagicML.pytorch.utils import (
@@ -69,9 +70,13 @@ class CocoDetectionDataset(CocoDetection):
     :param download: True to download the dataset, False otherwise.
     :param year: The dataset year, supports years 2014, 2015, and 2017.
     :param image_size: the size of the image to output from the dataset
+    :param preprocessing_type: Type of standard pre-processing to perform.
+        Options are 'yolo', 'ssd', or None.  None defaults to just image normalization
+        with no extra processing of boudning boxes.
     :param default_boxes: DefaultBoxes object used to encode bounding boxes and label
-        for model loss computation. Default object represents the default boxes used
-        in standard SSD 300 implementation.
+        for model loss computation for SSD models. Only used when preprocessing_type=
+        'ssd'. Default object represents the default boxes used in standard SSD 300
+        implementation.
     """
 
     def __init__(
@@ -82,10 +87,18 @@ class CocoDetectionDataset(CocoDetection):
         download: bool = True,
         year: str = "2017",
         image_size: int = 300,
+        preprocessing_type: str = None,
         default_boxes: DefaultBoxes = None,
     ):
         if pycocotools is None:
             raise ValueError("pycocotools is not installed, please install to use")
+
+        if preprocessing_type not in [None, "yolo", "ssd"]:
+            raise ValueError(
+                "preprocessing type {} not supported, valid values are: {}".format(
+                    preprocessing_type, [None, "yolo", "ssd"]
+                )
+            )
 
         root = os.path.join(os.path.abspath(os.path.expanduser(root)), str(year))
         if train:
@@ -160,26 +173,34 @@ class CocoDetectionDataset(CocoDetection):
                 ),
                 # Convert image to tensor
                 lambda img, ann: (torch_functional.to_tensor(img), ann),
-                # Normalize image
+            ]
+        )
+        # Normalize image except for yolo preprocessing
+        if preprocessing_type != "yolo":
+            trans.append(
                 lambda img, ann: (
                     torch_functional.normalize(
                         img, IMAGENET_RGB_MEANS, IMAGENET_RGB_STDS
                     ),
                     ann,
-                ),
-            ]
-        )
-        default_boxes = default_boxes or get_default_boxes_300()
-        # encode the bounding boxes and labels with the default boxes
-        trans.append(
-            lambda img, ann: (
-                img,
-                (
-                    *default_boxes.encode_image_box_labels(*ann),
-                    ann,
-                ),  # encoded_boxes, encoded_labels, original_annotations
+                )
             )
-        )
+        if preprocessing_type == "ssd":
+            default_boxes = default_boxes or get_default_boxes_300()
+            # encode the bounding boxes and labels with the default boxes
+            trans.append(
+                lambda img, ann: (
+                    img,
+                    (
+                        *default_boxes.encode_image_box_labels(*ann),
+                        ann,
+                    ),  # encoded_boxes, encoded_labels, original_annotations
+                )
+            )
+        if preprocessing_type == "yolo":
+            trans.append(
+                lambda img, ann: (img, (bounding_box_and_labels_to_yolo_fmt(ann), ann),)
+            )
 
         super().__init__(
             root=data_path,
@@ -234,6 +255,7 @@ COCO_CLASSES = {
     9: "boat",
     10: "traffic light",
     11: "fire hydrant",
+    12: "street sign",
     13: "stop sign",
     14: "parking meter",
     15: "bench",
@@ -303,4 +325,5 @@ COCO_CLASSES = {
     88: "teddy bear",
     89: "hair drier",
     90: "toothbrush",
+    91: "hair brush",
 }

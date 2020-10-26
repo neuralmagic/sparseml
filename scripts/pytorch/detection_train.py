@@ -139,10 +139,15 @@ except Exception:
 from torch.optim.optimizer import Optimizer
 
 from neuralmagicML import get_main_logger
-from neuralmagicML.pytorch.datasets import DatasetRegistry, detection_collate_fn
+from neuralmagicML.pytorch.datasets import (
+    DatasetRegistry,
+    ssd_collate_fn,
+    yolo_collate_fn,
+)
 from neuralmagicML.pytorch.models import ModelRegistry
 from neuralmagicML.pytorch.utils import (
     SSDLossWrapper,
+    YoloLossWrapper,
     MeanAveragePrecision,
     ModuleTrainer,
     ModuleTester,
@@ -435,6 +440,13 @@ def main(args):
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
 
     dataset_kwargs = {} if args.dataset_year is None else {"year": args.dataset_year}
+    if "coco" in args.dataset.lower() or "voc" in args.dataset.lower():
+        if "ssd" in args.arch_key.lower():
+            dataset_kwargs["preprocessing_type"] = "ssd"
+        elif "yolo" in args.arch_key.lower():
+            dataset_kwargs["preprocessing_type"] = "yolo"
+
+    collate_fn = ssd_collate_fn if "ssd" in args.arch_key.lower() else yolo_collate_fn
 
     if not args.eval_mode:
         train_dataset = DatasetRegistry.create(
@@ -448,7 +460,7 @@ def main(args):
         train_loader = DataLoader(
             train_dataset,
             batch_size=args.train_batch_size,
-            collate_fn=detection_collate_fn,
+            collate_fn=collate_fn,
             shuffle=True,
             num_workers=args.loader_num_workers,
             pin_memory=args.loader_pin_memory,
@@ -469,7 +481,7 @@ def main(args):
     val_loader = DataLoader(
         val_dataset,
         batch_size=args.test_batch_size,
-        collate_fn=detection_collate_fn,
+        collate_fn=collate_fn,
         shuffle=False,
         num_workers=args.loader_num_workers,
         pin_memory=args.loader_pin_memory,
@@ -496,12 +508,14 @@ def main(args):
     LOGGER.info("created model: {}".format(model))
 
     # val loss setup
-    val_loss = SSDLossWrapper({})
+    val_loss = SSDLossWrapper() if "ssd" in args.arch_key.lower() else YoloLossWrapper()
     LOGGER.info("created loss for validation: {}".format(val_loss))
 
     if not args.eval_mode:
         # train loss setup, different from val if using inception
-        train_loss = SSDLossWrapper()
+        train_loss = (
+            SSDLossWrapper() if "ssd" in args.arch_key.lower() else YoloLossWrapper()
+        )
         LOGGER.info("created loss for validation: {}".format(val_loss))
 
         # optimizer setup

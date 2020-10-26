@@ -11,6 +11,12 @@ from torch import Tensor
 from torch.nn import Module
 
 from neuralmagicML.pytorch.utils.helpers import tensors_module_forward
+from neuralmagicML.pytorch.utils.yolo_helpers import (
+    build_targets,
+    get_output_grid_shapes,
+    yolo_v3_anchor_groups,
+    box_giou,
+)
 
 
 __all__ = [
@@ -23,6 +29,7 @@ __all__ = [
     "KDSettings",
     "KDLossWrapper",
     "SSDLossWrapper",
+    "YoloLossWrapper",
     "Accuracy",
     "TopKAccuracy",
 ]
@@ -513,6 +520,140 @@ class SSDLossWrapper(LossWrapper):
         :return: the predictions from the model without any changes
         """
         return pred[0], pred[1]  # predicted locations, predicted labels
+
+
+class YoloLossWrapper(LossWrapper):
+    """
+    Loss wrapper for Yolo models.  Implements the loss as a sum of class loss,
+    objectness loss, and GIoU
+
+    :param extras: extras representing other metrics that should be
+        calculated in addition to the loss
+    :param anchor_groups: List of n,2 tensors of the Yolo model's anchor points
+        for each output group
+    """
+
+    def __init__(
+        self, extras: Union[None, Dict] = None, anchor_groups: List[Tensor] = None,
+    ):
+        if extras is None:
+            extras = {}
+        self.anchor_groups = anchor_groups or yolo_v3_anchor_groups()
+
+        self.class_loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([1.0]))
+        self.obj_loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([1.0]))
+
+        super().__init__(self.loss, extras)
+
+    def loss(self, preds: List[Tensor], labels: Tuple[Tensor, Tensor]):
+        """
+        Calculates the loss for a Yolo model output as the sum of the box, object,
+        and class losses
+
+        :param preds: the predictions list containing objectness, class, and location
+            values for each detector in the Yolo model.
+        :param labels: the labels to compare to
+        :return: the combined box, object, and class losses
+        """
+        targets, _ = labels
+
+        grid_shapes = get_output_grid_shapes(preds)
+        target_classes, target_boxes, target_indices, anchors = build_targets(
+            targets, self.anchor_groups, grid_shapes
+        )
+
+        device = targets.device
+        self.class_loss_fn = self.class_loss_fn.to(device)
+        self.obj_loss_fn = self.obj_loss_fn.to(device)
+
+        class_loss = torch.zeros(1, device=device)
+        box_loss = torch.zeros(1, device=device)
+        object_loss = torch.zeros(1, device=device)
+
+        num_targets = 0
+        object_loss_balance = [4.0, 1.0, 0.4, 0.1]  # usually only first 3 used
+
+        for i, pred in enumerate(preds):
+            image, anchor, grid_x, grid_y = target_indices[i]
+            target_object = torch.zeros_like(pred[..., 0], device=device)
+
+            if image.shape[0]:
+                num_targets += image.shape[0]
+
+                # filter for predictions on actual objects
+                predictions = pred[image, anchor, grid_x, grid_y]
+
+                # box loss
+                predictions_xy = predictions[:, :2].sigmoid() * 2.0 - 0.5
+                predictions_wh = (predictions[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
+                predictions_box = torch.cat((predictions_xy, predictions_wh), 1).to(
+                    device
+                )
+                giou = box_giou(predictions_box.T, target_boxes[i].T)
+
+                box_loss += (1.0 - giou).mean()
+
+                # giou
+                target_object[image, anchor, grid_x, grid_y] = (
+                    giou.detach().clamp(0).type(target_object.dtype)
+                )
+
+                # class loss
+                target_class_mask = torch.zeros_like(predictions[:, 5:], device=device)
+                target_class_mask[range(image.shape[0]), target_classes[i]] = 1.0
+                class_loss += self.class_loss_fn(predictions[:, 5:], target_class_mask)
+
+            object_loss += (
+                self.obj_loss_fn(pred[..., 4], target_object) * object_loss_balance[i]
+            )
+        # scale losses
+        box_loss *= 0.05
+        class_loss *= 0.5
+        batch_size = preds[0].shape[0]
+
+        loss = batch_size * (box_loss + object_loss + class_loss)
+        return loss, box_loss, object_loss, class_loss
+
+    def forward(self, data: Any, pred: Any) -> Dict[str, Tensor]:
+        """
+        :param data: the input data to the model, expected to contain the labels
+        :param pred: the predicted output from the model
+        :return: a dictionary containing all calculated losses (default, giou,
+            object, and class) and metrics with the loss from the loss_fn at
+            DEFAULT_LOSS_KEY
+        """
+        loss, box_loss, object_loss, class_loss = self._loss_fn(
+            self.get_preds(data, pred, DEFAULT_LOSS_KEY),
+            self.get_labels(data, pred, DEFAULT_LOSS_KEY),
+        )
+        calculated = {
+            DEFAULT_LOSS_KEY: loss,
+            "giou": box_loss,
+            "object": object_loss,
+            "classification": class_loss,
+        }
+
+        if self._extras:
+            for extra, func in self._extras.items():
+                calculated[extra] = func(
+                    self.get_preds(data, pred, extra),
+                    self.get_labels(data, pred, extra),
+                )
+
+        return calculated
+
+    def get_preds(self, data: Any, pred: List[Tensor], name: str) -> List[Tensor]:
+        """
+        Override get_preds for SSD model output.
+
+        :param data: data from a data loader
+        :param pred: the prediction from an ssd model: two tensors
+            representing object location and object label respectively
+        :param name: the name of the loss function that is asking for the
+            information for calculation
+        :return: the predictions from the model without any changes
+        """
+        return pred
 
 
 class Accuracy(Module):
