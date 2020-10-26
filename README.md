@@ -157,6 +157,11 @@ The following scripts are currently maintained for use:
   the loss more and therefore should be pruned less.
 - `classification_train.py`: Train an image classification model using a config.yaml file 
   to modify the training process such as for pruning or sparse transfer learning.
+- `detection_lr_sensitivity.py`: Calculate the learning rate sensitivity for an object detection model
+  as compared with the loss. A higher sensitivity means a higher loss impact.
+- `detection_pruning_loss_sensitivity.py`: Calculate the sensitivity for each prunable layer in an
+  object detection model towards the loss, where, for example, a higher score means the layer affects 
+  the loss more and therefore should be pruned less.
 - `detection_train.py`: Train an object detection model using a config.yaml file
   to modify the training process, such as for pruning or sparse transfer learning.
 - `detection_validation.py`: Calculate the mean average precision (mAP) for a given object detection model at
