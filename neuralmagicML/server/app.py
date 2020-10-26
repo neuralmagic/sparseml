@@ -30,7 +30,7 @@ from neuralmagicML.server.models import (
 from neuralmagicML.server.workers import JobWorkerManager
 
 
-__all__ = ["run"]
+__all__ = ["run", "main"]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -167,7 +167,7 @@ def parse_args() -> Any:
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def main():
     ARGS = parse_args()
     run(
         ARGS.working_dir,
@@ -177,3 +177,7 @@ if __name__ == "__main__":
         ARGS.logging_level,
         ARGS.ui_path,
     )
+
+
+if __name__ == "__main__":
+    main()

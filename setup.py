@@ -14,12 +14,16 @@ with open("requirements.txt", "r") as req_file:
 
 setup(
     name="neuralmagicML",
-    version="1.2.0",
+    version="1.3.0",
     packages=packages,
     package_data={},
+    include_package_data=True,
     install_requires=install_reqs,
     author="Neural Magic",
     author_email="support@neuralmagic.com",
     url="https://neuralmagic.com/",
     license_file="LICENSE",
+    entry_points = {
+        'console_scripts': ['sparsify=neuralmagicML.server.app:main'],
+    }
 )
