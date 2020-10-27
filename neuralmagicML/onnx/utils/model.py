@@ -1,7 +1,7 @@
 """
 Utilities for ONNX models and running inference with them
 """
-
+import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Callable, Union, Any, Dict, Tuple, List
@@ -36,11 +36,18 @@ except Exception:
     benchmark_model = None
     cpu_details = None
 
+try:
+    from openvino.inference_engine import IENetwork, IECore, get_version, StatusCode
+except Exception:
+    IENetwork, IECore, get_version, StatusCode = None, None, None, None
+
+
 __all__ = [
     "max_available_cores",
     "ModelRunner",
     "ORTModelRunner",
     "NMModelRunner",
+    "OpenVINOModelRunner",
     "correct_nm_benchmark_model_node_ids",
     "split_canonical_names",
     "NMBenchmarkModelRunner",
@@ -86,20 +93,17 @@ def max_available_cores() -> int:
 
 class ModelRunner(ABC):
     """
-    Abstract class for handling running inference for an ONNX model
+    Abstract class for handling running inference for a model
 
-    :param model: the path to the ONNX model file or the loaded onnx ModelProto
     :param loss: the loss function, if any, to run for evaluation of the model
     """
 
     def __init__(
         self,
-        model: Union[str, ModelProto],
         loss: Union[
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ] = None,
     ):
-        self._model = check_load_model(model)
         self._loss = loss
 
     def run(
@@ -125,7 +129,9 @@ class ModelRunner(ABC):
         """
         outputs = []
         times = []
-        for output, time in self.run_iter(data_loader, desc, show_progress, max_steps, *args, **kwargs):
+        for output, time in self.run_iter(
+            data_loader, desc, show_progress, max_steps, *args, **kwargs
+        ):
             outputs.append(output)
             times.append(time)
 
@@ -197,6 +203,218 @@ class ModelRunner(ABC):
         raise NotImplementedError()
 
 
+class OpenVINOModelRunner(ModelRunner):
+    """
+    OpenVINO model runner class
+
+    :param model: The path to the IR xml file after conversion
+    :param loss: loss function to run evaluation
+    :param nthreads: number of threads to run the model
+    :param batch_size: Batch size value. If not specified, the batch size value is
+        determined from Intermediate Representation
+    :param shape: shape to be set for the input(s). For example, "input1[1,3,224,224],input2[1,4]"
+        or "[1,3,224,224]" in case of one input size.
+    """
+
+    @staticmethod
+    def available() -> bool:
+        return IECore is not None
+
+    def __init__(
+        self,
+        model: str,  # TODO: accept ONNX as input
+        loss: Union[
+            Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
+        ] = None,
+        nthreads: int = 1,
+        batch_size: int = 0,
+        shape: str = "",
+    ):
+        super().__init__(loss)
+        self._loss = loss
+
+        self._nthreads = nthreads
+        self._batch_size = batch_size
+        self._shape = shape
+
+        # Loading inference engine
+        self._ie = IECore()
+
+        # Setting device configuration (for device 'CPU')
+        cpu_threads_num = str(self._nthreads)
+        cpu_bind_thread = "YES"
+        config = {
+            "CPU_THREADS_NUM": cpu_threads_num,
+            "CPU_BIND_THREAD": cpu_bind_thread,
+        }
+        self._ie.set_config(config, "CPU")
+
+        # Read the Intermediate Representation of the network
+        self._ie_network = self._read_network(model)
+
+        # Resizing network to match image sizes and given batch
+        self._resize_network()
+
+        # Configuring input of the model
+        self._config_network_inputs()
+
+        # Load the model to the device
+        self._exe_network = self._load_network()
+
+    def batch_forward(
+        self, batch: Dict[str, numpy.ndarray], *args, **kwargs
+    ) -> Tuple[Any, float]:
+        """
+        Run a batch through the model
+
+        :param batch: batch of data
+        :return: result of the inference as dictionary, and the inference time
+        """
+        self._set_inputs(batch)
+        infer_request = self._exe_network.requests[0]
+
+        pred_time = time.time()
+        infer_request.infer()
+        pred_time = time.time() - pred_time
+
+        return infer_request.output_blobs, pred_time
+
+    def network_input_shapes(self):
+        """
+        Get network input shapes
+        :return: dictionary of shapes for each input key
+        """
+        assert self._ie_network is not None
+        input_shapes = {}
+        for k, v in self._ie_network.input_info.items():
+            shape_with_batch = v.input_data.shape.copy()
+            input_shapes[k] = shape_with_batch[1:]
+        return input_shapes
+
+    def _read_network(self, model_file_path: str):
+        """
+        Read the IR into IE network
+        :param model_file_path: path to the IR file
+        """
+        model_filename = os.path.abspath(model_file_path)
+        head, ext = os.path.splitext(model_filename)
+        weights_filename = os.path.abspath(head + ".bin") if ext == ".xml" else ""
+        ie_network = self._ie.read_network(model_filename, weights_filename)
+        return ie_network
+
+    def _update_shapes(self, shapes, shapes_string: str, inputs_info):
+        """
+        Check if the network input shapes need update
+
+        :param shape: dictionary of input shapes; updated to new shapes if needed
+        :param shapes_string: string of shapes from user inputs
+        :param inputs_info: inputs of the network read from the IR file
+
+        :return: if the network input shapes need updated
+        """
+        updated = False
+        matches = re.findall(r"(.*?)\[(.*?)\],?", shapes_string)
+        if matches:
+            for match in matches:
+                input_name = match[0]
+                parsed_shape = [int(dim) for dim in match[1].split(",")]
+                if input_name != "":
+                    shapes[input_name] = parsed_shape
+                    updated = True
+                else:
+                    shapes.update({k: parsed_shape for k in shapes.keys()})
+                    updated = True
+                    break
+        else:
+            raise Exception("Can't parse `shape` parameter: {}".format(shapes_string))
+        return updated
+
+    def _adjust_shapes_batch(self, shapes, batch_size: int, inputs_info):
+        """
+        Check and change the shape of network input to fit the batch size
+        :param shapes: dictionary of input shapes; updated if needed
+        :param batch_size: batch size
+        :param inputs_info: inputs of the network read from the IR file
+        :return: if the network input shapes need updated
+        """
+        updated = False
+        for name, data in inputs_info.items():
+            layout = data.input_data.layout
+            batch_index = layout.index("N") if "N" in layout else -1
+            if batch_index != -1 and shapes[name][batch_index] != batch_size:
+                shapes[name][batch_index] = batch_size
+                updated = True
+        return updated
+
+    def _resize_network(self):
+        """
+        Resize the network input shapes
+        """
+        shapes = {
+            k: v.input_data.shape.copy() for k, v in self._ie_network.input_info.items()
+        }
+        reshape = False
+        if self._shape:
+            reshape |= self._update_shapes(
+                shapes, self._shape, self._ie_network.input_info
+            )
+        if self._batch_size and self._batch_size != self._ie_network.batch_size:
+            reshape |= self._adjust_shapes_batch(
+                shapes, self._batch_size, self._ie_network.input_info
+            )
+
+        if reshape:
+            _LOGGER.info(
+                "Reshaping network: {}".format(
+                    ", ".join("'{}': {}".format(k, v) for k, v in shapes.items())
+                )
+            )
+            self._ie_network.reshape(shapes)
+
+    def _is_image(self, blob):
+        """
+        Check if the input data is image
+        """
+        if blob.layout != "NCHW":
+            return False
+        channels = blob.shape[1]
+        return channels == 3
+
+    def _config_network_inputs(self):
+        """
+        Configure network inputs
+        """
+        input_info = self._ie_network.input_info
+        for key in input_info.keys():
+            if self._is_image(input_info[key].input_data):
+                # Set the precision of input data provided by the user
+                # Should be called before load of the network to the plugin
+                input_info[key].precision = "U8"
+
+    def _load_network(self):
+        """
+        Load the network with given device and request info
+        """
+        exe_network = self._ie.load_network(
+            self._ie_network, "CPU", config={}, num_requests=1
+        )
+        return exe_network
+
+    def _set_inputs(self, batch: Dict[str, numpy.ndarray]):
+        """
+        Set the inputs for the infer request object
+
+        :param batch: batch of data
+        """
+        infer_requests = self._exe_network.requests
+        assert len(infer_requests) == 1
+        inputs = infer_requests[0].input_blobs
+        for k, v in batch.items():
+            if k not in inputs.keys():
+                raise Exception("No input with name {} found!".format(k))
+            inputs[k].buffer[:] = v
+
+
 class ORTModelRunner(ModelRunner):
     """
     Class for handling running inference for an ONNX model through onnxruntime
@@ -205,6 +423,8 @@ class ORTModelRunner(ModelRunner):
     :param loss: the loss function, if any, to run for evaluation of the model
     :param overwrite_input_names: True to overwrite the input data names to what
         is found in for the model inputs, False to keep as found in the loaded data
+    :param nthreads: number of threads used to run the model (single node);
+        default to 0 for onnxruntime to choose
     :param batch_size: if provided, and the model has a hardcoded batch size, will
         rewrite the model proto so that the model batch size matches batch_size
     """
@@ -216,12 +436,21 @@ class ORTModelRunner(ModelRunner):
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ] = None,
         overwrite_input_names: bool = True,
+        nthreads: int = 0,
         batch_size: int = None,
     ):
-        super().__init__(model, loss)
+        super().__init__(loss)
+        self._model = check_load_model(model)
+
         if batch_size is not None:
             override_model_batch_size(self._model, batch_size)
         sess_options = onnxruntime.SessionOptions()
+
+        # Note: If ORT was built with OpenMP, use OpenMP env variable such as
+        # OMP_NUM_THREADS to control the number of threads.
+        # See: https://github.com/microsoft/onnxruntime/blob/master/docs/ONNX_Runtime_Perf_Tuning.md
+        sess_options.intra_op_num_threads = nthreads
+
         sess_options.log_severity_level = 3
         sess_options.graph_optimization_level = (
             onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -330,7 +559,9 @@ class _NMModelRunner(ModelRunner):
                 "must be installed before using any ModelRunner for neuralmagic"
             )
 
-        super().__init__(model, loss)
+        super().__init__(loss)
+        self._model = model
+
         self._batch_size = batch_size
         self._num_cores = num_cores
 
@@ -534,7 +765,10 @@ class NMBenchmarkModelRunner(_NMModelRunner):
     """
 
     def __init__(
-        self, model: Union[str, ModelProto], batch_size: int, num_cores: int = -1,
+        self,
+        model: Union[str, ModelProto],
+        batch_size: int,
+        num_cores: int = -1,
     ):
         super().__init__(model, batch_size, num_cores, loss=None)
 
