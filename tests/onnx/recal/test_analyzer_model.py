@@ -29,18 +29,6 @@ RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
             },
             "resnet50pytorch.json",
         ),
-        (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
-                "architecture": "vgg",
-                "sub_architecture": "16-bn",
-                "dataset": "imagenet",
-                "framework": "tensorflow",
-                "desc": "base",
-            },
-            "vggtensorflow.json",
-        ),
     ],
 )
 def analyzer_models_repo(request):
@@ -109,6 +97,7 @@ def test_mode_analyzer_json():
                 "bias_name": "conv.section.1.bias",
                 "bias_shape": [16],
                 "attributes": {"kernel": 1},
+                "prunable_equation_sensitivity": None,
             },
             {
                 "id": "id2",
@@ -126,6 +115,7 @@ def test_mode_analyzer_json():
                 "bias_name": "conv.section.1.bias",
                 "bias_shape": [10],
                 "attributes": {"kernel": 1},
+                "prunable_equation_sensitivity": None,
             },
         ]
     }

@@ -30,6 +30,7 @@
         "prunable": true,
         "prunable_params": 9408,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 540.4444444444443,
         "flops": 118013952.0,
         "weight_name": "input.conv.weight",
         "weight_shape": [
@@ -91,6 +92,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -130,6 +132,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -166,6 +169,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 1806336.0,
         "weight_name": null,
         "weight_shape": null,
@@ -217,6 +221,7 @@
         "prunable": true,
         "prunable_params": 4096,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 98.0,
         "flops": 12845056.0,
         "weight_name": "sections.0.0.conv1.weight",
         "weight_shape": [
@@ -278,6 +283,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -317,6 +323,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -353,6 +360,7 @@
         "prunable": true,
         "prunable_params": 36864,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 10.88888888888889,
         "flops": 115605504.0,
         "weight_name": "sections.0.0.conv2.weight",
         "weight_shape": [
@@ -414,6 +422,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -453,6 +462,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -489,6 +499,7 @@
         "prunable": true,
         "prunable_params": 16384,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 245.0,
         "flops": 51380224.0,
         "weight_name": "sections.0.0.conv3.weight",
         "weight_shape": [
@@ -550,6 +561,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -589,6 +601,7 @@
         "prunable": true,
         "prunable_params": 16384,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 245.0,
         "flops": 51380224.0,
         "weight_name": "sections.0.0.identity.conv.weight",
         "weight_shape": [
@@ -650,6 +663,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -696,6 +710,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -732,6 +747,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -768,6 +784,7 @@
         "prunable": true,
         "prunable_params": 16384,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 245.0,
         "flops": 51380224.0,
         "weight_name": "sections.0.1.conv1.weight",
         "weight_shape": [
@@ -829,6 +846,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -868,6 +886,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -904,6 +923,7 @@
         "prunable": true,
         "prunable_params": 36864,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 10.88888888888889,
         "flops": 115605504.0,
         "weight_name": "sections.0.1.conv2.weight",
         "weight_shape": [
@@ -965,6 +985,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1004,6 +1025,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1040,6 +1062,7 @@
         "prunable": true,
         "prunable_params": 16384,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 245.0,
         "flops": 51380224.0,
         "weight_name": "sections.0.1.conv3.weight",
         "weight_shape": [
@@ -1101,6 +1124,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1147,6 +1171,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1183,6 +1208,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1219,6 +1245,7 @@
         "prunable": true,
         "prunable_params": 16384,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 245.0,
         "flops": 51380224.0,
         "weight_name": "sections.0.2.conv1.weight",
         "weight_shape": [
@@ -1280,6 +1307,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1319,6 +1347,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1355,6 +1384,7 @@
         "prunable": true,
         "prunable_params": 36864,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 10.88888888888889,
         "flops": 115605504.0,
         "weight_name": "sections.0.2.conv2.weight",
         "weight_shape": [
@@ -1416,6 +1446,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1455,6 +1486,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1491,6 +1523,7 @@
         "prunable": true,
         "prunable_params": 16384,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 245.0,
         "flops": 51380224.0,
         "weight_name": "sections.0.2.conv3.weight",
         "weight_shape": [
@@ -1552,6 +1585,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1598,6 +1632,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1634,6 +1669,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 802816.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1670,6 +1706,7 @@
         "prunable": true,
         "prunable_params": 32768,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 73.5,
         "flops": 102760448.0,
         "weight_name": "sections.1.0.conv1.weight",
         "weight_shape": [
@@ -1731,6 +1768,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1770,6 +1808,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1806,6 +1845,7 @@
         "prunable": true,
         "prunable_params": 147456,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 13.61111111111111,
         "flops": 115605504.0,
         "weight_name": "sections.1.0.conv2.weight",
         "weight_shape": [
@@ -1867,6 +1907,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1906,6 +1947,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -1942,6 +1984,7 @@
         "prunable": true,
         "prunable_params": 65536,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 30.625,
         "flops": 51380224.0,
         "weight_name": "sections.1.0.conv3.weight",
         "weight_shape": [
@@ -2003,6 +2046,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2042,6 +2086,7 @@
         "prunable": true,
         "prunable_params": 131072,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 18.375,
         "flops": 102760448.0,
         "weight_name": "sections.1.0.identity.conv.weight",
         "weight_shape": [
@@ -2103,6 +2148,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2149,6 +2195,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2185,6 +2232,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2221,6 +2269,7 @@
         "prunable": true,
         "prunable_params": 65536,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 30.625,
         "flops": 51380224.0,
         "weight_name": "sections.1.1.conv1.weight",
         "weight_shape": [
@@ -2282,6 +2331,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2321,6 +2371,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2357,6 +2408,7 @@
         "prunable": true,
         "prunable_params": 147456,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 1.3611111111111112,
         "flops": 115605504.0,
         "weight_name": "sections.1.1.conv2.weight",
         "weight_shape": [
@@ -2418,6 +2470,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2457,6 +2510,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2493,6 +2547,7 @@
         "prunable": true,
         "prunable_params": 65536,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 30.625,
         "flops": 51380224.0,
         "weight_name": "sections.1.1.conv3.weight",
         "weight_shape": [
@@ -2554,6 +2609,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2600,6 +2656,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2636,6 +2693,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2672,6 +2730,7 @@
         "prunable": true,
         "prunable_params": 65536,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 30.625,
         "flops": 51380224.0,
         "weight_name": "sections.1.2.conv1.weight",
         "weight_shape": [
@@ -2733,6 +2792,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2772,6 +2832,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2808,6 +2869,7 @@
         "prunable": true,
         "prunable_params": 147456,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 1.3611111111111112,
         "flops": 115605504.0,
         "weight_name": "sections.1.2.conv2.weight",
         "weight_shape": [
@@ -2869,6 +2931,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2908,6 +2971,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -2944,6 +3008,7 @@
         "prunable": true,
         "prunable_params": 65536,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 30.625,
         "flops": 51380224.0,
         "weight_name": "sections.1.2.conv3.weight",
         "weight_shape": [
@@ -3005,6 +3070,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3051,6 +3117,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3087,6 +3154,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3123,6 +3191,7 @@
         "prunable": true,
         "prunable_params": 65536,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 30.625,
         "flops": 51380224.0,
         "weight_name": "sections.1.3.conv1.weight",
         "weight_shape": [
@@ -3184,6 +3253,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3223,6 +3293,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3259,6 +3330,7 @@
         "prunable": true,
         "prunable_params": 147456,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 1.3611111111111112,
         "flops": 115605504.0,
         "weight_name": "sections.1.3.conv2.weight",
         "weight_shape": [
@@ -3320,6 +3392,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3359,6 +3432,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3395,6 +3469,7 @@
         "prunable": true,
         "prunable_params": 65536,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 30.625,
         "flops": 51380224.0,
         "weight_name": "sections.1.3.conv3.weight",
         "weight_shape": [
@@ -3456,6 +3531,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3502,6 +3578,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3538,6 +3615,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 401408.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3574,6 +3652,7 @@
         "prunable": true,
         "prunable_params": 131072,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 9.1875,
         "flops": 102760448.0,
         "weight_name": "sections.2.0.conv1.weight",
         "weight_shape": [
@@ -3635,6 +3714,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3674,6 +3754,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3710,6 +3791,7 @@
         "prunable": true,
         "prunable_params": 589824,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 1.7013888888888888,
         "flops": 115605504.0,
         "weight_name": "sections.2.0.conv2.weight",
         "weight_shape": [
@@ -3771,6 +3853,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3810,6 +3893,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3846,6 +3930,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.0.conv3.weight",
         "weight_shape": [
@@ -3907,6 +3992,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -3946,6 +4032,7 @@
         "prunable": true,
         "prunable_params": 524288,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 2.296875,
         "flops": 102760448.0,
         "weight_name": "sections.2.0.identity.conv.weight",
         "weight_shape": [
@@ -4007,6 +4094,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4053,6 +4141,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4089,6 +4178,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4125,6 +4215,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.1.conv1.weight",
         "weight_shape": [
@@ -4186,6 +4277,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4225,6 +4317,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4261,6 +4354,7 @@
         "prunable": true,
         "prunable_params": 589824,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.1701388888888889,
         "flops": 115605504.0,
         "weight_name": "sections.2.1.conv2.weight",
         "weight_shape": [
@@ -4322,6 +4416,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4361,6 +4456,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4397,6 +4493,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.1.conv3.weight",
         "weight_shape": [
@@ -4458,6 +4555,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4504,6 +4602,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4540,6 +4639,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4576,6 +4676,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.2.conv1.weight",
         "weight_shape": [
@@ -4637,6 +4738,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4676,6 +4778,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4712,6 +4815,7 @@
         "prunable": true,
         "prunable_params": 589824,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.1701388888888889,
         "flops": 115605504.0,
         "weight_name": "sections.2.2.conv2.weight",
         "weight_shape": [
@@ -4773,6 +4877,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4812,6 +4917,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4848,6 +4954,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.2.conv3.weight",
         "weight_shape": [
@@ -4909,6 +5016,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4955,6 +5063,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -4991,6 +5100,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5027,6 +5137,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.3.conv1.weight",
         "weight_shape": [
@@ -5088,6 +5199,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5127,6 +5239,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5163,6 +5276,7 @@
         "prunable": true,
         "prunable_params": 589824,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.1701388888888889,
         "flops": 115605504.0,
         "weight_name": "sections.2.3.conv2.weight",
         "weight_shape": [
@@ -5224,6 +5338,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5263,6 +5378,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5299,6 +5415,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.3.conv3.weight",
         "weight_shape": [
@@ -5360,6 +5477,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5406,6 +5524,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5442,6 +5561,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5478,6 +5598,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.4.conv1.weight",
         "weight_shape": [
@@ -5539,6 +5660,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5578,6 +5700,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5614,6 +5737,7 @@
         "prunable": true,
         "prunable_params": 589824,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.1701388888888889,
         "flops": 115605504.0,
         "weight_name": "sections.2.4.conv2.weight",
         "weight_shape": [
@@ -5675,6 +5799,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5714,6 +5839,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5750,6 +5876,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.4.conv3.weight",
         "weight_shape": [
@@ -5811,6 +5938,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5857,6 +5985,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5893,6 +6022,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -5929,6 +6059,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.5.conv1.weight",
         "weight_shape": [
@@ -5990,6 +6121,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6029,6 +6161,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6065,6 +6198,7 @@
         "prunable": true,
         "prunable_params": 589824,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.1701388888888889,
         "flops": 115605504.0,
         "weight_name": "sections.2.5.conv2.weight",
         "weight_shape": [
@@ -6126,6 +6260,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6165,6 +6300,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 50176.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6201,6 +6337,7 @@
         "prunable": true,
         "prunable_params": 262144,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 3.828125,
         "flops": 51380224.0,
         "weight_name": "sections.2.5.conv3.weight",
         "weight_shape": [
@@ -6262,6 +6399,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6308,6 +6446,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6344,6 +6483,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 200704.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6380,6 +6520,7 @@
         "prunable": true,
         "prunable_params": 524288,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 1.1484375,
         "flops": 102760448.0,
         "weight_name": "sections.3.0.conv1.weight",
         "weight_shape": [
@@ -6441,6 +6582,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6480,6 +6622,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6516,6 +6659,7 @@
         "prunable": true,
         "prunable_params": 2359296,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.2126736111111111,
         "flops": 115605504.0,
         "weight_name": "sections.3.0.conv2.weight",
         "weight_shape": [
@@ -6577,6 +6721,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6616,6 +6761,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6652,6 +6798,7 @@
         "prunable": true,
         "prunable_params": 1048576,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.478515625,
         "flops": 51380224.0,
         "weight_name": "sections.3.0.conv3.weight",
         "weight_shape": [
@@ -6713,6 +6860,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6752,6 +6900,7 @@
         "prunable": true,
         "prunable_params": 2097152,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.287109375,
         "flops": 102760448.0,
         "weight_name": "sections.3.0.identity.conv.weight",
         "weight_shape": [
@@ -6813,6 +6962,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6859,6 +7009,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6895,6 +7046,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -6931,6 +7083,7 @@
         "prunable": true,
         "prunable_params": 1048576,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.478515625,
         "flops": 51380224.0,
         "weight_name": "sections.3.1.conv1.weight",
         "weight_shape": [
@@ -6992,6 +7145,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7031,6 +7185,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7067,6 +7222,7 @@
         "prunable": true,
         "prunable_params": 2359296,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.021267361111111112,
         "flops": 115605504.0,
         "weight_name": "sections.3.1.conv2.weight",
         "weight_shape": [
@@ -7128,6 +7284,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7167,6 +7324,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7203,6 +7361,7 @@
         "prunable": true,
         "prunable_params": 1048576,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.478515625,
         "flops": 51380224.0,
         "weight_name": "sections.3.1.conv3.weight",
         "weight_shape": [
@@ -7264,6 +7423,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7310,6 +7470,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7346,6 +7507,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7382,6 +7544,7 @@
         "prunable": true,
         "prunable_params": 1048576,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.478515625,
         "flops": 51380224.0,
         "weight_name": "sections.3.2.conv1.weight",
         "weight_shape": [
@@ -7443,6 +7606,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7482,6 +7646,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7518,6 +7683,7 @@
         "prunable": true,
         "prunable_params": 2359296,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.021267361111111112,
         "flops": 115605504.0,
         "weight_name": "sections.3.2.conv2.weight",
         "weight_shape": [
@@ -7579,6 +7745,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7618,6 +7785,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 25088.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7654,6 +7822,7 @@
         "prunable": true,
         "prunable_params": 1048576,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.478515625,
         "flops": 51380224.0,
         "weight_name": "sections.3.2.conv3.weight",
         "weight_shape": [
@@ -7715,6 +7884,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7761,6 +7931,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7797,6 +7968,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7833,6 +8005,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": 100352.0,
         "weight_name": null,
         "weight_shape": null,
@@ -7853,6 +8026,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": null,
         "weight_name": null,
         "weight_shape": null,
@@ -7888,6 +8062,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": null,
         "weight_name": null,
         "weight_shape": null,
@@ -7915,6 +8090,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": null,
         "weight_name": null,
         "weight_shape": null,
@@ -7937,6 +8113,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": null,
         "weight_name": null,
         "weight_shape": null,
@@ -7965,6 +8142,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": null,
         "weight_name": null,
         "weight_shape": null,
@@ -7995,6 +8173,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": null,
         "weight_name": null,
         "weight_shape": null,
@@ -8033,6 +8212,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": null,
         "weight_name": null,
         "weight_shape": null,
@@ -8073,6 +8253,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": null,
         "weight_name": null,
         "weight_shape": null,
@@ -8105,6 +8286,7 @@
         "prunable": true,
         "prunable_params": 2048000,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": 0.003046512445095168,
         "flops": 4097000.0,
         "weight_name": "classifier.fc.weight",
         "weight_shape": [
@@ -8146,6 +8328,7 @@
         "prunable": false,
         "prunable_params": -1,
         "prunable_params_zeroed": 0,
+        "prunable_equation_sensitivity": null,
         "flops": null,
         "weight_name": null,
         "weight_shape": null,
@@ -8190,6 +8373,7 @@
           "prunable": true,
           "prunable_params": 9408,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 540.4444444444443,
           "flops": 118013952.0,
           "weight_name": "input.conv.weight",
           "weight_shape": [
@@ -8224,7 +8408,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "321",
               "name": "convolution_0",
@@ -8273,7 +8457,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "321",
               "name": "input.conv.weight",
@@ -9034,6 +9218,7 @@
           "prunable": true,
           "prunable_params": 4096,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 98.0,
           "flops": 12845056.0,
           "weight_name": "sections.0.0.conv1.weight",
           "weight_shape": [
@@ -9068,7 +9253,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "325",
               "name": "convolution_3",
@@ -9117,7 +9302,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "325",
               "name": "sections.0.0.conv1.weight",
@@ -9878,6 +10063,7 @@
           "prunable": true,
           "prunable_params": 36864,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 10.88888888888889,
           "flops": 115605504.0,
           "weight_name": "sections.0.0.conv2.weight",
           "weight_shape": [
@@ -9912,7 +10098,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "328",
               "name": "convolution_4",
@@ -9961,7 +10147,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "328",
               "name": "sections.0.0.conv2.weight",
@@ -10722,6 +10908,7 @@
           "prunable": true,
           "prunable_params": 16384,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 245.0,
           "flops": 51380224.0,
           "weight_name": "sections.0.0.conv3.weight",
           "weight_shape": [
@@ -10756,7 +10943,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "331",
               "name": "convolution_5",
@@ -10805,7 +10992,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "331",
               "name": "sections.0.0.conv3.weight",
@@ -11566,6 +11753,7 @@
           "prunable": true,
           "prunable_params": 16384,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 245.0,
           "flops": 51380224.0,
           "weight_name": "sections.0.0.identity.conv.weight",
           "weight_shape": [
@@ -11600,7 +11788,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "333",
               "name": "convolution_2",
@@ -11649,7 +11837,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "333",
               "name": "sections.0.0.identity.conv.weight",
@@ -12410,6 +12598,7 @@
           "prunable": true,
           "prunable_params": 16384,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 245.0,
           "flops": 51380224.0,
           "weight_name": "sections.0.1.conv1.weight",
           "weight_shape": [
@@ -12444,7 +12633,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "337",
               "name": "convolution_6",
@@ -12493,7 +12682,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "337",
               "name": "sections.0.1.conv1.weight",
@@ -13254,6 +13443,7 @@
           "prunable": true,
           "prunable_params": 36864,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 10.88888888888889,
           "flops": 115605504.0,
           "weight_name": "sections.0.1.conv2.weight",
           "weight_shape": [
@@ -13288,7 +13478,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "340",
               "name": "convolution_7",
@@ -13337,7 +13527,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "340",
               "name": "sections.0.1.conv2.weight",
@@ -14098,6 +14288,7 @@
           "prunable": true,
           "prunable_params": 16384,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 245.0,
           "flops": 51380224.0,
           "weight_name": "sections.0.1.conv3.weight",
           "weight_shape": [
@@ -14132,7 +14323,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "343",
               "name": "convolution_8",
@@ -14181,7 +14372,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "343",
               "name": "sections.0.1.conv3.weight",
@@ -14942,6 +15133,7 @@
           "prunable": true,
           "prunable_params": 16384,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 245.0,
           "flops": 51380224.0,
           "weight_name": "sections.0.2.conv1.weight",
           "weight_shape": [
@@ -14976,7 +15168,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "347",
               "name": "convolution_9",
@@ -15025,7 +15217,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "347",
               "name": "sections.0.2.conv1.weight",
@@ -15786,6 +15978,7 @@
           "prunable": true,
           "prunable_params": 36864,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 10.88888888888889,
           "flops": 115605504.0,
           "weight_name": "sections.0.2.conv2.weight",
           "weight_shape": [
@@ -15820,7 +16013,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "350",
               "name": "convolution_10",
@@ -15869,7 +16062,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "350",
               "name": "sections.0.2.conv2.weight",
@@ -16630,6 +16823,7 @@
           "prunable": true,
           "prunable_params": 16384,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 245.0,
           "flops": 51380224.0,
           "weight_name": "sections.0.2.conv3.weight",
           "weight_shape": [
@@ -16664,7 +16858,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "353",
               "name": "convolution_11",
@@ -16713,7 +16907,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "353",
               "name": "sections.0.2.conv3.weight",
@@ -17474,6 +17668,7 @@
           "prunable": true,
           "prunable_params": 32768,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 73.5,
           "flops": 102760448.0,
           "weight_name": "sections.1.0.conv1.weight",
           "weight_shape": [
@@ -17508,7 +17703,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "357",
               "name": "convolution_12",
@@ -17557,7 +17752,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "357",
               "name": "sections.1.0.conv1.weight",
@@ -18318,6 +18513,7 @@
           "prunable": true,
           "prunable_params": 147456,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 13.61111111111111,
           "flops": 115605504.0,
           "weight_name": "sections.1.0.conv2.weight",
           "weight_shape": [
@@ -18352,7 +18548,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "360",
               "name": "convolution_13",
@@ -18401,7 +18597,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "360",
               "name": "sections.1.0.conv2.weight",
@@ -19162,6 +19358,7 @@
           "prunable": true,
           "prunable_params": 65536,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 30.625,
           "flops": 51380224.0,
           "weight_name": "sections.1.0.conv3.weight",
           "weight_shape": [
@@ -19196,7 +19393,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "363",
               "name": "convolution_14",
@@ -19245,7 +19442,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "363",
               "name": "sections.1.0.conv3.weight",
@@ -20006,6 +20203,7 @@
           "prunable": true,
           "prunable_params": 131072,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 18.375,
           "flops": 102760448.0,
           "weight_name": "sections.1.0.identity.conv.weight",
           "weight_shape": [
@@ -20040,7 +20238,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "365",
               "name": "convolution_15",
@@ -20089,7 +20287,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "365",
               "name": "sections.1.0.identity.conv.weight",
@@ -20850,6 +21048,7 @@
           "prunable": true,
           "prunable_params": 65536,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 30.625,
           "flops": 51380224.0,
           "weight_name": "sections.1.1.conv1.weight",
           "weight_shape": [
@@ -20884,7 +21083,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "369",
               "name": "convolution_16",
@@ -20933,7 +21132,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "369",
               "name": "sections.1.1.conv1.weight",
@@ -21694,6 +21893,7 @@
           "prunable": true,
           "prunable_params": 147456,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 1.3611111111111112,
           "flops": 115605504.0,
           "weight_name": "sections.1.1.conv2.weight",
           "weight_shape": [
@@ -21728,7 +21928,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "372",
               "name": "convolution_17",
@@ -21777,7 +21977,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "372",
               "name": "sections.1.1.conv2.weight",
@@ -22538,6 +22738,7 @@
           "prunable": true,
           "prunable_params": 65536,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 30.625,
           "flops": 51380224.0,
           "weight_name": "sections.1.1.conv3.weight",
           "weight_shape": [
@@ -22572,7 +22773,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "375",
               "name": "convolution_18",
@@ -22621,7 +22822,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "375",
               "name": "sections.1.1.conv3.weight",
@@ -23382,6 +23583,7 @@
           "prunable": true,
           "prunable_params": 65536,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 30.625,
           "flops": 51380224.0,
           "weight_name": "sections.1.2.conv1.weight",
           "weight_shape": [
@@ -23416,7 +23618,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "379",
               "name": "convolution_19",
@@ -23465,7 +23667,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "379",
               "name": "sections.1.2.conv1.weight",
@@ -24226,6 +24428,7 @@
           "prunable": true,
           "prunable_params": 147456,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 1.3611111111111112,
           "flops": 115605504.0,
           "weight_name": "sections.1.2.conv2.weight",
           "weight_shape": [
@@ -24260,7 +24463,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "382",
               "name": "convolution_20",
@@ -24309,7 +24512,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "382",
               "name": "sections.1.2.conv2.weight",
@@ -25070,6 +25273,7 @@
           "prunable": true,
           "prunable_params": 65536,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 30.625,
           "flops": 51380224.0,
           "weight_name": "sections.1.2.conv3.weight",
           "weight_shape": [
@@ -25104,7 +25308,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "385",
               "name": "convolution_21",
@@ -25153,7 +25357,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "385",
               "name": "sections.1.2.conv3.weight",
@@ -25914,6 +26118,7 @@
           "prunable": true,
           "prunable_params": 65536,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 30.625,
           "flops": 51380224.0,
           "weight_name": "sections.1.3.conv1.weight",
           "weight_shape": [
@@ -25948,7 +26153,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "389",
               "name": "convolution_22",
@@ -25997,7 +26202,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "389",
               "name": "sections.1.3.conv1.weight",
@@ -26758,6 +26963,7 @@
           "prunable": true,
           "prunable_params": 147456,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 1.3611111111111112,
           "flops": 115605504.0,
           "weight_name": "sections.1.3.conv2.weight",
           "weight_shape": [
@@ -26792,7 +26998,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "392",
               "name": "convolution_23",
@@ -26841,7 +27047,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "392",
               "name": "sections.1.3.conv2.weight",
@@ -27602,6 +27808,7 @@
           "prunable": true,
           "prunable_params": 65536,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 30.625,
           "flops": 51380224.0,
           "weight_name": "sections.1.3.conv3.weight",
           "weight_shape": [
@@ -27636,7 +27843,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "395",
               "name": "convolution_24",
@@ -27685,7 +27892,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "395",
               "name": "sections.1.3.conv3.weight",
@@ -28446,6 +28653,7 @@
           "prunable": true,
           "prunable_params": 131072,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 9.1875,
           "flops": 102760448.0,
           "weight_name": "sections.2.0.conv1.weight",
           "weight_shape": [
@@ -28480,7 +28688,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "399",
               "name": "convolution_25",
@@ -28529,7 +28737,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "399",
               "name": "sections.2.0.conv1.weight",
@@ -29290,6 +29498,7 @@
           "prunable": true,
           "prunable_params": 589824,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 1.7013888888888888,
           "flops": 115605504.0,
           "weight_name": "sections.2.0.conv2.weight",
           "weight_shape": [
@@ -29324,7 +29533,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "402",
               "name": "convolution_27",
@@ -29373,7 +29582,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "402",
               "name": "sections.2.0.conv2.weight",
@@ -30134,6 +30343,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.0.conv3.weight",
           "weight_shape": [
@@ -30168,7 +30378,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "405",
               "name": "convolution_28",
@@ -30217,7 +30427,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "405",
               "name": "sections.2.0.conv3.weight",
@@ -30978,6 +31188,7 @@
           "prunable": true,
           "prunable_params": 524288,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 2.296875,
           "flops": 102760448.0,
           "weight_name": "sections.2.0.identity.conv.weight",
           "weight_shape": [
@@ -31012,7 +31223,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "407",
               "name": "convolution_26",
@@ -31061,7 +31272,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "407",
               "name": "sections.2.0.identity.conv.weight",
@@ -31822,6 +32033,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.1.conv1.weight",
           "weight_shape": [
@@ -31856,7 +32068,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "411",
               "name": "convolution_29",
@@ -31905,7 +32117,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "411",
               "name": "sections.2.1.conv1.weight",
@@ -32666,6 +32878,7 @@
           "prunable": true,
           "prunable_params": 589824,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.1701388888888889,
           "flops": 115605504.0,
           "weight_name": "sections.2.1.conv2.weight",
           "weight_shape": [
@@ -32700,7 +32913,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "414",
               "name": "convolution_30",
@@ -32749,7 +32962,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "414",
               "name": "sections.2.1.conv2.weight",
@@ -33510,6 +33723,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.1.conv3.weight",
           "weight_shape": [
@@ -33544,7 +33758,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "417",
               "name": "convolution_31",
@@ -33593,7 +33807,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "417",
               "name": "sections.2.1.conv3.weight",
@@ -34354,6 +34568,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.2.conv1.weight",
           "weight_shape": [
@@ -34388,7 +34603,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "421",
               "name": "convolution_32",
@@ -34437,7 +34652,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "421",
               "name": "sections.2.2.conv1.weight",
@@ -35198,6 +35413,7 @@
           "prunable": true,
           "prunable_params": 589824,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.1701388888888889,
           "flops": 115605504.0,
           "weight_name": "sections.2.2.conv2.weight",
           "weight_shape": [
@@ -35232,7 +35448,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "424",
               "name": "convolution_33",
@@ -35281,7 +35497,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "424",
               "name": "sections.2.2.conv2.weight",
@@ -36042,6 +36258,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.2.conv3.weight",
           "weight_shape": [
@@ -36076,7 +36293,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "427",
               "name": "convolution_34",
@@ -36125,7 +36342,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "427",
               "name": "sections.2.2.conv3.weight",
@@ -36886,6 +37103,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.3.conv1.weight",
           "weight_shape": [
@@ -36920,7 +37138,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "431",
               "name": "convolution_35",
@@ -36969,7 +37187,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "431",
               "name": "sections.2.3.conv1.weight",
@@ -37730,6 +37948,7 @@
           "prunable": true,
           "prunable_params": 589824,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.1701388888888889,
           "flops": 115605504.0,
           "weight_name": "sections.2.3.conv2.weight",
           "weight_shape": [
@@ -37764,7 +37983,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "434",
               "name": "convolution_36",
@@ -37813,7 +38032,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "434",
               "name": "sections.2.3.conv2.weight",
@@ -38574,6 +38793,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.3.conv3.weight",
           "weight_shape": [
@@ -38608,7 +38828,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "437",
               "name": "convolution_37",
@@ -38657,7 +38877,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "437",
               "name": "sections.2.3.conv3.weight",
@@ -39418,6 +39638,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.4.conv1.weight",
           "weight_shape": [
@@ -39452,7 +39673,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "441",
               "name": "convolution_38",
@@ -39501,7 +39722,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "441",
               "name": "sections.2.4.conv1.weight",
@@ -40262,6 +40483,7 @@
           "prunable": true,
           "prunable_params": 589824,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.1701388888888889,
           "flops": 115605504.0,
           "weight_name": "sections.2.4.conv2.weight",
           "weight_shape": [
@@ -40296,7 +40518,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "444",
               "name": "convolution_39",
@@ -40345,7 +40567,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "444",
               "name": "sections.2.4.conv2.weight",
@@ -41106,6 +41328,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.4.conv3.weight",
           "weight_shape": [
@@ -41140,7 +41363,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "447",
               "name": "convolution_40",
@@ -41189,7 +41412,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "447",
               "name": "sections.2.4.conv3.weight",
@@ -41950,6 +42173,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.5.conv1.weight",
           "weight_shape": [
@@ -41984,7 +42208,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "451",
               "name": "convolution_41",
@@ -42033,7 +42257,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "451",
               "name": "sections.2.5.conv1.weight",
@@ -42794,6 +43018,7 @@
           "prunable": true,
           "prunable_params": 589824,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.1701388888888889,
           "flops": 115605504.0,
           "weight_name": "sections.2.5.conv2.weight",
           "weight_shape": [
@@ -42828,7 +43053,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "454",
               "name": "convolution_42",
@@ -42877,7 +43102,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "454",
               "name": "sections.2.5.conv2.weight",
@@ -43638,6 +43863,7 @@
           "prunable": true,
           "prunable_params": 262144,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 3.828125,
           "flops": 51380224.0,
           "weight_name": "sections.2.5.conv3.weight",
           "weight_shape": [
@@ -43672,7 +43898,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "457",
               "name": "convolution_43",
@@ -43721,7 +43947,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "457",
               "name": "sections.2.5.conv3.weight",
@@ -44482,6 +44708,7 @@
           "prunable": true,
           "prunable_params": 524288,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 1.1484375,
           "flops": 102760448.0,
           "weight_name": "sections.3.0.conv1.weight",
           "weight_shape": [
@@ -44516,7 +44743,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "461",
               "name": "convolution_44",
@@ -44565,7 +44792,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "461",
               "name": "sections.3.0.conv1.weight",
@@ -45326,6 +45553,7 @@
           "prunable": true,
           "prunable_params": 2359296,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.2126736111111111,
           "flops": 115605504.0,
           "weight_name": "sections.3.0.conv2.weight",
           "weight_shape": [
@@ -45360,7 +45588,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "464",
               "name": "convolution_46",
@@ -45409,7 +45637,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "464",
               "name": "sections.3.0.conv2.weight",
@@ -46170,6 +46398,7 @@
           "prunable": true,
           "prunable_params": 1048576,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.478515625,
           "flops": 51380224.0,
           "weight_name": "sections.3.0.conv3.weight",
           "weight_shape": [
@@ -46204,7 +46433,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "467",
               "name": "convolution_47",
@@ -46253,7 +46482,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "467",
               "name": "sections.3.0.conv3.weight",
@@ -47014,6 +47243,7 @@
           "prunable": true,
           "prunable_params": 2097152,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.287109375,
           "flops": 102760448.0,
           "weight_name": "sections.3.0.identity.conv.weight",
           "weight_shape": [
@@ -47048,7 +47278,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "469",
               "name": "convolution_45",
@@ -47097,7 +47327,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "469",
               "name": "sections.3.0.identity.conv.weight",
@@ -47858,6 +48088,7 @@
           "prunable": true,
           "prunable_params": 1048576,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.478515625,
           "flops": 51380224.0,
           "weight_name": "sections.3.1.conv1.weight",
           "weight_shape": [
@@ -47892,7 +48123,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "473",
               "name": "convolution_48",
@@ -47941,7 +48172,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "473",
               "name": "sections.3.1.conv1.weight",
@@ -48702,6 +48933,7 @@
           "prunable": true,
           "prunable_params": 2359296,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.021267361111111112,
           "flops": 115605504.0,
           "weight_name": "sections.3.1.conv2.weight",
           "weight_shape": [
@@ -48736,7 +48968,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "476",
               "name": "convolution_49",
@@ -48785,7 +49017,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "476",
               "name": "sections.3.1.conv2.weight",
@@ -49546,6 +49778,7 @@
           "prunable": true,
           "prunable_params": 1048576,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.478515625,
           "flops": 51380224.0,
           "weight_name": "sections.3.1.conv3.weight",
           "weight_shape": [
@@ -49580,7 +49813,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "479",
               "name": "convolution_50",
@@ -49629,7 +49862,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "479",
               "name": "sections.3.1.conv3.weight",
@@ -50390,6 +50623,7 @@
           "prunable": true,
           "prunable_params": 1048576,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.478515625,
           "flops": 51380224.0,
           "weight_name": "sections.3.2.conv1.weight",
           "weight_shape": [
@@ -50424,7 +50658,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "483",
               "name": "convolution_51",
@@ -50473,7 +50707,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "483",
               "name": "sections.3.2.conv1.weight",
@@ -51234,6 +51468,7 @@
           "prunable": true,
           "prunable_params": 2359296,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.021267361111111112,
           "flops": 115605504.0,
           "weight_name": "sections.3.2.conv2.weight",
           "weight_shape": [
@@ -51268,7 +51503,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "486",
               "name": "convolution_52",
@@ -51317,7 +51552,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "486",
               "name": "sections.3.2.conv2.weight",
@@ -52078,6 +52313,7 @@
           "prunable": true,
           "prunable_params": 1048576,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.478515625,
           "flops": 51380224.0,
           "weight_name": "sections.3.2.conv3.weight",
           "weight_shape": [
@@ -52112,7 +52348,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "489",
               "name": "convolution_53",
@@ -52161,7 +52397,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "489",
               "name": "sections.3.2.conv3.weight",
@@ -52918,6 +53154,7 @@
           "prunable": true,
           "prunable_params": 2048000,
           "prunable_params_zeroed": 0,
+          "prunable_equation_sensitivity": 0.003046512445095168,
           "flops": 4097000.0,
           "weight_name": "classifier.fc.weight",
           "weight_shape": [
@@ -52936,7 +53173,7 @@
         },
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": "output_0",
               "name": "gevm_55",
@@ -52985,7 +53222,7 @@
         ],
         "loss_results": [
           [
-            "4fae9afe311e4d1080dd412ac90913f0",
+            "614c499be239452b94237bafbf407558",
             {
               "id": "output_0",
               "name": "classifier.fc.weight",
@@ -53720,7 +53957,7 @@
         "analyzer": null,
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": null,
               "name": "ORT Subgraph 0",
@@ -53778,7 +54015,7 @@
         "analyzer": null,
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": null,
               "name": "pooling_1",
@@ -53836,7 +54073,7 @@
         "analyzer": null,
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": null,
               "name": "pooling_54",
@@ -53880,7 +54117,7 @@
         "analyzer": null,
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": null,
               "name": "shuffle_56",
@@ -53924,7 +54161,7 @@
         "analyzer": null,
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": null,
               "name": "softmax_57",
@@ -53968,7 +54205,7 @@
         "analyzer": null,
         "perf_results": [
           [
-            "2fb1262355374440870d90305b42104c",
+            "e79a48530adf41a88d465c69c91690bc",
             {
               "id": null,
               "name": "ORT Subgraph 1",
@@ -54023,7 +54260,7 @@
   ],
   "perf_analysis": [
     [
-      "2fb1262355374440870d90305b42104c",
+      "e79a48530adf41a88d465c69c91690bc",
       {
         "num_cores": -1,
         "batch_size": 1,
@@ -56972,7 +57209,7 @@
   ],
   "loss_analysis": [
     [
-      "4fae9afe311e4d1080dd412ac90913f0",
+      "614c499be239452b94237bafbf407558",
       {
         "results": [
           {

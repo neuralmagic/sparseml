@@ -63,6 +63,11 @@ class NodeAnalyzer(object):
             self._bias_shape = kwargs["bias_shape"]
             self._attributes = kwargs["attributes"]
             self._flops = kwargs["flops"]
+            self._prunable_equation_sensitivity = (
+                kwargs["prunable_equation_sensitivity"]
+                if "prunable_equation_sensitivity" in kwargs
+                else None
+            )
 
             return
 
@@ -212,7 +217,7 @@ class NodeAnalyzer(object):
         return self._prunable_equation_sensitivity
 
     @property
-    def flops(self) -> int:
+    def flops(self) -> Union[float, None]:
         """
         :return: number of flops to run the node
         """

@@ -110,7 +110,7 @@ def prune_unstructured(array: numpy.ndarray, sparsity: float) -> numpy.ndarray:
     :return: the pruned array
     """
     array = numpy.array(array)  # make a copy because arrays from onnx are read only
-    sparse_index = round(sparsity * array.size) - 1
+    sparse_index = int(round(sparsity * array.size) - 1)
 
     if sparse_index < 0:
         return array
