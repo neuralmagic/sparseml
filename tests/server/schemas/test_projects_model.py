@@ -22,6 +22,7 @@ from tests.server.helper import schema_tester
             {
                 "nodes": [
                     {
+                        "prunable_equation_sensitivity": 1703.506172839506,
                         "id": "id",
                         "op_type": "Conv",
                         "input_names": ["input_1"],
@@ -44,6 +45,7 @@ from tests.server.helper import schema_tester
             {
                 "nodes": [
                     {
+                        "prunable_equation_sensitivity": 1703.506172839506,
                         "id": "id",
                         "op_type": "Conv",
                         "input_names": ["input_1"],
@@ -75,6 +77,7 @@ from tests.server.helper import schema_tester
                             "pads": [1, 1, 1, 1],
                             "strides": [1, 1],
                         },
+                        "prunable_equation_sensitivity": 1703.506172839506,
                         "bias_name": "sections.0.0.conv.bias",
                         "bias_shape": [64],
                         "flops": 89915392,
@@ -93,6 +96,7 @@ from tests.server.helper import schema_tester
                     },
                     {
                         "attributes": {},
+                        "prunable_equation_sensitivity": 1703.506172839506,
                         "bias_name": None,
                         "bias_shape": None,
                         "flops": 3211264,
@@ -121,6 +125,7 @@ from tests.server.helper import schema_tester
                             "pads": [1, 1, 1, 1],
                             "strides": [1, 1],
                         },
+                        "prunable_equation_sensitivity": 1703.506172839506,
                         "bias_name": "sections.0.0.conv.bias",
                         "bias_shape": [64],
                         "flops": 89915392,
@@ -139,6 +144,7 @@ from tests.server.helper import schema_tester
                     },
                     {
                         "attributes": {},
+                        "prunable_equation_sensitivity": 1703.506172839506,
                         "bias_name": None,
                         "bias_shape": None,
                         "flops": 3211264,
@@ -210,6 +216,7 @@ def test_project_model_analysis_schema(
                                 "pads": [1, 1, 1, 1],
                                 "strides": [1, 1],
                             },
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "bias_name": "sections.0.0.conv.bias",
                             "bias_shape": [64],
                             "flops": 89915392,
@@ -228,6 +235,7 @@ def test_project_model_analysis_schema(
                         },
                         {
                             "attributes": {},
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "bias_name": None,
                             "bias_shape": None,
                             "flops": 3211264,
@@ -263,6 +271,7 @@ def test_project_model_analysis_schema(
                                 "pads": [1, 1, 1, 1],
                                 "strides": [1, 1],
                             },
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "bias_name": "sections.0.0.conv.bias",
                             "bias_shape": [64],
                             "flops": 89915392,
@@ -281,6 +290,7 @@ def test_project_model_analysis_schema(
                         },
                         {
                             "attributes": {},
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "bias_name": None,
                             "bias_shape": None,
                             "flops": 3211264,
@@ -324,7 +334,7 @@ def test_project_model_schema(
         (
             {"file": "/path/to/file", "source": "uploaded", "job": None},
             {"file": "/path/to/file", "source": "uploaded", "job": None},
-            None
+            None,
         ),
         ({"job": None}, {"job": None}, None),
         ({"job": None, "source": "failure"}, None, ["source"]),
@@ -339,7 +349,7 @@ def test_create_update_project_model_schema(
         CreateUpdateProjectModelSchema,
         expected_input,
         expected_output,
-        expect_validation_error
+        expect_validation_error,
     )
 
 
@@ -355,6 +365,7 @@ def test_create_update_project_model_schema(
                             "op_type": "Conv",
                             "input_names": ["input_1"],
                             "output_names": ["output_1"],
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "input_shapes": None,
                             "output_shapes": None,
                             "params": 0,
@@ -379,6 +390,7 @@ def test_create_update_project_model_schema(
                             "op_type": "Conv",
                             "input_names": ["input_1"],
                             "output_names": ["output_1"],
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "input_shapes": None,
                             "output_shapes": None,
                             "params": 0,
@@ -408,6 +420,7 @@ def test_create_update_project_model_schema(
                                 "pads": [1, 1, 1, 1],
                                 "strides": [1, 1],
                             },
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "bias_name": "sections.0.0.conv.bias",
                             "bias_shape": [64],
                             "flops": 89915392,
@@ -426,6 +439,7 @@ def test_create_update_project_model_schema(
                         },
                         {
                             "attributes": {},
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "bias_name": None,
                             "bias_shape": None,
                             "flops": 3211264,
@@ -456,6 +470,7 @@ def test_create_update_project_model_schema(
                                 "pads": [1, 1, 1, 1],
                                 "strides": [1, 1],
                             },
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "bias_name": "sections.0.0.conv.bias",
                             "bias_shape": [64],
                             "flops": 89915392,
@@ -474,6 +489,7 @@ def test_create_update_project_model_schema(
                         },
                         {
                             "attributes": {},
+                            "prunable_equation_sensitivity": 1703.506172839506,
                             "bias_name": None,
                             "bias_shape": None,
                             "flops": 3211264,

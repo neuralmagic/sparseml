@@ -71,7 +71,10 @@ def test_project_data_schema(
     if expected_output:
         expected_output["created"] = created.isoformat()
     schema_tester(
-        ProjectDataSchema, expected_input, expected_output, expect_validation_error,
+        ProjectDataSchema,
+        expected_input,
+        expected_output,
+        expect_validation_error,
     )
 
 
@@ -164,7 +167,8 @@ def test_response_project_data_schema(
     ],
 )
 def test_response_project_data_Deleted_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(ResponseProjectDataDeletedSchema, expected_input, expected_output)
 
@@ -173,6 +177,7 @@ def test_response_project_data_Deleted_schema(
     "expected_input,expected_output", [({"uri": "path"}, {"uri": "path"})]
 )
 def test_set_project_data_from_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(SetProjectDataFromSchema, expected_input, expected_output)

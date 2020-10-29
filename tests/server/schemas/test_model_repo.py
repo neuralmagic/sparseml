@@ -26,7 +26,8 @@ from tests.server.helper import schema_tester
     ],
 )
 def test_model_repo_model_perf_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(ModelRepoModelPerfSchema, expected_input, expected_output)
 
@@ -111,7 +112,8 @@ def test_model_repo_model_metric_schema(
     ],
 )
 def test_model_repo_model_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(ModelRepoModelSchema, expected_input, expected_output)
 
@@ -138,7 +140,8 @@ def test_model_repo_model_schema(
     ],
 )
 def test_model_repo_domain_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(ModelRepoDomainSchema, expected_input, expected_output)
 
@@ -165,7 +168,8 @@ def test_model_repo_domain_schema(
     ],
 )
 def test_model_repo_architecture_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(ModelRepoArchitectureSchema, expected_input, expected_output)
 
@@ -181,7 +185,8 @@ def test_model_repo_architecture_schema(
     ],
 )
 def test_model_repo_dataset_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(ModelRepoDatasetSchema, expected_input, expected_output)
 
@@ -190,11 +195,15 @@ def test_model_repo_dataset_schema(
     "expected_input,expected_output",
     [
         ({"desc": "base"}, {"display": None, "desc": "base"}),
-        ({"display": "Base", "desc": "base"}, {"display": "Base", "desc": "base"},),
+        (
+            {"display": "Base", "desc": "base"},
+            {"display": "Base", "desc": "base"},
+        ),
     ],
 )
 def test_model_repo_desc_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(ModelRepoModelDescSchema, expected_input, expected_output)
 
@@ -252,7 +261,8 @@ def test_model_repo_desc_schema(
     ],
 )
 def test_search_model_repo_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(SearchModelRepoModels, expected_input, expected_output)
 
@@ -393,6 +403,7 @@ def test_search_model_repo_schema(
     ],
 )
 def test_response_model_repo_schema(
-    expected_input: Dict, expected_output: Dict,
+    expected_input: Dict,
+    expected_output: Dict,
 ):
     schema_tester(ResponseModelRepoModels, expected_input, expected_output)

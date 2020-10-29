@@ -13,6 +13,7 @@ __all__ = ["schema_tester", "database_fixture"]
 
 @pytest.fixture(scope="session")
 def database_fixture():
+    os.makedirs(TEMP_DIR, exist_ok=True)
     database_setup(TEMP_DIR)
     yield
     os.remove(os.path.join(TEMP_DIR, "db.sqlite"))

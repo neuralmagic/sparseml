@@ -25,6 +25,8 @@ from tests.server.helper import schema_tester
                 "inference_engine": "neural_magic",
                 "inference_model_optimization": "optimization",
                 "measurements": [0.1, 0.2, 0.3],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             {
                 "core_count": 1,
@@ -32,6 +34,8 @@ from tests.server.helper import schema_tester
                 "inference_engine": "neural_magic",
                 "inference_model_optimization": "optimization",
                 "measurements": [0.1, 0.2, 0.3],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             None,
         ),
@@ -42,6 +46,8 @@ from tests.server.helper import schema_tester
                 "inference_engine": "fail",
                 "inference_model_optimization": "optimization",
                 "measurements": [0.1, 0.2, 0.3],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             None,
             ["inference_engine"],
@@ -71,15 +77,17 @@ def test_project_benchmark_result_schema(
                 "inference_engine": "neural_magic",
                 "inference_model_optimization": "optimization",
                 "measurements": [0.1, 0.2, 0.3],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             {
                 "benchmarks": [
                     {
-                        "core_count": 1,
-                        "batch_size": 3,
                         "inference_engine": "neural_magic",
                         "inference_model_optimization": "optimization",
+                        "batch_size": 3,
                         "measurements": [0.1, 0.2, 0.3],
+                        "core_count": 1,
                     }
                 ]
             },
@@ -92,6 +100,8 @@ def test_project_benchmark_result_schema(
                 "inference_engine": "fail",
                 "inference_model_optimization": "optimization",
                 "measurements": [0.1, 0.2, 0.3],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             None,
             ["benchmarks"],
@@ -135,6 +145,8 @@ def test_project_benchmark_result_schema(
                 "source": None,
                 "job": None,
                 "result": None,
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             {
                 "benchmark_id": "benchmark id",
@@ -156,6 +168,8 @@ def test_project_benchmark_result_schema(
                 "source": None,
                 "job": None,
                 "result": None,
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             None,
         ),
@@ -187,40 +201,46 @@ def test_project_benchmark_result_schema(
                             "inference_engine": "neural_magic",
                             "inference_model_optimization": "optimization",
                             "measurements": [0.1, 0.2, 0.3],
+                            "iterations_per_check": 30,
+                            "warmup_iterations_per_check": 30,
                         }
                     ]
                 },
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             {
-                "benchmark_id": "benchmark id",
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
+                "batch_sizes": [3, 6, 9],
+                "source": "generated",
+                "instruction_sets": ["AVX2"],
+                "core_counts": [1, 2, 3],
                 "project_id": "project id",
-                "name": "name",
                 "inference_models": [
                     {
-                        "inference_engine": "ort_gpu",
                         "inference_model_optimization": None,
+                        "inference_engine": "ort_gpu",
                     },
                     {
-                        "inference_engine": "neural_magic",
                         "inference_model_optimization": None,
+                        "inference_engine": "neural_magic",
                     },
                 ],
-                "core_counts": [1, 2, 3],
-                "batch_sizes": [3, 6, 9],
-                "instruction_sets": ["AVX2"],
-                "source": "generated",
-                "job": None,
                 "result": {
                     "benchmarks": [
                         {
-                            "core_count": 1,
-                            "batch_size": 1,
-                            "inference_engine": "neural_magic",
                             "inference_model_optimization": "optimization",
+                            "core_count": 1,
                             "measurements": [0.1, 0.2, 0.3],
+                            "inference_engine": "neural_magic",
+                            "batch_size": 1,
                         }
                     ]
                 },
+                "job": None,
+                "name": "name",
+                "benchmark_id": "benchmark id",
             },
             None,
         ),
@@ -252,9 +272,13 @@ def test_project_benchmark_result_schema(
                             "inference_engine": "neural_magic",
                             "inference_model_optimization": "optimization",
                             "measurements": [0.1, 0.2, 0.3],
+                            "iterations_per_check": 30,
+                            "warmup_iterations_per_check": 30,
                         }
                     ]
                 },
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             None,
             ["inference_models", "instruction_sets", "source"],
@@ -299,6 +323,8 @@ def test_project_benchmark_schema(
                 "source": None,
                 "job": None,
                 "result": None,
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             {
                 "benchmark": {
@@ -321,6 +347,8 @@ def test_project_benchmark_schema(
                     "source": None,
                     "job": None,
                     "result": None,
+                    "iterations_per_check": 30,
+                    "warmup_iterations_per_check": 30,
                 }
             },
             None,
@@ -345,6 +373,8 @@ def test_project_benchmark_schema(
                 "instruction_sets": ["AVX2"],
                 "source": "generated",
                 "job": None,
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
                 "result": {
                     "benchmarks": [
                         {
@@ -353,41 +383,46 @@ def test_project_benchmark_schema(
                             "inference_engine": "neural_magic",
                             "inference_model_optimization": "optimization",
                             "measurements": [0.1, 0.2, 0.3],
+                            "iterations_per_check": 30,
+                            "warmup_iterations_per_check": 30,
                         }
                     ]
                 },
             },
             {
                 "benchmark": {
-                    "benchmark_id": "benchmark id",
-                    "project_id": "project id",
-                    "name": "name",
-                    "inference_models": [
-                        {
-                            "inference_engine": "ort_gpu",
-                            "inference_model_optimization": None,
-                        },
-                        {
-                            "inference_engine": "neural_magic",
-                            "inference_model_optimization": None,
-                        },
-                    ],
-                    "core_counts": [1, 2, 3],
-                    "batch_sizes": [3, 6, 9],
-                    "instruction_sets": ["AVX2"],
                     "source": "generated",
                     "job": None,
+                    "name": "name",
+                    "project_id": "project id",
+                    "instruction_sets": ["AVX2"],
+                    "iterations_per_check": 30,
+                    "core_counts": [1, 2, 3],
+                    "inference_models": [
+                        {
+                            "inference_model_optimization": None,
+                            "inference_engine": "ort_gpu",
+                        },
+                        {
+                            "inference_model_optimization": None,
+                            "inference_engine": "neural_magic",
+                        },
+                    ],
+                    "batch_sizes": [3, 6, 9],
+                    "warmup_iterations_per_check": 30,
                     "result": {
                         "benchmarks": [
                             {
-                                "core_count": 1,
-                                "batch_size": 1,
                                 "inference_engine": "neural_magic",
-                                "inference_model_optimization": "optimization",
                                 "measurements": [0.1, 0.2, 0.3],
+                                "batch_size": 1,
+                                "core_count": 1,
+                                "inference_model_optimization": "optimization",
                             }
                         ]
                     },
+                    "benchmark_id": "benchmark id",
+                    "created": "2020-10-29T15:39:07.437680",
                 }
             },
             None,
@@ -420,6 +455,8 @@ def test_project_benchmark_schema(
                             "inference_engine": "neural_magic",
                             "inference_model_optimization": "optimization",
                             "measurements": [0.1, 0.2, 0.3],
+                            "iterations_per_check": 30,
+                            "warmup_iterations_per_check": 30,
                         }
                     ]
                 },
@@ -470,6 +507,8 @@ def test_response_project_benchmark_schema(
                 "source": None,
                 "job": None,
                 "result": None,
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             {
                 "benchmarks": [
@@ -493,6 +532,8 @@ def test_response_project_benchmark_schema(
                         "source": None,
                         "job": None,
                         "result": None,
+                        "iterations_per_check": 30,
+                        "warmup_iterations_per_check": 30,
                     }
                 ]
             },
@@ -526,9 +567,13 @@ def test_response_project_benchmark_schema(
                             "inference_engine": "neural_magic",
                             "inference_model_optimization": "optimization",
                             "measurements": [0.1, 0.2, 0.3],
+                            "iterations_per_check": 30,
+                            "warmup_iterations_per_check": 30,
                         }
                     ]
                 },
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             {
                 "benchmarks": [
@@ -562,6 +607,8 @@ def test_response_project_benchmark_schema(
                                 }
                             ]
                         },
+                        "iterations_per_check": 30,
+                        "warmup_iterations_per_check": 30,
                     }
                 ]
             },
@@ -588,6 +635,8 @@ def test_response_project_benchmark_schema(
                 "source": "fail",
                 "job": None,
                 "result": "success",
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             None,
             ["benchmarks"],
@@ -628,6 +677,8 @@ def test_response_project_benchmarks_schema(
                 ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             {
                 "name": None,
@@ -643,6 +694,8 @@ def test_response_project_benchmarks_schema(
                 ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             None,
         ),
@@ -661,6 +714,8 @@ def test_response_project_benchmarks_schema(
                 ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             {
                 "name": "benchmark",
@@ -676,6 +731,8 @@ def test_response_project_benchmarks_schema(
                 ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             None,
         ),
@@ -690,6 +747,8 @@ def test_response_project_benchmarks_schema(
                 ],
                 "core_counts": [1, 2, 3],
                 "batch_sizes": [3, 6, 9],
+                "iterations_per_check": 30,
+                "warmup_iterations_per_check": 30,
             },
             None,
             ["inference_models"],
