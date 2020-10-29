@@ -254,7 +254,7 @@ def parse_args():
                 "--num-cores",
                 nargs="+",
                 type=int,
-                default=-1,
+                default=[-1],
                 help="The number of physical cores to run the analysis on, "
                 "defaults to all physical cores available on the system",
             )
@@ -263,7 +263,7 @@ def parse_args():
                 "--nthreads",
                 nargs="+",
                 type=int,
-                default=1,
+                default=[1],
                 help="The number of threads to run the models",
             )
         par.add_argument(
@@ -295,7 +295,6 @@ def parse_args():
         action="store_true",
         help="Do not override batch dimension of the ONNX model before running in ORT",
     )
-
     return parser.parse_args()
 
 
