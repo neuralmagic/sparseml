@@ -3,8 +3,6 @@ import os
 from tests.server.helper import database_fixture
 from neuralmagicML.server.models import database, Project
 
-from tests.server.helper import database_fixture
-
 
 @pytest.mark.parametrize(
     "param_fixtures,expected_params",
@@ -40,9 +38,7 @@ from tests.server.helper import database_fixture
         ),
     ],
 )
-def test_project(
-    database_fixture, param_fixtures, expected_params
-):
+def test_project(database_fixture, param_fixtures, expected_params):
     try:
         project = Project.create(**param_fixtures)
 
@@ -91,4 +87,13 @@ def test_project(
     finally:
         if project and os.path.exists(project.dir_path):
             project.delete_filesystem()
+
+        if project:
+            try:
+                Project.delete().where(
+                    Project.project_id == project.project_id
+                ).execute()
+            except Exception as e:
+                pass
+
         assert not os.path.exists(project.dir_path)

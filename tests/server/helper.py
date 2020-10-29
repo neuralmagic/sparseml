@@ -16,7 +16,8 @@ def database_fixture():
     os.makedirs(TEMP_DIR, exist_ok=True)
     database_setup(TEMP_DIR)
     yield
-    os.remove(os.path.join(TEMP_DIR, "db.sqlite"))
+    if os.path.exists(os.path.join(TEMP_DIR, "db.sqlite")):
+        os.remove(os.path.join(TEMP_DIR, "db.sqlite"))
 
 
 def schema_tester(

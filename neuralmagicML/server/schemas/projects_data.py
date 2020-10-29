@@ -14,6 +14,8 @@ __all__ = [
     "ResponseProjectDataSchema",
     "ResponseProjectDataDeletedSchema",
     "SetProjectDataFromSchema",
+    "SearchProjectDataSchema",
+    "CreateUpdateProjectDataSchema",
 ]
 
 
@@ -27,10 +29,45 @@ class ProjectDataSchema(Schema):
     project_id = fields.Str(required=True)
     created = fields.DateTime(required=True)
     source = fields.Str(
-        required=True, validate=validate.OneOf(MODEL_DATA_SOURCES), allow_none=True,
+        required=True,
+        validate=validate.OneOf(MODEL_DATA_SOURCES),
+        allow_none=True,
     )
     job = fields.Nested(JobSchema, required=True, allow_none=True)
     file = fields.Str(required=True, allow_none=True)
+
+
+class SearchProjectDataSchema(Schema):
+    """
+    Schema to use for querying project data
+    """
+
+    page = fields.Int(
+        default=1,
+        missing=1,
+        validate=validate.Range(min=1, min_inclusive=True),
+        required=False,
+    )
+    page_length = fields.Int(
+        default=20,
+        missing=20,
+        validate=validate.Range(min=1, min_inclusive=True),
+        required=False,
+    )
+
+
+class CreateUpdateProjectDataSchema(Schema):
+    """
+    Schema for creating a data file for a project
+    """
+
+    file = fields.Str(required=False, allow_none=True)
+    source = fields.Str(
+        required=False,
+        validate=validate.OneOf(MODEL_DATA_SOURCES),
+        allow_none=True,
+    )
+    job = fields.Nested(JobSchema, required=True, allow_none=True)
 
 
 class ResponseProjectDataSingleSchema(Schema):
