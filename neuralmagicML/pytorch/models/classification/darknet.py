@@ -10,7 +10,6 @@ from torch.nn import (
     Conv2d,
     BatchNorm2d,
     AdaptiveAvgPool2d,
-    Hardswish,
     Linear,
     init,
     Sequential,
@@ -18,6 +17,7 @@ from torch.nn import (
     Sigmoid,
 )
 
+from neuralmagicML.pytorch.nn import Hardswish
 from neuralmagicML.pytorch.models.registry import ModelRegistry
 
 
@@ -58,7 +58,7 @@ class _Input(Module):
             bias=False,
         )
         self.bn1 = BatchNorm2d(_Input.HIDDEN_CHANNELS, momentum=0.03, eps=1e-4)
-        self.act1 = Hardswish()
+        self.act1 = Hardswish(num_channels=_Input.HIDDEN_CHANNELS, inplace=True)
         self.conv2 = Conv2d(
             _Input.HIDDEN_CHANNELS,
             _Input.OUT_CHANNELS,
@@ -68,7 +68,7 @@ class _Input(Module):
             bias=False,
         )
         self.bn2 = BatchNorm2d(_Input.OUT_CHANNELS, momentum=0.03, eps=1e-4)
-        self.act2 = Hardswish()
+        self.act2 = Hardswish(num_channels=_Input.OUT_CHANNELS, inplace=True)
 
         self.initialize()
 
@@ -102,7 +102,7 @@ class _ResidualBlock(Module):
             bias=False,
         )
         self.bn1 = BatchNorm2d(hidden_channels, momentum=0.03, eps=1e-4)
-        self.act1 = Hardswish()
+        self.act1 = Hardswish(num_channels=hidden_channels, inplace=True)
         self.conv2 = Conv2d(
             hidden_channels,
             out_channels,
@@ -112,7 +112,7 @@ class _ResidualBlock(Module):
             bias=False,
         )
         self.bn2 = BatchNorm2d(out_channels, momentum=0.03, eps=1e-4)
-        self.act2 = Hardswish()
+        self.act2 = Hardswish(num_channels=out_channels, inplace=True)
 
         self.initialize()
 
@@ -152,7 +152,7 @@ class _DownsampleBlock(Module):
             in_channels, out_channels, kernel_size=3, stride=2, padding=1, bias=False,
         )
         self.bn = BatchNorm2d(out_channels, momentum=0.03, eps=1e-4)
-        self.act = Hardswish()
+        self.act = Hardswish(num_channels=out_channels, inplace=True)
 
         self.initialize()
 

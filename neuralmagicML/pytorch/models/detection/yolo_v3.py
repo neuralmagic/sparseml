@@ -10,7 +10,6 @@ from torch.nn import (
     Module,
     Conv2d,
     BatchNorm2d,
-    Hardswish,
     MaxPool2d,
     Upsample,
     ModuleList,
@@ -21,6 +20,7 @@ from torch import Tensor, cat
 
 from neuralmagicML.pytorch.models import ModelRegistry
 from neuralmagicML.pytorch.models import darknet53
+from neuralmagicML.pytorch.nn import Hardswish
 
 
 __all__ = [
@@ -51,7 +51,7 @@ class _ConvBnBlock(Module):
             bias=False,
         )
         self.bn = BatchNorm2d(out_channels, momentum=0.03, eps=1e-4)
-        self.act = Hardswish()
+        self.act = Hardswish(num_channels=out_channels, inplace=True)
 
         self.initialize()
 

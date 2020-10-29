@@ -5,8 +5,12 @@ Helper functions and classes for creating and training PyTorch Yolo models
 
 import torch
 from torch import Tensor
-from torchvision.ops.boxes import batched_nms
 from typing import List, Tuple, Iterable
+
+try:
+    from torchvision.ops.boxes import batched_nms
+except:
+    batched_nms = None
 
 
 all = [
@@ -253,6 +257,11 @@ def postprocess_yolo(
     :return: List of predicted bounding boxes (n,4), labels, and scores for each output
         in the batch
     """
+    if batched_nms is None:
+        raise RuntimeError(
+            "Unable to import batched_nms from torchvision.ops try upgrading your"
+            " torch and torchvision versions"
+        )
     yolo_grids = yolo_grids or YoloGrids()
 
     # decode each of the model output grids then concatenate

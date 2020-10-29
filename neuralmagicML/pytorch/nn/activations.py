@@ -3,7 +3,7 @@ Implementations related to activations for neural networks in PyTorch
 """
 
 from typing import Union
-from torch import Tensor
+from torch import Tensor, clamp
 from torch.nn import Module, PReLU, LeakyReLU
 from torch.nn import ReLU as TReLU
 from torch.nn import ReLU6 as TReLU6
@@ -14,7 +14,9 @@ __all__ = [
     "ReLU",
     "ReLU6",
     "Swish",
+    "Hardswish",
     "swish",
+    "hard_swish",
     "create_activation",
     "replace_activation",
     "is_activation",
@@ -78,6 +80,52 @@ class Swish(Module):
         return swish(inp)
 
 
+def hard_swish(x_tens: Tensor, inplace: bool = False):
+    """
+    Hardswish layer implementation:
+        0 for x <= -3
+        x for x >= 3
+        x * (x + 3) / 6 otherwise
+    More information can be found in the paper
+    `here <https://arxiv.org/abs/1905.02244>`__.
+
+    :param x_tens: the input tensor to perform the swish op on
+    :param inplace: True to run the operation in place in memory, False otherwise
+    :return: 0 for x <= -3, x for x >= 3, x * (x + 3) / 6 otherwise
+    """
+    if inplace:
+        x_tens.mul_(clamp(x_tens + 3, 0, 6))
+        x_tens.div_(6)
+    else:
+        relu_6 = x_tens + 3
+        relu_6 = relu_6.clamp(0, 6)
+        x_tens = x_tens * relu_6
+        x_tens = x_tens / 6
+    return x_tens
+
+
+class Hardswish(Module):
+    """
+    Hardswish layer implementation:
+        0 for x <= -3
+        x for x >= 3
+        x * (x + 3) / 6 otherwise
+    More information can be found in the paper
+    `here <https://arxiv.org/abs/1905.02244>`__.
+
+    :param num_channels: number of channels for the layer
+    :param inplace: True to run the operation in place in memory, False otherwise
+    """
+
+    def __init__(self, num_channels: int = -1, inplace: bool = False):
+        super().__init__()
+        self.num_channels = num_channels
+        self.inplace = inplace
+
+    def forward(self, inp: Tensor):
+        return hard_swish(inp, self.inplace)
+
+
 def replace_activation(
     module: Module,
     name: str,
@@ -127,7 +175,7 @@ def create_activation(
     Create an activation function using the given parameters.
 
     :param act_type: the type of activation to replace with; options:
-        [relu, relu6, prelu, lrelu, swish]
+        [relu, relu6, prelu, lrelu, swish, hardswish]
     :param inplace: True to create the activation as an inplace, False otherwise
     :param num_channels: The number of channels to create the activation for
     :param kwargs: Additional kwargs to pass to the activation constructor
@@ -150,6 +198,9 @@ def create_activation(
     if act_type == "swish":
         return Swish(num_channels=num_channels)
 
+    if act_type == "hardswish":
+        return Hardswish(num_channels=num_channels, inplace=inplace)
+
     raise ValueError("unknown act_type given of {}".format(act_type))
 
 
@@ -167,4 +218,5 @@ def is_activation(module: Module) -> bool:
         or isinstance(module, PReLU)
         or isinstance(module, LeakyReLU)
         or isinstance(module, Swish)
+        or isinstance(module, Hardswish)
     )

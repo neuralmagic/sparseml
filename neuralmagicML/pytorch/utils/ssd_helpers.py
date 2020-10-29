@@ -12,8 +12,13 @@ import torch
 from collections import defaultdict
 from PIL import Image
 from torch import Tensor
-from torchvision.ops.boxes import box_iou, batched_nms
 from typing import List, Tuple, Union, Dict, NamedTuple, Callable, Any
+
+try:
+    from torchvision.ops.boxes import box_iou, batched_nms
+except:
+    box_iou = None
+    batched_nms = None
 
 
 __all__ = [
@@ -159,6 +164,11 @@ class DefaultBoxes(object):
         :return: A tuple of the offset encoded bounding boxes and default box encoded
             labels
         """
+        if box_iou is None:
+            raise RuntimeError(
+                "Unable to import box_iou from torchvision.ops try upgrading your"
+                " torch and torchvision versions"
+            )
         if labels.numel() == 0:
             # return encoded box offsets as zeros
             boxes_encoded = torch.zeros(4, self.num_default_boxes).float()
@@ -231,6 +241,11 @@ class DefaultBoxes(object):
         :return: Detected object boudning boxes, predicted labels, and class score for
             each image in this batch
         """
+        if batched_nms is None:
+            raise RuntimeError(
+                "Unable to import batched_nms from torchvision.ops try upgrading your"
+                " torch and torchvision versions"
+            )
         # Re-order so that dimensions are batch_size,num_default_boxes,{4,num_classes}
         boxes = boxes.permute(0, 2, 1)
         scores = scores.permute(0, 2, 1)
@@ -375,6 +390,11 @@ def ssd_random_crop(
     :param labels: a tensor of labels for each of the bounding boxes
     :return: the cropped image, boxes, and labels
     """
+    if box_iou is None:
+        raise RuntimeError(
+            "Unable to import box_iou from torchvision.ops try upgrading your"
+            " torch and torchvision versions"
+        )
     # Loop will always return something when None or 0 is selected
     while True:
         min_iou = random.choice(_SSD_RANDOM_CROP_OPTIONS)
@@ -551,6 +571,12 @@ class MeanAveragePrecision(object):
         :param ground_truth_annotations: annotations from data loader to compare the
             batch results to, should be
         """
+        if box_iou is None:
+            raise RuntimeError(
+                "Unable to import box_iou from torchvision.ops try upgrading your"
+                " torch and torchvision versions"
+            )
+
         # run postprocessing / nms
         nms_results = self._postprocessing_fn(model_output)
 
