@@ -24,9 +24,7 @@ from neuralmagicML.server.blueprints import (
     system_blueprint,
     ui_blueprint,
 )
-from neuralmagicML.server.models import (
-    database_setup,
-)
+from neuralmagicML.server.models import database_setup
 from neuralmagicML.server.workers import JobWorkerManager
 
 
@@ -112,7 +110,7 @@ def run(
         ui_path = os.path.join(os.path.dirname(clean_path(__file__)), "ui")
 
     app = Flask("neuralmagicML.server", static_folder=os.path.join(ui_path, "static"))
-
+    app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 Gb limit
     app.config["UI_PATH"] = ui_path
     CORS(app)
 
@@ -144,10 +142,7 @@ def parse_args() -> Any:
         "--port", default=5543, type=int, help="The local port to launch the server on"
     )
     parser.add_argument(
-        "--debug",
-        default=False,
-        action="store_true",
-        help="Set to run in debug mode",
+        "--debug", default=False, action="store_true", help="Set to run in debug mode",
     )
     parser.add_argument(
         "--logging-level",
