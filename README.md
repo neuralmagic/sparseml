@@ -37,7 +37,7 @@ source ./venv/bin/activate
 To use neuralmagicML framework-specific tooling, the framework package(s) must already be installed in the environment.
 
 The currently supported framework versions are:
-- PyTorch supported versions: >= `1.1.0`
+- PyTorch supported versions: `>= 1.1.0, < 1.7.0`
 - TensorFlow supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
 
 The following commands install versions of PyTorch and TensorFlow v1. For more installation information, see the [PyTorch](https://pytorch.org/get-started/locally/) and [TensorFlow](https://www.tensorflow.org/install/pip) websites.
