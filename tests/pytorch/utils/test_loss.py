@@ -244,9 +244,9 @@ class TestSSDLossWrapperImpl(LossWrapperTest):
             (
                 torch.cat(
                     (
-                        torch.arange(4)[:, None],
+                        torch.arange(4)[:, None].float(),
                         torch.rand(4, 4),
-                        torch.randint(80, (4, 1)),
+                        torch.randint(80, (4, 1)).float(),
                     ),
                     1,
                 ),

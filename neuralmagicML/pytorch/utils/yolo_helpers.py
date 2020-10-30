@@ -116,8 +116,8 @@ def build_targets(
             # adjust for offsets for grid index rounding
             targets_xy = scaled_targets[:, 2:4]
             targets_xy_inv = grid_scale[[2, 3]] - targets_xy
-            j, k = ((targets_xy % 1.0 < offset_bias) & (targets_xy > 1.0)).T
-            l, m = ((targets_xy_inv % 1.0 < offset_bias) & (targets_xy_inv > 1.0)).T
+            j, k = ((targets_xy % 1.0 < offset_bias) & (targets_xy > 1.0)).t()
+            l, m = ((targets_xy_inv % 1.0 < offset_bias) & (targets_xy_inv > 1.0)).t()
             offset_filter = torch.stack((torch.ones_like(j), j, k, l, m))
             scaled_targets = scaled_targets.repeat((5, 1, 1))[offset_filter]
             offsets = (torch.zeros_like(targets_xy)[None] + offset_values[:, None])[
@@ -128,15 +128,15 @@ def build_targets(
             offsets = 0
 
         # extract fields
-        image, clazz = scaled_targets[:, :2].long().T
+        image, clazz = scaled_targets[:, :2].long().t()
         targets_xy = scaled_targets[:, 2:4]
         targets_wh = scaled_targets[:, 4:6]
         grid_indices = (targets_xy - offsets).long()
-        grid_x, grid_y = grid_indices.T
+        grid_x, grid_y = grid_indices.t()
         anchor_idxs = scaled_targets[:, 6].long()
 
         indices.append((image, anchor_idxs, grid_x, grid_y))
-        boxes.append(torch.cat((targets_xy - grid_indices, targets_wh), 1))
+        boxes.append(torch.cat((targets_xy - grid_indices.float(), targets_wh), 1))
         target_anchors.append(anchors[anchor_idxs])
         classes.append(clazz)
 
@@ -299,7 +299,7 @@ def postprocess_yolo(
 
         # attach labels of all positive predictions
         class_confidence_mask = output[:, 5:] > confidence_threshold
-        pred_idxs, class_idxs = class_confidence_mask.nonzero(as_tuple=False).T
+        pred_idxs, class_idxs = class_confidence_mask.nonzero(as_tuple=False).t()
         output = torch.cat(
             [
                 output[pred_idxs, :4],
