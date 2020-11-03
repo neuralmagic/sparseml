@@ -35,6 +35,7 @@ def create_package(name="neuralmagicML-python.tar.gz", exists_ok=True):
         "notebooks",
         "scripts",
         "README.md",
+        "MANIFEST.in",
         "setup.py",
         "requirements.txt",
     ]
