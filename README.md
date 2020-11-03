@@ -15,7 +15,9 @@ neuralmagicML-python
     scripts - Functional scripts for working with the Python API
         onnx - Functional scripts for working with ONNX models
         pytorch - Functional scripts for working with PyTorch models
+        server - Scripts to run the Sparsify server
         tensorflow - Functional scripts for working with TensorFlow models
+    MANIFEST.in - Attaches server files to installation process
     README.md - readme file
     requirements.txt - requirements for the Python API
     setup.py - setuptools install script
@@ -259,31 +261,33 @@ Possible types are:
 
 
 ### Available Models
-|  Architecture      | Dataset  | Available Types         | Frameworks                 | Validation Baseline Metric |
-| ------------------ | -------- | ----------------------- | -------------------------- | -------------------------- |
-| MnistNet           | MNIST    | base                    | ONNX, PyTorch, TensorFlow  | ~99% top1 accuracy         |
-| EfficientNet-B0    | ImageNet | base, recal-perf        | ONNX, PyTorch              | 77.3% top1 accuracy        |
-| EfficientNet-B4    | ImageNet | base, recal-perf        | ONNX, PyTorch              | 83.0% top1 accuracy        |
-| InceptionV3        | ImageNet | base, recal, recal-perf | ONNX, PyTorch              | 77.45% top1 accuracy       |
-| MobileNetV1        | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 70.9% top1 accuracy        |
-| MobileNetV2        | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.88% top1 accuracy       |
-| ResNet-18          | ImageNet | base, recal             | ONNX, PyTorch, TensorFlow  | 69.8% top1 accuracy        |
-| ResNet-34          | ImageNet | base, recal             | ONNX, PyTorch, TensorFlow  | 73.3% top1 accuracy        |
-| ResNet-50          | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 76.1% top1 accuracy        |
-| ResNet-50 2xwidth  | ImageNet | base                    | ONNX, PyTorch              | 78.51% top1 accuracy       |
-| ResNet-101         | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 77.37% top1 accuracy       |
-| ResNet-101 2xwidth | ImageNet | base                    | ONNX, PyTorch              | 78.84% top1 accuracy       |
-| ResNet-152         | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 78.31% top1 accuracy       |
-| VGG-11             | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 69.02% top1 accuracy       |
-| VGG-11bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 70.38% top1 accuracy       |
-| VGG-13             | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 69.93% top1 accuracy       |
-| VGG-13bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
-| VGG-16             | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 71.59% top1 accuracy       |
-| VGG-16bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
-| VGG-19             | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 72.38% top1 accuracy       |
-| VGG-19bn           | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 74.24% top1 accuracy       |
-| SSD-300-ResNet-50  | COCO     | base, recal-perf        | ONNX, PyTorch              | 42.7% mAP@0.5              |
-| SSD-300-ResNet-50  | VOC      | base, recal-perf        | ONNX, PyTorch              | 52.2% mAP@0.5              |
+|  Architecture       | Dataset  | Available Types         | Frameworks                 | Validation Baseline Metric |
+| ------------------- | -------- | ----------------------- | -------------------------- | -------------------------- |
+| MnistNet            | MNIST    | base                    | ONNX, PyTorch, TensorFlow  | ~99% top1 accuracy         |
+| EfficientNet-B0     | ImageNet | base, recal-perf        | ONNX, PyTorch              | 77.3% top1 accuracy        |
+| EfficientNet-B4     | ImageNet | base, recal-perf        | ONNX, PyTorch              | 83.0% top1 accuracy        |
+| InceptionV3         | ImageNet | base, recal, recal-perf | ONNX, PyTorch              | 77.45% top1 accuracy       |
+| MobileNetV1         | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 70.9% top1 accuracy        |
+| MobileNetV2         | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.88% top1 accuracy       |
+| ResNet-18           | ImageNet | base, recal             | ONNX, PyTorch, TensorFlow  | 69.8% top1 accuracy        |
+| ResNet-34           | ImageNet | base, recal             | ONNX, PyTorch, TensorFlow  | 73.3% top1 accuracy        |
+| ResNet-50           | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 76.1% top1 accuracy        |
+| ResNet-50 2xwidth   | ImageNet | base                    | ONNX, PyTorch              | 78.51% top1 accuracy       |
+| ResNet-101          | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 77.37% top1 accuracy       |
+| ResNet-101 2xwidth  | ImageNet | base                    | ONNX, PyTorch              | 78.84% top1 accuracy       |
+| ResNet-152          | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 78.31% top1 accuracy       |
+| VGG-11              | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 69.02% top1 accuracy       |
+| VGG-11bn            | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 70.38% top1 accuracy       |
+| VGG-13              | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 69.93% top1 accuracy       |
+| VGG-13bn            | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
+| VGG-16              | ImageNet | base, recal, recal-perf | ONNX, PyTorch, TensorFlow  | 71.59% top1 accuracy       |
+| VGG-16bn            | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 71.55% top1 accuracy       |
+| VGG-19              | ImageNet | base, recal-perf        | ONNX, PyTorch, TensorFlow  | 72.38% top1 accuracy       |
+| VGG-19bn            | ImageNet | base                    | ONNX, PyTorch, TensorFlow  | 74.24% top1 accuracy       |
+| SSD-300-ResNet-50   | COCO     | base, recal-perf        | ONNX, PyTorch              | 42.7% mAP@0.5              |
+| SSD-300-ResNet-50   | VOC      | base, recal-perf        | ONNX, PyTorch              | 52.2% mAP@0.5              |
+| SSDLite-MobileNetV2 | COCO     | base                    | ONNX, PyTorch              | 35.7% mAP@0.5              |
+| SSDLite-MobileNetV2 | VOC      | base                    | ONNX, PyTorch              | 43.5% mAP@0.5              |
 
 ### Downloading and Usage
 Tutorial notebooks are provided for easily integrating and using the models in the Neural Magic Model Repo. 
