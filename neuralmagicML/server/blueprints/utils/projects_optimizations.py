@@ -687,7 +687,7 @@ def create_config(project: Project, optim: ProjectOptimization, framework: str) 
             TrainableParamsModifier,
         )
     elif framework == "tensorflow":
-        from neuralmagicML.pytorch.recal import (
+        from neuralmagicML.tensorflow.recal import (
             ScheduledModifierManager,
             EpochRangeModifier,
             SetLearningRateModifier,
