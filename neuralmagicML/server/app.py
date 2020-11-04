@@ -109,7 +109,7 @@ def run(
     if ui_path is None:
         ui_path = os.path.join(os.path.dirname(clean_path(__file__)), "ui")
 
-    app = Flask("neuralmagicML.server", static_folder=os.path.join(ui_path, "static"))
+    app = Flask("neuralmagicML.server", static_url_path="/unused")
     app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 Gb limit
     app.config["UI_PATH"] = ui_path
     CORS(app)

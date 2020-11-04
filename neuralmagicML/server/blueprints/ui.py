@@ -2,6 +2,7 @@
 Flask blueprint setup for serving UI files for the server application
 """
 
+import os
 import logging
 from http import HTTPStatus
 
@@ -19,17 +20,16 @@ ui_blueprint = Blueprint("ui", __name__, url_prefix="/")
 
 
 @ui_blueprint.route("/", defaults={"path": ""})
-@ui_blueprint.route("/index.html")
 @ui_blueprint.route("/<path:path>")
 @swag_from(
     {
         "tags": ["UI"],
-        "summary": "Get the index.html file for the UI to render",
+        "summary": "Get a supporting file or the root index.html file for the UI",
         "produces": ["text/html", "application/json"],
         "parameters": [],
         "responses": {
             HTTPStatus.OK.value: {
-                "description": "The index html file",
+                "description": "The index html or supporting file",
                 "content": {"text/html": {}},
             },
             HTTPStatus.INTERNAL_SERVER_ERROR.value: {
@@ -39,19 +39,25 @@ ui_blueprint = Blueprint("ui", __name__, url_prefix="/")
         },
     },
 )
-def index(path: str):
+def render_file(path: str):
     """
-    Route for getting the root index.html file for the UI
+    Route for getting either a supporting file or the root index.html file for the UI
 
     :param path: the path requested for a UI file to render,
         note this is a catch all, so may improperly catch other misspelled routes
         and therefore fail to render them
-    :return: response containing the main index.html file for the ui,
-        uses send_from_directory. Targets "/" and "/index.html"
+    :return: response containing either the main index.html file or supporting file for the ui,
+        uses send_from_directory.
     """
-    _LOGGER.info(
-        "sending index.html file at {} from {}".format(
-            path, current_app.config["UI_PATH"]
+    if path != "" and os.path.exists(os.path.join(current_app.config["UI_PATH"], path)):
+        _LOGGER.info(
+            "sending {} file from {}".format(path, current_app.config["UI_PATH"])
         )
-    )
-    return send_from_directory(current_app.config["UI_PATH"], "index.html")
+        return send_from_directory(current_app.config["UI_PATH"], path)
+    else:
+        _LOGGER.info(
+            "sending index.html file at {} from {}".format(
+                path, current_app.config["UI_PATH"]
+            )
+        )
+        return send_from_directory(current_app.config["UI_PATH"], "index.html")
