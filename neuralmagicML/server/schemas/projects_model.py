@@ -30,10 +30,10 @@ class ProjectModelAnalysisNodeSchema(Schema):
     input_names = fields.List(fields.Str(), required=True)
     output_names = fields.List(fields.Str(), required=True)
     input_shapes = fields.List(
-        fields.List(fields.Int()), required=True, allow_none=True
+        fields.List(fields.Int(allow_none=True)), required=True, allow_none=True
     )
     output_shapes = fields.List(
-        fields.List(fields.Int()), required=True, allow_none=True
+        fields.List(fields.Int(allow_none=True)), required=True, allow_none=True
     )
     params = fields.Int(required=True)
     prunable = fields.Bool(required=True)

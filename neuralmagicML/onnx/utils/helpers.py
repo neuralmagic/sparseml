@@ -347,6 +347,30 @@ def extract_node_shapes(model: ModelProto) -> Dict[str, NodeShape]:
             else None,
         )
 
+    def _fix_shapes(shapes: List[Union[List[Union[int, None, str]], None]]):
+        if not shapes:
+            return
+
+        for shape in shapes:
+            if not shape:
+                continue
+
+            for index, index_shape in enumerate(shape):
+                try:
+                    shape[index] = (
+                        round(index_shape)
+                        if isinstance(index_shape, float)
+                        else int(index_shape)
+                    )
+                except:
+                    # not parsable as an int (none or string)
+                    # set to None
+                    shape[index] = None
+
+    for node_id, node_shape in node_shapes.items():
+        _fix_shapes(node_shape.input_shapes)
+        _fix_shapes(node_shape.output_shapes)
+
     return node_shapes
 
 
