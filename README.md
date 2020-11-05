@@ -288,6 +288,7 @@ Possible types are:
 | SSD-300-ResNet-50   | VOC      | base, recal-perf        | ONNX, PyTorch              | 52.2% mAP@0.5              |
 | SSDLite-MobileNetV2 | COCO     | base                    | ONNX, PyTorch              | 35.7% mAP@0.5              |
 | SSDLite-MobileNetV2 | VOC      | base                    | ONNX, PyTorch              | 43.5% mAP@0.5              |
+| YOLOv3              | COCO     | base, recal-perf        | ONNX, PyTorch              | 68.6% mAP@0.5              |
 
 ### Downloading and Usage
 Tutorial notebooks are provided for easily integrating and using the models in the Neural Magic Model Repo. 

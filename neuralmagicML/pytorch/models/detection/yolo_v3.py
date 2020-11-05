@@ -288,6 +288,7 @@ def yolo_v3(
         "darknet53", pretrained_backbone, pretrained_path_backbone
     )
     backbone.as_yolo_backbone([4, 3, 2])  # set outputs to last 3 residual layers
+    del backbone.classifier  # remove fc layer from state dict
     backbone_out_channels = [1024, 512, 256]
     anchor_groups = [
         Tensor([[116, 90], [156, 198], [373, 326]]),

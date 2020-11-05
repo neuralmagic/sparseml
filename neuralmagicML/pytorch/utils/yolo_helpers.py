@@ -325,7 +325,7 @@ def postprocess_yolo(
         boxes = output[:, :4]
         boxes[:, [0, 2]] /= input_shape[0]  # scale x
         boxes[:, [1, 3]] /= input_shape[1]  # scale y
-        labels = output[:, 5].long() + 1  # index classes at 1
+        labels = output[:, 5].long()
         scores = output[:, 4]
 
         nms_outputs.append((boxes, labels, scores))

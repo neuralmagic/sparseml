@@ -34,7 +34,9 @@ import zipfile
 
 __all__ = [
     "CocoDetectionDataset",
+    "coco_2017_yolo",
     "COCO_CLASSES",
+    "COCO_CLASSES_80",
 ]
 
 
@@ -145,9 +147,13 @@ class CocoDetectionDataset(CocoDetection):
                     root=root
                 )
             )
+        yolo_preprocess = preprocessing_type == "yolo"
         trans = [
             # process annotations
-            lambda img, ann: (img, _extract_bounding_box_and_labels(img, ann)),
+            lambda img, ann: (
+                img,
+                _extract_bounding_box_and_labels(img, ann, yolo_preprocess),
+            ),
         ]
         if rand_trans:
             # add random crop, flip, and jitter to pipeline
@@ -176,7 +182,7 @@ class CocoDetectionDataset(CocoDetection):
             ]
         )
         # Normalize image except for yolo preprocessing
-        if preprocessing_type != "yolo":
+        if not yolo_preprocess:
             trans.append(
                 lambda img, ann: (
                     torch_functional.normalize(
@@ -197,7 +203,7 @@ class CocoDetectionDataset(CocoDetection):
                     ),  # encoded_boxes, encoded_labels, original_annotations
                 )
             )
-        elif preprocessing_type == "yolo":
+        elif yolo_preprocess:
             trans.append(
                 lambda img, ann: (img, (bounding_box_and_labels_to_yolo_fmt(ann), ann),)
             )
@@ -217,13 +223,67 @@ class CocoDetectionDataset(CocoDetection):
         return self._default_boxes
 
 
-def _extract_bounding_box_and_labels(image, annotations):
+@DatasetRegistry.register(
+    key=["coco_2017_yolo", "coco_detection_yolo", "coco_yolo"],
+    attributes={
+        "transform_means": IMAGENET_RGB_MEANS,
+        "transform_stds": IMAGENET_RGB_STDS,
+        "num_classes": 80,
+    },
+)
+def coco_2017_yolo(
+    root: str = default_dataset_path("coco-detection"),
+    train: bool = False,
+    rand_trans: bool = False,
+    download: bool = True,
+    year: str = "2017",
+    image_size: int = 640,
+    preprocessing_type: str = "yolo",
+):
+    """
+    Wrapper for COCO detection dataset with Dataset Registry values properly
+    created for a Yolo model trained on 80 classes.
+
+    :param root: The root folder to find the dataset at, if not found will
+        download here if download=True
+    :param train: True if this is for the training distribution,
+        False for the validation
+    :param rand_trans: True to apply RandomCrop and RandomHorizontalFlip to the data,
+        False otherwise
+    :param download: True to download the dataset, False otherwise.
+    :param year: Only valid option is 2017. default is 2017.
+    :param image_size: the size of the image to output from the dataset
+    :param preprocessing_type: Type of standard pre-processing to perform.
+        Only valid option is 'yolo'. Default is 'yolo'
+    """
+    if preprocessing_type != "yolo":
+        raise ValueError(
+            "Only valid preprocessing type for Coco 2017 Yolo dataset is 'yolo'"
+            " received: {}".foramt(preprocessing_type)
+        )
+    if int(year) != 2017:
+        raise ValueError(
+            "Only valid year type for Coco 2017 Yolo dataset is 2017"
+            " received: {}".foramt(year)
+        )
+    return CocoDetectionDataset(
+        root, train, rand_trans, download, year, image_size, "yolo"
+    )
+
+
+def _extract_bounding_box_and_labels(image, annotations, yolo_preprocess=False):
     # returns bounding boxes in ltrb format scaled to [0, 1] and labels
     boxes = []
     labels = []
     for annotation in annotations:
+        class_id = int(annotation["category_id"])
+        if yolo_preprocess:
+            if class_id in _COCO_CLASSES_90_to_80:
+                class_id = _COCO_CLASSES_90_to_80[class_id]
+            else:
+                continue
         boxes.append(annotation["bbox"])
-        labels.append(annotation["category_id"])
+        labels.append(class_id)
 
     boxes = torch.FloatTensor(boxes)
     labels = torch.Tensor(labels).long()
@@ -326,4 +386,172 @@ COCO_CLASSES = {
     89: "hair drier",
     90: "toothbrush",
     91: "hair brush",
+}
+
+# map object ids to class names for 80 class COCO
+COCO_CLASSES_80 = {
+    "person": 0,
+    "bicycle": 1,
+    "car": 2,
+    "motorbike": 3,
+    "aeroplane": 4,
+    "bus": 5,
+    "train": 6,
+    "truck": 7,
+    "boat": 8,
+    "traffic light": 9,
+    "fire hydrant": 10,
+    "stop sign": 11,
+    "parking meter": 12,
+    "bench": 13,
+    "bird": 14,
+    "cat": 15,
+    "dog": 16,
+    "horse": 17,
+    "sheep": 18,
+    "cow": 19,
+    "elephant": 20,
+    "bear": 21,
+    "zebra": 22,
+    "giraffe": 23,
+    "backpack": 24,
+    "umbrella": 25,
+    "handbag": 26,
+    "tie": 27,
+    "suitcase": 28,
+    "frisbee": 29,
+    "skis": 30,
+    "snowboard": 31,
+    "sports ball": 32,
+    "kite": 33,
+    "baseball bat": 34,
+    "baseball glove": 35,
+    "skateboard": 36,
+    "surfboard": 37,
+    "tennis racket": 38,
+    "bottle": 39,
+    "wine glass": 40,
+    "cup": 41,
+    "fork": 42,
+    "knife": 43,
+    "spoon": 44,
+    "bowl": 45,
+    "banana": 46,
+    "apple": 47,
+    "sandwich": 48,
+    "orange": 49,
+    "broccoli": 50,
+    "carrot": 51,
+    "hot dog": 52,
+    "pizza": 53,
+    "donut": 54,
+    "cake": 55,
+    "chair": 56,
+    "sofa": 57,
+    "pottedplant": 58,
+    "bed": 59,
+    "diningtable": 60,
+    "toilet": 61,
+    "tvmonitor": 62,
+    "laptop": 63,
+    "mouse": 64,
+    "remote": 65,
+    "keyboard": 66,
+    "cell phone": 67,
+    "microwave": 68,
+    "oven": 69,
+    "toaster": 70,
+    "sink": 71,
+    "refrigerator": 72,
+    "book": 73,
+    "clock": 74,
+    "vase": 75,
+    "scissors": 76,
+    "teddy bear": 77,
+    "hair drier": 78,
+    "toothbrush": 79,
+}
+
+# map class ids from 90 class COCO to 80 class COCO
+_COCO_CLASSES_90_to_80 = {
+    1: 0,
+    2: 1,
+    3: 2,
+    4: 3,
+    5: 4,
+    6: 5,
+    7: 6,
+    8: 7,
+    9: 8,
+    10: 9,
+    11: 10,
+    13: 11,
+    14: 12,
+    15: 13,
+    16: 14,
+    17: 15,
+    18: 16,
+    19: 17,
+    20: 18,
+    21: 19,
+    22: 20,
+    23: 21,
+    24: 22,
+    25: 23,
+    27: 24,
+    28: 25,
+    31: 26,
+    32: 27,
+    33: 28,
+    34: 29,
+    35: 30,
+    36: 31,
+    37: 32,
+    38: 33,
+    39: 34,
+    40: 35,
+    41: 36,
+    42: 37,
+    43: 38,
+    44: 39,
+    46: 40,
+    47: 41,
+    48: 42,
+    49: 43,
+    50: 44,
+    51: 45,
+    52: 46,
+    53: 47,
+    54: 48,
+    55: 49,
+    56: 50,
+    57: 51,
+    58: 52,
+    59: 53,
+    60: 54,
+    61: 55,
+    62: 56,
+    63: 57,
+    64: 58,
+    65: 59,
+    67: 60,
+    70: 61,
+    72: 62,
+    73: 63,
+    74: 64,
+    75: 65,
+    76: 66,
+    77: 67,
+    78: 68,
+    79: 69,
+    80: 70,
+    81: 71,
+    82: 72,
+    84: 73,
+    85: 74,
+    86: 75,
+    87: 76,
+    88: 77,
+    89: 78,
+    90: 79,
 }
