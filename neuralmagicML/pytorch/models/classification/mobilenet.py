@@ -3,7 +3,7 @@ PyTorch MobileNet implementations.
 Further info can be found in the paper `here <https://arxiv.org/abs/1704.04861>`__.
 """
 
-from typing import List
+from typing import List, Union
 from torch import Tensor
 from torch.nn import (
     Module,
@@ -12,6 +12,7 @@ from torch.nn import (
     Conv2d,
     BatchNorm2d,
     Linear,
+    Dropout,
     Softmax,
     Sigmoid,
     init,
@@ -21,7 +22,7 @@ from neuralmagicML.pytorch.nn import ReLU
 from neuralmagicML.pytorch.models.registry import ModelRegistry
 
 
-__all__ = ["MobileNetSectionSettings", "MobileNet", "mobilenet"]
+__all__ = ["MobileNetSectionSettings", "MobileNet", "mobilenet", "han_mobilenet"]
 
 
 def _init_conv(conv: Conv2d):
@@ -129,10 +130,19 @@ class _Block(Module):
 
 
 class _Classifier(Module):
-    def __init__(self, in_channels: int, num_classes: int, class_type: str = "single"):
+    def __init__(
+        self,
+        in_channels: int,
+        num_classes: int,
+        class_type: str = "single",
+        dropout: Union[float, None] = None
+    ):
         super().__init__()
         self.avgpool = AvgPool2d(7)
         self.fc = Linear(in_channels, num_classes)
+
+        if dropout is not None:  # add dropout layer before fc
+            self.fc = Sequential(Dropout(dropout), self.fc)
 
         if class_type == "single":
             self.softmax = Softmax(dim=1)
@@ -152,7 +162,12 @@ class _Classifier(Module):
         return logits, classes
 
     def initialize(self):
-        _init_linear(self.fc)
+        fc = (
+            self.fc
+            if not isinstance(self.fc, Sequential)
+            else self.fc[1]
+        )
+        _init_linear(fc)
 
 
 class MobileNetSectionSettings(object):
@@ -184,6 +199,8 @@ class MobileNet(Module):
     :param num_classes: the number of classes to classify
     :param class_type: one of [single, multi] to support multi class training;
         default single
+    :param dropout: dropout level for input to FC layer; setting to None performs
+        no dropout; default is None
     """
 
     def __init__(
@@ -191,6 +208,7 @@ class MobileNet(Module):
         sec_settings: List[MobileNetSectionSettings],
         num_classes: int,
         class_type: str,
+        dropout: Union[float, None] = None
     ):
         super().__init__()
         self.input = _Input()
@@ -198,7 +216,7 @@ class MobileNet(Module):
             *[MobileNet.create_section(settings) for settings in sec_settings]
         )
         self.classifier = _Classifier(
-            sec_settings[-1].out_channels, num_classes, class_type
+            sec_settings[-1].out_channels, num_classes, class_type, dropout
         )
 
     def forward(self, inp: Tensor):
@@ -221,6 +239,26 @@ class MobileNet(Module):
             stride = 1
 
         return Sequential(*blocks)
+
+
+def _mobilenet_base_section_settings():
+    return [
+        MobileNetSectionSettings(
+            num_blocks=1, in_channels=32, out_channels=64, downsample=False
+        ),
+        MobileNetSectionSettings(
+            num_blocks=2, in_channels=64, out_channels=128, downsample=True
+        ),
+        MobileNetSectionSettings(
+            num_blocks=2, in_channels=128, out_channels=256, downsample=True
+        ),
+        MobileNetSectionSettings(
+            num_blocks=6, in_channels=256, out_channels=512, downsample=True
+        ),
+        MobileNetSectionSettings(
+            num_blocks=2, in_channels=512, out_channels=1024, downsample=True
+        ),
+    ]
 
 
 @ModelRegistry.register(
@@ -252,22 +290,35 @@ def mobilenet(num_classes: int = 1000, class_type: str = "single") -> MobileNet:
         default single
     :return: The created MobileNet Module
     """
-    sec_settings = [
-        MobileNetSectionSettings(
-            num_blocks=1, in_channels=32, out_channels=64, downsample=False
-        ),
-        MobileNetSectionSettings(
-            num_blocks=2, in_channels=64, out_channels=128, downsample=True
-        ),
-        MobileNetSectionSettings(
-            num_blocks=2, in_channels=128, out_channels=256, downsample=True
-        ),
-        MobileNetSectionSettings(
-            num_blocks=6, in_channels=256, out_channels=512, downsample=True
-        ),
-        MobileNetSectionSettings(
-            num_blocks=2, in_channels=512, out_channels=1024, downsample=True
-        ),
-    ]
-
+    sec_settings = _mobilenet_base_section_settings()
     return MobileNet(sec_settings, num_classes, class_type)
+
+
+@ModelRegistry.register(
+    key=[
+        "han-mobilenet",
+        "han_mobilenet",
+        "mobilenet-han",
+        "mobilenet_han",
+    ],
+    input_shape=(3, 224, 224),
+    domain="cv",
+    sub_domain="classification",
+    architecture="mobilenet-v1",
+    sub_architecture="han",
+    default_dataset="imagenet",
+    default_desc="base",
+    def_ignore_error_tensors=["classifier.fc[1].weight", "classifier.fc[1].bias"],
+)
+def han_mobilenet(num_classes: int = 1000, class_type: str = "single") -> MobileNet:
+    """
+    Standard MobileNet implementation with width=1.0;
+    expected input shape is (B, 3, 224, 224)
+
+    :param num_classes: the number of classes to classify
+    :param class_type: one of [single, multi] to support multi class training;
+        default single
+    :return: The created MobileNet Module
+    """
+    sec_settings = _mobilenet_base_section_settings()
+    return MobileNet(sec_settings, num_classes, class_type, dropout=0.2)
