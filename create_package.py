@@ -38,6 +38,7 @@ def create_package(name="neuralmagicML-python.tar.gz", exists_ok=True):
         "MANIFEST.in",
         "setup.py",
         "requirements.txt",
+        "requirements-linux.txt",
     ]
 
     if os.path.exists(name):
