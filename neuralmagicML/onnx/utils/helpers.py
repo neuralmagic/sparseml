@@ -448,13 +448,12 @@ def conv_node_params(
     if str(node.op_type).lower() != "conv":
         raise ValueError("node_id of {} is not a conv: {}".format(node_id, node))
 
-    weight_init = get_init_by_name(model, node.input[1])
+    weight_init = _get_init_by_name_nested(model, node.input[1])
     weight = NodeParam(
         node.input[1], numpy_helper.to_array(weight_init) if include_values else None
     )
-
     if len(node.input) > 2:
-        bias_init = get_init_by_name(model, node.input[2])
+        bias_init = _get_init_by_name_nested(model, node.input[2])
         bias = NodeParam(
             node.input[2], numpy_helper.to_array(bias_init) if include_values else None
         )
@@ -462,6 +461,21 @@ def conv_node_params(
         bias = None
 
     return weight, bias
+
+
+_TRIVIAL_OP_TYPES = {"Reshape", "Transpose"}
+
+
+def _get_init_by_name_nested(model, weight_name):
+    # traverses graph if weights are reshaped / transposed before becoming layer input
+    init = get_init_by_name(model, weight_name)
+    if init is not None:
+        return init
+
+    parent_nodes = get_nodes_by_output_id(model, weight_name)
+    if len(parent_nodes) != 1 or parent_nodes[0].op_type not in _TRIVIAL_OP_TYPES:
+        return None
+    return _get_init_by_name_nested(model, parent_nodes[0].input[0])
 
 
 def _get_matmul_gemm_weight(
@@ -476,8 +490,8 @@ def _get_matmul_gemm_weight(
 
     # for gemm, the positions of weights are not explicit in the definition
     weight_inits = [
-        get_init_by_name(model, node.input[0]),
-        get_init_by_name(model, node.input[1]),
+        _get_init_by_name_nested(model, node.input[0]),
+        _get_init_by_name_nested(model, node.input[1]),
     ]
 
     # putting this here in case it's changed in the future since the else case below
@@ -531,7 +545,7 @@ def gemm_node_params(
     weight = _get_matmul_gemm_weight(model, node, include_values)
 
     if len(node.input) > 2:
-        bias_init = get_init_by_name(model, node.input[2])
+        bias_init = _get_init_by_name_nested(model, node.input[2])
         bias = NodeParam(
             node.input[2], numpy_helper.to_array(bias_init) if include_values else None
         )
