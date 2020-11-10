@@ -246,77 +246,83 @@ def create_optim(project_id: str):
         data["profile_perf_id"] if "profile_perf_id" in data else None,
         data["profile_loss_id"] if "profile_loss_id" in data else None,
     )
+    optim = None
 
-    with database.atomic() as transaction:
-        try:
-            epochs = default_epochs_distribution(project.training_epochs)
-            optim = ProjectOptimization.create(project=project)
-            optim_updater(
-                optim,
-                name=data["name"],
+    try:
+        epochs = default_epochs_distribution(project.training_epochs)
+        optim = ProjectOptimization.create(project=project)
+        optim_updater(
+            optim,
+            name=data["name"],
+            profile_perf=profile_perf,
+            profile_loss=profile_loss,
+            start_epoch=epochs.start_epoch,
+            end_epoch=epochs.end_epoch,
+        )
+        optim.save()
+
+        if data["add_pruning"]:
+            pruning_settings = default_pruning_settings()
+            pruning = ProjectOptimizationModifierPruning.create(optim=optim)
+            optim_pruning_updater(
+                pruning,
+                start_epoch=epochs.pruning_start_epoch,
+                end_epoch=epochs.pruning_end_epoch,
+                update_frequency=epochs.pruning_update_frequency,
+                pruning_settings=pruning_settings,
+                model=project.model,
                 profile_perf=profile_perf,
                 profile_loss=profile_loss,
+                global_start_epoch=epochs.start_epoch,
+                global_end_epoch=epochs.end_epoch,
+            )
+            pruning.save()
+
+        if data["add_quantization"]:
+            # TODO: fill in once quantization is added
+            raise ValidationError("add_quantization is currently not supported")
+
+        if data["add_trainable"]:
+            training = ProjectOptimizationModifierTrainable.create(optim=optim)
+            optim_trainable_updater(
+                training,
+                project.model.analysis,
                 start_epoch=epochs.start_epoch,
                 end_epoch=epochs.end_epoch,
+                default_trainable=True,
+                global_start_epoch=epochs.start_epoch,
+                global_end_epoch=epochs.end_epoch,
             )
-            optim.save()
+            training.save()
 
-            if data["add_pruning"]:
-                pruning_settings = default_pruning_settings()
-                pruning = ProjectOptimizationModifierPruning.create(optim=optim)
-                optim_pruning_updater(
-                    pruning,
-                    start_epoch=epochs.pruning_start_epoch,
-                    end_epoch=epochs.pruning_end_epoch,
-                    update_frequency=epochs.pruning_update_frequency,
-                    pruning_settings=pruning_settings,
-                    model=project.model,
-                    profile_perf=profile_perf,
-                    profile_loss=profile_loss,
-                    global_start_epoch=epochs.start_epoch,
-                    global_end_epoch=epochs.end_epoch,
-                )
-                pruning.save()
-
-            if data["add_quantization"]:
-                # TODO: fill in once quantization is added
-                raise ValidationError("add_quantization is currently not supported")
-
-            if data["add_trainable"]:
-                training = ProjectOptimizationModifierTrainable.create(optim=optim)
-                optim_trainable_updater(
-                    training,
-                    project.model.analysis,
-                    start_epoch=epochs.start_epoch,
-                    end_epoch=epochs.end_epoch,
-                    default_trainable=True,
-                    global_start_epoch=epochs.start_epoch,
-                    global_end_epoch=epochs.end_epoch,
-                )
-                training.save()
-
-            if data["add_lr_schedule"]:
-                lr_mods = optim_lr_sched_default_mods(
-                    project.training_lr_init,
-                    project.training_lr_final,
-                    epochs.start_epoch,
-                    epochs.fine_tuning_start_epoch,
-                    epochs.end_epoch,
-                )
-                lr_schedule = ProjectOptimizationModifierLRSchedule.create(optim=optim)
-                optim_lr_sched_updater(
-                    lr_schedule,
-                    lr_mods,
-                    global_start_epoch=epochs.start_epoch,
-                    global_end_epoch=epochs.end_epoch,
-                )
-                lr_schedule.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new optimizer, rolling back: {}".format(err)
+        if data["add_lr_schedule"]:
+            lr_mods = optim_lr_sched_default_mods(
+                project.training_lr_init,
+                project.training_lr_final,
+                epochs.start_epoch,
+                epochs.fine_tuning_start_epoch,
+                epochs.end_epoch,
             )
-            transaction.rollback()
-            raise err
+            lr_schedule = ProjectOptimizationModifierLRSchedule.create(optim=optim)
+            optim_lr_sched_updater(
+                lr_schedule,
+                lr_mods,
+                global_start_epoch=epochs.start_epoch,
+                global_end_epoch=epochs.end_epoch,
+            )
+            lr_schedule.save()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating new optimization, rolling back: {}".format(err)
+        )
+        if optim:
+            try:
+                optim.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new optimization: {}".format(rollback_err)
+                )
+        raise err
 
     optims_resp = data_dump_and_validation(
         ResponseProjectOptimizationSchema(), {"optim": optim}
@@ -869,55 +875,51 @@ def update_optim(project_id: str, optim_id: str):
 
     profile_perf, profile_loss = get_profiles_by_id(profile_perf_id, profile_loss_id)
 
-    with database.atomic() as transaction:
-        try:
-            optim_updater(
-                optim, **data, profile_perf=profile_perf, profile_loss=profile_loss
+    try:
+        optim_updater(
+            optim, **data, profile_perf=profile_perf, profile_loss=profile_loss
+        )
+        optim.save()
+
+        if not profiles_set:
+            # set to None so we don't update the pruning modifiers if not needed
+            profile_perf = None
+            profile_loss = None
+
+        global_start_epoch = data["start_epoch"] if "start_epoch" in data else None
+        global_end_epoch = data["end_epoch"] if "end_epoch" in data else None
+
+        for pruning in optim.pruning_modifiers:
+            optim_pruning_updater(
+                pruning,
+                model=project.model,
+                profile_perf=profile_perf,
+                profile_loss=profile_loss,
+                global_start_epoch=global_start_epoch,
+                global_end_epoch=global_end_epoch,
             )
-            optim.save()
+            pruning.save()
 
-            if not profiles_set:
-                # set to None so we don't update the pruning modifiers if not needed
-                profile_perf = None
-                profile_loss = None
-
-            global_start_epoch = data["start_epoch"] if "start_epoch" in data else None
-            global_end_epoch = data["end_epoch"] if "end_epoch" in data else None
-
-            for pruning in optim.pruning_modifiers:
-                optim_pruning_updater(
-                    pruning,
-                    model=project.model,
-                    profile_perf=profile_perf,
-                    profile_loss=profile_loss,
-                    global_start_epoch=global_start_epoch,
-                    global_end_epoch=global_end_epoch,
-                )
-                pruning.save()
-
-            # todo: add quantization updates when ready
-            for trainable in optim.trainable_modifiers:
-                optim_trainable_updater(
-                    trainable,
-                    project.model.analysis,
-                    global_start_epoch=global_start_epoch,
-                    global_end_epoch=global_end_epoch,
-                )
-                trainable.save()
-
-            for lr_schedule in optim.lr_schedule_modifiers:
-                optim_lr_sched_updater(
-                    lr_schedule,
-                    global_start_epoch=global_start_epoch,
-                    global_end_epoch=global_end_epoch,
-                )
-                lr_schedule.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while updating optimizer, rolling back: {}".format(err)
+        # todo: add quantization updates when ready
+        for trainable in optim.trainable_modifiers:
+            optim_trainable_updater(
+                trainable,
+                project.model.analysis,
+                global_start_epoch=global_start_epoch,
+                global_end_epoch=global_end_epoch,
             )
-            transaction.rollback()
-            raise err
+            trainable.save()
+
+        for lr_schedule in optim.lr_schedule_modifiers:
+            optim_lr_sched_updater(
+                lr_schedule,
+                global_start_epoch=global_start_epoch,
+                global_end_epoch=global_end_epoch,
+            )
+            lr_schedule.save()
+    except Exception as err:
+        _LOGGER.error("error while updating optimization".format(err))
+        raise err
 
     resp_optim = data_dump_and_validation(
         ResponseProjectOptimizationSchema(), {"optim": optim}
@@ -1265,31 +1267,36 @@ def create_optim_modifier_pruning(project_id: str, optim_id: str):
     if "nodes" not in data and "sparsity" not in data:
         data["sparsity"] = default_pruning.sparsity
 
-    with database.atomic() as transaction:
-        try:
-            pruning = ProjectOptimizationModifierPruning.create(optim=optim)
-            optim_pruning_updater(
-                pruning,
-                **data,
-                model=project.model,
-                profile_perf=profile_perf,
-                profile_loss=profile_loss,
-            )
-            pruning.save()
+    pruning = None
 
-            # update optim in case bounds for new modifier went outside it
-            optim_updater(
-                optim,
-                mod_start_epoch=pruning.start_epoch,
-                mod_end_epoch=pruning.end_epoch,
-            )
-            optim.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating pruning modifier, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+    try:
+        pruning = ProjectOptimizationModifierPruning.create(optim=optim)
+        optim_pruning_updater(
+            pruning,
+            **data,
+            model=project.model,
+            profile_perf=profile_perf,
+            profile_loss=profile_loss,
+        )
+        pruning.save()
+
+        # update optim in case bounds for new modifier went outside it
+        optim_updater(
+            optim, mod_start_epoch=pruning.start_epoch, mod_end_epoch=pruning.end_epoch,
+        )
+        optim.save()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating pruning modifier, rolling back: {}".format(err)
+        )
+        if pruning:
+            try:
+                pruning.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new pruning: {}".format(rollback_err)
+                )
+        raise err
 
     _LOGGER.info(
         "created a pruning modifier with id {} for optim {} and project {}".format(
@@ -1401,30 +1408,24 @@ def update_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: s
     if "nodes" in data and data["nodes"]:
         validate_pruning_nodes(project, data["nodes"])
 
-    with database.atomic() as transaction:
-        try:
-            optim_pruning_updater(
-                pruning,
-                **data,
-                model=project.model,
-                profile_perf=profile_perf,
-                profile_loss=profile_loss,
-            )
-            pruning.save()
+    try:
+        optim_pruning_updater(
+            pruning,
+            **data,
+            model=project.model,
+            profile_perf=profile_perf,
+            profile_loss=profile_loss,
+        )
+        pruning.save()
 
-            # update optim in case bounds for new modifier went outside it
-            optim_updater(
-                optim,
-                mod_start_epoch=pruning.start_epoch,
-                mod_end_epoch=pruning.end_epoch,
-            )
-            optim.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while updating pruning modifier, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+        # update optim in case bounds for new modifier went outside it
+        optim_updater(
+            optim, mod_start_epoch=pruning.start_epoch, mod_end_epoch=pruning.end_epoch,
+        )
+        optim.save()
+    except Exception as err:
+        _LOGGER.error("error while updating pruning modifier".format(err))
+        raise err
 
     _LOGGER.info(
         "updated pruning modifier with id {} for optim {} and project {}".format(
@@ -1632,27 +1633,34 @@ def create_optim_modifier_lr_schedule(project_id: str, optim_id: str):
             epochs.end_epoch,
         )
 
-    with database.atomic() as transaction:
-        try:
-            lr_sched = ProjectOptimizationModifierLRSchedule.create(optim=optim)
-            optim_lr_sched_updater(
-                lr_sched, lr_mods=data["lr_mods"] if data["lr_mods"] else [],
-            )
-            lr_sched.save()
+    lr_sched = None
 
-            # update optim in case bounds for new modifier went outside it
-            optim_updater(
-                optim,
-                mod_start_epoch=lr_sched.start_epoch,
-                mod_end_epoch=lr_sched.end_epoch,
-            )
-            optim.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating lr_sched modifier, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+    try:
+        lr_sched = ProjectOptimizationModifierLRSchedule.create(optim=optim)
+        optim_lr_sched_updater(
+            lr_sched, lr_mods=data["lr_mods"] if data["lr_mods"] else [],
+        )
+        lr_sched.save()
+
+        # update optim in case bounds for new modifier went outside it
+        optim_updater(
+            optim,
+            mod_start_epoch=lr_sched.start_epoch,
+            mod_end_epoch=lr_sched.end_epoch,
+        )
+        optim.save()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating lr_sched modifier, rolling back: {}".format(err)
+        )
+        if lr_sched:
+            try:
+                lr_sched.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new lr schedule: {}".format(rollback_err)
+                )
+        raise err
 
     _LOGGER.info(
         "created an lr schedule modifier with id {} for optim {} and project {}".format(
@@ -1745,42 +1753,40 @@ def update_optim_modifier_lr_schedule(project_id: str, optim_id: str, modifier_i
     )
     if lr_sched is None:
         _LOGGER.error(
-            "could not find lr schedule modifier {} for project {} with optim_id {}".format(
-                modifier_id, project_id, optim_id
-            )
+            (
+                "could not find lr schedule modifier {} "
+                "for project {} with optim_id {}"
+            ).format(modifier_id, project_id, optim_id)
         )
         raise HTTPNotFoundError(
-            "could not find lr schedule modifier {} for project {} with optim_id {}".format(
-                modifier_id, project_id, optim_id
-            )
+            (
+                "could not find lr schedule modifier {} "
+                "for project {} with optim_id {}"
+            ).format(modifier_id, project_id, optim_id)
         )
     data = CreateUpdateProjectOptimizationModifiersLRScheduleSchema().load(
         request.get_json(force=True)
     )
 
-    with database.atomic() as transaction:
-        try:
-            optim_lr_sched_updater(
-                lr_sched,
-                lr_mods=[]
-                if "lr_mods" not in data or not data["lr_mods"]
-                else data["lr_mods"],
-            )
-            lr_sched.save()
+    try:
+        optim_lr_sched_updater(
+            lr_sched,
+            lr_mods=[]
+            if "lr_mods" not in data or not data["lr_mods"]
+            else data["lr_mods"],
+        )
+        lr_sched.save()
 
-            # update optim in case bounds for new modifier went outside it
-            optim_updater(
-                optim,
-                mod_start_epoch=lr_sched.start_epoch,
-                mod_end_epoch=lr_sched.end_epoch,
-            )
-            optim.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while updating lr_sched modifier, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+        # update optim in case bounds for new modifier went outside it
+        optim_updater(
+            optim,
+            mod_start_epoch=lr_sched.start_epoch,
+            mod_end_epoch=lr_sched.end_epoch,
+        )
+        optim.save()
+    except Exception as err:
+        _LOGGER.error("error while updating lr_sched modifier".format(err))
+        raise err
 
     _LOGGER.info(
         "updated pruning modifier with id {} for optim {} and project {}".format(
@@ -1860,39 +1866,43 @@ def create_optim_modifier_trainable(project_id: str, optim_id: str):
     data = CreateUpdateProjectOptimizationModifiersTrainableSchema().load(
         request.get_json(force=True)
     )
+    trainable = None
 
-    with database.atomic() as transaction:
-        try:
-            training = ProjectOptimizationModifierTrainable.create(optim=optim)
+    try:
+        trainable = ProjectOptimizationModifierTrainable.create(optim=optim)
 
-            optim_trainable_updater(
-                training,
-                project.model.analysis,
-                **data,
-                global_start_epoch=optim.start_epoch,
-                global_end_epoch=optim.end_epoch,
-            )
-            training.save()
+        optim_trainable_updater(
+            trainable,
+            project.model.analysis,
+            **data,
+            global_start_epoch=optim.start_epoch,
+            global_end_epoch=optim.end_epoch,
+        )
+        trainable.save()
 
-            # update optim in case bounds for new modifier went outside it
-            optim_updater(
-                optim,
-                mod_start_epoch=training.start_epoch,
-                mod_end_epoch=training.end_epoch,
-            )
-            optim.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new trainable modifier, rolling back: {}".format(
-                    err
+        # update optim in case bounds for new modifier went outside it
+        optim_updater(
+            optim,
+            mod_start_epoch=trainable.start_epoch,
+            mod_end_epoch=trainable.end_epoch,
+        )
+        optim.save()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating new trainable modifier, rolling back: {}".format(err)
+        )
+        if trainable:
+            try:
+                trainable.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new trainable: {}".format(rollback_err)
                 )
-            )
-            transaction.rollback()
-            raise err
+        raise err
 
     _LOGGER.info(
         "created a training modifier with id {} for optim {} and project {}".format(
-            training.modifier_id, optim_id, project_id
+            trainable.modifier_id, optim_id, project_id
         )
     )
 
@@ -1976,10 +1986,10 @@ def update_optim_modifier_trainable(project_id: str, optim_id: str, modifier_id:
     )
     project = optim_validate_and_get_project_by_id(project_id)
     optim = get_project_optimizer_by_ids(project_id, optim_id)
-    training = ProjectOptimizationModifierTrainable.get_or_none(
+    trainable = ProjectOptimizationModifierTrainable.get_or_none(
         ProjectOptimizationModifierTrainable.modifier_id == modifier_id
     )
-    if training is None:
+    if trainable is None:
         _LOGGER.error(
             "could not find trainable modifier {} for project {} with optim_id {}".format(
                 modifier_id, project_id, optim_id
@@ -1994,34 +2004,30 @@ def update_optim_modifier_trainable(project_id: str, optim_id: str, modifier_id:
         request.get_json(force=True)
     )
 
-    with database.atomic() as transaction:
-        try:
-            optim_trainable_updater(
-                training,
-                project.model.analysis,
-                **data,
-                global_start_epoch=optim.start_epoch,
-                global_end_epoch=optim.end_epoch,
-            )
-            training.save()
+    try:
+        optim_trainable_updater(
+            trainable,
+            project.model.analysis,
+            **data,
+            global_start_epoch=optim.start_epoch,
+            global_end_epoch=optim.end_epoch,
+        )
+        trainable.save()
 
-            # update optim in case bounds for new modifier went outside it
-            optim_updater(
-                optim,
-                mod_start_epoch=training.start_epoch,
-                mod_end_epoch=training.end_epoch,
-            )
-            optim.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating trainable modifer, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+        # update optim in case bounds for new modifier went outside it
+        optim_updater(
+            optim,
+            mod_start_epoch=trainable.start_epoch,
+            mod_end_epoch=trainable.end_epoch,
+        )
+        optim.save()
+    except Exception as err:
+        _LOGGER.error("error while creating trainable modifer".format(err))
+        raise err
 
     _LOGGER.info(
         "updaed training modifier with id {} for optim {} and project {}".format(
-            training.modifier_id, optim_id, project_id
+            trainable.modifier_id, optim_id, project_id
         )
     )
 

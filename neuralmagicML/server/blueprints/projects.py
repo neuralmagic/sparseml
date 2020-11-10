@@ -152,19 +152,22 @@ def create_project():
     """
     _LOGGER.info("creating project for request json {}".format(request.json))
     data = CreateUpdateProjectSchema().load(request.get_json(force=True))
+    project = None
 
-    # create transaction in case project folder creation fails
-    with database.atomic() as transaction:
-        try:
-            project = Project.create(**data)
-            project.setup_filesystem()
-            project.validate_filesystem()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new project, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+    try:
+        project = Project.create(**data)
+        project.setup_filesystem()
+        project.validate_filesystem()
+    except Exception as err:
+        _LOGGER.error("error while creating new project, rolling back: {}".format(err))
+        if project:
+            try:
+                project.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new project: {}".format(rollback_err)
+                )
+        raise err
 
     resp_project = data_dump_and_validation(
         ResponseProjectSchema(), {"project": project}
@@ -368,20 +371,16 @@ def delete_project(project_id: str):
     args = DeleteProjectSchema().load({key: val for key, val in request.args.items()})
     project = get_project_by_id(project_id)
 
-    with database.atomic() as transaction:
-        try:
-            Project.delete().where(Project.project_id == project_id).execute()
-            project.delete_filesystem()
-        except Exception as err:
-            _LOGGER.error(
-                "error while deleting project {}, rolling back: {}".format(
-                    project_id, err
-                )
-            )
+    try:
+        Project.delete().where(Project.project_id == project_id).execute()
+        project.delete_filesystem()
+    except Exception as err:
+        _LOGGER.error(
+            "error while deleting project {}, rolling back: {}".format(project_id, err)
+        )
 
-            if not args["force"]:
-                transaction.rollback()
-                raise err
+        if not args["force"]:
+            raise err
 
     resp_deleted = data_dump_and_validation(
         ResponseProjectDeletedSchema(), {"success": True, "project_id": project_id}

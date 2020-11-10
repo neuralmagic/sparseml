@@ -1,12 +1,14 @@
 """
 Server routes related to benchmarks
 """
+
+from typing import Dict
 import datetime
 import json
 import logging
 from http import HTTPStatus
 
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, request, jsonify
 from flasgger import swag_from
 from marshmallow import ValidationError
 
@@ -28,7 +30,6 @@ from neuralmagicML.server.schemas import (
 )
 
 from neuralmagicML.server.models import (
-    database,
     Job,
     ProjectBenchmark,
 )
@@ -201,40 +202,54 @@ def create_benchmark(project_id: str):
         )
 
     sys_info = get_ml_sys_info()
+    benchmark = None
+    job = None
 
-    with database.atomic() as transaction:
-        try:
-            benchmark_params["instruction_sets"] = (
-                sys_info["available_instructions"]
-                if "available_instructions" in sys_info
-                else []
-            )
-            benchmark = ProjectBenchmark.create(
-                project=project, source="generated", **benchmark_params
-            )
+    try:
+        benchmark_params["instruction_sets"] = (
+            sys_info["available_instructions"]
+            if "available_instructions" in sys_info
+            else []
+        )
+        benchmark = ProjectBenchmark.create(
+            project=project, source="generated", **benchmark_params
+        )
 
-            job = Job.create(
-                project_id=project.project_id,
-                type_=CreateBenchmarkJobWorker.get_type(),
-                worker_args=CreateBenchmarkJobWorker.format_args(
-                    model_id=model.model_id,
-                    benchmark_id=benchmark.benchmark_id,
-                    core_counts=benchmark.core_counts,
-                    batch_sizes=benchmark.batch_sizes,
-                    instruction_sets=benchmark.instruction_sets,
-                    inference_models=benchmark.inference_models,
-                    warmup_iterations_per_check=benchmark.warmup_iterations_per_check,
-                    iterations_per_check=benchmark.iterations_per_check,
-                ),
-            )
-            benchmark.job = job
-            benchmark.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new benchmark, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+        job = Job.create(
+            project_id=project.project_id,
+            type_=CreateBenchmarkJobWorker.get_type(),
+            worker_args=CreateBenchmarkJobWorker.format_args(
+                model_id=model.model_id,
+                benchmark_id=benchmark.benchmark_id,
+                core_counts=benchmark.core_counts,
+                batch_sizes=benchmark.batch_sizes,
+                instruction_sets=benchmark.instruction_sets,
+                inference_models=benchmark.inference_models,
+                warmup_iterations_per_check=benchmark.warmup_iterations_per_check,
+                iterations_per_check=benchmark.iterations_per_check,
+            ),
+        )
+        benchmark.job = job
+        benchmark.save()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating new benchmark, rolling back: {}".format(err)
+        )
+        if benchmark:
+            try:
+                benchmark.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new benchmark: {}".format(rollback_err)
+                )
+        if job:
+            try:
+                job.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new benchmark: {}".format(rollback_err)
+                )
+        raise err
 
     JobWorkerManager().refresh()
 
@@ -333,19 +348,24 @@ def upload_benchmark(project_id: str):
                 "project must set a model before running a benchmark."
             ).format(project_id)
         )
+    benchmark_model = None
 
-    with database.atomic() as transaction:
+    try:
+        benchmark_model = ProjectBenchmark.create(project=project, **benchmark)
+        resp_benchmark = data_dump_and_validation(
+            ResponseProjectBenchmarkSchema(), {"benchmark": benchmark_model}
+        )
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating new benchmark, rolling back: {}".format(err)
+        )
         try:
-            benchmark_model = ProjectBenchmark.create(project=project, **benchmark)
-            resp_benchmark = data_dump_and_validation(
-                ResponseProjectBenchmarkSchema(), {"benchmark": benchmark_model}
-            )
-        except Exception as err:
+            benchmark_model.delete_instance()
+        except Exception as rollback_err:
             _LOGGER.error(
-                "error while creating new benchmark, rolling back: {}".format(err)
+                "error while rolling back new benchmark: {}".format(rollback_err)
             )
-            transaction.rollback()
-            raise err
+        raise err
 
     _LOGGER.info(
         "created benchmark: id: {}, name: {}".format(

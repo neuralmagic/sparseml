@@ -25,13 +25,8 @@ __all__ = ["database_setup"]
 def database_setup(working_dir: str, app: Flask = None):
     storage.init(working_dir)
     db_path = os.path.join(working_dir, "db.sqlite")
-    database.init(
-        db_path,
-        max_connections=10,
-        stale_timeout=300,
-        timeout=0,
-        check_same_thread=False,
-    )
+    database.init(db_path)
+
     if app:
         FlaskDB(app, database)
 
@@ -51,9 +46,9 @@ def database_setup(working_dir: str, app: Flask = None):
         ProjectOptimizationModifierTrainable,
     ]
     database.create_tables(
-        models=models,
-        safe=True,
+        models=models, safe=True,
     )
     for model in models:
         model.raw("PRAGMA foreign_keys=ON").execute()
+    database.start()
     database.close()

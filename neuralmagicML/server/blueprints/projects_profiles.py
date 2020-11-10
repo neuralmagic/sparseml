@@ -210,34 +210,46 @@ def create_loss_profile(project_id: str):
                 "project must set a model before running a loss profile."
             ).format(project_id)
         )
+    loss_profile = None
+    job = None
 
-    with database.atomic() as transaction:
-        try:
-            loss_profile = ProjectLossProfile.create(
-                project=project, source="generated", **loss_profile_params
-            )
-            job = Job.create(
-                project_id=project_id,
-                type_=CreateLossProfileJobWorker.get_type(),
-                worker_args=CreateLossProfileJobWorker.format_args(
-                    model_id=model.model_id,
-                    profile_id=loss_profile.profile_id,
-                    pruning_estimations=loss_profile_params["pruning_estimations"],
-                    pruning_estimation_type=loss_profile_params[
-                        "pruning_estimation_type"
-                    ],
-                    pruning_structure=loss_profile_params["pruning_structure"],
-                    quantized_estimations=loss_profile_params["quantized_estimations"],
-                ),
-            )
-            loss_profile.job = job
-            loss_profile.save()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new loss profile, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+    try:
+        loss_profile = ProjectLossProfile.create(
+            project=project, source="generated", **loss_profile_params
+        )
+        job = Job.create(
+            project_id=project_id,
+            type_=CreateLossProfileJobWorker.get_type(),
+            worker_args=CreateLossProfileJobWorker.format_args(
+                model_id=model.model_id,
+                profile_id=loss_profile.profile_id,
+                pruning_estimations=loss_profile_params["pruning_estimations"],
+                pruning_estimation_type=loss_profile_params["pruning_estimation_type"],
+                pruning_structure=loss_profile_params["pruning_structure"],
+                quantized_estimations=loss_profile_params["quantized_estimations"],
+            ),
+        )
+        loss_profile.job = job
+        loss_profile.save()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating new loss profile, rolling back: {}".format(err)
+        )
+        if loss_profile:
+            try:
+                loss_profile.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new loss profile: {}".format(rollback_err)
+                )
+        if job:
+            try:
+                job.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new loss profile: {}".format(rollback_err)
+                )
+        raise err
 
     # call into JobWorkerManager to kick off job if it's not already running
     JobWorkerManager().refresh()
@@ -694,37 +706,50 @@ def create_perf_profile(project_id: str):
                 "project must set a model before running a perf profile."
             ).format(project_id)
         )
+    perf_profile = None
+    job = None
 
-    with database.atomic() as transaction:
-        try:
-            perf_profile = ProjectPerfProfile.create(
-                project=project, source="generated", **perf_profile_params
-            )
-            job = Job.create(
-                project_id=project_id,
-                type_=CreatePerfProfileJobWorker.get_type(),
-                worker_args=CreatePerfProfileJobWorker.format_args(
-                    model_id=model.model_id,
-                    profile_id=perf_profile.profile_id,
-                    batch_size=perf_profile_params["batch_size"],
-                    core_count=perf_profile_params["core_count"],
-                    pruning_estimations=perf_profile_params["pruning_estimations"],
-                    quantized_estimations=perf_profile_params["quantized_estimations"],
-                    iterations_per_check=perf_profile_params["iterations_per_check"],
-                    warmup_iterations_per_check=perf_profile_params[
-                        "warmup_iterations_per_check"
-                    ],
-                ),
-            )
-            perf_profile.job = job
-            perf_profile.save()
-
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new perf profile, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+    try:
+        perf_profile = ProjectPerfProfile.create(
+            project=project, source="generated", **perf_profile_params
+        )
+        job = Job.create(
+            project_id=project_id,
+            type_=CreatePerfProfileJobWorker.get_type(),
+            worker_args=CreatePerfProfileJobWorker.format_args(
+                model_id=model.model_id,
+                profile_id=perf_profile.profile_id,
+                batch_size=perf_profile_params["batch_size"],
+                core_count=perf_profile_params["core_count"],
+                pruning_estimations=perf_profile_params["pruning_estimations"],
+                quantized_estimations=perf_profile_params["quantized_estimations"],
+                iterations_per_check=perf_profile_params["iterations_per_check"],
+                warmup_iterations_per_check=perf_profile_params[
+                    "warmup_iterations_per_check"
+                ],
+            ),
+        )
+        perf_profile.job = job
+        perf_profile.save()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating new perf profile, rolling back: {}".format(err)
+        )
+        if perf_profile:
+            try:
+                perf_profile.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new perf profile: {}".format(rollback_err)
+                )
+        if job:
+            try:
+                job.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new perf profile: {}".format(rollback_err)
+                )
+        raise err
 
     # call into JobWorkerManager to kick off job if it's not already running
     JobWorkerManager().refresh()

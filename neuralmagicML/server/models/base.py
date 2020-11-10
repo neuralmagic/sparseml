@@ -7,7 +7,7 @@ import datetime
 
 from peewee import Model, TextField, DateTimeField
 from playhouse.sqlite_ext import JSONField
-from playhouse.pool import PooledSqliteDatabase
+from playhouse.sqliteq import SqliteQueueDatabase
 
 
 __all__ = [
@@ -58,7 +58,9 @@ class FileStorage(object):
             raise ValueError("root_path is not set, call init first")
 
 
-database = PooledSqliteDatabase(None)
+database = SqliteQueueDatabase(
+    None, use_gevent=False, autostart=False, queue_max_size=128, results_timeout=30,
+)
 storage = FileStorage()
 
 

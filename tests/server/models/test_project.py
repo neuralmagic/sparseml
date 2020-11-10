@@ -6,15 +6,6 @@ from neuralmagicML.server.models import database, Project
 from tests.server.helper import database_fixture
 
 
-@pytest.fixture
-def transaction_fixture():
-    with database.atomic() as transaction:
-        try:
-            yield
-        finally:
-            transaction.rollback()
-
-
 @pytest.mark.parametrize(
     "param_fixtures,expected_params",
     [
@@ -50,7 +41,7 @@ def transaction_fixture():
     ],
 )
 def test_project(
-    database_fixture, transaction_fixture, param_fixtures, expected_params
+    database_fixture, param_fixtures, expected_params
 ):
     try:
         project = Project.create(**param_fixtures)

@@ -89,28 +89,32 @@ class _ModelLoaderJobWorker(BaseJobWorker):
     def _save_project_model(model: ProjectModel, path: str):
         validate_onnx_file(path)
 
-        with database.atomic() as transaction:
+        try:
+            model.setup_filesystem()
+            model.file = "model.onnx"
+            shutil.copy(path, model.file_path)
+            # revalidate to make sure the copy worked
+            validate_onnx_file(model.file_path)
+            model.save()
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating new project model, rolling back: {}".format(err)
+            )
+
             try:
-                model.setup_filesystem()
-                model.file = "model.onnx"
-                shutil.copy(path, model.file_path)
-                # revalidate to make sure the copy worked
-                validate_onnx_file(model.file_path)
+                os.remove(model.file_path)
+            except OSError as err:
+                pass
+            try:
+                model.file = None
                 model.save()
-            except Exception as err:
+            except Exception as rollback_err:
                 _LOGGER.error(
-                    "error while creating new project model, rolling back: {}".format(
-                        err
+                    "error while rolling back new project model: {}".format(
+                        rollback_err
                     )
                 )
-
-                try:
-                    os.remove(model.file_path)
-                except OSError as err:
-                    pass
-
-                transaction.rollback()
-                raise err
+            raise err
 
 
 class ModelFromPathJobWorker(_ModelLoaderJobWorker):

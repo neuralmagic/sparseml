@@ -10,7 +10,6 @@ import os
 import shutil
 
 from marshmallow import ValidationError
-from peewee import JOIN
 from flask import Blueprint, request, jsonify, Response, send_file
 from flasgger import swag_from
 
@@ -130,6 +129,7 @@ def upload_model(project_id: str) -> Tuple[Response, int]:
         raise ValidationError("missing uploaded file 'model_file'")
 
     model_file = request.files["model_file"]
+    project_model = None
 
     with NamedTemporaryFile() as temp:
         # Verify onnx model is valid and contains opset field
@@ -137,24 +137,27 @@ def upload_model(project_id: str) -> Tuple[Response, int]:
         model_file.save(tempname)
         validate_onnx_file(tempname)
 
-        with database.atomic() as transaction:
-            try:
-                # Create project model
-                data = CreateUpdateProjectModelSchema().dump(
-                    {"file": "model.onnx", "source": "uploaded"}
-                )
-                project_model = ProjectModel.create(project=project, **data)
-                project_model.setup_filesystem()
-                shutil.copy(tempname, project_model.file_path)
-                project_model.validate_filesystem()
-            except Exception as err:
-                _LOGGER.error(
-                    "error while creating new project model, rolling back: {}".format(
-                        err
+        try:
+            # Create project model
+            data = CreateUpdateProjectModelSchema().dump(
+                {"file": "model.onnx", "source": "uploaded"}
+            )
+            project_model = ProjectModel.create(project=project, **data)
+            project_model.setup_filesystem()
+            shutil.copy(tempname, project_model.file_path)
+            project_model.validate_filesystem()
+        except Exception as err:
+            _LOGGER.error(
+                "error while creating new project model, rolling back: {}".format(err)
+            )
+            if project_model:
+                try:
+                    project_model.delete_instance()
+                except Exception as rollback_err:
+                    _LOGGER.error(
+                        "error while rolling back new model: {}".format(rollback_err)
                     )
-                )
-                transaction.rollback()
-                raise err
+            raise err
 
         resp_model = data_dump_and_validation(
             ResponseProjectModelSchema(), {"model": project_model}
@@ -230,30 +233,43 @@ def load_model_from_path(project_id: str) -> Tuple[Response, int]:
     )
     project = _add_model_check(project_id)
     data = SetProjectModelFromSchema().load(request.get_json(force=True))
+    project_model = None
+    job = None
 
-    with database.atomic() as transaction:
-        try:
-            project_model = ProjectModel.create(
-                project=project, source="downloaded_path", job=None
-            )
-            job = Job.create(
-                project_id=project.project_id,
-                type_=ModelFromPathJobWorker.get_type(),
-                worker_args=ModelFromPathJobWorker.format_args(
-                    model_id=project_model.model_id,
-                    uri=data["uri"],
-                ),
-            )
-            project_model.job = job
-            project_model.save()
-            project_model.setup_filesystem()
-            project_model.validate_filesystem()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new project model, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+    try:
+        project_model = ProjectModel.create(
+            project=project, source="downloaded_path", job=None
+        )
+        job = Job.create(
+            project_id=project.project_id,
+            type_=ModelFromPathJobWorker.get_type(),
+            worker_args=ModelFromPathJobWorker.format_args(
+                model_id=project_model.model_id, uri=data["uri"],
+            ),
+        )
+        project_model.job = job
+        project_model.save()
+        project_model.setup_filesystem()
+        project_model.validate_filesystem()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating new project model, rolling back: {}".format(err)
+        )
+        if project_model:
+            try:
+                project_model.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new model: {}".format(rollback_err)
+                )
+        if job:
+            try:
+                job.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new job: {}".format(rollback_err)
+                )
+        raise err
 
     # call into JobWorkerManager to kick off job if it's not already running
     JobWorkerManager().refresh()
@@ -331,30 +347,43 @@ def load_model_from_repo(project_id: str) -> Tuple[Response, int]:
     )
     project = _add_model_check(project_id)
     data = SetProjectModelFromSchema().load(request.get_json(force=True))
+    project_model = None
+    job = None
 
-    with database.atomic() as transaction:
-        try:
-            project_model = ProjectModel.create(
-                project=project, source="downloaded_repo", job=None
-            )
-            job = Job.create(
-                project_id=project.project_id,
-                type_=ModelFromRepoJobWorker.get_type(),
-                worker_args=ModelFromRepoJobWorker.format_args(
-                    model_id=project_model.model_id,
-                    uri=data["uri"],
-                ),
-            )
-            project_model.job = job
-            project_model.save()
-            project_model.setup_filesystem()
-            project_model.validate_filesystem()
-        except Exception as err:
-            _LOGGER.error(
-                "error while creating new project model, rolling back: {}".format(err)
-            )
-            transaction.rollback()
-            raise err
+    try:
+        project_model = ProjectModel.create(
+            project=project, source="downloaded_repo", job=None
+        )
+        job = Job.create(
+            project_id=project.project_id,
+            type_=ModelFromRepoJobWorker.get_type(),
+            worker_args=ModelFromRepoJobWorker.format_args(
+                model_id=project_model.model_id, uri=data["uri"],
+            ),
+        )
+        project_model.job = job
+        project_model.save()
+        project_model.setup_filesystem()
+        project_model.validate_filesystem()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating new project model, rolling back: {}".format(err)
+        )
+        if project_model:
+            try:
+                project_model.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new model: {}".format(rollback_err)
+                )
+        if job:
+            try:
+                job.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new model: {}".format(rollback_err)
+                )
+        raise err
 
     # call into JobWorkerManager to kick off job if it's not already running
     JobWorkerManager().refresh()
@@ -545,20 +574,18 @@ def delete_model(project_id: str) -> Tuple[Response, int]:
     project_model = get_project_model_by_project_id(project_id)
     model_id = project_model.model_id
 
-    with database.atomic() as transaction:
-        try:
-            project_model.delete_instance()
-            project_model.delete_filesystem()
-        except Exception as err:
-            _LOGGER.error(
-                "error while deleting project model for {}, rolling back: {}".format(
-                    project_id, err
-                )
+    try:
+        project_model.delete_instance()
+        project_model.delete_filesystem()
+    except Exception as err:
+        _LOGGER.error(
+            "error while deleting project model for {}, rolling back: {}".format(
+                project_id, err
             )
+        )
 
-            if not args["force"]:
-                transaction.rollback()
-                raise err
+        if not args["force"]:
+            raise err
 
     resp_deleted = data_dump_and_validation(
         ResponseProjectModelDeletedSchema(),
