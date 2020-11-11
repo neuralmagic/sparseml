@@ -8,7 +8,7 @@ import logging
 from functools import reduce
 import numpy
 import onnx
-from onnx import numpy_helper, ModelProto, NodeProto
+from onnx import numpy_helper, ModelProto, NodeProto, TensorProto
 from onnx.helper import get_attribute_value, make_model, make_empty_tensor_value_info
 import onnxruntime
 
@@ -429,6 +429,35 @@ Simple named tuple for mapping a node value to the init name it came from
 """
 NodeParam = NamedTuple("NodeParam", [("name", str), ("val", numpy.ndarray)])
 
+_TRIVIAL_OP_TYPES = {"Reshape", "Transpose"}
+
+
+def _get_init_by_name_nested(
+    model, weight_name
+) -> Tuple[Union[str, None], Union[TensorProto, None]]:
+    # traverses graph if weights are reshaped / transposed before becoming layer input
+    init = get_init_by_name(model, weight_name)
+
+    if init is not None:
+        return weight_name, init
+
+    nested = None, None
+    parent_nodes = get_nodes_by_output_id(model, weight_name)
+
+    if not parent_nodes:
+        return nested
+
+    for parent in parent_nodes:
+        if parent.op_type not in _TRIVIAL_OP_TYPES:
+            continue
+
+        nested = _get_init_by_name_nested(model, parent.input[0])
+
+        if nested[0] is not None and nested[1] is not None:
+            break
+
+    return nested
+
 
 def conv_node_params(
     model: ModelProto, node: NodeProto, include_values: bool = True
@@ -448,34 +477,19 @@ def conv_node_params(
     if str(node.op_type).lower() != "conv":
         raise ValueError("node_id of {} is not a conv: {}".format(node_id, node))
 
-    weight_init = _get_init_by_name_nested(model, node.input[1])
+    weight_name, weight_init = _get_init_by_name_nested(model, node.input[1])
     weight = NodeParam(
-        node.input[1], numpy_helper.to_array(weight_init) if include_values else None
+        weight_name, numpy_helper.to_array(weight_init) if include_values else None
     )
     if len(node.input) > 2:
-        bias_init = _get_init_by_name_nested(model, node.input[2])
+        bias_name, bias_init = _get_init_by_name_nested(model, node.input[2])
         bias = NodeParam(
-            node.input[2], numpy_helper.to_array(bias_init) if include_values else None
+            bias_name, numpy_helper.to_array(bias_init) if include_values else None
         )
     else:
         bias = None
 
     return weight, bias
-
-
-_TRIVIAL_OP_TYPES = {"Reshape", "Transpose"}
-
-
-def _get_init_by_name_nested(model, weight_name):
-    # traverses graph if weights are reshaped / transposed before becoming layer input
-    init = get_init_by_name(model, weight_name)
-    if init is not None:
-        return init
-
-    parent_nodes = get_nodes_by_output_id(model, weight_name)
-    if len(parent_nodes) != 1 or parent_nodes[0].op_type not in _TRIVIAL_OP_TYPES:
-        return None
-    return _get_init_by_name_nested(model, parent_nodes[0].input[0])
 
 
 def _get_matmul_gemm_weight(
@@ -498,27 +512,27 @@ def _get_matmul_gemm_weight(
     # falls to expecting only 2
     assert len(weight_inits) == 2
 
-    if weight_inits[0] is None and weight_inits[1] is None:
+    if weight_inits[0][1] is None and weight_inits[1][1] is None:
         raise ValueError(
             "could not find weight for gemm / matmul node with id {}: {}".format(
                 node_id, node
             )
         )
-    elif weight_inits[0] is not None and weight_inits[1] is not None:
+    elif weight_inits[0][1] is not None and weight_inits[1][1] is not None:
         raise ValueError(
             "found too many weight inputs for gemm / matmul node with id {}: {}".format(
                 node_id, node
             )
         )
-    elif weight_inits[0] is not None:
+    elif weight_inits[0][1] is not None:
         weight = NodeParam(
-            node.input[0],
-            numpy_helper.to_array(weight_inits[0]) if include_values else None,
+            weight_inits[0][0],
+            numpy_helper.to_array(weight_inits[0][1]) if include_values else None,
         )
     else:
         weight = NodeParam(
-            node.input[1],
-            numpy_helper.to_array(weight_inits[1]) if include_values else None,
+            weight_inits[1][0],
+            numpy_helper.to_array(weight_inits[1][1]) if include_values else None,
         )
 
     return weight
@@ -545,9 +559,9 @@ def gemm_node_params(
     weight = _get_matmul_gemm_weight(model, node, include_values)
 
     if len(node.input) > 2:
-        bias_init = _get_init_by_name_nested(model, node.input[2])
+        bias_name, bias_init = _get_init_by_name_nested(model, node.input[2])
         bias = NodeParam(
-            node.input[2], numpy_helper.to_array(bias_init) if include_values else None
+            bias_name, numpy_helper.to_array(bias_init) if include_values else None
         )
     else:
         bias = None
@@ -980,6 +994,7 @@ def calculate_flops(
     weight_shape: Union[List, None] = None,
     kernel_shape: Union[List, None] = None,
     bias_shape: Union[List, None] = None,
+    attributes: Union[None, Dict[str, Any]] = None,
 ) -> Union[float, None]:
     """
     Calculate flops based on operation type and shape of certain attributes.
@@ -991,6 +1006,7 @@ def calculate_flops(
     :param weight_shape: Shape of weights in operation if any, else None
     :param kernel_shape: Shape of kernel in operation if any, else None
     :param bias_shape: Shape of bias in operation if any, else None
+    :param attributes: The node attributes if any, else None
     :return: The amount of floating point operations in the operation
     """
     input_shape = _array_as_numeric(input_shape)
@@ -998,6 +1014,7 @@ def calculate_flops(
     weight_shape = _array_as_numeric(weight_shape)
     kernel_shape = _array_as_numeric(kernel_shape)
     bias_shape = _array_as_numeric(bias_shape)
+
     if (
         op_type == "Add"
         or op_type == "Mul"
@@ -1040,6 +1057,16 @@ def calculate_flops(
             and output_shape is not None
             else None
         )
+
+        if (
+            flops
+            and attributes
+            and "group" in attributes
+            and attributes["group"]
+            and attributes["group"] > 1
+        ):
+            # adjust flops for group / depthwise convolutions
+            flops = flops / attributes["group"]
     else:
         flops = None
 
@@ -1048,6 +1075,7 @@ def calculate_flops(
             flops += numpy.prod(bias_shape) * output_shape[0][-1] * output_shape[0][-2]
         else:
             flops += numpy.prod(bias_shape)
+
     return flops
 
 

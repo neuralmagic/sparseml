@@ -119,6 +119,7 @@ class NodeAnalyzer(object):
             weight_shape=self._weight_shape,
             kernel_shape=kernel_shape,
             bias_shape=self._bias_shape,
+            attributes=self._attributes,
         )
 
         self._prunable_equation_sensitivity = (

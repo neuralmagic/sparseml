@@ -222,15 +222,18 @@ class CreateBenchmarkJobWorker(BaseJobWorker):
         optim = get_project_optimizer_by_ids(
             self.project_id, inference_model_optimization
         )
-        nodes = []
         pruning_modifiers = optim.pruning_modifiers
         nodes = []
         sparsities = []
 
         for pruning_modifier in pruning_modifiers:
             for node in pruning_modifier.nodes:
+                if not node["sparsity"] or node["sparsity"] <= 0:
+                    continue
+
                 nodes.append(get_node_by_id(model_proto, node["node_id"]))
-                sparsities.append(node["sparsity"] if node["sparsity"] else 0)
+                sparsities.append(node["sparsity"])
+
         for progress in prune_model_one_shot_iter(model_proto, nodes, sparsities):
             yield progress
 
@@ -256,9 +259,7 @@ class CreateBenchmarkJobWorker(BaseJobWorker):
 
         iterations = 0
         for _, current_measurements in runner.run_iter(
-            data_iter,
-            show_progress=False,
-            max_steps=total_iterations,
+            data_iter, show_progress=False, max_steps=total_iterations,
         ):
             measurements.append(current_measurements)
             iteration_percent = (iterations + 1) / (total_iterations)
