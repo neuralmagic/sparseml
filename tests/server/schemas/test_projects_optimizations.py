@@ -979,6 +979,7 @@ def test_project_optimization_modifier_trainable_schema(
                 "optim_id": "optim id",
                 "project_id": "project id",
                 "name": None,
+                "notes": "notes",
                 "profile_perf_id": None,
                 "profile_loss_id": None,
                 "start_epoch": 0,
@@ -992,6 +993,7 @@ def test_project_optimization_modifier_trainable_schema(
                 "optim_id": "optim id",
                 "project_id": "project id",
                 "name": None,
+                "notes": "notes",
                 "profile_perf_id": None,
                 "profile_loss_id": None,
                 "start_epoch": 0,
@@ -1007,6 +1009,7 @@ def test_project_optimization_modifier_trainable_schema(
                 "optim_id": "optim id",
                 "project_id": "project id",
                 "name": "name",
+                "notes": "notes",
                 "profile_perf_id": "profile perf id",
                 "profile_loss_id": "profile loss id",
                 "start_epoch": 0,
@@ -1149,6 +1152,7 @@ def test_project_optimization_modifier_trainable_schema(
                 "modified": "2020-10-29T15:08:07.714614",
                 "end_epoch": 100.0,
                 "name": "name",
+                "notes": "notes",
                 "quantization_modifiers": [
                     {
                         "nodes": [{"level": "int16", "node_id": "node id"}],
@@ -1341,6 +1345,7 @@ def test_get_project_optimization_best_estimated_results_schema(
             {},
             {
                 "name": "",
+                "notes": "",
                 "add_pruning": True,
                 "add_quantization": False,
                 "add_lr_schedule": True,
@@ -1352,6 +1357,7 @@ def test_get_project_optimization_best_estimated_results_schema(
         (
             {
                 "name": "name",
+                "notes": "notes",
                 "add_pruning": False,
                 "add_quantization": True,
                 "add_lr_schedule": False,
@@ -1361,6 +1367,7 @@ def test_get_project_optimization_best_estimated_results_schema(
             },
             {
                 "name": "name",
+                "notes": "notes",
                 "add_pruning": False,
                 "add_quantization": True,
                 "add_lr_schedule": False,
@@ -1804,6 +1811,7 @@ def test_response_project_optimization_best_estimated(
                     "optim_id": "optim id",
                     "project_id": "project id",
                     "name": "name",
+                    "notes": "notes",
                     "profile_perf_id": "profile perf id",
                     "profile_loss_id": "profile loss id",
                     "start_epoch": 0,
@@ -1819,6 +1827,7 @@ def test_response_project_optimization_best_estimated(
                     "optim_id": "optim id",
                     "project_id": "project id",
                     "name": "name",
+                    "notes": "notes",
                     "profile_perf_id": "profile perf id",
                     "profile_loss_id": "profile loss id",
                     "start_epoch": 0,

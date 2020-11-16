@@ -114,7 +114,6 @@ def run(
     app.config["UI_PATH"] = ui_path
     CORS(app)
 
-    # _database_setup(app, working_dir)
     database_setup(working_dir, app)
     _blueprints_setup(app)
     _api_docs_setup(app)
@@ -142,7 +141,10 @@ def parse_args() -> Any:
         "--port", default=5543, type=int, help="The local port to launch the server on"
     )
     parser.add_argument(
-        "--debug", default=False, action="store_true", help="Set to run in debug mode",
+        "--debug",
+        default=False,
+        action="store_true",
+        help="Set to run in debug mode",
     )
     parser.add_argument(
         "--logging-level",

@@ -280,6 +280,7 @@ class ProjectOptimizationSchema(Schema):
     created = fields.DateTime(required=True)
     modified = fields.DateTime(required=True)
     name = fields.Str(required=True, allow_none=True)
+    notes = fields.Str(required=True, allow_none=True)
     profile_perf_id = fields.Str(required=True, allow_none=True)
     profile_loss_id = fields.Str(required=True, allow_none=True)
     start_epoch = fields.Float(required=True)
@@ -317,6 +318,7 @@ class CreateProjectOptimizationSchema(GetProjectOptimizationBestEstimatedResults
     """
 
     name = fields.Str(required=False, default="", missing="")
+    notes = fields.Str(required=False, default="", missing="")
     add_pruning = fields.Bool(required=False, default=True, missing=True)
     add_quantization = fields.Bool(required=False, default=False, missing=False)
     add_lr_schedule = fields.Bool(required=False, default=True, missing=True)
@@ -329,6 +331,7 @@ class UpdateProjectOptimizationSchema(Schema):
     """
 
     name = fields.Str(required=False)
+    notes = fields.Str(required=False)
     profile_perf_id = fields.Str(required=False, allow_none=True)
     profile_loss_id = fields.Str(required=False, allow_none=True)
     start_epoch = fields.Float(required=False)
@@ -351,7 +354,9 @@ class CreateUpdateProjectOptimizationModifiersPruningSchema(Schema):
     filter_min_recovery = fields.Float(required=False)
 
     nodes = fields.Nested(
-        ProjectOptimizationModifierPruningNodeMetadataSchema, required=False, many=True,
+        ProjectOptimizationModifierPruningNodeMetadataSchema,
+        required=False,
+        many=True,
     )
 
 
@@ -378,7 +383,9 @@ class CreateUpdateProjectOptimizationModifiersLRScheduleSchema(Schema):
     """
 
     lr_mods = fields.Nested(
-        ProjectOptimizationModifierLRSchema, required=False, many=True,
+        ProjectOptimizationModifierLRSchema,
+        required=False,
+        many=True,
     )
 
 

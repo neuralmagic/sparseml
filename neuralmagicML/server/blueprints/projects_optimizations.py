@@ -44,6 +44,7 @@ from neuralmagicML.server.schemas import (
     CreateUpdateProjectOptimizationModifiersQuantizationSchema,
     CreateUpdateProjectOptimizationModifiersLRScheduleSchema,
     CreateUpdateProjectOptimizationModifiersTrainableSchema,
+    ProjectOptimizationSchema,
     UpdateProjectOptimizationSchema,
     SearchProjectOptimizationsSchema,
     ResponseProjectOptimizationFrameworksAvailableSchema,
@@ -154,10 +155,14 @@ def get_optims(project_id: str):
             ProjectOptimizationModifierTrainable,
         )
         .join_from(
-            ProjectOptimization, ProjectOptimizationModifierLRSchedule, JOIN.LEFT_OUTER,
+            ProjectOptimization,
+            ProjectOptimizationModifierLRSchedule,
+            JOIN.LEFT_OUTER,
         )
         .join_from(
-            ProjectOptimization, ProjectOptimizationModifierPruning, JOIN.LEFT_OUTER,
+            ProjectOptimization,
+            ProjectOptimizationModifierPruning,
+            JOIN.LEFT_OUTER,
         )
         .join_from(
             ProjectOptimization,
@@ -165,7 +170,9 @@ def get_optims(project_id: str):
             JOIN.LEFT_OUTER,
         )
         .join_from(
-            ProjectOptimization, ProjectOptimizationModifierTrainable, JOIN.LEFT_OUTER,
+            ProjectOptimization,
+            ProjectOptimizationModifierTrainable,
+            JOIN.LEFT_OUTER,
         )
         .where(ProjectOptimization.project_id == project_id)
         .group_by(ProjectOptimization)
@@ -636,7 +643,8 @@ def get_available_modifiers(project_id: str):
         modifiers.append("trainable")
 
     resp_modifiers = data_dump_and_validation(
-        ResponseProjectOptimizationModifiersAvailable(), {"modifiers": modifiers},
+        ResponseProjectOptimizationModifiersAvailable(),
+        {"modifiers": modifiers},
     )
 
     return jsonify(resp_modifiers), HTTPStatus.OK.value
@@ -824,7 +832,7 @@ def get_optim(project_id: str, optim_id: str):
         "responses": {
             HTTPStatus.OK.value: {
                 "description": "The updated optimization",
-                "schema": ResponseProjectOptimizationDeletedSchema,
+                "schema": ResponseProjectOptimizationSchema,
             },
             HTTPStatus.BAD_REQUEST.value: {
                 "description": "Information for the error that occurred",
@@ -927,6 +935,152 @@ def update_optim(project_id: str, optim_id: str):
     _LOGGER.info("updated project optimizer {}".format(resp_optim))
 
     return get_optim(project_id, optim_id)
+
+
+@projects_optim_blueprint.route("/<optim_id>/version", methods=["POST"])
+@swag_from(
+    {
+        "tags": ["Projects Optimizations"],
+        "summary": "Create a new optimization from an existing optimization for the projects model.",
+        "produces": ["application/json"],
+        "parameters": [
+            {
+                "in": "path",
+                "name": "project_id",
+                "description": "ID of the project to create a optimization for",
+                "required": True,
+                "type": "string",
+            },
+            {
+                "in": "path",
+                "name": "optim_id",
+                "description": "ID of the optim within the project to delete",
+                "required": True,
+                "type": "string",
+            },
+            {
+                "in": "body",
+                "name": "body",
+                "description": "The optim settings to update with",
+                "required": True,
+                "schema": UpdateProjectOptimizationSchema,
+            },
+        ],
+        "responses": {
+            HTTPStatus.OK.value: {
+                "description": "The creaed optimization",
+                "schema": ResponseProjectOptimizationSchema,
+            },
+            HTTPStatus.BAD_REQUEST.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+            HTTPStatus.NOT_FOUND.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+            HTTPStatus.INTERNAL_SERVER_ERROR.value: {
+                "description": "Information for the error that occurred",
+                "schema": ErrorSchema,
+            },
+        },
+    },
+)
+def create_version_optim(project_id: str, optim_id: str):
+    """
+    Route for updating a specific optimization for a given project.
+    Raises an HTTPNotFoundError if the project or optimization are
+    not found in the database.
+
+    :param project_id: the id of the project to update the optimization for
+    :param optim_id: the id of the optimization to update
+    :return: a tuple containing (json response, http status code)
+    """
+    _LOGGER.info(
+        "creating a new project optimizer from project optimizer {} for project {}".format(
+            optim_id, project_id
+        )
+    )
+    data = UpdateProjectOptimizationSchema().dump(request.get_json(force=True))
+    project = optim_validate_and_get_project_by_id(project_id)
+    ref_optim = get_project_optimizer_by_ids(project_id, optim_id)
+
+    ref_optim = ProjectOptimizationSchema().dump(ref_optim)
+    del ref_optim["created"]
+    del ref_optim["modified"]
+    del ref_optim["optim_id"]
+    lr_schedule_modifiers = ref_optim["lr_schedule_modifiers"]
+    ref_optim["lr_schedule_modifiers"] = []
+    pruning_modifiers = ref_optim["pruning_modifiers"]
+    ref_optim["pruning_modifiers"] = []
+    trainable_modifiers = ref_optim["trainable_modifiers"]
+    ref_optim["trainable_modifiers"] = []
+    quantization_modifiers = ref_optim["quantization_modifiers"]
+    ref_optim["quantization_modifiers"] = []
+
+    _LOGGER.info(ref_optim)
+
+    optim = None
+    try:
+        for key, value in data.items():
+            if value is not None:
+                ref_optim[key] = value
+        optim = ProjectOptimization.create(project=project, **ref_optim)
+
+        for lr_schedule_modifier in lr_schedule_modifiers:
+            del lr_schedule_modifier["created"]
+            del lr_schedule_modifier["modified"]
+            del lr_schedule_modifier["modifier_id"]
+            del lr_schedule_modifier["optim_id"]
+            lr_schedule = ProjectOptimizationModifierLRSchedule.create(
+                optim=optim, **lr_schedule_modifier
+            )
+            lr_schedule.save()
+
+        for pruning_modifier in pruning_modifiers:
+            del pruning_modifier["created"]
+            del pruning_modifier["modified"]
+            del pruning_modifier["modifier_id"]
+            del pruning_modifier["optim_id"]
+            pruning = ProjectOptimizationModifierPruning.create(
+                optim=optim, **pruning_modifier
+            )
+            pruning.save()
+
+        for trainable_modifier in trainable_modifiers:
+            del trainable_modifier["created"]
+            del trainable_modifier["modified"]
+            del trainable_modifier["modifier_id"]
+            del trainable_modifier["optim_id"]
+            trainable = ProjectOptimizationModifierTrainable.create(
+                optim=optim, **trainable_modifier
+            )
+            trainable.save()
+
+        for quantization_modifier in quantization_modifiers:
+            # TODO: quantization modifier
+            pass
+
+        optim.save()
+    except Exception as err:
+        _LOGGER.error(
+            "error while creating new optimization, rolling back: {}".format(err)
+        )
+        if optim:
+            try:
+                optim.delete_instance()
+            except Exception as rollback_err:
+                _LOGGER.error(
+                    "error while rolling back new optimization: {}".format(rollback_err)
+                )
+        raise err
+
+    resp_optim = data_dump_and_validation(
+        ResponseProjectOptimizationSchema(), {"optim": optim}
+    )
+    _LOGGER.info("updated project optimizer {}".format(resp_optim))
+
+    return get_optim(project_id, optim.optim_id)
 
 
 @projects_optim_blueprint.route("/<optim_id>", methods=["DELETE"])
@@ -1282,7 +1436,9 @@ def create_optim_modifier_pruning(project_id: str, optim_id: str):
 
         # update optim in case bounds for new modifier went outside it
         optim_updater(
-            optim, mod_start_epoch=pruning.start_epoch, mod_end_epoch=pruning.end_epoch,
+            optim,
+            mod_start_epoch=pruning.start_epoch,
+            mod_end_epoch=pruning.end_epoch,
         )
         optim.save()
     except Exception as err:
@@ -1420,7 +1576,9 @@ def update_optim_modifier_pruning(project_id: str, optim_id: str, modifier_id: s
 
         # update optim in case bounds for new modifier went outside it
         optim_updater(
-            optim, mod_start_epoch=pruning.start_epoch, mod_end_epoch=pruning.end_epoch,
+            optim,
+            mod_start_epoch=pruning.start_epoch,
+            mod_end_epoch=pruning.end_epoch,
         )
         optim.save()
     except Exception as err:
@@ -1638,7 +1796,8 @@ def create_optim_modifier_lr_schedule(project_id: str, optim_id: str):
     try:
         lr_sched = ProjectOptimizationModifierLRSchedule.create(optim=optim)
         optim_lr_sched_updater(
-            lr_sched, lr_mods=data["lr_mods"] if data["lr_mods"] else [],
+            lr_sched,
+            lr_mods=data["lr_mods"] if data["lr_mods"] else [],
         )
         lr_sched.save()
 

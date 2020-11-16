@@ -44,6 +44,7 @@ class ProjectOptimization(BaseCreatedModifiedModel):
     optim_id = CharField(primary_key=True, default=lambda: uuid.uuid4().hex)
     project = ForeignKeyField(Project, backref="optims", on_delete="CASCADE")
     name = TextField(null=True, default="")
+    notes = TextField(null=True, default="")
     profile_perf = ForeignKeyField(ProjectPerfProfile, null=True, default=None)
     profile_loss = ForeignKeyField(ProjectLossProfile, null=True, default=None)
     start_epoch = FloatField(null=True, default=None)
