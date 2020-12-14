@@ -6,8 +6,10 @@ Allows reporting of progress and override functions and hooks.
 from abc import ABC, abstractmethod
 from typing import Callable, Any, Dict, Union, List
 from collections import OrderedDict
+from contextlib import ExitStack
 import time
 from tqdm import auto
+import warnings
 
 import torch
 from torch import Tensor
@@ -25,6 +27,14 @@ from neuralmagicML.pytorch.utils.helpers import (
 from neuralmagicML.pytorch.utils.logger import PyTorchLogger
 from neuralmagicML.pytorch.utils.loss import DEFAULT_LOSS_KEY, LossWrapper
 
+try:
+    from torch.cuda.amp import autocast, GradScaler
+    amp_import_error = None
+except Exception as amp_error:
+    autocast = None
+    GradScaler = None
+    amp_import_error = amp_error
+
 
 __all__ = [
     "def_model_backward",
@@ -36,7 +46,9 @@ __all__ = [
 ]
 
 
-def def_model_backward(losses: Dict[str, Tensor], model: Module):
+def def_model_backward(
+    losses: Dict[str, Tensor], model: Module, scaler: GradScaler = None
+):
     """
     Default function to perform a backwards pass for a model and the calculated losses
     Calls backwards for the DEFAULT_LOSS_KEY in losses Dict
@@ -44,9 +56,14 @@ def def_model_backward(losses: Dict[str, Tensor], model: Module):
     :param model: the model to run the backward for
     :param losses: the losses dictionary containing named tensors,
                    DEFAULT_LOSS_KEY is expected to exist and backwards is called on that
+    :param scaler: GradScaler object for running in mixed precision with amp. If scaler
+        is not None will call scaler.scale on the loss object. Default is None
     """
     # assume loss is at default loss key
-    losses[DEFAULT_LOSS_KEY].backward()
+    loss = losses[DEFAULT_LOSS_KEY]
+    if scaler is not None:
+        loss = scaler.scale(loss)
+    loss.backward()
 
 
 class ModuleRunHooks(object):
@@ -745,6 +762,10 @@ class ModuleTrainer(ModuleRunner):
     :param log_steps: The number of steps (batches) to log at,
         ex 100 will log every 100 batches
     :param log_summary: True to log the final summary results after the run completes
+    :param use_mixed_precision: True to train model using mixed precision with
+        torch.cuda.amp. Will raise an exception if torch version does not support amp.
+        Supported environments include single GPU and multiple GPUs using
+        DistributedDataParallel with one GPU per process.
     """
 
     def __init__(
@@ -759,6 +780,7 @@ class ModuleTrainer(ModuleRunner):
         log_name: str = "Train",
         log_steps: int = 100,
         log_summary: bool = True,
+        use_mixed_precision: bool = False,
     ):
         super().__init__(
             module, device, loss, loggers, log_name, log_steps, log_summary
@@ -766,8 +788,24 @@ class ModuleTrainer(ModuleRunner):
         self._optimizer = optimizer
         self._num_accumulated_batches = num_accumulated_batches
         self._optim_closure = optim_closure
+        self._use_mixed_precision = use_mixed_precision
 
         self._accumulated = None
+
+        if use_mixed_precision:
+            if autocast is None or GradScaler is None:
+                raise type(amp_import_error)(
+                    amp_import_error.msg
+                    + " autocast and GradScaler introduced in torch version 1.6.0."
+                )
+            if optim_closure is not None:
+                raise RuntimeError(
+                    "Optimizer closures are not currently supported when training using "
+                    "torch.cuda.amp.GradScaler."
+                )
+            self._scaler = GradScaler()
+        else:
+            self._scaler = None
 
     @property
     def optimizer(self) -> Optimizer:
@@ -789,6 +827,13 @@ class ModuleTrainer(ModuleRunner):
         :return: a closure passed into the optimizer on step
         """
         return self._optim_closure
+
+    @property
+    def use_mixed_precision(self) -> bool:
+        """
+        :return: True if mixed precision is enabled
+        """
+        return self._use_mixed_precision
 
     def _runner_setup(self):
         self._module = self._module.train()
@@ -812,24 +857,31 @@ class ModuleTrainer(ModuleRunner):
         if self._accumulated == self._num_accumulated_batches:
             self._optimizer.zero_grad()
 
-        # forward steps
-        pred = self._run_funcs.model_forward(data, self._module)
-        self._run_hooks.invoke_batch_forward(counter, batch, batch_size, data, pred)
+        forward_context = (autocast if self._use_mixed_precision else ExitStack)
+        with forward_context():
+            # forward steps
+            pred = self._run_funcs.model_forward(data, self._module)
+            self._run_hooks.invoke_batch_forward(counter, batch, batch_size, data, pred)
+
+            # loss calculation
+            losses = self._loss(data, pred)
+            self._run_hooks.invoke_batch_loss(
+                counter, batch, batch_size, data, pred, losses
+            )
 
         # backward steps
-        losses = self._loss(data, pred)
-        self._run_hooks.invoke_batch_loss(
-            counter, batch, batch_size, data, pred, losses
-        )
-
-        self._run_funcs.model_backward(losses, self._module)
+        self._run_funcs.model_backward(losses, self._module, scaler=self._scaler)
         self._run_hooks.invoke_batch_backward(
             counter, batch, batch_size, data, pred, losses
         )
 
         # optimizer / gradients update
         if self._accumulated == self._num_accumulated_batches:
-            self._optimizer.step(closure=self._optim_closure)
+            if self._use_mixed_precision:
+                self._scaler.step(self._optimizer)
+                self._scaler.update()
+            else:
+                self._optimizer.step(closure=self._optim_closure)
             self._accumulated = 0
 
         self._run_hooks.invoke_batch_end(counter, batch, batch_size, data, pred, losses)

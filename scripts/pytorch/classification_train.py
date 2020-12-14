@@ -24,6 +24,7 @@ usage: classification_train.py [-h] [--recal-config-path RECAL_CONFIG_PATH]
                                [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
                                [--logs-dir LOGS_DIR]
                                [--save-epochs SAVE_EPOCHS [SAVE_EPOCHS ...]]
+                               [--use-mixed-precision]
                                [--debug-steps DEBUG_STEPS]
 
 Train and/or prune an image classification architecture on a dataset
@@ -95,6 +96,10 @@ optional arguments:
   --logs-dir LOGS_DIR   The path to the directory for saving logs
   --save-epochs SAVE_EPOCHS [SAVE_EPOCHS ...]
                         epochs to save checkpoints at
+  --use-mixed-precision
+                        Trains model using mixed precision. Supported
+                        environments are single GPU and multiple GPUs using
+                        DistributedDataParallel with one GPU per process
   --debug-steps DEBUG_STEPS
                         Amount of steps to run for training and testing for a
                         debug mode
@@ -358,6 +363,12 @@ def parse_args():
         nargs="+",
         help="epochs to save checkpoints at",
     )
+    parser.add_argument(
+        "--use-mixed-precision",
+        action="store_true",
+        help="Trains model using mixed precision. Supported environments are single GPU"
+        " and multiple GPUs using DistributedDataParallel with one GPU per process",
+    )
 
     # debug options
     parser.add_argument(
@@ -558,7 +569,14 @@ def main(args):
     LOGGER.info("running on device {} for ids {}".format(device, device_ids))
 
     trainer = (
-        ModuleTrainer(model, device, train_loss, optim, loggers=loggers)
+        ModuleTrainer(
+            model,
+            device,
+            train_loss,
+            optim,
+            loggers=loggers,
+            use_mixed_precision=args.use_mixed_precision,
+        )
         if not args.eval_mode
         else None
     )

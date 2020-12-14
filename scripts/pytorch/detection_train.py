@@ -25,6 +25,7 @@ usage: detection_train.py [-h] [--recal-config-path RECAL_CONFIG_PATH]
                           [--save-best-after SAVE_BEST_AFTER]
                           [--save-epochs SAVE_EPOCHS [SAVE_EPOCHS ...]]
                           [--map-calculation-frequency MAP_CALCULATION_FREQUENCY]
+                          [--use-mixed-precision]
                           [--debug-steps DEBUG_STEPS]
 
 Train and/or prune an image detection architecture on a dataset
@@ -100,6 +101,10 @@ optional arguments:
   --map-calculation-frequency MAP_CALCULATION_FREQUENCY
                         number of epochs between validation mAP calculation.
                         default calculates mAP every 10 epochs
+  --use-mixed-precision
+                        Trains model using mixed precision. Supported
+                        environments are single GPU and multiple GPUs using
+                        DistributedDataParallel with one GPU per process
   --debug-steps DEBUG_STEPS
                         Amount of steps to run for training and testing for a
                         debug mode
@@ -352,6 +357,12 @@ def parse_args():
         help="number of epochs between validation mAP calculation. "
         "default calculates mAP every 10 epochs",
     )
+    parser.add_argument(
+        "--use-mixed-precision",
+        action="store_true",
+        help="Trains model using mixed precision. Supported environments are single GPU"
+        " and multiple GPUs using DistributedDataParallel with one GPU per process",
+    )
 
     # debug options
     parser.add_argument(
@@ -575,7 +586,14 @@ def main(args):
     LOGGER.info("running on device {} for ids {}".format(device, device_ids))
 
     trainer = (
-        ModuleTrainer(model, device, train_loss, optim, loggers=loggers)
+        ModuleTrainer(
+            model,
+            device,
+            train_loss,
+            optim,
+            loggers=loggers,
+            use_mixed_precision=args.use_mixed_precision,
+        )
         if not args.eval_mode
         else None
     )
