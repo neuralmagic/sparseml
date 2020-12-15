@@ -723,7 +723,9 @@ class TopKAccuracy(Module):
             pred = pred.t()
             correct = pred.eq(lab.view(1, -1).expand_as(pred))
 
-            correct_k = correct[:topk].view(-1).float().sum(0, keepdim=True)
+            correct_k = (
+                correct[:topk].contiguous().view(-1).float().sum(0, keepdim=True)
+            )
             correct_k = correct_k.mul_(100.0 / batch_size)
 
             return correct_k

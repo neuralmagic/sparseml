@@ -22,11 +22,7 @@ __all__ = [
 ]
 
 
-def update_model_param(
-    model: ModelProto,
-    param_name: str,
-    val: numpy.ndarray,
-) -> None:
+def update_model_param(model: ModelProto, param_name: str, val: numpy.ndarray,) -> None:
     """
     Removes the parameter with name param_name from the model
     Creates a new parameter using val
@@ -55,15 +51,20 @@ def swap_node_output(node: onnx.NodeProto, output: str) -> None:
     node.output.append(output)
 
 
-def remove_node_and_params_from_graph(model: ModelProto, node: onnx.NodeProto) -> None:
+def remove_node_and_params_from_graph(
+    model: ModelProto, node: onnx.NodeProto, keep_params: Iterable[str] = None,
+) -> None:
     """
     Deletes a node from the mdoel graph as well as its parameters listed in node.input
     :param model: Model to delete from
     :param node: Node to delete
+    :param keep_params: Names of node input initializers not to remove from graph default
+        is None.
     """
-    param_matches = [p for p in model.graph.initializer if p.name in node.input]
-    for param in param_matches:
-        model.graph.initializer.remove(param)
+    keep_params = keep_params or []
+    for param in model.graph.initializer:
+        if param.name not in keep_params and param.name in node.input:
+            model.graph.initializer.remove(param)
     model.graph.node.remove(node)
 
 

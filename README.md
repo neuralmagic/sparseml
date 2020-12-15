@@ -171,6 +171,8 @@ The following scripts are currently maintained for use:
 - `model_download.py`: Download a model from the Neural Magic [Model Repo](#model-repository). 
 - `model_export.py`: Convert a PyTorch model to an ONNX file, saving it along with the model checkpoint,
   sample input, and sample output data.
+- `model_quantize_qat_export.py`: Convert an ONNX graph exported from PyTorch using QAT
+  to a fully quantized ONNX model.
 - `torchvision_export.py`: Download a model from the [torchvision](https://pytorch.org/docs/stable/torchvision/models.html)
   model zoo, saving it as an ONNX file along with the model checkpoint, sample input, and sample output data.
 
@@ -502,6 +504,31 @@ Example:
         start_epoch: 5.0
         end_epoch: 20.0
         update_frequency: 1.0
+```
+
+#### Quantization Modifiers
+The `QuantizationModifier` sets the model to run with quantization aware training (QAT).
+QAT emulates the prescision loss of int8 quantization during training so weights can be
+learned to limit any accuracy loss from quantization. Once the `QuantizationModifier` is
+enabled, it cannot be disabled (no `end_epoch`). Quantization zero points are set to be
+asymmetric for activations and symmetric for weights. Currently only available in PyTorch.
+
+Notes:
+ - ONNX exports of PyTorch QAT models will be QAT models themselves (emulated quantization).
+   To convert your QAT ONNX model to a fully quantizerd model use
+   the script `scripts/pytorch/model_quantize_qat_export.py` or the function
+   `neuralmagicML.pytorch.quantization.quantize_qat_export`.
+ - If performing QAT on a sparse model, you must preserve sparsity during QAT by
+   applying a `ConstantKSModifier` or have already used a `GradualKSModifier` with
+   `leave_enabled` set to True.
+
+Required Parameters:
+- `start_epoch`: The epoch to start QAT. This supports floating-point values to enable
+  starting pruning between epochs.
+Example:
+```yaml
+    - !QuantizationModifier
+        start_epoch: 0.0
 ```
 
 #### Learning Rate Modifiers

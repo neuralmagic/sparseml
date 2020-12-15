@@ -3,6 +3,7 @@ Image classification recal script. Setup to support the following use cases:
 - training image classification architectures
 - pruning image classification architectures
 - transfer learning image classification architectures
+- quantization aware training on image classification architectures
 - evaluating image classification architectures
 
 

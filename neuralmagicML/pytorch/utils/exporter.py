@@ -88,6 +88,16 @@ class ModuleExporter(object):
                 "output_{}".format(index) for index, _ in enumerate(iter(out))
             ]
 
+        # disable active quantization observers because they cannot be exported
+        disabled_observers = []
+        for submodule in self._module.modules():
+            if (
+                hasattr(submodule, "observer_enabled")
+                and submodule.observer_enabled[0] == 1
+            ):
+                submodule.observer_enabled[0] = 0
+                disabled_observers.append(submodule)
+
         torch.onnx.export(
             self._module,
             sample_batch,
@@ -98,6 +108,10 @@ class ModuleExporter(object):
             verbose=False,
             opset_version=opset,
         )
+
+        # re-enable disabled quantization observers
+        for submodule in disabled_observers:
+            submodule.observer_enabled[0] = 1
 
     def export_pytorch(
         self,

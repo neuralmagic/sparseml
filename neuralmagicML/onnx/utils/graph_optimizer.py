@@ -121,8 +121,8 @@ def quantize_resnet_identity_add_inputs(quantized_model: onnx.ModelProto) -> boo
     block and add a de-quantize operation for the identity before the add.
 
     Function will match to any add operation whose inputs are the output of a relu
-    and a quantize -> de-quantize block that takes the same relu as input. Performs
-    this optimization in place.
+    or add op and a quantize -> de-quantize block that takes the same relu as input.
+    Performs this optimization in place.
 
     :param quantized_model: A loaded quantized model to performed this optimization on
     :return: True if an in-place optimization was made
@@ -134,25 +134,28 @@ def quantize_resnet_identity_add_inputs(quantized_model: onnx.ModelProto) -> boo
         add_inputs = get_node_input_nodes(quantized_model, add_node)
         if len(add_inputs) != 2:
             continue
-        # extract input by op_type alphabetic order
-        dequantize_node, relu_node = sorted(add_inputs, key=lambda inp: inp.op_type)
-        if dequantize_node.op_type != "DequantizeLinear" or relu_node.op_type != "Relu":
+        # extract dequantize input and relu/add input
+        dequantize_node = [i for i in add_inputs if i.op_type == "DequantizeLinear"]
+        other_input_node = [i for i in add_inputs if i.op_type in ["Add", "Relu"]]
+        if not dequantize_node or not other_input_node:  # pattern not matched
             continue
+        dequantize_node = dequantize_node[0]  # unwrap
+        other_input_node = other_input_node[0]  # unwrap
 
         quantize_node = get_quantize_parent_for_dequantize_node(
             quantized_model, dequantize_node
         )
         # check that the quantize block takes input from the same relu
-        if quantize_node.input[0] != relu_node.output[0]:
+        if quantize_node.input[0] != other_input_node.output[0]:
             continue
 
         # create de-quantize node for identity
         identity_dequantize_inputs = [quantize_node.output[0]] + quantize_node.input[1:]
         dequantize_identity_output_name = "{}_identity_dequantized".format(
-            relu_node.output[0]
+            other_input_node.output[0]
         )
         dequantize_identity_node_name = "{}_identity_dequantized".format(
-            relu_node.output[0]
+            other_input_node.output[0]
         )
         identity_dequantize_node = onnx.helper.make_node(
             "DequantizeLinear",
@@ -164,7 +167,7 @@ def quantize_resnet_identity_add_inputs(quantized_model: onnx.ModelProto) -> boo
 
         # swap the relu input for the de-quantized identity in the add
         relu_input_idx = [
-            i for i, inp in enumerate(add_node.input) if inp == relu_node.output[0]
+            i for i, inp in enumerate(add_node.input) if inp == other_input_node.output[0]
         ][0]
         add_node.input[relu_input_idx] = dequantize_identity_output_name
 
