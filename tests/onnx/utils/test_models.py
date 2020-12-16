@@ -6,7 +6,7 @@ import pytest
 from neuralmagicML.onnx.utils.data import DataLoader
 from neuralmagicML.onnx.utils.model import (
     ModelRunner,
-    NMBenchmarkModelRunner,
+    NMAnalyzeModelRunner,
     NMModelRunner,
     ORTModelRunner,
     max_available_cores,
@@ -133,14 +133,12 @@ def test_nm_model_runner(onnx_models_with_data: OnnxModelDataFixture):
 @pytest.mark.skipif(
     neuralmagic is None, reason="neuralmagic is not installed on the system"
 )
-def test_nm_benchmark_model_runner(
-    onnx_models_with_data: OnnxModelDataFixture,
-):
+def test_nm_analyze_model_runner(onnx_models_with_data: OnnxModelDataFixture,):
     model = load_model(onnx_models_with_data.model_path)
 
     # Sanity check, asserting model can run random input
     dataloader = DataLoader.from_model_random(model, 5, 0, 10)
-    model_runner = NMBenchmarkModelRunner(model, batch_size=5)
+    model_runner = NMAnalyzeModelRunner(model, batch_size=5)
     outputs, _ = model_runner.run(dataloader, max_steps=5)
     fields = ["num_threads", "num_sockets", "average_total_time", "iteration_times"]
     layer_fields = [

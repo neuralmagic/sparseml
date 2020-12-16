@@ -25,7 +25,7 @@ from neuralmagicML.onnx.utils import (
     DataLoader,
     ORTModelRunner,
     NMModelRunner,
-    NMBenchmarkModelRunner,
+    NMAnalyzeModelRunner,
     kl_divergence,
     check_load_model,
     prune_model_one_shot,
@@ -386,18 +386,18 @@ def one_shot_ks_perf_sensitivity_iter(
     :param optimization_level: the optimization level to pass to the neuralmagic
         inference engine for how much to optimize the model.
         Valid values are either 0 for minimal optimizations or 1 for maximal.
-    :param iters_sleep_time: the time to sleep the thread between benchmark
+    :param iters_sleep_time: the time to sleep the thread between analysis benchmark
         iterations to allow for other processes to run.
     :return: the sensitivity results for every node that is prunable yields update
         at each layer along with iteration progress
     """
-    if not NMBenchmarkModelRunner.available():
+    if not NMAnalyzeModelRunner.available():
         raise ModuleNotFoundError(
             "neuralmagic is not installed on the system, cannot run"
         )
 
     analysis = KSPerfSensitivityAnalysis(num_cores, batch_size)
-    runner = NMBenchmarkModelRunner(model, batch_size, num_cores)
+    runner = NMAnalyzeModelRunner(model, batch_size, num_cores)
     _LOGGER.debug("created runner for one shot analysis {}".format(runner))
 
     for idx, sparsity in enumerate(sparsity_levels):
@@ -473,8 +473,8 @@ def one_shot_ks_perf_sensitivity(
     :param warmup_iterations_per_check: number of iterations to run before perf details
     :param sparsity_levels: the sparsity levels to calculate the loss for for each param
     :param show_progress: True to log the progress with a tqdm bar, False otherwise
-    :param wait_between_iters: if True, will sleep the thread 0.25s between benchmark
-        iterations to allow for other processes to run.
+    :param wait_between_iters: if True, will sleep the thread 0.25s between analysis
+        benchmark iterations to allow for other processes to run.
     :return: the sensitivity results for every node that is prunable
     """
     analysis = None

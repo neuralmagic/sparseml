@@ -28,12 +28,12 @@ from neuralmagicML.onnx.utils.data import DataLoader
 try:
     import neuralmagic
     from neuralmagic import create_model
-    from neuralmagic import benchmark_model
+    from neuralmagic import analyze_model
     from neuralmagic.cpu import cpu_details
 except Exception:
     neuralmagic = None
     create_model = None
-    benchmark_model = None
+    analyze_model = None
     cpu_details = None
 
 try:
@@ -48,9 +48,9 @@ __all__ = [
     "ORTModelRunner",
     "NMModelRunner",
     "OpenVINOModelRunner",
-    "correct_nm_benchmark_model_node_ids",
+    "correct_nm_analyze_model_node_ids",
     "split_canonical_names",
-    "NMBenchmarkModelRunner",
+    "NMAnalyzeModelRunner",
 ]
 
 
@@ -669,15 +669,15 @@ class NMModelRunner(_NMModelRunner):
         return pred, pred_time
 
 
-def correct_nm_benchmark_model_node_ids(nm_result: Dict, model: Union[str, ModelProto]):
+def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelProto]):
     """
-    Correct the node ids returned from the neuralmagic.benchmark_model api.
+    Correct the node ids returned from the neuralmagic.analyze_model api.
     In some cases, it will return the ids for folded nodes due to ONNXRuntime folding.
     This finds the corrected node ids from those folded nodes.
     Additionally, ops that did not have an id are changed from the returned
     string <none> to proper None python type
 
-    :param nm_result: the result from the neuralmagic.benchmark_model api
+    :param nm_result: the result from the neuralmagic.analyze_model api
     :param model: the onnx model proto or path to the onnx file that the
         nm_result was for
     """
@@ -697,7 +697,7 @@ def correct_nm_benchmark_model_node_ids(nm_result: Dict, model: Union[str, Model
         if node is None:
             _LOGGER.warning(
                 (
-                    "node returned from neuralmagic.benchmark_model "
+                    "node returned from neuralmagic.analyze_model "
                     "was not found in the model graph; node id {}"
                 ).format(node_id)
             )
@@ -706,7 +706,7 @@ def correct_nm_benchmark_model_node_ids(nm_result: Dict, model: Union[str, Model
         if is_foldable_node(node):
             _LOGGER.debug(
                 "foldable node of id {} returned from "
-                "neuralmagic.benchmark_model api, matching to prunable node"
+                "neuralmagic.analyze_model api, matching to prunable node"
             )
             # traverse previous because incorrect node id will only be returned
             # for following foldable layers, not previous
@@ -716,7 +716,7 @@ def correct_nm_benchmark_model_node_ids(nm_result: Dict, model: Union[str, Model
                 _LOGGER.warning(
                     (
                         "could not find prunable node from a foldable node "
-                        "returned in the neuralmagic.benchmark_model api; "
+                        "returned in the neuralmagic.analyze_model api; "
                         "node id: {}"
                     ).format(node_id)
                 )
@@ -725,7 +725,7 @@ def correct_nm_benchmark_model_node_ids(nm_result: Dict, model: Union[str, Model
                 _LOGGER.debug(
                     (
                         "matched prunable node of id {} to foldable node {} as "
-                        "returned from neuralmagic.benchmark_model api"
+                        "returned from neuralmagic.analyze_model api"
                     ).format(prunable_node_id, node_id)
                 )
                 layer["canonical_name"] = prunable_node_id
@@ -733,12 +733,12 @@ def correct_nm_benchmark_model_node_ids(nm_result: Dict, model: Union[str, Model
 
 def split_canonical_names(nm_result: Dict):
     """
-    Splits benchmarking layer results from grouped canonical names by individual nodes.
+    Splits analysis layer results from grouped canonical names by individual nodes.
     Stores the original grouped canonical name in the 'meta_canonical_name' field.
 
     Will split on any canonical_name that includes ','.
 
-    :param nm_result: the result from the neuralmagic.benchmark_model api
+    :param nm_result: the result from the neuralmagic.analyze_model api
     """
     split_layer_infos = []
     for layer in nm_result["layer_info"]:
@@ -754,10 +754,10 @@ def split_canonical_names(nm_result: Dict):
     nm_result["layer_info"] = split_layer_infos
 
 
-class NMBenchmarkModelRunner(_NMModelRunner):
+class NMAnalyzeModelRunner(_NMModelRunner):
     """
     Class for handling running inference for an ONNX model through Neural Magic's
-    benchmark_model api
+    analyze_model api
 
     :param model: the path to the ONNX model file or the loaded onnx.ModelProto
     :param batch_size: the size of the batch to create the model for
@@ -765,10 +765,7 @@ class NMBenchmarkModelRunner(_NMModelRunner):
     """
 
     def __init__(
-        self,
-        model: Union[str, ModelProto],
-        batch_size: int,
-        num_cores: int = -1,
+        self, model: Union[str, ModelProto], batch_size: int, num_cores: int = -1,
     ):
         super().__init__(model, batch_size, num_cores, loss=None)
 
@@ -787,8 +784,8 @@ class NMBenchmarkModelRunner(_NMModelRunner):
     ) -> Tuple[List[Dict], List[float]]:
         """
         Run inference for a model for the data given in the data_loader iterator
-        through neural magic inference engine benchmarking function.
-        The benchmarking function allows more granular control over how the
+        through neural magic inference engine model analysis function.
+        The analysis function allows more granular control over how the
         model is executed such as optimization levels and imposing kernel sparsity.
         In addition, gives back layer by layer timings that were run through.
 
@@ -798,7 +795,7 @@ class NMBenchmarkModelRunner(_NMModelRunner):
         :param show_progress: True to show a tqdm bar when running, False otherwise
         :param max_steps: maximum number of steps to take for the data_loader
             instead of running over all the data
-        :param num_iterations: number of iterations to run the benchmark for
+        :param num_iterations: number of iterations to run the analysis benchmark for
         :param num_warmup_iterations: number of iterations to run warmup for
             before benchmarking
         :param optimization_level: the optimization level to use in neural magic;
@@ -806,7 +803,7 @@ class NMBenchmarkModelRunner(_NMModelRunner):
         :param imposed_ks: kernel sparsity value to impose on all the prunable
             layers in the model. None or no imposed sparsity
         :return: a tuple containing the performance results for the run as returned
-            from the benchmark_model function, total time to run them
+            from the analyze_model function, total time to run them
         """
         _check_args(args, kwargs)
 
@@ -833,8 +830,8 @@ class NMBenchmarkModelRunner(_NMModelRunner):
     ) -> Tuple[Dict[str, numpy.ndarray], float]:
         """
         :param batch: the batch to run through the ONNX model for inference
-            benchmarking in the neural magic system
-        :param num_iterations: number of iterations to run the benchmark for
+            benchmarking analysis in the neural magic system
+        :param num_iterations: number of iterations to run the analysis benchmark for
         :param num_warmup_iterations: number of iterations to run warmup for
             before benchmarking
         :param optimization_level: the optimization level to use in neural magic;
@@ -847,7 +844,7 @@ class NMBenchmarkModelRunner(_NMModelRunner):
         _check_args(args, kwargs)
         nm_batch = list(batch.values())
         pred_time = time.time()
-        nm_pred = benchmark_model(
+        nm_pred = analyze_model(
             self._model,
             nm_batch,
             self._batch_size,
@@ -859,6 +856,6 @@ class NMBenchmarkModelRunner(_NMModelRunner):
         )
         pred_time = time.time() - pred_time
         split_canonical_names(nm_pred)
-        correct_nm_benchmark_model_node_ids(nm_pred, self._model)
+        correct_nm_analyze_model_node_ids(nm_pred, self._model)
 
         return nm_pred, pred_time
