@@ -4,6 +4,7 @@ quantization aware training.
 """
 
 
+from collections import defaultdict
 from copy import deepcopy
 import numpy
 import onnx
@@ -532,6 +533,29 @@ def _convert_quantizable_ops(model: ModelProto):
             )
 
 
+def _replace_input_id_model(model: ModelProto, old_id: str, new_id: str):
+    for node in model.graph.node:
+        for idx, inp in enumerate(node.input):
+            if inp == old_id:
+                node.input[idx] = new_id
+
+
+def _remove_duplicate_quantize__ops(model: ModelProto):
+    quantize_ops_by_input = defaultdict(list)
+    for node in model.graph.node:
+        if node.op_type == "QuantizeLinear":
+            quantize_ops_by_input[node.input[0]].append(node)
+
+    for quantize_op_group in quantize_ops_by_input.values():
+        if len(quantize_op_group) == 1:
+            continue
+        keep_node = quantize_op_group[0]
+        remove_nodes = quantize_op_group[1:]
+        for remove_node in remove_nodes:
+            _replace_input_id_model(model, remove_node.output[0], keep_node.output[0])
+            remove_node_and_params_from_graph(model, remove_node)
+
+
 def quantize_torch_qat_export(model: ModelProto, inplace: bool = True) -> ModelProto:
     """
     :param model: The model to convert
@@ -550,5 +574,6 @@ def quantize_torch_qat_export(model: ModelProto, inplace: bool = True) -> ModelP
     _delete_repeated_qat_blocks(model)
     _convert_quantizable_ops(model)
     quantize_resnet_identity_add_inputs(model)
+    _remove_duplicate_quantize__ops(model)
 
     return model
