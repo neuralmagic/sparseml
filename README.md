@@ -607,6 +607,26 @@ Example:
     - !TrainableParamsModifier
       params: __ALL__
 ```
+
+#### Optimizer Modifiers
+
+##### SetWeightDecayModifier
+The `SetWeightDecayModifier` sets the weight decay (L2 penalty) for the optimizer to a
+specific value at a specific point in the training process.
+
+Required Parameters:
+ - `start_epoch`: The epoch in the training process to set the `weight_decay` value for the
+    optimizer. This supports floating-point values to enable setting the weight decay
+    between epochs.
+ - `weight_decay`: The floating-point value to set as the weight decay for the optimizer
+    at `start_epoch`.
+ 
+Example:
+```yaml
+    - !SetWeightDecayModifier
+        start_epoch: 5.0
+        weight_decay: 0.0
+```
  
 
 ### Recalibrating in PyTorch
