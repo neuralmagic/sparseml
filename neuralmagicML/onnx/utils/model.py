@@ -427,6 +427,8 @@ class ORTModelRunner(ModelRunner):
         default to 0 for onnxruntime to choose
     :param batch_size: if provided, and the model has a hardcoded batch size, will
         rewrite the model proto so that the model batch size matches batch_size
+    :param providers: list of ORT provider names. will default to
+        ort.get_available_providers()
     """
 
     def __init__(
@@ -438,12 +440,16 @@ class ORTModelRunner(ModelRunner):
         overwrite_input_names: bool = True,
         nthreads: int = 0,
         batch_size: int = None,
+        providers: List[str] = None,
     ):
         super().__init__(loss)
         self._model = check_load_model(model)
 
         if batch_size is not None:
             override_model_batch_size(self._model, batch_size)
+        # default selected providers to ort default
+        providers = providers or onnxruntime.get_available_providers()
+
         sess_options = onnxruntime.SessionOptions()
 
         # Note: If ORT was built with OpenMP, use OpenMP env variable such as
@@ -461,6 +467,7 @@ class ORTModelRunner(ModelRunner):
             if not isinstance(self._model, str)
             else self._model,
             sess_options,
+            providers=providers,
         )
         self._overwrite_input_names = overwrite_input_names
         _LOGGER.debug("created model in onnxruntime {}".format(self._session))

@@ -63,6 +63,7 @@ onnxruntime command help:
 usage: model_benchmark.py onnxruntime [-h] --onnx-file-path ONNX_FILE_PATH
                                       [--data-glob DATA_GLOB] --batch-size BATCH_SIZE
                                       [--nthreads NUM_THREADS]
+                                      [--providers PROVIDERS [PROVIDERS ...]]
                                       [--iterations-per-check ITERATIONS_PER_CHECK]
                                       [--warmup-iterations-per-check WARMUP_ITERATIONS_PER_CHECK]
                                       [--no-batch-override]
@@ -90,6 +91,9 @@ optional arguments:
                         Note: If ORT was built with OpenMP, use OpenMP env variable such as
                         OMP_NUM_THREADS to control the number of threads.
                         See: https://github.com/microsoft/onnxruntime/blob/master/docs/ONNX_Runtime_Perf_Tuning.md
+  --providers PROVIDERS [PROVIDERS ...]
+                        Comma separated list of onnxruntime providers. i.e.
+                        'CPUExecutionProvider', 'OpenVINOExecutionProvider'
   --iterations-per-check ITERATIONS_PER_CHECK
                         The number of iterations to run for each performance
                         check / timing
@@ -266,6 +270,15 @@ def parse_args():
                 default=[1],
                 help="The number of threads to run the models",
             )
+        if par == onnxruntime_parser:
+            par.add_argument(
+                "--providers",
+                type=str,
+                default=None,
+                nargs="+",
+                help="Comma separated list of onnxruntime providers. "
+                     "i.e. 'CPUExecutionProvider', 'OpenVINOExecutionProvider'",
+            )
         par.add_argument(
             "--iterations-per-check",
             type=int,
@@ -314,12 +327,13 @@ def benchmark(num_cores, batch_size, args):
         runner = NMModelRunner(args.onnx_file_path, batch_size, num_cores)
     elif args.command == ONNXRUNTIME_COMMAND:
         LOGGER.info("running benchmarking in onnxruntime...")
-        if args.no_batch_override:
-            runner = ORTModelRunner(args.onnx_file_path, nthreads=num_cores)
-        else:
-            runner = ORTModelRunner(
-                args.onnx_file_path, batch_size=batch_size, nthreads=num_cores
-            )
+        batch_size = None if args.no_batch_override else args.batch_size
+        runner = ORTModelRunner(
+            args.onnx_file_path,
+            batch_size=batch_size,
+            nthreads=num_cores,
+            providers=args.providers,
+        )
     elif args.command == OPENVINO_COMMAND:
         LOGGER.info("running benchmarking in OpenVINO...")
         runner = OpenVINOModelRunner(
