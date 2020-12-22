@@ -13,8 +13,9 @@ from neuralmagicML.utils import (
     create_parent_dirs,
     create_dirs,
     path_file_count,
+    tensors_export,
 )
-from neuralmagicML.tensorflow.utils.helpers import tf_compat, tensors_export
+from neuralmagicML.tensorflow.utils.helpers import tf_compat
 from neuralmagicML.tensorflow.utils.variable import clean_tensor_name
 
 
