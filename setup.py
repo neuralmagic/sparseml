@@ -27,7 +27,7 @@ if (platform == "linux" or platform == "linux2") and sys.version >= "3.6":
 
 setup(
     name="neuralmagicML",
-    version="1.3.0",
+    version="1.4.0",
     packages=packages,
     package_data={},
     include_package_data=True,
