@@ -10,7 +10,6 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
-from torch.nn import DataParallel
 
 from neuralmagicML.utils import (
     create_parent_dirs,
@@ -21,7 +20,10 @@ from neuralmagicML.pytorch.utils.helpers import (
     tensors_module_forward,
     tensors_export,
 )
-from neuralmagicML.pytorch.utils.model import save_model
+from neuralmagicML.pytorch.utils.model import (
+    save_model,
+    is_parallel_model,
+)
 
 
 __all__ = ["ModuleExporter"]
@@ -42,7 +44,7 @@ class ModuleExporter(object):
     def __init__(
         self, module: Module, output_dir: str,
     ):
-        if isinstance(module, DataParallel):
+        if is_parallel_model(module):
             module = module.module
 
         self._module = deepcopy(module).to("cpu").eval()

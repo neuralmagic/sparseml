@@ -10,6 +10,14 @@ from collections import OrderedDict
 
 from neuralmagicML.utils.helpers import create_parent_dirs
 
+try:
+    from torch.nn.parallel import DistributedDataParallel as DDP
+
+    ddp_import_error = None
+except Exception as ddp_error:
+    DDP = None
+    ddp_import_error = ddp_error
+
 
 __all__ = [
     "load_model",
@@ -19,6 +27,7 @@ __all__ = [
     "model_to_device",
     "parallelize_model",
     "device_to_name_ids",
+    "is_parallel_model",
 ]
 
 
@@ -124,7 +133,7 @@ def save_model(
     """
     create_parent_dirs(path)
 
-    if isinstance(model, DataParallel):
+    if is_parallel_model(model):
         model = model.module
 
     save_dict = {"state_dict": OrderedDict()}
@@ -173,23 +182,41 @@ def parallelize_model(model: Module, ids: Union[None, List[int]]) -> Module:
 
 
 def model_to_device(
-    model: Module, device: str
+    model: Module, device: Union[str, int], ddp: bool = False,
 ) -> Tuple[Module, str, Union[None, List[int]]]:
     """
     The model to push onto a device or multiple devices.
 
     :param model: the model to push to a device
-    :param device: the device string to push to; ex: cpu, cuda, cuda:0,1
+    :param device: the device string to push to; ex: cpu, cuda, cuda:0,1. For
+        DDP, device should be the local_rank int value; ex: 0
+    :param ddp: set True to wrap module as a DDP object. If True, device should
+        be set to the local_rank int value. Default is False
     :return: a tuple containing the model on desired device(s),
         the device name, and the ids for the device
     """
+    if not ddp:
+        device, ids = device_to_name_ids(device)
 
-    device, ids = device_to_name_ids(device)
+        if ids is not None:
+            model = parallelize_model(model, ids)
 
-    if ids is not None:
-        model = parallelize_model(model, ids)
+        model = model.to(device)
+    else:
+        if DDP is None:
+            raise ddp_import_error
+        assert isinstance(
+            device, int
+        ), "For DDP, device must be set to a local_rank int value"
+        assert device < torch.cuda.device_count(), (
+            "Device local rank must be less than the number of available cuda devices. "
+            "Received local rank {} with device count=={}"
+        ).format(device, torch.cuda.device_count())
 
-    model = model.to(device)
+        model = model.to(device)
+        model = DDP(model, device_ids=[device], output_device=device)
+        ids = [device]
+        device = "cuda:{}".format(device)
 
     return model, device, ids
 
@@ -224,3 +251,14 @@ def device_to_name_ids(device: str) -> Tuple[str, Union[None, List[int]]]:
         return "{}:{}".format(name, ids[0]), None
 
     return name, ids
+
+
+def is_parallel_model(model: Module) -> bool:
+    """
+    :param model: the model to test
+    :return: True if the given model is wrapped as a DataPararallel or
+        DistributedDataParallel Module. False otherwise
+    """
+    return isinstance(model, DataParallel) or (
+        DDP is not None and isinstance(model, DDP)
+    )

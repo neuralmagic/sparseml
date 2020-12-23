@@ -29,6 +29,7 @@ from neuralmagicML.pytorch.utils.loss import DEFAULT_LOSS_KEY, LossWrapper
 
 try:
     from torch.cuda.amp import autocast, GradScaler
+
     amp_import_error = None
 except Exception as amp_error:
     autocast = None
@@ -41,6 +42,7 @@ __all__ = [
     "ModuleRunFuncs",
     "ModuleRunHooks",
     "ModuleRunResults",
+    "ModuleDeviceContext",
     "ModuleTester",
     "ModuleTrainer",
 ]
@@ -459,6 +461,74 @@ class ModuleRunResults(object):
             self._results[key].append(result)
 
 
+class ModuleDeviceContext(object):
+    """
+    Simple class to define device settings or context to be used when running a Module
+
+    :param use_mixed_precision: set True to execute model using mixed precision with
+        torch.cuda.amp. Default is False
+    :param world_size: the world size (total number of devices) used when running
+        the given module using DistributedDataParallel. Losses will be scaled by the
+        world size. Default is 1.
+    """
+
+    def __init__(self, use_mixed_precision: bool = False, world_size: int = 1):
+        self._use_mixed_precision = use_mixed_precision
+        self._world_size = world_size
+        self._validate()
+
+    @staticmethod
+    def default_context():
+        """
+        :return: A ModuleDeviceContext with default settings enabled
+        """
+        return ModuleDeviceContext(use_mixed_precision=False, world_size=1)
+
+    @property
+    def use_mixed_precision(self) -> bool:
+        """
+        :return: True if mixed precision with torch.cuda.amp should be used.
+            False otherwise
+        """
+        return self._use_mixed_precision
+
+    @use_mixed_precision.setter
+    def use_mixed_precision(self, value: bool):
+        """
+        :param value: True if mixed precision with torch.cuda.amp should be used.
+            False otherwise
+        """
+        self._use_mixed_precision = value
+        self._validate()
+
+    @property
+    def world_size(self) -> int:
+        """
+        :return: the world size (total number of devices) used when running
+        the given module using DistributedDataParallel. Losses will be scaled by the
+        world size
+        """
+        return self._world_size
+
+    @world_size.setter
+    def world_size(self, value: int):
+        """
+        :param value: the world size (total number of devices) used when running
+        the given module using DistributedDataParallel. Losses will be scaled by the
+        world size
+        """
+        self._world_size = value
+        self._validate()
+
+    def _validate(self):
+        assert isinstance(
+            self.use_mixed_precision, bool
+        ), "use_mixed_precision must be a boolean"
+        assert (
+            isinstance(self.world_size, int) and self.world_size > 0
+        ), "world_size must be a positive int"
+
+
 class ModuleRunner(ABC):
     """
     Abstract class for running data through a module and recording the results
@@ -473,6 +543,9 @@ class ModuleRunner(ABC):
     :param log_steps: The number of steps (batches) to log at,
         ex 100 will log every 100 batches
     :param log_summary: True to log the final summary results after the run completes
+    :param device_context: ModuleDeviceContext with settings to enable mixed precision
+        using torch.cuda.amp or adjust losses when using DistributedDataParallel. Default
+        settings do not use mixed precision or account for DDP.
     """
 
     def __init__(
@@ -484,6 +557,7 @@ class ModuleRunner(ABC):
         log_name: str,
         log_steps: int,
         log_summary: bool,
+        device_context: ModuleDeviceContext = ModuleDeviceContext.default_context(),
     ):
         self._module = module
         self._device = device
@@ -496,6 +570,7 @@ class ModuleRunner(ABC):
         self._log_name = log_name
         self._log_steps = log_steps
         self._log_summary = log_summary
+        self._device_context = device_context
 
         self._run_funcs = ModuleRunFuncs()
         self._run_hooks = ModuleRunHooks()
@@ -537,6 +612,14 @@ class ModuleRunner(ABC):
             receive intermediate results
         """
         return self._run_hooks
+
+    @property
+    def device_context(self) -> ModuleDeviceContext:
+        """
+        :return: ModuleDeviceContext with settings for enabling mixed precision
+        using torch.cuda.amp or adjusting losses when using DistributedDataParallel.
+        """
+        return self._device_context
 
     def run(
         self,
@@ -762,10 +845,10 @@ class ModuleTrainer(ModuleRunner):
     :param log_steps: The number of steps (batches) to log at,
         ex 100 will log every 100 batches
     :param log_summary: True to log the final summary results after the run completes
-    :param use_mixed_precision: True to train model using mixed precision with
-        torch.cuda.amp. Will raise an exception if torch version does not support amp.
-        Supported environments include single GPU and multiple GPUs using
-        DistributedDataParallel with one GPU per process.
+    :param device_context: ModuleDeviceContext with settings to enable mixed precision
+        using torch.cuda.amp or adjust losses when using DistributedDataParallel. Default
+        settings do not use mixed precision or account for DDP. Will raise an exception
+        if torch version does not support amp.
     """
 
     def __init__(
@@ -780,19 +863,25 @@ class ModuleTrainer(ModuleRunner):
         log_name: str = "Train",
         log_steps: int = 100,
         log_summary: bool = True,
-        use_mixed_precision: bool = False,
+        device_context: ModuleDeviceContext = ModuleDeviceContext.default_context(),
     ):
         super().__init__(
-            module, device, loss, loggers, log_name, log_steps, log_summary
+            module,
+            device,
+            loss,
+            loggers,
+            log_name,
+            log_steps,
+            log_summary,
+            device_context,
         )
         self._optimizer = optimizer
         self._num_accumulated_batches = num_accumulated_batches
         self._optim_closure = optim_closure
-        self._use_mixed_precision = use_mixed_precision
 
         self._accumulated = None
 
-        if use_mixed_precision:
+        if self.device_context.use_mixed_precision:
             if autocast is None or GradScaler is None:
                 raise type(amp_import_error)(
                     amp_import_error.msg
@@ -828,13 +917,6 @@ class ModuleTrainer(ModuleRunner):
         """
         return self._optim_closure
 
-    @property
-    def use_mixed_precision(self) -> bool:
-        """
-        :return: True if mixed precision is enabled
-        """
-        return self._use_mixed_precision
-
     def _runner_setup(self):
         self._module = self._module.train()
         self._accumulated = 0
@@ -857,7 +939,9 @@ class ModuleTrainer(ModuleRunner):
         if self._accumulated == self._num_accumulated_batches:
             self._optimizer.zero_grad()
 
-        forward_context = (autocast if self._use_mixed_precision else ExitStack)
+        forward_context = (
+            autocast if self.device_context.use_mixed_precision else ExitStack
+        )
         with forward_context():
             # forward steps
             pred = self._run_funcs.model_forward(data, self._module)
@@ -865,6 +949,8 @@ class ModuleTrainer(ModuleRunner):
 
             # loss calculation
             losses = self._loss(data, pred)
+            # scale loss by world size
+            losses[DEFAULT_LOSS_KEY] *= self.device_context.world_size
             self._run_hooks.invoke_batch_loss(
                 counter, batch, batch_size, data, pred, losses
             )
@@ -877,7 +963,7 @@ class ModuleTrainer(ModuleRunner):
 
         # optimizer / gradients update
         if self._accumulated == self._num_accumulated_batches:
-            if self._use_mixed_precision:
+            if self.device_context.use_mixed_precision:
                 self._scaler.step(self._optimizer)
                 self._scaler.update()
             else:
@@ -931,6 +1017,10 @@ class ModuleTester(ModuleRunner):
     :param log_steps: The number of steps (batches) to log at,
         ex 100 will log every 100 batches
     :param log_summary: True to log the final summary results after the run completes
+    :param device_context: ModuleDeviceContext with settings to enable mixed precision
+        using torch.cuda.amp or adjust losses when using DistributedDataParallel. Default
+        settings do not use mixed precision or account for DDP. Will raise an exception
+        if torch version does not support amp.
     """
 
     def __init__(
@@ -942,10 +1032,25 @@ class ModuleTester(ModuleRunner):
         log_name: str = "Test",
         log_steps: int = 100,
         log_summary: bool = True,
+        device_context: ModuleDeviceContext = ModuleDeviceContext.default_context(),
     ):
         super().__init__(
-            module, device, loss, loggers, log_name, log_steps, log_summary
+            module,
+            device,
+            loss,
+            loggers,
+            log_name,
+            log_steps,
+            log_summary,
+            device_context,
         )
+
+        if self.device_context.use_mixed_precision:
+            if autocast is None or GradScaler is None:
+                raise type(amp_import_error)(
+                    amp_import_error.msg
+                    + " autocast and GradScaler introduced in torch version 1.6.0."
+                )
 
     def _runner_setup(self):
         self._module = self._module.eval()
@@ -964,15 +1069,23 @@ class ModuleTester(ModuleRunner):
             data = self._run_funcs.to_device(data, self._device)
             self._run_hooks.invoke_batch_start(counter, batch, batch_size, data)
 
-            # forward steps
-            pred = self._run_funcs.model_forward(data, self._module)
-            self._run_hooks.invoke_batch_forward(counter, batch, batch_size, data, pred)
-
-            # backward steps
-            losses = self._loss(data, pred)
-            self._run_hooks.invoke_batch_loss(
-                counter, batch, batch_size, data, pred, losses
+            forward_context = (
+                autocast if self.device_context.use_mixed_precision else ExitStack
             )
+            with forward_context():
+                # forward steps
+                pred = self._run_funcs.model_forward(data, self._module)
+                self._run_hooks.invoke_batch_forward(
+                    counter, batch, batch_size, data, pred
+                )
+
+                # loss steps
+                losses = self._loss(data, pred)
+                # scale loss by world size
+                losses[DEFAULT_LOSS_KEY] *= self.device_context.world_size
+                self._run_hooks.invoke_batch_loss(
+                    counter, batch, batch_size, data, pred, losses
+                )
 
             self._run_hooks.invoke_batch_end(
                 counter, batch, batch_size, data, pred, losses

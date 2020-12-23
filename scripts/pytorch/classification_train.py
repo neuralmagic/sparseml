@@ -27,6 +27,7 @@ usage: classification_train.py [-h] [--recal-config-path RECAL_CONFIG_PATH]
                                [--save-epochs SAVE_EPOCHS [SAVE_EPOCHS ...]]
                                [--use-mixed-precision]
                                [--debug-steps DEBUG_STEPS]
+                               [--local_rank LOCAL_RANK]
 
 Train and/or prune an image classification architecture on a dataset
 
@@ -104,6 +105,8 @@ optional arguments:
   --debug-steps DEBUG_STEPS
                         Amount of steps to run for training and testing for a
                         debug mode
+  --local_rank LOCAL_RANK
+                        Do not set: argument set by torch.distributed for DDP
 
 
 ##########
@@ -137,10 +140,18 @@ Example command for evaluating a mobilenetv2 model on imagenet dataset:
 python scripts/pytorch/classification_train.py \
     --eval-mode --arch-key mobilenetv2 --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012 --train-batch-size 256 --test-batch-size 1024
+
+##########
+Template command for running this script on multiple GPUs using DistributedDataParallel.
+Note - DDP support in this script only tested for torch==1.7.0
+python -m torch.distributed.launch \
+--nproc_per_node <NUM GPUs> \
+scripts/pytorch/classification_train.py \
+<CLASSIFICATION_TRAIN.PY ARGUMENTS>
 """
 
 import argparse
-from typing import Tuple, Union
+from typing import Tuple, Union, List, Dict, Any
 import logging
 import os
 import time
@@ -169,6 +180,7 @@ from neuralmagicML.pytorch.utils import (
     ModuleTrainer,
     ModuleTester,
     ModuleRunResults,
+    ModuleDeviceContext,
     TensorBoardLogger,
     PythonLogger,
     model_to_device,
@@ -179,6 +191,8 @@ from neuralmagicML.pytorch.utils import (
     get_prunable_layers,
     tensor_sparsity,
     DEFAULT_LOSS_KEY,
+    set_deterministic_seeds,
+    torch_distributed_zero_first,
 )
 from neuralmagicML.pytorch.recal import (
     ScheduledModifierManager,
@@ -379,7 +393,180 @@ def parse_args():
         help="Amount of steps to run for training and testing for a debug mode",
     )
 
+    # DDP argument
+    parser.add_argument(
+        "--local_rank",  # DO NOT MODIFY
+        type=int,
+        default=-1,
+        help="Do not set: argument set by torch.distributed for DDP",
+    )
+
     return parser.parse_args()
+
+
+def parse_ddp_args(args):
+    args.world_size = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
+    args.rank = int(os.environ["RANK"]) if "RANK" in os.environ else -1
+    args.is_main_process = args.rank in [-1, 0]  # non DDP execution or 0th DDP process
+
+    # modify training batch size for give world size
+    assert args.train_batch_size % args.world_size == 0, (
+        "Invalid training batch size for world size {}"
+        " given batch size {}. world size must divide training batch size evenly."
+    ).format(args.world_size, args.train_batch_size)
+    args.train_batch_size = args.train_batch_size // args.world_size
+
+    return args
+
+
+def _get_save_dir_and_loggers(args) -> Tuple[Union[str, None], List]:
+    if args.is_main_process:
+        save_dir = os.path.abspath(os.path.expanduser(args.save_dir))
+        logs_dir = os.path.abspath(os.path.expanduser(os.path.join(args.logs_dir)))
+
+        if not args.model_tag:
+            model_tag = "{}_{}".format(args.arch_key.replace("/", "."), args.dataset)
+            model_id = model_tag
+            model_inc = 0
+
+            while os.path.exists(os.path.join(logs_dir, model_id)):
+                model_inc += 1
+                model_id = "{}__{:02d}".format(model_tag, model_inc)
+        else:
+            model_id = args.model_tag
+
+        save_dir = os.path.join(save_dir, model_id)
+        logs_dir = os.path.join(logs_dir, model_id)
+        create_dirs(save_dir)
+        create_dirs(logs_dir)
+
+        # loggers setup
+        tb_logger = TensorBoardLogger(log_path=logs_dir)
+        loggers = [TensorBoardLogger(log_path=logs_dir), PythonLogger()]
+        LOGGER.info("Model id is set to {}".format(model_id))
+    else:
+        # do not log for non main processes
+        save_dir = None
+        loggers = []
+    return save_dir, loggers
+
+
+def _create_train_dataloader(args, image_size: Tuple[int, ...]) -> DataLoader:
+    with torch_distributed_zero_first(args.local_rank):  # only download once locally
+        train_dataset = DatasetRegistry.create(
+            args.dataset,
+            root=args.dataset_path,
+            train=True,
+            rand_trans=True,
+            image_size=image_size,
+        )
+    sampler = (
+        torch.utils.data.distributed.DistributedSampler(train_dataset)
+        if args.rank != -1
+        else None
+    )
+    shuffle = True if sampler is None else False
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.train_batch_size,
+        shuffle=shuffle,
+        num_workers=args.loader_num_workers,
+        pin_memory=args.loader_pin_memory,
+        sampler=sampler,
+    )
+    LOGGER.info("created train_dataset: {}".format(train_dataset))
+    return train_loader
+
+
+def _create_test_dataset_and_loader(
+    args, image_size: Tuple[int, ...]
+) -> Tuple[Any, Any]:
+    if not args.is_main_process and args.dataset != "imagefolder":
+        return None, None  # val dataset not needed
+    with torch_distributed_zero_first(args.local_rank):  # only download once locally
+        val_dataset = DatasetRegistry.create(
+            args.dataset,
+            root=args.dataset_path,
+            train=False,
+            rand_trans=False,
+            image_size=image_size,
+        )
+    if args.is_main_process:
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=args.test_batch_size,
+            shuffle=False,
+            num_workers=args.loader_num_workers,
+            pin_memory=args.loader_pin_memory,
+        )
+        LOGGER.info("created val_dataset: {}".format(val_dataset))
+    else:
+        val_loader = None  # only val dataset needed to get the number of classes
+    return val_dataset, val_loader
+
+
+def _create_training_objects(
+    args,
+    model: Module,
+    loss_extras: Dict[str, Any],
+    train_loader: DataLoader,
+    loggers: List[Any],
+) -> Tuple[int, Any, ScheduledOptimizer, ScheduledModifierManager]:
+    # train loss setup, different from val if using inception
+    train_loss = (
+        CrossEntropyLossWrapper(loss_extras)
+        if "inception" not in args.arch_key
+        else InceptionCrossEntropyLossWrapper(loss_extras)
+    )
+    LOGGER.info("created loss for training: {}".format(train_loss))
+
+    # optimizer setup
+    if args.optim == "SGD":
+        optim_const = SGD
+    elif args.optim == "Adam":
+        optim_const = Adam
+    elif args.optim == "RMSProp":
+        optim_const = RMSprop
+    else:
+        raise ValueError(
+            "unsupported value given for optim_type of {}".format(args.optim_type)
+        )
+
+    optim = optim_const(model.parameters(), lr=args.init_lr, **args.optim_args)
+    LOGGER.info("created optimizer: {}".format(optim))
+    LOGGER.info(
+        "note, the lr for the optimizer may not reflect the manager yet until "
+        "the recal config is created and run"
+    )
+
+    # restore from previous check point
+    if args.checkpoint_path:
+        # currently optimizer restoring is unsupported
+        # mapping of the restored params to the correct device is not working
+        # load_optimizer(args.checkpoint_path, optim)
+        epoch = load_epoch(args.checkpoint_path) + 1
+        LOGGER.info(
+            "restored checkpoint from {} for epoch {}".format(
+                args.checkpoint_path, epoch - 1
+            )
+        )
+    else:
+        epoch = 0
+
+    # recal setup
+    add_mods = (
+        ConstantKSModifier.from_sparse_model(model)
+        if args.sparse_transfer_learn
+        else None
+    )
+    manager = ScheduledModifierManager.from_yaml(
+        file_path=args.recal_config_path, add_modifiers=add_mods
+    )
+    optim = ScheduledOptimizer(
+        optim, model, manager, steps_per_epoch=len(train_loader), loggers=loggers,
+    )
+    LOGGER.info("created manager: {}".format(manager))
+    return epoch, train_loss, optim, manager
 
 
 def _save_model(
@@ -418,69 +605,16 @@ def _save_model(
 
 def main(args):
     # logging and saving setup
-    save_dir = os.path.abspath(os.path.expanduser(args.save_dir))
-    logs_dir = os.path.abspath(os.path.expanduser(os.path.join(args.logs_dir)))
-
-    if not args.model_tag:
-        model_tag = "{}_{}".format(args.arch_key.replace("/", "."), args.dataset)
-        model_id = model_tag
-        model_inc = 0
-
-        while os.path.exists(os.path.join(logs_dir, model_id)):
-            model_inc += 1
-            model_id = "{}__{:02d}".format(model_tag, model_inc)
-    else:
-        model_id = args.model_tag
-
-    save_dir = os.path.join(save_dir, model_id)
-    logs_dir = os.path.join(logs_dir, model_id)
-    create_dirs(save_dir)
-    create_dirs(logs_dir)
-
-    # loggers setup
-    tb_logger = TensorBoardLogger(log_path=logs_dir)
-    loggers = [TensorBoardLogger(log_path=logs_dir), PythonLogger()]
-    LOGGER.info("Model id is set to {}".format(model_id))
+    save_dir, loggers = _get_save_dir_and_loggers(args)
 
     # dataset creation
     input_shape = ModelRegistry.input_shape(args.arch_key)
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
 
-    if not args.eval_mode:
-        train_dataset = DatasetRegistry.create(
-            args.dataset,
-            root=args.dataset_path,
-            train=True,
-            rand_trans=True,
-            image_size=image_size,
-        )
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=args.train_batch_size,
-            shuffle=True,
-            num_workers=args.loader_num_workers,
-            pin_memory=args.loader_pin_memory,
-        )
-        LOGGER.info("created train_dataset: {}".format(train_dataset))
-    else:
-        train_dataset = None
-        train_loader = None
-
-    val_dataset = DatasetRegistry.create(
-        args.dataset,
-        root=args.dataset_path,
-        train=False,
-        rand_trans=False,
-        image_size=image_size,
+    train_loader = (
+        _create_train_dataloader(args, image_size) if not args.eval_mode else None
     )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=args.test_batch_size,
-        shuffle=False,
-        num_workers=args.loader_num_workers,
-        pin_memory=args.loader_pin_memory,
-    )
-    LOGGER.info("created val_dataset: {}".format(val_dataset))
+    val_dataset, val_loader = _create_test_dataset_and_loader(args, image_size)
 
     # model creation
     if args.dataset == "imagefolder":
@@ -489,14 +623,15 @@ def main(args):
         dataset_attributes = DatasetRegistry.attributes(args.dataset)
         num_classes = dataset_attributes["num_classes"]
 
-    model = ModelRegistry.create(
-        args.arch_key,
-        args.pretrained,
-        args.checkpoint_path,
-        args.pretrained_dataset,
-        num_classes=num_classes,
-        class_type=args.class_type,
-    )
+    with torch_distributed_zero_first(args.local_rank):  # only download once locally
+        model = ModelRegistry.create(
+            args.arch_key,
+            args.pretrained,
+            args.checkpoint_path,
+            args.pretrained_dataset,
+            num_classes=num_classes,
+            class_type=args.class_type,
+        )
     LOGGER.info("created model: {}".format(model))
 
     # val loss setup
@@ -504,61 +639,11 @@ def main(args):
     val_loss = CrossEntropyLossWrapper(extras)
     LOGGER.info("created loss for validation: {}".format(val_loss))
 
+    # training setup
     if not args.eval_mode:
-        # train loss setup, different from val if using inception
-        train_loss = (
-            CrossEntropyLossWrapper(extras)
-            if "inception" not in args.arch_key
-            else InceptionCrossEntropyLossWrapper(extras)
+        epoch, train_loss, optim, manager = _create_training_objects(
+            args, model, extras, train_loader, loggers,
         )
-        LOGGER.info("created loss for validation: {}".format(val_loss))
-
-        # optimizer setup
-        if args.optim == "SGD":
-            optim_const = SGD
-        elif args.optim == "Adam":
-            optim_const = Adam
-        elif args.optim == "RMSProp":
-            optim_const = RMSprop
-        else:
-            raise ValueError(
-                "unsupported value given for optim_type of {}".format(args.optim_type)
-            )
-
-        optim = optim_const(model.parameters(), lr=args.init_lr, **args.optim_args)
-        LOGGER.info("created optimizer: {}".format(optim))
-        LOGGER.info(
-            "note, the lr for the optimizer may not reflect the manager yet until "
-            "the recal config is created and run"
-        )
-
-        # restore from previous check point
-        if args.checkpoint_path:
-            # currently optimizer restoring is unsupported
-            # mapping of the restored params to the correct device is not working
-            # load_optimizer(args.checkpoint_path, optim)
-            epoch = load_epoch(args.checkpoint_path) + 1
-            LOGGER.info(
-                "restored checkpoint from {} for epoch {}".format(
-                    args.checkpoint_path, epoch - 1
-                )
-            )
-        else:
-            epoch = 0
-
-        # recal setup
-        add_mods = (
-            ConstantKSModifier.from_sparse_model(model)
-            if args.sparse_transfer_learn
-            else None
-        )
-        manager = ScheduledModifierManager.from_yaml(
-            file_path=args.recal_config_path, add_modifiers=add_mods
-        )
-        optim = ScheduledOptimizer(
-            optim, model, manager, steps_per_epoch=len(train_loader), loggers=loggers,
-        )
-        LOGGER.info("created manager: {}".format(manager))
     else:
         epoch = 0
         train_loss = None
@@ -566,7 +651,14 @@ def main(args):
         manager = None
 
     # device setup
-    model, device, device_ids = model_to_device(model, args.device)
+    if args.rank == -1:
+        device = args.device
+        ddp = False
+    else:
+        torch.cuda.set_device(args.local_rank)
+        device = args.local_rank
+        ddp = True
+    model, device, device_ids = model_to_device(model, device, ddp=ddp)
     LOGGER.info("running on device {} for ids {}".format(device, device_ids))
 
     trainer = (
@@ -576,15 +668,19 @@ def main(args):
             train_loss,
             optim,
             loggers=loggers,
-            use_mixed_precision=args.use_mixed_precision,
+            device_context=ModuleDeviceContext(
+                use_mixed_precision=args.use_mixed_precision, world_size=args.world_size
+            ),
         )
         if not args.eval_mode
         else None
     )
-    tester = ModuleTester(model, device, val_loss, loggers=loggers, log_steps=-1)
 
-    # initial baseline eval run
-    tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=args.debug_steps)
+    if args.is_main_process:  # only test on one DDP process if using DDP
+        tester = ModuleTester(model, device, val_loss, loggers=loggers, log_steps=-1)
+
+        # initial baseline eval run
+        tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=args.debug_steps)
 
     if not args.eval_mode:
         LOGGER.info("starting training from epoch {}".format(epoch))
@@ -602,27 +698,39 @@ def main(args):
                 # taken in the epochs for debug mode
                 optim.adjust_current_step(epoch, 0)
 
+            if args.rank != -1:  # sync DDP dataloaders
+                train_loader.sampler.set_epoch(epoch)
+
             train_res = trainer.run_epoch(
-                train_loader, epoch, max_steps=args.debug_steps
+                train_loader,
+                epoch,
+                max_steps=args.debug_steps,
+                show_progress=args.is_main_process,
             )
-            val_res = tester.run_epoch(val_loader, epoch, max_steps=args.debug_steps)
-            val_loss = val_res.result_mean(DEFAULT_LOSS_KEY).item()
 
-            if epoch >= args.save_best_after and (
-                best_loss is None or val_loss <= best_loss
-            ):
-                _save_model(
-                    model,
-                    optim,
-                    input_shape,
-                    "checkpoint-best",
-                    save_dir,
-                    epoch,
-                    val_res,
+            # testing steps
+            if args.is_main_process:  # only test and save on main process
+                val_res = tester.run_epoch(
+                    val_loader, epoch, max_steps=args.debug_steps
                 )
-                best_loss = val_loss
+                val_loss = val_res.result_mean(DEFAULT_LOSS_KEY).item()
 
-            if args.save_epochs and epoch in args.save_epochs:
+                if epoch >= args.save_best_after and (
+                    best_loss is None or val_loss <= best_loss
+                ):
+                    _save_model(
+                        model,
+                        optim,
+                        input_shape,
+                        "checkpoint-best",
+                        save_dir,
+                        epoch,
+                        val_res,
+                    )
+                    best_loss = val_loss
+
+            # save checkpoints
+            if args.is_main_process and args.save_epochs and epoch in args.save_epochs:
                 _save_model(
                     model,
                     optim,
@@ -637,19 +745,32 @@ def main(args):
 
         # export the final model
         LOGGER.info("completed...")
-        _save_model(model, optim, input_shape, "model", save_dir, epoch, val_res)
+        if args.is_main_process:
+            _save_model(model, optim, input_shape, "model", save_dir, epoch, val_res)
 
-    LOGGER.info("layer sparsities:")
-    for (name, layer) in get_prunable_layers(model):
-        LOGGER.info(
-            "{}.weight: {:.4f}".format(name, tensor_sparsity(layer.weight).item())
-        )
+            LOGGER.info("layer sparsities:")
+            for (name, layer) in get_prunable_layers(model):
+                LOGGER.info(
+                    "{}.weight: {:.4f}".format(
+                        name, tensor_sparsity(layer.weight).item()
+                    )
+                )
 
     # add sleep to make sure all background processes have finished,
     # ex tensorboard writing
     time.sleep(5)
 
+    if args.rank != -1:  # close DDP
+        torch.distributed.destroy_process_group()
+
 
 if __name__ == "__main__":
     args_ = parse_args()
+    args_ = parse_ddp_args(args_)
+
+    # initialize DDP process, set deterministic seeds
+    if args_.local_rank != -1:
+        torch.distributed.init_process_group(backend="nccl", init_method="env://")
+        set_deterministic_seeds(0)
+
     main(args_)

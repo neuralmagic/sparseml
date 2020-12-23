@@ -4,10 +4,12 @@ Utility / helper functions
 
 from typing import Union, Tuple, Iterable, Dict, Any, List
 from collections import namedtuple, OrderedDict
+from contextlib import contextmanager
 import os
 import re
 from copy import deepcopy
 import numpy
+import random
 
 import torch
 from torch import Tensor
@@ -44,6 +46,8 @@ __all__ = [
     "any_str_or_regex_matches_param_name",
     "NamedLayerParam",
     "get_layer_param",
+    "set_deterministic_seeds",
+    "torch_distributed_zero_first",
 ]
 
 
@@ -761,3 +765,29 @@ def validate_all_params_found(
                 name_or_regex, full_parameter_names, name_or_regex_patterns
             )
         )
+
+
+def set_deterministic_seeds(seed: int = 0):
+    """
+    Manually seeds the numpy, random, and torch packages.
+    Also sets torch.backends.cudnn.deterministic to True
+    :param seed: the manual seed to use. Default is 0
+    """
+    numpy.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+@contextmanager
+def torch_distributed_zero_first(local_rank: int):
+    """
+    Decorator to make all processes in distributed training wait for each
+    local 0 ranked process to do something.
+    :param local_rank: the local rank of this process
+    """
+    if local_rank not in [-1, 0]:
+        torch.distributed.barrier()
+    yield
+    if local_rank == 0:
+        torch.distributed.barrier()

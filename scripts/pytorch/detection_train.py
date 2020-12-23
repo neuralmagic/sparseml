@@ -156,6 +156,7 @@ from neuralmagicML.pytorch.utils import (
     MeanAveragePrecision,
     ModuleTrainer,
     ModuleTester,
+    ModuleDeviceContext,
     ModuleRunResults,
     TensorBoardLogger,
     PythonLogger,
@@ -592,7 +593,9 @@ def main(args):
             train_loss,
             optim,
             loggers=loggers,
-            use_mixed_precision=args.use_mixed_precision,
+            device_context=ModuleDeviceContext(
+                use_mixed_precision=args.use_mixed_precision
+            ),
         )
         if not args.eval_mode
         else None
