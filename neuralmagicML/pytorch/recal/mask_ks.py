@@ -31,6 +31,7 @@ class ModuleParamKSMask(object):
         store_unmasked: bool = False,
         track_grad_mom: float = -1.0,
         mask_creator: SparsityMaskCreator = UnstructuredSparsityMaskCreator(),
+        layer_name: str = None,
     ):
         """
         :param layer: the layer containing the parameter to mask
@@ -44,9 +45,11 @@ class ModuleParamKSMask(object):
             momentum variable must be in the range [0.0, 1.0), if set to 0.0 then will
             only keep most recent
         :param mask_creator: object to define sparisty mask creation, default is unstructured mask
+        :param layer_name: the name of the layer the parameter to mask is located in
         """
         self._layer = layer
         self._param_name = param_name
+        self._layer_name = layer_name
         self._store_init = store_init
         self._store_unmasked = store_unmasked
         self._track_grad_mom = track_grad_mom
@@ -90,6 +93,21 @@ class ModuleParamKSMask(object):
         :return: the name of the parameter to mask in the layer, default is weight
         """
         return self._param_name
+
+    @property
+    def layer_name(self) -> str:
+        """
+        :return: the name of the layer the parameter to mask is located in
+        """
+        return self._layer_name
+
+    @property
+    def name(self) -> str:
+        """
+        :return: the full name of this sparsity mask in the following format:
+            <LAYER>.<PARAM>.sparsity_mask
+        """
+        return "{}.{}.sparsity_mask".format(self._layer_name, self._param_name)
 
     @property
     def store_init(self) -> bool:
@@ -237,7 +255,6 @@ class ModuleParamKSMask(object):
                 + (mask_diff != -1.0).type(self._param.data.type())
                 * self._param_unmasked
             )
-
         self._param_mask = value
         self.apply()
 

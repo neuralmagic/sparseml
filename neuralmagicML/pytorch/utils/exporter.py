@@ -121,6 +121,7 @@ class ModuleExporter(object):
         epoch: int = None,
         name: str = "model.pth",
         use_zipfile_serialization_if_available: bool = True,
+        include_modifiers: bool = False,
     ):
         """
         Export the pytorch state dicts into pth file within a
@@ -131,6 +132,9 @@ class ModuleExporter(object):
         :param name: name of the pytorch file to save
         :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
             exports the Module's state dict using the new zipfile serialization
+        :param include_modifiers: if True, and a ScheduledOptimizer is provided
+            as the optimizer, the associated ScheduledModifierManager and its
+            Modifiers will be exported under the 'manager' key. Default is False
         """
         pytorch_path = os.path.join(self._output_dir, "pytorch")
         pth_path = os.path.join(pytorch_path, name)
@@ -141,6 +145,7 @@ class ModuleExporter(object):
             optimizer,
             epoch,
             use_zipfile_serialization_if_available=use_zipfile_serialization_if_available,
+            include_modifiers=include_modifiers,
         )
 
     def export_samples(

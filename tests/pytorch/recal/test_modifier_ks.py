@@ -1,6 +1,7 @@
 import pytest
 import os
 
+import torch
 from torch.optim import SGD
 
 from neuralmagicML.pytorch.recal import (
@@ -20,6 +21,49 @@ from tests.pytorch.recal.test_modifier import (
     create_optim_sgd,
     create_optim_adam,
 )
+
+
+def _test_state_dict_save_load(
+    test_obj,
+    modifier_lambda,
+    model_lambda,
+    optim_lambda,
+    test_steps_per_epoch,
+    is_gradual_ks,
+):
+    modifier = modifier_lambda()
+    model = model_lambda()
+    optimizer = optim_lambda(model)
+    test_obj.initialize_helper(modifier, model, optimizer)
+    # apply first mask
+    modifier.scheduled_update(
+        model, optimizer, modifier.start_epoch, test_steps_per_epoch
+    )
+    # get state dict
+    state_dict = modifier.state_dict()
+    for mask in state_dict.values():
+        if is_gradual_ks:
+            # check that the mask sparsity is the applied one leaving a relatively
+            # large margin of error since parameter sizes are small so the exact sparsity
+            # cannot always be attained
+            assert (
+                abs(1 - (mask.sum() / mask.numel()) - modifier.applied_sparsity) < 0.05
+            )
+        else:
+            # all weights should be non zero, pending randomness, so the mask should be
+            # all ones for this constant_ks modifier
+            assert mask.sum() / mask.numel() >= 0.99
+
+    # check that changing the state dict masks to all 0s and reapplying will affect
+    # the model parameters
+    for mask in state_dict.values():
+        mask.mul_(0.0)
+    modifier.load_state_dict(state_dict)
+    param_names = {mask_name.split(".sparsity_mask")[0] for mask_name in state_dict}
+    for param_name, param in model.named_parameters():
+        if param_name in param_names:
+            # check that the all zero mask has been applied
+            assert torch.all(param == 0.0)
 
 
 @pytest.mark.skipif(
@@ -66,6 +110,18 @@ class TestConstantKSModifier(ScheduledModifierTest):
                 int(modifier.end_epoch) + 1, int(modifier.end_epoch) + 6
             ):
                 assert not modifier.update_ready(epoch, test_steps_per_epoch)
+
+    def test_state_dict_save_load(
+        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+    ):
+        _test_state_dict_save_load(
+            self,
+            modifier_lambda,
+            model_lambda,
+            optim_lambda,
+            test_steps_per_epoch,
+            False,
+        )
 
 
 @pytest.mark.skipif(
@@ -182,6 +238,18 @@ class TestGradualKSModifier(ScheduledUpdateModifierTest):
         for epoch in range(int(modifier.end_epoch) + 1, int(modifier.end_epoch) + 6):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             assert modifier.applied_sparsity == modifier.final_sparsity
+
+    def test_state_dict_save_load(
+        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+    ):
+        _test_state_dict_save_load(
+            self,
+            modifier_lambda,
+            model_lambda,
+            optim_lambda,
+            test_steps_per_epoch,
+            True,
+        )
 
 
 @pytest.mark.skipif(

@@ -125,6 +125,13 @@ class ScheduledOptimizer(Optimizer):
         set_optim_learning_rate(self._optimizer, value)
 
     @property
+    def manager(self) -> ScheduledModifierManager:
+        """
+        :return: The ScheduledModifierManager for this optimizer
+        """
+        return self._manager
+
+    @property
     def param_groups(self):
         return self._optimizer.param_groups
 
@@ -133,10 +140,16 @@ class ScheduledOptimizer(Optimizer):
         self._optimizer.param_groups = value
 
     def state_dict(self):
-        return self._optimizer.state_dict()
+        return (self._optimizer.state_dict(),)
 
     def load_state_dict(self, state_dict):
-        self._optimizer.load_state_dict(state_dict)
+        return self._optimizer.load_state_dict(state_dict)
+
+    def manager_state_dict(self):
+        return self._manager.state_dict()
+
+    def load_manager_state_dict(self, state_dict):
+        self._manager.load_state_dict(state_dict)
 
     def add_param_group(self, param_group):
         self._optimizer.add_param_group(param_group)

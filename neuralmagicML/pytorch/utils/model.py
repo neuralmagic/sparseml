@@ -119,6 +119,7 @@ def save_model(
     optimizer: Optimizer = None,
     epoch: Union[int, None] = None,
     use_zipfile_serialization_if_available: bool = True,
+    include_modifiers: bool = False,
 ):
     """
     Save a model's state dict into a file at the given path.
@@ -130,6 +131,9 @@ def save_model(
     :param epoch: the epoch to save
     :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
         exports the model's state dict using the new zipfile serialization
+    :param include_modifiers: if True, and a ScheduledOptimizer is provided
+        as the optimizer, the associated ScheduledModifierManager and its
+        Modifiers will be exported under the 'manager' key. Default is False
     """
     create_parent_dirs(path)
 
@@ -149,6 +153,9 @@ def save_model(
 
     if epoch:
         save_dict["epoch"] = epoch
+
+    if include_modifiers and optimizer and hasattr(optimizer, "manager_state_dict"):
+        save_dict["manager"] = optimizer.manager_state_dict()
 
     if torch.__version__ < "1.6":
         torch.save(save_dict, path)
