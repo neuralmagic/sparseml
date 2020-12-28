@@ -7,7 +7,10 @@ import tensorflow as tf
 from neuralmagicML.utils import create_dirs
 
 
-__all__ = ["tf_compat", "tf_compat_div", "tensor_export", "tensors_export"]
+__all__ = [
+    "tf_compat",
+    "tf_compat_div",
+]
 
 
 tf_compat = (
