@@ -3,7 +3,7 @@ import pytest
 
 from torch.utils.data import Dataset
 
-from neuralmagicML.pytorch.datasets import (
+from sparseml.pytorch.datasets import (
     DatasetRegistry,
     CIFAR10Dataset,
     CIFAR100Dataset,

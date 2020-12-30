@@ -1,7 +1,7 @@
 from typing import Dict, List, Union
 from datetime import datetime
 import pytest
-from neuralmagicML.server.schemas.jobs import (
+from sparseml.server.schemas.jobs import (
     JobProgressSchema,
     JobSchema,
     ResponseJobSchema,

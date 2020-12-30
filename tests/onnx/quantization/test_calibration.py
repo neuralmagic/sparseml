@@ -3,7 +3,7 @@ import numpy as np
 import onnx
 import os
 
-from neuralmagicML.onnx.quantization.calibration import CalibrationSession
+from sparseml.onnx.quantization.calibration import CalibrationSession
 from tests.onnx.quantization.helpers import (
     make_tmp_onnx_file,
     onnx_conv_net,

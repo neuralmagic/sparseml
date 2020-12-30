@@ -4,7 +4,7 @@ import pytest
 from typing import Union, Callable
 import torch
 
-from neuralmagicML.pytorch.models import (
+from sparseml.pytorch.models import (
     ModelRegistry,
     vgg11,
     vgg11bn,
@@ -39,8 +39,8 @@ from tests.pytorch.models.utils import compare_model
         ("vgg16", False, True, vgg16),
         ("vgg16", True, False, vgg16),
         ("vgg16", "base", False, vgg16),
-        ("vgg16", "recal", False, vgg16),
-        ("vgg16", "recal-perf", False, vgg16),
+        ("vgg16", "optim", False, vgg16),
+        ("vgg16", "optim-perf", False, vgg16),
         ("vgg16bn", False, True, vgg16bn),
         ("vgg16bn", True, False, vgg16bn),
         ("vgg19", False, True, vgg19),

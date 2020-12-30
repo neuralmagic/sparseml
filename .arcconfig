@@ -1,4 +1,0 @@
-{
-  "phabricator.uri" : "https://phabricator.neuralmagic.com:8021/",
-  "unit.engine": "PytestTestEngine"
-}

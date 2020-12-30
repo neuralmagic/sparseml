@@ -3,7 +3,7 @@ import pytest
 import os
 import torch
 
-from neuralmagicML.pytorch.utils import get_default_boxes_300
+from sparseml.pytorch.utils import get_default_boxes_300
 
 
 @pytest.mark.skipif(

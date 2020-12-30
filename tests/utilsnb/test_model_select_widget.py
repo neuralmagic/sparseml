@@ -1,4 +1,4 @@
-from neuralmagicML.utilsnb import ModelSelectWidgetContainer
+from sparseml.utilsnb import ModelSelectWidgetContainer
 
 
 def test_model_select_widget_container():

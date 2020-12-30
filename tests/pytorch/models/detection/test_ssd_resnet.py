@@ -4,7 +4,7 @@ import pytest
 from typing import Union, Callable
 import torch
 
-from neuralmagicML.pytorch.models import (
+from sparseml.pytorch.models import (
     ModelRegistry,
     ssd300_resnet18,
     ssd300_resnet34,
@@ -28,7 +28,7 @@ from tests.pytorch.models.utils import compare_model
         ("ssd300_resnet18", False, True, True, ssd300_resnet18),
         ("ssd300_resnet34", False, True, True, ssd300_resnet34),
         ("ssd300_resnet50", False, True, True, ssd300_resnet50),
-        ("ssd300_resnet50", False, "recal-perf", True, ssd300_resnet50),
+        ("ssd300_resnet50", False, "optim-perf", True, ssd300_resnet50),
         ("ssd300_resnet101", False, True, True, ssd300_resnet101),
         ("ssd300_resnet152", False, True, True, ssd300_resnet152),
     ],

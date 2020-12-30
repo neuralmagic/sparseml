@@ -5,18 +5,18 @@ import os
 from typing import Callable
 import numpy
 
-from neuralmagicML.tensorflow.recal.sensitivity_ks import (
-    ks_loss_sensitivity_op_vars,
-    approx_ks_loss_sensitivity,
-    one_shot_ks_loss_sensitivity,
+from sparseml.tensorflow_v1.optim.sensitivity_pruning import (
+    pruning_loss_sens_op_vars,
+    pruning_loss_sens_magnitude,
+    pruning_loss_sens_one_shot,
 )
-from neuralmagicML.tensorflow.utils import tf_compat, batch_cross_entropy_loss
+from sparseml.tensorflow_v1.utils import tf_compat, batch_cross_entropy_loss
 
 from tests.tensorflow.helpers import mlp_net
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "net_const", [mlp_net],
@@ -28,7 +28,7 @@ def test_approx_ks_loss_sensitivity(net_const: Callable):
         with tf_compat.Session() as sess:
             sess.run(tf_compat.global_variables_initializer())
 
-            analysis = approx_ks_loss_sensitivity(graph)
+            analysis = pruning_loss_sens_magnitude(graph)
 
             for res in analysis.results:
                 assert res.name
@@ -40,7 +40,7 @@ def test_approx_ks_loss_sensitivity(net_const: Callable):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "net_const,inp_arr,labs_arr",
@@ -55,7 +55,7 @@ def test_loss_sensitivity(
             tf_compat.float32, [None, *labs_arr.shape[1:]], name="logits"
         )
         loss = batch_cross_entropy_loss(out, labels)
-        op_vars = ks_loss_sensitivity_op_vars()
+        op_vars = pruning_loss_sens_op_vars()
 
         with tf_compat.Session() as sess:
             sess.run(tf_compat.global_variables_initializer())
@@ -66,7 +66,7 @@ def test_loss_sensitivity(
             def feed_dict_creator(step: int):
                 return {inp: inp_arr, labels: labs_arr}
 
-            analysis = one_shot_ks_loss_sensitivity(
+            analysis = pruning_loss_sens_one_shot(
                 op_vars, loss, 5, add_ops_creator, feed_dict_creator
             )
 

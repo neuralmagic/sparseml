@@ -2,7 +2,7 @@ import numpy
 from onnx import numpy_helper, TensorProto, SparseTensorProto
 import pytest
 
-from neuralmagicML.onnx.utils import create_sparse_tensor, sparse_tensor_to_dense
+from sparseml.onnx.utils import create_sparse_tensor, sparse_tensor_to_dense
 
 
 def _sparsify_array(array, sparsity):

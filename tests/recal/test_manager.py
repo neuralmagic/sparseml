@@ -1,5 +1,5 @@
-from neuralmagicML.recal import BaseManager
-from neuralmagicML.recal import BaseScheduled
+from sparseml.optim import BaseManager
+from sparseml.optim import BaseScheduled
 
 
 def test_manager():

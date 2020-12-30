@@ -3,7 +3,7 @@ import os
 import shutil
 
 # Ignore submodules
-collect_ignore_glob = ["tensorflow-onnx/*"]
+collect_ignore_glob = ["tensorflow_v1-onnx/*"]
 
 
 FAILURE_LOG = "test_logs/failures.log"

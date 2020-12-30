@@ -4,7 +4,7 @@ from packaging import version
 import tensorflow
 import pytest
 
-from neuralmagicML.tensorflow.datasets import (
+from sparseml.tensorflow_v1.datasets import (
     DatasetRegistry,
     ImagenetteDataset,
     ImagewoofDataset,
@@ -12,7 +12,7 @@ from neuralmagicML.tensorflow.datasets import (
     create_split_iterators_handle,
 )
 
-from neuralmagicML.tensorflow.utils import tf_compat
+from sparseml.tensorflow_v1.utils import tf_compat
 
 
 def _validate(dataset: ImageFolderDataset, size: int):
@@ -57,11 +57,11 @@ def _validate(dataset: ImageFolderDataset, size: int):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.skipif(
     version.parse(tensorflow.__version__) < version.parse("1.3"),
-    reason="Must install tensorflow version 1.3 or greater",
+    reason="Must install tensorflow_v1 version 1.3 or greater",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
@@ -78,11 +78,11 @@ def test_imagenette_160():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.skipif(
     version.parse(tensorflow.__version__) < version.parse("1.3"),
-    reason="Must install tensorflow version 1.3 or greater",
+    reason="Must install tensorflow_v1 version 1.3 or greater",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",

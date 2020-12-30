@@ -1,15 +1,15 @@
 import pytest
 import random
 
-from neuralmagicML.tensorflow.utils import (
+from sparseml.tensorflow_v1.utils import (
     tf_compat,
     eval_tensor_sparsity,
 )
-from neuralmagicML.tensorflow.recal import (
-    UnstructuredSparsityMaskCreator,
-    GroupedSparsityMaskCreator,
-    DimensionSparsityMaskCreator,
-    BlockSparsityMaskCreator,
+from sparseml.tensorflow_v1.optim import (
+    UnstructuredPruningMaskCreator,
+    GroupedPruningMaskCreator,
+    DimensionPruningMaskCreator,
+    BlockPruningMaskCreator,
     load_mask_creator,
 )
 
@@ -17,15 +17,15 @@ from neuralmagicML.tensorflow.recal import (
 @pytest.mark.parametrize(
     ("tensor_shape,mask_creator"),
     [
-        ([64, 64], UnstructuredSparsityMaskCreator()),
-        ([3, 3, 64, 64], UnstructuredSparsityMaskCreator()),
-        ([512, 64], DimensionSparsityMaskCreator("channel")),
-        ([3, 3, 512, 64], DimensionSparsityMaskCreator("channel")),
-        ([3, 3, 64, 64], DimensionSparsityMaskCreator("filter")),
-        ([512, 64], BlockSparsityMaskCreator([4, 1])),
-        ([3, 3, 512, 64], BlockSparsityMaskCreator([4, 1])),
-        ([3, 3, 128, 128], BlockSparsityMaskCreator([2, 2])),
-        ([3, 3, 128, 128], BlockSparsityMaskCreator([-1, 1])),
+        ([64, 64], UnstructuredPruningMaskCreator()),
+        ([3, 3, 64, 64], UnstructuredPruningMaskCreator()),
+        ([512, 64], DimensionPruningMaskCreator("channel")),
+        ([3, 3, 512, 64], DimensionPruningMaskCreator("channel")),
+        ([3, 3, 64, 64], DimensionPruningMaskCreator("filter")),
+        ([512, 64], BlockPruningMaskCreator([4, 1])),
+        ([3, 3, 512, 64], BlockPruningMaskCreator([4, 1])),
+        ([3, 3, 128, 128], BlockPruningMaskCreator([2, 2])),
+        ([3, 3, 128, 128], BlockPruningMaskCreator([-1, 1])),
     ],
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])
@@ -54,7 +54,7 @@ def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
         new_mask_sparsity = eval_tensor_sparsity(new_mask, sess)
 
         assert abs(new_mask_sparsity - sparsity_val) < 1e-2
-        if isinstance(mask_creator, GroupedSparsityMaskCreator):
+        if isinstance(mask_creator, GroupedPruningMaskCreator):
             # Check that every value in the mask_creator grouping
             # is the same within the mask.  Assumes grouping applies
             # an absolte mean to each grouping
@@ -72,11 +72,11 @@ def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
 @pytest.mark.parametrize(
     ("creator_str,creator_obj"),
     [
-        ("unstructured", UnstructuredSparsityMaskCreator()),
-        ("channel", DimensionSparsityMaskCreator("channel")),
-        ("filter", DimensionSparsityMaskCreator("filter")),
-        ("[4, 1]", BlockSparsityMaskCreator([4, 1])),
-        ([4, 1], BlockSparsityMaskCreator([4, 1])),
+        ("unstructured", UnstructuredPruningMaskCreator()),
+        ("channel", DimensionPruningMaskCreator("channel")),
+        ("filter", DimensionPruningMaskCreator("filter")),
+        ("[4, 1]", BlockPruningMaskCreator([4, 1])),
+        ([4, 1], BlockPruningMaskCreator([4, 1])),
     ],
 )
 def test_mask_creator_serialization(creator_str, creator_obj):

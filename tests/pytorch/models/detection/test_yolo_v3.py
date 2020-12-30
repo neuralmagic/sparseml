@@ -4,7 +4,7 @@ import pytest
 from typing import Union, Callable
 import torch
 
-from neuralmagicML.pytorch.models import (
+from sparseml.pytorch.models import (
     ModelRegistry,
     yolo_v3,
 )

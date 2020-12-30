@@ -4,7 +4,7 @@ import pytest
 from typing import Union
 import torch
 
-from neuralmagicML.pytorch.models import ModelRegistry, mobilenet
+from sparseml.pytorch.models import ModelRegistry, mobilenet
 
 from tests.pytorch.models.utils import compare_model
 
@@ -21,8 +21,8 @@ from tests.pytorch.models.utils import compare_model
         ("mobilenet", False, True),
         ("mobilenet", True, False),
         ("mobilenet", "base", False),
-        ("mobilenet", "recal", False),
-        ("mobilenet", "recal-perf", False),
+        ("mobilenet", "optim", False),
+        ("mobilenet", "optim-perf", False),
     ],
 )
 def test_mobilenets(key: str, pretrained: Union[bool, str], test_input: bool):

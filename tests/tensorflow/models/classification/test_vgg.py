@@ -4,8 +4,8 @@ import pytest
 from typing import Union, Callable
 import numpy
 
-from neuralmagicML.tensorflow.utils import tf_compat
-from neuralmagicML.tensorflow.models import (
+from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.tensorflow_v1.models import (
     ModelRegistry,
     vgg11,
     vgg11bn,
@@ -19,7 +19,7 @@ from neuralmagicML.tensorflow.models import (
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",
@@ -38,8 +38,8 @@ from neuralmagicML.tensorflow.models import (
         ("vgg16", False, True, vgg16),
         ("vgg16", True, False, vgg16),
         ("vgg16", "base", False, vgg16),
-        ("vgg16", "recal", False, vgg16),
-        ("vgg16", "recal-perf", False, vgg16),
+        ("vgg16", "optim", False, vgg16),
+        ("vgg16", "optim-perf", False, vgg16),
         ("vgg16bn", False, True, vgg16bn),
         ("vgg16bn", True, False, vgg16bn),
         ("vgg19", False, True, vgg19),

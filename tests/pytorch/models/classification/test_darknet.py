@@ -3,7 +3,7 @@ import pytest
 
 from typing import Union, Callable
 import torch
-from neuralmagicML.pytorch.models import ModelRegistry, darknet53
+from sparseml.pytorch.models import ModelRegistry, darknet53
 
 from tests.pytorch.models.utils import compare_model
 

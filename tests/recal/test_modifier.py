@@ -2,7 +2,7 @@ from typing import Callable, Union, List, Dict
 
 import pytest
 
-from neuralmagicML.recal import (
+from sparseml.optim import (
     BaseProp,
     ModifierProp,
     BaseObject,

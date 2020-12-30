@@ -1,4 +1,4 @@
-from neuralmagicML.utilsnb import (
+from sparseml.utilsnb import (
     KSWidgetContainer,
     PruningEpochWidget,
     PruneParamWidget,

@@ -11,7 +11,7 @@ from torch.nn import Module, Sequential, Linear, ReLU
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 
-from neuralmagicML.pytorch.utils import (
+from sparseml.pytorch.utils import (
     default_device,
     get_optim_learning_rate,
     set_optim_learning_rate,
@@ -28,7 +28,7 @@ from neuralmagicML.pytorch.utils import (
     tensor_sample,
     mask_difference,
 )
-from neuralmagicML.pytorch.datasets import RandNDataset
+from sparseml.pytorch.datasets import RandNDataset
 
 from tests.pytorch.helpers import LinearNet
 

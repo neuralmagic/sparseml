@@ -3,7 +3,7 @@ import pytest
 import os
 import torch
 
-from neuralmagicML.pytorch.nn import (
+from sparseml.pytorch.nn import (
     fat_relu,
     fat_pw_relu,
     fat_sig_relu,

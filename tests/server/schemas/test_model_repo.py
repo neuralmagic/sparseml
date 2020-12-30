@@ -1,7 +1,7 @@
 from typing import Dict, List, Union
 
 import pytest
-from neuralmagicML.server.schemas.model_repo import (
+from sparseml.server.schemas.model_repo import (
     ModelRepoModelPerfSchema,
     ModelRepoModelMetricSchema,
     ModelRepoModelSchema,

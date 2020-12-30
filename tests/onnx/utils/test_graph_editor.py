@@ -1,7 +1,7 @@
 import numpy
 import pytest
 from typing import List
-from neuralmagicML.onnx.utils import (
+from sparseml.onnx.utils import (
     get_node_params,
     prune_model_one_shot,
     prune_unstructured,

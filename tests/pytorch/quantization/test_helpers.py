@@ -3,8 +3,8 @@ import pytest
 import os
 import torch
 
-from neuralmagicML.pytorch.models import mobilenet, resnet50
-from neuralmagicML.pytorch.quantization import (
+from sparseml.pytorch.models import mobilenet, resnet50
+from sparseml.pytorch.quantization import (
     add_quant_dequant,
     get_qat_qconfig,
     fuse_module_conv_bn_relus,

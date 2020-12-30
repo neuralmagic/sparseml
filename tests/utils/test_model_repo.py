@@ -4,7 +4,7 @@ from typing import List
 import os
 from requests import HTTPError
 
-from neuralmagicML.utils import available_models, RepoModel, models_download_file
+from sparseml.utils import available_models, RepoModel, models_download_file
 
 
 @pytest.mark.parametrize(
@@ -33,7 +33,7 @@ def test_available_models_downloads(mod: RepoModel, overwrite: bool):
         ("architecture", "architectures", ["resnet-v1", "mobilenet-v1"]),
         ("sub_architecture", "sub_architectures", ["1.0", "50"]),
         ("framework", "frameworks", ["pytorch"]),
-        ("desc", "descs", ["recal", "recal-perf"]),
+        ("desc", "descs", ["optim", "optim-perf"]),
     ],
 )
 def test_available_models_filters(

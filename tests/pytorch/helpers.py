@@ -17,7 +17,7 @@ from torch.optim import Adam, SGD
 from torch.utils.data import Dataset
 
 
-from neuralmagicML.pytorch.recal import PYTORCH_FRAMEWORK
+from sparseml.pytorch.optim import PYTORCH_FRAMEWORK
 
 
 __all__ = [

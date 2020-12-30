@@ -5,7 +5,7 @@ import sys
 import numpy
 import torch
 
-from neuralmagicML.pytorch.utils import BatchBenchmarkResults, ModuleBenchmarker
+from sparseml.pytorch.utils import BatchBenchmarkResults, ModuleBenchmarker
 
 from tests.pytorch.helpers import MLPNet
 

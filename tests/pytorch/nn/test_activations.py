@@ -8,7 +8,7 @@ from torch.nn import ReLU as TReLU
 from torch.nn import ReLU6 as TReLU6
 from torch.nn import PReLU, LeakyReLU
 
-from neuralmagicML.pytorch.nn import (
+from sparseml.pytorch.nn import (
     ReLU,
     ReLU6,
     swish,

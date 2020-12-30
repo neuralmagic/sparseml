@@ -4,7 +4,7 @@ import os
 import tempfile
 import torch
 
-from neuralmagicML.pytorch.utils import ModuleExporter
+from sparseml.pytorch.utils import ModuleExporter
 from tests.pytorch.helpers import MLPNet
 
 

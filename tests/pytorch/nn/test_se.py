@@ -4,7 +4,7 @@ import os
 import torch
 from torch import Tensor
 
-from neuralmagicML.pytorch.nn import SqueezeExcite
+from sparseml.pytorch.nn import SqueezeExcite
 
 
 @pytest.mark.skipif(

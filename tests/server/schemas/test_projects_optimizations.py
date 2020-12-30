@@ -2,7 +2,7 @@ from typing import Dict, List, Union
 import pytest
 from datetime import datetime
 
-from neuralmagicML.server.schemas.projects_optimizations import (
+from sparseml.server.schemas.projects_optimizations import (
     ProjectAvailableModelModificationsSchema,
     ProjectOptimizationModifierPruningNodeSchema,
     ProjectOptimizationModifierPruningSchema,
@@ -1652,8 +1652,8 @@ def test_search_project_optimization_schema(
     [
         ({"frameworks": ["pytorch"]}, {"frameworks": ["pytorch"]}, None),
         (
-            {"frameworks": ["pytorch", "tensorflow"]},
-            {"frameworks": ["pytorch", "tensorflow"]},
+            {"frameworks": ["pytorch", "tensorflow_v1"]},
+            {"frameworks": ["pytorch", "tensorflow_v1"]},
             None,
         ),
         ({"frameworks": "fail"}, None, ["frameworks"]),
@@ -1681,8 +1681,8 @@ def test_response_project_optimization_frameworks_available_schema(
             None,
         ),
         (
-            {"framework": "tensorflow", "samples": ["sample line"]},
-            {"framework": "tensorflow", "samples": ["sample line"]},
+            {"framework": "tensorflow_v1", "samples": ["sample line"]},
+            {"framework": "tensorflow_v1", "samples": ["sample line"]},
             None,
         ),
         ({"framework": "fail", "samples": []}, None, ["framework"]),

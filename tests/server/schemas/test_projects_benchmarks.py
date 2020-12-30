@@ -2,7 +2,7 @@ from typing import Dict, List, Union
 import pytest
 from datetime import datetime
 
-from neuralmagicML.server.schemas.projects_benchmarks import (
+from sparseml.server.schemas.projects_benchmarks import (
     ProjectBenchmarkResultSchema,
     ProjectBenchmarkResultsSchema,
     ProjectBenchmarkSchema,

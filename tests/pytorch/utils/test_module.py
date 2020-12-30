@@ -8,7 +8,7 @@ from torch.nn import Sequential, Linear, ReLU
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import SGD, Adam
 
-from neuralmagicML.pytorch.utils import (
+from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     def_model_backward,
     ModuleRunHooks,

@@ -7,7 +7,7 @@ import shutil
 
 UNWANTED = r"__pycache__|.git|.venv"
 DOC_BUILD_ROOT = "docs/build"
-DIRECTORY_ROOT = "neuralmagicML-python"
+DIRECTORY_ROOT = "sparseml-python"
 
 
 def add_to_package(package, folders, old_root=None, new_root=""):
@@ -29,9 +29,9 @@ def add_to_package(package, folders, old_root=None, new_root=""):
                 folders.append(subfile)
 
 
-def create_package(name="neuralmagicML-python.tar.gz", exists_ok=True):
+def create_package(name="sparseml-python.tar.gz", exists_ok=True):
     folders = [
-        "neuralmagicML",
+        "sparseml",
         "notebooks",
         "scripts",
         "README.md",

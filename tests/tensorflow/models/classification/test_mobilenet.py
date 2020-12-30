@@ -4,12 +4,12 @@ import pytest
 from typing import Union, Callable
 import numpy
 
-from neuralmagicML.tensorflow.utils import tf_compat
-from neuralmagicML.tensorflow.models import ModelRegistry, mobilenet
+from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.tensorflow_v1.models import ModelRegistry, mobilenet
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",

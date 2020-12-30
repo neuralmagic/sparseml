@@ -6,7 +6,7 @@ import time
 import numpy
 import torch
 
-from neuralmagicML.pytorch.utils import PythonLogger, TensorBoardLogger
+from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
 
 
 @pytest.mark.skipif(

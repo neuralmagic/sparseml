@@ -1,4 +1,4 @@
-from neuralmagicML.tensorflow.utils import tf_compat
+from sparseml.tensorflow_v1.utils import tf_compat
 
 
 __all__ = ["mlp_net", "conv_net"]

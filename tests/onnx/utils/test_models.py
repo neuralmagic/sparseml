@@ -3,15 +3,15 @@ from typing import Any, Callable, Dict, List, NamedTuple
 
 import psutil
 import pytest
-from neuralmagicML.onnx.utils.data import DataLoader
-from neuralmagicML.onnx.utils.model import (
+from sparseml.onnx.utils.data import DataLoader
+from sparseml.onnx.utils.model import (
     ModelRunner,
     NMAnalyzeModelRunner,
     NMModelRunner,
     ORTModelRunner,
     max_available_cores,
 )
-from neuralmagicML.utils import RepoModel
+from sparseml.utils import RepoModel
 from onnx import load_model
 
 try:

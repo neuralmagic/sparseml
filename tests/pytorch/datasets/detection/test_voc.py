@@ -5,7 +5,7 @@ from packaging import version
 import torch
 from torch.utils.data import Dataset
 
-from neuralmagicML.pytorch.datasets import (
+from sparseml.pytorch.datasets import (
     DatasetRegistry,
     VOCSegmentationDataset,
     VOCDetectionDataset,

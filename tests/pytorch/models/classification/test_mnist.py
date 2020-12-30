@@ -4,7 +4,7 @@ import pytest
 from typing import Union
 import torch
 
-from neuralmagicML.pytorch.models import ModelRegistry, mnist_net
+from sparseml.pytorch.models import ModelRegistry, mnist_net
 
 from tests.pytorch.models.utils import compare_model
 

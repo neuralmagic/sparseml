@@ -1,6 +1,6 @@
 from typing import Dict, List, Union
 import pytest
-from neuralmagicML.server.schemas.system import (
+from sparseml.server.schemas.system import (
     VersionInfoSchema,
     SystemInfo,
     ResponseSystemInfo,
@@ -14,13 +14,13 @@ from tests.server.helper import schema_tester
         (
             {
                 "neuralmagic": None,
-                "neuralmagicML": None,
+                "sparseml": None,
                 "onnx": None,
                 "onnxruntime": None,
             },
             {
                 "neuralmagic": None,
-                "neuralmagicML": None,
+                "sparseml": None,
                 "onnx": None,
                 "onnxruntime": None,
             },
@@ -28,13 +28,13 @@ from tests.server.helper import schema_tester
         (
             {
                 "neuralmagic": "1.2",
-                "neuralmagicML": "1.2",
+                "sparseml": "1.2",
                 "onnx": "1.7",
                 "onnxruntime": "1.7",
             },
             {
                 "neuralmagic": "1.2",
-                "neuralmagicML": "1.2",
+                "sparseml": "1.2",
                 "onnx": "1.7",
                 "onnxruntime": "1.7",
             },
@@ -88,7 +88,7 @@ def test_version_info(
                 "available_instructions": ["AVX2"],
                 "version_info": {
                     "neuralmagic": "1.2",
-                    "neuralmagicML": "1.2",
+                    "sparseml": "1.2",
                     "onnx": "1.7",
                     "onnxruntime": "1.7",
                 },
@@ -109,7 +109,7 @@ def test_version_info(
                 "available_instructions": ["AVX2"],
                 "version_info": {
                     "neuralmagic": "1.2",
-                    "neuralmagicML": "1.2",
+                    "sparseml": "1.2",
                     "onnx": "1.7",
                     "onnxruntime": "1.7",
                 },

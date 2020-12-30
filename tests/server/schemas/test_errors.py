@@ -1,7 +1,7 @@
 from typing import Dict
 import pytest
 from tests.server.helper import schema_tester
-from neuralmagicML.server.schemas.errors import ErrorSchema
+from sparseml.server.schemas.errors import ErrorSchema
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 import os
 import tempfile
 
-from neuralmagicML.recal import AnalyzedLayerDesc
+from sparseml.optim import AnalyzedLayerDesc
 
 
 def test_layer_descs():

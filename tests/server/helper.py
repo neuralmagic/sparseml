@@ -2,7 +2,7 @@ import os
 import pytest
 from typing import Dict, List, Union
 from marshmallow import Schema
-from neuralmagicML.server.models import (
+from sparseml.server.models import (
     database_setup,
 )
 

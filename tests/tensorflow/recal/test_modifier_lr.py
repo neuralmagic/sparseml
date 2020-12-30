@@ -5,12 +5,12 @@ import os
 import math
 import numpy as np
 
-from neuralmagicML.tensorflow.utils import tf_compat
-from neuralmagicML.tensorflow.recal.modifier import (
+from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.tensorflow_v1.optim.modifier import (
     EXTRAS_KEY_LEARNING_RATE,
     EXTRAS_KEY_SUMMARIES,
 )
-from neuralmagicML.tensorflow.recal import (
+from sparseml.tensorflow_v1.optim import (
     ScheduledModifierManager,
     LearningRateModifier,
     SetLearningRateModifier,
@@ -18,7 +18,7 @@ from neuralmagicML.tensorflow.recal import (
     Modifier,
 )
 
-from tests.tensorflow.recal.test_modifier import (
+from tests.tensorflow.optim.test_modifier import (
     ScheduledModifierTest,
     mlp_graph_lambda,
 )
@@ -35,7 +35,7 @@ EPSILON = 1e-7
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
@@ -112,7 +112,7 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 def test_set_lr_yaml():
     start_epoch = 10.0
@@ -155,7 +155,7 @@ def test_set_lr_yaml():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
@@ -259,7 +259,7 @@ class TestLRModifierExponentialImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 def test_lr_modifier_exponential_yaml():
     gamma = 0.9
@@ -320,7 +320,7 @@ def test_lr_modifier_exponential_yaml():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
@@ -433,7 +433,7 @@ class TestLRModifierStepImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 def test_lr_modifier_step_yaml():
     gamma = 0.9
@@ -494,7 +494,7 @@ def test_lr_modifier_step_yaml():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
@@ -599,7 +599,7 @@ class TestLRModifierMultiStepImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 def test_lr_modifier_multi_step_yaml():
     milestones = [1, 3, 4]
@@ -668,7 +668,7 @@ def test_lr_modifier_multi_step_yaml():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
@@ -785,7 +785,7 @@ class TestGroupLearningRateImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "optim_lambda",

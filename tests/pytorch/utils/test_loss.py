@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 from torch.nn import Sequential, Linear, ReLU
 
-from neuralmagicML.pytorch.utils import (
+from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     TEACHER_LOSS_KEY,
     LossWrapper,

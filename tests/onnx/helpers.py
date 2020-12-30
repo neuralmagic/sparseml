@@ -3,8 +3,8 @@ from typing import NamedTuple
 
 import pytest
 import torch
-from neuralmagicML.pytorch.utils import ModuleExporter
-from neuralmagicML.utils import RepoModel
+from sparseml.pytorch.utils import ModuleExporter
+from sparseml.utils import RepoModel
 
 from tests.pytorch.helpers import ConvNet, LinearNet, MLPNet
 

@@ -3,7 +3,7 @@ import pytest
 
 from typing import Union, Callable
 import torch
-from neuralmagicML.pytorch.models import ModelRegistry, efficientnet_b0, efficientnet_b4
+from sparseml.pytorch.models import ModelRegistry, efficientnet_b0, efficientnet_b4
 
 from tests.pytorch.models.utils import compare_model
 
@@ -19,10 +19,10 @@ from tests.pytorch.models.utils import compare_model
     [
         ("efficientnet_b0", False, True, efficientnet_b0, {}),
         ("efficientnet_b0", "base", False, efficientnet_b0, {}),
-        ("efficientnet_b0", "recal-perf", False, efficientnet_b0, {"se_mod": True}),
+        ("efficientnet_b0", "optim-perf", False, efficientnet_b0, {"se_mod": True}),
         ("efficientnet_b4", False, True, efficientnet_b4, {}),
         ("efficientnet_b4", "base", False, efficientnet_b4, {}),
-        ("efficientnet_b4", "recal-perf", False, efficientnet_b4, {"se_mod": True}),
+        ("efficientnet_b4", "optim-perf", False, efficientnet_b4, {"se_mod": True}),
     ],
 )
 def test_efficientnet(

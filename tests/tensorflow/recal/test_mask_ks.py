@@ -5,30 +5,30 @@ import os
 from typing import Callable, List
 import numpy
 
-from neuralmagicML.tensorflow.utils import (
+from sparseml.tensorflow_v1.utils import (
     tf_compat,
     VAR_INDEX_FROM_TRAINABLE,
     eval_tensor_sparsity,
     get_op_input_var,
 )
-from neuralmagicML.tensorflow.recal import (
+from sparseml.tensorflow_v1.optim import (
     get_or_create_ks_schedule_ops,
     create_op_pruning,
     get_or_create_graph_ops_pruning,
     get_or_create_ks_scheduled_graph_ops,
     apply_op_vars_masks,
-    SparsityMaskCreator,
-    GroupedSparsityMaskCreator,
-    UnstructuredSparsityMaskCreator,
-    DimensionSparsityMaskCreator,
-    BlockSparsityMaskCreator,
+    PruningMaskCreator,
+    GroupedPruningMaskCreator,
+    UnstructuredPruningMaskCreator,
+    DimensionPruningMaskCreator,
+    BlockPruningMaskCreator,
 )
 
 from tests.tensorflow.helpers import mlp_net, conv_net
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 def test_create_op_pruning_fc(sparsity_val):
@@ -61,7 +61,7 @@ def test_create_op_pruning_fc(sparsity_val):
             True,
             None,
             group,
-            UnstructuredSparsityMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         )
 
         with tf_compat.Session() as sess:
@@ -95,22 +95,22 @@ def test_create_op_pruning_fc(sparsity_val):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
     "mask_creator",
     [
-        UnstructuredSparsityMaskCreator(),
-        DimensionSparsityMaskCreator(2),
-        DimensionSparsityMaskCreator([2, 3]),
-        BlockSparsityMaskCreator([4, 1]),
-        BlockSparsityMaskCreator([2, 2]),
+        UnstructuredPruningMaskCreator(),
+        DimensionPruningMaskCreator(2),
+        DimensionPruningMaskCreator([2, 3]),
+        BlockPruningMaskCreator([4, 1]),
+        BlockPruningMaskCreator([2, 2]),
     ],
 )
-def test_create_op_pruning_conv(sparsity_val: float, mask_creator: SparsityMaskCreator):
+def test_create_op_pruning_conv(sparsity_val: float, mask_creator: PruningMaskCreator):
     group = "test-group"
-    is_grouped_mask = isinstance(mask_creator, GroupedSparsityMaskCreator)
+    is_grouped_mask = isinstance(mask_creator, GroupedPruningMaskCreator)
     with tf_compat.Graph().as_default() as graph:
         inp = tf_compat.placeholder(tf_compat.float32, [None, 8, 8, 64])
 
@@ -189,35 +189,35 @@ def test_create_op_pruning_conv(sparsity_val: float, mask_creator: SparsityMaskC
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
     "net_const,inp_arr,var_names,mask_creator",
     [
         (
-            mlp_net,
-            numpy.random.random((4, 16)),
-            ["re:mlp_net/.*/weight"],
-            UnstructuredSparsityMaskCreator(),
+                mlp_net,
+                numpy.random.random((4, 16)),
+                ["re:mlp_net/.*/weight"],
+                UnstructuredPruningMaskCreator(),
         ),
         (
-            mlp_net,
-            numpy.random.random((4, 16)),
-            ["re:mlp_net/.*/weight"],
-            DimensionSparsityMaskCreator(0),
+                mlp_net,
+                numpy.random.random((4, 16)),
+                ["re:mlp_net/.*/weight"],
+                DimensionPruningMaskCreator(0),
         ),
         (
-            mlp_net,
-            numpy.random.random((4, 16)),
-            ["re:mlp_net/.*/weight"],
-            BlockSparsityMaskCreator([4, 1]),
+                mlp_net,
+                numpy.random.random((4, 16)),
+                ["re:mlp_net/.*/weight"],
+                BlockPruningMaskCreator([4, 1]),
         ),
         (
-            conv_net,
-            numpy.random.random((4, 28, 28, 1)),
-            ["conv_net/conv1/weight", "conv_net/conv2/weight", "conv_net/mlp/weight"],
-            UnstructuredSparsityMaskCreator(),
+                conv_net,
+                numpy.random.random((4, 28, 28, 1)),
+                ["conv_net/conv1/weight", "conv_net/conv2/weight", "conv_net/mlp/weight"],
+                UnstructuredPruningMaskCreator(),
         ),
     ],
 )
@@ -226,10 +226,10 @@ def test_get_or_create_graph_ops_pruning(
     net_const: Callable,
     inp_arr: numpy.ndarray,
     var_names: List[str],
-    mask_creator: SparsityMaskCreator,
+    mask_creator: PruningMaskCreator,
 ):
     group = "test-group"
-    is_grouped_mask = isinstance(mask_creator, GroupedSparsityMaskCreator)
+    is_grouped_mask = isinstance(mask_creator, GroupedPruningMaskCreator)
 
     with tf_compat.Graph().as_default() as graph:
         out, inp = net_const()
@@ -302,7 +302,7 @@ def test_get_or_create_graph_ops_pruning(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
@@ -342,7 +342,7 @@ def test_apply_op_vars_masks(
             True,
             None,
             group,
-            UnstructuredSparsityMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         )
 
         with tf_compat.Session() as sess:
@@ -362,7 +362,7 @@ def test_apply_op_vars_masks(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "begin_step,end_step,update_step_freq,init_sparsity,final_sparsity,exponent",
@@ -472,7 +472,7 @@ def _expected_sparsity(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "begin_step,end_step,update_step_freq,init_sparsity,final_sparsity,exponent",
@@ -535,7 +535,7 @@ def test_get_or_create_ks_scheduled_graph_ops(
             exponent,
             True,
             group,
-            UnstructuredSparsityMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         )
         (
             update_op_sec,
@@ -554,7 +554,7 @@ def test_get_or_create_ks_scheduled_graph_ops(
             exponent,
             True,
             group,
-            UnstructuredSparsityMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         )
 
         assert update_op == update_op_sec

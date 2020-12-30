@@ -8,7 +8,7 @@ try:
 except:
     pycocotools = None
 
-from neuralmagicML.pytorch.datasets import (
+from sparseml.pytorch.datasets import (
     DatasetRegistry,
     CocoDetectionDataset,
 )

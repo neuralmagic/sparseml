@@ -1,6 +1,6 @@
 import numpy
 import pytest
-from neuralmagicML.onnx.utils import (
+from sparseml.onnx.utils import (
     NodeParam,
     SparsityMeasurement,
     check_load_model,
@@ -32,7 +32,7 @@ from neuralmagicML.onnx.utils import (
     get_kernel_shape,
     calculate_flops,
 )
-from neuralmagicML.utils import available_models
+from sparseml.utils import available_models
 from onnx import numpy_helper, TensorProto, load_model
 from onnx.helper import (
     make_graph,
@@ -350,7 +350,7 @@ def test_onnx_node_sparsities():
         sub_domains=["classification"],
         architectures=["mobilenet-v1"],
         datasets=["imagenet"],
-        descs=["recal-perf"],
+        descs=["optim-perf"],
     )
     assert len(models) > 0
 

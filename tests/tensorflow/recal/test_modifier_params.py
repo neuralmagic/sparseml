@@ -5,18 +5,18 @@ import os
 from typing import Callable
 import numpy
 
-from neuralmagicML.utils import ALL_TOKEN
-from neuralmagicML.tensorflow.utils import (
+from sparseml.utils import ALL_TOKEN
+from sparseml.tensorflow_v1.utils import (
     tf_compat,
     batch_cross_entropy_loss,
 )
-from neuralmagicML.tensorflow.recal import (
+from sparseml.tensorflow_v1.optim import (
     TrainableParamsModifier,
     ScheduledModifierManager,
     EXTRAS_KEY_VAR_LIST,
 )
 from tests.tensorflow.helpers import mlp_net
-from tests.tensorflow.recal.test_modifier import (
+from tests.tensorflow.optim.test_modifier import (
     ScheduledModifierTest,
     mlp_graph_lambda,
     conv_graph_lambda,
@@ -24,7 +24,7 @@ from tests.tensorflow.recal.test_modifier import (
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
@@ -94,7 +94,7 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 def test_trainable_params_modifier_with_training():
     modifier = TrainableParamsModifier(
@@ -148,7 +148,7 @@ def test_trainable_params_modifier_with_training():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 def test_trainable_params_yaml():
     params = ALL_TOKEN

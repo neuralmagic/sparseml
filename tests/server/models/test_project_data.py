@@ -1,7 +1,7 @@
 import pytest
 import os
 from tests.server.helper import database_fixture
-from neuralmagicML.server.models import database, Project, ProjectData
+from sparseml.server.models import database, Project, ProjectData
 
 
 @pytest.mark.parametrize(

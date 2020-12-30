@@ -4,7 +4,7 @@ import pytest
 from typing import Union, Callable
 import torch
 
-from neuralmagicML.pytorch.models import (
+from sparseml.pytorch.models import (
     ModelRegistry,
     resnet18,
     resnetv2_18,
@@ -38,18 +38,18 @@ from tests.pytorch.models.utils import compare_model
         ("resnet18", False, True, resnet18),
         ("resnet18", True, True, resnet18),
         ("resnet18", "base", True, resnet18),
-        ("resnet18", "recal", True, resnet18),
+        ("resnet18", "optim", True, resnet18),
         ("resnetv2_18", False, True, resnetv2_18),
         ("resnet34", False, True, resnet34),
         ("resnet34", True, True, resnet34),
         ("resnet34", "base", True, resnet34),
-        ("resnet34", "recal", True, resnet34),
+        ("resnet34", "optim", True, resnet34),
         ("resnetv2_34", False, True, resnetv2_34),
         ("resnet50", False, True, resnet50),
         ("resnet50", True, False, resnet50),
         ("resnet50", "base", False, resnet50),
-        ("resnet50", "recal", False, resnet50),
-        ("resnet50", "recal-perf", False, resnet50),
+        ("resnet50", "optim", False, resnet50),
+        ("resnet50", "optim-perf", False, resnet50),
         ("resnet50_2xwidth", False, True, resnet50_2xwidth),
         ("resnet50_2xwidth", True, False, resnet50_2xwidth),
         ("resnet50_2xwidth", "base", False, resnet50_2xwidth),

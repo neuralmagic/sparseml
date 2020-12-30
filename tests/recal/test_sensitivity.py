@@ -1,7 +1,7 @@
 import tempfile
 import os
 
-from neuralmagicML.recal import KSLossSensitivityAnalysis
+from sparseml.optim import PruningLossSensitivityAnalysis
 
 
 def test_ks_loss_sensitivity_analysis():
@@ -104,7 +104,7 @@ def test_ks_loss_sensitivity_analysis():
         },
     ]
 
-    analysis = KSLossSensitivityAnalysis()
+    analysis = PruningLossSensitivityAnalysis()
 
     for test in test_samples:
         for sparse_measure in test["sparse_measurements"]:

@@ -3,15 +3,15 @@ import pytest
 
 import os
 
-from neuralmagicML.tensorflow.utils import tf_compat
-from neuralmagicML.tensorflow.recal import (
+from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.tensorflow_v1.optim import (
     step_lr_schedule,
     multi_step_lr_schedule,
 )
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "start_step,end_step,init_lr,step_size,gamma",
@@ -47,7 +47,7 @@ def test_step_lr_schedule(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "start_step,milestone_steps,init_lr,gamma",

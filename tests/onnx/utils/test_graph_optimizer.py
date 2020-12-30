@@ -4,7 +4,7 @@ import onnx
 import onnxruntime as rt
 import os
 
-from neuralmagicML.onnx.utils.graph_optimizer import fold_conv_bns
+from sparseml.onnx.utils.graph_optimizer import fold_conv_bns
 from tests.onnx.quantization.helpers import make_tmp_onnx_file, onnx_conv_net
 
 

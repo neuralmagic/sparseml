@@ -4,7 +4,7 @@ import os
 
 from typing import List
 
-from neuralmagicML.tensorflow.utils import (
+from sparseml.tensorflow_v1.utils import (
     tf_compat,
     clean_tensor_name,
     get_op_input_var,
@@ -16,7 +16,7 @@ from tests.tensorflow.helpers import mlp_net, conv_net
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 def test_op_var_name():
     graph = tf_compat.Graph()
@@ -30,7 +30,7 @@ def test_op_var_name():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 def test_op_input_var():
     with tf_compat.Graph().as_default() as graph:
@@ -44,7 +44,7 @@ def test_op_input_var():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "net_const,expected_ops",

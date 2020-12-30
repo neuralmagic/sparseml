@@ -1,6 +1,6 @@
 import pytest
 
-from neuralmagicML.utils import (
+from sparseml.utils import (
     ALL_TOKEN,
     flatten_iterable,
     convert_to_bool,

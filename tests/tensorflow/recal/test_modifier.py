@@ -5,16 +5,16 @@ import numpy as np
 
 from typing import Callable, Dict, List, Union
 
-from neuralmagicML.tensorflow.utils import tf_compat
-from neuralmagicML.tensorflow.recal import (
-    TENSORFLOW_FRAMEWORK,
+from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.tensorflow_v1.optim import (
+    TENSORFLOW_V1_FRAMEWORK,
     TensorFlowModifierYAML,
     Modifier,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
 
-from tests.recal.test_modifier import (
+from tests.optim.test_modifier import (
     BaseModifierTest,
     BaseScheduledTest,
     BaseUpdateTest,
@@ -42,7 +42,7 @@ def conv_graph_lambda():
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
-    reason="Skipping tensorflow tests",
+    reason="Skipping tensorflow_v1 tests",
 )
 class ModifierTest(BaseModifierTest):
     # noinspection PyMethodOverriding
@@ -52,7 +52,7 @@ class ModifierTest(BaseModifierTest):
         graph_lambda: Callable[[], tf_compat.Graph],
         steps_per_epoch: int,
     ):
-        super().test_constructor(modifier_lambda, framework=TENSORFLOW_FRAMEWORK)
+        super().test_constructor(modifier_lambda, framework=TENSORFLOW_V1_FRAMEWORK)
 
     # noinspection PyMethodOverriding
     def test_yaml(
@@ -61,7 +61,7 @@ class ModifierTest(BaseModifierTest):
         graph_lambda: Callable[[], tf_compat.Graph],
         steps_per_epoch: int,
     ):
-        super().test_yaml(modifier_lambda, framework=TENSORFLOW_FRAMEWORK)
+        super().test_yaml(modifier_lambda, framework=TENSORFLOW_V1_FRAMEWORK)
 
     # noinspection PyMethodOverriding
     def test_yaml_key(
@@ -70,7 +70,7 @@ class ModifierTest(BaseModifierTest):
         graph_lambda: Callable[[], tf_compat.Graph],
         steps_per_epoch: int,
     ):
-        super().test_yaml_key(modifier_lambda, framework=TENSORFLOW_FRAMEWORK)
+        super().test_yaml_key(modifier_lambda, framework=TENSORFLOW_V1_FRAMEWORK)
 
     # noinspection PyMethodOverriding
     def test_repr(
@@ -79,7 +79,7 @@ class ModifierTest(BaseModifierTest):
         graph_lambda: Callable[[], tf_compat.Graph],
         steps_per_epoch: int,
     ):
-        super().test_repr(modifier_lambda, framework=TENSORFLOW_FRAMEWORK)
+        super().test_repr(modifier_lambda, framework=TENSORFLOW_V1_FRAMEWORK)
 
     # noinspection PyMethodOverriding
     def test_props(
@@ -88,7 +88,7 @@ class ModifierTest(BaseModifierTest):
         graph_lambda: Callable[[], tf_compat.Graph],
         steps_per_epoch: int,
     ):
-        super().test_props(modifier_lambda, framework=TENSORFLOW_FRAMEWORK)
+        super().test_props(modifier_lambda, framework=TENSORFLOW_V1_FRAMEWORK)
 
     def test_create_ops(
         self,
@@ -177,7 +177,7 @@ class ModifierTest(BaseModifierTest):
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
-    reason="Skipping tensorflow tests",
+    reason="Skipping tensorflow_v1 tests",
 )
 class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
     # noinspection PyMethodOverriding
@@ -187,7 +187,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         graph_lambda: Callable[[], tf_compat.Graph],
         steps_per_epoch: int,
     ):
-        super().test_props_start(modifier_lambda, framework=TENSORFLOW_FRAMEWORK)
+        super().test_props_start(modifier_lambda, framework=TENSORFLOW_V1_FRAMEWORK)
 
     # noinspection PyMethodOverriding
     def test_props_end(
@@ -196,12 +196,12 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         graph_lambda: Callable[[], tf_compat.Graph],
         steps_per_epoch: int,
     ):
-        super().test_props_end(modifier_lambda, framework=TENSORFLOW_FRAMEWORK)
+        super().test_props_end(modifier_lambda, framework=TENSORFLOW_V1_FRAMEWORK)
 
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
-    reason="Skipping tensorflow tests",
+    reason="Skipping tensorflow_v1 tests",
 )
 class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
     # noinspection PyMethodOverriding
@@ -211,7 +211,7 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         graph_lambda: Callable[[], tf_compat.Graph],
         steps_per_epoch: int,
     ):
-        super().test_props_frequency(modifier_lambda, framework=TENSORFLOW_FRAMEWORK)
+        super().test_props_frequency(modifier_lambda, framework=TENSORFLOW_V1_FRAMEWORK)
 
 
 @TensorFlowModifierYAML()
@@ -222,7 +222,7 @@ class ModifierImpl(Modifier):
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
-    reason="Skipping tensorflow tests",
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize("modifier_lambda", [ModifierImpl], scope="function")
 @pytest.mark.parametrize(
@@ -267,7 +267,7 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
-    reason="Skipping tensorflow tests",
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda", [ScheduledUpdateModifierImpl], scope="function"

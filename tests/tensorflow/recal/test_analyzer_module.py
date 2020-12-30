@@ -6,8 +6,8 @@ import numpy as np
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.slim.nets import resnet_v2
 
-from neuralmagicML.tensorflow.utils import tf_compat
-from neuralmagicML.tensorflow.recal import analyze_module
+from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.tensorflow_v1.optim import analyze_module
 
 
 def _a_sparse_filter(shape):
@@ -73,7 +73,7 @@ def resnet_v2_50(init_weights):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "model, init_weights, layer_name, params, zeroed_params, total_flops",

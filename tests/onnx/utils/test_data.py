@@ -5,8 +5,8 @@ from typing import Dict, NamedTuple, Tuple, Union
 
 import numpy
 import pytest
-from neuralmagicML.onnx.utils import DataLoader
-from neuralmagicML.utils import RepoModel
+from sparseml.onnx.utils import DataLoader
+from sparseml.utils import RepoModel
 
 DataloaderModelFixture = NamedTuple(
     "DataloaderModelFixture",

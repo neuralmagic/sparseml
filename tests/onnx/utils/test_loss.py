@@ -1,7 +1,7 @@
 import pytest
 import numpy
 
-from neuralmagicML.onnx.utils.loss import kl_divergence
+from sparseml.onnx.utils.loss import kl_divergence
 
 
 @pytest.mark.parametrize(

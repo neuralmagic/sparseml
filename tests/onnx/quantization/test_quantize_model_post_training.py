@@ -5,20 +5,20 @@ import os
 import random
 import tempfile
 
-from neuralmagicML.onnx.utils import (
+from sparseml.onnx.utils import (
     DataLoader,
     ORTModelRunner,
     quantize_resnet_identity_add_inputs,
 )
-from neuralmagicML.pytorch.datasets import (
+from sparseml.pytorch.datasets import (
     MNISTDataset,
     ImagenetteDataset,
     ImagenetteSize,
 )
-from neuralmagicML.onnx.quantization.quantize_model_post_training import (
+from sparseml.onnx.quantization.quantize_model_post_training import (
     quantize_model_post_training,
 )
-from neuralmagicML.utils import available_models, RepoModel
+from sparseml.utils import available_models, RepoModel
 
 from tests.onnx.quantization.helpers import make_tmp_onnx_file
 

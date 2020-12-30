@@ -4,7 +4,7 @@ import pytest
 import tempfile
 from torch.utils.data import Dataset
 
-from neuralmagicML.pytorch.datasets import DatasetRegistry, MNISTDataset
+from sparseml.pytorch.datasets import DatasetRegistry, MNISTDataset
 
 
 def _validate_mnist(dataset: Dataset):
