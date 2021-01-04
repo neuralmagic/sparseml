@@ -34,23 +34,22 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
         end_step: int,
         learning_rate: Union[float, tf.keras.optimizers.schedules.LearningRateSchedule],
     ):
-        self.optimizer = optimizer
-        self.prev_lr = deepcopy(self.optimizer.lr)
-        self.start_step = start_step
-        self.end_step = end_step
-        self.learning_rate = learning_rate
+        self._optimizer = optimizer
+        self._start_step = start_step
+        self._end_step = end_step
+        self._learning_rate = learning_rate
         self.step = None
 
     def on_train_begin(self, logs=None):
-        self.step = tf.keras.backend.get_value(self.model.optimizer.iterations)
+        self.step = tf.keras.backend.get_value(self._optimizer.iterations)
 
     def on_train_batch_begin(self, batch, logs=None):
-        if self.step == self.start_step:
-            tf.keras.backend.set_value(self.optimizer.lr, self.learning_rate)
-        if self.step == self.end_step:
-            assert self.end_step > -1
-            persist_lr = self.optimizer.lr(self.step)
-            tf.keras.backend.set_value(self.optimizer.lr, persist_lr)
+        if self.step == self._start_step:
+            setattr(self._optimizer, "lr", self._learning_rate)
+        if self.step == self._end_step:
+            assert self._end_step > -1
+            persist_lr = self._optimizer.lr(self.step)
+            setattr(self._optimizer, "lr", persist_lr)
 
     def on_train_batch_end(self, batch, logs=None):
         self.step = self.step + 1

@@ -6,23 +6,31 @@ on models while pruning.
 from typing import List, Union
 
 import tensorflow
-from sparseml.keras.optim.mask_pruning import MaskedLayer, PruningScheduler
+
+from sparseml.utils import (
+    ALL_TOKEN,
+    validate_str_iterable,
+    convert_to_bool,
+)
+from sparseml.keras.utils.logger import KerasLogger
+from sparseml.keras.optim.modifier import (
+    ModifierProp,
+    KerasModifierYAML,
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+)
+
 from sparseml.keras.optim.mask_pruning_creator import (
     PruningMaskCreator,
     load_mask_creator,
 )
-from sparseml.keras.optim.modifier import (
-    EXTRAS_KEY_SUMMARIES,
-    KerasModifierYAML,
-    ModifierProp,
-    ScheduledModifier,
-    ScheduledUpdateModifier,
-)
+
+from sparseml.keras.optim.mask_pruning import MaskedLayer, PruningScheduler
+
 from sparseml.keras.optim.utils import get_layer_name_from_param
-from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
 
-__all__ = ["ConstantPruningModifier", "GMPruningModifer"]
+__all__ = ["ConstantPruningModifier", "GMPruningModifier"]
 
 
 class FunctionalScheduler(PruningScheduler):
@@ -91,7 +99,6 @@ class FunctionalScheduler(PruningScheduler):
         :param step: training step
         :return: True if pruning should take place; False otherwise
         """
-        sched_before = step < self.start_step
         sched_start = step == self.start_step
         sched_end = step == self.end_step
         sched_active = step > self.start_step and step < self.end_step
@@ -115,14 +122,7 @@ class FunctionalScheduler(PruningScheduler):
         """
         sched_before = step < self.start_step
         sched_start = step == self.start_step
-        sched_end = step == self.end_step
         sched_active = step > self.start_step and step < self.end_step
-        sched_active_inclusive = sched_active or sched_start or sched_end
-
-        if self.update_frequency_steps <= 0:
-            sched_update = True
-        else:
-            sched_update = (step - self.start_step) % self.update_frequency_steps == 0
 
         percentage = min(
             1.0, max(0.0, (step - self.start_step) / (self.end_step - self.start_step))
@@ -159,7 +159,6 @@ class SparsityFreezer(PruningScheduler):
     ):
         self._start_step = start_step
         self._end_step = end_step
-        self._sparsity = None
 
     def should_prune(self, step: int) -> bool:
         """
@@ -169,14 +168,6 @@ class SparsityFreezer(PruningScheduler):
         :return: True if pruning should take place; False otherwise
         """
         return step in [self._start_step, self._end_step]
-
-    def _get_sparsity(self, tensor: tensorflow.Tensor):
-        if self._sparsity is None:
-            mask = tensorflow.cast(tensorflow.not_equal(tensor, 0.0), tensor.dtype)
-            self._sparsity = tensorflow.math.reduce_sum(
-                1.0 - mask
-            ).numpy() / tensorflow.size(tensor)
-        return self._sparsity
 
     def target_sparsity(self, step: int, tensor=None) -> float:
         """
@@ -189,7 +180,10 @@ class SparsityFreezer(PruningScheduler):
         if tensor is None:
             raise ValueError("Invalid empty tensor")
         if self._start_step <= step < self._end_step:
-            sparsity = self._get_sparsity(step)
+            mask = tensorflow.cast(tensorflow.not_equal(tensor, 0.0), tensor.dtype)
+            sparsity = tensorflow.math.reduce_sum(1.0 - mask).numpy() / tensorflow.size(
+                tensor
+            )
         elif step == self._end_step:
             sparsity = 0.0
         else:
@@ -205,12 +199,13 @@ class PruningModifierCallback(tensorflow.keras.callbacks.Callback):
     :param prunable_layers: list of masked layers
     """
 
-    def __init__(self, prunable_layers):
+    def __init__(self, prunable_layers, optim_iters):
         self.prunable_layers = prunable_layers
+        self.optim_iters = optim_iters
         self.step = None
 
     def on_train_begin(self, logs=None):
-        self.step = tensorflow.keras.backend.get_value(self.model.optimizer.iterations)
+        self.step = tensorflow.keras.backend.get_value(self.optim_iters)
         tensorflow.keras.backend.batch_set_value(
             [(layer.global_step, self.step) for layer in self.prunable_layers]
         )
@@ -225,6 +220,74 @@ class PruningModifierCallback(tensorflow.keras.callbacks.Callback):
             layer.mask_updater.conditional_update(training=True)
         self.step = self.step + 1
 
+    def on_epoch_end(self, epoch, logs=None):
+        for layer in self.prunable_layers:
+            layer.mask_updater.apply_masks()
+
+
+class SparsityLoggingCallback(tensorflow.keras.callbacks.Callback):
+    """
+    Callback to log sparsity level
+
+    :param loggers: an instance of KerasLogger or a list of those instances
+    :param prunable_layers: list of masked layers
+    :param start_step_tensor: start step tensor
+    """
+
+    def __init__(self, loggers, prunable_layers, start_step_tensor):
+        self._loggers = loggers if isinstance(loggers, list) else [loggers]
+        self._prunable_layers = prunable_layers
+        self._start_step_tensor = start_step_tensor
+        self._step = None
+
+    def _get_log_data(self):
+        """
+        Add tensors in the summaries for tensorboard logging
+
+        :return: a dictionary of named tensors
+        """
+        log_data = {}
+        for layer in self._prunable_layers:
+            for masked_param in layer.pruning_vars:
+                sparsity = tensorflow.math.subtract(
+                    1, tensorflow.math.reduce_mean(masked_param.mask)
+                )
+                log_data[masked_param.name] = sparsity
+        return log_data
+
+    def _log(self, logger):
+        """
+        Retrieve logging values from modifiers and add to Tensorboard
+        """
+        log_data_vals = self._get_log_data()
+        for name, value in log_data_vals.items():
+            logger.log_scalar(name, value, step=self._step)
+
+    def on_train_begin(self, logs=None):
+        if logs is not None:
+            super(SparsityLoggingCallback, self).on_train_begin(logs)
+        self._step = tensorflow.keras.backend.get_value(self._start_step_tensor)
+
+    def on_epoch_begin(self, epoch, logs=None):
+        if logs is not None:
+            super(SparsityLoggingCallback, self).on_epoch_begin(epoch, logs)
+        for logger in self._loggers:
+            if logger.update_freq == "epoch":
+                self._log(logger)
+
+    def on_train_batch_end(self, batch, logs=None):
+        if logs is not None:
+            super(SparsityLoggingCallback, self).on_train_batch_end(batch, logs)
+        for logger in self._loggers:
+            if logger.update_freq == "batch" or (
+                isinstance(logger.update_freq, int)
+                and self._step % logger.update_freq == 0
+            ):
+                self._log(logger)
+
+        # Keep track of the step count
+        self._step += 1
+
 
 @KerasModifierYAML()
 class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
@@ -233,7 +296,7 @@ class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
     Useful for transfer learning use cases.
 
     | Sample yaml:
-    |   !ConstantKSModifier
+    |   !ConstantPruningModifier
     |       params: __ALL__
     |       start_epoch: 0.0
     |       end_epoch: 10.0
@@ -348,6 +411,7 @@ class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
         model,
         optimizer,
         steps_per_epoch: int,
+        loggers: Union[KerasLogger, List[KerasLogger]] = None,
         input_tensors: tensorflow.Tensor = None,
     ):
         """
@@ -356,11 +420,16 @@ class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
         :param model: a model to be modified
         :param optimizer: an optimizer to be modified
         :param steps_per_epoch: number of steps per epoch
+        :param loggers: list of loggers
         :param input_tensors: optional input tensors
         :return: modified model, optimizer and callbacks
         """
         model, optimizer, callback = super(ConstantPruningModifier, self).modify(
-            model, optimizer, steps_per_epoch, input_tensors=input_tensors
+            model,
+            optimizer,
+            steps_per_epoch,
+            loggers=loggers,
+            input_tensors=input_tensors,
         )
         self._sparsity_scheduler = self._create_sparsity_scheduler(steps_per_epoch)
         cloned_model = tensorflow.keras.models.clone_model(
@@ -369,11 +438,17 @@ class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
             clone_function=self._clone_layer,
         )
         pruning_step_callback = PruningModifierCallback(self._masked_layers)
-        return cloned_model, optimizer, pruning_step_callback
+        callbacks = [pruning_step_callback]
+        if loggers is not None:
+            sparsity_logging_callback = SparsityLoggingCallback(
+                loggers, self._masked_layers, optimizer.iterations
+            )
+            callbacks.append(sparsity_logging_callback)
+        return cloned_model, optimizer, callbacks
 
 
 @KerasModifierYAML()
-class GMPruningModifer(ScheduledUpdateModifier):
+class GMPruningModifier(ScheduledUpdateModifier):
     """
     Gradually applies kernel sparsity to a given variable or variables from
     init_sparsity until final_sparsity is reached over a given amount of time and
@@ -382,7 +457,7 @@ class GMPruningModifer(ScheduledUpdateModifier):
     Applies based on magnitude pruning without any structure to the pruning.
 
     | Sample yaml:
-    |   !GradualKSModifier
+    |   !GMPruningModifier
     |       params: __ALL__
     |       init_sparsity: 0.05
     |       final_sparsity: 0.8
@@ -413,7 +488,7 @@ class GMPruningModifer(ScheduledUpdateModifier):
         default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameter's in and out
-        channels, or a SparsityMaskCreator object. default is 'unstructured'
+        channels, or a PruningMaskCreator object. default is 'unstructured'
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -432,7 +507,7 @@ class GMPruningModifer(ScheduledUpdateModifier):
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         leave_enabled: bool = True,
     ):
-        super(GMPruningModifer, self).__init__(
+        super(GMPruningModifier, self).__init__(
             log_types=log_types,
             start_epoch=start_epoch,
             min_start=-1.0,
@@ -556,14 +631,14 @@ class GMPruningModifer(ScheduledUpdateModifier):
     @ModifierProp()
     def mask_type(self) -> Union[str, List[int], PruningMaskCreator]:
         """
-        :return: the SparsityMaskCreator object used
+        :return: the PruningMaskCreator object used
         """
         return self._mask_type
 
     @mask_type.setter
     def mask_type(self, value: Union[str, List[int], PruningMaskCreator]):
         """
-        :param value: the SparsityMaskCreator object to use
+        :param value: the PruningMaskCreator object to use
         """
         self._mask_type = value
         self._mask_creator = value
@@ -704,6 +779,7 @@ class GMPruningModifer(ScheduledUpdateModifier):
         model,
         optimizer,
         steps_per_epoch: int,
+        loggers: Union[KerasLogger, List[KerasLogger]] = None,
         input_tensors: tensorflow.Tensor = None,
     ):
         """
@@ -712,13 +788,17 @@ class GMPruningModifer(ScheduledUpdateModifier):
         :param model: a model to be modified with prunable layers wrapped by masks
         :param optimizer: an optimizer to be modified; in this case, no change to it
         :param steps_per_epoch: number of steps per epoch
+        :param loggers: list of loggers
         :param input_tensors: optional input tensors
         :return: modified model, optimizer and callbacks
         """
-
         # TODO: incorporate the returned callback into the final callbacks to return
-        model, optimizer, callback = super(GMPruningModifer, self).modify(
-            model, optimizer, steps_per_epoch, input_tensors=input_tensors
+        model, optimizer, callback = super(GMPruningModifier, self).modify(
+            model,
+            optimizer,
+            steps_per_epoch,
+            loggers=loggers,
+            input_tensors=input_tensors,
         )
 
         self._sparsity_scheduler = self._create_sparsity_scheduler(steps_per_epoch)
@@ -729,10 +809,19 @@ class GMPruningModifer(ScheduledUpdateModifier):
             input_tensors,
             clone_function=self._clone_layer,
         )
-        cloned_model.optimizer = optimizer
 
         # Pruning step call back and additional set up
-        pruning_step_callback = PruningModifierCallback(self._masked_layers)
-        pruning_step_callback.set_model(cloned_model)
+        pruning_step_callback = PruningModifierCallback(
+            self._masked_layers, optimizer.iterations
+        )
+        callbacks = [pruning_step_callback]
+        if loggers is not None:
+            sparsity_logging_callback = SparsityLoggingCallback(
+                loggers, self._masked_layers, optimizer.iterations
+            )
+            callbacks.append(sparsity_logging_callback)
+        return cloned_model, optimizer, callbacks
 
-        return cloned_model, optimizer, pruning_step_callback
+    @property
+    def prunable_layers(self):
+        return self._masked_layers

@@ -7,8 +7,14 @@ Also handles loading modifiers from yaml files
 from typing import List, Union
 
 import tensorflow as tf
-from sparseml.keras.optim.modifier import Modifier, ScheduledModifier
+
 from sparseml.optim import BaseManager
+from sparseml.keras.optim.modifier import (
+    Modifier,
+    ScheduledModifier,
+)
+
+from sparseml.keras.utils import KerasLogger
 
 
 __all__ = ["ScheduledModifierManager"]
@@ -43,18 +49,34 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
     def __init__(self, modifiers: List[ScheduledModifier]):
         super().__init__(modifiers=modifiers)
+        self._optimizer = None
 
     def modify(
         self,
         model: Union[tf.keras.Model, tf.keras.Sequential],
         optimizer: tf.keras.optimizers.Optimizer,
         steps_per_epoch: int,
+        loggers: Union[KerasLogger, List[KerasLogger]] = None,
         input_tensors: tf.Tensor = None,
     ):
+        """
+        Modify the model and optimizer based on the requirements of modifiers
+
+        :param model: model to modify
+        :param optimizer: optimizer to modify
+        :param steps_per_epoch: number of steps per epoch
+        :param loggers: list of loggers
+        :param input_tensors: optional input tensor
+        :return: model, optimizer, callbacks
+        """
         callbacks = []
         for mod in self._modifiers:
             model, optimizer, callback = mod.modify(
-                model, optimizer, steps_per_epoch, input_tensors=input_tensors
+                model,
+                optimizer,
+                steps_per_epoch,
+                loggers=loggers,
+                input_tensors=input_tensors,
             )
             if callback is None:
                 continue
@@ -64,4 +86,5 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 callbacks.append(callback)
             else:
                 raise RuntimeError("Invalid callback type")
+        self._optimizer = optimizer
         return model, optimizer, callbacks
