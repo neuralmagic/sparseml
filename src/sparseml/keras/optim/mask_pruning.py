@@ -1,7 +1,3 @@
-"""
-Masking logic for purning
-"""
-
 import abc
 import collections
 import inspect
