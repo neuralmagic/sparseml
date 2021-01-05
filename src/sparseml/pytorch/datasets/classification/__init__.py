@@ -6,4 +6,3 @@ from .cifar import *
 from .imagenet import *
 from .imagenette import *
 from .mnist import *
-from .openimages import *

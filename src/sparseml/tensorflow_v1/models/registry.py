@@ -5,8 +5,8 @@ Code related to the PyTorch model registry for easily creating models.
 from typing import Union, List, Callable, Any, Dict, Optional
 import re
 
+from sparsezoo import Model
 from sparseml.utils import TENSORFLOW_V1_FRAMEWORK
-from sparseml.utils import RepoModel
 from sparseml.tensorflow_v1.utils import tf_compat
 from sparseml.tensorflow_v1.models.estimator import EstimatorModelFn
 
@@ -106,17 +106,17 @@ class ModelRegistry(object):
         return classifier
 
     @staticmethod
-    def create_repo(
+    def create_zoo_model(
         key: str, pretrained: Union[bool, str] = True, pretrained_dataset: str = None,
-    ) -> RepoModel:
+    ) -> Model:
         """
-        Create a RepoModel for the desired model in the model repo
+        Create a sparsezoo Model for the desired model in the zoo
 
         :param key: the model key (name) to retrieve
         :param pretrained: True to load pretrained weights; to load a specific version
             give a string with the name of the version (optim, optim-perf), default True
         :param pretrained_dataset: The dataset to load for the model
-        :return: the RepoModel reference for the given model
+        :return: the sparsezoo Model reference for the given model
         """
         if key not in ModelRegistry._CONSTRUCTORS:
             raise ValueError(
@@ -127,7 +127,7 @@ class ModelRegistry(object):
 
         attributes = ModelRegistry._ATTRIBUTES[key]
 
-        return RepoModel(
+        return Model.get_downloadable_model(
             attributes.domain,
             attributes.sub_domain,
             attributes.architecture,
@@ -192,21 +192,23 @@ class ModelRegistry(object):
         if pretrained_path:
             saver.restore(sess, pretrained_path)
         elif pretrained:
-            repo_model = ModelRegistry.create_repo(key, pretrained, pretrained_dataset)
+            zoo_model = ModelRegistry.create_zoo_model(
+                key, pretrained, pretrained_dataset
+            )
             try:
-                paths = repo_model.download_framework_files()
+                paths = zoo_model.download_framework_files()
                 index_path = [path for path in paths if path.endswith(".index")]
                 index_path = index_path[0]
                 model_path = index_path[:-6]
                 saver.restore(sess, model_path)
             except Exception as ex:
                 # try one more time with overwrite on in case files were corrupted
-                paths = repo_model.download_framework_files(overwrite=True)
+                paths = zoo_model.download_framework_files(overwrite=True)
                 index_path = [path for path in paths if path.endswith(".index")]
 
                 if len(index_path) != 1:
                     raise FileNotFoundError(
-                        "could not find .index file for {}".format(repo_model.root_path)
+                        "could not find .index file for {}".format(zoo_model.root_path)
                     )
 
                 index_path = index_path[0]
