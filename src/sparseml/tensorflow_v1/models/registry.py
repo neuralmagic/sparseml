@@ -26,6 +26,7 @@ class _ModelAttributes(object):
         default_model_fn_creator: EstimatorModelFn,
         base_name_scope: str,
         tl_ignore_tens: List[str],
+        repo_source: str,
     ):
         self.input_shape = input_shape
         self.domain = domain
@@ -37,6 +38,7 @@ class _ModelAttributes(object):
         self.default_model_fn_creator = default_model_fn_creator
         self.base_name_scope = base_name_scope
         self.tl_ignore_tens = tl_ignore_tens
+        self.repo_source = repo_source
 
 
 class ModelRegistry(object):
@@ -136,6 +138,7 @@ class ModelRegistry(object):
             if pretrained_dataset is None
             else pretrained_dataset,
             TENSORFLOW_V1_FRAMEWORK,
+            attributes.repo_source,
             pretrained if isinstance(pretrained, str) else attributes.default_desc,
         )
 
@@ -294,6 +297,7 @@ class ModelRegistry(object):
         default_model_fn_creator: EstimatorModelFn,
         base_name_scope: str,
         tl_ignore_tens: List[str],
+        repo_source: str = "neuralmagic",
     ):
         """
         Register a model with the registry. Should be used as a decorator
@@ -316,6 +320,7 @@ class ModelRegistry(object):
         :param base_name_scope: the base string used to create the graph under
         :param tl_ignore_tens: a list of tensors to ignore restoring for
             if transfer learning
+        :param repo_source: the source repo for the model, default is neuralmagic
         :return: the decorator
         """
         if not isinstance(key, List):
@@ -338,6 +343,7 @@ class ModelRegistry(object):
                     default_model_fn_creator,
                     base_name_scope,
                     tl_ignore_tens,
+                    repo_source,
                 )
 
             return const_func

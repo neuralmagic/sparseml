@@ -24,6 +24,7 @@ _ModelAttributes = NamedTuple(
         ("sub_architecture", str),
         ("default_dataset", str),
         ("default_desc", str),
+        ("repo_source", str),
         ("ignore_error_tensors", List[str]),
         ("args", Dict[str, Tuple[str, Any]]),
     ],
@@ -116,6 +117,7 @@ class ModelRegistry(object):
             if pretrained_dataset is None
             else pretrained_dataset,
             PYTORCH_FRAMEWORK,
+            attributes.repo_source,
             pretrained if isinstance(pretrained, str) else attributes.default_desc,
         )
 
@@ -144,6 +146,7 @@ class ModelRegistry(object):
         sub_architecture: str,
         default_dataset: str,
         default_desc: str,
+        repo_source: str = "neuralmagic",
         def_ignore_error_tensors: List[str] = None,
         desc_args: Dict[str, Tuple[str, Any]] = None,
     ):
@@ -163,6 +166,7 @@ class ModelRegistry(object):
             pretrained if not supplied
         :param default_desc: the description to use by default for loading
             pretrained if not supplied
+        :param repo_source: the source repo for the model, default is neuralmagic
         :param def_ignore_error_tensors: tensors to ignore if there are
             errors in loading
         :param desc_args: args that should be changed based on the description
@@ -187,6 +191,7 @@ class ModelRegistry(object):
                     sub_architecture,
                     default_dataset,
                     default_desc,
+                    repo_source,
                     def_ignore_error_tensors,
                     desc_args,
                 )
