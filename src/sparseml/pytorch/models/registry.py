@@ -43,7 +43,7 @@ class ModelRegistry(object):
     """
 
     _CONSTRUCTORS = {}  # type: Dict[str, Callable]
-    _ATTRIBUTES = {}  # type: Dict[str, ModelAttributes]
+    _ATTRIBUTES = {}  # type: Dict[str, _ModelAttributes]
 
     @staticmethod
     def available_keys() -> List[str]:
