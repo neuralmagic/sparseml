@@ -4,21 +4,20 @@ DarkNet classification model for use as YOLO OD backbone
 
 from typing import List, Union
 
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import Hardswish
 from torch import Tensor
 from torch.nn import (
-    Module,
-    Conv2d,
-    BatchNorm2d,
     AdaptiveAvgPool2d,
+    BatchNorm2d,
+    Conv2d,
     Linear,
-    init,
+    Module,
     Sequential,
-    Softmax,
     Sigmoid,
+    Softmax,
+    init,
 )
-
-from sparseml.pytorch.nn import Hardswish
-from sparseml.pytorch.models.registry import ModelRegistry
 
 
 __all__ = [
@@ -149,7 +148,12 @@ class _DownsampleBlock(Module):
         super().__init__()
 
         self.conv = Conv2d(
-            in_channels, out_channels, kernel_size=3, stride=2, padding=1, bias=False,
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            bias=False,
         )
         self.bn = BatchNorm2d(out_channels, momentum=0.03, eps=1e-4)
         self.act = Hardswish(num_channels=out_channels, inplace=True)

@@ -3,20 +3,20 @@ Code related to convenience functions for controlling the calculation of losses 
 Additionally adds in support for knowledge distillation
 """
 
-from typing import Dict, Union, Callable, Tuple, Any, Iterable, List
+from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as TF
-from torch import Tensor
-from torch.nn import Module
-
 from sparseml.pytorch.utils.helpers import tensors_module_forward
 from sparseml.pytorch.utils.yolo_helpers import (
+    box_giou,
     build_targets,
     get_output_grid_shapes,
     yolo_v3_anchor_groups,
-    box_giou,
 )
+from torch import Tensor
+from torch.nn import Module
 
 
 __all__ = [
@@ -177,10 +177,12 @@ class BinaryCrossEntropyLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None,
+        self,
+        extras: Union[None, Dict] = None,
     ):
         super().__init__(
-            TF.binary_cross_entropy_with_logits, extras,
+            TF.binary_cross_entropy_with_logits,
+            extras,
         )
 
 
@@ -194,7 +196,8 @@ class CrossEntropyLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None,
+        self,
+        extras: Union[None, Dict] = None,
     ):
         super().__init__(TF.cross_entropy, extras)
 
@@ -216,7 +219,9 @@ class InceptionCrossEntropyLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None, aux_weight: float = 0.4,
+        self,
+        extras: Union[None, Dict] = None,
+        aux_weight: float = 0.4,
     ):
         if extras is None:
             extras = {}
@@ -447,7 +452,8 @@ class SSDLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None,
+        self,
+        extras: Union[None, Dict] = None,
     ):
         if extras is None:
             extras = {}
@@ -534,7 +540,9 @@ class YoloLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None, anchor_groups: List[Tensor] = None,
+        self,
+        extras: Union[None, Dict] = None,
+        anchor_groups: List[Tensor] = None,
     ):
         if extras is None:
             extras = {}

@@ -2,8 +2,8 @@
 General dataset implementations for TensorFlow
 """
 
-from typing import Iterable, Tuple, Any, List, Dict, Callable
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 from sparseml.tensorflow_v1.utils import tf_compat
 

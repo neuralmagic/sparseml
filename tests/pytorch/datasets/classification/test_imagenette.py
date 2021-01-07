@@ -1,13 +1,12 @@
 import os
+
 import pytest
-
-from torch.utils.data import Dataset
-
 from sparseml.pytorch.datasets import (
     DatasetRegistry,
     ImagenetteDataset,
     ImagewoofDataset,
 )
+from torch.utils.data import Dataset
 
 
 def _validate(dataset: Dataset, size: int):
@@ -21,10 +20,12 @@ def _validate(dataset: Dataset, size: int):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
 )
 def test_imagenette_160():
     train_dataset = ImagenetteDataset(train=True)
@@ -38,10 +39,12 @@ def test_imagenette_160():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
 )
 def test_imagewoof_160():
     train_dataset = ImagewoofDataset(train=True)

@@ -9,12 +9,12 @@ from sparseml.onnx.optim.sensitivity_pruning import (
     pruning_perf_sens_one_shot,
 )
 from sparseml.onnx.utils.data import DataLoader
-
 from tests.onnx.helpers import (
     GENERATE_TEST_FILES,
     OnnxRepoModelFixture,
     onnx_repo_models,
 )
+
 
 try:
     import neuralmagic
@@ -179,15 +179,13 @@ def test_one_shot_ks_loss_sensitivity(
     output_paths = os.path.join(onnx_models_with_analysis.output_paths, "*.npz")
     dataloader = DataLoader(input_paths, output_paths, 1)
 
-    analysis = (
-        pruning_loss_sens_one_shot(
-            onnx_models_with_analysis.model_path,
-            dataloader,
-            1,
-            1,
-            show_progress=False,
-            sparsity_levels=onnx_models_with_analysis.sparsity_levels,
-        )
+    analysis = pruning_loss_sens_one_shot(
+        onnx_models_with_analysis.model_path,
+        dataloader,
+        1,
+        1,
+        show_progress=False,
+        sparsity_levels=onnx_models_with_analysis.sparsity_levels,
     )
     expected_analysis = PruningLossSensitivityAnalysis.load_json(
         onnx_models_with_analysis.loss_one_shot_path
@@ -197,7 +195,10 @@ def test_one_shot_ks_loss_sensitivity(
         expected_analysis.dict()["results"], key=lambda x: x["index"]
     )
 
-    actual_layers = sorted(analysis.dict()["results"], key=lambda x: x["index"],)
+    actual_layers = sorted(
+        analysis.dict()["results"],
+        key=lambda x: x["index"],
+    )
 
     _test_analysis_comparison(expected_layers, actual_layers)
 
@@ -216,23 +217,24 @@ def test_one_shot_ks_perf_sensitivity(
     output_paths = os.path.join(onnx_models_with_analysis.output_paths, "*.npz")
     dataloader = DataLoader(input_paths, output_paths, 1)
 
-    analysis = (
-        pruning_perf_sens_one_shot(
-            onnx_models_with_analysis.model_path,
-            dataloader,
-            1,
-            -1,
-            iterations_per_check=10,
-            warmup_iterations_per_check=3,
-            sparsity_levels=onnx_models_with_analysis.sparsity_levels,
-            show_progress=False,
-        )
+    analysis = pruning_perf_sens_one_shot(
+        onnx_models_with_analysis.model_path,
+        dataloader,
+        1,
+        -1,
+        iterations_per_check=10,
+        warmup_iterations_per_check=3,
+        sparsity_levels=onnx_models_with_analysis.sparsity_levels,
+        show_progress=False,
     )
 
     expected_layers = sorted(
         expected_analysis.dict()["results"], key=lambda x: x["index"]
     )
 
-    actual_layers = sorted(analysis.dict()["results"], key=lambda x: x["index"],)
+    actual_layers = sorted(
+        analysis.dict()["results"],
+        key=lambda x: x["index"],
+    )
 
     _test_analysis_comparison(expected_layers, actual_layers)

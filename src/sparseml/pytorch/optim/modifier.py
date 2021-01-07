@@ -5,20 +5,20 @@ For example, learning rate schedules or kernel sparsity (weight pruning)
 are implemented as modifiers.
 """
 
-from typing import Union, List
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
+from typing import List, Union
 
-from sparseml.utils import ALL_TOKEN, PYTORCH_FRAMEWORK
 from sparseml.optim import (
-    ModifierYAML,
-    ModifierProp,
     BaseModifier,
     BaseScheduled,
     BaseUpdate,
+    ModifierProp,
+    ModifierYAML,
 )
 from sparseml.pytorch.utils import PyTorchLogger
+from sparseml.utils import ALL_TOKEN, PYTORCH_FRAMEWORK
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
 
 
 __all__ = [
@@ -281,7 +281,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         end_epoch: float = -1.0,
         min_end: float = -1.0,
         end_comparator: Union[int, None] = 0,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             log_types=log_types,
@@ -290,7 +290,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
             end_epoch=end_epoch,
             min_end=min_end,
             end_comparator=end_comparator,
-            **kwargs
+            **kwargs,
         )
 
         self._started = False
@@ -529,7 +529,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
         end_comparator: Union[int, None] = 0,
         update_frequency: float = -1.0,
         min_frequency: float = -1.0,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             log_types=log_types,
@@ -540,7 +540,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
             end_comparator=end_comparator,
             update_frequency=update_frequency,
             min_frequency=min_frequency,
-            **kwargs
+            **kwargs,
         )
         self._last_update_epoch = -1.0
 

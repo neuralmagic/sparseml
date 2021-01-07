@@ -1,19 +1,19 @@
-import pytest
 import os
 
+import pytest
 from sparseml.pytorch.optim import EpochRangeModifier
-
-from tests.pytorch.helpers import LinearNet, create_optim_sgd, create_optim_adam
+from tests.pytorch.helpers import LinearNet, create_optim_adam, create_optim_sgd
 from tests.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
     test_epoch,
-    test_steps_per_epoch,
     test_loss,
+    test_steps_per_epoch,
 )
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -22,14 +22,17 @@ from tests.pytorch.optim.test_modifier import (
 )
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
-    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function",
+    "optim_lambda",
+    [create_optim_sgd, create_optim_adam],
+    scope="function",
 )
 class TestEpochRangeModifierImpl(ScheduledModifierTest):
     pass
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_epoch_range_yaml():
     start_epoch = 5.0

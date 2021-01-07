@@ -3,37 +3,33 @@ Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
 """
 
-from typing import Union, List, Tuple, Dict, Any
 import hashlib
+from typing import Any, Dict, List, Tuple, Union
 
-from sparseml.utils import (
-    ALL_TOKEN,
-    validate_str_iterable,
-    convert_to_bool,
-)
-from sparseml.tensorflow_v1.utils import (
-    tf_compat,
-    clean_tensor_name,
-    get_ops_and_inputs_by_name_or_regex,
-)
-from sparseml.tensorflow_v1.optim.modifier import (
-    EXTRAS_KEY_SUMMARIES,
-    ModifierProp,
-    TensorFlowModifierYAML,
-    ScheduledModifier,
-    ScheduledUpdateModifier,
-)
-from sparseml.tensorflow_v1.optim.mask_pruning import (
-    get_or_create_ks_scheduled_graph_ops,
-    create_ks_scheduled_constant_graph_ops,
-    create_summaries_pruning,
-    PruningOpVars,
-    apply_op_vars_masks,
-)
 from sparseml.tensorflow_v1.optim.mask_creator_pruning import (
     PruningMaskCreator,
     load_mask_creator,
 )
+from sparseml.tensorflow_v1.optim.mask_pruning import (
+    PruningOpVars,
+    apply_op_vars_masks,
+    create_ks_scheduled_constant_graph_ops,
+    create_summaries_pruning,
+    get_or_create_ks_scheduled_graph_ops,
+)
+from sparseml.tensorflow_v1.optim.modifier import (
+    EXTRAS_KEY_SUMMARIES,
+    ModifierProp,
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+    TensorFlowModifierYAML,
+)
+from sparseml.tensorflow_v1.utils import (
+    clean_tensor_name,
+    get_ops_and_inputs_by_name_or_regex,
+    tf_compat,
+)
+from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
 
 __all__ = ["ConstantPruningModifier", "GMPruningModifier"]

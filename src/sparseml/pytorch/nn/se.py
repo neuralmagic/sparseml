@@ -6,10 +6,9 @@ More information can be found in the paper
 
 from collections import OrderedDict
 
-from torch import Tensor
-from torch.nn import Module, Sequential, Conv2d, AdaptiveAvgPool2d, Sigmoid
-
 from sparseml.pytorch.nn.activations import create_activation
+from torch import Tensor
+from torch.nn import AdaptiveAvgPool2d, Conv2d, Module, Sequential, Sigmoid
 
 
 __all__ = ["SqueezeExcite"]

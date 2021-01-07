@@ -4,11 +4,11 @@ Managers control groups of modifiers to allow modifying the training process of 
 ex to perform model pruning.
 """
 
-from typing import List, Dict
 import math
+from typing import Dict, List
 
+from sparseml.optim.modifier import BaseObject, BaseScheduled, ModifierProp
 from sparseml.utils import clean_path, create_parent_dirs
-from sparseml.optim.modifier import ModifierProp, BaseScheduled, BaseObject
 
 
 __all__ = ["BaseManager"]

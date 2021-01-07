@@ -1,11 +1,10 @@
 import pytest
 import torch
-
 from sparseml.pytorch.optim import (
-    UnstructuredPruningMaskCreator,
-    GroupedPruningMaskCreator,
-    DimensionSparsityMaskCreator,
     BlockPruningMaskCreator,
+    DimensionSparsityMaskCreator,
+    GroupedPruningMaskCreator,
+    UnstructuredPruningMaskCreator,
     load_mask_creator,
 )
 from sparseml.pytorch.utils import tensor_sparsity

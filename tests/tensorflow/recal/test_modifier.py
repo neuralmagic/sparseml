@@ -1,25 +1,22 @@
-import pytest
-
 import os
-import numpy as np
-
 from typing import Callable, Dict, List, Union
 
-from sparseml.tensorflow_v1.utils import tf_compat
+import numpy as np
+import pytest
 from sparseml.tensorflow_v1.optim import (
     TENSORFLOW_V1_FRAMEWORK,
-    TensorFlowModifierYAML,
     Modifier,
     ScheduledModifier,
     ScheduledUpdateModifier,
+    TensorFlowModifierYAML,
 )
-
+from sparseml.tensorflow_v1.utils import tf_compat
 from tests.optim.test_modifier import (
     BaseModifierTest,
     BaseScheduledTest,
     BaseUpdateTest,
 )
-from tests.tensorflow.helpers import mlp_net, conv_net
+from tests.tensorflow.helpers import conv_net, mlp_net
 
 
 def mlp_graph_lambda():

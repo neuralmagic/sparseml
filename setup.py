@@ -1,5 +1,45 @@
-from typing import Tuple, List, Dict
+from typing import Dict, List, Tuple
+
 from setuptools import find_packages, setup
+
+
+_deps = [
+    "contextvars~=2.4",
+    "coverage~=5.0.3",
+    "cpu-cores~=0.1.3",
+    "gast==0.2.2",
+    "jupyter~=1.0.0",
+    "ipywidgets~=7.5.0",
+    "pyyaml~=5.1.0",
+    "progressbar2~=3.42.0",
+    "numpy>=1.16.3",
+    "matplotlib>=3.0.0",
+    "merge-args==0.1.3",
+    "onnx>=1.5.0,<1.8.0",
+    "onnxruntime>=1.0.0,<1.4.0",
+    "pandas<1.0.0",
+    "psutil~=5.6.5",
+    "requests>=2.0.0",
+    "scikit-image>=0.15.0",
+    "scipy~=1.3.0",
+    "sparsezoo~=0.1.0",
+    "tqdm~=4.32.0",
+    "tensorboard>=1.0,<2.0",
+    "tensorboardX~=1.9",
+    "tf2onnx>=1.4.1",
+    "toposort~=1.5",
+]
+
+_dev_deps = [
+    "black>=20.8b1",
+    "pytest~=5.3.5",
+    "pytest-html>=1.0.0",
+    "flake8>=3.8.3",
+    "isort>=5.7.0",
+    "rinohtype>=0.4.2",
+    "sphinxcontrib-apidoc>=0.3.0",
+    "wheel>=0.36.2",
+]
 
 
 def _setup_packages() -> List:
@@ -13,11 +53,11 @@ def _setup_package_dir() -> Dict:
 
 
 def _setup_install_requires() -> List:
-    return []
+    return _deps
 
 
 def _setup_extras() -> Dict:
-    return {}
+    return {"dev": _dev_deps}
 
 
 def _setup_entry_points() -> Dict:

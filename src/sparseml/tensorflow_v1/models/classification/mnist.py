@@ -1,7 +1,8 @@
-from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.tensorflow_v1.nn import conv2d, fc, activation
-from sparseml.tensorflow_v1.models.registry import ModelRegistry
 from sparseml.tensorflow_v1.models.estimator import ClassificationEstimatorModelFn
+from sparseml.tensorflow_v1.models.registry import ModelRegistry
+from sparseml.tensorflow_v1.nn import activation, conv2d, fc
+from sparseml.tensorflow_v1.utils import tf_compat
+
 
 __all__ = ["mnist_net"]
 

@@ -2,12 +2,12 @@
 Helper functions to test quantization package
 """
 
-import numpy as np
-import onnx
 import os
 import tempfile
 
-from onnx import TensorProto, ModelProto, numpy_helper
+import numpy as np
+import onnx
+from onnx import ModelProto, TensorProto, numpy_helper
 
 
 __all__ = [
@@ -18,7 +18,10 @@ __all__ = [
 
 
 def _random_float_tensor(name, *shape):
-    return numpy_helper.from_array(np.random.rand(*shape).astype(np.float32), name,)
+    return numpy_helper.from_array(
+        np.random.rand(*shape).astype(np.float32),
+        name,
+    )
 
 
 def make_tmp_onnx_file(model: ModelProto) -> str:

@@ -1,23 +1,37 @@
+BUILDDIR := $(PWD)
+CHECKDIRS := examples tests src utils scripts setup.py
+DOCDIR := docs
+
 # run checks on all files for the repo
 quality:
-    [TODO]
+	@echo "Running python quality checks";
+	black --check $(CHECKDIRS);
+	isort --check-only $(CHECKDIRS);
+	flake8 $(CHECKDIRS);
 
 # style the code according to accepted standards for the repo
 style:
-    [TODO]
+	@echo "Running python styling";
+	black $(CHECKDIRS);
+	isort $(CHECKDIRS);
 
 # run tests for the repo
 test:
-    [TODO]
+	@echo "Running python tests";
+	@pytest;
 
 # create docs
 docs:
-    [TODO]
+	sphinx-apidoc -o "$(DOCDIR)/source/" src/sparseml;
+	cd $(DOCDIR) && $(MAKE) html;
 
-# cleanup the local repository
-clean:
-    [TODO]
-
-# create a build ready for deployment
+# creates wheel file
 build:
-    [TODO]
+	python3 setup.py sdist bdist_wheel
+
+# clean package
+clean:
+	rm -fr .pytest_cache;
+	rm -fr docs/_build docs/build;
+	find $(CHECKDIRS) | grep -E "(__pycache__|\.pyc|\.pyo)" | xargs rm -fr;
+	find $(DOCDIR) | grep .rst | xargs rm -fr;

@@ -1,8 +1,8 @@
-import pytest
-import numpy as np
-import onnx
 import os
 
+import numpy as np
+import onnx
+import pytest
 from sparseml.onnx.quantization.calibration import CalibrationSession
 from tests.onnx.quantization.helpers import (
     make_tmp_onnx_file,

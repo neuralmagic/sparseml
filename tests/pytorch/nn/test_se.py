@@ -1,14 +1,14 @@
-import pytest
-
 import os
-import torch
-from torch import Tensor
 
+import pytest
+import torch
 from sparseml.pytorch.nn import SqueezeExcite
+from torch import Tensor
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_squeeze_excite():
     channels = 64

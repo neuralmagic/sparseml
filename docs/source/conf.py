@@ -94,7 +94,7 @@ html_static_path = ["_static"]
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "neuralmagicMLdoc"
+htmlhelp_basename = "sparseMLdoc"
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -112,8 +112,8 @@ latex_elements = {
 latex_documents = [
     (
         master_doc,
-        "NeuralMagicML_API.tex",
-        "Neural Magic ML API",
+        "SparseML_API.tex",
+        "SparseML API",
         "Neural Magic",
         "manual",
     ),
@@ -124,7 +124,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, "neuralmagicmlapi", "Neural Magic ML API Documentation", [author], 1)
+    (master_doc, "sparsemlapi", "SparseML API Documentation", [author], 1)
 ]
 
 
@@ -137,9 +137,9 @@ texinfo_documents = [
     (
         master_doc,
         "",
-        "Neural Magic ML API Documentation",
+        "SparseML API Documentation",
         author,
-        "NeuralMagicML_API",
+        "SparseML_API",
         "API implementations designed for ML frameworks to enable better performance in the Neural Magic system.",
         "Miscellaneous",
     ),

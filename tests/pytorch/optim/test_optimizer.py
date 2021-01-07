@@ -1,19 +1,14 @@
-import pytest
-
 import os
-from typing import Optional, Callable
 import sys
+from typing import Callable, Optional
+
+import pytest
 import torch
+from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from tests.pytorch.helpers import MLPNet
 from torch.nn import Module
 from torch.optim import SGD
 from torch.optim.optimizer import Optimizer
-
-from sparseml.pytorch.optim import (
-    ScheduledOptimizer,
-    ScheduledModifierManager,
-)
-
-from tests.pytorch.helpers import MLPNet
 
 
 class FakeOptim(SGD):
@@ -37,7 +32,8 @@ class FakeManager(ScheduledModifierManager):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_optim():
     model = MLPNet()

@@ -3,27 +3,27 @@ PyTorch Inception V3 implementations.
 Further info can be found in the paper `here <http://arxiv.org/abs/1512.00567>`__.
 """
 
-from typing import Union, Tuple
+from typing import Tuple, Union
+
 import torch
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
-    Module,
-    Sequential,
-    ModuleList,
-    AvgPool2d,
-    MaxPool2d,
     AdaptiveAvgPool2d,
-    Conv2d,
+    AvgPool2d,
     BatchNorm2d,
-    Linear,
-    Softmax,
-    Sigmoid,
-    init,
+    Conv2d,
     Dropout,
+    Linear,
+    MaxPool2d,
+    Module,
+    ModuleList,
+    Sequential,
+    Sigmoid,
+    Softmax,
+    init,
 )
-
-from sparseml.pytorch.nn import ReLU
-from sparseml.pytorch.models.registry import ModelRegistry
 
 
 __all__ = ["InceptionV3", "inception_v3"]
@@ -58,7 +58,12 @@ class _ConvBNRelu(Module):
     ):
         super().__init__()
         self.conv = Conv2d(
-            in_channels, out_channels, kernel_size, stride, padding, bias=False,
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            padding,
+            bias=False,
         )
         self.bn = BatchNorm2d(out_channels)
         self.act = ReLU(num_channels=out_channels, inplace=True)

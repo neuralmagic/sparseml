@@ -2,17 +2,18 @@
 Utility / helper functions
 """
 
-from typing import Tuple, Dict, Union, Any, List, NamedTuple
-from collections import OrderedDict
 import logging
+from collections import OrderedDict
 from functools import reduce
+from typing import Any, Dict, List, NamedTuple, Tuple, Union
+
 import numpy
 import onnx
-from onnx import numpy_helper, ModelProto, NodeProto, TensorProto
-from onnx.helper import get_attribute_value, make_model, make_empty_tensor_value_info
 import onnxruntime
-
+from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
+from onnx.helper import get_attribute_value, make_empty_tensor_value_info, make_model
 from sparseml.utils import clean_path
+
 
 _LOGGER = logging.getLogger(__name__)
 

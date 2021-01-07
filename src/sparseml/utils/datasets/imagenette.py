@@ -4,12 +4,12 @@ for the image classification field in computer vision.
 More info for the dataset can be found `here <https://github.com/fastai/imagenette>`__.
 """
 
-from enum import Enum
 import os
 import tarfile
+from enum import Enum
 
-from sparsezoo import download_file
 from sparseml.utils import clean_path, create_dirs
+from sparsezoo import download_file
 
 
 __all__ = ["ImagenetteSize", "ImagenetteDownloader", "ImagewoofDownloader"]

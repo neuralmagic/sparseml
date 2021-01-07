@@ -5,11 +5,11 @@ Information about SSD Lite and mobilenet v2 can be found in the paper
 `here <https://arxiv.org/pdf/1801.04381>`__.
 """
 
-import torch
 from typing import List, Tuple
 
-from torch import nn, Tensor
+import torch
 from sparseml.pytorch.models.detection.ssd import SSDBackbone
+from torch import Tensor, nn
 
 
 __all__ = [
@@ -117,11 +117,17 @@ class _SSDLiteHead(nn.ModuleList):
 
 class _SSDLitePredictorBlock(nn.Module):
     def __init__(
-        self, in_channels: int, out_channels: int,
+        self,
+        in_channels: int,
+        out_channels: int,
     ):
         super().__init__()
         self.depth = nn.Conv2d(
-            in_channels, in_channels, kernel_size=3, padding=1, groups=in_channels,
+            in_channels,
+            in_channels,
+            kernel_size=3,
+            padding=1,
+            groups=in_channels,
         )
         self.point = nn.Conv2d(in_channels, out_channels, kernel_size=1, groups=1)
         self.initialize()

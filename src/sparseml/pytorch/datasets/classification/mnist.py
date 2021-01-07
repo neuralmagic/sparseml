@@ -4,11 +4,10 @@ More info for the dataset can be found `here <http://yann.lecun.com/exdb/mnist/>
 """
 
 import torch
-from torchvision.datasets import MNIST
-from torchvision import transforms
-
 from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils.datasets import default_dataset_path
+from torchvision import transforms
+from torchvision.datasets import MNIST
 
 
 __all__ = ["MNISTDataset"]

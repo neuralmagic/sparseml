@@ -2,10 +2,10 @@
 General code for parallelizing the workers
 """
 
-from typing import List, Iterator, Any, Callable
-from queue import Queue, Empty, Full
-from threading import Thread
 import time
+from queue import Empty, Full, Queue
+from threading import Thread
+from typing import Any, Callable, Iterator, List
 
 
 __all__ = ["ParallelWorker"]

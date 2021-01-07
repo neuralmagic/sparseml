@@ -1,17 +1,14 @@
-import pytest
 import random
 
-from sparseml.tensorflow_v1.utils import (
-    tf_compat,
-    eval_tensor_sparsity,
-)
+import pytest
 from sparseml.tensorflow_v1.optim import (
-    UnstructuredPruningMaskCreator,
-    GroupedPruningMaskCreator,
-    DimensionPruningMaskCreator,
     BlockPruningMaskCreator,
+    DimensionPruningMaskCreator,
+    GroupedPruningMaskCreator,
+    UnstructuredPruningMaskCreator,
     load_mask_creator,
 )
+from sparseml.tensorflow_v1.utils import eval_tensor_sparsity, tf_compat
 
 
 @pytest.mark.parametrize(

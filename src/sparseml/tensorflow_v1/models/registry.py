@@ -2,13 +2,14 @@
 Code related to the PyTorch model registry for easily creating models.
 """
 
-from typing import Union, List, Callable, Any, Dict, Optional
 import re
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from sparsezoo import Model
-from sparseml.utils import TENSORFLOW_V1_FRAMEWORK
-from sparseml.tensorflow_v1.utils import tf_compat
 from sparseml.tensorflow_v1.models.estimator import EstimatorModelFn
+from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.utils import TENSORFLOW_V1_FRAMEWORK
+from sparsezoo import Model
+
 
 __all__ = ["ModelRegistry"]
 
@@ -81,7 +82,7 @@ class ModelRegistry(object):
         model_fn_params: Optional[Dict[str, Any]],
         run_config: tf_compat.estimator.RunConfig,
         *args,
-        **kwargs
+        **kwargs,
     ) -> tf_compat.estimator.Estimator:
         """
         Create Estimator for a model given the key and extra parameters
@@ -109,7 +110,9 @@ class ModelRegistry(object):
 
     @staticmethod
     def create_zoo_model(
-        key: str, pretrained: Union[bool, str] = True, pretrained_dataset: str = None,
+        key: str,
+        pretrained: Union[bool, str] = True,
+        pretrained_dataset: str = None,
     ) -> Model:
         """
         Create a sparsezoo Model for the desired model in the zoo

@@ -1,15 +1,14 @@
 import os
+
 import pytest
-from packaging import version
-
 import torch
-from torch.utils.data import Dataset
-
+from packaging import version
 from sparseml.pytorch.datasets import (
     DatasetRegistry,
-    VOCSegmentationDataset,
     VOCDetectionDataset,
+    VOCSegmentationDataset,
 )
+from torch.utils.data import Dataset
 
 
 def _validate_voc(dataset: Dataset, size: int):
@@ -23,14 +22,16 @@ def _validate_voc(dataset: Dataset, size: int):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     version.parse(torch.__version__) < version.parse("1.2"),
     reason="Must install pytorch version 1.2 or greater",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
 )
 def test_voc_detection():
     train_dataset = VOCDetectionDataset(train=True)
@@ -44,14 +45,16 @@ def test_voc_detection():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     version.parse(torch.__version__) < version.parse("1.2"),
     reason="Must install pytorch version 1.2 or greater",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
 )
 def test_voc_segmentation():
     pass

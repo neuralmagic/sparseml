@@ -1,5 +1,6 @@
-from typing import Union, Tuple
 import re
+from typing import Tuple, Union
+
 import torch
 from torch.utils.data import Dataset
 

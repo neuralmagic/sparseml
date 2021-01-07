@@ -1,18 +1,19 @@
 import os
-import pytest
+from typing import Callable, Union
 
-from typing import Union, Callable
 import numpy
-
-from sparseml.tensorflow_v1.utils import tf_compat
+import pytest
 from sparseml.tensorflow_v1.models import ModelRegistry, mobilenet_v2
+from sparseml.tensorflow_v1.utils import tf_compat
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",
+    os.getenv("NM_ML_SKIP_MODEL_TESTS", False),
+    reason="Skipping model tests",
 )
 @pytest.mark.parametrize(
     "key,pretrained,test_input,const",

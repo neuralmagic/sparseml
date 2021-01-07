@@ -6,27 +6,21 @@ quantization aware training.
 
 from collections import defaultdict
 from copy import deepcopy
+from typing import Any, NamedTuple, Union
+
 import numpy
 import onnx
-from onnx import (
-    ModelProto,
-    NodeProto,
-    numpy_helper,
-    TensorProto,
-)
-from typing import Union, NamedTuple, Any
-
-
+from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
 from sparseml.onnx.utils import (
     get_batch_norm_params,
-    get_nodes_by_output_id,
     get_init_by_name,
+    get_node_attributes,
     get_node_output_nodes,
+    get_nodes_by_output_id,
+    quantize_resnet_identity_add_inputs,
     remove_node_and_params_from_graph,
     swap_node_output,
     update_model_param,
-    quantize_resnet_identity_add_inputs,
-    get_node_attributes,
 )
 
 
@@ -191,7 +185,8 @@ def _fold_relu_quants(model: ModelProto):
 
 
 def _convert_tensor_constant_to_initializer(
-    model: ModelProto, const_node: NodeProto,
+    model: ModelProto,
+    const_node: NodeProto,
 ):
     # create initializer
     const_array = numpy_helper.to_array(const_node.attribute[0].t)
@@ -438,7 +433,10 @@ def _convert_quantizable_gemm(
 
     # create qmatmul node and add it to graph
     qmatmul_node = onnx.helper.make_node(
-        "QLinearMatMul", qmatmul_inputs, [qmatmul_output], qmatmul_name,
+        "QLinearMatMul",
+        qmatmul_inputs,
+        [qmatmul_output],
+        qmatmul_name,
     )
     model.graph.node.append(qmatmul_node)
 

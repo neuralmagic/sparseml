@@ -2,12 +2,11 @@
 Helper functions to edit ONNX Graphs.
 """
 
+from typing import Iterable, List, Union
+
 import numpy
 import onnx
-
-from onnx import numpy_helper, ModelProto, NodeProto
-from typing import Union, List, Iterable
-
+from onnx import ModelProto, NodeProto, numpy_helper
 from sparseml.onnx.utils.helpers import get_node_params
 
 
@@ -22,7 +21,11 @@ __all__ = [
 ]
 
 
-def update_model_param(model: ModelProto, param_name: str, val: numpy.ndarray,) -> None:
+def update_model_param(
+    model: ModelProto,
+    param_name: str,
+    val: numpy.ndarray,
+) -> None:
     """
     Removes the parameter with name param_name from the model
     Creates a new parameter using val
@@ -52,7 +55,9 @@ def swap_node_output(node: onnx.NodeProto, output: str) -> None:
 
 
 def remove_node_and_params_from_graph(
-    model: ModelProto, node: onnx.NodeProto, keep_params: Iterable[str] = None,
+    model: ModelProto,
+    node: onnx.NodeProto,
+    keep_params: Iterable[str] = None,
 ) -> None:
     """
     Deletes a node from the mdoel graph as well as its parameters listed in node.input

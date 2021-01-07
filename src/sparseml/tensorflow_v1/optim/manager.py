@@ -6,15 +6,12 @@ Also handles loading modifiers from yaml files
 
 import collections
 import itertools
-from typing import List, Any, Union, Dict, Tuple, Callable
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 from sparseml.optim import BaseManager, BaseScheduled
+from sparseml.tensorflow_v1.optim.modifier import NM_RECAL, Modifier, ScheduledModifier
 from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.tensorflow_v1.optim.modifier import (
-    NM_RECAL,
-    Modifier,
-    ScheduledModifier,
-)
+
 
 __all__ = ["ScheduledModifierManager"]
 

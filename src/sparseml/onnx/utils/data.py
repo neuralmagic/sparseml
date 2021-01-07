@@ -2,21 +2,21 @@
 Utilities for data loading into numpy for use in ONNX supported systems
 """
 
-from typing import List, Dict, Union, Tuple
-from collections import OrderedDict
 import logging
 import math
+from collections import OrderedDict
+from typing import Dict, List, Tuple, Union
+
 import numpy
 from onnx import ModelProto
-
-from sparseml.utils import load_labeled_data, NumpyArrayBatcher
 from sparseml.onnx.utils.helpers import (
-    model_inputs,
-    model_outputs,
+    check_load_model,
     extract_shape,
     get_numpy_dtype,
-    check_load_model,
+    model_inputs,
+    model_outputs,
 )
+from sparseml.utils import NumpyArrayBatcher, load_labeled_data
 
 
 __all__ = ["DataLoader"]

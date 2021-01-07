@@ -1,13 +1,8 @@
 import os
+
 import pytest
-
+from sparseml.pytorch.datasets import CIFAR10Dataset, CIFAR100Dataset, DatasetRegistry
 from torch.utils.data import Dataset
-
-from sparseml.pytorch.datasets import (
-    DatasetRegistry,
-    CIFAR10Dataset,
-    CIFAR100Dataset,
-)
 
 
 def _validate_cifar(dataset: Dataset, num_classes: int):
@@ -21,10 +16,12 @@ def _validate_cifar(dataset: Dataset, num_classes: int):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
 )
 def test_cifar_10():
     train_dataset = CIFAR10Dataset(train=True)
@@ -38,10 +35,12 @@ def test_cifar_10():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
 )
 def test_cifar_100():
     train_dataset = CIFAR100Dataset(train=True)

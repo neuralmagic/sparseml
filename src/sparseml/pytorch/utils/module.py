@@ -3,31 +3,31 @@ Code related to running a module through training and testing over a dataset.
 Allows reporting of progress and override functions and hooks.
 """
 
+import time
 from abc import ABC, abstractmethod
-from typing import Callable, Any, Dict, Union, List
 from collections import OrderedDict
 from contextlib import ExitStack
-import time
-from tqdm import auto
+from typing import Any, Callable, Dict, List, Union
 
 import torch
-from torch import Tensor
-from torch.nn import Module
-from torch.utils.data import DataLoader
-from torch.optim.optimizer import Optimizer
-from torch.utils.hooks import RemovableHandle
-
 from sparseml.pytorch.utils.helpers import (
     get_optim_learning_rate,
-    tensors_to_device,
     tensors_batch_size,
     tensors_module_forward,
+    tensors_to_device,
 )
 from sparseml.pytorch.utils.logger import PyTorchLogger
 from sparseml.pytorch.utils.loss import DEFAULT_LOSS_KEY, LossWrapper
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+from torch.utils.data import DataLoader
+from torch.utils.hooks import RemovableHandle
+from tqdm import auto
+
 
 try:
-    from torch.cuda.amp import autocast, GradScaler
+    from torch.cuda.amp import GradScaler, autocast
 
     amp_import_error = None
 except Exception as amp_error:
@@ -697,18 +697,26 @@ class ModuleRunner(ABC):
             if should_log:
                 for loss, val in batch_results.items():
                     self._log_scalar(
-                        "{}/{}".format(self._log_name, loss), val.item(), log_step,
+                        "{}/{}".format(self._log_name, loss),
+                        val.item(),
+                        log_step,
                     )
 
                 self._log_scalar(
-                    "{}/Epoch Counter".format(self._log_name), counter, log_step,
+                    "{}/Epoch Counter".format(self._log_name),
+                    counter,
+                    log_step,
                 )
                 self._log_scalar(
-                    "{}/Batch Size".format(self._log_name), batch_size, log_step,
+                    "{}/Batch Size".format(self._log_name),
+                    batch_size,
+                    log_step,
                 )
                 step_time = time.time() - step_timer
                 self._log_scalar(
-                    "{}/Seconds per step".format(self._log_name), step_time, log_step,
+                    "{}/Seconds per step".format(self._log_name),
+                    step_time,
+                    log_step,
                 )
                 self._log_scalar(
                     "{}/Steps per second".format(self._log_name),
@@ -737,7 +745,9 @@ class ModuleRunner(ABC):
             for loss in results.results.keys():
                 val = results.result_mean(loss)
                 self._log_scalar(
-                    "{}/{} Summary".format(self._log_name, loss), val.item(), log_step,
+                    "{}/{} Summary".format(self._log_name, loss),
+                    val.item(),
+                    log_step,
                 )
 
             self._log_scalar(

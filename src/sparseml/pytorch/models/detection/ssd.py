@@ -7,10 +7,10 @@ Information about SSD Networks can be found in the paper
 
 
 from abc import ABC, abstractmethod
-import torch
 from typing import List, Tuple
 
-from torch import nn, Tensor
+import torch
+from torch import Tensor, nn
 
 
 __all__ = [

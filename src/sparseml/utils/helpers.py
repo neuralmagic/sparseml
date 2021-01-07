@@ -3,15 +3,16 @@ General utility helper functions.
 Common functions for interfacing with python primitives and directories/files.
 """
 
-from typing import Union, Iterable, Any, List, Tuple, Callable, Dict
-from collections import OrderedDict
-import sys
-import os
 import errno
 import fnmatch
 import glob
 import logging
+import os
+import sys
+from collections import OrderedDict
+from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 from urllib.parse import urlparse
+
 import numpy
 
 
@@ -682,7 +683,11 @@ def _tensors_export_recursive(
     if isinstance(tensors, Iterable):
         for index, tens in enumerate(tensors):
             _tensors_export_recursive(
-                tens, export_dir, name_prefix, counter + index, exported_paths,
+                tens,
+                export_dir,
+                name_prefix,
+                counter + index,
+                exported_paths,
             )
 
         return

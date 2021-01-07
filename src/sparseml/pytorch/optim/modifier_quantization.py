@@ -5,9 +5,11 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 """
 
 
-from typing import Union, List
+from typing import List, Union
+
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
+
 
 try:
     from torch import quantization as torch_quantization
@@ -17,14 +19,11 @@ except:
     torch_intrinsic = None
 
 from sparseml.optim import ModifierProp
-from sparseml.pytorch.optim.modifier import (
-    PyTorchModifierYAML,
-    ScheduledModifier,
-)
+from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.optim.quantization import (
     add_quant_dequant,
-    get_qat_qconfig,
     fuse_module_conv_bn_relus,
+    get_qat_qconfig,
 )
 
 

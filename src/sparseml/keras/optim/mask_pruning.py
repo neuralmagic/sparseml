@@ -5,9 +5,10 @@ Masking Keras layers to support pruning, and logics behind mask and weight updat
 import abc
 import inspect
 from typing import List, Tuple
-import tensorflow as tf
 
+import tensorflow as tf
 from sparseml.keras.optim.mask_pruning_creator import PruningMaskCreator
+
 
 __all__ = ["MaskedLayer", "PruningScheduler"]
 
@@ -135,7 +136,7 @@ class MaskedLayer(tf.keras.layers.Wrapper):
         layer: tf.keras.layers.Layer,
         pruning_scheduler: PruningScheduler,
         mask_creator: PruningMaskCreator,
-        **kwargs
+        **kwargs,
     ):
         if not isinstance(layer, MaskedLayer) and not isinstance(
             layer, tf.keras.layers.Layer

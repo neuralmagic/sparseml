@@ -1,12 +1,10 @@
 """
 Learning rate modifiers for TensorFlow models
 """
-from typing import Any, Dict, Union, List, Tuple, Optional
 from copy import deepcopy
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from sparseml.utils import ALL_TOKEN
-from sparseml.optim import SetLearningRate, LearningRate
-from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.optim import LearningRate, SetLearningRate
 from sparseml.tensorflow_v1.optim.modifier import (
     EXTRAS_KEY_LEARNING_RATE,
     EXTRAS_KEY_SUMMARIES,
@@ -19,6 +17,9 @@ from sparseml.tensorflow_v1.optim.schedule_lr import (
     multi_step_lr_schedule,
     step_lr_schedule,
 )
+from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.utils import ALL_TOKEN
+
 
 __all__ = [
     "SetLearningRateModifier",

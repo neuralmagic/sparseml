@@ -3,9 +3,11 @@ Helper functions and classes for creating and training PyTorch Yolo models
 """
 
 
+from typing import Iterable, List, Tuple
+
 import torch
 from torch import Tensor
-from typing import List, Tuple, Iterable
+
 
 try:
     from torchvision.ops.boxes import batched_nms

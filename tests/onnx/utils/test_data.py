@@ -8,6 +8,7 @@ import pytest
 from sparseml.onnx.utils import DataLoader
 from sparseml.utils import RepoModel
 
+
 DataloaderModelFixture = NamedTuple(
     "DataloaderModelFixture",
     [

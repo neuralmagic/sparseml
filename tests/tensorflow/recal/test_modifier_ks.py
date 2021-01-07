@@ -1,35 +1,33 @@
-import pytest
-
 import os
-
 from typing import Callable
-import numpy
 
-from sparseml.tensorflow_v1.utils import (
-    VAR_INDEX_FROM_TRAINABLE,
-    tf_compat,
-    eval_tensor_sparsity,
-    batch_cross_entropy_loss,
-)
+import numpy
+import pytest
 from sparseml.tensorflow_v1.optim import (
+    EXTRAS_KEY_SUMMARIES,
+    BlockPruningMaskCreator,
     ConstantPruningModifier,
+    DimensionPruningMaskCreator,
     GMPruningModifier,
     ScheduledModifierManager,
-    EXTRAS_KEY_SUMMARIES,
-    DimensionPruningMaskCreator,
-    BlockPruningMaskCreator,
 )
-
+from sparseml.tensorflow_v1.utils import (
+    VAR_INDEX_FROM_TRAINABLE,
+    batch_cross_entropy_loss,
+    eval_tensor_sparsity,
+    tf_compat,
+)
 from tests.tensorflow.helpers import mlp_net
 from tests.tensorflow.optim.test_modifier import (
     ScheduledModifierTest,
-    mlp_graph_lambda,
     conv_graph_lambda,
+    mlp_graph_lambda,
 )
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
@@ -37,7 +35,9 @@ from tests.tensorflow.optim.test_modifier import (
         (
             mlp_graph_lambda,
             lambda: ConstantPruningModifier(
-                params=["mlp_net/fc1/weight"], start_epoch=0.0, end_epoch=20.0,
+                params=["mlp_net/fc1/weight"],
+                start_epoch=0.0,
+                end_epoch=20.0,
             ),
         ),
     ],
@@ -106,7 +106,8 @@ class TestConstantKSModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 def test_constant_ks_yaml():
     params = "__ALL__"
@@ -120,7 +121,9 @@ def test_constant_ks_yaml():
     """.format(
         params=params, start_epoch=start_epoch, end_epoch=end_epoch
     )
-    yaml_modifier = ConstantPruningModifier.load_obj(yaml_str)  # type: ConstantPruningModifier
+    yaml_modifier = ConstantPruningModifier.load_obj(
+        yaml_str
+    )  # type: ConstantPruningModifier
     serialized_modifier = ConstantPruningModifier.load_obj(
         str(yaml_modifier)
     )  # type: ConstantPruningModifier
@@ -143,7 +146,8 @@ def test_constant_ks_yaml():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
@@ -288,7 +292,8 @@ class TestGradualKSModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 def test_gradual_ks_training_with_manager():
     modifier = GMPruningModifier(
@@ -367,7 +372,8 @@ def test_gradual_ks_training_with_manager():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 def test_gradual_ks_yaml():
     params = "__ALL__"

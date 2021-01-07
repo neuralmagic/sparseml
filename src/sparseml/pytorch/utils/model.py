@@ -2,13 +2,14 @@
 Code related to interacting with a trained model such as saving, loading, etc
 """
 
-from typing import Union, List, Tuple
+from collections import OrderedDict
+from typing import List, Tuple, Union
+
 import torch
+from sparseml.utils.helpers import create_parent_dirs
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
-from collections import OrderedDict
 
-from sparseml.utils.helpers import create_parent_dirs
 
 try:
     from torch.nn.parallel import DistributedDataParallel as DDP
@@ -189,7 +190,9 @@ def parallelize_model(model: Module, ids: Union[None, List[int]]) -> Module:
 
 
 def model_to_device(
-    model: Module, device: Union[str, int], ddp: bool = False,
+    model: Module,
+    device: Union[str, int],
+    ddp: bool = False,
 ) -> Tuple[Module, str, Union[None, List[int]]]:
     """
     The model to push onto a device or multiple devices.

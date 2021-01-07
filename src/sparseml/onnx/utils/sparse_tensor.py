@@ -4,14 +4,10 @@ Helper functions for handling ONNX SparseTensorProto objects
 
 
 from copy import deepcopy
-import numpy
-from onnx import (
-    numpy_helper,
-    SparseTensorProto,
-    TensorProto,
-    ModelProto,
-)
 from typing import Union
+
+import numpy
+from onnx import ModelProto, SparseTensorProto, TensorProto, numpy_helper
 
 
 __all__ = [
@@ -23,7 +19,8 @@ __all__ = [
 
 
 def create_sparse_tensor(
-    array: Union[numpy.ndarray, TensorProto], name: str = None,
+    array: Union[numpy.ndarray, TensorProto],
+    name: str = None,
 ) -> Union[SparseTensorProto, None]:
     """
     :param array: numpy array or TensorProto object to convert to sparse representation

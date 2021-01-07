@@ -1,11 +1,10 @@
 import pytest
-
 from sparseml.utils import (
     ALL_TOKEN,
-    flatten_iterable,
     convert_to_bool,
-    validate_str_iterable,
+    flatten_iterable,
     interpolate,
+    validate_str_iterable,
 )
 
 

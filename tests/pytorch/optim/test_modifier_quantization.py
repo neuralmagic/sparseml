@@ -1,19 +1,19 @@
-import pytest
-
-import torch
-from torch.nn import Conv2d, Linear
 import os
 
+import pytest
+import torch
 from sparseml.pytorch.optim import QuantizationModifier
 from tests.pytorch.helpers import (
-    test_epoch,
-    test_steps_per_epoch,
-    test_loss,
-    LinearNet,
     ConvNet,
+    LinearNet,
     create_optim_sgd,
+    test_epoch,
+    test_loss,
+    test_steps_per_epoch,
 )
 from tests.pytorch.optim.test_modifier import ScheduledModifierTest
+from torch.nn import Conv2d, Linear
+
 
 try:
     from torch import quantization as torch_quantization
@@ -48,14 +48,16 @@ def _is_quantiable_module(module):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None, reason="torch quantization not available",
+    torch_quantization is None,
+    reason="torch quantization not available",
 )
 @pytest.mark.parametrize("modifier_lambda", QUANTIZATION_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -121,14 +123,16 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None, reason="torch quantization not available",
+    torch_quantization is None,
+    reason="torch quantization not available",
 )
 def test_quantization_modifier_yaml():
     start_epoch = 0.0

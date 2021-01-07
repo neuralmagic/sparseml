@@ -1,13 +1,12 @@
-import pytest
 import numpy as np
+import pytest
 import tensorflow as tf
-
 from sparseml.keras.optim import (
     ConstantPruningModifier,
     GMPruningModifer,
-    ScheduledModifierManager,
     MaskedLayer,
     PruningScheduler,
+    ScheduledModifierManager,
     UnstructuredPruningMaskCreator,
 )
 

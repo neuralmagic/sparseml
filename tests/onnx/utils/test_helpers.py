@@ -1,8 +1,17 @@
 import numpy
 import pytest
+from onnx import TensorProto, load_model, numpy_helper
+from onnx.helper import (
+    make_graph,
+    make_model,
+    make_node,
+    make_tensor,
+    make_tensor_value_info,
+)
 from sparseml.onnx.utils import (
     NodeParam,
     SparsityMeasurement,
+    calculate_flops,
     check_load_model,
     conv_node_params,
     extract_node_id,
@@ -10,38 +19,27 @@ from sparseml.onnx.utils import (
     extract_shape,
     gemm_node_params,
     get_init_by_name,
+    get_kernel_shape,
     get_node_attributes,
     get_node_by_id,
+    get_node_input_nodes,
     get_node_inputs,
+    get_node_output_nodes,
     get_node_outputs,
     get_node_params,
     get_nodes_by_input_id,
     get_nodes_by_output_id,
-    get_node_input_nodes,
-    get_node_output_nodes,
     get_numpy_dtype,
-    get_prunable_nodes,
     get_prunable_node_from_foldable,
+    get_prunable_nodes,
     is_foldable_node,
     is_prunable_node,
     matmul_node_params,
     model_inputs,
     model_outputs,
     onnx_nodes_sparsities,
-    SparsityMeasurement,
-    get_kernel_shape,
-    calculate_flops,
 )
 from sparseml.utils import available_models
-from onnx import numpy_helper, TensorProto, load_model
-from onnx.helper import (
-    make_graph,
-    make_model,
-    make_node,
-    make_tensor_value_info,
-    make_tensor,
-)
-
 from tests.onnx.helpers import extract_node_models, onnx_repo_models
 
 
@@ -456,7 +454,15 @@ def test_get_kernel_shape(attributes, output):
             None,
             3 * 15 * 15,
         ),
-        ("Relu", [[1, 3, 15, 15]], [[1, 3, 15, 15]], None, None, None, 3 * 15 * 15,),
+        (
+            "Relu",
+            [[1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
         (
             "LeakyRelu",
             [[1, 3, 15, 15]],
@@ -466,8 +472,24 @@ def test_get_kernel_shape(attributes, output):
             None,
             3 * 15 * 15,
         ),
-        ("Sigmoid", [[1, 3, 15, 15]], [[1, 3, 15, 15]], None, None, None, 3 * 15 * 15,),
-        ("Tanh", [[1, 3, 15, 15]], [[1, 3, 15, 15]], None, None, None, 3 * 15 * 15,),
+        (
+            "Sigmoid",
+            [[1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
+        (
+            "Tanh",
+            [[1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            3 * 15 * 15,
+        ),
         (
             "BatchNormalization",
             [[1, 3, 15, 15]],
@@ -571,11 +593,39 @@ def test_calculate_flops(
 @pytest.mark.parametrize(
     "op_type,input_shape,output_shape,weight_shape,kernel_shape,bias_shape",
     [
-        ("Add", [[1, 3, 15, 15], [1, 3, 15, 15]], None, None, None, None,),
-        ("GlobalMaxPool", None, [[1, 3, 1, 1]], None, None, None,),
-        ("MaxPool", [[1, 3, 15, 15]], [[1, 3, 15, 15]], None, None, None,),
+        (
+            "Add",
+            [[1, 3, 15, 15], [1, 3, 15, 15]],
+            None,
+            None,
+            None,
+            None,
+        ),
+        (
+            "GlobalMaxPool",
+            None,
+            [[1, 3, 1, 1]],
+            None,
+            None,
+            None,
+        ),
+        (
+            "MaxPool",
+            [[1, 3, 15, 15]],
+            [[1, 3, 15, 15]],
+            None,
+            None,
+            None,
+        ),
         ("Gemm", [[16]], [[8]], None, None, None),
-        ("MatMul", [[9, 5, 7, 4], [9, 5, 5, 3]], [[9, 5, 7, 3]], None, None, None,),
+        (
+            "MatMul",
+            [[9, 5, 7, 4], [9, 5, 5, 3]],
+            [[9, 5, 7, 3]],
+            None,
+            None,
+            None,
+        ),
     ],
 )
 def test_calculate_flops_negatives(

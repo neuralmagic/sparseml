@@ -3,22 +3,22 @@ Code related to applying a mask onto a variable to impose kernel sparsity,
 aka model pruning, on a TensorFlow graph.
 """
 
-from typing import Tuple, List, Union, Callable
 from collections import namedtuple
-import tensorflow.contrib.graph_editor as ge
+from typing import Callable, List, Tuple, Union
 
-from sparseml.tensorflow_v1.utils import (
-    tf_compat,
-    tf_compat_div,
-    clean_tensor_name,
-    is_prunable_op,
-    get_op_input_var,
-    get_tensor_var,
-    get_ops_and_inputs_by_name_or_regex,
-)
+import tensorflow.contrib.graph_editor as ge
 from sparseml.tensorflow_v1.optim.mask_creator_pruning import (
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
+)
+from sparseml.tensorflow_v1.utils import (
+    clean_tensor_name,
+    get_op_input_var,
+    get_ops_and_inputs_by_name_or_regex,
+    get_tensor_var,
+    is_prunable_op,
+    tf_compat,
+    tf_compat_div,
 )
 
 
@@ -246,7 +246,10 @@ def create_op_pruning(
         # create the update ops using the target sparsity tensor
         with tf_compat.name_scope(
             PruningScope.model(
-                op, ks_group, additional=PruningScope.OPS_UPDATE, trailing_slash=True,
+                op,
+                ks_group,
+                additional=PruningScope.OPS_UPDATE,
+                trailing_slash=True,
             )
         ):
             new_mask = mask_creator.create_sparsity_mask(op_var_tens, sparsity)
@@ -263,7 +266,10 @@ def create_op_pruning(
     def _no_update():
         with tf_compat.name_scope(
             PruningScope.model(
-                op, ks_group, additional=PruningScope.OPS_UPDATE, trailing_slash=True,
+                op,
+                ks_group,
+                additional=PruningScope.OPS_UPDATE,
+                trailing_slash=True,
             )
         ):
             # return no op wrapped in group to match update type
@@ -275,7 +281,10 @@ def create_op_pruning(
 
     with tf_compat.name_scope(
         PruningScope.model(
-            op, ks_group, additional=PruningScope.OPS_UPDATE, trailing_slash=True,
+            op,
+            ks_group,
+            additional=PruningScope.OPS_UPDATE,
+            trailing_slash=True,
         )
     ):
         mask_update = tf_compat.cond(
@@ -324,7 +333,10 @@ def create_constant_op_pruning(
         # On end step, revert mask to be all 1s
         with tf_compat.name_scope(
             PruningScope.model(
-                op, ks_group, additional=PruningScope.OPS_UPDATE, trailing_slash=True,
+                op,
+                ks_group,
+                additional=PruningScope.OPS_UPDATE,
+                trailing_slash=True,
             )
         ):
             new_mask = tf_compat.cond(
@@ -345,7 +357,10 @@ def create_constant_op_pruning(
     def _no_op():
         with tf_compat.name_scope(
             PruningScope.model(
-                op, ks_group, additional=PruningScope.OPS_UPDATE, trailing_slash=True,
+                op,
+                ks_group,
+                additional=PruningScope.OPS_UPDATE,
+                trailing_slash=True,
             )
         ):
             # return no op wrapped in group to match update type
@@ -357,7 +372,10 @@ def create_constant_op_pruning(
 
     with tf_compat.name_scope(
         PruningScope.model(
-            op, ks_group, additional=PruningScope.OPS_UPDATE, trailing_slash=True,
+            op,
+            ks_group,
+            additional=PruningScope.OPS_UPDATE,
+            trailing_slash=True,
         )
     ):
         mask_update = tf_compat.cond(
@@ -738,7 +756,8 @@ def get_or_create_ks_schedule_ops(
 
 
 def get_scheduled_update_op(
-    pruning_op_vars: List[PruningOpVars], ks_group: str,
+    pruning_op_vars: List[PruningOpVars],
+    ks_group: str,
 ):
     """
     Creates model pruning (kernel sparsity) ops and vars in the graph

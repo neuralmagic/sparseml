@@ -2,20 +2,20 @@
 Benchmarking PyTorch models on a given device for given batch sizes
 """
 
-from typing import Tuple, List, Any
 import time
-from tqdm import auto
+from typing import Any, List, Tuple
+
 import numpy
 import torch
-from torch.nn import Module
-
 from sparseml.pytorch.utils.helpers import (
-    tensors_to_precision,
     tensors_batch_size,
-    tensors_to_device,
     tensors_module_forward,
+    tensors_to_device,
+    tensors_to_precision,
 )
 from sparseml.pytorch.utils.model import model_to_device
+from torch.nn import Module
+from tqdm import auto
 
 
 __all__ = ["BatchBenchmarkResults", "ModuleBenchmarker"]

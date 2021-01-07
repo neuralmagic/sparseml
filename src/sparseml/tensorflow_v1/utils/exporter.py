@@ -2,21 +2,21 @@
 Export TensorFlow models to the local device
 """
 
-from typing import List, Dict, Union
 import os
 from collections import OrderedDict
+from typing import Dict, List, Union
+
 import numpy
 import onnx
-
+from sparseml.tensorflow_v1.utils.helpers import tf_compat
+from sparseml.tensorflow_v1.utils.variable import clean_tensor_name
 from sparseml.utils import (
     clean_path,
-    create_parent_dirs,
     create_dirs,
+    create_parent_dirs,
     path_file_count,
     tensors_export,
 )
-from sparseml.tensorflow_v1.utils.helpers import tf_compat
-from sparseml.tensorflow_v1.utils.variable import clean_tensor_name
 
 
 __all__ = ["default_onnx_opset", "GraphExporter"]
@@ -88,8 +88,8 @@ class GraphExporter(object):
         :param shape_override: new shape to override
         """
         try:
+            from tf2onnx import constants, optimizer, utils
             from tf2onnx.tfonnx import process_tf_graph, tf_optimize
-            from tf2onnx import constants, utils, optimizer
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "tf2onnx must be installed on the system before using export_onnx"

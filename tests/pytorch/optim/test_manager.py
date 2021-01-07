@@ -2,30 +2,28 @@ import os
 from typing import Callable
 
 import pytest
+from sparseml.pytorch.optim import (
+    Modifier,
+    PyTorchModifierYAML,
+    ScheduledModifier,
+    ScheduledModifierManager,
+)
+from tests.pytorch.helpers import (
+    LinearNet,
+    create_optim_adam,
+    create_optim_sgd,
+    test_epoch,
+    test_loss,
+    test_steps_per_epoch,
+)
+from tests.pytorch.optim.test_modifier import ModifierTest, ScheduledModifierImpl
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.pytorch.optim import (
-    ScheduledModifierManager,
-    ScheduledModifier,
-    PyTorchModifierYAML,
-    Modifier,
-)
-
-
-from tests.pytorch.helpers import (
-    test_epoch,
-    test_steps_per_epoch,
-    test_loss,
-    LinearNet,
-    create_optim_sgd,
-    create_optim_adam,
-)
-from tests.pytorch.optim.test_modifier import ModifierTest, ScheduledModifierImpl
-
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -50,7 +48,8 @@ class TestManagerImpl(ModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_manager_yaml():
     manager = ScheduledModifierManager([ScheduledModifierImpl()])

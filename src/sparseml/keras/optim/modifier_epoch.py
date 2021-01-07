@@ -2,10 +2,7 @@
 Contains code for epoch modifiers in Keras
 """
 
-from sparseml.keras.optim.modifier import (
-    ScheduledModifier,
-    KerasModifierYAML,
-)
+from sparseml.keras.optim.modifier import KerasModifierYAML, ScheduledModifier
 
 
 __all__ = ["EpochRangeModifier"]

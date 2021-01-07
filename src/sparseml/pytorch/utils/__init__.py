@@ -2,10 +2,9 @@
 Generic code used as utilities and helpers for PyTorch
 """
 
-from .helpers import *
-
 from .benchmarker import *
 from .exporter import *
+from .helpers import *
 from .logger import *
 from .loss import *
 from .model import *

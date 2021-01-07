@@ -3,38 +3,41 @@ Code related to monitoring, analyzing, and reporting info for Modules in PyTorch
 Records things like FLOPS, input and output shapes, kernel shapes, etc.
 """
 
-from typing import Union, Tuple, List
-import numpy
+from typing import List, Tuple, Union
 
+import numpy
+from sparseml.optim import AnalyzedLayerDesc
+from sparseml.pytorch.utils import get_layer, get_prunable_layers
 from torch import Tensor
 from torch.nn import (
-    Module,
+    CELU,
+    ELU,
+    GLU,
+    SELU,
+    Hardtanh,
+    LeakyReLU,
     Linear,
-    Softmax,
-    Softmax2d,
-    Threshold,
+    LogSigmoid,
+    Module,
+    PReLU,
     ReLU,
     ReLU6,
     RReLU,
-    LeakyReLU,
-    PReLU,
-    ELU,
-    CELU,
-    SELU,
-    GLU,
-    Hardtanh,
-    Tanh,
     Sigmoid,
-    LogSigmoid,
+    Softmax,
+    Softmax2d,
+    Tanh,
+    Threshold,
 )
-from torch.nn.modules.conv import _ConvNd
 from torch.nn.modules.batchnorm import _BatchNorm
-from torch.nn.modules.pooling import _MaxPoolNd, _AvgPoolNd
-from torch.nn.modules.pooling import _AdaptiveMaxPoolNd, _AdaptiveAvgPoolNd
+from torch.nn.modules.conv import _ConvNd
+from torch.nn.modules.pooling import (
+    _AdaptiveAvgPoolNd,
+    _AdaptiveMaxPoolNd,
+    _AvgPoolNd,
+    _MaxPoolNd,
+)
 from torch.utils.hooks import RemovableHandle
-
-from sparseml.optim import AnalyzedLayerDesc
-from sparseml.pytorch.utils import get_layer, get_prunable_layers
 
 
 __all__ = ["ModuleAnalyzer"]
@@ -188,7 +191,9 @@ class ModuleAnalyzer(object):
         return [forward_pre_hook, forward_hook]
 
     def _forward_pre_hook(
-        self, mod: Module, inp: Union[Tuple[Tensor, ...], Tensor],
+        self,
+        mod: Module,
+        inp: Union[Tuple[Tensor, ...], Tensor],
     ):
         self._call_count += 1
 

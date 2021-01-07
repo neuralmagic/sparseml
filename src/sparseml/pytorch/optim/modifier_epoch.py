@@ -2,7 +2,7 @@
 Modifiers related to controlling the training epochs while training a model
 """
 
-from sparseml.pytorch.optim.modifier import ScheduledModifier, PyTorchModifierYAML
+from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 
 
 __all__ = ["EpochRangeModifier"]
@@ -27,7 +27,9 @@ class EpochRangeModifier(ScheduledModifier):
     """
 
     def __init__(
-        self, start_epoch: float, end_epoch: float,
+        self,
+        start_epoch: float,
+        end_epoch: float,
     ):
         super().__init__(
             start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1

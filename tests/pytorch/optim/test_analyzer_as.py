@@ -1,15 +1,15 @@
-import pytest
-
 import os
-import torch
-from torch import Tensor
-from sparseml.pytorch.optim import ModuleASAnalyzer
 
+import pytest
+import torch
+from sparseml.pytorch.optim import ModuleASAnalyzer
 from tests.pytorch.helpers import MLPNet
+from torch import Tensor
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_as_analyzer():
     model = MLPNet()

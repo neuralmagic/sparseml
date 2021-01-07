@@ -6,21 +6,19 @@ PyTorch YoloV3 implementation.
 import math
 from typing import List, Tuple, Union
 
+from sparseml.pytorch.models import ModelRegistry, darknet53
+from sparseml.pytorch.nn import Hardswish
+from torch import Tensor, cat
 from torch.nn import (
-    Module,
-    Conv2d,
     BatchNorm2d,
+    Conv2d,
     MaxPool2d,
-    Upsample,
+    Module,
     ModuleList,
     Parameter,
+    Upsample,
     init,
 )
-from torch import Tensor, cat
-
-from sparseml.pytorch.models import ModelRegistry
-from sparseml.pytorch.models import darknet53
-from sparseml.pytorch.nn import Hardswish
 
 
 __all__ = [

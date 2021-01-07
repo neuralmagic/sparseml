@@ -2,12 +2,27 @@
 Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
 """
-from typing import Union, List, Dict
 import math
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
+from typing import Dict, List, Union
 
+from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
+from sparseml.pytorch.optim.mask_creator_pruning import (
+    PruningMaskCreator,
+    load_mask_creator,
+)
+from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask
+from sparseml.pytorch.optim.modifier import (
+    ModifierProp,
+    PyTorchModifierYAML,
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+)
+from sparseml.pytorch.utils import (
+    get_named_layers_and_params_by_regex,
+    get_prunable_layers,
+    tensor_sparsity,
+)
+from sparseml.pytorch.utils.logger import PyTorchLogger
 from sparseml.utils import (
     ALL_TOKEN,
     INTERPOLATION_FUNCS,
@@ -15,24 +30,9 @@ from sparseml.utils import (
     interpolate,
     validate_str_iterable,
 )
-from sparseml.pytorch.utils import (
-    get_named_layers_and_params_by_regex,
-    get_prunable_layers,
-    tensor_sparsity,
-)
-from sparseml.pytorch.optim.modifier import (
-    ModifierProp,
-    ScheduledModifier,
-    ScheduledUpdateModifier,
-    PyTorchModifierYAML,
-)
-from sparseml.pytorch.optim.mask_creator_pruning import (
-    PruningMaskCreator,
-    load_mask_creator,
-)
-from sparseml.pytorch.utils.logger import PyTorchLogger
-from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
-from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["ConstantPruningModifier", "GMPruningModifier"]
@@ -205,7 +205,9 @@ class ConstantPruningModifier(ScheduledModifier):
             else ["re:.*"]
         )
         named_layers_and_params = get_named_layers_and_params_by_regex(
-            module, param_names, params_strict=True,
+            module,
+            param_names,
+            params_strict=True,
         )
 
         self._analyzers = []
@@ -534,7 +536,9 @@ class GMPruningModifier(ScheduledUpdateModifier):
             else ["re:.*"]
         )
         named_layers_and_params = get_named_layers_and_params_by_regex(
-            module, param_names, params_strict=True,
+            module,
+            param_names,
+            params_strict=True,
         )
 
         self._analyzers = []

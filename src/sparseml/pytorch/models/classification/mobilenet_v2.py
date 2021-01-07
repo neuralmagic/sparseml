@@ -3,24 +3,24 @@ PyTorch MobileNet V2 implementations.
 Further info can be found in the paper `here <https://arxiv.org/abs/1801.04381>`__.
 """
 
-from typing import List, Union, Dict
 from collections import OrderedDict
+from typing import Dict, List, Union
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU6
 from torch import Tensor
 from torch.nn import (
-    Module,
-    Conv2d,
-    BatchNorm2d,
     AdaptiveAvgPool2d,
-    Linear,
-    init,
-    Sequential,
-    Softmax,
-    Sigmoid,
+    BatchNorm2d,
+    Conv2d,
     Dropout,
+    Linear,
+    Module,
+    Sequential,
+    Sigmoid,
+    Softmax,
+    init,
 )
-
-from sparseml.pytorch.nn import ReLU6
-from sparseml.pytorch.models.registry import ModelRegistry
 
 
 __all__ = [

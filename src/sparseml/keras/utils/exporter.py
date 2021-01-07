@@ -2,16 +2,13 @@
 Export Keras models to the local device.
 """
 
-from typing import List, Any
 import os
+from typing import Any, List
+
 import onnx
+from sparseml.utils import clean_path, create_parent_dirs, tensors_export
 from tensorflow.keras import Model
 
-from sparseml.utils import (
-    create_parent_dirs,
-    clean_path,
-    tensors_export,
-)
 
 try:
     import keras2onnx
@@ -37,7 +34,9 @@ class ModelExporter(object):
     """
 
     def __init__(
-        self, model: Model, output_dir: str,
+        self,
+        model: Model,
+        output_dir: str,
     ):
         self._model = model
         self._output_dir = clean_path(output_dir)

@@ -9,22 +9,22 @@ Further info on ResNext can be found in the paper
 """
 
 from typing import List
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
-    Module,
-    Conv2d,
-    BatchNorm2d,
-    MaxPool2d,
     AdaptiveAvgPool2d,
+    BatchNorm2d,
+    Conv2d,
     Linear,
-    init,
+    MaxPool2d,
+    Module,
     Sequential,
-    Softmax,
     Sigmoid,
+    Softmax,
+    init,
 )
-
-from sparseml.pytorch.nn import ReLU
-from sparseml.pytorch.models.registry import ModelRegistry
 
 
 __all__ = [

@@ -2,7 +2,8 @@
 Code related to learning rate controls that are shared across frameworks.
 """
 from typing import Dict, Tuple
-from sparseml.optim.modifier import ModifierProp, BaseObject
+
+from sparseml.optim.modifier import BaseObject, ModifierProp
 
 
 class SetLearningRate(BaseObject):

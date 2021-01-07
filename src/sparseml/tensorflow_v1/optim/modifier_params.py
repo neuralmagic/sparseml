@@ -3,24 +3,21 @@ Modifier for changing the state of a modules params while training according to
 certain update formulas or patterns.
 """
 
-from typing import Union, List, Tuple, Dict, Any
+from typing import Any, Dict, List, Tuple, Union
 
-from sparseml.utils import (
-    ALL_TOKEN,
-    convert_to_bool,
-    flatten_iterable,
+from sparseml.tensorflow_v1.optim.modifier import (
+    EXTRAS_KEY_VAR_LIST,
+    ModifierProp,
+    ScheduledModifier,
+    TensorFlowModifierYAML,
 )
 from sparseml.tensorflow_v1.utils import (
-    tf_compat,
-    get_prunable_ops,
     any_str_or_regex_matches_tensor_name,
+    get_prunable_ops,
+    tf_compat,
 )
-from sparseml.tensorflow_v1.optim.modifier import (
-    ModifierProp,
-    TensorFlowModifierYAML,
-    ScheduledModifier,
-    EXTRAS_KEY_VAR_LIST,
-)
+from sparseml.utils import ALL_TOKEN, convert_to_bool, flatten_iterable
+
 
 __all__ = ["TrainableParamsModifier"]
 
@@ -57,7 +54,9 @@ class TrainableParamsModifier(ScheduledModifier):
         end_epoch: float = -1.0,
     ):
         super(TrainableParamsModifier, self).__init__(
-            start_epoch=-1, end_epoch=-1, end_comparator=-1,
+            start_epoch=-1,
+            end_epoch=-1,
+            end_comparator=-1,
         )
         self._params = self._validate_params(params)
         self._trainable = convert_to_bool(trainable)
@@ -221,5 +220,7 @@ class TrainableParamsModifier(ScheduledModifier):
         if self._trainable and self._params == ALL_TOKEN:
             raise ValueError(
                 "params == {} not supported when trainable == True"
-                " please provide a list of parameter names instead".format(ALL_TOKEN,)
+                " please provide a list of parameter names instead".format(
+                    ALL_TOKEN,
+                )
             )

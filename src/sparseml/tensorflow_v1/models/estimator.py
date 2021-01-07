@@ -2,16 +2,18 @@
 Model function creator classes to be used with estimator
 """
 
-from typing import List, Tuple, Callable, Dict, Any, Union
-from abc import ABC, abstractmethod
 import inspect
+from abc import ABC, abstractmethod
+from typing import Any, Callable, Dict, List, Tuple, Union
+
 from sparseml import get_main_logger
 from sparseml.tensorflow_v1.optim import (
-    ScheduledModifierManager,
     ConstantPruningModifier,
     ModifierSessionRunHook,
+    ScheduledModifierManager,
 )
 from sparseml.tensorflow_v1.utils import tf_compat
+
 
 __all__ = ["EstimatorModelFn", "ClassificationEstimatorModelFn"]
 
@@ -81,7 +83,8 @@ class EstimatorModelFn(ABC):
             if mode == tf_compat.estimator.ModeKeys.PREDICT:
                 predictions = self.create_predictions(net_outputs, params)
                 return tf_compat.estimator.EstimatorSpec(
-                    tf_compat.estimator.ModeKeys.PREDICT, predictions=predictions,
+                    tf_compat.estimator.ModeKeys.PREDICT,
+                    predictions=predictions,
                 )
 
             ############################
@@ -355,7 +358,9 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
                     labels_argmax = tf_compat.argmax(labels, 1)
                     net_outputs_argmax = tf_compat.argmax(net_outputs, 1)
                     metrics_dict["accuracy"] = tf_compat.metrics.accuracy(
-                        labels_argmax, net_outputs_argmax, name="accuracy_metric",
+                        labels_argmax,
+                        net_outputs_argmax,
+                        name="accuracy_metric",
                     )
                     # The total and count variables created to support accuracy
                     running_vars = tf_compat.get_collection(
@@ -428,7 +433,9 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
         save_steps = params.get("eval_every_n_steps", params["eval_every_n_steps"])
         logs_dir = params.get("logs_dir", "logs")
         summary_train_hook = tf_compat.train.SummarySaverHook(
-            save_steps=save_steps, output_dir=logs_dir, summary_op=summary_op,
+            save_steps=save_steps,
+            output_dir=logs_dir,
+            summary_op=summary_op,
         )
         return summary_train_hook
 

@@ -4,11 +4,10 @@ More info for the dataset can be found
 `here <https://www.cs.toronto.edu/~kriz/cifar.html>`__.
 """
 
-from torchvision.datasets import CIFAR10, CIFAR100
-from torchvision import transforms
-
 from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils.datasets import default_dataset_path
+from torchvision import transforms
+from torchvision.datasets import CIFAR10, CIFAR100
 
 
 __all__ = ["CIFAR10Dataset", "CIFAR100Dataset"]

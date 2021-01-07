@@ -1,34 +1,29 @@
-import pytest
-
-from typing import List, Callable, Union
-import sys
 import os
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
+import sys
+from typing import Callable, List, Union
 
-from sparseml.utils import ALL_TOKEN
+import pytest
 from sparseml.pytorch.optim import (
     PYTORCH_FRAMEWORK,
-    PyTorchModifierYAML,
     Modifier,
+    PyTorchModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.utils import (
-    PythonLogger,
-    TensorBoardLogger,
-)
-
+from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
+from sparseml.utils import ALL_TOKEN
 from tests.optim import BaseModifierTest, BaseScheduledTest, BaseUpdateTest
 from tests.pytorch.helpers import (
-    test_epoch,
-    test_steps_per_epoch,
-    test_loss,
     LinearNet,
-    create_optim_sgd,
     create_optim_adam,
+    create_optim_sgd,
+    test_epoch,
+    test_loss,
+    test_steps_per_epoch,
 )
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
 
 
 __all__ = [
@@ -42,7 +37,8 @@ __all__ = [
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 class ModifierTest(BaseModifierTest):
     # noinspection PyMethodOverriding
@@ -303,7 +299,8 @@ class ModifierTest(BaseModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
     def start_helper(self, modifier: Modifier, model: Module, optimizer: Optimizer):
@@ -520,7 +517,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
     # noinspection PyMethodOverriding
@@ -627,7 +625,8 @@ class ModifierImpl(Modifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", [ModifierImpl], scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -650,7 +649,8 @@ class ScheduledModifierImpl(ScheduledModifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", [ScheduledModifierImpl], scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -674,7 +674,8 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda", [ScheduledUpdateModifierImpl], scope="function"

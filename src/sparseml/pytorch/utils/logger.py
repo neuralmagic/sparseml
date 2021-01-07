@@ -2,15 +2,16 @@
 Contains code for loggers that help visualize the information from each modifier
 """
 
-from abc import ABC, abstractmethod
-from typing import Union, Dict
+import logging
 import os
 import time
-import logging
+from abc import ABC, abstractmethod
 from logging import Logger
-from numpy import ndarray
+from typing import Dict, Union
 
+from numpy import ndarray
 from torch import Tensor
+
 
 try:
     from torch.utils.tensorboard import SummaryWriter

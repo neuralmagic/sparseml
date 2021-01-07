@@ -1,16 +1,16 @@
-import pytest
-
 import os
-from abc import ABC
 import time
-import numpy
-import torch
+from abc import ABC
 
+import numpy
+import pytest
+import torch
 from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("logger", [PythonLogger(), TensorBoardLogger()])
 class TestModifierLogger(ABC):

@@ -3,11 +3,12 @@ Implementations for the FATReLU (Forced Activation Threshold) activation functio
 Used to increase the activation sparsity of neural networks.
 """
 
-from typing import Union, List, Dict
+from typing import Dict, List, Union
+
 import torch
+import torch.nn.functional as TF
 from torch import Tensor
 from torch.nn import Module, Parameter, ReLU
-import torch.nn.functional as TF
 
 
 __all__ = [

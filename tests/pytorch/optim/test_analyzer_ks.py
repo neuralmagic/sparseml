@@ -1,18 +1,16 @@
-import pytest
 import os
 
+import pytest
 import torch
-from torch.nn import Parameter, Sequential, Linear, ReLU
-
 from sparseml.pytorch.optim import ModulePruningAnalyzer
 from sparseml.pytorch.utils import get_layer
-
-
 from tests.pytorch.helpers import LinearNet
+from torch.nn import Linear, Parameter, ReLU, Sequential
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def _test_const(module, name, param_name):
     layer = get_layer(name, module)
@@ -25,7 +23,8 @@ def _test_const(module, name, param_name):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "module,name,param_name",
@@ -41,7 +40,8 @@ def test_const(module, name, param_name):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "module,name,param_name",
@@ -59,7 +59,8 @@ def test_const_cuda(module, name, param_name):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "module,layers,param_name",
@@ -85,7 +86,8 @@ def test_analyze_layers(module, layers, param_name):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "module,layers,param_name",
@@ -113,7 +115,8 @@ def test_analyze_layers_cuda(module, layers, param_name):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "module,name,param_name,param_data,expected_sparsity",

@@ -1,7 +1,6 @@
-import pytest
 import numpy as np
+import pytest
 import tensorflow as tf
-
 from sparseml.keras.optim import (
     MaskedLayer,
     PruningScheduler,
@@ -16,17 +15,17 @@ from .mock import *
     [
         (
             # Weight of a dense layer of shape (3, 4)
-                DenseLayerCreator(
+            DenseLayerCreator(
                 "dense",
                 np.array(
                     [[0.9, 0.1, 0.2, 0.5], [0.3, 0.5, 0.8, 0.9], [0.4, 0.6, 0.7, 0.9]]
                 ),
             ),
-                MockPruningScheduler([(1, 0.25), (2, 0.5)]),
-                UnstructuredPruningMaskCreator(),
-                # List of expected mask, each corresponding to one of the
-                # above update step in the MockPruningScheduler
-                [
+            MockPruningScheduler([(1, 0.25), (2, 0.5)]),
+            UnstructuredPruningMaskCreator(),
+            # List of expected mask, each corresponding to one of the
+            # above update step in the MockPruningScheduler
+            [
                 # Expected mask at time step 1, 25% sparsity
                 np.array(
                     [

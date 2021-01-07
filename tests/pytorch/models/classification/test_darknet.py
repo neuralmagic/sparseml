@@ -1,18 +1,19 @@
 import os
-import pytest
+from typing import Callable, Union
 
-from typing import Union, Callable
+import pytest
 import torch
 from sparseml.pytorch.models import ModelRegistry, darknet53
-
 from tests.pytorch.models.utils import compare_model
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",
+    os.getenv("NM_ML_SKIP_MODEL_TESTS", False),
+    reason="Skipping model tests",
 )
 @pytest.mark.parametrize(
     "key,pretrained,test_input,match_const, match_args",

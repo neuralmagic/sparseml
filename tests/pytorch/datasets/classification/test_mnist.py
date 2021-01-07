@@ -1,10 +1,9 @@
 import os
-import pytest
-
 import tempfile
-from torch.utils.data import Dataset
 
+import pytest
 from sparseml.pytorch.datasets import DatasetRegistry, MNISTDataset
+from torch.utils.data import Dataset
 
 
 def _validate_mnist(dataset: Dataset):
@@ -18,10 +17,12 @@ def _validate_mnist(dataset: Dataset):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
 )
 def test_mnist():
     train_dataset = MNISTDataset(train=True)

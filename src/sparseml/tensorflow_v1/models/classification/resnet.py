@@ -5,10 +5,12 @@ Further info on ResNet can be found in the paper
 """
 
 from typing import List, Union
-from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.tensorflow_v1.nn import activation, conv2d_block, dense_block, pool2d
-from sparseml.tensorflow_v1.models.registry import ModelRegistry
+
 from sparseml.tensorflow_v1.models.estimator import ClassificationEstimatorModelFn
+from sparseml.tensorflow_v1.models.registry import ModelRegistry
+from sparseml.tensorflow_v1.nn import activation, conv2d_block, dense_block, pool2d
+from sparseml.tensorflow_v1.utils import tf_compat
+
 
 __all__ = [
     "ResNetSection",
@@ -632,16 +634,28 @@ def resnet50(
     """
     sec_settings = [
         ResNetSection(
-            num_blocks=3, out_channels=256, downsample=False, proj_channels=64,
+            num_blocks=3,
+            out_channels=256,
+            downsample=False,
+            proj_channels=64,
         ),
         ResNetSection(
-            num_blocks=4, out_channels=512, downsample=True, proj_channels=128,
+            num_blocks=4,
+            out_channels=512,
+            downsample=True,
+            proj_channels=128,
         ),
         ResNetSection(
-            num_blocks=6, out_channels=1024, downsample=True, proj_channels=256,
+            num_blocks=6,
+            out_channels=1024,
+            downsample=True,
+            proj_channels=256,
         ),
         ResNetSection(
-            num_blocks=3, out_channels=2048, downsample=True, proj_channels=512,
+            num_blocks=3,
+            out_channels=2048,
+            downsample=True,
+            proj_channels=512,
         ),
     ]
 
@@ -700,16 +714,28 @@ def resnet101(
     """
     sec_settings = [
         ResNetSection(
-            num_blocks=3, out_channels=256, downsample=False, proj_channels=64,
+            num_blocks=3,
+            out_channels=256,
+            downsample=False,
+            proj_channels=64,
         ),
         ResNetSection(
-            num_blocks=4, out_channels=512, downsample=True, proj_channels=128,
+            num_blocks=4,
+            out_channels=512,
+            downsample=True,
+            proj_channels=128,
         ),
         ResNetSection(
-            num_blocks=23, out_channels=1024, downsample=True, proj_channels=256,
+            num_blocks=23,
+            out_channels=1024,
+            downsample=True,
+            proj_channels=256,
         ),
         ResNetSection(
-            num_blocks=3, out_channels=2048, downsample=True, proj_channels=512,
+            num_blocks=3,
+            out_channels=2048,
+            downsample=True,
+            proj_channels=512,
         ),
     ]
 
@@ -768,16 +794,28 @@ def resnet152(
     """
     sec_settings = [
         ResNetSection(
-            num_blocks=3, out_channels=256, downsample=False, proj_channels=64,
+            num_blocks=3,
+            out_channels=256,
+            downsample=False,
+            proj_channels=64,
         ),
         ResNetSection(
-            num_blocks=8, out_channels=512, downsample=True, proj_channels=128,
+            num_blocks=8,
+            out_channels=512,
+            downsample=True,
+            proj_channels=128,
         ),
         ResNetSection(
-            num_blocks=36, out_channels=1024, downsample=True, proj_channels=256,
+            num_blocks=36,
+            out_channels=1024,
+            downsample=True,
+            proj_channels=256,
         ),
         ResNetSection(
-            num_blocks=3, out_channels=2048, downsample=True, proj_channels=512,
+            num_blocks=3,
+            out_channels=2048,
+            downsample=True,
+            proj_channels=512,
         ),
     ]
 

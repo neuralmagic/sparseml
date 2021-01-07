@@ -2,19 +2,21 @@
 Sensitivity analysis implementations for kernel sparsity on Graphs against loss funcs.
 """
 
-from typing import Dict, List, Union, Callable, Tuple
 from collections import namedtuple
-import numpy
-from tqdm import auto
+from typing import Callable, Dict, List, Tuple, Union
 
-from sparseml.optim import PruningLossSensitivityAnalysis, default_pruning_sparsities_loss
-from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.tensorflow_v1.utils import get_ops_and_inputs_by_name_or_regex
-from sparseml.tensorflow_v1.optim.mask_pruning import PruningScope, create_op_pruning
+import numpy
+from sparseml.optim import (
+    PruningLossSensitivityAnalysis,
+    default_pruning_sparsities_loss,
+)
 from sparseml.tensorflow_v1.optim.mask_creator_pruning import (
     PruningMaskCreator,
     load_mask_creator,
 )
+from sparseml.tensorflow_v1.optim.mask_pruning import PruningScope, create_op_pruning
+from sparseml.tensorflow_v1.utils import get_ops_and_inputs_by_name_or_regex, tf_compat
+from tqdm import auto
 
 
 __all__ = [
