@@ -7,6 +7,17 @@ More info for the dataset can be found `here <https://github.com/fastai/imagenet
 import random
 from typing import Union
 
+
+try:
+    from torchvision import transforms
+    from torchvision.datasets import ImageFolder
+
+    torchvision_import_error = None
+except Exception as torchvision_error:
+    transforms = None
+    ImageFolder = object  # default for constructor
+    torchvision_import_error = torchvision_error
+
 from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils.datasets import (
     IMAGENET_RGB_MEANS,
@@ -16,8 +27,6 @@ from sparseml.utils.datasets import (
     ImagewoofDownloader,
     default_dataset_path,
 )
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
 
 
 __all__ = ["ImagenetteSize", "ImagenetteDataset", "ImagewoofDataset"]
@@ -31,7 +40,7 @@ __all__ = ["ImagenetteSize", "ImagenetteDataset", "ImagewoofDataset"]
         "transform_stds": IMAGENET_RGB_STDS,
     },
 )
-class ImagenetteDataset(ImageFolder, ImagenetteDownloader):
+class ImagenetteDataset(ImagenetteDownloader, ImageFolder):
     """
     Wrapper for the imagenette (10 class) dataset that fastai created.
     Handles downloading and applying standard transforms.
@@ -57,6 +66,9 @@ class ImagenetteDataset(ImageFolder, ImagenetteDownloader):
         image_size: Union[int, None] = None,
         download: bool = True,
     ):
+        if torchvision_import_error is not None:
+            raise torchvision_import_error
+
         ImagenetteDownloader.__init__(self, root, dataset_size, download)
 
         if image_size is None:
@@ -95,7 +107,7 @@ class ImagenetteDataset(ImageFolder, ImagenetteDownloader):
         "transform_stds": IMAGENET_RGB_STDS,
     },
 )
-class ImagewoofDataset(ImageFolder, ImagewoofDownloader):
+class ImagewoofDataset(ImagewoofDownloader, ImageFolder):
     """
     Wrapper for the imagewoof (10 class) dataset that fastai created.
     Handles downloading and applying standard transforms.
@@ -122,6 +134,9 @@ class ImagewoofDataset(ImageFolder, ImagewoofDownloader):
         image_size: Union[int, None] = None,
         download: bool = True,
     ):
+        if torchvision_import_error is not None:
+            raise torchvision_import_error
+
         ImagewoofDownloader.__init__(self, root, dataset_size, download)
 
         if image_size is None:

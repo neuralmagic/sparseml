@@ -8,9 +8,18 @@ from typing import Any, Callable, List, Tuple
 
 import torch
 from PIL import Image
-from sparseml.pytorch.utils import ssd_random_crop
 from torch import Tensor
-from torchvision.transforms import functional as torch_functional
+
+
+try:
+    from torchvision.transforms import functional as torchvision_functional
+
+    torchvision_import_error = None
+except Exception as torchvision_error:
+    torchvision_functional = None
+    torchvision_import_error = torchvision_error
+
+from sparseml.pytorch.utils import ssd_random_crop
 
 
 __all__ = [
@@ -75,11 +84,14 @@ def random_horizontal_flip_image_and_annotations(
     :param p: the probability to flip with. Default is 0.5
     :return: A tuple of the randomly flipped image and annotations
     """
+    if torchvision_import_error is not None:
+        raise torchvision_import_error
+
     boxes, labels = annotations
     if random.random() < p:
         if labels.numel() > 0:
             boxes[:, [0, 2]] = 1.0 - boxes[:, [2, 0]]  # flip width dimensions
-        image = torch_functional.hflip(image)
+        image = torchvision_functional.hflip(image)
     return image, (boxes, labels)
 
 

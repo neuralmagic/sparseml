@@ -10,14 +10,5 @@ try:
         raise Exception
 except:
     raise RuntimeError(
-        "Unable to import torch. torch>=1.0.0 and a compatable version of torchvision"
-        " are required to use sparseml.pytorch"
-    )
-
-try:
-    import torchvision
-except:
-    raise RuntimeError(
-        "Unable to import torchvision. torch>=1.0.0 and a compatable version of torchvision"
-        " are required to use sparseml.pytorch"
+        "Unable to import torch. torch>=1.0.0 is required to use sparseml.pytorch"
     )

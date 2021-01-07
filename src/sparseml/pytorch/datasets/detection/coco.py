@@ -1,9 +1,17 @@
 import os
 
 import torch
-from torchvision.transforms import ColorJitter
-from torchvision.transforms import functional as torch_functional
 
+
+try:
+    from torchvision.transforms import ColorJitter
+    from torchvision.transforms import functional as torch_functional
+
+    torchvision_import_error = None
+except Exception as torchvision_error:
+    ColorJitter = None
+    torch_functional = None
+    torchvision_import_error = torchvision_error
 
 try:
     import pycocotools
@@ -90,6 +98,8 @@ class CocoDetectionDataset(CocoDetection):
         preprocessing_type: str = None,
         default_boxes: DefaultBoxes = None,
     ):
+        if torchvision_import_error is not None:
+            raise torchvision_import_error
         if pycocotools is None:
             raise ValueError("pycocotools is not installed, please install to use")
 
