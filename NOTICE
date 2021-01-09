@@ -17,8 +17,8 @@ LICENSE for more information.
 NOTICES
 ========================================================================
 
- All implementations in this repository are subject to Neural Magic's Legal Policies
- https://www.neuralmagic.com/legal
+All implementations in this repository are subject to Neural Magic's Legal Policies
+https://www.neuralmagic.com/legal
 
 All packages as defined in the requirements.txt and their associated licenses.
 
@@ -28,4 +28,7 @@ PyTorch torchvision and models License https://github.com/pytorch/vision/blob/ma
 
 TensorFlow License https://github.com/tensorflow/tensorflow/blob/master/LICENSE
 
-Examples given in some of the notebooks make use of fast.ai's Imagenette / Imagewoof dataset https://github.com/fastai/imagenette provided under the Apache License 2.0 https://github.com/fastai/imagenette/blob/master/LICENSE
+Examples given in some of the notebooks make use of fast.ai's 
+Imagenette / Imagewoof dataset https://github.com/fastai/imagenette 
+provided under the 
+Apache License 2.0 https://github.com/fastai/imagenette/blob/master/LICENSE
