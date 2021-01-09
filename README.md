@@ -49,7 +49,6 @@ This repository includes model pruning APIs and CLIs as well as transfer learnin
 
 ### Repository Structure
 ```
-
 neuralmagicML-python
     docs - API documentation for the repository
     neuralmagicML - The Python API Code
@@ -67,6 +66,7 @@ neuralmagicML-python
 
 ## Quick Tour and Documentation
 [TODO ENGINEERING: EDIT AS NEEDED]
+
 Follow the quick tour below to get started.
 For a more in-depth read, check out [SparseML documentation](https://docs.neuralmagic.com/sparseml/).
 
@@ -140,7 +140,7 @@ Due to this flexibility, ahould you use the Neural Magic Inference Engine, it us
 - [Instructions for exporting to ONNX](docs/export-onnx.md) are available for these popular frameworks.
 
 ## Available Models and Recipes
-If you are not ready to upload your model through SparseML, a number of pre-trained models are available in the [SparseZoo](https://docs.neuralmagic.com/sparsezoo/) that can be used. Included are both baseline and recalibrated models for higher performance. These can optionally be used with [Neural Magic Inference Engine](https://github.com/neuralmagic/engine/). The types available for each model architecture are noted in the [SparseML model repository listing](docs/available-models.md).
+If you are not ready to upload your model through SparseML, a number of pre-trained models in the [SparseZoo](https://docs.neuralmagic.com/sparsezoo/) can be used. Included are both baseline and recalibrated models for higher performance. These can optionally be used with [Neural Magic Inference Engine](https://github.com/neuralmagic/engine/). The types available for each model architecture are noted in the [SparseML model repository listing](docs/available-models.md).
 
 ## Recalibration
 APIs for recalibrating models are provided for each supported ML framework.
@@ -155,9 +155,9 @@ The implementations for each framework differ to best match their internal struc
 
 To take advantage of these APIs, check out:
 
-- ### [Configuration File Code Snippets](recal-configs.md)
-- ### [Recalibrating in PyTorch](recal-python.md)
-- ### [Recalibrating in TensorFlow](recal-tensorflow.md)
+- [Configuration File Code Snippets](recal-configs.md)
+- [Recalibrating in PyTorch](recal-python.md)
+- [Recalibrating in TensorFlow](recal-tensorflow.md)
 
 ## Resources and Learning More
 * [SparseML Documentation](https://docs.neuralmagic.com/sparseml/)
