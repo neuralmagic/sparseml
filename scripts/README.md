@@ -1,4 +1,4 @@
-## Scripts
+## Scripts for SparseML
 
 Ease-of-use SparseML scripts, which are implemented as Python scripts for easy consumption and editing,
 are provided under the `scripts` directory.
