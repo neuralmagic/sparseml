@@ -1,6 +1,6 @@
 ## How to Export to ONNX
 
-These are nstructions for exporting to ONNX format for these popular frameworks.
+These are instructions for exporting to ONNX format for these popular frameworks.
 
 ### PyTorch ONNX
 [ONNX support](https://pytorch.org/docs/stable/onnx.html) is natively built into PyTorch.
