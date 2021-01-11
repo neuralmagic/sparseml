@@ -21,7 +21,7 @@ from sparseml.tensorflow_v1.utils import (
     get_op_input_var,
     tf_compat,
 )
-from tests.tensorflow.helpers import conv_net, mlp_net
+from tests.tensorflow_v1.helpers import conv_net, mlp_net
 
 
 @pytest.mark.skipif(

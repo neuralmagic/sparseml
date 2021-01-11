@@ -12,7 +12,7 @@ from sparseml.onnx.utils.model import (
     ORTModelRunner,
     max_available_cores,
 )
-from sparseml.utils import RepoModel
+from sparsezoo import Model
 
 
 try:
@@ -37,7 +37,8 @@ OnnxModelDataFixture = NamedTuple(
                 "sub_architecture": "50",
                 "dataset": "imagenet",
                 "framework": "pytorch",
-                "desc": "base",
+                "repo_source": "neuralmagic",
+                "optimization_name": "base",
             }
         ),
         (
@@ -48,14 +49,15 @@ OnnxModelDataFixture = NamedTuple(
                 "sub_architecture": "1.0",
                 "dataset": "imagenet",
                 "framework": "pytorch",
-                "desc": "base",
+                "repo_source": "neuralmagic",
+                "optimization_name": "base",
             }
         ),
     ]
 )
 def onnx_models_with_data(request) -> OnnxModelDataFixture:
     model_args = request.param
-    model = RepoModel(**model_args)
+    model = Model.get_downloadable_model(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
     data_paths = model.download_data_files(overwrite=False)
     inputs_paths = None

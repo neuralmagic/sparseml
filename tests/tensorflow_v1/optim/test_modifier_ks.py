@@ -17,8 +17,8 @@ from sparseml.tensorflow_v1.utils import (
     eval_tensor_sparsity,
     tf_compat,
 )
-from tests.tensorflow.helpers import mlp_net
-from tests.tensorflow.optim.test_modifier import (
+from tests.tensorflow_v1.helpers import mlp_net
+from tests.tensorflow_v1.optim.test_modifier import (
     ScheduledModifierTest,
     conv_graph_lambda,
     mlp_graph_lambda,
@@ -44,7 +44,7 @@ from tests.tensorflow.optim.test_modifier import (
     scope="function",
 )
 @pytest.mark.parametrize("steps_per_epoch", [100], scope="function")
-class TestConstantKSModifierImpl(ScheduledModifierTest):
+class TestConstantPruningModifierImpl(ScheduledModifierTest):
     def test_lifecycle(
         self,
         modifier_lambda: Callable[[], GMPruningModifier],
@@ -109,12 +109,12 @@ class TestConstantKSModifierImpl(ScheduledModifierTest):
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",
 )
-def test_constant_ks_yaml():
+def test_constant_pruning_yaml():
     params = "__ALL__"
     start_epoch = 5.0
     end_epoch = 15.0
     yaml_str = """
-    !ConstantKSModifier
+    !ConstantPruningModifier
         params: {params}
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
@@ -212,7 +212,7 @@ def test_constant_ks_yaml():
     scope="function",
 )
 @pytest.mark.parametrize("steps_per_epoch", [100], scope="function")
-class TestGradualKSModifierImpl(ScheduledModifierTest):
+class TestGMPruningModifierImpl(ScheduledModifierTest):
     def test_lifecycle(
         self,
         modifier_lambda: Callable[[], GMPruningModifier],
@@ -295,7 +295,7 @@ class TestGradualKSModifierImpl(ScheduledModifierTest):
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",
 )
-def test_gradual_ks_training_with_manager():
+def test_gm_pruning_training_with_manager():
     modifier = GMPruningModifier(
         params=["mlp_net/fc1/weight", "mlp_net/fc3/weight"],
         init_sparsity=0.05,
@@ -375,7 +375,7 @@ def test_gradual_ks_training_with_manager():
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",
 )
-def test_gradual_ks_yaml():
+def test_gm_pruning_yaml():
     params = "__ALL__"
     init_sparsity = 0.05
     final_sparsity = 0.8
@@ -386,7 +386,7 @@ def test_gradual_ks_yaml():
     mask_type = "channel"
     leave_enabled = "True"
     yaml_str = """
-    !GradualKSModifier
+    !GMPruningModifier
         params: {params}
         init_sparsity: {init_sparsity}
         final_sparsity: {final_sparsity}

@@ -9,16 +9,18 @@ from typing import Tuple, Union
 import numpy as np
 import onnx
 from onnx import numpy_helper
-from sparseml.onnx.utils import (
+from sparseml.onnx.utils.graph_editor import (
+    remove_node_and_params_from_graph,
+    swap_node_output,
+    update_model_param,
+)
+from sparseml.onnx.utils.helpers import (
     BatchNormParams,
     NodeParam,
     conv_node_params,
     get_batch_norm_params,
     get_node_input_nodes,
     get_quantize_parent_for_dequantize_node,
-    remove_node_and_params_from_graph,
-    swap_node_output,
-    update_model_param,
 )
 
 

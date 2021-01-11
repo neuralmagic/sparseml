@@ -3,8 +3,8 @@ import os
 import numpy as np
 import onnx
 import pytest
-from sparseml.onnx.quantization.calibration import CalibrationSession
-from tests.onnx.quantization.helpers import (
+from sparseml.onnx.optim.quantization.calibration import CalibrationSession
+from tests.onnx.optim.quantization.helpers import (
     make_tmp_onnx_file,
     onnx_conv_net,
     onnx_linear_net,
