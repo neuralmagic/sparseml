@@ -43,7 +43,7 @@ class ModelRegistry(object):
     """
 
     _CONSTRUCTORS = {}  # type: Dict[str, Callable]
-    _ATTRIBUTES = {}  # type: Dict[str, _ModelAttributes]
+    _ATTRIBUTES = {}  # type: Dict[str, ModelAttributes]
 
     @staticmethod
     def available_keys() -> List[str]:
@@ -143,6 +143,7 @@ class ModelRegistry(object):
             )
 
         return ModelRegistry._ATTRIBUTES[key].input_shape
+
 
     @staticmethod
     def register(
