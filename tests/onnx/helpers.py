@@ -4,7 +4,7 @@ from typing import NamedTuple
 import pytest
 import torch
 from sparseml.pytorch.utils import ModuleExporter
-from sparseml.utils import RepoModel
+from sparsezoo import Model
 from tests.pytorch.helpers import ConvNet, LinearNet, MLPNet
 
 
@@ -742,7 +742,8 @@ OnnxRepoModelFixture = NamedTuple(
                 "sub_architecture": "50",
                 "dataset": "imagenet",
                 "framework": "pytorch",
-                "desc": "base",
+                "repo_source": "neuralmagic",
+                "optimization_name": "base",
             },
             "resnet50",
         ),
@@ -754,7 +755,8 @@ OnnxRepoModelFixture = NamedTuple(
                 "sub_architecture": "1.0",
                 "dataset": "imagenet",
                 "framework": "pytorch",
-                "desc": "base",
+                "repo_source": "neuralmagic",
+                "optimization_name": "base",
             },
             "mobilenet",
         ),
@@ -762,7 +764,7 @@ OnnxRepoModelFixture = NamedTuple(
 )
 def onnx_repo_models(request) -> OnnxRepoModelFixture:
     model_args, model_name = request.param
-    model = RepoModel(**model_args)
+    model = Model.get_downloadable_model(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
     data_paths = model.download_data_files(overwrite=False)
 

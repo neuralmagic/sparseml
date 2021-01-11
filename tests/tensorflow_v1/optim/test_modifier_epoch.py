@@ -2,7 +2,7 @@ import os
 
 import pytest
 from sparseml.tensorflow_v1.optim import EpochRangeModifier
-from tests.tensorflow.optim.test_modifier import (
+from tests.tensorflow_v1.optim.test_modifier import (
     ScheduledModifierTest,
     conv_graph_lambda,
     mlp_graph_lambda,

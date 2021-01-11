@@ -5,8 +5,8 @@ Implementations for SSD models with ResNet backbones
 
 from typing import List, Union
 
-from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.models.detection import SSD300, SSDBackbone
+from sparseml.pytorch.models.registry import ModelRegistry
 from torch import nn
 
 

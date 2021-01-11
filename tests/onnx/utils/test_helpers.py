@@ -39,7 +39,7 @@ from sparseml.onnx.utils import (
     model_outputs,
     onnx_nodes_sparsities,
 )
-from sparseml.utils import available_models
+from sparsezoo import search_models
 from tests.onnx.helpers import extract_node_models, onnx_repo_models
 
 
@@ -343,12 +343,14 @@ def test_get_node_params(prunable_onnx_model):
 
 def test_onnx_node_sparsities():
     # runs through nearly all other onnx functions imported above as well
-    models = available_models(
-        domains=["cv"],
-        sub_domains=["classification"],
-        architectures=["mobilenet-v1"],
-        datasets=["imagenet"],
-        descs=["optim-perf"],
+    models = search_models(
+        domain="cv",
+        sub_domain="classification",
+        architecture="mobilenet-v1",
+        dataset="imagenet",
+        framework="pytorch",
+        optimization_name="optim-perf",
+        repo_source="neuralmagic",
     )
     assert len(models) > 0
 

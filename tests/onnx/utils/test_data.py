@@ -6,7 +6,7 @@ from typing import Dict, NamedTuple, Tuple, Union
 import numpy
 import pytest
 from sparseml.onnx.utils import DataLoader
-from sparseml.utils import RepoModel
+from sparsezoo import Model
 
 
 DataloaderModelFixture = NamedTuple(
@@ -30,7 +30,8 @@ DataloaderModelFixture = NamedTuple(
                 "sub_architecture": "50",
                 "dataset": "imagenet",
                 "framework": "pytorch",
-                "desc": "base",
+                "repo_source": "neuralmagic",
+                "optimization_name": "base",
             },
             {"input": (1, 3, 224, 224)},
             {"output_0": (1, 1000), "output_1": (1, 1000)},
@@ -44,7 +45,8 @@ DataloaderModelFixture = NamedTuple(
                 "sub_architecture": "1.0",
                 "dataset": "imagenet",
                 "framework": "pytorch",
-                "desc": "base",
+                "repo_source": "neuralmagic",
+                "optimization_name": "base",
             },
             {"input": (1, 3, 224, 224)},
             {"output_0": (1, 1000)},
@@ -54,7 +56,7 @@ DataloaderModelFixture = NamedTuple(
 )
 def dataloader_models(request) -> DataloaderModelFixture:
     model_args, input_shapes, output_shapes, data_types = request.param
-    model = RepoModel(**model_args)
+    model = Model.get_downloadable_model(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
 
     return DataloaderModelFixture(model_path, input_shapes, output_shapes, data_types)

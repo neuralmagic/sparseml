@@ -27,7 +27,7 @@ def _test_state_dict_save_load(
     model_lambda,
     optim_lambda,
     test_steps_per_epoch,
-    is_gradual_ks,
+    is_gm_pruning,
 ):
     modifier = modifier_lambda()
     model = model_lambda()
@@ -40,7 +40,7 @@ def _test_state_dict_save_load(
     # get state dict
     state_dict = modifier.state_dict()
     for mask in state_dict.values():
-        if is_gradual_ks:
+        if is_gm_pruning:
             # check that the mask sparsity is the applied one leaving a relatively
             # large margin of error since parameter sizes are small so the exact sparsity
             # cannot always be attained
@@ -49,7 +49,7 @@ def _test_state_dict_save_load(
             )
         else:
             # all weights should be non zero, pending randomness, so the mask should be
-            # all ones for this constant_ks modifier
+            # all ones for this constant_pruning modifier
             assert mask.sum() / mask.numel() >= 0.99
 
     # check that changing the state dict masks to all 0s and reapplying will affect
@@ -88,7 +88,7 @@ def _test_state_dict_save_load(
     [create_optim_sgd, create_optim_adam],
     scope="function",
 )
-class TestConstantKSModifier(ScheduledModifierTest):
+class TestConstantPruningModifier(ScheduledModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
@@ -133,12 +133,12 @@ class TestConstantKSModifier(ScheduledModifierTest):
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-def test_constant_ks_yaml():
+def test_constant_pruning_yaml():
     start_epoch = 5.0
     end_epoch = 15.0
     params = ["re:.*weight"]
     yaml_str = """
-    !ConstantKSModifier
+    !ConstantPruningModifier
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
         params: {params}
@@ -213,7 +213,7 @@ def test_constant_ks_yaml():
     [create_optim_sgd, create_optim_adam],
     scope="function",
 )
-class TestGradualKSModifier(ScheduledUpdateModifierTest):
+class TestGMPruningModifier(ScheduledUpdateModifierTest):
     def test_lifecycle(
         self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
     ):
@@ -267,7 +267,7 @@ class TestGradualKSModifier(ScheduledUpdateModifierTest):
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-def test_gradual_ks_yaml():
+def test_gm_pruning_yaml():
     init_sparsity = 0.05
     final_sparsity = 0.8
     start_epoch = 5.0
@@ -277,7 +277,7 @@ def test_gradual_ks_yaml():
     inter_func = "cubic"
     mask_type = "filter"
     yaml_str = """
-    !GradualKSModifier
+    !GMPruningModifier
         init_sparsity: {init_sparsity}
         final_sparsity: {final_sparsity}
         start_epoch: {start_epoch}

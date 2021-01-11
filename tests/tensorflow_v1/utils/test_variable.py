@@ -9,7 +9,7 @@ from sparseml.tensorflow_v1.utils import (
     get_prunable_ops,
     tf_compat,
 )
-from tests.tensorflow.helpers import conv_net, mlp_net
+from tests.tensorflow_v1.helpers import conv_net, mlp_net
 
 
 @pytest.mark.skipif(
