@@ -3,6 +3,7 @@
 BUILDDIR := $(PWD)
 CHECKDIRS := examples tests src utils scripts setup.py
 DOCDIR := docs
+TARGET := ""  # directory/file/function to target with pytest
 
 # run checks on all files for the repo
 quality:
@@ -20,7 +21,7 @@ style:
 # run tests for the repo
 test:
 	@echo "Running python tests";
-	@pytest;
+	@pytest $(TARGET);
 
 # create docs
 docs:
