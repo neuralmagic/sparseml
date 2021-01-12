@@ -101,6 +101,7 @@ class ScheduledOptimizer(Optimizer):
             "_epoch",
             "learning_rate",
             "param_groups",
+            "step",
         ]:
             super().__setattr__(key, value)
         else:
