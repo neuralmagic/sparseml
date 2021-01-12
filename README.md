@@ -48,7 +48,8 @@ Neural Magic, the creators of SparseML, is focused on making performance enginee
 This repository includes model pruning APIs and CLIs as well as transfer learning APIs and CLIs, simplifying the process of achieving performance on deep learning models with Neural Magic.
 
 ### Repository Structure
-```
+
+``` bash
 neuralmagicML-python
     docs - API documentation for the repository
     neuralmagicML - The Python API Code
@@ -120,7 +121,7 @@ The currently supported framework versions are:
 
 The following commands install versions of PyTorch and TensorFlow v1. For more installation information, see the [PyTorch](https://pytorch.org/get-started/locally/) and [TensorFlow](https://www.tensorflow.org/install/pip) websites.
 
-```
+```python
 pip3 install torch==1.5.0 torchvision==0.6.0
 pip3 install tensorflow==1.15.0
 ```
@@ -198,6 +199,7 @@ The project is licensed under the [Apache License Version 2.0](LICENSE).
 ## Release History
 
 [Track this project via GitHub Releases.](https://github.com/neuralmagic/sparseml/releases)
+
 ## Citation
 
 Find this project useful in your research or other communications? Please consider citing:
