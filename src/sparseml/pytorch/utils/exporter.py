@@ -2,28 +2,21 @@
 Export PyTorch models to the local device
 """
 
-from typing import List, Any, Iterable
 import os
 from copy import deepcopy
+from typing import Any, Iterable, List
 
 import torch
+from sparseml.pytorch.utils.helpers import (
+    tensors_export,
+    tensors_module_forward,
+    tensors_to_device,
+)
+from sparseml.pytorch.utils.model import is_parallel_model, save_model
+from sparseml.utils import clean_path, create_parent_dirs
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
-
-from sparseml.utils import (
-    create_parent_dirs,
-    clean_path,
-)
-from sparseml.pytorch.utils.helpers import (
-    tensors_to_device,
-    tensors_module_forward,
-    tensors_export,
-)
-from sparseml.pytorch.utils.model import (
-    save_model,
-    is_parallel_model,
-)
 
 
 __all__ = ["ModuleExporter"]
@@ -42,7 +35,9 @@ class ModuleExporter(object):
     """
 
     def __init__(
-        self, module: Module, output_dir: str,
+        self,
+        module: Module,
+        output_dir: str,
     ):
         if is_parallel_model(module):
             module = module.module

@@ -3,9 +3,10 @@ Code for describing layers / operators in ML framework neural networks.
 """
 
 import json
-from typing import Any, Dict, Tuple, List
+from typing import Any, Dict, List, Tuple
 
 from sparseml.utils import clean_path, create_parent_dirs
+
 
 __all__ = ["AnalyzedLayerDesc"]
 

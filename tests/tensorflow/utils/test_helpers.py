@@ -1,10 +1,11 @@
-import pytest
-
 import os
+
+import pytest
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 def test_tf_compat():
     from sparseml.tensorflow_v1.utils import tf_compat
@@ -14,7 +15,8 @@ def test_tf_compat():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 def test_tf_compat_div():
     from sparseml.tensorflow_v1.utils import tf_compat_div

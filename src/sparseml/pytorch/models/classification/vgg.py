@@ -4,22 +4,23 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1409.1556>`_
 """
 
 from typing import List
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
-    Module,
-    Conv2d,
     BatchNorm2d,
-    MaxPool2d,
-    Linear,
-    init,
-    Sequential,
+    Conv2d,
     Dropout,
-    Softmax,
+    Linear,
+    MaxPool2d,
+    Module,
+    Sequential,
     Sigmoid,
+    Softmax,
+    init,
 )
 
-from sparseml.pytorch.nn import ReLU
-from sparseml.pytorch.models.registry import ModelRegistry
 
 __all__ = [
     "VGG",
@@ -138,7 +139,10 @@ class VGG(Module):
     """
 
     def __init__(
-        self, sec_settings: List[VGGSectionSettings], num_classes: int, class_type: str,
+        self,
+        sec_settings: List[VGGSectionSettings],
+        num_classes: int,
+        class_type: str,
     ):
         super(VGG, self).__init__()
         self.sections = Sequential(

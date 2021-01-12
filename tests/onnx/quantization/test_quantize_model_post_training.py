@@ -1,25 +1,20 @@
-import pytest
-import numpy as np
-import onnx
 import os
 import random
 import tempfile
 
+import numpy as np
+import onnx
+import pytest
+from sparseml.onnx.quantization.quantize_model_post_training import (
+    quantize_model_post_training,
+)
 from sparseml.onnx.utils import (
     DataLoader,
     ORTModelRunner,
     quantize_resnet_identity_add_inputs,
 )
-from sparseml.pytorch.datasets import (
-    MNISTDataset,
-    ImagenetteDataset,
-    ImagenetteSize,
-)
-from sparseml.onnx.quantization.quantize_model_post_training import (
-    quantize_model_post_training,
-)
-from sparseml.utils import available_models, RepoModel
-
+from sparseml.pytorch.datasets import ImagenetteDataset, ImagenetteSize, MNISTDataset
+from sparseml.utils import RepoModel, available_models
 from tests.onnx.quantization.helpers import make_tmp_onnx_file
 
 

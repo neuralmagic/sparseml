@@ -1,7 +1,6 @@
 import numpy
-from onnx import numpy_helper, TensorProto, SparseTensorProto
 import pytest
-
+from onnx import SparseTensorProto, TensorProto, numpy_helper
 from sparseml.onnx.utils import create_sparse_tensor, sparse_tensor_to_dense
 
 

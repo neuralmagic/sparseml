@@ -3,20 +3,17 @@ Modifier for changing the state of a modules params while training according to
 certain update formulas or patterns.
 """
 
-from typing import Union, List
-import tensorflow
+from typing import List, Union
 
-from sparseml.utils import (
-    ALL_TOKEN,
-    convert_to_bool,
-    flatten_iterable,
-)
+import tensorflow
 from sparseml.keras.optim.modifier import (
-    ModifierProp,
     KerasModifierYAML,
+    ModifierProp,
     ScheduledModifier,
 )
 from sparseml.keras.optim.utils import get_layer_name_from_param
+from sparseml.utils import ALL_TOKEN, convert_to_bool, flatten_iterable
+
 
 __all__ = ["TrainableParamsModifier"]
 

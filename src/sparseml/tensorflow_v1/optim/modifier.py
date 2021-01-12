@@ -5,17 +5,18 @@ For example, learning rate schedules or kernel sparsity (weight pruning)
 are implemented as modifiers.
 """
 
-from typing import List, Any, Union, Dict, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 from sparseml.optim import (
-    ModifierProp,
     BaseModifier,
     BaseScheduled,
     BaseUpdate,
+    ModifierProp,
     ModifierYAML,
 )
-from sparseml.utils import TENSORFLOW_V1_FRAMEWORK
 from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.utils import TENSORFLOW_V1_FRAMEWORK
+
 
 __all__ = [
     "EXTRAS_KEY_LEARNING_RATE",
@@ -262,7 +263,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         min_start: float = -1.0,
         min_end: float = -1.0,
         end_comparator: Union[int, None] = 0,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             log_types=log_types,
@@ -271,7 +272,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
             min_start=min_start,
             min_end=min_end,
             end_comparator=end_comparator,
-            **kwargs
+            **kwargs,
         )
 
     def start_end_steps(
@@ -351,7 +352,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
         end_comparator: int = 0,
         update_frequency: float = -1.0,
         min_frequency: float = -1.0,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             log_types=log_types,
@@ -362,7 +363,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
             end_comparator=end_comparator,
             update_frequency=update_frequency,
             min_frequency=min_frequency,
-            **kwargs
+            **kwargs,
         )
 
     def update_frequency_steps(self, steps_per_epoch: int) -> int:

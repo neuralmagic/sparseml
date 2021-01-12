@@ -1,14 +1,13 @@
-from typing import Callable, Union, List, Dict
+from typing import Callable, Dict, List, Union
 
 import pytest
-
 from sparseml.optim import (
-    BaseProp,
-    ModifierProp,
-    BaseObject,
     BaseModifier,
+    BaseObject,
+    BaseProp,
     BaseScheduled,
     BaseUpdate,
+    ModifierProp,
     ModifierYAML,
 )
 
@@ -25,7 +24,7 @@ class BaseModifierTest(object):
         modifier_lambda: Callable[[], BaseModifier],
         framework: str,
         *args,
-        **kwargs
+        **kwargs,
     ):
         modifier = modifier_lambda()
         assert isinstance(modifier, BaseModifier)
@@ -35,7 +34,7 @@ class BaseModifierTest(object):
         modifier_lambda: Callable[[], BaseModifier],
         framework: str,
         *args,
-        **kwargs
+        **kwargs,
     ):
         modifier = modifier_lambda()
         mod_string = str(modifier)
@@ -60,7 +59,7 @@ class BaseModifierTest(object):
         modifier_lambda: Callable[[], BaseModifier],
         framework: str,
         *args,
-        **kwargs
+        **kwargs,
     ):
         modifier = modifier_lambda()
         mod_yaml_key = BaseModifier.yaml_key(modifier.__class__, framework)
@@ -74,7 +73,7 @@ class BaseModifierTest(object):
         modifier_lambda: Callable[[], BaseModifier],
         framework: str,
         *args,
-        **kwargs
+        **kwargs,
     ):
         modifier = modifier_lambda()
         mod_repr = repr(modifier)
@@ -88,7 +87,7 @@ class BaseModifierTest(object):
         framework: str,
         initialize_kwargs: Dict = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         modifier = modifier_lambda()
 
@@ -148,7 +147,7 @@ class BaseScheduledTest(object):
         modifier_lambda: Callable[[], BaseModifier],
         framework: str,
         *args,
-        **kwargs
+        **kwargs,
     ):
         modifier = modifier_lambda()  # type: BaseScheduled
 
@@ -170,7 +169,7 @@ class BaseScheduledTest(object):
         modifier_lambda: Callable[[], BaseModifier],
         framework: str,
         *args,
-        **kwargs
+        **kwargs,
     ):
         modifier = modifier_lambda()  # type: BaseScheduled
 
@@ -206,7 +205,7 @@ class BaseUpdateTest(object):
         modifier_lambda: Callable[[], BaseModifier],
         framework: str,
         *args,
-        **kwargs
+        **kwargs,
     ):
         modifier = modifier_lambda()  # type: BaseUpdate
 
@@ -457,7 +456,7 @@ class BaseScheduledImpl(BaseScheduled):
         end_epoch: float = 1.0,
         min_end: float = -1.0,
         end_comparator: int = 0,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             start_epoch, min_start, end_epoch, min_end, end_comparator, **kwargs

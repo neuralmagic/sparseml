@@ -2,14 +2,14 @@
 Code related to the PyTorch model registry for easily creating models.
 """
 
-from typing import Union, List, Callable, Dict, Any, Tuple, NamedTuple
-from merge_args import merge_args
-from torch.nn import Module
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
 
-from sparsezoo import Model
-from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
-from sparseml.utils import wrapper_decorator
+from merge_args import merge_args
 from sparseml.pytorch.utils import load_model
+from sparseml.utils import wrapper_decorator
+from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
+from sparsezoo import Model
+from torch.nn import Module
 
 
 __all__ = ["ModelRegistry"]
@@ -54,7 +54,7 @@ class ModelRegistry(object):
         pretrained_dataset: str = None,
         load_strict: bool = True,
         ignore_error_tensors: List[str] = None,
-        **kwargs
+        **kwargs,
     ) -> Module:
         """
         Create a new model for the given key
@@ -88,7 +88,9 @@ class ModelRegistry(object):
 
     @staticmethod
     def create_zoo_model(
-        key: str, pretrained: Union[bool, str] = True, pretrained_dataset: str = None,
+        key: str,
+        pretrained: Union[bool, str] = True,
+        pretrained_dataset: str = None,
     ) -> Model:
         """
         Create a sparsezoo Model for the desired model in the zoo
@@ -176,7 +178,10 @@ class ModelRegistry(object):
             key = [key]
 
         def decorator(const_func):
-            const = ModelRegistry._registered_wrapper(key[0], const_func,)
+            const = ModelRegistry._registered_wrapper(
+                key[0],
+                const_func,
+            )
 
             for r_key in key:
                 if r_key in ModelRegistry._CONSTRUCTORS:
@@ -202,7 +207,8 @@ class ModelRegistry(object):
 
     @staticmethod
     def _registered_wrapper(
-        key: str, const_func: Callable,
+        key: str,
+        const_func: Callable,
     ):
         @merge_args(const_func)
         @wrapper_decorator(const_func)
@@ -213,7 +219,7 @@ class ModelRegistry(object):
             load_strict: bool = True,
             ignore_error_tensors: List[str] = None,
             *args,
-            **kwargs
+            **kwargs,
         ):
             """
             :param pretrained_path: A path to the pretrained weights to load,

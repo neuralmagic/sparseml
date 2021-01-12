@@ -1,14 +1,14 @@
+from typing import List
+
 import numpy
 import pytest
-from typing import List
+from onnx import load_model
 from sparseml.onnx.utils import (
     get_node_params,
     prune_model_one_shot,
     prune_unstructured,
 )
-from onnx import load_model
-
-from tests.onnx.helpers import onnx_repo_models, OnnxRepoModelFixture
+from tests.onnx.helpers import OnnxRepoModelFixture, onnx_repo_models
 
 
 def _test_correct_sparsity(pruned_array, sparsity, tolerance=1e-4):

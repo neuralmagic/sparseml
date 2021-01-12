@@ -1,19 +1,18 @@
-import pickle
-from PIL import Image
 import os
+import pickle
 import tarfile
 from typing import Union
-from tqdm import tqdm
 
 import numpy as np
-
-from sparseml.tensorflow_v1.utils import tf_compat, tf_compat_div
-from sparseml.utils import create_dirs, download_file
+from PIL import Image
 from sparseml.tensorflow_v1.datasets.classification import (
     ImageFolderDataset,
     SplitsTransforms,
 )
 from sparseml.tensorflow_v1.datasets.registry import DatasetRegistry
+from sparseml.tensorflow_v1.utils import tf_compat, tf_compat_div
+from sparseml.utils import create_dirs, download_file
+from tqdm import tqdm
 
 
 __all__ = ["Cifar10DataSet", "Cifar100DataSet"]

@@ -1,18 +1,17 @@
-import pytest
-
 import os
 
+import pytest
 from sparseml.tensorflow_v1.optim import EpochRangeModifier
-
 from tests.tensorflow.optim.test_modifier import (
     ScheduledModifierTest,
-    mlp_graph_lambda,
     conv_graph_lambda,
+    mlp_graph_lambda,
 )
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -28,7 +27,8 @@ class TestEpochRangeModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 def test_epoch_range_yaml():
     start_epoch = 5.0

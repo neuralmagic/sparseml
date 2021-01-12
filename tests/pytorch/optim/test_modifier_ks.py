@@ -1,26 +1,24 @@
-import pytest
 import os
 
+import pytest
 import torch
-from torch.optim import SGD
-
 from sparseml.pytorch.optim import (
-    GMPruningModifier,
+    BlockPruningMaskCreator,
     ConstantPruningModifier,
     DimensionSparsityMaskCreator,
-    BlockPruningMaskCreator,
+    GMPruningModifier,
 )
-
 from tests.pytorch.helpers import LinearNet
 from tests.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
-    test_epoch,
-    test_steps_per_epoch,
-    test_loss,
-    create_optim_sgd,
     create_optim_adam,
+    create_optim_sgd,
+    test_epoch,
+    test_loss,
+    test_steps_per_epoch,
 )
+from torch.optim import SGD
 
 
 def _test_state_dict_save_load(
@@ -67,21 +65,28 @@ def _test_state_dict_save_load(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
-        lambda: ConstantPruningModifier(params=["re:.*weight"], ),
         lambda: ConstantPruningModifier(
-            params=["seq.fc1.weight"], start_epoch=10.0, end_epoch=25.0,
+            params=["re:.*weight"],
+        ),
+        lambda: ConstantPruningModifier(
+            params=["seq.fc1.weight"],
+            start_epoch=10.0,
+            end_epoch=25.0,
         ),
     ],
     scope="function",
 )
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
-    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function",
+    "optim_lambda",
+    [create_optim_sgd, create_optim_adam],
+    scope="function",
 )
 class TestConstantKSModifier(ScheduledModifierTest):
     def test_lifecycle(
@@ -125,7 +130,8 @@ class TestConstantKSModifier(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_constant_ks_yaml():
     start_epoch = 5.0
@@ -139,7 +145,9 @@ def test_constant_ks_yaml():
     """.format(
         start_epoch=start_epoch, end_epoch=end_epoch, params=params
     )
-    yaml_modifier = ConstantPruningModifier.load_obj(yaml_str)  # type: ConstantPruningModifier
+    yaml_modifier = ConstantPruningModifier.load_obj(
+        yaml_str
+    )  # type: ConstantPruningModifier
     serialized_modifier = ConstantPruningModifier.load_obj(
         str(yaml_modifier)
     )  # type: ConstantPruningModifier
@@ -162,7 +170,8 @@ def test_constant_ks_yaml():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -200,7 +209,9 @@ def test_constant_ks_yaml():
 )
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
-    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function",
+    "optim_lambda",
+    [create_optim_sgd, create_optim_adam],
+    scope="function",
 )
 class TestGradualKSModifier(ScheduledUpdateModifierTest):
     def test_lifecycle(
@@ -253,7 +264,8 @@ class TestGradualKSModifier(ScheduledUpdateModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_gradual_ks_yaml():
     init_sparsity = 0.05

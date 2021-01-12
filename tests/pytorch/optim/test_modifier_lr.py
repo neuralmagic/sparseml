@@ -1,24 +1,19 @@
-import pytest
-
+import math
 import os
 import sys
-import math
-from torch.optim import SGD, Adam
 
-from sparseml.pytorch.optim import (
-    SetLearningRateModifier,
-    LearningRateModifier,
-)
+import pytest
+from sparseml.pytorch.optim import LearningRateModifier, SetLearningRateModifier
 from sparseml.pytorch.utils import get_optim_learning_rate
-
 from tests.pytorch.helpers import LinearNet
 from tests.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
     test_epoch,
-    test_steps_per_epoch,
     test_loss,
+    test_steps_per_epoch,
 )
+from torch.optim import SGD, Adam
 
 
 EPSILON = 1e-7
@@ -34,7 +29,8 @@ SET_LR = 0.1
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -100,7 +96,8 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_set_lr_yaml():
     start_epoch = 10.0
@@ -145,7 +142,8 @@ EPOCH_APPLY_RANGE = 15
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -227,7 +225,8 @@ class TestLRModifierExponentialImpl(ScheduledUpdateModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_lr_modifier_exponential_yaml():
     lr_class = "ExponentialLR"
@@ -287,7 +286,8 @@ def test_lr_modifier_exponential_yaml():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -378,7 +378,8 @@ class TestLRModifierStepImpl(ScheduledUpdateModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_lr_modifier_step_yaml():
     lr_class = "StepLR"
@@ -441,7 +442,8 @@ MILESTONES = [5, 9, 12]
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -520,7 +522,8 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_lr_modifier_multi_step_yaml():
     lr_class = "MultiStepLR"
@@ -580,7 +583,8 @@ def test_lr_modifier_multi_step_yaml():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -646,7 +650,8 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_lr_modifier_multi_step_yaml():
     lr_class = "CosineAnnealingWarmRestarts"

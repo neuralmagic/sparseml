@@ -4,22 +4,22 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1704.04861>`
 """
 
 from typing import List, Union
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
+    AvgPool2d,
+    BatchNorm2d,
+    Conv2d,
+    Dropout,
+    Linear,
     Module,
     Sequential,
-    AvgPool2d,
-    Conv2d,
-    BatchNorm2d,
-    Linear,
-    Dropout,
-    Softmax,
     Sigmoid,
+    Softmax,
     init,
 )
-
-from sparseml.pytorch.nn import ReLU
-from sparseml.pytorch.models.registry import ModelRegistry
 
 
 __all__ = ["MobileNetSectionSettings", "MobileNet", "mobilenet", "han_mobilenet"]
@@ -135,7 +135,7 @@ class _Classifier(Module):
         in_channels: int,
         num_classes: int,
         class_type: str = "single",
-        dropout: Union[float, None] = None
+        dropout: Union[float, None] = None,
     ):
         super().__init__()
         self.avgpool = AvgPool2d(7)
@@ -162,11 +162,7 @@ class _Classifier(Module):
         return logits, classes
 
     def initialize(self):
-        fc = (
-            self.fc
-            if not isinstance(self.fc, Sequential)
-            else self.fc[1]
-        )
+        fc = self.fc if not isinstance(self.fc, Sequential) else self.fc[1]
         _init_linear(fc)
 
 
@@ -208,7 +204,7 @@ class MobileNet(Module):
         sec_settings: List[MobileNetSectionSettings],
         num_classes: int,
         class_type: str,
-        dropout: Union[float, None] = None
+        dropout: Union[float, None] = None,
     ):
         super().__init__()
         self.input = _Input()

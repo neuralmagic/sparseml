@@ -3,25 +3,22 @@ Helper functions to optimize ONNX Graphs.
 """
 
 
-import numpy as np
-import onnx
-
 from collections import namedtuple
-from onnx import numpy_helper
 from typing import Tuple, Union
 
+import numpy as np
+import onnx
+from onnx import numpy_helper
 from sparseml.onnx.utils import (
-    update_model_param,
-    swap_node_output,
-    remove_node_and_params_from_graph,
-)
-from sparseml.onnx.utils import (
-    conv_node_params,
-    NodeParam,
     BatchNormParams,
+    NodeParam,
+    conv_node_params,
     get_batch_norm_params,
     get_node_input_nodes,
     get_quantize_parent_for_dequantize_node,
+    remove_node_and_params_from_graph,
+    swap_node_output,
+    update_model_param,
 )
 
 
@@ -32,7 +29,8 @@ __all__ = [
 
 
 def _get_folded_conv_params(
-    conv_params: Tuple[NodeParam, Union[NodeParam, None]], bn_params: BatchNormParams,
+    conv_params: Tuple[NodeParam, Union[NodeParam, None]],
+    bn_params: BatchNormParams,
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     conv_weight, conv_bias = conv_params
     weight_new, bias_new = None, None
@@ -61,7 +59,9 @@ def _get_folded_conv_params(
 
 
 def _fold_conv_bn(
-    model: onnx.ModelProto, conv_node: onnx.NodeProto, bn_node: onnx.NodeProto,
+    model: onnx.ModelProto,
+    conv_node: onnx.NodeProto,
+    bn_node: onnx.NodeProto,
 ) -> bool:
     """
     Folds the linear operations in bn_node into conv_node
@@ -167,7 +167,9 @@ def quantize_resnet_identity_add_inputs(quantized_model: onnx.ModelProto) -> boo
 
         # swap the relu input for the de-quantized identity in the add
         relu_input_idx = [
-            i for i, inp in enumerate(add_node.input) if inp == other_input_node.output[0]
+            i
+            for i, inp in enumerate(add_node.input)
+            if inp == other_input_node.output[0]
         ][0]
         add_node.input[relu_input_idx] = dequantize_identity_output_name
 

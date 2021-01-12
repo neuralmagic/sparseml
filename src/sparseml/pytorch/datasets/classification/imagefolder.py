@@ -6,16 +6,15 @@ More info for the dataset can be found `here <http://www.image-net.org/>`__.
 import os
 import random
 
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
-
-from sparseml.utils import clean_path
 from sparseml.pytorch.datasets.registry import DatasetRegistry
+from sparseml.utils import clean_path
 from sparseml.utils.datasets import (
-    default_dataset_path,
     IMAGENET_RGB_MEANS,
     IMAGENET_RGB_STDS,
+    default_dataset_path,
 )
+from torchvision import transforms
+from torchvision.datasets import ImageFolder
 
 
 __all__ = ["ImageFolderDataset"]

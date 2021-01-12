@@ -1,14 +1,14 @@
-import pytest
-
 import os
-import torch
 
+import pytest
+import torch
 from sparseml.pytorch.models import mobilenet, resnet50
 from sparseml.pytorch.quantization import (
     add_quant_dequant,
-    get_qat_qconfig,
     fuse_module_conv_bn_relus,
+    get_qat_qconfig,
 )
+
 
 try:
     from torch import quantization as torch_quantization
@@ -21,17 +21,20 @@ def _count_submodule_instances(module, clazz):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None, reason="torch quantization not available",
+    torch_quantization is None,
+    reason="torch quantization not available",
 )
 @pytest.mark.parametrize(
-    "model_lambda,num_quantizable_ops", [(mobilenet, 28), (resnet50, 54)],
+    "model_lambda,num_quantizable_ops",
+    [(mobilenet, 28), (resnet50, 54)],
 )
 def test_add_quant_dequant(model_lambda, num_quantizable_ops):
     module = model_lambda()
@@ -45,31 +48,36 @@ def test_add_quant_dequant(model_lambda, num_quantizable_ops):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None, reason="torch quantization not available",
+    torch_quantization is None,
+    reason="torch quantization not available",
 )
 def test_get_qat_qconfig():
     assert isinstance(get_qat_qconfig(), torch_quantization.QConfig)
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None, reason="torch quantization not available",
+    torch_quantization is None,
+    reason="torch quantization not available",
 )
 @pytest.mark.parametrize(
-    "model_lambda,conv_bn_relus,conv_bns", [(mobilenet, 27, 0), (resnet50, 45, 8)],
+    "model_lambda,conv_bn_relus,conv_bns",
+    [(mobilenet, 27, 0), (resnet50, 45, 8)],
 )
 def test_fuse_module_conv_bn_relus(model_lambda, conv_bn_relus, conv_bns):
     module = model_lambda()

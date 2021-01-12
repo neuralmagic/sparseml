@@ -2,9 +2,9 @@
 Classes for defining sparsity masks based on model parameters.
 """
 from abc import ABC, abstractmethod
-from typing import List, Union, Callable, Any, Tuple, Iterable
-import numpy
+from typing import Any, Callable, Iterable, List, Tuple, Union
 
+import numpy
 from sparseml.tensorflow_v1.utils import tf_compat
 
 
@@ -26,7 +26,8 @@ class PruningMaskCreator(ABC):
 
     @abstractmethod
     def get_mask_initializer(
-        self, tensor: tf_compat.Tensor,
+        self,
+        tensor: tf_compat.Tensor,
     ) -> Callable[[], tf_compat.Tensor]:
         """
         :param tensor: A tensor of a model layer's weights
@@ -36,7 +37,9 @@ class PruningMaskCreator(ABC):
 
     @abstractmethod
     def create_sparsity_mask(
-        self, tensor: tf_compat.Tensor, sparsity: tf_compat.Tensor,
+        self,
+        tensor: tf_compat.Tensor,
+        sparsity: tf_compat.Tensor,
     ) -> tf_compat.Tensor:
         """
         :param tensor: A tensor of a model layer's weights
@@ -55,7 +58,8 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
     """
 
     def get_mask_initializer(
-        self, tensor: tf_compat.Tensor,
+        self,
+        tensor: tf_compat.Tensor,
     ) -> Callable[[], tf_compat.Tensor]:
         """
         :param tensor: A tensor of a model layer's weights
@@ -78,7 +82,9 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         return non_zero_mask_initializer
 
     def create_sparsity_mask(
-        self, tensor: tf_compat.Tensor, sparsity: tf_compat.Tensor,
+        self,
+        tensor: tf_compat.Tensor,
+        sparsity: tf_compat.Tensor,
     ) -> tf_compat.Tensor:
         """
         :param tensor: A tensor of a model layer's weights
@@ -94,7 +100,8 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             tf_compat.int32,
         )
         sparse_threshold_index = tf_compat.minimum(
-            tf_compat.maximum(sparse_threshold_index, 0), tf_compat.size(tensor) - 1,
+            tf_compat.maximum(sparse_threshold_index, 0),
+            tf_compat.size(tensor) - 1,
         )
 
         try:
@@ -117,7 +124,8 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         )
         element_ranks = tf_compat.reshape(element_ranks_flat, abs_var.get_shape())
         return tf_compat.cast(
-            tf_compat.greater(element_ranks, sparse_threshold_index), tf_compat.float32,
+            tf_compat.greater(element_ranks, sparse_threshold_index),
+            tf_compat.float32,
         )
 
     def __str__(self):
@@ -176,7 +184,8 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         raise NotImplementedError()
 
     def get_mask_initializer(
-        self, tensor: tf_compat.Tensor,
+        self,
+        tensor: tf_compat.Tensor,
     ) -> Callable[[], tf_compat.Tensor]:
         """
         :param tensor: A tensor of a model layer's weights
@@ -199,7 +208,9 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         return grouped_non_zero_mask_initializer
 
     def create_sparsity_mask(
-        self, tensor: tf_compat.Tensor, sparsity: tf_compat.Tensor,
+        self,
+        tensor: tf_compat.Tensor,
+        sparsity: tf_compat.Tensor,
     ) -> tf_compat.Tensor:
         """
         :param tensor: A tensor of a model layer's weights
@@ -224,7 +235,9 @@ class DimensionPruningMaskCreator(GroupedPruningMaskCreator):
     _VALID_DIM_NAMES = ["channel", "filter"]
 
     def __init__(
-        self, dim: Union[str, int, List[int]], grouping_op_name: str = "mean",
+        self,
+        dim: Union[str, int, List[int]],
+        grouping_op_name: str = "mean",
     ):
         if isinstance(dim, int):
             dim = [dim]
@@ -275,7 +288,9 @@ class DimensionPruningMaskCreator(GroupedPruningMaskCreator):
         n_dims = len(tensor.shape)
         reduced_axis = [idx for idx in range(n_dims) if idx not in self._dim]
         return self._grouping_op(
-            tf_compat.abs(tensor), axis=reduced_axis, keepdims=True,
+            tf_compat.abs(tensor),
+            axis=reduced_axis,
+            keepdims=True,
         )
 
     def _map_mask_to_tensor(
@@ -319,7 +334,9 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
     """
 
     def __init__(
-        self, block_shape: List[int], grouping_op_name: str = "mean",
+        self,
+        block_shape: List[int],
+        grouping_op_name: str = "mean",
     ):
         if len(block_shape) != 2:
             raise ValueError(
@@ -389,7 +406,8 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         return mask
 
     def _get_blocked_tens_shape_and_validate(
-        self, tens_shape: tf_compat.TensorShape,
+        self,
+        tens_shape: tf_compat.TensorShape,
     ) -> Tuple[List[int], tf_compat.TensorShape]:
         """
         :param tens_shape: The shape of the tensor to group in blocks

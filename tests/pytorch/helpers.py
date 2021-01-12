@@ -1,23 +1,21 @@
-import pytest
-
-from typing import List
 from collections import OrderedDict, namedtuple
+from typing import List
+
+import pytest
 import torch
+from sparseml.pytorch.optim import PYTORCH_FRAMEWORK
 from torch import Tensor
 from torch.nn import (
-    Module,
-    Sequential,
-    Linear,
-    ReLU,
-    Sigmoid,
-    Conv2d,
     AdaptiveAvgPool2d,
+    Conv2d,
+    Linear,
+    Module,
+    ReLU,
+    Sequential,
+    Sigmoid,
 )
-from torch.optim import Adam, SGD
+from torch.optim import SGD, Adam
 from torch.utils.data import Dataset
-
-
-from sparseml.pytorch.optim import PYTORCH_FRAMEWORK
 
 
 __all__ = [
@@ -128,7 +126,14 @@ class MLPNet(Module):
                         )
                     )
                 elif isinstance(layer, ReLU):
-                    MLPNet._LAYER_DESCS.append(LayerDesc(name, [], [], False,))
+                    MLPNet._LAYER_DESCS.append(
+                        LayerDesc(
+                            name,
+                            [],
+                            [],
+                            False,
+                        )
+                    )
 
         return MLPNet._LAYER_DESCS
 

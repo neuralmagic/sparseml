@@ -4,14 +4,14 @@ More information can be found in the paper
 `here <https://arxiv.org/abs/1705.01626>`__.
 """
 
-from typing import List, Union, Tuple
 from enum import Enum
+from typing import List, Tuple, Union
+
 import torch
+from sparseml.pytorch.utils import get_layer, tensor_sample, tensor_sparsity
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.hooks import RemovableHandle
-
-from sparseml.pytorch.utils import tensor_sparsity, tensor_sample, get_layer
 
 
 __all__ = ["ASResultType", "ModuleASAnalyzer"]

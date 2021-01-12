@@ -2,7 +2,8 @@
 Code related to the PyTorch dataset registry for easily creating datasets.
 """
 
-from typing import Union, List, Dict, Any
+from typing import Any, Dict, List, Union
+
 from torch.utils.data import Dataset
 
 

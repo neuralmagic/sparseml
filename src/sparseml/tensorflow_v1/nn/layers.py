@@ -1,4 +1,4 @@
-from typing import Union, Tuple
+from typing import Tuple, Union
 
 from sparseml.tensorflow_v1.utils import tf_compat
 

@@ -1,12 +1,12 @@
+import json
 import os
 
-import json
 import pytest
+from onnx import load_model
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
 from sparseml.utils import RepoModel
-from onnx import load_model
-
 from tests.onnx.helpers import analyzer_models
+
 
 GENERATE_TEST_FILES = os.getenv("NM_ML_GENERATE_ONNX_TEST_DATA", False)
 GENERATE_TEST_FILES = False if GENERATE_TEST_FILES == "0" else GENERATE_TEST_FILES

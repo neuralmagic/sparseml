@@ -3,31 +3,23 @@ Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
 """
 
-from typing import Union, List
+from typing import List, Union
 
 import tensorflow
-
-from sparseml.utils import (
-    ALL_TOKEN,
-    validate_str_iterable,
-    convert_to_bool,
-)
-from sparseml.keras.optim.modifier import (
-    EXTRAS_KEY_SUMMARIES,
-    ModifierProp,
-    KerasModifierYAML,
-    ScheduledModifier,
-    ScheduledUpdateModifier,
-)
-
+from sparseml.keras.optim.mask_pruning import MaskedLayer, PruningScheduler
 from sparseml.keras.optim.mask_pruning_creator import (
     PruningMaskCreator,
     load_mask_creator,
 )
-
-from sparseml.keras.optim.mask_pruning import MaskedLayer, PruningScheduler
-
+from sparseml.keras.optim.modifier import (
+    EXTRAS_KEY_SUMMARIES,
+    KerasModifierYAML,
+    ModifierProp,
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+)
 from sparseml.keras.optim.utils import get_layer_name_from_param
+from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
 
 __all__ = ["ConstantPruningModifier", "GMPruningModifer"]
@@ -161,7 +153,9 @@ class SparsityFreezer(PruningScheduler):
     """
 
     def __init__(
-        self, start_step: int, end_step: int,
+        self,
+        start_step: int,
+        end_step: int,
     ):
         self._start_step = start_step
         self._end_step = end_step
@@ -370,7 +364,9 @@ class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
         )
         self._sparsity_scheduler = self._create_sparsity_scheduler(steps_per_epoch)
         cloned_model = tensorflow.keras.models.clone_model(
-            model, input_tensors, clone_function=self._clone_layer,
+            model,
+            input_tensors,
+            clone_function=self._clone_layer,
         )
         pruning_step_callback = PruningModifierCallback(self._masked_layers)
         return cloned_model, optimizer, pruning_step_callback
@@ -729,7 +725,9 @@ class GMPruningModifer(ScheduledUpdateModifier):
 
         # Clone model and additional set up
         cloned_model = tensorflow.keras.models.clone_model(
-            model, input_tensors, clone_function=self._clone_layer,
+            model,
+            input_tensors,
+            clone_function=self._clone_layer,
         )
         cloned_model.optimizer = optimizer
 

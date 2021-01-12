@@ -3,7 +3,7 @@ Code for properly merging function attributes for decorated / wrapped functions.
 Merges docs, annotations, dicts, etc.
 """
 
-from typing import List, Callable
+from typing import Callable, List
 
 
 __all__ = ["wrapper_decorator"]

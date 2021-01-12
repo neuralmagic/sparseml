@@ -3,11 +3,11 @@ Code related to modifiers that is shared across frameworks.
 Modifiers allow modifying the training process of a model; ex to perform model pruning.
 """
 
-from abc import ABC, abstractmethod
-from typing import Union, List, Dict, Any, Callable
 import re
-import yaml
+from abc import ABC, abstractmethod
+from typing import Any, Callable, Dict, List, Union
 
+import yaml
 from sparseml.utils import validate_str_iterable
 
 
@@ -449,7 +449,7 @@ class BaseScheduled(BaseObject):
         end_epoch: float,
         min_end: float,
         end_comparator: Union[int, None],
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self._start_epoch = start_epoch
@@ -621,7 +621,9 @@ class ModifierYAML(object):
 
         yaml.add_constructor(yaml_key, constructor)
         yaml.add_constructor(
-            yaml_key, constructor, yaml.SafeLoader,
+            yaml_key,
+            constructor,
+            yaml.SafeLoader,
         )
 
         return clazz

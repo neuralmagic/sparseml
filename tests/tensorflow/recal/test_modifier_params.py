@@ -1,30 +1,26 @@
-import pytest
-
 import os
-
 from typing import Callable
-import numpy
 
-from sparseml.utils import ALL_TOKEN
-from sparseml.tensorflow_v1.utils import (
-    tf_compat,
-    batch_cross_entropy_loss,
-)
+import numpy
+import pytest
 from sparseml.tensorflow_v1.optim import (
-    TrainableParamsModifier,
-    ScheduledModifierManager,
     EXTRAS_KEY_VAR_LIST,
+    ScheduledModifierManager,
+    TrainableParamsModifier,
 )
+from sparseml.tensorflow_v1.utils import batch_cross_entropy_loss, tf_compat
+from sparseml.utils import ALL_TOKEN
 from tests.tensorflow.helpers import mlp_net
 from tests.tensorflow.optim.test_modifier import (
     ScheduledModifierTest,
-    mlp_graph_lambda,
     conv_graph_lambda,
+    mlp_graph_lambda,
 )
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
@@ -32,19 +28,25 @@ from tests.tensorflow.optim.test_modifier import (
         (
             mlp_graph_lambda,
             lambda: TrainableParamsModifier(
-                params=["mlp_net/fc1/weight"], trainable=False, params_strict=True,
+                params=["mlp_net/fc1/weight"],
+                trainable=False,
+                params_strict=True,
             ),
         ),
         (
             mlp_graph_lambda,
             lambda: TrainableParamsModifier(
-                params=ALL_TOKEN, trainable=False, params_strict=False,
+                params=ALL_TOKEN,
+                trainable=False,
+                params_strict=False,
             ),
         ),
         (
             conv_graph_lambda,
             lambda: TrainableParamsModifier(
-                params=["conv_net/conv1/bias"], trainable=False, params_strict=True,
+                params=["conv_net/conv1/bias"],
+                trainable=False,
+                params_strict=True,
             ),
         ),
         (
@@ -94,11 +96,14 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 def test_trainable_params_modifier_with_training():
     modifier = TrainableParamsModifier(
-        params=["mlp_net/fc1/weight"], trainable=False, params_strict=False,
+        params=["mlp_net/fc1/weight"],
+        trainable=False,
+        params_strict=False,
     )
     manager = ScheduledModifierManager([modifier])
     steps_per_epoch = 5
@@ -148,7 +153,8 @@ def test_trainable_params_modifier_with_training():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 def test_trainable_params_yaml():
     params = ALL_TOKEN

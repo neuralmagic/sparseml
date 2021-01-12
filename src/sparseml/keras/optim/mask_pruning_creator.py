@@ -3,10 +3,11 @@ Classes for defining sparsity masks based on model parameters.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Union, Callable, Any, Tuple, Iterable
-import numpy
+from typing import Any, Callable, Iterable, List, Tuple, Union
 
+import numpy
 import tensorflow as tf
+
 
 __all__ = [
     "PruningMaskCreator",

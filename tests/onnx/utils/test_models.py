@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, List, NamedTuple
 
 import psutil
 import pytest
+from onnx import load_model
 from sparseml.onnx.utils.data import DataLoader
 from sparseml.onnx.utils.model import (
     ModelRunner,
@@ -12,7 +13,7 @@ from sparseml.onnx.utils.model import (
     max_available_cores,
 )
 from sparseml.utils import RepoModel
-from onnx import load_model
+
 
 try:
     import neuralmagic
@@ -100,7 +101,10 @@ def _test_model(
     _test_output(outputs, dataloader, batch_size=2)
 
     dataloader = DataLoader(input_glob, output_glob, 1, 0)
-    model_runner = runner_constructor(model, batch_size=1,)
+    model_runner = runner_constructor(
+        model,
+        batch_size=1,
+    )
 
     outputs, _ = model_runner.run(dataloader, max_steps=1)
     assert len(outputs) == 1
@@ -133,7 +137,9 @@ def test_nm_model_runner(onnx_models_with_data: OnnxModelDataFixture):
 @pytest.mark.skipif(
     neuralmagic is None, reason="neuralmagic is not installed on the system"
 )
-def test_nm_analyze_model_runner(onnx_models_with_data: OnnxModelDataFixture,):
+def test_nm_analyze_model_runner(
+    onnx_models_with_data: OnnxModelDataFixture,
+):
     model = load_model(onnx_models_with_data.model_path)
 
     # Sanity check, asserting model can run random input

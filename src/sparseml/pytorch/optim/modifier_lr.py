@@ -3,31 +3,31 @@ Modifiers for changing the learning rate while training according to
 certain update formulas or patterns.
 """
 
-from typing import Dict, Union, List
-import sys
 import math
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
-from torch.optim.lr_scheduler import (
-    StepLR,
-    MultiStepLR,
-    ExponentialLR,
-    CosineAnnealingWarmRestarts,
-)
+import sys
+from typing import Dict, List, Union
 
-from sparseml.utils import ALL_TOKEN, convert_to_bool
 from sparseml.optim import LearningRate, SetLearningRate
+from sparseml.pytorch.optim.modifier import (
+    ModifierProp,
+    PyTorchModifierYAML,
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+)
 from sparseml.pytorch.utils import (
     PyTorchLogger,
     get_optim_learning_rate,
     set_optim_learning_rate,
 )
-from sparseml.pytorch.optim.modifier import (
-    ModifierProp,
-    PyTorchModifierYAML,
-    ScheduledUpdateModifier,
-    ScheduledModifier,
+from sparseml.utils import ALL_TOKEN, convert_to_bool
+from torch.nn import Module
+from torch.optim.lr_scheduler import (
+    CosineAnnealingWarmRestarts,
+    ExponentialLR,
+    MultiStepLR,
+    StepLR,
 )
+from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["SetLearningRateModifier", "LearningRateModifier"]

@@ -1,23 +1,22 @@
-import pytest
-
 import os
-import torch
 
+import pytest
+import torch
 from sparseml.pytorch.nn import (
-    fat_relu,
-    fat_pw_relu,
-    fat_sig_relu,
-    fat_exp_relu,
     FATReLU,
     convert_relus_to_fat,
+    fat_exp_relu,
+    fat_pw_relu,
+    fat_relu,
+    fat_sig_relu,
     set_relu_to_fat,
 )
-
 from tests.pytorch.helpers import MLPNet
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_fat_relu():
     x_tens = torch.randn(1, 8, 64, 64)
@@ -39,7 +38,8 @@ def test_fat_relu():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_fat_pw_relu():
     x_tens = torch.randn(1, 8, 64, 64)
@@ -54,7 +54,8 @@ def test_fat_pw_relu():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_fat_sig_relu():
     x_tens = torch.randn(1, 8, 64, 64)
@@ -69,7 +70,8 @@ def test_fat_sig_relu():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_fat_exp_relu():
     x_tens = torch.randn(1, 8, 64, 64)
@@ -79,7 +81,8 @@ def test_fat_exp_relu():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_convert_relus_to_fat():
     model = MLPNet()
@@ -91,7 +94,8 @@ def test_convert_relus_to_fat():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_set_relu_to_fat():
     model = MLPNet()

@@ -1,10 +1,9 @@
-import pytest
-
-from typing import List
 import os
-from requests import HTTPError
+from typing import List
 
-from sparseml.utils import available_models, RepoModel, models_download_file
+import pytest
+from requests import HTTPError
+from sparseml.utils import RepoModel, available_models, models_download_file
 
 
 @pytest.mark.parametrize(

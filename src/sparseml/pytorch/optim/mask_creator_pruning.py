@@ -2,11 +2,12 @@
 Classes for defining sparsity masks based on model parameters.
 """
 
+import random
 from abc import ABC, abstractmethod
-from typing import List, Union, Callable, Iterable
+from typing import Callable, Iterable, List, Union
+
 import torch
 from torch import Tensor
-import random
 
 
 __all__ = [
@@ -175,7 +176,9 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
 
     @abstractmethod
     def _map_mask_to_tensor(
-        self, grouped_mask: Tensor, original_tensor_shape: torch.Size,
+        self,
+        grouped_mask: Tensor,
+        original_tensor_shape: torch.Size,
     ) -> Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
@@ -238,7 +241,9 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
     """
 
     def __init__(
-        self, dim: Union[str, int, List[int]], grouping_fn_name: str = "mean",
+        self,
+        dim: Union[str, int, List[int]],
+        grouping_fn_name: str = "mean",
     ):
         if isinstance(dim, int):
             dim = [dim]
@@ -276,7 +281,9 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
         return reduced_tensor.type(tensor.type())
 
     def _map_mask_to_tensor(
-        self, grouped_mask: Tensor, original_tensor_shape: torch.Size,
+        self,
+        grouped_mask: Tensor,
+        original_tensor_shape: torch.Size,
     ) -> Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
@@ -309,7 +316,9 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
     """
 
     def __init__(
-        self, block_shape: List[int], grouping_fn_name: str = "mean",
+        self,
+        block_shape: List[int],
+        grouping_fn_name: str = "mean",
     ):
         if len(block_shape) != 2:
             raise ValueError(
@@ -335,7 +344,9 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         return reduced_blocks.type(tensor.type())
 
     def _map_mask_to_tensor(
-        self, grouped_mask: Tensor, original_tensor_shape: torch.Size,
+        self,
+        grouped_mask: Tensor,
+        original_tensor_shape: torch.Size,
     ) -> Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
@@ -354,7 +365,8 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         return block_mask.reshape(original_tensor_shape)
 
     def _get_blocked_tens_shape_and_validate(
-        self, tens_shape: torch.Size,
+        self,
+        tens_shape: torch.Size,
     ) -> List[int]:
         """
         :param tens_shape: The shape of the tensor to group in blocks

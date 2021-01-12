@@ -2,24 +2,23 @@
 Sensitivity analysis implementations for learning rate on Modules against loss funcs.
 """
 
-from typing import List, Tuple, Callable, Any, Union
+from typing import Any, Callable, List, Tuple, Union
 
+from sparseml.optim import LRLossSensitivityAnalysis
+from sparseml.pytorch.utils import (
+    DEFAULT_LOSS_KEY,
+    LossWrapper,
+    ModuleRunFuncs,
+    ModuleRunResults,
+    ModuleTrainer,
+    PyTorchLogger,
+    infinite_data_loader,
+    set_optim_learning_rate,
+)
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
-
-from sparseml.optim import LRLossSensitivityAnalysis
-from sparseml.pytorch.utils import (
-    LossWrapper,
-    DEFAULT_LOSS_KEY,
-    ModuleTrainer,
-    ModuleRunFuncs,
-    ModuleRunResults,
-    infinite_data_loader,
-    set_optim_learning_rate,
-    PyTorchLogger,
-)
 
 
 __all__ = ["default_exponential_check_lrs", "lr_loss_sensitivity"]
@@ -78,7 +77,12 @@ def _sensitivity_callback(
     complete_lr()  # initial to set the lr
 
     def batch_end(
-        epoch: int, step: int, batch_size: int, data: Any, pred: Any, losses: Any,
+        epoch: int,
+        step: int,
+        batch_size: int,
+        data: Any,
+        pred: Any,
+        losses: Any,
     ):
         nonlocal measurement_steps
         measurement_steps += 1

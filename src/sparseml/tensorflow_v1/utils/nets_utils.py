@@ -2,14 +2,15 @@
 Utility functions for working with tensorflow_v1 slim's nets_factory
 """
 
-import logging
 import functools
+import logging
 from typing import Callable, Dict
 
 from sparseml.tensorflow_v1.utils import tf_compat as tf
 
+
 try:
-    from nets import nets_factory, dcgan, cyclegan
+    from nets import cyclegan, dcgan, nets_factory
 except Exception:
     nets_factory = None
     dcgan = None
@@ -17,8 +18,8 @@ except Exception:
     logging.warning("TensorFlow slim nets not found in system")
 
 try:
-    from tensorflow.contrib import slim
     from tensorflow.contrib import layers as contrib_layers
+    from tensorflow.contrib import slim
 except Exception:
     slim = None
     contrib_layers = None
@@ -107,7 +108,8 @@ def get_network_fn(
 
 
 def get_gan_network_fn(
-    name: str, is_training: bool = False,
+    name: str,
+    is_training: bool = False,
 ):
     """
     Returns network_fn for a GAN sub-model

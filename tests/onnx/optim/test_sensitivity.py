@@ -1,17 +1,17 @@
 import math
-from typing import NamedTuple, Union, List, Tuple, Dict
+from typing import Dict, List, NamedTuple, Tuple, Union
 
 from sparseml.onnx.optim.sensitivity import (
     optimized_balanced_buckets,
     optimized_loss_buckets,
     optimized_performance_buckets,
 )
-
-from tests.onnx.optim.test_sensitivity_ks import (
-    onnx_models_with_analysis,
-    OnnxModelAnalysisFixture,
-)
 from tests.onnx.helpers import onnx_repo_models
+from tests.onnx.optim.test_sensitivity_ks import (
+    OnnxModelAnalysisFixture,
+    onnx_models_with_analysis,
+)
+
 
 MaxMin = NamedTuple("MaxMin", [("max", str), ("min", str)])
 

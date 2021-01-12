@@ -1,22 +1,20 @@
-import pytest
-
 import os
-
 from typing import Callable
 
+import pytest
+from sparseml.tensorflow_v1.optim import Modifier, ScheduledModifierManager
 from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.tensorflow_v1.optim import ScheduledModifierManager, Modifier
-
 from tests.tensorflow.optim.test_modifier import (
     ModifierTest,
     ScheduledModifierImpl,
-    mlp_graph_lambda,
     conv_graph_lambda,
+    mlp_graph_lambda,
 )
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -39,7 +37,8 @@ class TestManagerImpl(ModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 def test_manager_yaml():
     manager = ScheduledModifierManager([ScheduledModifierImpl()])

@@ -1,6 +1,5 @@
-import pytest
 import numpy
-
+import pytest
 from sparseml.onnx.utils.loss import kl_divergence
 
 

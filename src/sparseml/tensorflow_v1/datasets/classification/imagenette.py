@@ -6,17 +6,17 @@ More info for the dataset can be found `here <https://github.com/fastai/imagenet
 
 from typing import Union
 
-from sparseml.utils.datasets import (
-    default_dataset_path,
-    ImagenetteDownloader,
-    ImagewoofDownloader,
-    ImagenetteSize,
-    IMAGENET_RGB_MEANS,
-    IMAGENET_RGB_STDS,
-)
-from sparseml.tensorflow_v1.datasets.registry import DatasetRegistry
 from sparseml.tensorflow_v1.datasets.classification.imagefolder import (
     ImageFolderDataset,
+)
+from sparseml.tensorflow_v1.datasets.registry import DatasetRegistry
+from sparseml.utils.datasets import (
+    IMAGENET_RGB_MEANS,
+    IMAGENET_RGB_STDS,
+    ImagenetteDownloader,
+    ImagenetteSize,
+    ImagewoofDownloader,
+    default_dataset_path,
 )
 
 

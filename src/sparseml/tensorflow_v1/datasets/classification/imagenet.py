@@ -2,15 +2,16 @@
 Imagenet dataset implementations for the image classification field in computer vision.
 More info for the dataset can be found `here <http://www.image-net.org/>`__.
 """
-from sparseml.utils.datasets import (
-    default_dataset_path,
-    IMAGENET_RGB_MEANS,
-    IMAGENET_RGB_STDS,
-)
-from sparseml.tensorflow_v1.datasets.registry import DatasetRegistry
 from sparseml.tensorflow_v1.datasets.classification.imagefolder import (
     ImageFolderDataset,
 )
+from sparseml.tensorflow_v1.datasets.registry import DatasetRegistry
+from sparseml.utils.datasets import (
+    IMAGENET_RGB_MEANS,
+    IMAGENET_RGB_STDS,
+    default_dataset_path,
+)
+
 
 __all__ = ["ImageNetDataset"]
 

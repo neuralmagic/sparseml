@@ -3,11 +3,11 @@ Implementations for SSD models with MobileNet backbones
 """
 
 
-from torch import nn
-from typing import Union, List
+from typing import List, Union
 
 from sparseml.pytorch.models import ModelRegistry
-from sparseml.pytorch.models.detection import SSDBackbone, SSD300Lite
+from sparseml.pytorch.models.detection import SSD300Lite, SSDBackbone
+from torch import nn
 
 
 __all__ = [

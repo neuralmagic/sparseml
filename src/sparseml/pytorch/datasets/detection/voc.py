@@ -6,15 +6,15 @@ PascalVOC_IJCV2009.pdf>`__.
 """
 
 import os
+
 import torch
 from torchvision import transforms
-from torchvision.transforms import (
-    ColorJitter,
-    functional as F,
-)
+from torchvision.transforms import ColorJitter
+from torchvision.transforms import functional as F
+
 
 try:
-    from torchvision.datasets import VOCSegmentation, VOCDetection
+    from torchvision.datasets import VOCDetection, VOCSegmentation
 except ModuleNotFoundError:
     # older version of pytorch, VOC not available
     VOCSegmentation = object
@@ -22,19 +22,16 @@ except ModuleNotFoundError:
 
 from sparseml.pytorch.datasets.detection.helpers import (
     AnnotatedImageTransforms,
-    ssd_random_crop_image_and_annotations,
-    random_horizontal_flip_image_and_annotations,
     bounding_box_and_labels_to_yolo_fmt,
+    random_horizontal_flip_image_and_annotations,
+    ssd_random_crop_image_and_annotations,
 )
 from sparseml.pytorch.datasets.registry import DatasetRegistry
-from sparseml.pytorch.utils import (
-    DefaultBoxes,
-    get_default_boxes_300,
-)
+from sparseml.pytorch.utils import DefaultBoxes, get_default_boxes_300
 from sparseml.utils.datasets import (
-    default_dataset_path,
     IMAGENET_RGB_MEANS,
     IMAGENET_RGB_STDS,
+    default_dataset_path,
 )
 
 
@@ -217,7 +214,10 @@ class VOCDetectionDataset(VOCDetection):
             )
         elif preprocessing_type == "yolo":
             trans.append(
-                lambda img, ann: (img, (bounding_box_and_labels_to_yolo_fmt(ann), ann),)
+                lambda img, ann: (
+                    img,
+                    (bounding_box_and_labels_to_yolo_fmt(ann), ann),
+                )
             )
         super().__init__(
             root,

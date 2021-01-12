@@ -1,9 +1,9 @@
-import pytest
+import os
+
 import numpy as np
 import onnx
 import onnxruntime as rt
-import os
-
+import pytest
 from sparseml.onnx.utils.graph_optimizer import fold_conv_bns
 from tests.onnx.quantization.helpers import make_tmp_onnx_file, onnx_conv_net
 
@@ -24,7 +24,8 @@ def _model_has_conv_bn(model: onnx.ModelProto):
     reason="Skipping quantization tests",
 )
 @pytest.mark.parametrize(
-    "model_lambda, inputs_dtype", [(onnx_conv_net, np.float32)],
+    "model_lambda, inputs_dtype",
+    [(onnx_conv_net, np.float32)],
 )
 def test_fold_conv_bn(model_lambda, inputs_dtype):
     base_model = model_lambda()

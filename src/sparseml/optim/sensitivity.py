@@ -2,18 +2,14 @@
 Generic code related to sensitivity analysis.
 """
 
-from typing import Tuple, List, Dict, Any, Union
-from collections import OrderedDict
 import json
-import numpy
-import matplotlib.pyplot as plt
-import pandas
+from collections import OrderedDict
+from typing import Any, Dict, List, Tuple, Union
 
-from sparseml.utils.helpers import (
-    clean_path,
-    create_parent_dirs,
-    interpolated_integral,
-)
+import matplotlib.pyplot as plt
+import numpy
+import pandas
+from sparseml.utils.helpers import clean_path, create_parent_dirs, interpolated_integral
 
 
 __all__ = [
@@ -316,7 +312,9 @@ class PruningLossSensitivityAnalysis(object):
         """
         :return: the overall results for the model
         """
-        results_model = PruningSensitivityResult(id_="__model__", name="__model__", index=-1)
+        results_model = PruningSensitivityResult(
+            id_="__model__", name="__model__", index=-1
+        )
         measurements = {}
         baseline_index = None
 
@@ -642,7 +640,9 @@ class PruningPerfSensitivityAnalysis(object):
             json.dump(self.dict(), file, indent=2)
 
     def plot(
-        self, path: Union[str, None], title: str = None,
+        self,
+        path: Union[str, None],
+        title: str = None,
     ) -> Union[Tuple[plt.Figure, plt.Axes], Tuple[None, None]]:
         """
         :param path: the path to save an img version of the chart,
@@ -755,7 +755,9 @@ class LRLossSensitivityAnalysis(object):
             json.dump(self.dict(), file, indent=2)
 
     def plot(
-        self, path: Union[str, None], title: str = None,
+        self,
+        path: Union[str, None],
+        title: str = None,
     ) -> Union[Tuple[plt.Figure, plt.Axes], Tuple[None, None]]:
         """
         Plot the recorded sensitivity values

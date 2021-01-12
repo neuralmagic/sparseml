@@ -1,18 +1,17 @@
-import pytest
 import os
-
 from typing import Tuple
+
+import pytest
 import torch
+from sparseml.pytorch.optim import ModuleAnalyzer
+from tests.pytorch.helpers import ConvNet, MLPNet
 from torch.nn import Module
 from torchvision.models import resnet50
 
-from sparseml.pytorch.optim import ModuleAnalyzer
-
-from tests.pytorch.helpers import MLPNet, ConvNet
-
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "model,input_shape,name,params,prunable_params,execution_order,flops,total_flops",

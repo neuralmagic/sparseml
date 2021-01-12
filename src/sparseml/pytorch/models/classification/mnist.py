@@ -2,20 +2,19 @@
 Simple PyTorch implementations for the MNIST dataset.
 """
 
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
+    AdaptiveAvgPool2d,
+    BatchNorm2d,
+    Conv2d,
+    Linear,
     Module,
     Sequential,
-    AdaptiveAvgPool2d,
-    Conv2d,
-    BatchNorm2d,
-    Linear,
-    Softmax,
     Sigmoid,
+    Softmax,
 )
-
-from sparseml.pytorch.nn import ReLU
-from sparseml.pytorch.models.registry import ModelRegistry
 
 
 __all__ = ["MnistNet", "mnist_net"]
@@ -32,7 +31,12 @@ class _ConvBNRelu(Module):
     ):
         super().__init__()
         self.conv = Conv2d(
-            in_channels, out_channels, kernel_size, stride, padding, bias=False,
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            padding,
+            bias=False,
         )
         self.bn = BatchNorm2d(out_channels)
         self.act = ReLU(num_channels=out_channels, inplace=True)
@@ -77,7 +81,9 @@ class MnistNet(Module):
     """
 
     def __init__(
-        self, num_classes: int = 10, class_type: str = "single",
+        self,
+        num_classes: int = 10,
+        class_type: str = "single",
     ):
         super().__init__()
         self.blocks = Sequential(

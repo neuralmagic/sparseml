@@ -1,17 +1,16 @@
-import pytest
-
 import os
 import sys
+
 import numpy
+import pytest
 import torch
-
 from sparseml.pytorch.utils import BatchBenchmarkResults, ModuleBenchmarker
-
 from tests.pytorch.helpers import MLPNet
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_results_const():
     batch_size = 1
@@ -22,7 +21,8 @@ def test_results_const():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_results_add():
     batch_size = 1
@@ -37,7 +37,8 @@ def test_results_add():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("batch_size", [1, 64])
 @pytest.mark.parametrize(
@@ -109,7 +110,8 @@ def _results_sanity_check(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("batch_size", [1, 64])
 def test_benchmark_cpu(batch_size):
@@ -129,7 +131,8 @@ def test_benchmark_cpu(batch_size):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("batch_size", [1, 64])
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
@@ -150,7 +153,8 @@ def test_benchmark_cuda_full(batch_size):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("batch_size", [1, 64])
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")

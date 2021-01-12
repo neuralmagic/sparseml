@@ -4,20 +4,20 @@ computer vision.
 More info for the dataset can be found `here <https://github.com/fastai/imagenette>`__.
 """
 
-from typing import Union
 import random
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
+from typing import Union
 
+from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils.datasets import (
-    default_dataset_path,
     IMAGENET_RGB_MEANS,
     IMAGENET_RGB_STDS,
     ImagenetteDownloader,
-    ImagewoofDownloader,
     ImagenetteSize,
+    ImagewoofDownloader,
+    default_dataset_path,
 )
-from sparseml.pytorch.datasets.registry import DatasetRegistry
+from torchvision import transforms
+from torchvision.datasets import ImageFolder
 
 
 __all__ = ["ImagenetteSize", "ImagenetteDataset", "ImagewoofDataset"]

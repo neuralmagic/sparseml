@@ -4,11 +4,11 @@ Code related to monitoring, analyzing, and reporting the kernel sparsity
 More info on kernel sparsity can be found `here <https://arxiv.org/abs/1902.09574>` __.
 """
 
-from typing import List, Union, Tuple
-from torch import Tensor
-from torch.nn import Module, Parameter
+from typing import List, Tuple, Union
 
 from sparseml.pytorch.utils import tensor_sparsity
+from torch import Tensor
+from torch.nn import Module, Parameter
 
 
 __all__ = ["ModulePruningAnalyzer"]

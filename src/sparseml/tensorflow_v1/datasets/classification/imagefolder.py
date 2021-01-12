@@ -3,25 +3,22 @@ ImageFolder dataset implementations for the image
 classification field in computer vision.
 """
 
-from typing import Callable, Iterable, NamedTuple, Union, Tuple, Dict
-import os
 import glob
+import os
 import random
-import numpy
+from typing import Callable, Dict, Iterable, NamedTuple, Tuple, Union
 
-from sparseml.utils import clean_path
-from sparseml.utils.datasets import (
-    IMAGENET_RGB_MEANS,
-    IMAGENET_RGB_STDS,
-)
-from sparseml.tensorflow_v1.utils import tf_compat, tf_compat_div
+import numpy
 from sparseml.tensorflow_v1.datasets.dataset import Dataset
 from sparseml.tensorflow_v1.datasets.helpers import (
-    resize,
-    random_scaling_crop,
     center_square_crop,
+    random_scaling_crop,
+    resize,
 )
 from sparseml.tensorflow_v1.datasets.registry import DatasetRegistry
+from sparseml.tensorflow_v1.utils import tf_compat, tf_compat_div
+from sparseml.utils import clean_path
+from sparseml.utils.datasets import IMAGENET_RGB_MEANS, IMAGENET_RGB_STDS
 
 
 __all__ = ["imagenet_normalizer", "ImageFolderDataset", "SplitsTransforms"]

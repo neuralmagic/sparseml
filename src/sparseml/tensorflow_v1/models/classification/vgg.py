@@ -4,10 +4,11 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1409.1556>`_
 """
 
 from typing import List, Union
-from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.tensorflow_v1.nn import conv2d_block, dense_block, pool2d
-from sparseml.tensorflow_v1.models.registry import ModelRegistry
+
 from sparseml.tensorflow_v1.models.estimator import ClassificationEstimatorModelFn
+from sparseml.tensorflow_v1.models.registry import ModelRegistry
+from sparseml.tensorflow_v1.nn import conv2d_block, dense_block, pool2d
+from sparseml.tensorflow_v1.utils import tf_compat
 
 
 __all__ = [

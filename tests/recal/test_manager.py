@@ -1,5 +1,4 @@
-from sparseml.optim import BaseManager
-from sparseml.optim import BaseScheduled
+from sparseml.optim import BaseManager, BaseScheduled
 
 
 def test_manager():

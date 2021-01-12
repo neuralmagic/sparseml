@@ -3,16 +3,16 @@ Code related to applying a mask onto a parameter to impose kernel sparsity,
 aka model pruning
 """
 
-from typing import Union, Tuple
-import torch
-from torch import Tensor
-from torch.nn import Module, Parameter
+from typing import Tuple, Union
 
-from sparseml.pytorch.utils import mask_difference
+import torch
 from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
 )
+from sparseml.pytorch.utils import mask_difference
+from torch import Tensor
+from torch.nn import Module, Parameter
 
 
 __all__ = ["ModuleParamPruningMask"]
@@ -250,11 +250,11 @@ class ModuleParamPruningMask(object):
             # store our unmasked values if they should be tracked
             # we only want to update our param_masked tensor with the ones
             # that are newly masked
-            self._param_unmasked = (
-                (mask_diff == -1.0).type(self._param.data.type()) * self._param.data
-                + (mask_diff != -1.0).type(self._param.data.type())
-                * self._param_unmasked
-            )
+            self._param_unmasked = (mask_diff == -1.0).type(
+                self._param.data.type()
+            ) * self._param.data + (mask_diff != -1.0).type(
+                self._param.data.type()
+            ) * self._param_unmasked
         self._param_mask = value
         self.apply()
 
@@ -387,7 +387,9 @@ class ModuleParamPruningMask(object):
 
     def _setup_param_init(self):
         if self._store_init and self._param_init is None:
-            self._param_init = ModuleParamPruningMask._detach_tens(self._param.data.clone())
+            self._param_init = ModuleParamPruningMask._detach_tens(
+                self._param.data.clone()
+            )
         elif not self._store_init and self._param_init is not None:
             self._param_init = None
 

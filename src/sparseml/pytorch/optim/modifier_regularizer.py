@@ -3,17 +3,14 @@ Modifier for changing parameters for regularization
 """
 
 
-from torch.nn import Module
-from torch.optim import Optimizer
-from typing import Union, List
+from typing import List, Union
 
 from sparseml.optim import ModifierProp
-from sparseml.pytorch.optim.modifier import (
-    PyTorchModifierYAML,
-    ScheduledModifier,
-)
+from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.utils import PyTorchLogger
 from sparseml.utils import ALL_TOKEN, convert_to_bool
+from torch.nn import Module
+from torch.optim import Optimizer
 
 
 __all__ = ["SetWeightDecayModifier"]

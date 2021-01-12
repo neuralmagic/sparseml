@@ -3,18 +3,13 @@ Provides a class for performing quantization calibration on an Onnx model.
 """
 
 
+import os
 import tempfile
+from typing import Dict, Generator, Iterable, List, Tuple, Union
+
 import numpy as np
 import onnx
-import os
-
-from typing import List, Tuple, Generator, Dict, Union, Iterable
-
-from sparseml.onnx.utils import (
-    fold_conv_bns,
-    ORTModelRunner,
-    get_node_output_nodes,
-)
+from sparseml.onnx.utils import ORTModelRunner, fold_conv_bns, get_node_output_nodes
 
 
 __all__ = ["CalibrationSession"]
@@ -204,7 +199,8 @@ class CalibrationSession:
         return augmented_model
 
     def _iter_calib_ops_output(
-        self, outputs: List[np.ndarray],
+        self,
+        outputs: List[np.ndarray],
     ) -> Generator[Tuple[str, float, float], None, None]:
         """
         :param outputs: the outputs of a run of the augmented model
@@ -300,7 +296,9 @@ class CalibrationSession:
 
     @staticmethod
     def _calculate_scale_zeropoint(
-        range_min: float, range_max: float, next_node: Union[None, onnx.NodeProto],
+        range_min: float,
+        range_max: float,
+        next_node: Union[None, onnx.NodeProto],
     ) -> List[Union[int, float]]:
         # adjust range_min and range_max such that 0 is included in the range.
         # to make sure zero can be uniquely represented.

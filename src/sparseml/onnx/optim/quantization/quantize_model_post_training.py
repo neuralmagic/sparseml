@@ -2,14 +2,13 @@
 Provides a wrapper function for calibrating and quantizing an Onnx model
 """
 
+from typing import Iterable, List, Union
+
 import onnx
-
-from tqdm.auto import tqdm
-from typing import List, Union, Iterable
-
-from sparseml.onnx.utils import DataLoader, quantize_resnet_identity_add_inputs
 from sparseml.onnx.optim.quantization.calibration import CalibrationSession
-from sparseml.onnx.optim.quantization.quantize import quantize, QuantizationMode
+from sparseml.onnx.optim.quantization.quantize import QuantizationMode, quantize
+from sparseml.onnx.utils import DataLoader, quantize_resnet_identity_add_inputs
+from tqdm.auto import tqdm
 
 
 __all__ = ["quantize_model_post_training"]

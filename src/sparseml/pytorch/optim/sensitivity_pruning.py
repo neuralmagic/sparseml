@@ -2,26 +2,28 @@
 Sensitivity analysis implementations for kernel sparsity on Modules against loss funcs.
 """
 
-from typing import List, Callable, Any, Union, Tuple
+from typing import Any, Callable, List, Tuple, Union
 
 import torch
+from sparseml.optim import (
+    PruningLossSensitivityAnalysis,
+    default_pruning_sparsities_loss,
+)
+from sparseml.pytorch.optim.mask_creator_pruning import UnstructuredPruningMaskCreator
+from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask
+from sparseml.pytorch.utils import (
+    DEFAULT_LOSS_KEY,
+    LossWrapper,
+    ModuleRunFuncs,
+    ModuleRunResults,
+    ModuleTester,
+    PyTorchLogger,
+    get_prunable_layers,
+    infinite_data_loader,
+)
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.data import DataLoader
-
-from sparseml.optim import PruningLossSensitivityAnalysis, default_pruning_sparsities_loss
-from sparseml.pytorch.utils import (
-    ModuleTester,
-    ModuleRunResults,
-    LossWrapper,
-    DEFAULT_LOSS_KEY,
-    ModuleRunFuncs,
-    get_prunable_layers,
-    PyTorchLogger,
-    infinite_data_loader,
-)
-from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask
-from sparseml.pytorch.optim.mask_creator_pruning import UnstructuredPruningMaskCreator
 
 
 __all__ = [
@@ -165,7 +167,12 @@ def _sensitivity_callback(
     complete_measurement()
 
     def batch_end(
-        epoch: int, step: int, batch_size: int, data: Any, pred: Any, losses: Any,
+        epoch: int,
+        step: int,
+        batch_size: int,
+        data: Any,
+        pred: Any,
+        losses: Any,
     ):
         nonlocal measurement_steps
         measurement_steps += 1

@@ -3,26 +3,26 @@ Code related to monitoring, analyzing, and reporting info for models in ONNX.
 Records things like FLOPS, input and output shapes, kernel shapes, etc.
 """
 
-from typing import List, Dict, Any, Union
 import json
+from typing import Any, Dict, List, Union
+
 import numpy
 from onnx import ModelProto
-
-from sparseml.utils import clean_path, create_parent_dirs
+from sparseml.onnx.optim.sensitivity_pruning import pruning_loss_sens_approx
 from sparseml.onnx.utils import (
+    NodeShape,
+    calculate_flops,
+    check_load_model,
     extract_node_id,
     extract_node_shapes,
+    get_kernel_shape,
+    get_node_attributes,
     get_node_inputs,
     get_node_outputs,
-    is_prunable_node,
     get_node_params,
-    get_node_attributes,
-    check_load_model,
-    NodeShape,
-    get_kernel_shape,
-    calculate_flops,
+    is_prunable_node,
 )
-from sparseml.onnx.optim.sensitivity_pruning import pruning_loss_sens_approx
+from sparseml.utils import clean_path, create_parent_dirs
 
 
 __all__ = ["NodeAnalyzer", "ModelAnalyzer"]
@@ -45,7 +45,7 @@ class NodeAnalyzer(object):
         model: Union[ModelProto, None],
         node: Union[Any, None],
         node_shape: Union[NodeShape, None] = None,
-        **kwargs
+        **kwargs,
     ):
         if model is None and node is None:
             self._id = kwargs["id"]

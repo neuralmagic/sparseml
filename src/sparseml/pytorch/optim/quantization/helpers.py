@@ -3,19 +3,12 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
-from onnx import (
-    ModelProto,
-    NodeProto,
-    numpy_helper,
-)
-import torch
-from torch.nn import (
-    Module,
-    Conv2d,
-    BatchNorm2d,
-    ReLU,
-)
 from typing import NamedTuple
+
+import torch
+from onnx import ModelProto, NodeProto, numpy_helper
+from torch.nn import BatchNorm2d, Conv2d, Module, ReLU
+
 
 try:
     from torch import quantization as torch_quantization
@@ -23,15 +16,16 @@ except:
     torch_quantization = None
 
 from sparseml.onnx.utils import (
-    get_node_output_nodes,
-    get_nodes_by_output_id,
-    get_node_params,
     get_init_by_name,
-    update_model_param,
+    get_node_output_nodes,
+    get_node_params,
+    get_nodes_by_output_id,
     remove_node_and_params_from_graph,
     swap_node_output,
+    update_model_param,
 )
 from sparseml.pytorch.nn import ReLU as ReLU_nm
+
 
 __all__ = [
     "add_quant_dequant",
@@ -74,7 +68,8 @@ def get_qat_qconfig() -> torch_quantization.QConfig:
     )
     weight_observer = torch_quantization.default_weight_fake_quant
     return torch_quantization.QConfig(
-        activation=activation_observer, weight=weight_observer,
+        activation=activation_observer,
+        weight=weight_observer,
     )
 
 

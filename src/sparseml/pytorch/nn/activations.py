@@ -3,11 +3,12 @@ Implementations related to activations for neural networks in PyTorch
 """
 
 from typing import Union
+
+import torch.nn.functional as TF
 from torch import Tensor, clamp
-from torch.nn import Module, PReLU, LeakyReLU
+from torch.nn import LeakyReLU, Module, PReLU
 from torch.nn import ReLU as TReLU
 from torch.nn import ReLU6 as TReLU6
-import torch.nn.functional as TF
 
 
 __all__ = [
@@ -132,7 +133,7 @@ def replace_activation(
     act_type: str,
     inplace: bool = False,
     num_channels: Union[int, None] = None,
-    **kwargs
+    **kwargs,
 ) -> Module:
     """
     General function to replace the activation for a specific layer in a Module

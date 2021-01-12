@@ -1,34 +1,32 @@
-import pytest
-
 import os
-
 from typing import Callable, List
-import numpy
 
+import numpy
+import pytest
+from sparseml.tensorflow_v1.optim import (
+    BlockPruningMaskCreator,
+    DimensionPruningMaskCreator,
+    GroupedPruningMaskCreator,
+    PruningMaskCreator,
+    UnstructuredPruningMaskCreator,
+    apply_op_vars_masks,
+    create_op_pruning,
+    get_or_create_graph_ops_pruning,
+    get_or_create_ks_schedule_ops,
+    get_or_create_ks_scheduled_graph_ops,
+)
 from sparseml.tensorflow_v1.utils import (
-    tf_compat,
     VAR_INDEX_FROM_TRAINABLE,
     eval_tensor_sparsity,
     get_op_input_var,
+    tf_compat,
 )
-from sparseml.tensorflow_v1.optim import (
-    get_or_create_ks_schedule_ops,
-    create_op_pruning,
-    get_or_create_graph_ops_pruning,
-    get_or_create_ks_scheduled_graph_ops,
-    apply_op_vars_masks,
-    PruningMaskCreator,
-    GroupedPruningMaskCreator,
-    UnstructuredPruningMaskCreator,
-    DimensionPruningMaskCreator,
-    BlockPruningMaskCreator,
-)
-
-from tests.tensorflow.helpers import mlp_net, conv_net
+from tests.tensorflow.helpers import conv_net, mlp_net
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 def test_create_op_pruning_fc(sparsity_val):
@@ -95,7 +93,8 @@ def test_create_op_pruning_fc(sparsity_val):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
@@ -189,35 +188,36 @@ def test_create_op_pruning_conv(sparsity_val: float, mask_creator: PruningMaskCr
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
     "net_const,inp_arr,var_names,mask_creator",
     [
         (
-                mlp_net,
-                numpy.random.random((4, 16)),
-                ["re:mlp_net/.*/weight"],
-                UnstructuredPruningMaskCreator(),
+            mlp_net,
+            numpy.random.random((4, 16)),
+            ["re:mlp_net/.*/weight"],
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                mlp_net,
-                numpy.random.random((4, 16)),
-                ["re:mlp_net/.*/weight"],
-                DimensionPruningMaskCreator(0),
+            mlp_net,
+            numpy.random.random((4, 16)),
+            ["re:mlp_net/.*/weight"],
+            DimensionPruningMaskCreator(0),
         ),
         (
-                mlp_net,
-                numpy.random.random((4, 16)),
-                ["re:mlp_net/.*/weight"],
-                BlockPruningMaskCreator([4, 1]),
+            mlp_net,
+            numpy.random.random((4, 16)),
+            ["re:mlp_net/.*/weight"],
+            BlockPruningMaskCreator([4, 1]),
         ),
         (
-                conv_net,
-                numpy.random.random((4, 28, 28, 1)),
-                ["conv_net/conv1/weight", "conv_net/conv2/weight", "conv_net/mlp/weight"],
-                UnstructuredPruningMaskCreator(),
+            conv_net,
+            numpy.random.random((4, 28, 28, 1)),
+            ["conv_net/conv1/weight", "conv_net/conv2/weight", "conv_net/mlp/weight"],
+            UnstructuredPruningMaskCreator(),
         ),
     ],
 )
@@ -238,10 +238,24 @@ def test_get_or_create_graph_ops_pruning(
         )
         update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
         pruning_op_vars = get_or_create_graph_ops_pruning(
-            graph, var_names, sparsity, update_ready, True, None, group, mask_creator,
+            graph,
+            var_names,
+            sparsity,
+            update_ready,
+            True,
+            None,
+            group,
+            mask_creator,
         )
         pruning_op_vars_sec = get_or_create_graph_ops_pruning(
-            graph, var_names, sparsity, update_ready, True, None, group, mask_creator,
+            graph,
+            var_names,
+            sparsity,
+            update_ready,
+            True,
+            None,
+            group,
+            mask_creator,
         )
 
         assert len(pruning_op_vars) >= len(var_names)  # get at least 1 match per regex
@@ -302,7 +316,8 @@ def test_get_or_create_graph_ops_pruning(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99, 1.0])
 @pytest.mark.parametrize(
@@ -362,7 +377,8 @@ def test_apply_op_vars_masks(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "begin_step,end_step,update_step_freq,init_sparsity,final_sparsity,exponent",
@@ -472,7 +488,8 @@ def _expected_sparsity(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False), reason="Skipping tensorflow_v1 tests",
+    os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
+    reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.parametrize(
     "begin_step,end_step,update_step_freq,init_sparsity,final_sparsity,exponent",
@@ -490,7 +507,11 @@ def _expected_sparsity(
 @pytest.mark.parametrize(
     "net_const,inp_arr,var_names",
     [
-        (mlp_net, numpy.random.random((4, 16)), ["re:mlp_net/.*/weight"],),
+        (
+            mlp_net,
+            numpy.random.random((4, 16)),
+            ["re:mlp_net/.*/weight"],
+        ),
         (
             conv_net,
             numpy.random.random((4, 28, 28, 1)),

@@ -3,18 +3,9 @@ Modifier for changing the state of a modules params while training according to
 certain update formulas or patterns.
 """
 
-from typing import List, Union, Any
-import torch
-from torch.nn import Module, Parameter
-from torch.optim.optimizer import Optimizer
+from typing import Any, List, Union
 
-from sparseml.utils import (
-    ALL_TOKEN,
-    convert_to_bool,
-    validate_str_iterable,
-    interpolate,
-    INTERPOLATION_FUNCS,
-)
+import torch
 from sparseml.optim import ModifierProp
 from sparseml.pytorch.optim.modifier import (
     PyTorchModifierYAML,
@@ -22,6 +13,15 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import get_named_layers_and_params_by_regex
+from sparseml.utils import (
+    ALL_TOKEN,
+    INTERPOLATION_FUNCS,
+    convert_to_bool,
+    interpolate,
+    validate_str_iterable,
+)
+from torch.nn import Module, Parameter
+from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["TrainableParamsModifier", "SetParamModifier", "GradualParamModifier"]

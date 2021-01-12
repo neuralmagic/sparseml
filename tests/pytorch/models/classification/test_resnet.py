@@ -1,36 +1,36 @@
 import os
+from typing import Callable, Union
+
 import pytest
-
-from typing import Union, Callable
 import torch
-
 from sparseml.pytorch.models import (
     ModelRegistry,
     resnet18,
-    resnetv2_18,
     resnet34,
-    resnetv2_34,
     resnet50,
     resnet50_2xwidth,
-    resnetv2_50,
     resnet101,
     resnet101_2xwidth,
-    resnetv2_101,
     resnet152,
+    resnetv2_18,
+    resnetv2_34,
+    resnetv2_50,
+    resnetv2_101,
     resnetv2_152,
     resnext50,
     resnext101,
     resnext152,
 )
-
 from tests.pytorch.models.utils import compare_model
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",
+    os.getenv("NM_ML_SKIP_MODEL_TESTS", False),
+    reason="Skipping model tests",
 )
 @pytest.mark.parametrize(
     "key,pretrained,test_input,match_const",

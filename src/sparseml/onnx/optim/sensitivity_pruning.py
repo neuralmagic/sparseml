@@ -2,35 +2,35 @@
 Sensitivity analysis implementations for kernel sparsity on Models against loss funcs.
 """
 
-from typing import Union, List, Tuple, Generator, NamedTuple, Any
 import logging
 import numbers
-from tqdm import auto
+import time
+from typing import Any, Generator, List, NamedTuple, Tuple, Union
+
 import numpy
 from onnx import ModelProto
-import time
-
-from sparseml.optim import (
-    default_pruning_sparsities_loss,
-    default_pruning_sparsities_perf,
-    PruningLossSensitivityAnalysis,
-    PruningPerfSensitivityAnalysis,
-    PruningSensitivityResult,
-)
-from sparseml.utils import flatten_iterable
 from sparseml.onnx.utils import (
-    get_prunable_nodes,
+    DataLoader,
+    NMAnalyzeModelRunner,
+    NMModelRunner,
+    ORTModelRunner,
+    check_load_model,
     extract_node_id,
     get_node_params,
-    DataLoader,
-    ORTModelRunner,
-    NMModelRunner,
-    NMAnalyzeModelRunner,
+    get_prunable_nodes,
     kl_divergence,
-    check_load_model,
     prune_model_one_shot,
     update_model_param,
 )
+from sparseml.optim import (
+    PruningLossSensitivityAnalysis,
+    PruningPerfSensitivityAnalysis,
+    PruningSensitivityResult,
+    default_pruning_sparsities_loss,
+    default_pruning_sparsities_perf,
+)
+from sparseml.utils import flatten_iterable
+from tqdm import auto
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -112,7 +112,9 @@ def pruning_loss_sens_magnitude_iter(
     sparsity_levels: Union[
         List[float], Tuple[float, ...]
     ] = default_pruning_sparsities_loss(True),
-) -> Generator[Tuple[PruningLossSensitivityAnalysis, KSSensitivityProgress], None, None]:
+) -> Generator[
+    Tuple[PruningLossSensitivityAnalysis, KSSensitivityProgress], None, None
+]:
     """
     Approximated kernel sparsity (pruning) loss analysis for a given model.
     Iteratively builds a KSLossSensitivityAnalysis object and yields an updated
@@ -188,7 +190,9 @@ def pruning_loss_sens_magnitude(
     analysis = None
     bar = None
 
-    for (analysis, progress) in pruning_loss_sens_magnitude_iter(model, sparsity_levels):
+    for (analysis, progress) in pruning_loss_sens_magnitude_iter(
+        model, sparsity_levels
+    ):
         if bar is None and show_progress:
             bar = auto.tqdm(total=progress.total, desc="KS Loss Sensitivity Analysis")
 
@@ -208,7 +212,9 @@ def pruning_loss_sens_one_shot_iter(
     steps_per_measurement: int,
     sparsity_levels: List[float] = default_pruning_sparsities_loss(False),
     use_neuralmagic_inference: bool = False,
-) -> Generator[Tuple[PruningLossSensitivityAnalysis, KSSensitivityProgress], None, None]:
+) -> Generator[
+    Tuple[PruningLossSensitivityAnalysis, KSSensitivityProgress], None, None
+]:
     """
     Run a one shot sensitivity analysis for kernel sparsity.
     It does not retrain.
@@ -245,7 +251,10 @@ def pruning_loss_sens_one_shot_iter(
     )
     _LOGGER.debug("created runner for one shot analysis {}".format(runner))
     base_outputs, _ = runner.run(
-        data, desc="", show_progress=False, max_steps=steps_per_measurement,
+        data,
+        desc="",
+        show_progress=False,
+        max_steps=steps_per_measurement,
     )
     _LOGGER.debug("recorded base outputs")
     del runner
@@ -275,7 +284,10 @@ def pruning_loss_sens_one_shot_iter(
             )
             _LOGGER.debug("created runner for one shot analysis {}".format(runner))
             pruned_outputs, _ = runner.run(
-                data, desc="", show_progress=False, max_steps=steps_per_measurement,
+                data,
+                desc="",
+                show_progress=False,
+                max_steps=steps_per_measurement,
             )
             del runner
             _LOGGER.debug("recorded outputs")
@@ -368,7 +380,9 @@ def pruning_perf_sens_one_shot_iter(
     sparsity_levels: List[float] = default_pruning_sparsities_perf(),
     optimization_level: int = 0,
     iters_sleep_time: float = -1,
-) -> Generator[Tuple[PruningPerfSensitivityAnalysis, KSSensitivityProgress], None, None]:
+) -> Generator[
+    Tuple[PruningPerfSensitivityAnalysis, KSSensitivityProgress], None, None
+]:
     """
     Run a one shot sensitivity analysis for kernel sparsity.
     Runs a baseline and then sets the sparsity for each layer to a given range
@@ -444,7 +458,10 @@ def pruning_perf_sens_one_shot_iter(
             time.sleep(iters_sleep_time)  # hack to release GIL between runs
 
     yield analysis, KSSensitivityProgress(
-        len(sparsity_levels), None, len(sparsity_levels), 1.0,
+        len(sparsity_levels),
+        None,
+        len(sparsity_levels),
+        1.0,
     )
 
 

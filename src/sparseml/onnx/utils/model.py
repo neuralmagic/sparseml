@@ -1,34 +1,34 @@
 """
 Utilities for ONNX models and running inference with them
 """
-import os
-from abc import ABC, abstractmethod
-from copy import deepcopy
-from typing import Callable, Union, Any, Dict, Tuple, List
-from collections import OrderedDict
 import logging
+import os
 import tempfile
 import time
-import psutil
-from tqdm import auto
-import numpy
-from onnx import ModelProto
-import onnxruntime
+from abc import ABC, abstractmethod
+from collections import OrderedDict
+from copy import deepcopy
+from typing import Any, Callable, Dict, List, Tuple, Union
 
+import numpy
+import onnxruntime
+import psutil
+from onnx import ModelProto
+from sparseml.onnx.utils.data import DataLoader
+from sparseml.onnx.utils.graph_editor import override_model_batch_size
 from sparseml.onnx.utils.helpers import (
     check_load_model,
-    get_node_by_id,
-    is_foldable_node,
-    get_prunable_node_from_foldable,
     extract_node_id,
+    get_node_by_id,
+    get_prunable_node_from_foldable,
+    is_foldable_node,
 )
-from sparseml.onnx.utils.graph_editor import override_model_batch_size
-from sparseml.onnx.utils.data import DataLoader
+from tqdm import auto
+
 
 try:
     import neuralmagic
-    from neuralmagic import create_model
-    from neuralmagic import analyze_model
+    from neuralmagic import analyze_model, create_model
     from neuralmagic.cpu import cpu_details
 except Exception:
     neuralmagic = None
@@ -37,7 +37,7 @@ except Exception:
     cpu_details = None
 
 try:
-    from openvino.inference_engine import IENetwork, IECore, get_version, StatusCode
+    from openvino.inference_engine import IECore, IENetwork, StatusCode, get_version
 except Exception:
     IENetwork, IECore, get_version, StatusCode = None, None, None, None
 
@@ -113,7 +113,7 @@ class ModelRunner(ABC):
         show_progress: bool = True,
         max_steps: int = -1,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Tuple[List[Any], List[float]]:
         """
         Run inference for a model for the data given in the data_loader iterator
@@ -144,7 +144,7 @@ class ModelRunner(ABC):
         show_progress: bool = True,
         max_steps: int = -1,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """
         Iteratively runs inference for a model for the data given in the data_loader iterator
@@ -488,7 +488,7 @@ class ORTModelRunner(ModelRunner):
         show_progress: bool = True,
         max_steps: int = -1,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Tuple[List[Any], List[float]]:
         """
         Run inference for a model for the data given in the data_loader iterator
@@ -639,7 +639,7 @@ class NMModelRunner(_NMModelRunner):
         show_progress: bool = True,
         max_steps: int = -1,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Tuple[List[Any], List[float]]:
         """
         Run inference for a model for the data given in the data_loader iterator
@@ -772,7 +772,10 @@ class NMAnalyzeModelRunner(_NMModelRunner):
     """
 
     def __init__(
-        self, model: Union[str, ModelProto], batch_size: int, num_cores: int = -1,
+        self,
+        model: Union[str, ModelProto],
+        batch_size: int,
+        num_cores: int = -1,
     ):
         super().__init__(model, batch_size, num_cores, loss=None)
 
@@ -787,7 +790,7 @@ class NMAnalyzeModelRunner(_NMModelRunner):
         optimization_level: int = 1,
         imposed_ks: Union[None, float] = None,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Tuple[List[Dict], List[float]]:
         """
         Run inference for a model for the data given in the data_loader iterator
@@ -833,7 +836,7 @@ class NMAnalyzeModelRunner(_NMModelRunner):
         optimization_level: int = 1,
         imposed_ks: Union[None, float] = None,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Tuple[Dict[str, numpy.ndarray], float]:
         """
         :param batch: the batch to run through the ONNX model for inference

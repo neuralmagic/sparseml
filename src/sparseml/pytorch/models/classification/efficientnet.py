@@ -4,25 +4,23 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1905.11946>`
 """
 
 import math
-
 from collections import OrderedDict
-from typing import Union, List, Tuple, Dict
+from typing import Dict, List, Tuple, Union
 
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import SqueezeExcite, Swish
 from torch import Tensor
 from torch.nn import (
+    AdaptiveAvgPool2d,
+    BatchNorm2d,
+    Conv2d,
+    Dropout,
+    Linear,
     Module,
     Sequential,
-    Conv2d,
-    BatchNorm2d,
-    AdaptiveAvgPool2d,
-    Linear,
-    Dropout,
-    Softmax,
     Sigmoid,
+    Softmax,
 )
-
-from sparseml.pytorch.nn import Swish, SqueezeExcite
-from sparseml.pytorch.models.registry import ModelRegistry
 
 
 __all__ = [

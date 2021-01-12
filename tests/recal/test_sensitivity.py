@@ -1,5 +1,5 @@
-import tempfile
 import os
+import tempfile
 
 from sparseml.optim import PruningLossSensitivityAnalysis
 

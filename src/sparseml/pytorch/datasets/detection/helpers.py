@@ -4,14 +4,13 @@ Helper classes and functions for PyTorch detection data loaders
 
 
 import random
-import torch
+from typing import Any, Callable, List, Tuple
 
+import torch
 from PIL import Image
+from sparseml.pytorch.utils import ssd_random_crop
 from torch import Tensor
 from torchvision.transforms import functional as torch_functional
-from typing import List, Callable, Tuple, Any
-
-from sparseml.pytorch.utils import ssd_random_crop
 
 
 __all__ = [

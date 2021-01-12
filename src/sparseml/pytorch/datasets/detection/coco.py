@@ -1,36 +1,34 @@
 import os
+
 import torch
-from torchvision.transforms import (
-    ColorJitter,
-    functional as torch_functional,
-)
+from torchvision.transforms import ColorJitter
+from torchvision.transforms import functional as torch_functional
+
 
 try:
-    from torchvision.datasets import CocoDetection
     import pycocotools
+    from torchvision.datasets import CocoDetection
 except:
     CocoDetection = object
     pycocotools = None
 
-from sparseml.pytorch.datasets.detection.helpers import (
-    AnnotatedImageTransforms,
-    ssd_random_crop_image_and_annotations,
-    random_horizontal_flip_image_and_annotations,
-    bounding_box_and_labels_to_yolo_fmt,
-)
-from sparseml.pytorch.datasets.registry import DatasetRegistry
-from sparseml.pytorch.utils import (
-    DefaultBoxes,
-    get_default_boxes_300,
-)
-from sparseml.utils.datasets import (
-    default_dataset_path,
-    IMAGENET_RGB_MEANS,
-    IMAGENET_RGB_STDS,
-)
-
 import urllib.request as request
 import zipfile
+
+from sparseml.pytorch.datasets.detection.helpers import (
+    AnnotatedImageTransforms,
+    bounding_box_and_labels_to_yolo_fmt,
+    random_horizontal_flip_image_and_annotations,
+    ssd_random_crop_image_and_annotations,
+)
+from sparseml.pytorch.datasets.registry import DatasetRegistry
+from sparseml.pytorch.utils import DefaultBoxes, get_default_boxes_300
+from sparseml.utils.datasets import (
+    IMAGENET_RGB_MEANS,
+    IMAGENET_RGB_STDS,
+    default_dataset_path,
+)
+
 
 __all__ = [
     "CocoDetectionDataset",
@@ -122,8 +120,10 @@ class CocoDetectionDataset(CocoDetection):
                 year=year,
             )
             zip_path = os.path.join(root, "images.zip")
-            annotation_url = "{COCO_ANNOTATION_ZIP_ROOT}/annotations_trainval{year}.zip".format(
-                COCO_ANNOTATION_ZIP_ROOT=COCO_ANNOTATION_ZIP_ROOT, year=year
+            annotation_url = (
+                "{COCO_ANNOTATION_ZIP_ROOT}/annotations_trainval{year}.zip".format(
+                    COCO_ANNOTATION_ZIP_ROOT=COCO_ANNOTATION_ZIP_ROOT, year=year
+                )
             )
             annotation_zip_path = os.path.join(root, "annotation.zip")
             os.makedirs(root, exist_ok=True)
@@ -205,7 +205,10 @@ class CocoDetectionDataset(CocoDetection):
             )
         elif yolo_preprocess:
             trans.append(
-                lambda img, ann: (img, (bounding_box_and_labels_to_yolo_fmt(ann), ann),)
+                lambda img, ann: (
+                    img,
+                    (bounding_box_and_labels_to_yolo_fmt(ann), ann),
+                )
             )
 
         super().__init__(

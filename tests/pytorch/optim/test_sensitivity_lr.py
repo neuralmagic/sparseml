@@ -1,15 +1,13 @@
-import pytest
-
 import os
+
+import pytest
 import torch
 import torch.nn.functional as TF
-from torch.optim import SGD
-from torch.utils.data import DataLoader
-
 from sparseml.pytorch.optim import lr_loss_sensitivity
 from sparseml.pytorch.utils import LossWrapper
-
-from tests.pytorch.helpers import MLPNet, ConvNet, MLPDataset, ConvDataset
+from tests.pytorch.helpers import ConvDataset, ConvNet, MLPDataset, MLPNet
+from torch.optim import SGD
+from torch.utils.data import DataLoader
 
 
 def _test_lr_sensitivity(model, data, loss, device, steps_per_measurement):
@@ -29,7 +27,8 @@ def _test_lr_sensitivity(model, data, loss, device, steps_per_measurement):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size,samples_per_measurement",
@@ -40,12 +39,17 @@ def test_module_ks_sensitivity_analysis_one_shot(
 ):
     data = DataLoader(dataset, batch_size)
     _test_lr_sensitivity(
-        model, data, loss, "cpu", samples_per_measurement,
+        model,
+        data,
+        loss,
+        "cpu",
+        samples_per_measurement,
     )
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size,samples_per_measurement",
@@ -61,5 +65,9 @@ def test_module_ks_sensitivity_analysis_one_shot_cuda(
     data = DataLoader(dataset, batch_size)
     model = model.to("cuda")
     _test_lr_sensitivity(
-        model, data, loss, "cuda", samples_per_measurement,
+        model,
+        data,
+        loss,
+        "cuda",
+        samples_per_measurement,
     )

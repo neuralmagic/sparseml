@@ -1,18 +1,17 @@
-import pytest
 import os
-
 import sys
-import torch
-from torch.nn import Linear, Conv2d
 
+import pytest
+import torch
 from sparseml.pytorch.optim import (
+    BlockPruningMaskCreator,
+    DimensionSparsityMaskCreator,
+    GroupedPruningMaskCreator,
     ModuleParamPruningMask,
     UnstructuredPruningMaskCreator,
-    GroupedPruningMaskCreator,
-    DimensionSparsityMaskCreator,
-    BlockPruningMaskCreator,
 )
 from sparseml.pytorch.utils import tensor_sparsity
+from torch.nn import Conv2d, Linear
 
 
 def _test_constructor(layer, param_name, mask_creator):
@@ -27,20 +26,21 @@ def _test_constructor(layer, param_name, mask_creator):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,mask_creator",
     [
         (
-                Linear(in_features=8, out_features=64),
+            Linear(in_features=8, out_features=64),
             "weight",
-                UnstructuredPruningMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Linear(in_features=8, out_features=64),
+            Linear(in_features=8, out_features=64),
             "bias",
-                UnstructuredPruningMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Linear(in_features=8, out_features=64),
@@ -48,19 +48,19 @@ def _test_constructor(layer, param_name, mask_creator):
             DimensionSparsityMaskCreator(1),
         ),
         (
-                Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
             "weight",
-                UnstructuredPruningMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
             "bias",
-                UnstructuredPruningMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
             "weight",
-                BlockPruningMaskCreator([4, 1]),
+            BlockPruningMaskCreator([4, 1]),
         ),
     ],
 )
@@ -69,15 +69,16 @@ def test_constructor(layer, param_name, mask_creator):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name, mask_creator",
     [
         (
-                Linear(in_features=8, out_features=64),
+            Linear(in_features=8, out_features=64),
             "weight",
-                UnstructuredPruningMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Linear(in_features=8, out_features=64),
@@ -85,14 +86,14 @@ def test_constructor(layer, param_name, mask_creator):
             DimensionSparsityMaskCreator(1),
         ),
         (
-                Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
             "weight",
-                UnstructuredPruningMaskCreator(),
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
             "weight",
-                BlockPruningMaskCreator([4, 1]),
+            BlockPruningMaskCreator([4, 1]),
         ),
     ],
 )
@@ -103,7 +104,8 @@ def test_constructor_cuda(layer, param_name, mask_creator):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def _test_set_param_data(layer, param_name, data):
     mask = ModuleParamPruningMask(layer, param_name)
@@ -112,7 +114,8 @@ def _test_set_param_data(layer, param_name, data):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,data",
@@ -136,7 +139,8 @@ def test_set_param_data(layer, param_name, data):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,data",
@@ -163,7 +167,8 @@ def random_mask(*size, threshold):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def _test_set_param_mask(layer, param_name, param_mask):
     mask = ModuleParamPruningMask(layer, param_name)
@@ -186,7 +191,8 @@ def _test_set_param_mask(layer, param_name, param_mask):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param_mask",
@@ -220,7 +226,8 @@ def test_set_param_mask(layer, param_name, param_mask):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param_mask",
@@ -258,17 +265,21 @@ def test_set_param_mask_cuda(layer, param_name, param_mask):
 
 def _test_grouped_sparsity_mask_output(mask_creator, mask):
     grouped_mask = mask_creator.group_tensor(mask)
-    mask_vals_are_grouped = torch.all(
-        (grouped_mask == 0.0) | (grouped_mask == 1.0)
-    )
+    mask_vals_are_grouped = torch.all((grouped_mask == 0.0) | (grouped_mask == 1.0))
     assert mask_vals_are_grouped
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def _test_set_param_mask_from_abs_threshold(
-    layer, param_name, param, threshold, expected_sparsity, mask_creator,
+    layer,
+    param_name,
+    param,
+    threshold,
+    expected_sparsity,
+    mask_creator,
 ):
     mask = ModuleParamPruningMask(layer, param_name, mask_creator=mask_creator)
     mask.set_param_data(param)
@@ -280,34 +291,35 @@ def _test_set_param_mask_from_abs_threshold(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param,threshold,expected_sparsity,mask_creator",
     [
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.0,
-                0.0,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            0.0,
+            0.0,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                1.0,
-                0.682,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            1.0,
+            0.682,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                2.0,
-                0.9545,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            2.0,
+            0.9545,
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Linear(in_features=256 * 256, out_features=32),
@@ -318,36 +330,36 @@ def _test_set_param_mask_from_abs_threshold(
             DimensionSparsityMaskCreator(1),
         ),
         (
-                Linear(in_features=256 * 256, out_features=32),
+            Linear(in_features=256 * 256, out_features=32),
             "weight",
-                torch.randn(32, 256 * 256),
-                1.5,
-                0.9809,
-                BlockPruningMaskCreator([1, 4]),
+            torch.randn(32, 256 * 256),
+            1.5,
+            0.9809,
+            BlockPruningMaskCreator([1, 4]),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.0,
-                0.0,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            0.0,
+            0.0,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                1.0,
-                0.682,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            1.0,
+            0.682,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                2.0,
-                0.9545,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            2.0,
+            0.9545,
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -358,17 +370,22 @@ def _test_set_param_mask_from_abs_threshold(
             DimensionSparsityMaskCreator([0, 1]),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                2.0,
-                0.9995,
-                BlockPruningMaskCreator([1, 4]),
+            torch.randn(512, 256, 3, 3),
+            2.0,
+            0.9995,
+            BlockPruningMaskCreator([1, 4]),
         ),
     ],
 )
 def test_set_param_mask_from_abs_threshold(
-    layer, param_name, param, threshold, expected_sparsity, mask_creator,
+    layer,
+    param_name,
+    param,
+    threshold,
+    expected_sparsity,
+    mask_creator,
 ):
     _test_set_param_mask_from_abs_threshold(
         layer, param_name, param, threshold, expected_sparsity, mask_creator
@@ -376,34 +393,35 @@ def test_set_param_mask_from_abs_threshold(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param,threshold,expected_sparsity, mask_creator",
     [
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.0,
-                0.0,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            0.0,
+            0.0,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                1.0,
-                0.682,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            1.0,
+            0.682,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                2.0,
-                0.9545,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            2.0,
+            0.9545,
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Linear(in_features=256 * 256, out_features=32),
@@ -414,36 +432,36 @@ def test_set_param_mask_from_abs_threshold(
             DimensionSparsityMaskCreator(1),
         ),
         (
-                Linear(in_features=256 * 256, out_features=32),
+            Linear(in_features=256 * 256, out_features=32),
             "weight",
-                torch.randn(32, 256 * 256),
-                1.5,
-                0.9809,
-                BlockPruningMaskCreator([1, 4]),
+            torch.randn(32, 256 * 256),
+            1.5,
+            0.9809,
+            BlockPruningMaskCreator([1, 4]),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.0,
-                0.0,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            0.0,
+            0.0,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                1.0,
-                0.682,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            1.0,
+            0.682,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                2.0,
-                0.9545,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            2.0,
+            0.9545,
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -454,12 +472,12 @@ def test_set_param_mask_from_abs_threshold(
             DimensionSparsityMaskCreator([0, 1]),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                2.0,
-                0.9995,
-                BlockPruningMaskCreator([1, 4]),
+            torch.randn(512, 256, 3, 3),
+            2.0,
+            0.9995,
+            BlockPruningMaskCreator([1, 4]),
         ),
     ],
 )
@@ -487,31 +505,32 @@ def _test_set_param_mask_from_sparsity(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param,sparsity,mask_creator",
     [
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.0,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            0.0,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.5,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            0.5,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.99,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            0.99,
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Linear(in_features=256, out_features=512),
@@ -521,32 +540,32 @@ def _test_set_param_mask_from_sparsity(
             DimensionSparsityMaskCreator(1),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.6,
-                BlockPruningMaskCreator([1, 4]),
+            torch.randn(512, 256),
+            0.6,
+            BlockPruningMaskCreator([1, 4]),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.0,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            0.0,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.5,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            0.5,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.99,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            0.99,
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -556,11 +575,11 @@ def _test_set_param_mask_from_sparsity(
             DimensionSparsityMaskCreator([0, 1]),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.99,
-                BlockPruningMaskCreator([1, 4]),
+            torch.randn(512, 256, 3, 3),
+            0.99,
+            BlockPruningMaskCreator([1, 4]),
         ),
     ],
 )
@@ -569,31 +588,32 @@ def test_set_param_mask_from_sparsity(layer, param_name, param, sparsity, mask_c
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param,sparsity,mask_creator",
     [
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.0,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            0.0,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.5,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            0.5,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.99,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256),
+            0.99,
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Linear(in_features=256, out_features=512),
@@ -603,32 +623,32 @@ def test_set_param_mask_from_sparsity(layer, param_name, param, sparsity, mask_c
             DimensionSparsityMaskCreator(1),
         ),
         (
-                Linear(in_features=256, out_features=512),
+            Linear(in_features=256, out_features=512),
             "weight",
-                torch.randn(512, 256),
-                0.6,
-                BlockPruningMaskCreator([1, 4]),
+            torch.randn(512, 256),
+            0.6,
+            BlockPruningMaskCreator([1, 4]),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.0,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            0.0,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.5,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            0.5,
+            UnstructuredPruningMaskCreator(),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.99,
-                UnstructuredPruningMaskCreator(),
+            torch.randn(512, 256, 3, 3),
+            0.99,
+            UnstructuredPruningMaskCreator(),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -638,11 +658,11 @@ def test_set_param_mask_from_sparsity(layer, param_name, param, sparsity, mask_c
             DimensionSparsityMaskCreator([0, 1]),
         ),
         (
-                Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
-                torch.randn(512, 256, 3, 3),
-                0.99,
-                BlockPruningMaskCreator([1, 4]),
+            torch.randn(512, 256, 3, 3),
+            0.99,
+            BlockPruningMaskCreator([1, 4]),
         ),
     ],
 )

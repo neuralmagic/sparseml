@@ -2,23 +2,16 @@
 Modifiers for increasing / enforcing activation sparsity on models while training.
 """
 
-from typing import Union, List, Tuple
-from torch import Tensor
-from torch.nn import Module
-import torch.nn.functional as TF
-from torch.optim.optimizer import Optimizer
+from typing import List, Tuple, Union
 
-from sparseml.utils import (
-    ALL_TOKEN,
-    validate_str_iterable,
-    convert_to_bool,
-)
-from sparseml.pytorch.utils import (
-    get_terminal_layers,
-    get_layer,
-)
+import torch.nn.functional as TF
 from sparseml.pytorch.optim.modifier import ModifierProp, ScheduledModifier
 from sparseml.pytorch.optim.sensitivity_as import ASLayerTracker
+from sparseml.pytorch.utils import get_layer, get_terminal_layers
+from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["ASRegModifier", "REG_FUNCTIONS", "REG_TENSORS"]
