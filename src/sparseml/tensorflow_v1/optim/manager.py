@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Tuple, Union
 from sparseml.optim import BaseManager, BaseScheduled
 from sparseml.tensorflow_v1.optim.modifier import NM_RECAL, Modifier, ScheduledModifier
 from sparseml.tensorflow_v1.utils import tf_compat
+from sparseml.utils import load_recipe_yaml_str
 
 
 __all__ = ["ScheduledModifierManager"]
@@ -70,9 +71,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
             returned manager alongside the ones loaded from the yaml file
         :return: ScheduledModifierManager() created from the yaml file
         """
-        with open(file_path, "r") as yaml_file:
-            yaml_str = yaml_file.read()
-
+        yaml_str = load_recipe_yaml_str(file_path)
         modifiers = Modifier.load_list(yaml_str)
         if add_modifiers:
             modifiers.extend(add_modifiers)

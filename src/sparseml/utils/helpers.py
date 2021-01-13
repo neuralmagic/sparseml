@@ -8,6 +8,7 @@ import fnmatch
 import glob
 import logging
 import os
+import re
 import sys
 from collections import OrderedDict
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
@@ -40,6 +41,7 @@ __all__ = [
     "NumpyArrayBatcher",
     "tensor_export",
     "tensors_export",
+    "load_recipe_yaml_str",
 ]
 
 
@@ -741,3 +743,38 @@ def _tensors_export_batch(
     raise ValueError(
         "unrecognized type for tensors given of {}".format(tensors.__class__.__name__)
     )
+
+
+def load_recipe_yaml_str(file_path: str) -> str:
+    """
+    Loads a YAML recipe file to a string or
+    extracts recipe from YAML front matter in a sparsezoo markdown recipe card.
+
+    YAML front matter: https://jekyllrb.com/docs/front-matter/
+
+    :param file_path: file path to recipe YAML file or markdown recipe card
+    :return: the recipe YAML configuration loaded as a string
+    """
+    extension = file_path.lower().split(".")[-1]
+    if extension not in ["md", "yaml"]:
+        raise ValueError(
+            "Unsupported file extension for recipe. Excepted '.md' or '.yaml'. "
+            "Received {}".format(file_path)
+        )
+    with open(file_path, "r") as yaml_file:
+        yaml_str = yaml_file.read()
+        if extension == "md":
+            # extract YAML front matter from markdown recipe card
+            # adapted from https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
+            yaml_delim = r"(?:---|\+\+\+)"
+            yaml = r"(.*?)"
+            re_pattern = r"^\s*" + yaml_delim + yaml + yaml_delim
+            regex = re.compile(re_pattern, re.S | re.M)
+            result = regex.search(yaml_str)
+            if not result:
+                raise RuntimeError(
+                    "Could not extract YAML front matter from recipe card:"
+                    " {}".format(file_path)
+                )
+            yaml_str = result.group(1)
+    return yaml_str
