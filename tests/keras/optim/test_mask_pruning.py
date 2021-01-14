@@ -3,7 +3,6 @@ import pytest
 import tensorflow as tf
 from sparseml.keras.optim import (
     MaskedLayer,
-    PruningScheduler,
     UnstructuredPruningMaskCreator,
 )
 

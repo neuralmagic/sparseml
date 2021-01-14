@@ -1,20 +1,7 @@
 import numpy as np
 import pytest
 import tensorflow as tf
-<<<<<<< HEAD:tests/keras/optim/test_modifier_ks.py
-from sparseml.keras.optim import (
-    ConstantPruningModifier,
-    GMPruningModifer,
-    MaskedLayer,
-    PruningScheduler,
-    ScheduledModifierManager,
-    UnstructuredPruningMaskCreator,
-)
-
-=======
-
 from sparseml.keras.optim import GMPruningModifier
->>>>>>> 044f932... Fixed weight pruning, refactor logging:tests/keras/optim/test_modifier_pruning.py
 from .mock import *
 
 
