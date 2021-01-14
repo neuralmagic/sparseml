@@ -1,15 +1,7 @@
 import numpy as np
 import pytest
 import tensorflow as tf
-from sparseml.keras.optim import (
-    ConstantPruningModifier,
-    GMPruningModifer,
-    MaskedLayer,
-    PruningScheduler,
-    ScheduledModifierManager,
-    UnstructuredPruningMaskCreator,
-)
-
+from sparseml.keras.optim import GMPruningModifier
 from .mock import *
 
 
@@ -18,7 +10,7 @@ from .mock import *
     [
         (
             model_01,
-            lambda: GMPruningModifer(
+            lambda: GMPruningModifier(
                 params=["dense_01"],
                 init_sparsity=0.25,
                 final_sparsity=0.75,
@@ -29,7 +21,7 @@ from .mock import *
         ),
         (
             model_01,
-            lambda: GMPruningModifer(
+            lambda: GMPruningModifier(
                 params=["dense_02"],
                 init_sparsity=0.25,
                 final_sparsity=0.75,
@@ -40,7 +32,7 @@ from .mock import *
         ),
         (
             model_01,
-            lambda: GMPruningModifer(
+            lambda: GMPruningModifier(
                 params=["dense_01", "dense_02"],
                 init_sparsity=0.25,
                 final_sparsity=0.75,
@@ -59,9 +51,9 @@ class TestGradualKSModifier:
         modifier = modifier_lambda()
         loss = tf.keras.losses.categorical_crossentropy
         optimizer = tf.keras.optimizers.Adam()
-        model, optimizer, step_callback = modifier.modify(
-            model, optimizer, steps_per_epoch
-        )
+        model, optimizer, callbacks = modifier.modify(model, optimizer, steps_per_epoch)
+        assert len(callbacks) == 1
+        step_callback = callbacks[0]
         epochs = 5
         batches = steps_per_epoch
         unused_arg = -1
@@ -93,7 +85,6 @@ class TestGradualKSModifier:
                         assert layer.mask_updater.update_ready
                         assert len(layer.pruning_vars) == 1
                         weight, mask, sparsity = layer.pruning_vars[0]
-                        sparsity_val = tf.keras.backend.get_value(sparsity)
                         assert sparsity == modifier.init_sparsity
 
                 if (
@@ -105,5 +96,4 @@ class TestGradualKSModifier:
                         assert layer.mask_updater.update_ready
                         assert len(layer.pruning_vars) == 1
                         weight, mask, sparsity = layer.pruning_vars[0]
-                        sparsity_val = tf.keras.backend.get_value(sparsity)
                         assert sparsity == modifier.final_sparsity

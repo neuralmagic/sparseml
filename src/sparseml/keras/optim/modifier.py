@@ -5,26 +5,21 @@ For example, learning rate schedules or kernel sparsity (weight pruning)
 are implemented as modifiers.
 """
 
-from typing import List, Tuple, Union
-
+from typing import List, Union, Tuple
 import tensorflow as tf
+
 from sparseml.optim import (
+    ModifierProp,
     BaseModifier,
     BaseScheduled,
     BaseUpdate,
-    ModifierProp,
     ModifierYAML,
 )
 from sparseml.utils import KERAS_FRAMEWORK
-
+from sparseml.keras.utils import KerasLogger
 
 __all__ = [
-    "EXTRAS_KEY_LEARNING_RATE",
-    "EXTRAS_KEY_SUMMARIES",
-    "EXTRAS_KEY_VAR_LIST",
-    "NM_RECAL",
     "ModifierProp",
-    "KERAS_FRAMEWORK",
     "KerasModifierYAML",
     "Modifier",
     "ScheduledModifier",
@@ -32,16 +27,9 @@ __all__ = [
 ]
 
 
-EXTRAS_KEY_LEARNING_RATE = "learning_rate"
-EXTRAS_KEY_SUMMARIES = "summaries"
-EXTRAS_KEY_VAR_LIST = "var_list"
-
-NM_RECAL = "nm_recal"
-
-
 class KerasModifierYAML(ModifierYAML):
     """
-    A decorator to handle making a TensorFlow modifier class YAML ready.
+    A decorator to handle making a Keras modifier class YAML ready.
     IE it can be loaded in through the yaml plugin easily.
     """
 
@@ -51,21 +39,11 @@ class KerasModifierYAML(ModifierYAML):
 
 class Modifier(BaseModifier):
     """
-    Base modifier class that all TensorFlow modifiers should derive themselves from.
-    Handles setting up the expected contracts for modifying graphs, ops, and extras.
+    Base modifier class that all Keras modifiers should derive themselves from.
+    Handles setting up the expected contracts for modifying model and optimizer
 
-    | Modifiers are expected to implement up to 3 different functions for TensorFlow:
-    |  - create_ops - inject ops into the graph before the training begins
-    |  - create_extras - create extras like learning rate controls before training
-    |  - complete_graph - finalize the graph after training has completed
-    |
-    | Life cycle:
-    |   - create model graph
-    |   - manager.create_ops()
-    |   - manager.create_extras()
-    |   - train graph
-    |   - manager.complete_graph()
-    |   - export graph
+    | Modifiers are expected to implement the following functions for Keras:
+    |  - modify - modify model and optimizer
 
     :param log_types: the loggers that can be used by the modifier instance
     :param kwargs: standard key word args, used to support multi inheritance
@@ -91,11 +69,25 @@ class Modifier(BaseModifier):
 
     def __init__(self, log_types: Union[str, List[str]] = None, **kwargs):
         super().__init__(log_types=log_types, **kwargs)
-        self.steps_per_epoch = None
 
     def modify(
-        self, model, optimizer, steps_per_epoch: int, input_tensors: tf.Tensor = None
+        self,
+        model,
+        optimizer,
+        steps_per_epoch: int,
+        loggers: Union[KerasLogger, List[KerasLogger]] = None,
+        input_tensors: tf.Tensor = None,
     ):
+        """
+        Modify model, optimizer based on the logic of the modifier. Return the modified
+        model, optimizer and a list of callbacks (e.g., to enhance training process)
+
+        :param model: model to modify
+        :param optimizer: optimizer to modify
+        :param steps_per_epoch: number of steps per epoch
+        :param input_tensors: optional input tensor
+        :return: model, optimizer, callbacks
+        """
         callback = None
         return model, optimizer, callback
 
@@ -106,6 +98,9 @@ class ScheduledModifier(Modifier, BaseScheduled):
     inherit from this class.
     Offers convenient properties needed for scheduled update modifiers:
     start_epoch, end_epoch
+
+    | Modifiers are expected to implement the following functions for Keras:
+    |  - modify - modify model and optimizer
 
     :param log_types: the loggers that can be used by the modifier instance
     :param start_epoch: The epoch to start the modifier at
@@ -140,6 +135,14 @@ class ScheduledModifier(Modifier, BaseScheduled):
             end_comparator=end_comparator,
             **kwargs,
         )
+
+    @property
+    def start_epoch(self):
+        return self._start_epoch
+
+    @property
+    def end_epoch(self):
+        return self._end_epoch
 
     def start_end_steps(self, steps_per_epoch, after_optim: bool) -> Tuple[int, int]:
         """
@@ -178,19 +181,8 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     all scheduled update modifiers should inherit from this class.
     Offers convenient properties needed for scheduled update modifiers: update_frequency
 
-
-    | Modifiers are expected to implement up to 3 different functions for TensorFlow:
-    |  - create_ops - inject ops into the graph before the training begins
-    |  - create_extras - create extras like learning rate controls before training
-    |  - complete_graph - finalize the graph after training has completed
-    |
-    | Life cycle:
-    |   - create model graph
-    |   - manager.create_ops()
-    |   - manager.create_extras()
-    |   - train graph
-    |   - manager.complete_graph()
-    |   - export graph
+    | Modifiers are expected to implement the following functions for Keras:
+    |  - modify - modify model and optimizer
 
     :param log_types: the loggers that can be used by the modifier instance
     :param start_epoch: The epoch to start the modifier at
