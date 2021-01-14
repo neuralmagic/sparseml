@@ -1,8 +1,7 @@
 """
 Learning rate modifiers for Keras models
 """
-from copy import deepcopy
-from typing import Dict, List, Union
+from typing import Dict, Union, List
 
 import tensorflow as tf
 from sparseml.keras.optim.modifier import (
@@ -13,6 +12,7 @@ from sparseml.keras.optim.modifier import (
 from sparseml.optim import LearningRate, SetLearningRate
 from sparseml.utils import ALL_TOKEN
 
+from sparseml.keras.utils import KerasLogger
 
 __all__ = ["SetLearningRateModifier", "LearningRateModifier"]
 
@@ -96,7 +96,12 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         return self.learning_rate
 
     def modify(
-        self, model, optimizer, steps_per_epoch: int, input_tensors: tf.Tensor = None
+        self,
+        model,
+        optimizer,
+        steps_per_epoch: int,
+        loggers: Union[KerasLogger, List[KerasLogger]] = None,
+        input_tensors: tf.Tensor = None,
     ):
         """
         Modify model and optimizer, and provide callbacks to process the model
@@ -104,11 +109,16 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         :param model: a model to be modified with prunable layers wrapped by masks
         :param optimizer: an optimizer to be modified
         :param steps_per_epoch: number of steps per epoch
+        :param loggers: list of loggers
         :param input_tensors: optional input tensors
         :return: modified model, optimizer and callbacks
         """
         model, optimizer, callback = super(SetLearningRateModifier, self).modify(
-            model, optimizer, steps_per_epoch, input_tensors=input_tensors
+            model,
+            optimizer,
+            steps_per_epoch,
+            loggers=loggers,
+            input_tensors=input_tensors,
         )
         start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=False)
         assert end_step == -1
@@ -207,7 +217,12 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         return learning_rate
 
     def modify(
-        self, model, optimizer, steps_per_epoch: int, input_tensors: tf.Tensor = None
+        self,
+        model,
+        optimizer,
+        steps_per_epoch: int,
+        loggers: Union[KerasLogger, List[KerasLogger]] = None,
+        input_tensors: tf.Tensor = None,
     ):
         """
         Modify model and optimizer, and provide callbacks to process the model
@@ -215,12 +230,17 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         :param model: a model to be modified with prunable layers wrapped by masks
         :param optimizer: an optimizer to be modified
         :param steps_per_epoch: number of steps per epoch
+        :param loggers: list of loggers
         :param input_tensors: optional input tensors
         :return: modified model, optimizer and callbacks
         """
 
         model, optimizer, callback = super(LearningRateModifier, self).modify(
-            model, optimizer, steps_per_epoch, input_tensors=input_tensors
+            model,
+            optimizer,
+            steps_per_epoch,
+            loggers=loggers,
+            input_tensors=input_tensors,
         )
         start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=False)
         learning_rate = self._create_learning_rate_scheduler(steps_per_epoch)
