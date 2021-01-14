@@ -8,10 +8,19 @@ PascalVOC_IJCV2009.pdf>`__.
 import os
 
 import torch
-from torchvision import transforms
-from torchvision.transforms import ColorJitter
-from torchvision.transforms import functional as F
 
+
+try:
+    from torchvision import transforms
+    from torchvision.transforms import ColorJitter
+    from torchvision.transforms import functional as F
+
+    torchvision_import_error = None
+except Exception as torchvision_error:
+    transforms = None
+    ColorJitter = None
+    F = None
+    torchvision_import_error = torchvision_error
 
 try:
     from torchvision.datasets import VOCDetection, VOCSegmentation
@@ -74,9 +83,11 @@ class VOCSegmentationDataset(VOCSegmentation):
         year: str = "2012",
         image_size: int = 300,
     ):
+        if torchvision_import_error is not None:
+            raise torchvision_import_error
         if VOCSegmentation is object:
             raise ValueError(
-                "VOC is unsupported on this PyTorch version, please upgrade to use"
+                "VOC is unsupported on this torchvision version, please upgrade to use"
             )
 
         root = os.path.abspath(os.path.expanduser(root))
@@ -152,9 +163,11 @@ class VOCDetectionDataset(VOCDetection):
         preprocessing_type: str = None,
         default_boxes: DefaultBoxes = None,
     ):
+        if torchvision_import_error is not None:
+            raise torchvision_import_error
         if VOCDetection == object:
             raise ValueError(
-                "VOC is unsupported on this PyTorch version, please upgrade to use"
+                "VOC is unsupported on this torchvision version, please upgrade to use"
             )
         if preprocessing_type not in [None, "yolo", "ssd"]:
             raise ValueError(

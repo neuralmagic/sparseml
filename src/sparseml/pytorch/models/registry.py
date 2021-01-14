@@ -12,8 +12,14 @@ from sparsezoo import Model
 from torch.nn import Module
 
 
-__all__ = ["ModelRegistry"]
+__all__ = [
+    "ModelRegistry",
+]
 
+
+"""
+Simple named tuple object to store model info
+"""
 _ModelAttributes = NamedTuple(
     "_ModelAttributes",
     [
@@ -138,6 +144,7 @@ class ModelRegistry(object):
 
         return ModelRegistry._ATTRIBUTES[key].input_shape
 
+
     @staticmethod
     def register(
         key: Union[str, List[str]],
@@ -178,32 +185,87 @@ class ModelRegistry(object):
             key = [key]
 
         def decorator(const_func):
-            const = ModelRegistry._registered_wrapper(
-                key[0],
-                const_func,
+            wrapped_constructor = ModelRegistry._registered_wrapper(key[0], const_func)
+
+            ModelRegistry.register_wrapped_model_constructor(
+                wrapped_constructor,
+                key,
+                input_shape,
+                domain,
+                sub_domain,
+                architecture,
+                sub_architecture,
+                default_dataset,
+                default_desc,
+                repo_source,
+                def_ignore_error_tensors,
+                desc_args,
             )
-
-            for r_key in key:
-                if r_key in ModelRegistry._CONSTRUCTORS:
-                    raise ValueError("key {} is already registered".format(key))
-
-                ModelRegistry._CONSTRUCTORS[r_key] = const
-                ModelRegistry._ATTRIBUTES[r_key] = _ModelAttributes(
-                    input_shape,
-                    domain,
-                    sub_domain,
-                    architecture,
-                    sub_architecture,
-                    default_dataset,
-                    default_desc,
-                    repo_source,
-                    def_ignore_error_tensors,
-                    desc_args,
-                )
-
-            return const
+            return wrapped_constructor
 
         return decorator
+
+    @staticmethod
+    def register_wrapped_model_constructor(
+        wrapped_constructor: Callable,
+        key: Union[str, List[str]],
+        input_shape: Any,
+        domain: str,
+        sub_domain: str,
+        architecture: str,
+        sub_architecture: str,
+        default_dataset: str,
+        default_desc: str,
+        repo_source: str,
+        def_ignore_error_tensors: List[str] = None,
+        desc_args: Dict[str, Tuple[str, Any]] = None,
+    ):
+        """
+        Register a model with the registry from a model constructor or provider function
+
+        :param wrapped_constructor: Model constructor wrapped to be compatible
+            by call from ModelRegistry.create should have pretrained, pretrained_path,
+            pretrained_dataset, load_strict, ignore_error_tensors, and **kwargs as
+            arguments
+        :param key: the model key (name) to create
+        :param input_shape: the specified input shape for the model
+        :param domain: the domain the model belongs to; ex: cv, nlp, etc
+        :param sub_domain: the sub domain the model belongs to;
+            ex: classification, detection, etc
+        :param architecture: the architecture the model belongs to;
+            ex: resnet, mobilenet, etc
+        :param sub_architecture: the sub architecture the model belongs to;
+            ex: 50, 101, etc
+        :param default_dataset: the dataset to use by default for loading
+            pretrained if not supplied
+        :param default_desc: the description to use by default for loading
+            pretrained if not supplied
+        :param repo_source: the source repo for the model; ex: neuralmagic, torchvision
+        :param def_ignore_error_tensors: tensors to ignore if there are
+            errors in loading
+        :param desc_args: args that should be changed based on the description
+        :return: The constructor wrapper registered with the registry
+        """
+        if not isinstance(key, List):
+            key = [key]
+
+        for r_key in key:
+            if r_key in ModelRegistry._CONSTRUCTORS:
+                raise ValueError("key {} is already registered".format(key))
+
+            ModelRegistry._CONSTRUCTORS[r_key] = wrapped_constructor
+            ModelRegistry._ATTRIBUTES[r_key] = _ModelAttributes(
+                input_shape,
+                domain,
+                sub_domain,
+                architecture,
+                sub_architecture,
+                default_dataset,
+                default_desc,
+                repo_source,
+                def_ignore_error_tensors,
+                desc_args,
+            )
 
     @staticmethod
     def _registered_wrapper(

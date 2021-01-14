@@ -4,10 +4,20 @@ More info for the dataset can be found `here <http://yann.lecun.com/exdb/mnist/>
 """
 
 import torch
+
+
+try:
+    from torchvision import transforms
+    from torchvision.datasets import MNIST
+
+    torchvision_import_error = None
+except Exception as torchvision_error:
+    MNIST = object  # default for constructor
+    transforms = None
+    torchvision_import_error = torchvision_error
+
 from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils.datasets import default_dataset_path
-from torchvision import transforms
-from torchvision.datasets import MNIST
 
 
 __all__ = ["MNISTDataset"]
@@ -38,6 +48,9 @@ class MNISTDataset(MNIST):
         train: bool = True,
         flatten: bool = False,
     ):
+        if torchvision_import_error is not None:
+            raise torchvision_import_error
+
         transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]
         )

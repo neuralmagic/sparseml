@@ -4,10 +4,19 @@ More info for the dataset can be found
 `here <https://www.cs.toronto.edu/~kriz/cifar.html>`__.
 """
 
+try:
+    from torchvision import transforms
+    from torchvision.datasets import CIFAR10, CIFAR100
+
+    torchvision_import_error = None
+except Exception as torchvision_error:
+    CIFAR10 = object  # default for constructor
+    CIFAR100 = object  # default for constructor
+    transforms = None
+    torchvision_import_error = torchvision_error
+
 from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils.datasets import default_dataset_path
-from torchvision import transforms
-from torchvision.datasets import CIFAR10, CIFAR100
 
 
 __all__ = ["CIFAR10Dataset", "CIFAR100Dataset"]
@@ -42,6 +51,9 @@ class CIFAR10Dataset(CIFAR10):
         train: bool = True,
         rand_trans: bool = False,
     ):
+        if torchvision_import_error is not None:
+            raise torchvision_import_error
+
         if rand_trans:
             trans = [
                 transforms.RandomResizedCrop(32),
