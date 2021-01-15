@@ -133,6 +133,7 @@ To take advantage of these APIs, check out:
 
 - [SparseML Documentation](https://docs.neuralmagic.com/sparseml/), [Tutorials](notebooks/), [Use Cases](examples/)
 - [SparseZoo Documentation](https://docs.neuralmagic.com/sparsezoo/)
+- [Sparsify Documentation](https://docs.neuralmagic.com/sparsify/)
 - [DeepSparse Documentation](https://docs.neuralmagic.com/deepsparse/)
 - [Neural Magic Blog](https://www.neuralmagic.com/blog/), [Resources](https://www.neuralmagic.com/resources/), [Website](https://www.neuralmagic.com/)
 
