@@ -202,6 +202,12 @@ class ModelRegistry(object):
         if not saver and (pretrained_path or pretrained):
             saver = ModelRegistry.saver(key, remove_dynamic_tl_vars)
 
+        if isinstance(pretrained, str):
+            if pretrained.lower() == "true":
+                pretrained = True
+            elif pretrained.lower() in ["false", "none"]:
+                pretrained = False
+
         if pretrained_path:
             saver.restore(sess, pretrained_path)
         elif pretrained:

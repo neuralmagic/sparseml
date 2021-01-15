@@ -132,7 +132,7 @@ class EstimatorModelFn(ABC):
                 summary_train_hook,
             ]
 
-            if params["checkpoint_path"] is not None:
+            if "checkpoint_path" in params and params["checkpoint_path"] is not None:
                 # Finetuning
                 base_name_scope = params["base_name_scope"]
                 tf_compat.train.init_from_checkpoint(
@@ -485,17 +485,17 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
         """
         add_mods = (
             [ConstantPruningModifier(params="__ALL__")]
-            if params["sparse_transfer_learn"]
+            if "sparse_transfer_learn" in params and params["sparse_transfer_learn"]
             else None
         )
 
         mod_update_ops_hook = None
         manager = None
-        recal_config_path = params.get("recal_config_path")
-        if recal_config_path is not None:
+        recipe_path = params.get("recipe_path")
+        if recipe_path is not None:
             global_step = tf_compat.train.get_or_create_global_step()
             steps_per_epoch = params["steps_per_epoch"]
-            manager = ScheduledModifierManager.from_yaml(recal_config_path, add_mods)
+            manager = ScheduledModifierManager.from_yaml(recipe_path, add_mods)
             mod_ops, mod_extras = manager.create_ops(steps_per_epoch, global_step)
             mod_update_ops_hook = ModifierSessionRunHook(mod_ops)
         return manager, mod_update_ops_hook
