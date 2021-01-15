@@ -1,14 +1,17 @@
-## How to Export to ONNX
+# How to Export to ONNX
 
 These are instructions for exporting to ONNX format for these popular frameworks.
+[TODO ENGINEERING: INSERT CLI METHOD, GENERALLY EASIER TO DO?]
 
-### PyTorch ONNX
+## PyTorch ONNX
+
 [ONNX support](https://pytorch.org/docs/stable/onnx.html) is natively built into PyTorch.
 To enable ease of use, a high level API, `ModuleExporter`, is also included in the `sparseml.pytorch` package.
 To run the export for a model, a sample batch must be provided. 
 The sample batch is run through the model to freeze the execution graph into an ONNX format.
 
 Example code:
+
 ```python
 import os
 import torch
@@ -23,7 +26,8 @@ exporter.export_onnx(sample_batch=torch.randn(1, 1, 28, 28))
 print("exported onnx file in {}".format(export_dir))
 ```
 
-### TensorFlow ONNX
+## TensorFlow ONNX
+
 ONNX support is not natively built into TensorFlow.
 However, a third-party library, [tf2onnx](https://github.com/onnx/tensorflow-onnx), 
 is maintained for the conversion to ONNX.
@@ -31,6 +35,7 @@ This pathway converts native protobuf graph definitions from TensorFlow into the
 Note, if you are using Python 3.5, then you will need to install tf2onnx version 1.5.6.
 
 Example code:
+
 ```python
 import os
 from sparseml.tensorflow.utils import tf_compat, GraphExporter

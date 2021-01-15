@@ -1,21 +1,26 @@
-## Recalibrating in PyTorch
+# Recalibrating in PyTorch
+
+[TODO: ENGINEERING: EDIT THE FOLLOWING SO IT REFLECTS ANY UPDATES; THEN REMOVE THIS COMMENT.]
 
 The recalibration tooling for PyTorch is located under `neuralmagicML.pytorch.recal`.
 Inside are APIs designed to make model recalibration as easy as possible.
 Additionally, the tooling is designed to work with the previously described [config files](docs/recal-config.md).
 
-The `ScheduledModifierManager` is used to create modifiers from a config file.
-Specifically, `ScheduledModifierManager.from_yaml(/PATH/TO/config.yaml)` should be used.
-The function call will return a new instance of `ScheduledModifierManager` containing the modifiers described in the config file.
-Once a manager class has been created, a `ScheduledOptimizer` class must be created.
-This class is used to wrap the `ScheduledModifierManager`, PyTorch model, 
-and PyTorch optimizer to enable modifying the training process.
-The `ScheduledOptimizer` should then be used in place of the original PyTorch optimizer in the rest of your code.
+- `ScheduledModifierManager`: creates modifiers from a config file. Specifically, `ScheduledModifierManager.from_yaml(/PATH/TO/config.yaml)` should be used.
+
+- The function call will return a new instance of `ScheduledModifierManager` containing the modifiers described in the config file.
+
+- Once a manager class has been created, a `ScheduledOptimizer` class must be created.
+This class is used to wrap the `ScheduledModifierManager`, PyTorch model, and PyTorch optimizer to enable modifying the training process.
+
+- The `ScheduledOptimizer` should then be used in place of the original PyTorch optimizer in the rest of your code.
 Mainly, it overrides the `optimizer.step()` function to modify the training process.
-Additionally, `optimizer.epoch_start()` and `optimizer.epoch_end()` should be called 
+
+- Additionally, `optimizer.epoch_start()` and `optimizer.epoch_end()` should be called 
 at the start and end of each epoch, respectively. 
 
 Example:
+
 ```python
 import math
 from torch.optim import Adam
@@ -45,6 +50,7 @@ for epoch in range(manager.max_epochs):
 
 Note: if you would like to log to TensorBoard, a logger class can be created and passed into the `ScheduledOptimizer`.
 Example:
+
 ```python
 from neuralmagicML.pytorch.utils import TensorBoardLogger
 
