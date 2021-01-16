@@ -9,6 +9,7 @@ from typing import Dict, List, Union
 from sparseml.optim import BaseManager
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import PyTorchLogger
+from sparseml.utils import load_recipe_yaml_str
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -49,9 +50,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
             returned manager alongside the ones loaded from the yaml file
         :return: ScheduledModifierManager() created from the yaml file
         """
-        with open(file_path, "r") as yaml_file:
-            yaml_str = yaml_file.read()
-
+        yaml_str = load_recipe_yaml_str(file_path)
         modifiers = Modifier.load_list(yaml_str)
 
         if add_modifiers:
