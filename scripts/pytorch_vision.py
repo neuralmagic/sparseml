@@ -344,14 +344,14 @@ EXAMPLES
 
 ##########
 Example command for pruning resnet50 on imagenet dataset:
-python scripts/pytorch/vision.py train \
+python scripts/pytorch_vision.py train \
     --recipe-path ~/sparseml_recipes/pruning_resnet50.yaml \
     --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
     --train-batch-size 256 --test-batch-size 1024
 
 ##########
 Example command for transfer learning sparse mobilenet_v1 on an image folder dataset:
-python scripts/pytorch/vision.py train \
+python scripts/pytorch_vision.py train \
     --sparse-transfer-learn \
     --recipe-path  ~/sparseml_recipes/pruning_mobilenet.yaml \
     --arch-key mobilenet_v1 --pretrained recal-perf \
@@ -364,47 +364,49 @@ DistributedDataParallel using mixed precision. Note - DDP support in this script
 only tested for torch==1.7.0.
 python -m torch.distributed.launch \
 --nproc_per_node <NUM GPUs> \
-scripts/pytorch/vision.py train \
+scripts/pytorch_vision.py train \
 --use-mixed-precision \
 <VISION.PY TRAIN ARGUMENTS>
 
 ##########
 Example command for exporting ResNet50:
-python scripts/pytorch/vision.py export \
+python scripts/pytorch_vision.py export \
     --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012
 
 ##########
 Example command for running approximated KS sensitivity analysis on mobilenet:
-python scripts/pytorch/vision.py pruning_sensitivity \
+python scripts/pytorch_vision.py pruning_sensitivity \
     --approximate --arch-key mobilenet --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012
 
 ##########
 Example command for running one shot KS sensitivity analysis on ssd300_resnet50 for coco:
-python scripts/pytorch/vision.py pruning_sensitivity \
+python scripts/pytorch_vision.py pruning_sensitivity \
     --arch-key ssd300_resnet50 --dataset coco \
     --dataset-path ~/datasets/coco-detection
 
 ##########
 Example command for running LR sensitivity analysis on mobilenet:
-python scripts/pytorch/vision.py lr_sensitivity \
+python scripts/pytorch_vision.py lr_sensitivity \
     --arch-key mobilenet --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012 --batch-size 2
 """
 
 import argparse
 import json
-import os
-from typing import Tuple, Union, List, Dict, Any
 import logging
+import os
 import time
-from tqdm.auto import tqdm
+from typing import Any, Dict, List, Tuple, Union
 
 import torch
-from torch.nn import Module, functional as torch_functional
-from torch.utils.data import DataLoader
+from torch.nn import Module
+from torch.nn import functional as torch_functional
 from torch.optim import SGD, Adam
 from torch.optim.optimizer import Optimizer
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
+
 
 try:
     from torch.optim import RMSprop
@@ -413,45 +415,41 @@ except Exception:
     logging.warning("RMSprop not available as an optimizer")
 
 from sparseml import get_main_logger
-from sparseml.pytorch.datasets import (
-    DatasetRegistry,
-    ssd_collate_fn,
-    yolo_collate_fn,
-)
+from sparseml.pytorch.datasets import DatasetRegistry, ssd_collate_fn, yolo_collate_fn
 from sparseml.pytorch.models import ModelRegistry
-from sparseml.pytorch.utils import (
-    LossWrapper,
-    CrossEntropyLossWrapper,
-    InceptionCrossEntropyLossWrapper,
-    SSDLossWrapper,
-    YoloLossWrapper,
-    TopKAccuracy,
-    ModuleTrainer,
-    ModuleTester,
-    ModuleRunResults,
-    ModuleDeviceContext,
-    TensorBoardLogger,
-    PythonLogger,
-    model_to_device,
-    load_optimizer,
-    load_epoch,
-    default_device,
-    early_stop_data_loader,
-    ModuleExporter,
-    get_prunable_layers,
-    tensor_sparsity,
-    DEFAULT_LOSS_KEY,
-    set_deterministic_seeds,
-    torch_distributed_zero_first,
-)
 from sparseml.pytorch.optim import (
+    ConstantPruningModifier,
     ScheduledModifierManager,
     ScheduledOptimizer,
-    ConstantPruningModifier,
+    default_exponential_check_lrs,
+    lr_loss_sensitivity,
     pruning_loss_sens_magnitude,
     pruning_loss_sens_one_shot,
-    lr_loss_sensitivity,
-    default_exponential_check_lrs,
+)
+from sparseml.pytorch.utils import (
+    DEFAULT_LOSS_KEY,
+    CrossEntropyLossWrapper,
+    InceptionCrossEntropyLossWrapper,
+    LossWrapper,
+    ModuleDeviceContext,
+    ModuleExporter,
+    ModuleRunResults,
+    ModuleTester,
+    ModuleTrainer,
+    PythonLogger,
+    SSDLossWrapper,
+    TensorBoardLogger,
+    TopKAccuracy,
+    YoloLossWrapper,
+    default_device,
+    early_stop_data_loader,
+    get_prunable_layers,
+    load_epoch,
+    load_optimizer,
+    model_to_device,
+    set_deterministic_seeds,
+    tensor_sparsity,
+    torch_distributed_zero_first,
 )
 from sparseml.utils import convert_to_bool, create_dirs
 
@@ -951,7 +949,10 @@ def _get_loss_wrapper(args, training=False):
 
 
 def _create_scheduled_optimizer(
-    args, model: Module, train_loader: DataLoader, loggers: List[Any],
+    args,
+    model: Module,
+    train_loader: DataLoader,
+    loggers: List[Any],
 ) -> Tuple[int, ScheduledOptimizer, ScheduledModifierManager]:
     # optimizer setup
     if args.optim == "SGD":
@@ -996,7 +997,11 @@ def _create_scheduled_optimizer(
         file_path=args.recipe_path, add_modifiers=add_mods
     )
     optim = ScheduledOptimizer(
-        optim, model, manager, steps_per_epoch=len(train_loader), loggers=loggers,
+        optim,
+        model,
+        manager,
+        steps_per_epoch=len(train_loader),
+        loggers=loggers,
     )
     LOGGER.info("created manager: {}".format(manager))
     return epoch, optim, manager
@@ -1046,7 +1051,10 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
     # training setup
     if not args.eval_mode:
         epoch, optim, manager = _create_scheduled_optimizer(
-            args, model, train_loader, loggers,
+            args,
+            model,
+            train_loader,
+            loggers,
         )
     else:
         epoch = 0

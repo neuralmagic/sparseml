@@ -62,7 +62,7 @@ optional arguments:
 
 ##########
 Example command for pruning resnet50 on an imagefolder dataset:
-python examples/torchvision/torchvision_sparseml.py \
+python examples/pytorch-torchvision/main.py \
     --recipe-path ~/sparseml_recipes/pruning_resnet50.yaml \
     --model resnet50 \
     --imagefolder-path ~/datasets/ILSVRC2012 \
@@ -76,22 +76,14 @@ import time
 from types import ModuleType
 
 import torch
+from neuralmagicML.utils import create_dirs
+from sparseml.pytorch.datasets.classification import ImageFolderDataset
+from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.pytorch.utils import ModuleExporter, PythonLogger, load_model
 from torch.nn import CrossEntropyLoss
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torchvision import models
-
-from sparseml.pytorch.datasets.classification import ImageFolderDataset
-from sparseml.pytorch.optim import (
-    ScheduledModifierManager,
-    ScheduledOptimizer,
-)
-from sparseml.pytorch.utils import (
-    ModuleExporter,
-    load_model,
-    PythonLogger,
-)
-from neuralmagicML.utils import create_dirs
 
 
 MODEL_IMAGE_SIZES = {
@@ -184,7 +176,7 @@ def parse_args():
     parser.add_argument(
         "--save-dir",
         type=str,
-        default="pytorch_classification_export",
+        default="torchvision_sparseml_export",
         help="The path to the directory for saving results",
     )
 
@@ -221,7 +213,10 @@ def _load_matched_weights(base_model, pretrained_model):
     base_dict = base_model.state_dict()
     pretrained_dict = pretrained_model.state_dict()
     for key in base_dict:
-        if key in pretrained_dict and base_dict[key].shape == pretrained_dict[key].shape:
+        if (
+            key in pretrained_dict
+            and base_dict[key].shape == pretrained_dict[key].shape
+        ):
             base_dict[key] = pretrained_dict[key]
     base_model.load_state_dict(base_dict)
 
@@ -256,19 +251,20 @@ def train_model(
 
     val_acc_history = []
 
-    best_model_wts = copy.deepcopy(model.state_dict())
+    # not loading best intermediate weights due to sparsity changing
+    # best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
 
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
+        print("Epoch {}/{}".format(epoch, num_epochs - 1))
+        print("-" * 10)
 
         # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
-            if phase == 'train':
+        for phase in ["train", "val"]:
+            if phase == "train":
                 model.train()  # Set model to training mode
             else:
-                model.eval()   # Set model to evaluate mode
+                model.eval()  # Set model to evaluate mode
 
             running_loss = 0.0
             running_corrects = 0
@@ -283,17 +279,17 @@ def train_model(
 
                 # forward
                 # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
+                with torch.set_grad_enabled(phase == "train"):
                     # Get model outputs and calculate loss
                     # Special case for inception because in training it has an auxiliary output. In train
                     #   mode we calculate the loss by summing the final output and the auxiliary output
                     #   but in testing we only consider the final output.
-                    if is_inception and phase == 'train':
+                    if is_inception and phase == "train":
                         # From https://discuss.pytorch.org/t/how-to-optimize-inception-model-with-auxiliary-classifiers/7958
                         outputs, aux_outputs = model(inputs)
                         loss1 = criterion(outputs, labels)
                         loss2 = criterion(aux_outputs, labels)
-                        loss = loss1 + 0.4*loss2
+                        loss = loss1 + 0.4 * loss2
                     else:
                         outputs = model(inputs)
                         loss = criterion(outputs, labels)
@@ -301,7 +297,7 @@ def train_model(
                     _, preds = torch.max(outputs, 1)
 
                     # backward + optimize only if in training phase
-                    if phase == 'train':
+                    if phase == "train":
                         loss.backward()
                         optimizer.step()
 
@@ -312,23 +308,29 @@ def train_model(
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
             epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
 
-            print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
+            print("{} Loss: {:.4f} Acc: {:.4f}".format(phase, epoch_loss, epoch_acc))
 
             # deep copy the model
-            if phase == 'val' and epoch_acc > best_acc:
+            if phase == "val" and epoch_acc > best_acc:
                 best_acc = epoch_acc
-                best_model_wts = copy.deepcopy(model.state_dict())
-            if phase == 'val':
+                # not loading best intermediate weights due to sparsity changing
+                # best_model_wts = copy.deepcopy(model.state_dict())
+            if phase == "val":
                 val_acc_history.append(epoch_acc)
 
         print()
 
     time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-    print('Best val Acc: {:4f}'.format(best_acc))
+    print(
+        "Training complete in {:.0f}m {:.0f}s".format(
+            time_elapsed // 60, time_elapsed % 60
+        )
+    )
+    print("Best val Acc: {:4f}".format(best_acc))
 
     # load best model weights
-    model.load_state_dict(best_model_wts)
+    # not loading best intermediate weights due to sparsity changing
+    # model.load_state_dict(best_model_wts)
     return model, val_acc_history
 
 
@@ -366,7 +368,10 @@ def main(args):
 
     # create model
     model = _get_torchvision_model(
-        args.model, num_classes, args.pretrained, args.checkpoint_path,
+        args.model,
+        num_classes,
+        args.pretrained,
+        args.checkpoint_path,
     )
     print("created model: {}".format(model))
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -401,7 +406,7 @@ def main(args):
         optimizer,
         device,
         num_epochs=manager.max_epochs,
-        is_inception="inception" in args.model
+        is_inception="inception" in args.model,
     )
 
     ########################
