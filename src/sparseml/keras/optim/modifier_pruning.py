@@ -3,11 +3,15 @@ Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
 """
 
-from typing import List, Union
+from typing import Dict, List, Union
 
 import tensorflow
 
-from sparseml.keras.optim.mask_pruning import MaskedLayer, PruningScheduler
+from sparseml.keras.optim.mask_pruning import (
+    MaskedLayer,
+    PruningScheduler,
+    remove_pruning_masks,
+)
 from sparseml.keras.optim.mask_pruning_creator import (
     PruningMaskCreator,
     load_mask_creator,
@@ -19,6 +23,7 @@ from sparseml.keras.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.keras.optim.utils import get_layer_name_from_param
+from sparseml.keras.utils.callbacks import LoggerSettingCallback
 from sparseml.keras.utils.logger import KerasLogger
 from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
@@ -218,7 +223,7 @@ class PruningModifierCallback(tensorflow.keras.callbacks.Callback):
             layer.mask_updater.apply_masks()
 
 
-class SparsityLoggingCallback(tensorflow.keras.callbacks.Callback):
+class SparsityLoggingCallback(LoggerSettingCallback):
     """
     Callback to log sparsity level
 
@@ -227,11 +232,11 @@ class SparsityLoggingCallback(tensorflow.keras.callbacks.Callback):
     :param start_step_tensor: start step tensor
     """
 
-    def __init__(self, loggers, prunable_layers, start_step_tensor):
-        self._loggers = loggers if isinstance(loggers, list) else [loggers]
+    def __init__(self, loggers, prunable_layers, start_step):
+        super().__init__(loggers)
         self._prunable_layers = prunable_layers
-        self._start_step_tensor = start_step_tensor
         self._step = None
+        self._start_step = start_step
 
     def _get_log_data(self):
         """
@@ -245,41 +250,59 @@ class SparsityLoggingCallback(tensorflow.keras.callbacks.Callback):
                 sparsity = tensorflow.math.subtract(
                     1, tensorflow.math.reduce_mean(masked_param.mask)
                 )
-                log_data[masked_param.name] = sparsity
+                log_data["sparsity@{}".format(masked_param.name)] = sparsity
         return log_data
 
-    def _log(self, logger):
+    def _log(self, logger: KerasLogger, log_data: Dict):
         """
         Retrieve logging values from modifiers and add to Tensorboard
         """
-        log_data_vals = self._get_log_data()
-        for name, value in log_data_vals.items():
+        for name, value in log_data.items():
             logger.log_scalar(name, value, step=self._step)
 
     def on_train_begin(self, logs=None):
-        if logs is not None:
-            super(SparsityLoggingCallback, self).on_train_begin(logs)
-        self._step = tensorflow.keras.backend.get_value(self._start_step_tensor)
+        super().on_train_begin(logs)
+        self._step = tensorflow.keras.backend.get_value(self._start_step)
 
-    def on_epoch_begin(self, epoch, logs=None):
-        if logs is not None:
-            super(SparsityLoggingCallback, self).on_epoch_begin(epoch, logs)
+    def on_epoch_end(self, epoch, logs=None):
+        super().on_epoch_end(epoch, logs)
         for logger in self._loggers:
             if logger.update_freq == "epoch":
-                self._log(logger)
+                logged_data = self._get_log_data()
+                self._log(logger, logged_data)
 
     def on_train_batch_end(self, batch, logs=None):
-        if logs is not None:
-            super(SparsityLoggingCallback, self).on_train_batch_end(batch, logs)
+        super().on_train_batch_end(batch, logs)
         for logger in self._loggers:
             if logger.update_freq == "batch" or (
                 isinstance(logger.update_freq, int)
                 and self._step % logger.update_freq == 0
             ):
-                self._log(logger)
+                logged_data = self._get_log_data()
+                self._log(logger, logged_data)
 
         # Keep track of the step count
         self._step += 1
+
+
+def remove_pruning_masks(model: tensorflow.keras.Model):
+    """
+    Remove pruning masks from a model that was pruned using the MaskedLayer logic
+
+    :param model: a model that was pruned using MaskedLayer
+    :return: the original model with pruned weights
+    """
+
+    def _remove_pruning_masks(layer):
+        if isinstance(layer, MaskedLayer):
+            return layer.pruned_layer
+        return layer
+
+    # TODO: while the resulting model could be exported to ONNX, its built status
+    # is removed
+    return tensorflow.keras.models.clone_model(
+        model, input_tensors=None, clone_function=_remove_pruning_masks
+    )
 
 
 @KerasModifierYAML()
@@ -438,6 +461,16 @@ class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
             )
             callbacks.append(sparsity_logging_callback)
         return cloned_model, optimizer, callbacks
+
+    def finalize(self, model: tensorflow.keras.Model):
+        """
+        Remove extra information related to the modifier from the model that is
+        not necessary for exporting
+
+        :param model: a Keras model
+        :return: a new Keras model
+        """
+        return remove_pruning_masks(model)
 
 
 @KerasModifierYAML()
@@ -818,3 +851,13 @@ class GMPruningModifier(ScheduledUpdateModifier):
     @property
     def prunable_layers(self):
         return self._masked_layers
+
+    def finalize(self, model: tensorflow.keras.Model):
+        """
+        Remove extra information related to the modifier from the model that is
+        not necessary for exporting
+
+        :param model: a Keras model
+        :return: a new Keras model
+        """
+        return remove_pruning_masks(model)

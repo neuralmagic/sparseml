@@ -93,6 +93,16 @@ class Modifier(BaseModifier):
         callback = None
         return model, optimizer, callback
 
+    def finalize(self, model: tf.keras.Model):
+        """
+        Remove extra information related to the modifier from the model that is
+        not necessary for exporting
+
+        :param model: a Keras model
+        :return: a new Keras model
+        """
+        return model
+
 
 class ScheduledModifier(Modifier, BaseScheduled):
     """

@@ -39,21 +39,21 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
         self._start_step = start_step
         self._end_step = end_step
         self._learning_rate = learning_rate
-        self.step = None
+        self._step = None
 
     def on_train_begin(self, logs=None):
-        self.step = tf.keras.backend.get_value(self._optimizer.iterations)
+        self._step = tf.keras.backend.get_value(self._optimizer.iterations)
 
     def on_train_batch_begin(self, batch, logs=None):
-        if self.step == self._start_step:
+        if self._step == self._start_step:
             setattr(self._optimizer, "lr", self._learning_rate)
-        if self.step == self._end_step:
+        if self._step == self._end_step:
             assert self._end_step > -1
-            persist_lr = self._optimizer.lr(self.step)
+            persist_lr = self._optimizer.lr(self._step)
             setattr(self._optimizer, "lr", persist_lr)
 
     def on_train_batch_end(self, batch, logs=None):
-        self.step = self.step + 1
+        self._step = self._step + 1
 
 
 @KerasModifierYAML()
@@ -129,6 +129,62 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         return model, optimizer, lr_callback
 
 
+class _ExponentialDecay(tf.keras.optimizers.schedules.ExponentialDecay):
+    def __init__(
+        self,
+        start_step,
+        initial_learning_rate,
+        decay_steps,
+        decay_rate,
+        staircase=False,
+        name=None,
+    ):
+        super().__init__(
+            initial_learning_rate,
+            decay_steps,
+            decay_rate,
+            staircase=staircase,
+            name=name,
+        )
+        self._start_step = start_step
+
+    @property
+    def start_step(self):
+        return self._start_step
+
+    def __call__(self, step):
+        if step < self.start_step:
+            raise ValueError("Invalid step passed in")
+        steps_count = step - self.start_step
+        return super().__call__(steps_count)
+
+    def get_config(self):
+        config = super().get_config()
+        config = config.update({"start_step": self.start_step})
+        return config
+
+
+class _PiecewiseConstantDecay(tf.keras.optimizers.schedules.PiecewiseConstantDecay):
+    def __init__(self, start_step, boundaries, values, name=None):
+        super().__init__(boundaries, values, name=name)
+        self._start_step
+
+    @property
+    def start_step(self):
+        return self._start_step
+
+    def __call__(self, step):
+        if step < self.start_step:
+            raise ValueError("Invalid step passed in")
+        steps_count = step - self.start_step
+        return super().__call__(steps_count)
+
+    def get_config(self):
+        config = super().get_config()
+        config = config.update({"start_step": self.start_step})
+        return config
+
+
 @KerasModifierYAML()
 class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
     """
@@ -190,7 +246,8 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=False)
 
         if lr_class == "StepLR":
-            learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+            learning_rate = _ExponentialDecay(
+                start_step,
                 self.init_lr,
                 lr_kwargs["step_size"],
                 lr_kwargs["gamma"],
@@ -202,11 +259,12 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             values = [
                 self.init_lr * (lr_kwargs["gamma"] ^ k) for k in range(len(boundaries))
             ]
-            learning_rate = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
-                boundaries, values, name="MultiStepLR"
+            learning_rate = _PiecewiseConstantDecay(
+                start_step, boundaries, values, name="MultiStepLR"
             )
         elif lr_class == "ExponentialLR":
-            learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+            learning_rate = _ExponentialDecay(
+                start_step,
                 self.init_lr,
                 lr_kwargs["step_size"],
                 lr_kwargs["gamma"],

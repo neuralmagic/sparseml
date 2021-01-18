@@ -9,7 +9,7 @@ from typing import List, Union
 import tensorflow as tf
 
 from sparseml.keras.optim.modifier import Modifier, ScheduledModifier
-from sparseml.keras.utils import KerasLogger
+from sparseml.keras.utils.logger import KerasLogger
 from sparseml.optim import BaseManager
 from sparseml.utils import load_recipe_yaml_str
 
@@ -81,5 +81,18 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 callbacks.append(callback)
             else:
                 raise RuntimeError("Invalid callback type")
+
         self._optimizer = optimizer
         return model, optimizer, callbacks
+
+    def finalize(self, model: tf.keras.Model):
+        """
+        Remove extra information related to the modifier from the model that is
+        not necessary for exporting
+
+        :param model: a Keras model
+        :return: a new Keras model
+        """
+        for mod in self._modifiers:
+            model = mod.finalize(model)
+        return model
