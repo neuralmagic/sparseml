@@ -81,7 +81,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 callbacks.append(callback)
             else:
                 raise RuntimeError("Invalid callback type")
-
+        callbacks.append(LossesAndMetricsLoggingCallback(loggers))
+        callbacks.append(LearningRateLoggingCallback(loggers))
         self._optimizer = optimizer
         return model, optimizer, callbacks
 
