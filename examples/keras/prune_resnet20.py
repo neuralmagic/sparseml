@@ -11,6 +11,7 @@ Run the following command from the top repo directory:
 
 """
 
+from datetime import datetime
 import os
 import tensorflow as tf
 from tensorflow.keras.datasets import cifar10
@@ -20,6 +21,7 @@ import math
 import numpy as np
 
 from sparseml.keras.optim import ScheduledModifierManager
+from sparseml.keras.utils import TensorBoardLogger
 
 root_dir = "./examples/keras"
 yaml_file_name = "prune_resnet20_10epochs"
@@ -29,7 +31,9 @@ model_dir = "{}/models".format(root_dir)
 model_name = "ResNet20-v1.h5"
 
 log_dir = os.path.join(model_dir, "tensorboard", yaml_file_name)
+log_dir += "--" + datetime.now().strftime("%Y%m%d-%H%M%S")
 
+update_freq = 100  # Logging update every this many training steps
 num_classes = 10
 batch_size = 32
 subtract_pixel_mean = True
@@ -87,11 +91,11 @@ def main():
     steps_per_epoch = math.ceil(len(X_train) / batch_size)
 
     # Enhance the model and optimizer for pruning using the manager
+    loggers = TensorBoardLogger(log_dir=log_dir, update_freq=update_freq)
     manager = ScheduledModifierManager.from_yaml(yaml_file_path)
     model_for_pruning, optimizer, callbacks = manager.modify(
-        base_model, optimizer, steps_per_epoch
+        base_model, optimizer, steps_per_epoch, loggers=loggers
     )
-    callbacks.append(manager.logging_callback(log_dir))
     callbacks.append(checkpoint)
 
     # Compile the enhanced model
