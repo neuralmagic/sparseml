@@ -23,7 +23,7 @@ _deps = [
     "toposort>=1.0",
 ]
 _pytorch_deps = ["torch>=1.1.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=1.1.0"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0"]
 _keras_deps = ["tensorflow>=2.2.0", "keras2onnx>=1.0.0"]
 
@@ -74,12 +74,15 @@ def _setup_long_description() -> Tuple[str, str]:
 setup(
     name="sparseml",
     version="0.1.0",
-    author="Mark Kurtz, Ben Fineran, Tuan Nguyen, Kevin Rodriguez, Dan Alistarh",
+    author="Mark Kurtz, Benjamin Fineran, Tuan Nguyen, Kevin Rodriguez, Dan Alistarh",
     author_email="support@neuralmagic.com",
-    description="[TODO]",
+    description="Python library for integrating with common deep learning frameworks "
+    "to apply SOTA model optimization techniques to simplify and "
+    "accelerate performance",
     long_description=_setup_long_description()[0],
     long_description_content_type=_setup_long_description()[1],
-    keywords="[TODO]",
+    keywords="inference machine learning neural network computer vision nlp cv "
+    "deep learning torch pytorch tensorflow keras",
     license="[TODO]",
     url="https://github.com/neuralmagic/sparseml",
     package_dir=_setup_package_dir(),
@@ -88,5 +91,21 @@ setup(
     extras_require=_setup_extras(),
     entry_points=_setup_entry_points(),
     python_requires=">=3.6.0",
-    classifiers=["[TODO]"],
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Environment :: Console",
+        "Programming Language :: Python :: 3",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Education",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: Science/Research",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "Topic :: Scientific/Engineering :: Mathematics",
+        "Topic :: Software Development",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+    ],
 )
