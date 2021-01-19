@@ -20,6 +20,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import math
 import numpy as np
 
+from sparseml.keras.callbacks import LossesAndMetricsLoggingCallback
 from sparseml.keras.optim import ScheduledModifierManager
 from sparseml.keras.utils import TensorBoardLogger
 
@@ -94,6 +95,7 @@ def main():
     model_for_pruning, optimizer, callbacks = manager.modify(
         base_model, optimizer, steps_per_epoch, loggers=loggers
     )
+    callbacks.append(LossesAndMetricsLoggingCallback(loggers))
     callbacks.append(checkpoint)
 
     # Compile the enhanced model
