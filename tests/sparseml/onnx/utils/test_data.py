@@ -7,7 +7,7 @@ import numpy
 import pytest
 
 from sparseml.onnx.utils import DataLoader
-from sparsezoo import Model
+from sparsezoo import Zoo
 
 
 DataloaderModelFixture = NamedTuple(
@@ -29,10 +29,13 @@ DataloaderModelFixture = NamedTuple(
                 "sub_domain": "classification",
                 "architecture": "resnet-v1",
                 "sub_architecture": "50",
-                "dataset": "imagenet",
                 "framework": "pytorch",
-                "repo_source": "neuralmagic",
-                "optimization_name": "base",
+                "repo": "sparseml",
+                "dataset": "imagenet",
+                "training_scheme": None,
+                "optim_name": "base",
+                "optim_category": "none",
+                "optim_target": None,
             },
             {"input": (1, 3, 224, 224)},
             {"output_0": (1, 1000), "output_1": (1, 1000)},
@@ -44,10 +47,13 @@ DataloaderModelFixture = NamedTuple(
                 "sub_domain": "classification",
                 "architecture": "mobilenet-v1",
                 "sub_architecture": "1.0",
-                "dataset": "imagenet",
                 "framework": "pytorch",
-                "repo_source": "neuralmagic",
-                "optimization_name": "base",
+                "repo": "sparseml",
+                "dataset": "imagenet",
+                "training_scheme": None,
+                "optim_name": "base",
+                "optim_category": "none",
+                "optim_target": None,
             },
             {"input": (1, 3, 224, 224)},
             {"output_0": (1, 1000)},
@@ -57,7 +63,7 @@ DataloaderModelFixture = NamedTuple(
 )
 def dataloader_models(request) -> DataloaderModelFixture:
     model_args, input_shapes, output_shapes, data_types = request.param
-    model = Model.get_downloadable_model(**model_args)
+    model = Zoo.load_model(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
 
     return DataloaderModelFixture(model_path, input_shapes, output_shapes, data_types)

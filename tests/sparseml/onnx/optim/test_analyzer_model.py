@@ -5,7 +5,7 @@ import pytest
 from onnx import load_model
 
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
-from sparsezoo import Model
+from sparsezoo import Zoo
 from tests.onnx.helpers import analyzer_models
 
 
@@ -24,10 +24,13 @@ RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
                 "sub_domain": "classification",
                 "architecture": "resnet-v1",
                 "sub_architecture": "50",
-                "dataset": "imagenet",
                 "framework": "pytorch",
-                "repo_source": "neuralmagic",
-                "optimization_name": "base",
+                "repo": "sparseml",
+                "dataset": "imagenet",
+                "training_scheme": None,
+                "optim_name": "base",
+                "optim_category": "none",
+                "optim_target": None,
             },
             "resnet50pytorch.json",
         ),
@@ -36,7 +39,7 @@ RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
 def analyzer_models_repo(request):
     model_args, output_path = request.param
     output_path = os.path.join(RELATIVE_PATH, "test_analyzer_model_data", output_path)
-    model = Model.get_downloadable_model(**model_args)
+    model = Zoo.load_model(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
 
     if GENERATE_TEST_FILES:

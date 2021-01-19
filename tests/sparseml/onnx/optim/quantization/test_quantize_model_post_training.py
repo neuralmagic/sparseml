@@ -15,7 +15,7 @@ from sparseml.onnx.utils import (
     quantize_resnet_identity_add_inputs,
 )
 from sparseml.pytorch.datasets import ImagenetteDataset, ImagenetteSize, MNISTDataset
-from sparsezoo import Model, search_models
+from sparsezoo import Zoo
 from tests.onnx.optim.quantization.helpers import make_tmp_onnx_file
 
 
@@ -76,11 +76,11 @@ def _test_resnet_identity_quant(model_path, has_resnet_block, save_optimized):
 )
 def test_quantize_model_post_training_mnist():
     # Prepare model paths
-    mnist_model_path = search_models(
+    mnist_model_path = Zoo.search_models(
         domain="cv",
         sub_domain="classification",
-        architectures=["mnistnet"],
-        frameworks=["pytorch"],
+        architecture="mnistnet",
+        framework="pytorch",
     )[0].download_onnx_file()
     quant_model_path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
 
@@ -117,15 +117,18 @@ def test_quantize_model_post_training_mnist():
 )
 def test_quantize_model_post_training_resnet50_imagenette():
     # Prepare model paths
-    resnet50_imagenette_path = Model.get_downloadable_model(
+    resnet50_imagenette_path = Zoo.load_model(
         domain="cv",
         sub_domain="classification",
         architecture="resnet-v1",
         sub_architecture="50",
-        dataset="imagenette",
         framework="pytorch",
-        repo_source="neuralmagic",
-        optimization_name="base",
+        repo="sparseml",
+        dataset="imagenette",
+        training_scheme=None,
+        optim_name="base",
+        optim_category="none",
+        optim_target=None,
     ).download_onnx_file(overwrite=True)
     quant_model_path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
 

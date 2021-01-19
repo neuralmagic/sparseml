@@ -9,7 +9,7 @@ import tarfile
 from enum import Enum
 
 from sparseml.utils import clean_path, create_dirs
-from sparsezoo import download_file
+from sparsezoo.utils import download_file
 
 
 __all__ = ["ImagenetteSize", "ImagenetteDownloader", "ImagewoofDownloader"]

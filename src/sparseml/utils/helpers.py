@@ -42,6 +42,7 @@ __all__ = [
     "tensor_export",
     "tensors_export",
     "load_recipe_yaml_str",
+    "parse_optimization_str",
 ]
 
 
@@ -778,3 +779,19 @@ def load_recipe_yaml_str(file_path: str) -> str:
                 )
             yaml_str = result.group(1)
     return yaml_str
+
+
+def parse_optimization_str(optim_full_name: str) -> Tuple[str, str, Any]:
+    """
+    :param optim_full_name: A name of a pretrained model optimization. i.e.
+        'pruned-moderate-deepsparse', 'pruned-aggressive', 'base'
+    :return: A tuple representing the corresponding SparseZoo model optim_name,
+        optim_category, and optim_target values with appropriate defaults when
+        not present.
+    """
+    optim_defaults = ["base", "none", None]
+    optim_split_name = optim_full_name.split("-")
+    while len(optim_split_name) < len(optim_defaults):
+        optim_split_name.append(optim_defaults[len(optim_split_name)])
+    optim_name, optim_category, optim_target = optim_split_name[:3]
+    return optim_name, optim_category, optim_target

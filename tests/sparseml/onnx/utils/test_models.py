@@ -13,7 +13,7 @@ from sparseml.onnx.utils.model import (
     ORTModelRunner,
     max_available_cores,
 )
-from sparsezoo import Model
+from sparsezoo import Zoo
 
 
 try:
@@ -36,10 +36,13 @@ OnnxModelDataFixture = NamedTuple(
                 "sub_domain": "classification",
                 "architecture": "resnet-v1",
                 "sub_architecture": "50",
-                "dataset": "imagenet",
                 "framework": "pytorch",
-                "repo_source": "neuralmagic",
-                "optimization_name": "base",
+                "repo": "sparseml",
+                "dataset": "imagenet",
+                "training_scheme": None,
+                "optim_name": "base",
+                "optim_category": "none",
+                "optim_target": None,
             }
         ),
         (
@@ -48,17 +51,20 @@ OnnxModelDataFixture = NamedTuple(
                 "sub_domain": "classification",
                 "architecture": "mobilenet-v1",
                 "sub_architecture": "1.0",
-                "dataset": "imagenet",
                 "framework": "pytorch",
-                "repo_source": "neuralmagic",
-                "optimization_name": "base",
+                "repo": "sparseml",
+                "dataset": "imagenet",
+                "training_scheme": None,
+                "optim_name": "base",
+                "optim_category": "none",
+                "optim_target": None,
             }
         ),
     ]
 )
 def onnx_models_with_data(request) -> OnnxModelDataFixture:
     model_args = request.param
-    model = Model.get_downloadable_model(**model_args)
+    model = Zoo.load_model(**model_args)
     model_path = model.download_onnx_file(overwrite=False)
     data_paths = model.download_data_files(overwrite=False)
     inputs_paths = None
