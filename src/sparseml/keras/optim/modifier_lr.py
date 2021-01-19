@@ -1,16 +1,19 @@
 """
 Learning rate modifiers for Keras models
 """
+
 from typing import Dict, List, Union
 
 import tensorflow as tf
+from tensorflow.keras import backend as K
+from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.keras.utils import KerasLogger
+from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, LoggingMode
 from sparseml.optim import LearningRate, SetLearningRate
 from sparseml.utils import ALL_TOKEN
 
@@ -39,21 +42,129 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
         self._start_step = start_step
         self._end_step = end_step
         self._learning_rate = learning_rate
-        self.step = None
+        self._step = None
 
     def on_train_begin(self, logs=None):
-        self.step = tf.keras.backend.get_value(self._optimizer.iterations)
+        """
+        Called at the begin of training
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
+        self._step = tf.keras.backend.get_value(self._optimizer.iterations)
 
     def on_train_batch_begin(self, batch, logs=None):
-        if self.step == self._start_step:
+        """
+        Called at the begin of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
+        if self._step == self._start_step:
             setattr(self._optimizer, "lr", self._learning_rate)
-        if self.step == self._end_step:
+        if self._step == self._end_step:
             assert self._end_step > -1
-            persist_lr = self._optimizer.lr(self.step)
+            persist_lr = self._optimizer.lr(self._step)
             setattr(self._optimizer, "lr", persist_lr)
 
     def on_train_batch_end(self, batch, logs=None):
-        self.step = self.step + 1
+        """
+        Called at the end of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
+        self._step = self._step + 1
+
+
+class LearningRateLoggingCallback(LoggerSettingCallback):
+    """
+    Callback to log the learning rate. No effect if global step is outside
+    [start_step, end_step); otherwise the earnig rate is logged in the following cases:
+    (1) at the end of an epoch;
+    (2) at the right step if the update_freq attribute for batch logging is set in
+        some logger;
+    (3) the learning rate changes from previous logged value
+
+    :param loggers: logger or a list of loggers
+    :param start_step: starting step when the logging should start
+    :param end_step: end step when the logging should stop
+    """
+
+    def __init__(
+        self,
+        loggers: Union[KerasLogger, List[KerasLogger]],
+        start_step: int,
+        end_step: int,
+    ):
+        super().__init__(loggers)
+        self._prev_lr = None
+        self._start_step = start_step
+        self._end_step = end_step
+
+    def on_train_begin(self, logs=None):
+        """
+        Called at the begin of training
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
+        super().on_train_begin(logs)
+        self._step = K.get_value(self.model.optimizer.iterations)
+
+    def on_epoch_begin(self, epoch, logs=None):
+        """
+        Called at the begin of a training epoch
+
+        :param epoch: epoch index
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
+        super().on_epoch_begin(epoch, logs)
+        if self._is_logging_step():
+            lr_val = self._get_lr()
+            for logger in self._loggers:
+                assert logger.mode == LoggingMode.TRAIN
+                if logger.update_freq == "epoch":
+                    logger.log_scalar("learning_rate", lr_val, step=self._step)
+                    self._prev_lr = lr_val
+
+    def on_train_batch_begin(self, batch, logs=None):
+        """
+        Called at the begin of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
+        super().on_train_batch_begin(batch, logs)
+        if self._is_logging_step():
+            lr_val = self._get_lr()
+            for logger in self._loggers:
+                assert logger.mode == LoggingMode.TRAIN
+                should_log = (
+                    logger.update_freq == "batch"
+                    or (
+                        isinstance(logger.update_freq, int)
+                        and self._step % logger.update_freq == 0
+                    )
+                    or self._prev_lr is None
+                    or self._prev_lr != lr_val
+                )
+                if should_log:
+                    logger.log_scalar("learning_rate", lr_val, step=self._step)
+                    self._prev_lr = lr_val
+
+        self._step += 1
+
+    def _get_lr(self):
+        lr = self.model.optimizer.lr
+        if isinstance(lr, LearningRateSchedule):
+            lr_val = lr(self.model.optimizer.iterations)
+        else:
+            lr_val = K.get_value(lr)
+        return lr_val
+
+    def _is_logging_step(self):
+        return self._step >= self._start_step and (
+            self._end_step == -1 or self._step < self._end_step
+        )
 
 
 @KerasModifierYAML()
@@ -126,7 +237,64 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         lr_callback = LRModifierCallback(
             optimizer, start_step, end_step, self.learning_rate
         )
-        return model, optimizer, lr_callback
+        lr_logging_callback = LearningRateLoggingCallback(loggers, start_step, end_step)
+        return model, optimizer, [lr_callback, lr_logging_callback]
+
+
+class _ExponentialDecay(tf.keras.optimizers.schedules.ExponentialDecay):
+    def __init__(
+        self,
+        start_step,
+        initial_learning_rate,
+        decay_steps,
+        decay_rate,
+        staircase=False,
+        name=None,
+    ):
+        super().__init__(
+            initial_learning_rate,
+            decay_steps,
+            decay_rate,
+            staircase=staircase,
+            name=name,
+        )
+        self._start_step = start_step
+
+    @property
+    def start_step(self):
+        return self._start_step
+
+    def __call__(self, step):
+        if step < self.start_step:
+            raise ValueError("Invalid step passed in")
+        steps_count = step - self.start_step
+        return super().__call__(steps_count)
+
+    def get_config(self):
+        config = super().get_config()
+        config = config.update({"start_step": self.start_step})
+        return config
+
+
+class _PiecewiseConstantDecay(tf.keras.optimizers.schedules.PiecewiseConstantDecay):
+    def __init__(self, start_step, boundaries, values, name=None):
+        super().__init__(boundaries, values, name=name)
+        self._start_step
+
+    @property
+    def start_step(self):
+        return self._start_step
+
+    def __call__(self, step):
+        if step < self.start_step:
+            raise ValueError("Invalid step passed in")
+        steps_count = step - self.start_step
+        return super().__call__(steps_count)
+
+    def get_config(self):
+        config = super().get_config()
+        config = config.update({"start_step": self.start_step})
+        return config
 
 
 @KerasModifierYAML()
@@ -190,7 +358,8 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=False)
 
         if lr_class == "StepLR":
-            learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+            learning_rate = _ExponentialDecay(
+                start_step,
                 self.init_lr,
                 lr_kwargs["step_size"],
                 lr_kwargs["gamma"],
@@ -202,11 +371,12 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             values = [
                 self.init_lr * (lr_kwargs["gamma"] ^ k) for k in range(len(boundaries))
             ]
-            learning_rate = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
-                boundaries, values, name="MultiStepLR"
+            learning_rate = _PiecewiseConstantDecay(
+                start_step, boundaries, values, name="MultiStepLR"
             )
         elif lr_class == "ExponentialLR":
-            learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+            learning_rate = _ExponentialDecay(
+                start_step,
                 self.init_lr,
                 lr_kwargs["step_size"],
                 lr_kwargs["gamma"],
@@ -246,4 +416,5 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=False)
         learning_rate = self._create_learning_rate_scheduler(steps_per_epoch)
         lr_callback = LRModifierCallback(optimizer, start_step, end_step, learning_rate)
-        return model, optimizer, lr_callback
+        lr_logging_callback = LearningRateLoggingCallback(loggers, start_step, end_step)
+        return model, optimizer, [lr_callback, lr_logging_callback]
