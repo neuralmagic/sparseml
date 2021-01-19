@@ -6,13 +6,14 @@ aka model pruning
 from typing import Tuple, Union
 
 import torch
+from torch import Tensor
+from torch.nn import Module, Parameter
+
 from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
 )
 from sparseml.pytorch.utils import mask_difference
-from torch import Tensor
-from torch.nn import Module, Parameter
 
 
 __all__ = ["ModuleParamPruningMask"]

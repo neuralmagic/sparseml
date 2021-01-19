@@ -1,10 +1,8 @@
 import numpy as np
 import pytest
 import tensorflow as tf
-from sparseml.keras.optim import (
-    MaskedLayer,
-    UnstructuredPruningMaskCreator,
-)
+
+from sparseml.keras.optim import MaskedLayer, UnstructuredPruningMaskCreator
 
 from .mock import *
 

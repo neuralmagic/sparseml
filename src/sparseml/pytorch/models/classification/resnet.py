@@ -10,8 +10,6 @@ Further info on ResNext can be found in the paper
 
 from typing import List
 
-from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
     AdaptiveAvgPool2d,
@@ -25,6 +23,9 @@ from torch.nn import (
     Softmax,
     init,
 )
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 
 
 __all__ = [

@@ -7,6 +7,9 @@ from typing import Any, List, Tuple
 
 import numpy
 import torch
+from torch.nn import Module
+from tqdm import auto
+
 from sparseml.pytorch.utils.helpers import (
     tensors_batch_size,
     tensors_module_forward,
@@ -14,8 +17,6 @@ from sparseml.pytorch.utils.helpers import (
     tensors_to_precision,
 )
 from sparseml.pytorch.utils.model import model_to_device
-from torch.nn import Module
-from tqdm import auto
 
 
 __all__ = ["BatchBenchmarkResults", "ModuleBenchmarker"]

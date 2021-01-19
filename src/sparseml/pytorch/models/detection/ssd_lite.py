@@ -8,8 +8,9 @@ Information about SSD Lite and mobilenet v2 can be found in the paper
 from typing import List, Tuple
 
 import torch
-from sparseml.pytorch.models.detection.ssd import SSDBackbone
 from torch import Tensor, nn
+
+from sparseml.pytorch.models.detection.ssd import SSDBackbone
 
 
 __all__ = [

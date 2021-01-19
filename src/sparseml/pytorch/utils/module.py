@@ -10,6 +10,13 @@ from contextlib import ExitStack
 from typing import Any, Callable, Dict, List, Union
 
 import torch
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+from torch.utils.data import DataLoader
+from torch.utils.hooks import RemovableHandle
+from tqdm import auto
+
 from sparseml.pytorch.utils.helpers import (
     get_optim_learning_rate,
     tensors_batch_size,
@@ -18,12 +25,6 @@ from sparseml.pytorch.utils.helpers import (
 )
 from sparseml.pytorch.utils.logger import PyTorchLogger
 from sparseml.pytorch.utils.loss import DEFAULT_LOSS_KEY, LossWrapper
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
-from torch.utils.data import DataLoader
-from torch.utils.hooks import RemovableHandle
-from tqdm import auto
 
 
 try:

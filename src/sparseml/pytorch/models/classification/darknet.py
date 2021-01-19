@@ -4,8 +4,6 @@ DarkNet classification model for use as YOLO OD backbone
 
 from typing import List, Union
 
-from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import Hardswish
 from torch import Tensor
 from torch.nn import (
     AdaptiveAvgPool2d,
@@ -18,6 +16,9 @@ from torch.nn import (
     Softmax,
     init,
 )
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import Hardswish
 
 
 __all__ = [

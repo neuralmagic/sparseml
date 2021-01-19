@@ -4,12 +4,13 @@ Code related to the PyTorch model registry for easily creating models.
 
 from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
 
+from torch.nn import Module
+
 from merge_args import merge_args
 from sparseml.pytorch.utils import load_model
 from sparseml.utils import wrapper_decorator
 from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
 from sparsezoo import Model
-from torch.nn import Module
 
 
 __all__ = [
@@ -143,7 +144,6 @@ class ModelRegistry(object):
             )
 
         return ModelRegistry._ATTRIBUTES[key].input_shape
-
 
     @staticmethod
     def register(

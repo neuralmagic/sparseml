@@ -6,9 +6,10 @@ from collections import OrderedDict
 from typing import List, Tuple, Union
 
 import torch
-from sparseml.utils.helpers import create_parent_dirs
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
+
+from sparseml.utils.helpers import create_parent_dirs
 
 
 try:

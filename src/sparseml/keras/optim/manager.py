@@ -7,6 +7,7 @@ Also handles loading modifiers from yaml files
 from typing import List, Union
 
 import tensorflow as tf
+
 from sparseml.keras.optim.modifier import Modifier, ScheduledModifier
 from sparseml.keras.utils import KerasLogger
 from sparseml.optim import BaseManager

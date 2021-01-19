@@ -8,6 +8,7 @@ from typing import Dict, List, Union
 
 import numpy
 import onnx
+
 from sparseml.tensorflow_v1.utils.helpers import tf_compat
 from sparseml.tensorflow_v1.utils.variable import clean_tensor_name
 from sparseml.utils import (

@@ -3,9 +3,10 @@ import os
 import numpy as np
 import pytest
 import tensorflow.contrib.slim as slim
+from tensorflow.contrib.slim.nets import resnet_v2
+
 from sparseml.tensorflow_v1.optim import analyze_module
 from sparseml.tensorflow_v1.utils import tf_compat
-from tensorflow.contrib.slim.nets import resnet_v2
 
 
 def _a_sparse_filter(shape):

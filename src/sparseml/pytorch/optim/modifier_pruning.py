@@ -5,6 +5,10 @@ on models while pruning.
 import math
 from typing import Dict, List, Union
 
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
@@ -30,9 +34,6 @@ from sparseml.utils import (
     interpolate,
     validate_str_iterable,
 )
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["ConstantPruningModifier", "GMPruningModifier"]

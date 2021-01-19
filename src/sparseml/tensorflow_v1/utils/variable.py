@@ -3,8 +3,9 @@ from typing import List, Tuple, Union
 
 import numpy
 import tensorflow.contrib.graph_editor as ge
-from sparseml.tensorflow_v1.utils.helpers import tf_compat
 from tensorflow.contrib.graph_editor.util import ListView
+
+from sparseml.tensorflow_v1.utils.helpers import tf_compat
 
 
 __all__ = [

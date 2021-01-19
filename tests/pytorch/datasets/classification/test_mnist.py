@@ -2,8 +2,9 @@ import os
 import tempfile
 
 import pytest
-from sparseml.pytorch.datasets import DatasetRegistry, MNISTDataset
 from torch.utils.data import Dataset
+
+from sparseml.pytorch.datasets import DatasetRegistry, MNISTDataset
 
 
 def _validate_mnist(dataset: Dataset):

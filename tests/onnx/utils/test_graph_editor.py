@@ -3,6 +3,7 @@ from typing import List
 import numpy
 import pytest
 from onnx import load_model
+
 from sparseml.onnx.utils import (
     get_node_params,
     prune_model_one_shot,

@@ -6,9 +6,10 @@ import json
 from collections import OrderedDict
 from typing import Any, Dict, List, Tuple, Union
 
-import matplotlib.pyplot as plt
 import numpy
 import pandas
+
+import matplotlib.pyplot as plt
 from sparseml.utils.helpers import clean_path, create_parent_dirs, interpolated_integral
 
 

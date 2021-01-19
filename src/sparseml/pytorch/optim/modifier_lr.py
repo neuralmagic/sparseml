@@ -7,6 +7,15 @@ import math
 import sys
 from typing import Dict, List, Union
 
+from torch.nn import Module
+from torch.optim.lr_scheduler import (
+    CosineAnnealingWarmRestarts,
+    ExponentialLR,
+    MultiStepLR,
+    StepLR,
+)
+from torch.optim.optimizer import Optimizer
+
 from sparseml.optim import LearningRate, SetLearningRate
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
@@ -20,14 +29,6 @@ from sparseml.pytorch.utils import (
     set_optim_learning_rate,
 )
 from sparseml.utils import ALL_TOKEN, convert_to_bool
-from torch.nn import Module
-from torch.optim.lr_scheduler import (
-    CosineAnnealingWarmRestarts,
-    ExponentialLR,
-    MultiStepLR,
-    StepLR,
-)
-from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["SetLearningRateModifier", "LearningRateModifier"]

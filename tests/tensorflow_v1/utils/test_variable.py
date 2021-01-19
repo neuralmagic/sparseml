@@ -2,6 +2,7 @@ import os
 from typing import List
 
 import pytest
+
 from sparseml.tensorflow_v1.utils import (
     clean_tensor_name,
     get_op_input_var,

@@ -7,6 +7,7 @@ from collections import namedtuple
 from typing import Callable, List, Tuple, Union
 
 import tensorflow.contrib.graph_editor as ge
+
 from sparseml.tensorflow_v1.optim.mask_creator_pruning import (
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,

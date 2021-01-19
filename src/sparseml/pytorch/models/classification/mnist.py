@@ -2,8 +2,6 @@
 Simple PyTorch implementations for the MNIST dataset.
 """
 
-from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
     AdaptiveAvgPool2d,
@@ -15,6 +13,9 @@ from torch.nn import (
     Sigmoid,
     Softmax,
 )
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 
 
 __all__ = ["MnistNet", "mnist_net"]

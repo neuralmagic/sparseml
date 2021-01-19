@@ -5,6 +5,7 @@ import tempfile
 import numpy as np
 import onnx
 import pytest
+
 from sparseml.onnx.optim.quantization.quantize_model_post_training import (
     quantize_model_post_training,
 )

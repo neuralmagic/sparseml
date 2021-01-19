@@ -4,6 +4,10 @@ import sys
 import pytest
 import torch
 import torch.nn.functional as TF
+from torch.nn import LeakyReLU, PReLU
+from torch.nn import ReLU as TReLU
+from torch.nn import ReLU6 as TReLU6
+
 from sparseml.pytorch.nn import (
     ReLU,
     ReLU6,
@@ -14,9 +18,6 @@ from sparseml.pytorch.nn import (
     swish,
 )
 from tests.pytorch.helpers import MLPNet
-from torch.nn import LeakyReLU, PReLU
-from torch.nn import ReLU as TReLU
-from torch.nn import ReLU6 as TReLU6
 
 
 @pytest.mark.skipif(

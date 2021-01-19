@@ -3,6 +3,7 @@ import os
 import numpy as np
 import onnx
 import pytest
+
 from sparseml.onnx.optim.quantization.calibration import CalibrationSession
 from tests.onnx.optim.quantization.helpers import (
     make_tmp_onnx_file,

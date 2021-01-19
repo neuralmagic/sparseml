@@ -2,11 +2,11 @@
 Contains code for loggers that help visualize the information from each modifier
 """
 
-from abc import ABC, abstractmethod
-from typing import Union
-import time
 import logging
+import time
+from abc import ABC, abstractmethod
 from logging import Logger
+from typing import Union
 
 import tensorflow
 from tensorflow.summary import create_file_writer

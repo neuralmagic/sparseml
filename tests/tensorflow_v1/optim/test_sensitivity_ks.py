@@ -3,6 +3,7 @@ from typing import Callable
 
 import numpy
 import pytest
+
 from sparseml.tensorflow_v1.optim.sensitivity_pruning import (
     pruning_loss_sens_magnitude,
     pruning_loss_sens_one_shot,

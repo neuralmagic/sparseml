@@ -6,8 +6,6 @@ Further info can be found in the paper `here <http://arxiv.org/abs/1512.00567>`_
 from typing import Tuple, Union
 
 import torch
-from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
     AdaptiveAvgPool2d,
@@ -24,6 +22,9 @@ from torch.nn import (
     Softmax,
     init,
 )
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 
 
 __all__ = ["InceptionV3", "inception_v3"]

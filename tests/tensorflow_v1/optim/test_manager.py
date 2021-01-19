@@ -2,6 +2,7 @@ import os
 from typing import Callable
 
 import pytest
+
 from sparseml.tensorflow_v1.optim import Modifier, ScheduledModifierManager
 from sparseml.tensorflow_v1.utils import tf_compat
 from tests.tensorflow_v1.optim.test_modifier import (

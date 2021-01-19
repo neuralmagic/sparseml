@@ -1,8 +1,9 @@
 import os
 
 import pytest
-from sparseml.pytorch.datasets import CIFAR10Dataset, CIFAR100Dataset, DatasetRegistry
 from torch.utils.data import Dataset
+
+from sparseml.pytorch.datasets import CIFAR10Dataset, CIFAR100Dataset, DatasetRegistry
 
 
 def _validate_cifar(dataset: Dataset, num_classes: int):

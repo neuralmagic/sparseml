@@ -3,7 +3,6 @@ from typing import List
 
 import pytest
 import torch
-from sparseml.pytorch.optim import PYTORCH_FRAMEWORK
 from torch import Tensor
 from torch.nn import (
     AdaptiveAvgPool2d,
@@ -16,6 +15,8 @@ from torch.nn import (
 )
 from torch.optim import SGD, Adam
 from torch.utils.data import Dataset
+
+from sparseml.pytorch.optim import PYTORCH_FRAMEWORK
 
 
 __all__ = [

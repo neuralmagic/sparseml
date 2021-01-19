@@ -4,6 +4,7 @@ import numpy as np
 import onnx
 import onnxruntime as rt
 import pytest
+
 from sparseml.onnx.utils.graph_optimizer import fold_conv_bns
 from tests.onnx.optim.quantization.helpers import make_tmp_onnx_file, onnx_conv_net
 

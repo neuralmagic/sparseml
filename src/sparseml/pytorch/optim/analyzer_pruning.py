@@ -6,9 +6,10 @@ More info on kernel sparsity can be found `here <https://arxiv.org/abs/1902.0957
 
 from typing import List, Tuple, Union
 
-from sparseml.pytorch.utils import tensor_sparsity
 from torch import Tensor
 from torch.nn import Module, Parameter
+
+from sparseml.pytorch.utils import tensor_sparsity
 
 
 __all__ = ["ModulePruningAnalyzer"]

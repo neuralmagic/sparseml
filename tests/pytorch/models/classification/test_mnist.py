@@ -3,6 +3,7 @@ from typing import Union
 
 import pytest
 import torch
+
 from sparseml.pytorch.models import ModelRegistry, mnist_net
 from tests.pytorch.models.utils import compare_model
 

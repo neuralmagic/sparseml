@@ -3,6 +3,10 @@ import sys
 from typing import Callable, List, Union
 
 import pytest
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+
 from sparseml.pytorch.optim import (
     PYTORCH_FRAMEWORK,
     Modifier,
@@ -21,9 +25,6 @@ from tests.pytorch.helpers import (
     test_loss,
     test_steps_per_epoch,
 )
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
 
 
 __all__ = [

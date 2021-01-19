@@ -2,6 +2,7 @@ import os
 
 import pytest
 import torch
+
 from sparseml.pytorch.utils import get_default_boxes_300
 
 

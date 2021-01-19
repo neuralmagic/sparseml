@@ -3,10 +3,11 @@ from typing import Tuple
 
 import pytest
 import torch
-from sparseml.pytorch.optim import ModuleAnalyzer
-from tests.pytorch.helpers import ConvNet, MLPNet
 from torch.nn import Module
 from torchvision.models import resnet50
+
+from sparseml.pytorch.optim import ModuleAnalyzer
+from tests.pytorch.helpers import ConvNet, MLPNet
 
 
 @pytest.mark.skipif(

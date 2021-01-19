@@ -4,11 +4,12 @@ from typing import Callable, Optional
 
 import pytest
 import torch
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from tests.pytorch.helpers import MLPNet
 from torch.nn import Module
 from torch.optim import SGD
 from torch.optim.optimizer import Optimizer
+
+from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from tests.pytorch.helpers import MLPNet
 
 
 class FakeOptim(SGD):

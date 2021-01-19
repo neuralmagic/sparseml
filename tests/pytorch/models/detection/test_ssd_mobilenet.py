@@ -3,6 +3,7 @@ from typing import Callable, Union
 
 import pytest
 import torch
+
 from sparseml.pytorch.models import ModelRegistry, ssd300lite_mobilenetv2
 from tests.pytorch.models.utils import compare_model
 

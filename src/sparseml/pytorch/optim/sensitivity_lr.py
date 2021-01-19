@@ -4,6 +4,11 @@ Sensitivity analysis implementations for learning rate on Modules against loss f
 
 from typing import Any, Callable, List, Tuple, Union
 
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+from torch.utils.data import DataLoader
+
 from sparseml.optim import LRLossSensitivityAnalysis
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
@@ -15,10 +20,6 @@ from sparseml.pytorch.utils import (
     infinite_data_loader,
     set_optim_learning_rate,
 )
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
-from torch.utils.data import DataLoader
 
 
 __all__ = ["default_exponential_check_lrs", "lr_loss_sensitivity"]

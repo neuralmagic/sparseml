@@ -2,6 +2,7 @@ import os
 
 import pytest
 import torch
+
 from sparseml.pytorch.nn import (
     FATReLU,
     convert_relus_to_fat,

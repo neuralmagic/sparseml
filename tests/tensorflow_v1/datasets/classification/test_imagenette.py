@@ -2,6 +2,7 @@ import os
 
 import pytest
 import tensorflow
+
 from packaging import version
 from sparseml.tensorflow_v1.datasets import (
     DatasetRegistry,

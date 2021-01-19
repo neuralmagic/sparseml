@@ -6,13 +6,14 @@ Also handles loading modifiers from yaml files
 
 from typing import Dict, List, Union
 
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+
 from sparseml.optim import BaseManager
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import PyTorchLogger
 from sparseml.utils import load_recipe_yaml_str
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["ScheduledModifierManager", "load_manager"]

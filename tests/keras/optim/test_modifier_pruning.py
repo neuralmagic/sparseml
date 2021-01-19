@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 import tensorflow as tf
+
 from sparseml.keras.optim import GMPruningModifier
+
 from .mock import *
 
 

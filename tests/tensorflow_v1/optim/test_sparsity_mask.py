@@ -1,6 +1,7 @@
 import random
 
 import pytest
+
 from sparseml.tensorflow_v1.optim import (
     BlockPruningMaskCreator,
     DimensionPruningMaskCreator,

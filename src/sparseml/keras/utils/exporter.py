@@ -6,8 +6,9 @@ import os
 from typing import Any, List
 
 import onnx
-from sparseml.utils import clean_path, create_parent_dirs, tensors_export
 from tensorflow.keras import Model
+
+from sparseml.utils import clean_path, create_parent_dirs, tensors_export
 
 
 try:

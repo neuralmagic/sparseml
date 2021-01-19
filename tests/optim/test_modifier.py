@@ -1,6 +1,7 @@
 from typing import Callable, Dict, List, Union
 
 import pytest
+
 from sparseml.optim import (
     BaseModifier,
     BaseObject,

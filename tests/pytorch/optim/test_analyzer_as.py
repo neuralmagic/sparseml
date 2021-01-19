@@ -2,9 +2,10 @@ import os
 
 import pytest
 import torch
+from torch import Tensor
+
 from sparseml.pytorch.optim import ModuleASAnalyzer
 from tests.pytorch.helpers import MLPNet
-from torch import Tensor
 
 
 @pytest.mark.skipif(

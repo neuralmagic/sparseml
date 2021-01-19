@@ -2,6 +2,8 @@ import os
 
 import pytest
 import torch
+from torch.nn import Conv2d, Linear
+
 from sparseml.pytorch.optim import QuantizationModifier
 from tests.pytorch.helpers import (
     ConvNet,
@@ -12,7 +14,6 @@ from tests.pytorch.helpers import (
     test_steps_per_epoch,
 )
 from tests.pytorch.optim.test_modifier import ScheduledModifierTest
-from torch.nn import Conv2d, Linear
 
 
 try:

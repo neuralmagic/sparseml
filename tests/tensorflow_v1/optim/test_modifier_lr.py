@@ -4,6 +4,7 @@ from typing import Callable
 
 import numpy as np
 import pytest
+
 from sparseml.tensorflow_v1.optim import (
     GroupLearningRateModifier,
     LearningRateModifier,

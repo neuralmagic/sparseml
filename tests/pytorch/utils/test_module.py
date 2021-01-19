@@ -4,6 +4,10 @@ import os
 import pytest
 import torch
 import torch.nn.functional as TF
+from torch.nn import Linear, ReLU, Sequential
+from torch.optim import SGD, Adam
+from torch.utils.data import DataLoader, Dataset
+
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     LossWrapper,
@@ -17,9 +21,6 @@ from sparseml.pytorch.utils import (
     tensors_module_forward,
     tensors_to_device,
 )
-from torch.nn import Linear, ReLU, Sequential
-from torch.optim import SGD, Adam
-from torch.utils.data import DataLoader, Dataset
 
 
 def default_calcs_for_backwards():

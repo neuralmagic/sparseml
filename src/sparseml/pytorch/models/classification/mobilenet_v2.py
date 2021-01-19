@@ -6,8 +6,6 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1801.04381>`
 from collections import OrderedDict
 from typing import Dict, List, Union
 
-from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import ReLU6
 from torch import Tensor
 from torch.nn import (
     AdaptiveAvgPool2d,
@@ -21,6 +19,9 @@ from torch.nn import (
     Softmax,
     init,
 )
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU6
 
 
 __all__ = [

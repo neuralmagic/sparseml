@@ -6,6 +6,8 @@ from collections import namedtuple
 from typing import Callable, Dict, List, Tuple, Union
 
 import numpy
+from tqdm import auto
+
 from sparseml.optim import (
     PruningLossSensitivityAnalysis,
     default_pruning_sparsities_loss,
@@ -16,7 +18,6 @@ from sparseml.tensorflow_v1.optim.mask_creator_pruning import (
 )
 from sparseml.tensorflow_v1.optim.mask_pruning import PruningScope, create_op_pruning
 from sparseml.tensorflow_v1.utils import get_ops_and_inputs_by_name_or_regex, tf_compat
-from tqdm import auto
 
 
 __all__ = [

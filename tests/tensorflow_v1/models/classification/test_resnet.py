@@ -3,6 +3,7 @@ from typing import Callable, Union
 
 import numpy
 import pytest
+
 from sparseml.tensorflow_v1.models import (
     ModelRegistry,
     resnet18,

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Union
 
 import numpy
 from onnx import ModelProto
+
 from sparseml.onnx.optim.sensitivity_pruning import pruning_loss_sens_approx
 from sparseml.onnx.utils import (
     NodeShape,

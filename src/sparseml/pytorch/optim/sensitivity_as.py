@@ -5,6 +5,11 @@ Sensitivity analysis implementations for increasing activation sparsity by using
 from typing import Callable, Dict, List, Tuple, Union
 
 import torch
+from torch import Tensor
+from torch.nn import Module
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.hooks import RemovableHandle
+
 from sparseml.pytorch.nn.fatrelu import FATReLU, convert_relus_to_fat
 from sparseml.pytorch.optim.analyzer_as import ModuleASAnalyzer
 from sparseml.pytorch.utils import (
@@ -14,10 +19,6 @@ from sparseml.pytorch.utils import (
     get_layer,
     model_to_device,
 )
-from torch import Tensor
-from torch.nn import Module
-from torch.utils.data import DataLoader, Dataset
-from torch.utils.hooks import RemovableHandle
 
 
 __all__ = ["ASLayerTracker", "LayerBoostResults", "ModuleASOneShootBooster"]

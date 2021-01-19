@@ -5,8 +5,6 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1704.04861>`
 
 from typing import List, Union
 
-from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
     AvgPool2d,
@@ -20,6 +18,9 @@ from torch.nn import (
     Softmax,
     init,
 )
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 
 
 __all__ = ["MobileNetSectionSettings", "MobileNet", "mobilenet", "han_mobilenet"]

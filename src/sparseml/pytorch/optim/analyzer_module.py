@@ -6,8 +6,6 @@ Records things like FLOPS, input and output shapes, kernel shapes, etc.
 from typing import List, Tuple, Union
 
 import numpy
-from sparseml.optim import AnalyzedLayerDesc
-from sparseml.pytorch.utils import get_layer, get_prunable_layers
 from torch import Tensor
 from torch.nn import (
     CELU,
@@ -38,6 +36,9 @@ from torch.nn.modules.pooling import (
     _MaxPoolNd,
 )
 from torch.utils.hooks import RemovableHandle
+
+from sparseml.optim import AnalyzedLayerDesc
+from sparseml.pytorch.utils import get_layer, get_prunable_layers
 
 
 __all__ = ["ModuleAnalyzer"]

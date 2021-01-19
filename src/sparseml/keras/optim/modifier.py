@@ -5,18 +5,20 @@ For example, learning rate schedules or kernel sparsity (weight pruning)
 are implemented as modifiers.
 """
 
-from typing import List, Union, Tuple
+from typing import List, Tuple, Union
+
 import tensorflow as tf
 
+from sparseml.keras.utils import KerasLogger
 from sparseml.optim import (
-    ModifierProp,
     BaseModifier,
     BaseScheduled,
     BaseUpdate,
+    ModifierProp,
     ModifierYAML,
 )
 from sparseml.utils import KERAS_FRAMEWORK
-from sparseml.keras.utils import KerasLogger
+
 
 __all__ = [
     "ModifierProp",

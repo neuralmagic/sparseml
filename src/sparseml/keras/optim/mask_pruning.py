@@ -2,6 +2,7 @@ import abc
 import collections
 import inspect
 from typing import List
+
 import tensorflow as tf
 
 from sparseml.keras.optim.mask_pruning_creator import PruningMaskCreator

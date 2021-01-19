@@ -1,6 +1,7 @@
 import os
 
 import pytest
+
 from sparseml.pytorch.optim import SetWeightDecayModifier
 from tests.pytorch.helpers import (
     ConvNet,
