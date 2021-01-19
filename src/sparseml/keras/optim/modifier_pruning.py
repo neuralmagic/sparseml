@@ -238,28 +238,6 @@ class SparsityLoggingCallback(LoggerSettingCallback):
         self._step = None
         self._start_step = start_step
 
-    def _get_log_data(self):
-        """
-        Add tensors in the summaries for tensorboard logging
-
-        :return: a dictionary of named tensors
-        """
-        log_data = {}
-        for layer in self._prunable_layers:
-            for masked_param in layer.pruning_vars:
-                sparsity = tensorflow.math.subtract(
-                    1, tensorflow.math.reduce_mean(masked_param.mask)
-                )
-                log_data["sparsity@{}".format(masked_param.name)] = sparsity
-        return log_data
-
-    def _log(self, logger: KerasLogger, log_data: Dict):
-        """
-        Retrieve logging values from modifiers and add to Tensorboard
-        """
-        for name, value in log_data.items():
-            logger.log_scalar(name, value, step=self._step)
-
     def on_train_begin(self, logs=None):
         super().on_train_begin(logs)
         self._step = tensorflow.keras.backend.get_value(self._start_step)
@@ -284,25 +262,27 @@ class SparsityLoggingCallback(LoggerSettingCallback):
         # Keep track of the step count
         self._step += 1
 
+    def _get_log_data(self):
+        """
+        Add tensors in the summaries for tensorboard logging
 
-def remove_pruning_masks(model: tensorflow.keras.Model):
-    """
-    Remove pruning masks from a model that was pruned using the MaskedLayer logic
+        :return: a dictionary of named tensors
+        """
+        log_data = {}
+        for layer in self._prunable_layers:
+            for masked_param in layer.pruning_vars:
+                sparsity = tensorflow.math.subtract(
+                    1, tensorflow.math.reduce_mean(masked_param.mask)
+                )
+                log_data["sparsity@{}".format(masked_param.name)] = sparsity
+        return log_data
 
-    :param model: a model that was pruned using MaskedLayer
-    :return: the original model with pruned weights
-    """
-
-    def _remove_pruning_masks(layer):
-        if isinstance(layer, MaskedLayer):
-            return layer.pruned_layer
-        return layer
-
-    # TODO: while the resulting model could be exported to ONNX, its built status
-    # is removed
-    return tensorflow.keras.models.clone_model(
-        model, input_tensors=None, clone_function=_remove_pruning_masks
-    )
+    def _log(self, logger: KerasLogger, log_data: Dict):
+        """
+        Retrieve logging values from modifiers and add to Tensorboard
+        """
+        for name, value in log_data.items():
+            logger.log_scalar(name, value, step=self._step)
 
 
 @KerasModifierYAML()
