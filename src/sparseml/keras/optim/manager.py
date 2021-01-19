@@ -65,11 +65,10 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :return: model, optimizer, callbacks
         """
 
-        if loggers:
-            # Different modifiers might have logging callbacks a same global variables,
-            # thus modifiers need to be sorted increasing based on their start steps to
-            # make sure logging on shared variables reflect the latest effect
-            self._modifiers.sort(key=lambda mod: mod.start_epoch)
+        # Different modifiers might have logging callbacks a same global variables,
+        # thus modifiers need to be sorted increasing based on their start steps to
+        # make sure logging on shared variables reflect the latest effect
+        self._modifiers.sort(key=lambda mod: mod.start_epoch)
 
         callbacks = []
         for mod in self._modifiers:

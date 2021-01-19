@@ -45,9 +45,20 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
         self._step = None
 
     def on_train_begin(self, logs=None):
+        """
+        Called at the begin of training
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         self._step = tf.keras.backend.get_value(self._optimizer.iterations)
 
     def on_train_batch_begin(self, batch, logs=None):
+        """
+        Called at the begin of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         if self._step == self._start_step:
             setattr(self._optimizer, "lr", self._learning_rate)
         if self._step == self._end_step:
@@ -56,6 +67,12 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
             setattr(self._optimizer, "lr", persist_lr)
 
     def on_train_batch_end(self, batch, logs=None):
+        """
+        Called at the end of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         self._step = self._step + 1
 
 
@@ -69,32 +86,37 @@ class LearningRateLoggingCallback(LoggerSettingCallback):
     (3) the learning rate changes from previous logged value
 
     :param loggers: logger or a list of loggers
+    :param start_step: starting step when the logging should start
+    :param end_step: end step when the logging should stop
     """
 
-    def __init__(self, loggers, start_step, end_step):
+    def __init__(
+        self,
+        loggers: Union[KerasLogger, List[KerasLogger]],
+        start_step: int,
+        end_step: int,
+    ):
         super().__init__(loggers)
         self._prev_lr = None
         self._start_step = start_step
         self._end_step = end_step
 
-    def _get_lr(self):
-        lr = self.model.optimizer.lr
-        if isinstance(lr, LearningRateSchedule):
-            lr_val = lr(self.model.optimizer.iterations)
-        else:
-            lr_val = K.get_value(lr)
-        return lr_val
-
-    def _is_logging_step(self):
-        return self._step >= self._start_step and (
-            self._end_step == -1 or self._step < self._end_step
-        )
-
     def on_train_begin(self, logs=None):
+        """
+        Called at the begin of training
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_begin(logs)
         self._step = K.get_value(self.model.optimizer.iterations)
 
     def on_epoch_begin(self, epoch, logs=None):
+        """
+        Called at the begin of a training epoch
+
+        :param epoch: epoch index
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_epoch_begin(epoch, logs)
         if self._is_logging_step():
             lr_val = self._get_lr()
@@ -105,6 +127,12 @@ class LearningRateLoggingCallback(LoggerSettingCallback):
                     self._prev_lr = lr_val
 
     def on_train_batch_begin(self, batch, logs=None):
+        """
+        Called at the begin of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_batch_begin(batch, logs)
         if self._is_logging_step():
             lr_val = self._get_lr()
@@ -124,6 +152,19 @@ class LearningRateLoggingCallback(LoggerSettingCallback):
                     self._prev_lr = lr_val
 
         self._step += 1
+
+    def _get_lr(self):
+        lr = self.model.optimizer.lr
+        if isinstance(lr, LearningRateSchedule):
+            lr_val = lr(self.model.optimizer.iterations)
+        else:
+            lr_val = K.get_value(lr)
+        return lr_val
+
+    def _is_logging_step(self):
+        return self._step >= self._start_step and (
+            self._end_step == -1 or self._step < self._end_step
+        )
 
 
 @KerasModifierYAML()

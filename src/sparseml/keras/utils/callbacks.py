@@ -26,65 +26,143 @@ class LoggerSettingCallback(keras.callbacks.Callback):
     def __init__(self, loggers: Union[KerasLogger, List[KerasLogger]]):
         self._loggers = loggers if isinstance(loggers, list) else [loggers]
 
-    def _set_logging_mode(self, mode: LoggingMode):
-        for logger in self._loggers:
-            logger.mode = mode
-
     def on_epoch_begin(self, epoch, logs=None):
+        """
+        Called at the begin of a training epoch
+
+        :param epoch: epoch index
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_epoch_begin(epoch, logs)
         self._set_logging_mode(LoggingMode.TRAIN)
 
     def on_epoch_end(self, epoch, logs=None):
+        """
+        Called at the end of a training epoch
+
+        :param epoch: epoch index
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_epoch_end(epoch, logs)
         self._set_logging_mode(LoggingMode.TRAIN)
 
     def on_predict_batch_begin(self, batch, logs=None):
+        """
+        Called at the begin of a batch in prediction
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_predict_batch_begin(batch, logs)
         self._set_logging_mode(LoggingMode.PREDICT)
 
     def on_predict_batch_end(self, batch, logs=None):
+        """
+        Called at the end of a batch in prediction
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_predict_batch_end(batch, logs)
         self._set_logging_mode(LoggingMode.PREDICT)
 
     def on_predict_begin(self, logs=None):
+        """
+        Called at the begin of prediction
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_predict_begin(logs)
         self._set_logging_mode(LoggingMode.PREDICT)
 
     def on_predict_end(self, logs=None):
+        """
+        Called at the end of prediction
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_predict_end(logs)
         self._set_logging_mode(LoggingMode.PREDICT)
 
     def on_test_batch_begin(self, batch, logs=None):
+        """
+        Called at the begin of a batch in evaluation
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)        
+        """
         super().on_test_batch_begin(batch, logs)
         self._set_logging_mode(LoggingMode.TEST)
 
     def on_test_batch_end(self, batch, logs=None):
+        """
+        Called at the end of a batch in evaluation
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_test_batch_end(batch, logs)
         self._set_logging_mode(LoggingMode.TEST)
 
     def on_test_begin(self, logs=None):
+        """
+        Called at the begin of evaluation
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_test_begin(logs)
         self._set_logging_mode(LoggingMode.TEST)
 
     def on_test_end(self, logs=None):
+        """
+        Called at the end of evaluation
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_test_end(logs)
         self._set_logging_mode(LoggingMode.TEST)
 
     def on_train_batch_begin(self, batch, logs=None):
+        """
+        Called at the begin of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_batch_begin(batch, logs)
         self._set_logging_mode(LoggingMode.TRAIN)
 
     def on_train_batch_end(self, batch, logs=None):
+        """
+        Called at the end of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_batch_end(batch, logs)
         self._set_logging_mode(LoggingMode.TRAIN)
 
     def on_train_begin(self, logs=None):
+        """
+        Called at the begin of training
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_begin(logs)
         self._set_logging_mode(LoggingMode.TRAIN)
 
     def on_train_end(self, logs=None):
+        """
+        Called at the end of training
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_end(logs)
         self._set_logging_mode(LoggingMode.TRAIN)
+
+    def _set_logging_mode(self, mode: LoggingMode):
+        for logger in self._loggers:
+            logger.mode = mode
 
 
 class LossesAndMetricsLoggingCallback(LoggerSettingCallback):
@@ -105,10 +183,21 @@ class LossesAndMetricsLoggingCallback(LoggerSettingCallback):
         self._step = None
 
     def on_train_begin(self, logs=None):
+        """
+        Called at the begin of training
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_begin(logs)
         self._step = tensorflow.keras.backend.get_value(self._start_step)
 
     def on_epoch_end(self, epoch, logs=None):
+        """
+        Called at the end of a training epoch
+
+        :param epoch: epoch index
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_epoch_end(epoch, logs)
         if logs is None:
             return
@@ -118,6 +207,12 @@ class LossesAndMetricsLoggingCallback(LoggerSettingCallback):
                 logger.log_scalar("epoch_{}".format(tag), value, step=epoch)
 
     def on_train_batch_end(self, batch, logs=None):
+        """
+        Called at the end of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_batch_end(batch, logs)
         if logs is None:
             return
@@ -130,6 +225,11 @@ class LossesAndMetricsLoggingCallback(LoggerSettingCallback):
         self._step += 1
 
     def on_test_end(self, logs=None):
+        """
+        Called at the end of evaluation
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_test_end(logs)
         if logs is None:
             return

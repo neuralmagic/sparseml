@@ -203,22 +203,45 @@ class PruningModifierCallback(tensorflow.keras.callbacks.Callback):
         self.step = None
 
     def on_train_begin(self, logs=None):
+        """
+        Called at the begin of training
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         self.step = tensorflow.keras.backend.get_value(self.optim_iters)
         tensorflow.keras.backend.batch_set_value(
             [(layer.global_step, self.step) for layer in self.prunable_layers]
         )
 
     def on_train_batch_begin(self, batch, logs=None):
+        """
+        Called at the begin of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         tensorflow.keras.backend.batch_set_value(
             [(layer.global_step, self.step) for layer in self.prunable_layers]
         )
 
     def on_train_batch_end(self, batch, logs=None):
+        """
+        Called at the end of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         for layer in self.prunable_layers:
             layer.mask_updater.conditional_update(training=True)
         self.step = self.step + 1
 
     def on_epoch_end(self, epoch, logs=None):
+        """
+        Called at the end of a training epoch
+
+        :param epoch: epoch index
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         for layer in self.prunable_layers:
             layer.mask_updater.apply_masks()
 
@@ -229,20 +252,36 @@ class SparsityLoggingCallback(LoggerSettingCallback):
 
     :param loggers: an instance of KerasLogger or a list of those instances
     :param prunable_layers: list of masked layers
-    :param start_step_tensor: start step tensor
+    :param start_step: start step
     """
 
-    def __init__(self, loggers, prunable_layers, start_step):
+    def __init__(
+        self,
+        loggers: Union[KerasLogger, List[KerasLogger]],
+        prunable_layers: List[MaskedLayer],
+        start_step: int,
+    ):
         super().__init__(loggers)
         self._prunable_layers = prunable_layers
         self._step = None
         self._start_step = start_step
 
     def on_train_begin(self, logs=None):
+        """
+        Called at the begin of training
+
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_begin(logs)
         self._step = tensorflow.keras.backend.get_value(self._start_step)
 
     def on_epoch_end(self, epoch, logs=None):
+        """
+        Called at the end of a training epoch
+
+        :param epoch: epoch index
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_epoch_end(epoch, logs)
         for logger in self._loggers:
             if logger.update_freq == "epoch":
@@ -250,6 +289,12 @@ class SparsityLoggingCallback(LoggerSettingCallback):
                 self._log(logger, logged_data)
 
     def on_train_batch_end(self, batch, logs=None):
+        """
+        Called at the end of a batch in training
+
+        :param batch: batch index in current epoch
+        :param logs: dictionary of logs (see Keras Callback doc)
+        """
         super().on_train_batch_end(batch, logs)
         for logger in self._loggers:
             if logger.update_freq == "batch" or (
