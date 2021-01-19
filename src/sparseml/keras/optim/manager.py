@@ -64,6 +64,13 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param input_tensors: optional input tensor
         :return: model, optimizer, callbacks
         """
+
+        if loggers:
+            # Different modifiers might have logging callbacks a same global variables,
+            # thus modifiers need to be sorted increasing based on their start steps to
+            # make sure logging on shared variables reflect the latest effect
+            self._modifiers.sort(key=lambda mod: mod.start_epoch)
+
         callbacks = []
         for mod in self._modifiers:
             model, optimizer, callback = mod.modify(
@@ -81,8 +88,6 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 callbacks.append(callback)
             else:
                 raise RuntimeError("Invalid callback type")
-        callbacks.append(LossesAndMetricsLoggingCallback(loggers))
-        callbacks.append(LearningRateLoggingCallback(loggers))
         self._optimizer = optimizer
         return model, optimizer, callbacks
 
