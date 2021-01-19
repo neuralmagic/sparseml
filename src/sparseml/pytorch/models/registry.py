@@ -4,13 +4,13 @@ Code related to the PyTorch model registry for easily creating models.
 
 from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
 
-from torch.nn import Module
-
 from merge_args import merge_args
 from sparseml.pytorch.utils import load_model
-from sparseml.utils import wrapper_decorator
+from sparseml.utils import parse_optimization_str, wrapper_decorator
 from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
-from sparsezoo import Model
+from sparsezoo import Zoo
+from sparsezoo.objects import Model
+from torch.nn import Module
 
 
 __all__ = [
@@ -117,17 +117,24 @@ class ModelRegistry(object):
 
         attributes = ModelRegistry._ATTRIBUTES[key]
 
-        return Model.get_downloadable_model(
+        optim_name, optim_category, optim_target = parse_optimization_str(
+            pretrained if isinstance(pretrained, str) else attributes.default_desc
+        )
+
+        return Zoo.load_model(
             attributes.domain,
             attributes.sub_domain,
             attributes.architecture,
             attributes.sub_architecture,
+            PYTORCH_FRAMEWORK,
+            attributes.repo_source,
             attributes.default_dataset
             if pretrained_dataset is None
             else pretrained_dataset,
-            PYTORCH_FRAMEWORK,
-            attributes.repo_source,
-            pretrained if isinstance(pretrained, str) else attributes.default_desc,
+            None,
+            optim_name,
+            optim_category,
+            optim_target,
         )
 
     @staticmethod

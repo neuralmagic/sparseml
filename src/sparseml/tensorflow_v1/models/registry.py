@@ -7,8 +7,9 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from sparseml.tensorflow_v1.models.estimator import EstimatorModelFn
 from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.utils import TENSORFLOW_V1_FRAMEWORK
-from sparsezoo import Model
+from sparseml.utils import TENSORFLOW_V1_FRAMEWORK, parse_optimization_str
+from sparsezoo import Zoo
+from sparsezoo.objects import Model
 
 
 __all__ = ["ModelRegistry"]
@@ -131,18 +132,24 @@ class ModelRegistry(object):
             )
 
         attributes = ModelRegistry._ATTRIBUTES[key]
+        optim_name, optim_category, optim_target = parse_optimization_str(
+            pretrained if isinstance(pretrained, str) else attributes.default_desc
+        )
 
-        return Model.get_downloadable_model(
+        return Zoo.load_model(
             attributes.domain,
             attributes.sub_domain,
             attributes.architecture,
             attributes.sub_architecture,
+            TENSORFLOW_V1_FRAMEWORK,
+            attributes.repo_source,
             attributes.default_dataset
             if pretrained_dataset is None
             else pretrained_dataset,
-            TENSORFLOW_V1_FRAMEWORK,
-            attributes.repo_source,
-            pretrained if isinstance(pretrained, str) else attributes.default_desc,
+            None,
+            optim_name,
+            optim_category,
+            optim_target,
         )
 
     @staticmethod
