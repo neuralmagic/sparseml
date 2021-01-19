@@ -31,15 +31,13 @@ model_dir = "{}/models".format(root_dir)
 model_name = "ResNet20-v1.h5"
 
 log_dir = os.path.join(model_dir, "tensorboard", yaml_file_name)
-log_dir += "--" + datetime.now().strftime("%Y%m%d-%H%M%S")
+log_dir += ":" + datetime.now().strftime("%Y%m%d-%H%M%S")
 
 update_freq = 100  # Logging update every this many training steps
 num_classes = 10
 batch_size = 32
 subtract_pixel_mean = True
 data_augmentation = True
-
-epochs = 10
 
 # Load the CIFAR10 data.
 (X_train, y_train), (X_test, y_test) = cifar10.load_data()
@@ -101,7 +99,7 @@ def main():
     # Compile the enhanced model
     model_for_pruning.compile(
         loss=tf.keras.losses.categorical_crossentropy,
-        optimizer="adam",
+        optimizer=optimizer,
         metrics=["accuracy"],
         run_eagerly=True,
     )
@@ -116,7 +114,7 @@ def main():
             validation_data=(X_test, y_test),
             shuffle=True,
             callbacks=callbacks,
-            epochs=epochs,
+            epochs=manager.max_epochs,
         )
     else:
         print("Using real-time data augmentation.")
@@ -172,7 +170,7 @@ def main():
         model_for_pruning.fit_generator(
             datagen.flow(X_train, y_train, batch_size=batch_size),
             validation_data=(X_test, y_test),
-            epochs=epochs,
+            epochs=manager.max_epochs,
             verbose=1,
             workers=4,
             callbacks=callbacks,
