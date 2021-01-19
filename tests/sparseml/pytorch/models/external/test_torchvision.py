@@ -3,10 +3,9 @@ from typing import Callable, Union
 
 import pytest
 import torch
-from torchvision import models as torchvision_models
-
 from sparseml.pytorch.models import ModelRegistry
 from tests.pytorch.models.utils import compare_model
+from torchvision import models as torchvision_models
 
 
 @pytest.mark.skipif(

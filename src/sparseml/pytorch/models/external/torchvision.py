@@ -17,6 +17,7 @@ except:
     torchvision_models = None
 
 from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.utils import load_model
 
 
 __all__ = []
@@ -84,7 +85,7 @@ def _registry_constructor_wrapper(key, constructor_function):
             elif pretrained.lower() in ["false", "none"]:
                 pretrained = False
 
-        pretrained_torchvision = pretrained is True
+        pretrained_torchvision = pretrained is True and not pretrained_path
         model = constructor_function(pretrained=pretrained_torchvision, **kwargs)
         ignore_error_tensors = ignore_error_tensors or []
 

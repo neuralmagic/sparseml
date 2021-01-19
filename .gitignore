@@ -11,6 +11,9 @@ neuralmagicML/notebooks/logs/*
 neuralmagicML/data/*
 neuralmagicML/checkpoints
 neuralmagicML/pruned
+examples/pytorch-torchvision/torchvision_models/
+notebooks/pytorch_classification/
+notebooks/pytorch_detection/
 tensorboard/*
 onnx/*
 repos/*
