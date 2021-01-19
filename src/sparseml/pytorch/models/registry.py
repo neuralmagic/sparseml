@@ -4,13 +4,14 @@ Code related to the PyTorch model registry for easily creating models.
 
 from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
 
+from torch.nn import Module
+
 from merge_args import merge_args
 from sparseml.pytorch.utils import load_model
 from sparseml.utils import parse_optimization_str, wrapper_decorator
 from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
 from sparsezoo import Zoo
 from sparsezoo.objects import Model
-from torch.nn import Module
 
 
 __all__ = [
