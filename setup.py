@@ -74,7 +74,7 @@ def _setup_long_description() -> Tuple[str, str]:
 setup(
     name="sparseml",
     version="0.1.0",
-    author="Mark Kurtz, Ben Fineran, Tuan Nguyen, Kevin Rodriguez, Dan Alistarh",
+    author="Mark Kurtz, Benjamin Fineran, Tuan Nguyen, Kevin Rodriguez, Dan Alistarh",
     author_email="support@neuralmagic.com",
     description="Python library for integrating with common deep learning frameworks "
     "to apply SOTA model optimization techniques to simplify and "
