@@ -8,10 +8,11 @@ from enum import Enum
 from typing import List, Tuple, Union
 
 import torch
-from sparseml.pytorch.utils import get_layer, tensor_sample, tensor_sparsity
 from torch import Tensor
 from torch.nn import Module
 from torch.utils.hooks import RemovableHandle
+
+from sparseml.pytorch.utils import get_layer, tensor_sample, tensor_sparsity
 
 
 __all__ = ["ASResultType", "ModuleASAnalyzer"]

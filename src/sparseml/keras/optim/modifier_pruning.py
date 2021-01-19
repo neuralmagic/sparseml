@@ -7,27 +7,20 @@ from typing import List, Union
 
 import tensorflow
 
-from sparseml.utils import (
-    ALL_TOKEN,
-    validate_str_iterable,
-    convert_to_bool,
-)
-from sparseml.keras.utils.logger import KerasLogger
-from sparseml.keras.optim.modifier import (
-    ModifierProp,
-    KerasModifierYAML,
-    ScheduledModifier,
-    ScheduledUpdateModifier,
-)
-
+from sparseml.keras.optim.mask_pruning import MaskedLayer, PruningScheduler
 from sparseml.keras.optim.mask_pruning_creator import (
     PruningMaskCreator,
     load_mask_creator,
 )
-
-from sparseml.keras.optim.mask_pruning import MaskedLayer, PruningScheduler
-
+from sparseml.keras.optim.modifier import (
+    KerasModifierYAML,
+    ModifierProp,
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+)
 from sparseml.keras.optim.utils import get_layer_name_from_param
+from sparseml.keras.utils.logger import KerasLogger
+from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
 
 __all__ = ["ConstantPruningModifier", "GMPruningModifier"]

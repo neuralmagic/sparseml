@@ -1,12 +1,13 @@
 import os
 
 import pytest
+from torch.utils.data import Dataset
+
 from sparseml.pytorch.datasets import (
     DatasetRegistry,
     ImagenetteDataset,
     ImagewoofDataset,
 )
-from torch.utils.data import Dataset
 
 
 def _validate(dataset: Dataset, size: int):

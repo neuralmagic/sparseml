@@ -7,6 +7,10 @@ are implemented as modifiers.
 
 from typing import List, Union
 
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+
 from sparseml.optim import (
     BaseModifier,
     BaseScheduled,
@@ -16,9 +20,6 @@ from sparseml.optim import (
 )
 from sparseml.pytorch.utils import PyTorchLogger
 from sparseml.utils import ALL_TOKEN, PYTORCH_FRAMEWORK
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
 
 
 __all__ = [

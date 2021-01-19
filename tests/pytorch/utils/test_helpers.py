@@ -6,6 +6,11 @@ from typing import Dict, Iterable
 import numpy
 import pytest
 import torch
+from torch import Tensor
+from torch.nn import Linear, Module, ReLU, Sequential
+from torch.optim import SGD
+from torch.utils.data import DataLoader
+
 from sparseml.pytorch.datasets import RandNDataset
 from sparseml.pytorch.utils import (
     default_device,
@@ -25,10 +30,6 @@ from sparseml.pytorch.utils import (
     tensors_to_precision,
 )
 from tests.pytorch.helpers import LinearNet
-from torch import Tensor
-from torch.nn import Linear, Module, ReLU, Sequential
-from torch.optim import SGD
-from torch.utils.data import DataLoader
 
 
 @pytest.mark.skipif(

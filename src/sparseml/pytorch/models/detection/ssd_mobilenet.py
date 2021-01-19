@@ -5,9 +5,10 @@ Implementations for SSD models with MobileNet backbones
 
 from typing import List, Union
 
+from torch import nn
+
 from sparseml.pytorch.models.detection import SSD300Lite, SSDBackbone
 from sparseml.pytorch.models.registry import ModelRegistry
-from torch import nn
 
 
 __all__ = [

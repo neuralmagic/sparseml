@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, List, NamedTuple
 import psutil
 import pytest
 from onnx import load_model
+
 from sparseml.onnx.utils.data import DataLoader
 from sparseml.onnx.utils.model import (
     ModelRunner,

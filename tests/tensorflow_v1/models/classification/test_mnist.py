@@ -3,6 +3,7 @@ from typing import Union
 
 import numpy
 import pytest
+
 from sparseml.tensorflow_v1.models import ModelRegistry, mnist_net
 from sparseml.tensorflow_v1.utils import tf_compat
 

@@ -8,6 +8,9 @@ from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as TF
+from torch import Tensor
+from torch.nn import Module
+
 from sparseml.pytorch.utils.helpers import tensors_module_forward
 from sparseml.pytorch.utils.yolo_helpers import (
     box_giou,
@@ -15,8 +18,6 @@ from sparseml.pytorch.utils.yolo_helpers import (
     get_output_grid_shapes,
     yolo_v3_anchor_groups,
 )
-from torch import Tensor
-from torch.nn import Module
 
 
 __all__ = [

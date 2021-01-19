@@ -7,6 +7,10 @@ from copy import deepcopy
 from typing import Any, Iterable, List
 
 import torch
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -14,9 +18,6 @@ from sparseml.pytorch.utils.helpers import (
 )
 from sparseml.pytorch.utils.model import is_parallel_model, save_model
 from sparseml.utils import clean_path, create_parent_dirs
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["ModuleExporter"]

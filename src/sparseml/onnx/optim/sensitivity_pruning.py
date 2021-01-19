@@ -9,6 +9,8 @@ from typing import Any, Generator, List, NamedTuple, Tuple, Union
 
 import numpy
 from onnx import ModelProto
+from tqdm import auto
+
 from sparseml.onnx.utils import (
     DataLoader,
     NMAnalyzeModelRunner,
@@ -30,7 +32,6 @@ from sparseml.optim import (
     default_pruning_sparsities_perf,
 )
 from sparseml.utils import flatten_iterable
-from tqdm import auto
 
 
 _LOGGER = logging.getLogger(__name__)

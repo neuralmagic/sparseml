@@ -5,8 +5,6 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1409.1556>`_
 
 from typing import List
 
-from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import ReLU
 from torch import Tensor
 from torch.nn import (
     BatchNorm2d,
@@ -20,6 +18,9 @@ from torch.nn import (
     Softmax,
     init,
 )
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import ReLU
 
 
 __all__ = [

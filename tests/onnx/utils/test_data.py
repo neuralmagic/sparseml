@@ -5,6 +5,7 @@ from typing import Dict, NamedTuple, Tuple, Union
 
 import numpy
 import pytest
+
 from sparseml.onnx.utils import DataLoader
 from sparsezoo import Model
 

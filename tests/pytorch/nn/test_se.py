@@ -2,8 +2,9 @@ import os
 
 import pytest
 import torch
-from sparseml.pytorch.nn import SqueezeExcite
 from torch import Tensor
+
+from sparseml.pytorch.nn import SqueezeExcite
 
 
 @pytest.mark.skipif(

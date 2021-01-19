@@ -3,11 +3,12 @@ import os
 import pytest
 import torch
 import torch.nn.functional as TF
+from torch.optim import SGD
+from torch.utils.data import DataLoader
+
 from sparseml.pytorch.optim import lr_loss_sensitivity
 from sparseml.pytorch.utils import LossWrapper
 from tests.pytorch.helpers import ConvDataset, ConvNet, MLPDataset, MLPNet
-from torch.optim import SGD
-from torch.utils.data import DataLoader
 
 
 def _test_lr_sensitivity(model, data, loss, device, steps_per_measurement):

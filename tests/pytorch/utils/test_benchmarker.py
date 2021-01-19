@@ -4,6 +4,7 @@ import sys
 import numpy
 import pytest
 import torch
+
 from sparseml.pytorch.utils import BatchBenchmarkResults, ModuleBenchmarker
 from tests.pytorch.helpers import MLPNet
 

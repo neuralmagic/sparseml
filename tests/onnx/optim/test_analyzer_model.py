@@ -3,6 +3,7 @@ import os
 
 import pytest
 from onnx import load_model
+
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
 from sparsezoo import Model
 from tests.onnx.helpers import analyzer_models

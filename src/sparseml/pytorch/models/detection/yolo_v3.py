@@ -6,9 +6,6 @@ PyTorch YoloV3 implementation.
 import math
 from typing import List, Tuple, Union
 
-from sparseml.pytorch.models import darknet53
-from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import Hardswish
 from torch import Tensor, cat
 from torch.nn import (
     BatchNorm2d,
@@ -20,6 +17,10 @@ from torch.nn import (
     Upsample,
     init,
 )
+
+from sparseml.pytorch.models import darknet53
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import Hardswish
 
 
 __all__ = [

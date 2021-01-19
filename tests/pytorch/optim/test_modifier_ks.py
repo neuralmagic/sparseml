@@ -2,6 +2,8 @@ import os
 
 import pytest
 import torch
+from torch.optim import SGD
+
 from sparseml.pytorch.optim import (
     BlockPruningMaskCreator,
     ConstantPruningModifier,
@@ -18,7 +20,6 @@ from tests.pytorch.optim.test_modifier import (
     test_loss,
     test_steps_per_epoch,
 )
-from torch.optim import SGD
 
 
 def _test_state_dict_save_load(

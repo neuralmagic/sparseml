@@ -3,6 +3,7 @@ from typing import Callable
 
 import numpy
 import pytest
+
 from sparseml.tensorflow_v1.optim import (
     EXTRAS_KEY_SUMMARIES,
     BlockPruningMaskCreator,

@@ -2,11 +2,12 @@ import collections
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+from tensorflow.python.framework import tensor_util
+from toposort import toposort
+
 from sparseml.optim import AnalyzedLayerDesc
 from sparseml.tensorflow_v1.utils.helpers import tf_compat
 from sparseml.tensorflow_v1.utils.variable import get_op_input_var
-from tensorflow.python.framework import tensor_util
-from toposort import toposort
 
 
 __all__ = ["analyze_module"]

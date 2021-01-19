@@ -1,18 +1,19 @@
 """
 Learning rate modifiers for Keras models
 """
-from typing import Dict, Union, List
+from typing import Dict, List, Union
 
 import tensorflow as tf
+
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
+from sparseml.keras.utils import KerasLogger
 from sparseml.optim import LearningRate, SetLearningRate
 from sparseml.utils import ALL_TOKEN
 
-from sparseml.keras.utils import KerasLogger
 
 __all__ = ["SetLearningRateModifier", "LearningRateModifier"]
 

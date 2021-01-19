@@ -3,13 +3,14 @@ import os
 import pytest
 import torch
 import torch.nn.functional as TF
+from torch.utils.data import DataLoader
+
 from sparseml.pytorch.optim import (
     pruning_loss_sens_magnitude,
     pruning_loss_sens_one_shot,
 )
 from sparseml.pytorch.utils import LossWrapper
 from tests.pytorch.helpers import ConvDataset, ConvNet, MLPDataset, MLPNet
-from torch.utils.data import DataLoader
 
 
 @pytest.mark.skipif(

@@ -5,6 +5,8 @@ from typing import Union
 
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
+
 from sparseml.tensorflow_v1.datasets.classification.imagefolder import (
     ImageFolderDataset,
     SplitsTransforms,
@@ -13,7 +15,6 @@ from sparseml.tensorflow_v1.datasets.registry import DatasetRegistry
 from sparseml.tensorflow_v1.utils import tf_compat, tf_compat_div
 from sparseml.utils import create_dirs
 from sparsezoo import download_file
-from tqdm import tqdm
 
 
 __all__ = ["Cifar10DataSet", "Cifar100DataSet"]

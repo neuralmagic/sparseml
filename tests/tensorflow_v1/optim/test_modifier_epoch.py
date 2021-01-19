@@ -1,6 +1,7 @@
 import os
 
 import pytest
+
 from sparseml.tensorflow_v1.optim import EpochRangeModifier
 from tests.tensorflow_v1.optim.test_modifier import (
     ScheduledModifierTest,

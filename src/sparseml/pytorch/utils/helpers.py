@@ -11,12 +11,13 @@ from typing import Any, Dict, Iterable, List, Tuple, Union
 
 import numpy
 import torch
-from sparseml.utils import create_dirs, save_numpy
 from torch import Tensor
 from torch.nn import Linear, Module, Parameter
 from torch.nn.modules.conv import _ConvNd
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
+
+from sparseml.utils import create_dirs, save_numpy
 
 
 __all__ = [

@@ -14,6 +14,8 @@ import numpy
 import onnxruntime
 import psutil
 from onnx import ModelProto
+from tqdm import auto
+
 from sparseml.onnx.utils.data import DataLoader
 from sparseml.onnx.utils.graph_editor import override_model_batch_size
 from sparseml.onnx.utils.helpers import (
@@ -23,7 +25,6 @@ from sparseml.onnx.utils.helpers import (
     get_prunable_node_from_foldable,
     is_foldable_node,
 )
-from tqdm import auto
 
 
 try:

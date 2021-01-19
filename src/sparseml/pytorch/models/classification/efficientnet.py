@@ -7,8 +7,6 @@ import math
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Union
 
-from sparseml.pytorch.models.registry import ModelRegistry
-from sparseml.pytorch.nn import SqueezeExcite, Swish
 from torch import Tensor
 from torch.nn import (
     AdaptiveAvgPool2d,
@@ -21,6 +19,9 @@ from torch.nn import (
     Sigmoid,
     Softmax,
 )
+
+from sparseml.pytorch.models.registry import ModelRegistry
+from sparseml.pytorch.nn import SqueezeExcite, Swish
 
 
 __all__ = [

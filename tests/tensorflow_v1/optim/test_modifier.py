@@ -3,6 +3,7 @@ from typing import Callable, Dict, List, Union
 
 import numpy as np
 import pytest
+
 from sparseml.tensorflow_v1.optim import (
     TENSORFLOW_V1_FRAMEWORK,
     Modifier,

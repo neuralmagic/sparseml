@@ -2,6 +2,9 @@ import os
 from typing import Callable
 
 import pytest
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+
 from sparseml.pytorch.optim import (
     Modifier,
     PyTorchModifierYAML,
@@ -17,8 +20,6 @@ from tests.pytorch.helpers import (
     test_steps_per_epoch,
 )
 from tests.pytorch.optim.test_modifier import ModifierTest, ScheduledModifierImpl
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
 
 
 @pytest.mark.skipif(

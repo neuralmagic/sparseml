@@ -1,7 +1,7 @@
 .PHONY: build docs test
 
 BUILDDIR := $(PWD)
-CHECKDIRS := examples tests src utils scripts setup.py
+CHECKDIRS := examples notebooks scripts src tests utils setup.py
 DOCDIR := docs
 TARGET := ""  # directory/file/function to target with pytest
 

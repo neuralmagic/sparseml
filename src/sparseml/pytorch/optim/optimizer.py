@@ -4,15 +4,16 @@ Optimizer wrapper for enforcing Modifiers on the training process of a Module.
 
 from typing import List, Union
 
+from torch import Tensor
+from torch.nn import Module
+from torch.optim.optimizer import Optimizer
+
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import (
     PyTorchLogger,
     get_optim_learning_rate,
     set_optim_learning_rate,
 )
-from torch import Tensor
-from torch.nn import Module
-from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["ScheduledOptimizer"]

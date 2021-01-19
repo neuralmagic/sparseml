@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from sparseml.pytorch.optim import (
     BlockPruningMaskCreator,
     DimensionSparsityMaskCreator,

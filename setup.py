@@ -4,31 +4,28 @@ from setuptools import find_packages, setup
 
 
 _deps = [
-    "contextvars~=2.4",
-    "coverage~=5.0.3",
-    "cpu-cores~=0.1.3",
-    "gast==0.2.2",
-    "jupyter~=1.0.0",
-    "ipywidgets~=7.5.0",
-    "pyyaml~=5.1.0",
-    "progressbar2~=3.42.0",
-    "numpy>=1.16.3",
+    "jupyter>=1.0.0",
+    "ipywidgets>=7.0.0",
+    "pyyaml>=5.0.0",
+    "progressbar2>=3.0.0",
+    "numpy>=1.0.0",
     "matplotlib>=3.0.0",
-    "merge-args==0.1.3",
+    "merge-args>=0.1.0",
     "onnx>=1.5.0,<1.8.0",
     "onnxruntime>=1.0.0,<1.4.0",
     "pandas<1.0.0",
-    "psutil~=5.6.5",
+    "psutil>=5.0.0",
     "requests>=2.0.0",
     "scikit-image>=0.15.0",
-    "scipy~=1.3.0",
-    "sparsezoo~=0.1.0",
-    "tqdm~=4.32.0",
-    "tensorboard>=1.0,<2.0",
-    "tensorboardX~=1.9",
-    "tf2onnx>=1.4.1",
-    "toposort~=1.5",
+    "scipy>=1.0.0",
+    "sparsezoo>=0.1.0",
+    "tqdm>=4.0.0",
+    "toposort>=1.0",
 ]
+_pytorch_deps = ["torch>=1.1.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=1.1.0"]
+_tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0"]
+_keras_deps = ["keras>=2.0.0", "keras2onnx>=1.0.0", "tensorflow>=2.0.0"]
 
 _dev_deps = [
     "black>=20.8b1",
@@ -57,7 +54,13 @@ def _setup_install_requires() -> List:
 
 
 def _setup_extras() -> Dict:
-    return {"dev": _dev_deps}
+    return {
+        "dev": _dev_deps,
+        "torch": _pytorch_deps,
+        "torch_vision": _pytorch_vision_deps,
+        "tf_v1": _tensorflow_v1_deps,
+        "keras": _keras_deps,
+    }
 
 
 def _setup_entry_points() -> Dict:

@@ -14,8 +14,9 @@ except Exception as torchvision_error:
     torchvision_import_error = torchvision_error
 
 try:
-    import pycocotools
     from torchvision.datasets import CocoDetection
+
+    import pycocotools
 except:
     CocoDetection = object
     pycocotools = None

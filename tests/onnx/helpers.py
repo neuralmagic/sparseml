@@ -3,6 +3,7 @@ from typing import NamedTuple
 
 import pytest
 import torch
+
 from sparseml.pytorch.utils import ModuleExporter
 from sparsezoo import Model
 from tests.pytorch.helpers import ConvNet, LinearNet, MLPNet

@@ -3,6 +3,8 @@ import os
 import sys
 
 import pytest
+from torch.optim import SGD, Adam
+
 from sparseml.pytorch.optim import LearningRateModifier, SetLearningRateModifier
 from sparseml.pytorch.utils import get_optim_learning_rate
 from tests.pytorch.helpers import LinearNet
@@ -13,7 +15,6 @@ from tests.pytorch.optim.test_modifier import (
     test_loss,
     test_steps_per_epoch,
 )
-from torch.optim import SGD, Adam
 
 
 EPSILON = 1e-7

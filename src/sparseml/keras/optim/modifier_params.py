@@ -6,6 +6,7 @@ certain update formulas or patterns.
 from typing import List, Union
 
 import tensorflow
+
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
     ModifierProp,

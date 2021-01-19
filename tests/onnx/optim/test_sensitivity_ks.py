@@ -2,6 +2,7 @@ import os
 from typing import Any, Dict, List, NamedTuple, Union
 
 import pytest
+
 from sparseml.onnx.optim.sensitivity_pruning import (
     PruningLossSensitivityAnalysis,
     pruning_loss_sens_magnitude,

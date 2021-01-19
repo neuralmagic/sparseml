@@ -3,6 +3,7 @@ from typing import Callable, Union
 
 import numpy
 import pytest
+
 from sparseml.tensorflow_v1.models import ModelRegistry, mobilenet_v2
 from sparseml.tensorflow_v1.utils import tf_compat
 

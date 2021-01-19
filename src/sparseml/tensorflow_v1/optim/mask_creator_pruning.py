@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Iterable, List, Tuple, Union
 
 import numpy
+
 from sparseml.tensorflow_v1.utils import tf_compat
 
 

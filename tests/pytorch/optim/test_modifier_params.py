@@ -3,6 +3,7 @@ import re
 
 import pytest
 import torch
+
 from sparseml.pytorch.optim import (
     GradualParamModifier,
     SetParamModifier,

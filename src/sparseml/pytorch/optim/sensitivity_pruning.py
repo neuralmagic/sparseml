@@ -5,6 +5,10 @@ Sensitivity analysis implementations for kernel sparsity on Modules against loss
 from typing import Any, Callable, List, Tuple, Union
 
 import torch
+from torch import Tensor
+from torch.nn import Module
+from torch.utils.data import DataLoader
+
 from sparseml.optim import (
     PruningLossSensitivityAnalysis,
     default_pruning_sparsities_loss,
@@ -21,9 +25,6 @@ from sparseml.pytorch.utils import (
     get_prunable_layers,
     infinite_data_loader,
 )
-from torch import Tensor
-from torch.nn import Module
-from torch.utils.data import DataLoader
 
 
 __all__ = [

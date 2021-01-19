@@ -6,6 +6,9 @@ certain update formulas or patterns.
 from typing import Any, List, Union
 
 import torch
+from torch.nn import Module, Parameter
+from torch.optim.optimizer import Optimizer
+
 from sparseml.optim import ModifierProp
 from sparseml.pytorch.optim.modifier import (
     PyTorchModifierYAML,
@@ -20,8 +23,6 @@ from sparseml.utils import (
     interpolate,
     validate_str_iterable,
 )
-from torch.nn import Module, Parameter
-from torch.optim.optimizer import Optimizer
 
 
 __all__ = ["TrainableParamsModifier", "SetParamModifier", "GradualParamModifier"]

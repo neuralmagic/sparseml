@@ -2,8 +2,9 @@ from typing import List, Tuple
 
 import numpy as np
 import tensorflow as tf
-from sparseml.keras.optim import PruningScheduler
 from tensorflow.keras.models import Model
+
+from sparseml.keras.optim import PruningScheduler
 
 
 __all__ = [

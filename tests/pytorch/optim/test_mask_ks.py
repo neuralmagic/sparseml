@@ -3,6 +3,8 @@ import sys
 
 import pytest
 import torch
+from torch.nn import Conv2d, Linear
+
 from sparseml.pytorch.optim import (
     BlockPruningMaskCreator,
     DimensionSparsityMaskCreator,
@@ -11,7 +13,6 @@ from sparseml.pytorch.optim import (
     UnstructuredPruningMaskCreator,
 )
 from sparseml.pytorch.utils import tensor_sparsity
-from torch.nn import Conv2d, Linear
 
 
 def _test_constructor(layer, param_name, mask_creator):

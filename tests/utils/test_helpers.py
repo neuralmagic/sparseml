@@ -1,4 +1,5 @@
 import pytest
+
 from sparseml.utils import (
     ALL_TOKEN,
     convert_to_bool,

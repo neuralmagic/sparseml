@@ -9,6 +9,7 @@ import random
 from typing import Callable, Dict, Iterable, NamedTuple, Tuple, Union
 
 import numpy
+
 from sparseml.tensorflow_v1.datasets.dataset import Dataset
 from sparseml.tensorflow_v1.datasets.helpers import (
     center_square_crop,

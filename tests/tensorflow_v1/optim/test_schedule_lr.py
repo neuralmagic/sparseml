@@ -2,6 +2,7 @@ import os
 from typing import List
 
 import pytest
+
 from sparseml.tensorflow_v1.optim import multi_step_lr_schedule, step_lr_schedule
 from sparseml.tensorflow_v1.utils import tf_compat
 
