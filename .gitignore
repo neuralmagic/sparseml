@@ -7,7 +7,7 @@ tensorboard/*
 /imagenet-schedule-training/
 /sparseml/models/pretrained/
 notebooks/logs/*
-notebooks/tensorflow_v1/tensorflow_classification/
+notebooks/tensorflow_classification_pruning/
 /.ipynb_checkpoints
 examples/pytorch-torchvision/torchvision_models/
 notebooks/pytorch_classification/

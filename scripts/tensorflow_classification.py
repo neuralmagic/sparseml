@@ -287,6 +287,7 @@ import argparse
 import json
 import math
 import os
+from copy import deepcopy
 from typing import Dict, Optional, Tuple
 
 import numpy
@@ -590,12 +591,17 @@ def _setup_save_dirs(args) -> Tuple[str, Optional[str]]:
 
 
 def _create_dataset(args, train=True, image_size=None) -> Tuple[Dataset, int]:
+    kwargs = args.dataset_kwargs
+    if "image_size" in kwargs:
+        image_size = kwargs["image_size"]
+        del kwargs["image_size"]
+
     dataset = DatasetRegistry.create(
         args.dataset,
         root=args.dataset_path,
         train=train,
         image_size=image_size,
-        **args.dataset_kwargs,
+        **kwargs,
     )
     LOGGER.info("created {} dataset: {}".format("train" if train else "val", dataset))
 

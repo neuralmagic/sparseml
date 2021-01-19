@@ -557,7 +557,7 @@ def create_summaries_pruning(pruning_op_vars: List[PruningOpVars]):
 
         if is_prunable_op(op_vars.op):
             sum_op = tf_compat.summary.scalar(
-                "Modifier KS/{}".format(clean_tensor_name(op_vars.op)),
+                "Modifier_Pruning/{}".format(clean_tensor_name(op_vars.op)),
                 zero_fraction(op_vars.masked),
             )
             summaries.append(sum_op)
