@@ -25,7 +25,7 @@ _deps = [
 _pytorch_deps = ["torch>=1.1.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=1.1.0"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0"]
-_keras_deps = ["keras>=2.0.0", "keras2onnx>=1.0.0", "tensorflow>=2.0.0"]
+_keras_deps = ["tensorflow>=2.2.0", "keras2onnx>=1.0.0"]
 
 _dev_deps = [
     "black>=20.8b1",
@@ -57,9 +57,9 @@ def _setup_extras() -> Dict:
     return {
         "dev": _dev_deps,
         "torch": _pytorch_deps,
-        "torch_vision": _pytorch_vision_deps,
+        "torchvision": _pytorch_vision_deps,
         "tf_v1": _tensorflow_v1_deps,
-        "keras": _keras_deps,
+        "tf_keras": _keras_deps,
     }
 
 
