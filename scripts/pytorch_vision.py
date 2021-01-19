@@ -1307,7 +1307,11 @@ def main(args):
     val_dataset, val_loader = _create_val_dataset_and_loader(args, image_size)
 
     # model creation
-    if args.dataset == "imagefolder":
+    if "num_classes" in args.model_kwargs:
+        # handle manually overriden num classes
+        num_classes = args.model_kwargs["num_classes"]
+        del args.model_kwargs["num_classes"]
+    elif args.dataset == "imagefolder":
         dataset = val_dataset or train_dataset  # get non None dataset
         num_classes = dataset.num_classes
     else:
