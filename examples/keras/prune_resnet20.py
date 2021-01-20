@@ -26,8 +26,30 @@ from sparseml.keras.utils.logger import TensorBoardLogger
 from sparsezoo.models import Zoo
 
 
-# Download pretrained model and a pruning recipe
+# Root directory
+root_dir = "./examples/keras"
+
+# Logging setup
+log_dir = os.path.join(root_dir, "tensorboard", "resnet20_v1")
+log_dir += ":" + datetime.now().strftime("%Y%m%d-%H%M%S")
+update_freq = 100  # Logging update every this many training steps
+
+# Train/dataset setting
+num_classes = 10
+batch_size = 32
+subtract_pixel_mean = True
+data_augmentation = True
+
+# Pruned model directory
+pruned_model_dir = os.path.join(root_dir, "pruned")
+if not os.path.isdir(pruned_model_dir):
+    os.makedirs(pruned_model_dir)
+
+
 def download_model_and_recipe(root_dir: str):
+    """
+    Download pretrained model and a pruning recipe
+    """
     model_dir = os.path.join(root_dir, "resnet20_v1")
     zoo_model = Zoo.load_model(
         domain="cv",
@@ -44,67 +66,59 @@ def download_model_and_recipe(root_dir: str):
         override_parent_path=model_dir,
     )
     zoo_model.download()
-    model_file_path = os.path.join(zoo_model.dir_path, zoo_model.framework, "model.h5")
-    if not os.path.exists(model_file_path):
+    model_file_path = zoo_model.framework_files[0].downloaded_path()
+    if not os.path.exists(model_file_path) or not model_file_path.endswith(".h5"):
         raise RuntimeError("Model file not found: {}".format(model_file_path))
-    recipe_file_path = os.path.join(zoo_model.dir_path, "recipes", "optimization.yaml")
+    recipe_file_path = zoo_model.recipes[0].downloaded_path()
     if not os.path.exists(recipe_file_path):
         raise RuntimeError("Recipe file not found: {}".format(recipe_file_path))
     return model_file_path, recipe_file_path
 
 
-# Root directory, model and recipe file paths
-root_dir = "./examples/keras"
-model_file_path, recipe_file_path = download_model_and_recipe(root_dir)
+def load_and_normalize_cifar10(subtract_pixel_mean: bool = True):
+    """
+    Load and normalize the Cifar-10 dataset
+    """
+    # Load the CIFAR10 data.
+    (X_train, y_train), (X_test, y_test) = cifar10.load_data()
 
-# Logging directory
-log_dir = os.path.join(root_dir, "tensorboard", "resnet20_v1")
-log_dir += ":" + datetime.now().strftime("%Y%m%d-%H%M%S")
+    # Normalize data.
+    X_train = X_train.astype("float32") / 255
+    X_test = X_test.astype("float32") / 255
 
-update_freq = 100  # Logging update every this many training steps
-num_classes = 10
-batch_size = 32
-subtract_pixel_mean = True
-data_augmentation = True
+    # If subtract pixel mean is enabled
+    if subtract_pixel_mean:
+        X_train_mean = np.mean(X_train, axis=0)
+        X_train -= X_train_mean
+        X_test -= X_train_mean
 
-# Load the CIFAR10 data.
-(X_train, y_train), (X_test, y_test) = cifar10.load_data()
+    # Convert class vectors to binary class matrices.
+    y_train = tf.keras.utils.to_categorical(y_train, num_classes)
+    y_test = tf.keras.utils.to_categorical(y_test, num_classes)
 
-# Normalize data.
-X_train = X_train.astype("float32") / 255
-X_test = X_test.astype("float32") / 255
+    return (X_train, y_train), (X_test, y_test)
 
-# If subtract pixel mean is enabled
-if subtract_pixel_mean:
-    X_train_mean = np.mean(X_train, axis=0)
-    X_train -= X_train_mean
-    X_test -= X_train_mean
 
-print("x_train shape:", X_train.shape)
-print(X_train.shape[0], "train samples")
-print(X_test.shape[0], "test samples")
-print("y_train shape:", y_train.shape)
+def model_checkpoint_callback():
+    """
+    Create model checkpoint callback
+    """
+    pruned_model_name = "resnet20_v1.pruned.{epoch:03d}.h5"
+    pruned_filepath = os.path.join(pruned_model_dir, pruned_model_name)
 
-# Convert class vectors to binary class matrices.
-y_train = tf.keras.utils.to_categorical(y_train, num_classes)
-y_test = tf.keras.utils.to_categorical(y_test, num_classes)
-
-# Prepare model model saving directory.
-pruned_model_dir = os.path.join(root_dir, "pruned")
-pruned_model_name = "resnet20_v1.pruned.{epoch:03d}.h5"
-if not os.path.isdir(pruned_model_dir):
-    os.makedirs(pruned_model_dir)
-pruned_filepath = os.path.join(pruned_model_dir, pruned_model_name)
-
-# Prepare a callback for model saving
-checkpoint = ModelCheckpoint(
-    filepath=pruned_filepath, monitor="val_accuracy", verbose=1, save_best_only=True
-)
+    # Prepare a callback for model saving
+    checkpoint = ModelCheckpoint(
+        filepath=pruned_filepath, monitor="val_accuracy", verbose=1, save_best_only=True
+    )
+    return checkpoint
 
 
 def main():
-    print("Load pretrained model")
+    print("Load and normalize Cifar-10 dataset")
+    (X_train, y_train), (X_test, y_test) = load_and_normalize_cifar10()
 
+    model_file_path, recipe_file_path = download_model_and_recipe(root_dir)
+    print("Load pretrained model")
     base_model = tf.keras.models.load_model(model_file_path)
     base_model.summary()
 
@@ -123,7 +137,7 @@ def main():
         base_model, optimizer, steps_per_epoch, loggers=loggers
     )
     callbacks.append(LossesAndMetricsLoggingCallback(loggers))
-    callbacks.append(checkpoint)
+    callbacks.append(model_checkpoint_callback())
 
     # Compile the enhanced model
     model_for_pruning.compile(
