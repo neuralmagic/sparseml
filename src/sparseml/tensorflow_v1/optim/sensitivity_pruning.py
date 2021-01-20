@@ -215,7 +215,7 @@ def pruning_loss_sens_one_shot(
                     ops.extend(add_ops)
 
                 values = sess.run(ops, feed_dict=feed_dict)
-                loss = values[0]
+                loss = values[0].item()
                 analysis.add_result(
                     None,
                     sparse_op_vars.op_vars.op_input.name,

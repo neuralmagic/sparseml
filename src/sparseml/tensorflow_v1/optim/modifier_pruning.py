@@ -49,7 +49,7 @@ class ConstantPruningModifier(ScheduledModifier):
     |       log_types: __ALL__
 
     :param params: List of str names or regex patterns of names for the parameter
-        variables to apply the KS modifier to. Regex patterns must be specified
+        variables to apply the pruning modifier to. Regex patterns must be specified
         with the prefix 're:'. Can also use the token __ALL__ to specify all
         prunable layers and weights
     :param start_epoch: The epoch to start the modifier at
@@ -82,7 +82,7 @@ class ConstantPruningModifier(ScheduledModifier):
     def params(self) -> Union[str, List[str]]:
         """
         :return: List of str for the variable names or regex patterns of names
-            to apply the KS modifier to. Regex patterns must be specified with
+            to apply the pruning modifier to. Regex patterns must be specified with
             the prefix 're:'.
         """
         return self._params
@@ -91,7 +91,7 @@ class ConstantPruningModifier(ScheduledModifier):
     def params(self, value: Union[str, List[str]]):
         """
         :param value: List of str for the variable names or regex patterns of names
-            to apply the KS modifier to. Regex patterns must be specified with
+            to apply the pruning modifier to. Regex patterns must be specified with
             the prefix 're:'.
         """
         self._params = value
@@ -236,7 +236,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     |       leave_enabled: True
 
     :param params: List of str names or name regex patterns for the variables in the
-        graph to apply the KS modifier to.  Regex patterns must be specified with
+        graph to apply the pruning modifier to.  Regex patterns must be specified with
         the prefix 're:'.  __ALL__ will match to all parameters.
     :param init_sparsity: The initial sparsity for the variable to
         start with at start_epoch
@@ -306,7 +306,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     def params(self) -> Union[str, List[str]]:
         """
         :return: List of str for the variable names or regex patterns of names
-            to apply the KS modifier to. Regex patterns must be specified with
+            to apply the pruning modifier to. Regex patterns must be specified with
             the prefix 're:'.
         """
         return self._params
@@ -315,7 +315,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     def params(self, value: Union[str, List[str]]):
         """
         :param value: List of str for the variable names or regex patterns of names
-            to apply the KS modifier to. Regex patterns must be specified with
+            to apply the pruning modifier to. Regex patterns must be specified with
             the prefix 're:'.
         """
         self._params = value

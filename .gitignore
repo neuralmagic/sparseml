@@ -5,15 +5,17 @@ tensorboard/*
 !/data/.gitkeep
 
 /imagenet-schedule-training/
-/neuralmagicML/models/pretrained/
-neuralmagicML/notebooks/logs/*
+/sparseml/models/pretrained/
+notebooks/logs/*
+notebooks/tensorflow*_classification_pruning/
 /.ipynb_checkpoints
-neuralmagicML/data/*
-neuralmagicML/checkpoints
-neuralmagicML/pruned
 examples/pytorch-torchvision/torchvision_models/
 notebooks/pytorch_classification/
 notebooks/pytorch_detection/
+notebooks/tensorflow_v1_classification_pruning/
+sparseml/data/*
+sparseml/checkpoints
+sparseml/pruned
 tensorboard/*
 onnx/*
 repos/*
