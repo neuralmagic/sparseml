@@ -8,7 +8,7 @@ import tensorflow as tf
 from sparseml.keras.optim.mask_pruning_creator import PruningMaskCreator
 
 
-__all__ = ["MaskedLayer", "PruningScheduler"]
+__all__ = ["MaskedLayer", "PruningScheduler", "remove_pruning_masks"]
 
 
 class PruningScheduler(abc.ABC):
@@ -289,3 +289,22 @@ class MaskedLayer(tf.keras.layers.Wrapper):
             return self._layer
         else:
             raise RuntimeError("Unrecognized layer")
+
+
+def remove_pruning_masks(model: tf.keras.Model):
+    """
+    Remove pruning masks from a model that was pruned using the MaskedLayer logic
+    :param model: a model that was pruned using MaskedLayer
+    :return: the original model with pruned weights
+    """
+
+    def _remove_pruning_masks(layer):
+        if isinstance(layer, MaskedLayer):
+            return layer.pruned_layer
+        return layer
+
+    # TODO: while the resulting model could be exported to ONNX, its built status
+    # is removed
+    return tf.keras.models.clone_model(
+        model, input_tensors=None, clone_function=_remove_pruning_masks
+    )
