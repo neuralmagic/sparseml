@@ -10,7 +10,7 @@ from sparseml.tensorflow_v1.optim.sensitivity_pruning import (
     pruning_loss_sens_op_vars,
 )
 from sparseml.tensorflow_v1.utils import batch_cross_entropy_loss, tf_compat
-from tests.tensorflow_v1.helpers import mlp_net
+from tests.sparseml.tensorflow_v1.helpers import mlp_net
 
 
 @pytest.mark.skipif(

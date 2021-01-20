@@ -16,8 +16,8 @@ from sparseml.pytorch.optim import (
 )
 from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
 from sparseml.utils import ALL_TOKEN
-from tests.optim import BaseModifierTest, BaseScheduledTest, BaseUpdateTest
-from tests.pytorch.helpers import (
+from tests.sparseml.optim import BaseModifierTest, BaseScheduledTest, BaseUpdateTest
+from tests.sparseml.pytorch.helpers import (
     LinearNet,
     create_optim_adam,
     create_optim_sgd,

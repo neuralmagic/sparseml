@@ -14,7 +14,7 @@ from sparseml.pytorch.utils import (
     get_named_layers_and_params_by_regex,
 )
 from sparseml.utils import ALL_TOKEN
-from tests.pytorch.helpers import (
+from tests.sparseml.pytorch.helpers import (
     LinearNet,
     create_optim_adam,
     create_optim_sgd,
@@ -22,7 +22,7 @@ from tests.pytorch.helpers import (
     test_loss,
     test_steps_per_epoch,
 )
-from tests.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
 )

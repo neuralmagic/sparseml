@@ -12,7 +12,7 @@ from sparseml.pytorch.nn import (
     fat_sig_relu,
     set_relu_to_fat,
 )
-from tests.pytorch.helpers import MLPNet
+from tests.sparseml.pytorch.helpers import MLPNet
 
 
 @pytest.mark.skipif(

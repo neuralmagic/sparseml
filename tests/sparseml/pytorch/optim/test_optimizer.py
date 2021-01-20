@@ -9,7 +9,7 @@ from torch.optim import SGD
 from torch.optim.optimizer import Optimizer
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from tests.pytorch.helpers import MLPNet
+from tests.sparseml.pytorch.helpers import MLPNet
 
 
 class FakeOptim(SGD):

@@ -5,7 +5,7 @@ import pytest
 
 from sparseml.tensorflow_v1.optim import Modifier, ScheduledModifierManager
 from sparseml.tensorflow_v1.utils import tf_compat
-from tests.tensorflow_v1.optim.test_modifier import (
+from tests.sparseml.tensorflow_v1.optim.test_modifier import (
     ModifierTest,
     ScheduledModifierImpl,
     conv_graph_lambda,

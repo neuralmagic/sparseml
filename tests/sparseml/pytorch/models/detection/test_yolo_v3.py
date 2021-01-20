@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from sparseml.pytorch.models import ModelRegistry, yolo_v3
-from tests.pytorch.models.utils import compare_model
+from tests.sparseml.pytorch.models.utils import compare_model
 
 
 @pytest.mark.skipif(

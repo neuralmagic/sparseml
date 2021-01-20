@@ -10,8 +10,8 @@ from sparseml.pytorch.optim import (
     DimensionSparsityMaskCreator,
     GMPruningModifier,
 )
-from tests.pytorch.helpers import LinearNet
-from tests.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.helpers import LinearNet
+from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
     create_optim_adam,

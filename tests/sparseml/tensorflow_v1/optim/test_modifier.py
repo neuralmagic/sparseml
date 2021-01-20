@@ -12,12 +12,12 @@ from sparseml.tensorflow_v1.optim import (
     TensorFlowModifierYAML,
 )
 from sparseml.tensorflow_v1.utils import tf_compat
-from tests.optim.test_modifier import (
+from tests.sparseml.optim.test_modifier import (
     BaseModifierTest,
     BaseScheduledTest,
     BaseUpdateTest,
 )
-from tests.tensorflow_v1.helpers import conv_net, mlp_net
+from tests.sparseml.tensorflow_v1.helpers import conv_net, mlp_net
 
 
 def mlp_graph_lambda():

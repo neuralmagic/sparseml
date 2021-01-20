@@ -17,7 +17,7 @@ from sparseml.tensorflow_v1.optim.modifier import (
     EXTRAS_KEY_SUMMARIES,
 )
 from sparseml.tensorflow_v1.utils import tf_compat
-from tests.tensorflow_v1.optim.test_modifier import (
+from tests.sparseml.tensorflow_v1.optim.test_modifier import (
     ScheduledModifierTest,
     mlp_graph_lambda,
 )

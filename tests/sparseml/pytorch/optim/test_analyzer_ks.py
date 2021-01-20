@@ -6,7 +6,7 @@ from torch.nn import Linear, Parameter, ReLU, Sequential
 
 from sparseml.pytorch.optim import ModulePruningAnalyzer
 from sparseml.pytorch.utils import get_layer
-from tests.pytorch.helpers import LinearNet
+from tests.sparseml.pytorch.helpers import LinearNet
 
 
 @pytest.mark.skipif(

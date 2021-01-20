@@ -11,7 +11,7 @@ from sparseml.pytorch.optim import (
     ScheduledModifier,
     ScheduledModifierManager,
 )
-from tests.pytorch.helpers import (
+from tests.sparseml.pytorch.helpers import (
     LinearNet,
     create_optim_adam,
     create_optim_sgd,
@@ -19,7 +19,7 @@ from tests.pytorch.helpers import (
     test_loss,
     test_steps_per_epoch,
 )
-from tests.pytorch.optim.test_modifier import ModifierTest, ScheduledModifierImpl
+from tests.sparseml.pytorch.optim.test_modifier import ModifierTest, ScheduledModifierImpl
 
 
 @pytest.mark.skipif(

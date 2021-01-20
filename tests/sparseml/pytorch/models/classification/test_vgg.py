@@ -15,7 +15,7 @@ from sparseml.pytorch.models import (
     vgg19,
     vgg19bn,
 )
-from tests.pytorch.models.utils import compare_model
+from tests.sparseml.pytorch.models.utils import compare_model
 
 
 @pytest.mark.skipif(

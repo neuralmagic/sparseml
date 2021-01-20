@@ -10,7 +10,7 @@ from sparseml.onnx.optim.sensitivity_pruning import (
     pruning_perf_sens_one_shot,
 )
 from sparseml.onnx.utils.data import DataLoader
-from tests.onnx.helpers import (
+from tests.sparseml.onnx.helpers import (
     GENERATE_TEST_FILES,
     OnnxRepoModelFixture,
     onnx_repo_models,

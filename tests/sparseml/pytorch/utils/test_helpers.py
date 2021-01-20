@@ -29,7 +29,7 @@ from sparseml.pytorch.utils import (
     tensors_to_device,
     tensors_to_precision,
 )
-from tests.pytorch.helpers import LinearNet
+from tests.sparseml.pytorch.helpers import LinearNet
 
 
 @pytest.mark.skipif(

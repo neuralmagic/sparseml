@@ -10,7 +10,7 @@ from sparseml.pytorch.optim import (
     pruning_loss_sens_one_shot,
 )
 from sparseml.pytorch.utils import LossWrapper
-from tests.pytorch.helpers import ConvDataset, ConvNet, MLPDataset, MLPNet
+from tests.sparseml.pytorch.helpers import ConvDataset, ConvNet, MLPDataset, MLPNet
 
 
 @pytest.mark.skipif(

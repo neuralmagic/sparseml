@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from sparseml.pytorch.utils import ModuleExporter
-from tests.pytorch.helpers import MLPNet
+from tests.sparseml.pytorch.helpers import MLPNet
 
 
 @pytest.mark.skipif(

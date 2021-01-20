@@ -17,7 +17,7 @@ from sparseml.pytorch.nn import (
     replace_activation,
     swish,
 )
-from tests.pytorch.helpers import MLPNet
+from tests.sparseml.pytorch.helpers import MLPNet
 
 
 @pytest.mark.skipif(

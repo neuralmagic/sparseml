@@ -3,7 +3,7 @@ import os
 import pytest
 
 from sparseml.pytorch.optim import SetWeightDecayModifier
-from tests.pytorch.helpers import (
+from tests.sparseml.pytorch.helpers import (
     ConvNet,
     create_optim_adam,
     create_optim_sgd,
@@ -11,7 +11,7 @@ from tests.pytorch.helpers import (
     test_loss,
     test_steps_per_epoch,
 )
-from tests.pytorch.optim.test_modifier import ScheduledModifierTest
+from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
 
 
 OPTIMIZER_MODIFIERS = [
