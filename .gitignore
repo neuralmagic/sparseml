@@ -16,7 +16,6 @@ notebooks/tensorflow_v1_classification_pruning/
 sparseml/data/*
 sparseml/checkpoints
 sparseml/pruned
->>>>>>> TensorFlow classification examples
 tensorboard/*
 onnx/*
 repos/*
