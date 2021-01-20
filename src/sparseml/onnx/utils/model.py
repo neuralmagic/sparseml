@@ -29,11 +29,11 @@ from sparseml.onnx.utils.helpers import (
 
 try:
     import deepsparse
-    from deepsparse import analyze_model, create_model
+    from deepsparse import analyze_model, compile_model
     from deepsparse.cpu import cpu_details
 except Exception:
     deepsparse = None
-    create_model = None
+    compile_model = None
     analyze_model = None
     cpu_details = None
 
@@ -550,7 +550,7 @@ class _DeepSparseBaseModelRunner(ModelRunner):
         """
         :return: True if deepsparse package is available, False otherwise
         """
-        return create_model is not None
+        return compile_model is not None
 
     def __init__(
         self,
@@ -617,21 +617,21 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
         ] = None,
     ):
         super().__init__(model, batch_size, num_cores, loss)
-        self._nm_model = create_model(
+        self._engine = compile_model(
             self._model, batch_size=batch_size, num_cores=num_cores
         )
-        _LOGGER.debug("created model in neural magic {}".format(self._nm_model))
+        _LOGGER.debug("created model in neural magic {}".format(self._engine))
 
     def __del__(self):
         super().__del__()
 
         try:
-            del self._nm_model
+            del self._engine
         except Exception:
             pass
 
     def __repr__(self):
-        return str(self._nm_model)
+        return str(self._engine)
 
     def run(
         self,
@@ -671,7 +671,7 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
         _check_args(args, kwargs)
         nm_batch = list(batch.values())
         pred_time = time.time()
-        pred = self._nm_model.mapped_forward(nm_batch)
+        pred = self._engine.mapped_forward(nm_batch)
         pred_time = time.time() - pred_time
 
         return pred, pred_time
