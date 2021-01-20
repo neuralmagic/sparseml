@@ -1,9 +1,7 @@
 """
 Example of pruning a ResNet20-v1 model pretrained on the Cifar-10 dataset.
-
-Two artifacts provided to be used in this example:
-- examples/keras/models/ResNet20-v1.h5: the pretrained ResNet20-v1 model with 91.85% validation accuracy on Cifar-10 
-- examples/keras/configs/prune_resnet20_10epochs.yaml: an example pruning schedule file
+The pretrained model and this pruning script were adapted from:
+https://keras.io/zh/examples/cifar10_resnet/
 
 Run the following command from the top repo directory:
 
@@ -11,27 +9,56 @@ Run the following command from the top repo directory:
 
 """
 
-from datetime import datetime
-import os
-import tensorflow as tf
-from tensorflow.keras.datasets import cifar10
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import math
+import os
+from datetime import datetime
+
 import numpy as np
+import tensorflow as tf
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-from sparseml.keras.callbacks import LossesAndMetricsLoggingCallback
 from sparseml.keras.optim import ScheduledModifierManager
-from sparseml.keras.utils import TensorBoardLogger
+from sparseml.keras.utils.callbacks import LossesAndMetricsLoggingCallback
+from sparseml.keras.utils.exporter import ModelExporter
+from sparseml.keras.utils.logger import TensorBoardLogger
+from sparsezoo.models import Zoo
 
+
+# Download pretrained model and a pruning recipe
+def download_model_and_recipe(root_dir: str):
+    model_dir = os.path.join(root_dir, "resnet20_v1")
+    zoo_model = Zoo.load_model(
+        domain="cv",
+        sub_domain="classification",
+        architecture="resnet_v1",
+        sub_architecture=20,
+        framework="keras",
+        repo="sparseml",
+        dataset="cifar_10",
+        training_scheme=None,
+        optim_name="pruned",
+        optim_category="conservative",
+        optim_target=None,
+        override_parent_path=model_dir,
+    )
+    zoo_model.download()
+    model_file_path = os.path.join(zoo_model.dir_path, zoo_model.framework, "model.h5")
+    if not os.path.exists(model_file_path):
+        raise RuntimeError("Model file not found: {}".format(model_file_path))
+    recipe_file_path = os.path.join(zoo_model.dir_path, "recipes", "optimization.yaml")
+    if not os.path.exists(recipe_file_path):
+        raise RuntimeError("Recipe file not found: {}".format(recipe_file_path))
+    return model_file_path, recipe_file_path
+
+
+# Root directory, model and recipe file paths
 root_dir = "./examples/keras"
-yaml_file_name = "prune_resnet20_10epochs"
-yaml_file_path = os.path.join(root_dir, "configs", "{}.yaml".format(yaml_file_name))
+model_file_path, recipe_file_path = download_model_and_recipe(root_dir)
 
-model_dir = "{}/models".format(root_dir)
-model_name = "ResNet20-v1.h5"
-
-log_dir = os.path.join(model_dir, "tensorboard", yaml_file_name)
+# Logging directory
+log_dir = os.path.join(root_dir, "tensorboard", "resnet20_v1")
 log_dir += ":" + datetime.now().strftime("%Y%m%d-%H%M%S")
 
 update_freq = 100  # Logging update every this many training steps
@@ -63,8 +90,8 @@ y_train = tf.keras.utils.to_categorical(y_train, num_classes)
 y_test = tf.keras.utils.to_categorical(y_test, num_classes)
 
 # Prepare model model saving directory.
-pruned_model_dir = os.path.join(model_dir, "pruned")
-pruned_model_name = "%s.pruned.{epoch:03d}.h5" % model_name
+pruned_model_dir = os.path.join(root_dir, "pruned")
+pruned_model_name = "resnet20_v1.pruned.{epoch:03d}.h5"
 if not os.path.isdir(pruned_model_dir):
     os.makedirs(pruned_model_dir)
 pruned_filepath = os.path.join(pruned_model_dir, pruned_model_name)
@@ -78,7 +105,7 @@ checkpoint = ModelCheckpoint(
 def main():
     print("Load pretrained model")
 
-    base_model = tf.keras.models.load_model(os.path.join(model_dir, model_name))
+    base_model = tf.keras.models.load_model(model_file_path)
     base_model.summary()
 
     scores = base_model.evaluate(X_test, y_test, verbose=1)
@@ -91,7 +118,7 @@ def main():
 
     # Enhance the model and optimizer for pruning using the manager
     loggers = TensorBoardLogger(log_dir=log_dir, update_freq=update_freq)
-    manager = ScheduledModifierManager.from_yaml(yaml_file_path)
+    manager = ScheduledModifierManager.from_yaml(recipe_file_path)
     model_for_pruning, optimizer, callbacks = manager.modify(
         base_model, optimizer, steps_per_epoch, loggers=loggers
     )
@@ -177,6 +204,15 @@ def main():
             workers=4,
             callbacks=callbacks,
         )
+
+    # Erase pruning masks and export to ONNX model
+    pruned_model = manager.finalize(model_for_pruning)
+    exporter = ModelExporter(pruned_model, output_dir=pruned_model_dir)
+    onnx_model_name = "pruned_resnet20_v1.onnx"
+    exporter.export_onnx(name=onnx_model_name)
+    print(
+        "Model exported to {}".format(os.path.join(pruned_model_dir, onnx_model_name))
+    )
 
 
 if __name__ == "__main__":
