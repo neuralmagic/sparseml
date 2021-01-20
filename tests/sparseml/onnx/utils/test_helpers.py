@@ -41,7 +41,7 @@ from sparseml.onnx.utils import (
     onnx_nodes_sparsities,
 )
 from sparsezoo import Zoo
-from tests.onnx.helpers import extract_node_models, onnx_repo_models
+from tests.sparseml.onnx.helpers import extract_node_models, onnx_repo_models
 
 
 @pytest.fixture

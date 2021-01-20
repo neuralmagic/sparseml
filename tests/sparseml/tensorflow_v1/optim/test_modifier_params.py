@@ -11,8 +11,8 @@ from sparseml.tensorflow_v1.optim import (
 )
 from sparseml.tensorflow_v1.utils import batch_cross_entropy_loss, tf_compat
 from sparseml.utils import ALL_TOKEN
-from tests.tensorflow_v1.helpers import mlp_net
-from tests.tensorflow_v1.optim.test_modifier import (
+from tests.sparseml.tensorflow_v1.helpers import mlp_net
+from tests.sparseml.tensorflow_v1.optim.test_modifier import (
     ScheduledModifierTest,
     conv_graph_lambda,
     mlp_graph_lambda,

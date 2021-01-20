@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from sparseml.pytorch.optim import lr_loss_sensitivity
 from sparseml.pytorch.utils import LossWrapper
-from tests.pytorch.helpers import ConvDataset, ConvNet, MLPDataset, MLPNet
+from tests.sparseml.pytorch.helpers import ConvDataset, ConvNet, MLPDataset, MLPNet
 
 
 def _test_lr_sensitivity(model, data, loss, device, steps_per_measurement):

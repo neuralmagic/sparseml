@@ -9,7 +9,7 @@ from sparseml.onnx.utils import (
     prune_model_one_shot,
     prune_unstructured,
 )
-from tests.onnx.helpers import OnnxRepoModelFixture, onnx_repo_models
+from tests.sparseml.onnx.helpers import OnnxRepoModelFixture, onnx_repo_models
 
 
 def _test_correct_sparsity(pruned_array, sparsity, tolerance=1e-4):

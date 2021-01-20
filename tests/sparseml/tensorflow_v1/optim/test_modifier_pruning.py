@@ -18,8 +18,8 @@ from sparseml.tensorflow_v1.utils import (
     eval_tensor_sparsity,
     tf_compat,
 )
-from tests.tensorflow_v1.helpers import mlp_net
-from tests.tensorflow_v1.optim.test_modifier import (
+from tests.sparseml.tensorflow_v1.helpers import mlp_net
+from tests.sparseml.tensorflow_v1.optim.test_modifier import (
     ScheduledModifierTest,
     conv_graph_lambda,
     mlp_graph_lambda,

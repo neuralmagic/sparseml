@@ -12,7 +12,7 @@ from sparseml.pytorch.models import (
     ssd300_resnet101,
     ssd300_resnet152,
 )
-from tests.pytorch.models.utils import compare_model
+from tests.sparseml.pytorch.models.utils import compare_model
 
 
 @pytest.mark.skipif(

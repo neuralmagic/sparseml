@@ -3,8 +3,8 @@ import os
 import pytest
 
 from sparseml.pytorch.optim import EpochRangeModifier
-from tests.pytorch.helpers import LinearNet, create_optim_adam, create_optim_sgd
-from tests.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.helpers import LinearNet, create_optim_adam, create_optim_sgd
+from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
     test_epoch,
     test_loss,

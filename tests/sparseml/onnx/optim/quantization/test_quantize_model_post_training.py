@@ -16,7 +16,7 @@ from sparseml.onnx.utils import (
 )
 from sparseml.pytorch.datasets import ImagenetteDataset, ImagenetteSize, MNISTDataset
 from sparsezoo import Zoo
-from tests.onnx.optim.quantization.helpers import make_tmp_onnx_file
+from tests.sparseml.onnx.optim.quantization.helpers import make_tmp_onnx_file
 
 
 def _test_model_is_quantized(

@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 
 from sparseml.pytorch.optim import ModuleASAnalyzer
-from tests.pytorch.helpers import MLPNet
+from tests.sparseml.pytorch.helpers import MLPNet
 
 
 @pytest.mark.skipif(

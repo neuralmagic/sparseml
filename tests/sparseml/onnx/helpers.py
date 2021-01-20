@@ -6,7 +6,7 @@ import torch
 
 from sparseml.pytorch.utils import ModuleExporter
 from sparsezoo import Zoo
-from tests.pytorch.helpers import ConvNet, LinearNet, MLPNet
+from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, MLPNet
 
 
 __all__ = [

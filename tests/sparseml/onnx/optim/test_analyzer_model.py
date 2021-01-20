@@ -6,7 +6,7 @@ from onnx import load_model
 
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
 from sparsezoo import Zoo
-from tests.onnx.helpers import analyzer_models
+from tests.sparseml.onnx.helpers import analyzer_models
 
 
 GENERATE_TEST_FILES = os.getenv("NM_ML_GENERATE_ONNX_TEST_DATA", False)
