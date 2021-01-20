@@ -294,7 +294,6 @@ class MaskedLayer(tf.keras.layers.Wrapper):
 def remove_pruning_masks(model: tf.keras.Model):
     """
     Remove pruning masks from a model that was pruned using the MaskedLayer logic
-
     :param model: a model that was pruned using MaskedLayer
     :return: the original model with pruned weights
     """
