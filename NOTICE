@@ -1,0 +1,34 @@
+Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+
+Source code in this repository is variously licensed under the Apache License
+Version 2.0, an Apache-compatible license. Please see
+LICENSE for more information.
+
+* For a copy of the Apache License Version 2.0, please see LICENSE
+  as included in this repository's top-level directory.
+
+* For a copy of the Neural Magic Engine License, please see LICENSE-NEURALMAGIC
+  as included in the Neural Magic's "deepsparse" repository.
+
+* For a copy of all other Apache-compatible licenses and notices,
+  they will be listed below.
+
+========================================================================
+NOTICES
+========================================================================
+
+All implementations in this repository are subject to Neural Magic's Legal Policies
+https://www.neuralmagic.com/legal
+
+All packages as defined in the requirements.txt and their associated licenses.
+
+PyTorch License https://github.com/pytorch/pytorch/blob/master/LICENSE
+
+PyTorch torchvision and models License https://github.com/pytorch/vision/blob/master/LICENSE
+
+TensorFlow License https://github.com/tensorflow/tensorflow/blob/master/LICENSE
+
+Examples given in some of the notebooks make use of fast.ai's 
+Imagenette / Imagewoof dataset https://github.com/fastai/imagenette 
+provided under the 
+Apache License 2.0 https://github.com/fastai/imagenette/blob/master/LICENSE
