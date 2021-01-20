@@ -13,8 +13,8 @@ from tqdm import auto
 
 from sparseml.onnx.utils import (
     DataLoader,
-    NMAnalyzeModelRunner,
-    NMModelRunner,
+    DeepSparseAnalyzeModelRunner,
+    DeepSparseModelRunner,
     ORTModelRunner,
     check_load_model,
     extract_node_id,
@@ -212,7 +212,7 @@ def pruning_loss_sens_one_shot_iter(
     batch_size: int,
     steps_per_measurement: int,
     sparsity_levels: List[float] = default_pruning_sparsities_loss(False),
-    use_neuralmagic_inference: bool = False,
+    use_deepsparse_inference: bool = False,
 ) -> Generator[
     Tuple[PruningLossSensitivityAnalysis, KSSensitivityProgress], None, None
 ]:
@@ -232,7 +232,7 @@ def pruning_loss_sens_one_shot_iter(
     :param steps_per_measurement: number of steps (batches) to run through
         the model for each sparsity level on each node
     :param sparsity_levels: the sparsity levels to calculate the loss for for each param
-    :param use_neuralmagic_inference: True to use the neuralmagic inference engine
+    :param use_deepsparse_inference: True to use the DeepSparse inference engine
         to run the analysis, False to use onnxruntime
     :return: the sensitivity results for every node that is prunable,
         yields update at each layer along with iteration progress
@@ -247,8 +247,8 @@ def pruning_loss_sens_one_shot_iter(
 
     runner = (
         ORTModelRunner(model)
-        if not use_neuralmagic_inference
-        else NMModelRunner(model, batch_size)
+        if not use_deepsparse_inference
+        else DeepSparseModelRunner(model, batch_size)
     )
     _LOGGER.debug("created runner for one shot analysis {}".format(runner))
     base_outputs, _ = runner.run(
@@ -280,8 +280,8 @@ def pruning_loss_sens_one_shot_iter(
             )
             runner = (
                 ORTModelRunner(model)
-                if not use_neuralmagic_inference
-                else NMModelRunner(model, batch_size)
+                if not use_deepsparse_inference
+                else DeepSparseModelRunner(model, batch_size)
             )
             _LOGGER.debug("created runner for one shot analysis {}".format(runner))
             pruned_outputs, _ = runner.run(
@@ -326,7 +326,7 @@ def pruning_loss_sens_one_shot(
     steps_per_measurement: int,
     sparsity_levels: List[float] = default_pruning_sparsities_loss(False),
     show_progress: bool = True,
-    use_neuralmagic_inference: bool = False,
+    use_deepsparse_inference: bool = False,
 ) -> PruningLossSensitivityAnalysis:
     """
     Run a one shot sensitivity analysis for kernel sparsity.
@@ -344,7 +344,7 @@ def pruning_loss_sens_one_shot(
         the model for each sparsity level on each node
     :param sparsity_levels: the sparsity levels to calculate the loss for for each param
     :param show_progress: True to log the progress with a tqdm bar, False otherwise
-    :param use_neuralmagic_inference: True to use the neuralmagic inference engine
+    :param use_deepsparse_inference: True to use the DeepSparse inference engine
         to run the analysis, False to use onnxruntime
     :return: the sensitivity results for every node that is prunable
     """
@@ -357,7 +357,7 @@ def pruning_loss_sens_one_shot(
         batch_size,
         steps_per_measurement,
         sparsity_levels,
-        use_neuralmagic_inference,
+        use_deepsparse_inference,
     ):
         if bar is None and show_progress:
             bar = auto.tqdm(total=progress.total, desc="KS Loss Sensitivity Analysis")
@@ -398,7 +398,7 @@ def pruning_perf_sens_one_shot_iter(
     :param iterations_per_check: number of iterations to run for perf details
     :param warmup_iterations_per_check: number of iterations to run before perf details
     :param sparsity_levels: the sparsity levels to calculate the loss for for each param
-    :param optimization_level: the optimization level to pass to the neuralmagic
+    :param optimization_level: the optimization level to pass to the DeepSparse
         inference engine for how much to optimize the model.
         Valid values are either 0 for minimal optimizations or 1 for maximal.
     :param iters_sleep_time: the time to sleep the thread between analysis benchmark
@@ -406,13 +406,13 @@ def pruning_perf_sens_one_shot_iter(
     :return: the sensitivity results for every node that is prunable yields update
         at each layer along with iteration progress
     """
-    if not NMAnalyzeModelRunner.available():
+    if not DeepSparseAnalyzeModelRunner.available():
         raise ModuleNotFoundError(
-            "neuralmagic is not installed on the system, cannot run"
+            "deepsparse is not installed on the system, cannot run"
         )
 
     analysis = PruningPerfSensitivityAnalysis(num_cores, batch_size)
-    runner = NMAnalyzeModelRunner(model, batch_size, num_cores)
+    runner = DeepSparseAnalyzeModelRunner(model, batch_size, num_cores)
     _LOGGER.debug("created runner for one shot analysis {}".format(runner))
 
     for idx, sparsity in enumerate(sparsity_levels):
