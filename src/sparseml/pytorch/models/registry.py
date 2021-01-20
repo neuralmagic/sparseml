@@ -163,7 +163,7 @@ class ModelRegistry(object):
         sub_architecture: str,
         default_dataset: str,
         default_desc: str,
-        repo_source: str = "neuralmagic",
+        repo_source: str = "sparseml",
         def_ignore_error_tensors: List[str] = None,
         desc_args: Dict[str, Tuple[str, Any]] = None,
     ):
@@ -183,7 +183,7 @@ class ModelRegistry(object):
             pretrained if not supplied
         :param default_desc: the description to use by default for loading
             pretrained if not supplied
-        :param repo_source: the source repo for the model, default is neuralmagic
+        :param repo_source: the source repo for the model, default is sparseml
         :param def_ignore_error_tensors: tensors to ignore if there are
             errors in loading
         :param desc_args: args that should be changed based on the description
@@ -248,7 +248,7 @@ class ModelRegistry(object):
             pretrained if not supplied
         :param default_desc: the description to use by default for loading
             pretrained if not supplied
-        :param repo_source: the source repo for the model; ex: neuralmagic, torchvision
+        :param repo_source: the source repo for the model; ex: sparseml, torchvision
         :param def_ignore_error_tensors: tensors to ignore if there are
             errors in loading
         :param desc_args: args that should be changed based on the description

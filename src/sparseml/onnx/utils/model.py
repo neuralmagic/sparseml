@@ -28,11 +28,11 @@ from sparseml.onnx.utils.helpers import (
 
 
 try:
-    import neuralmagic
-    from neuralmagic import analyze_model, create_model
-    from neuralmagic.cpu import cpu_details
+    import deepsparse
+    from deepsparse import analyze_model, create_model
+    from deepsparse.cpu import cpu_details
 except Exception:
-    neuralmagic = None
+    deepsparse = None
     create_model = None
     analyze_model = None
     cpu_details = None
@@ -47,11 +47,11 @@ __all__ = [
     "max_available_cores",
     "ModelRunner",
     "ORTModelRunner",
-    "NMModelRunner",
+    "DeepSparseModelRunner",
     "OpenVINOModelRunner",
     "correct_nm_analyze_model_node_ids",
     "split_canonical_names",
-    "NMAnalyzeModelRunner",
+    "DeepSparseAnalyzeModelRunner",
 ]
 
 
@@ -81,7 +81,7 @@ def max_available_cores() -> int:
     if cpu_details is not None:
         _LOGGER.debug(
             "retrieving physical core count per socket "
-            "from neuralmagic.cpu.cpu_details()"
+            "from deepsparse.cpu.cpu_details()"
         )
 
         return cpu_details()[0]
@@ -544,11 +544,11 @@ class ORTModelRunner(ModelRunner):
         return pred_dict, pred_time
 
 
-class _NMModelRunner(ModelRunner):
+class _DeepSparseBaseModelRunner(ModelRunner):
     @staticmethod
     def available() -> bool:
         """
-        :return: True if neuralmagic package is available, False otherwise
+        :return: True if deepsparse package is available, False otherwise
         """
         return create_model is not None
 
@@ -561,10 +561,10 @@ class _NMModelRunner(ModelRunner):
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ],
     ):
-        if not _NMModelRunner.available():
+        if not _DeepSparseBaseModelRunner.available():
             raise ModuleNotFoundError(
-                "neuralmagic is not installed on the system, "
-                "must be installed before using any ModelRunner for neuralmagic"
+                "deepsparse is not installed on the system, "
+                "must be installed before using any ModelRunner for deepsparse"
             )
 
         super().__init__(loss)
@@ -597,7 +597,7 @@ class _NMModelRunner(ModelRunner):
         raise NotImplementedError()
 
 
-class NMModelRunner(_NMModelRunner):
+class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
     """
     Class for handling running inference for an ONNX model through Neural Magic
 
@@ -664,7 +664,7 @@ class NMModelRunner(_NMModelRunner):
     ) -> Tuple[Dict[str, numpy.ndarray], float]:
         """
         :param batch: the batch to run through the ONNX model for inference
-            in neuralmagic
+            in the DeepSparse Engine
         :return: a tuple containing the result of the inference,
             the time to perform the inference
         """
@@ -679,13 +679,13 @@ class NMModelRunner(_NMModelRunner):
 
 def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelProto]):
     """
-    Correct the node ids returned from the neuralmagic.analyze_model api.
+    Correct the node ids returned from the deepsparse.analyze_model api.
     In some cases, it will return the ids for folded nodes due to ONNXRuntime folding.
     This finds the corrected node ids from those folded nodes.
     Additionally, ops that did not have an id are changed from the returned
     string <none> to proper None python type
 
-    :param nm_result: the result from the neuralmagic.analyze_model api
+    :param nm_result: the result from the deepsparse.analyze_model api
     :param model: the onnx model proto or path to the onnx file that the
         nm_result was for
     """
@@ -705,7 +705,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
         if node is None:
             _LOGGER.warning(
                 (
-                    "node returned from neuralmagic.analyze_model "
+                    "node returned from deepsparse.analyze_model "
                     "was not found in the model graph; node id {}"
                 ).format(node_id)
             )
@@ -714,7 +714,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
         if is_foldable_node(node):
             _LOGGER.debug(
                 "foldable node of id {} returned from "
-                "neuralmagic.analyze_model api, matching to prunable node"
+                "deepsparse.analyze_model api, matching to prunable node"
             )
             # traverse previous because incorrect node id will only be returned
             # for following foldable layers, not previous
@@ -724,7 +724,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
                 _LOGGER.warning(
                     (
                         "could not find prunable node from a foldable node "
-                        "returned in the neuralmagic.analyze_model api; "
+                        "returned in the deepsparse.analyze_model api; "
                         "node id: {}"
                     ).format(node_id)
                 )
@@ -733,7 +733,7 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
                 _LOGGER.debug(
                     (
                         "matched prunable node of id {} to foldable node {} as "
-                        "returned from neuralmagic.analyze_model api"
+                        "returned from deepsparse.analyze_model api"
                     ).format(prunable_node_id, node_id)
                 )
                 layer["canonical_name"] = prunable_node_id
@@ -746,7 +746,7 @@ def split_canonical_names(nm_result: Dict):
 
     Will split on any canonical_name that includes ','.
 
-    :param nm_result: the result from the neuralmagic.analyze_model api
+    :param nm_result: the result from the deepsparse.analyze_model api
     """
     split_layer_infos = []
     for layer in nm_result["layer_info"]:
@@ -762,7 +762,7 @@ def split_canonical_names(nm_result: Dict):
     nm_result["layer_info"] = split_layer_infos
 
 
-class NMAnalyzeModelRunner(_NMModelRunner):
+class DeepSparseAnalyzeModelRunner(_DeepSparseBaseModelRunner):
     """
     Class for handling running inference for an ONNX model through Neural Magic's
     analyze_model api

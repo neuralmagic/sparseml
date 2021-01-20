@@ -70,13 +70,12 @@ python examples/pytorch-torchvision/main.py \
 """
 
 import argparse
-import copy
 import os
 import time
 from types import ModuleType
 
 import torch
-from neuralmagicML.utils import create_dirs
+from sparseml.utils import create_dirs
 from sparseml.pytorch.datasets.classification import ImageFolderDataset
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter, PythonLogger, load_model

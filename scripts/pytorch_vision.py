@@ -444,8 +444,6 @@ from sparseml.pytorch.utils import (
     default_device,
     early_stop_data_loader,
     get_prunable_layers,
-    load_epoch,
-    load_optimizer,
     model_to_device,
     set_deterministic_seeds,
     tensor_sparsity,

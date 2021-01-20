@@ -18,9 +18,9 @@ from tests.onnx.helpers import (
 
 
 try:
-    import neuralmagic
+    import deepsparse
 except ModuleNotFoundError:
-    neuralmagic = None
+    deepsparse = None
 
 
 RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
@@ -106,7 +106,7 @@ def _create_sensitivity_ks_data(
     )
     analysis.save_json(loss_one_shot_path)
 
-    if neuralmagic is not None:
+    if deepsparse is not None:
         analysis = pruning_perf_sens_one_shot(
             model_path,
             dataloader,
@@ -205,7 +205,7 @@ def test_one_shot_ks_loss_sensitivity(
 
 
 @pytest.mark.skipif(
-    neuralmagic is None, reason="neuralmagic is not installed on the system"
+    deepsparse is None, reason="deepsparse is not installed on the system"
 )
 def test_one_shot_ks_perf_sensitivity(
     onnx_models_with_analysis: OnnxModelAnalysisFixture,

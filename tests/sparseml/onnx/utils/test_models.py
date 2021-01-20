@@ -8,8 +8,8 @@ from onnx import load_model
 from sparseml.onnx.utils.data import DataLoader
 from sparseml.onnx.utils.model import (
     ModelRunner,
-    NMAnalyzeModelRunner,
-    NMModelRunner,
+    DeepSparseAnalyzeModelRunner,
+    DeepSparseModelRunner,
     ORTModelRunner,
     max_available_cores,
 )
@@ -17,9 +17,9 @@ from sparsezoo import Zoo
 
 
 try:
-    import neuralmagic
+    import deepsparse
 except ModuleNotFoundError:
-    neuralmagic = None
+    deepsparse = None
 
 
 OnnxModelDataFixture = NamedTuple(
@@ -132,19 +132,19 @@ def test_ort_model_runner(onnx_models_with_data: OnnxModelDataFixture):
 
 
 @pytest.mark.skipif(
-    neuralmagic is None, reason="neuralmagic is not installed on the system"
+    deepsparse is None, reason="deepsparse is not installed on the system"
 )
 def test_nm_model_runner(onnx_models_with_data: OnnxModelDataFixture):
     _test_model(
         onnx_models_with_data.model_path,
         onnx_models_with_data.input_paths,
         onnx_models_with_data.output_paths,
-        NMModelRunner,
+        DeepSparseModelRunner,
     )
 
 
 @pytest.mark.skipif(
-    neuralmagic is None, reason="neuralmagic is not installed on the system"
+    deepsparse is None, reason="deepsparse is not installed on the system"
 )
 def test_nm_analyze_model_runner(
     onnx_models_with_data: OnnxModelDataFixture,
@@ -153,7 +153,7 @@ def test_nm_analyze_model_runner(
 
     # Sanity check, asserting model can run random input
     dataloader = DataLoader.from_model_random(model, 5, 0, 10)
-    model_runner = NMAnalyzeModelRunner(model, batch_size=5)
+    model_runner = DeepSparseAnalyzeModelRunner(model, batch_size=5)
     outputs, _ = model_runner.run(dataloader, max_steps=5)
     fields = ["num_threads", "num_sockets", "average_total_time", "iteration_times"]
     layer_fields = [
