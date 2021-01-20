@@ -32,7 +32,7 @@ def _register_classification_models():
 
         key = "torchvision.{}".format(model_name)
         image_size = (
-            (3, 224, 224) if "inception_v3" not in model_name else (3, 229, 229)
+            (3, 224, 224) if "inception_v3" not in model_name else (3, 299, 299)
         )
         arch, sub_arch = _get_architecture(model_name)
 
