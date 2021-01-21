@@ -14,15 +14,25 @@
 
 import abc
 import collections
+import functools
 import inspect
-from typing import List
+from typing import List, Union
 
 import tensorflow as tf
 
-from sparseml.keras.optim.mask_pruning_creator import PruningMaskCreator
+from sparseml.keras.optim.mask_pruning_creator import (
+    PruningMaskCreator,
+    load_mask_creator,
+)
+from sparseml.utils import Singleton
 
 
-__all__ = ["MaskedLayer", "PruningScheduler", "remove_pruning_masks"]
+__all__ = [
+    "MaskedLayer",
+    "PruningScheduler",
+    "SchedulerRegistry",
+    "remove_pruning_masks",
+]
 
 
 class PruningScheduler(abc.ABC):
@@ -50,6 +60,54 @@ class PruningScheduler(abc.ABC):
         :return: target sparsity
         """
         raise NotImplementedError("Not implemented")
+
+    @abc.abstractmethod
+    def get_config(self):
+        raise NotImplementedError("Not implemented")
+
+
+class SchedulerRegistry:
+    """
+    Registry of pruning schedulers
+    Each pruning scheduler class is expected to register using the decorator "register" class
+    method. The registry currently is used by the MaskedLayer to deserialize schedulers without
+    having to know any individual pruning schedulers.
+    """
+
+    _REGISTRY = {}
+
+    @classmethod
+    def register(cls, scheduler):
+        """
+        Used as a decorator for a pruning scheduler
+
+        :param scheduler: a pruning scheduler class to be decorated
+        """
+        if scheduler.__name__ not in SchedulerRegistry._REGISTRY:
+            SchedulerRegistry._REGISTRY[scheduler.__name__] = scheduler
+        return scheduler
+
+    @classmethod
+    def from_config(cls, config):
+        """
+        Deserialize a pruning scheduler from config returned by scheduler's
+        get_config method
+
+        :param config: a pruning scheduler's config
+        :return: a pruning scheduler instance
+        """
+        if "class_name" not in config:
+            raise ValueError("The 'class_name' not found in config: {}".format(config))
+        class_name = config["class_name"]
+        return tf.keras.utils.deserialize_keras_object(
+            config,
+            module_objects=globals(),
+            custom_objects={class_name: SchedulerRegistry._REGISTRY[class_name]},
+        )
+
+    @classmethod
+    def registry(cls):
+        return SchedulerRegistry._REGISTRY
 
 
 MaskedParamInfo = collections.namedtuple(
@@ -192,7 +250,7 @@ class MaskedLayer(tf.keras.layers.Wrapper):
         self,
         layer: tf.keras.layers.Layer,
         pruning_scheduler: PruningScheduler,
-        mask_creator: PruningMaskCreator,
+        mask_type: Union[str, List[int]] = "unstructured",
         **kwargs,
     ):
         if not isinstance(layer, MaskedLayer) and not isinstance(
@@ -205,7 +263,16 @@ class MaskedLayer(tf.keras.layers.Wrapper):
         super(MaskedLayer, self).__init__(layer, **kwargs)
         self._layer = layer
         self._pruning_scheduler = pruning_scheduler
-        self._mask_creator = mask_creator
+        self._mask_type = mask_type
+        self._mask_creator = None
+        self._pruning_vars = []
+        self._global_step = None
+        self._mask_updater = None
+
+    def build(self, input_shape):
+        super(MaskedLayer, self).build(input_shape)
+        self._mask_creator = load_mask_creator(self._mask_type)
+        self._pruning_vars = self._reuse_or_create_pruning_vars()
         self._global_step = self.add_weight(
             "global_step",
             shape=[],
@@ -213,7 +280,6 @@ class MaskedLayer(tf.keras.layers.Wrapper):
             dtype=tf.int64,
             trainable=False,
         )
-        self._pruning_vars = self._reuse_or_create_pruning_vars()
         self._mask_updater = MaskAndWeightUpdater(
             self._pruning_vars,
             self._pruning_scheduler,
@@ -276,6 +342,43 @@ class MaskedLayer(tf.keras.layers.Wrapper):
         else:
             return self._layer.call(inputs)
 
+    def get_config(self):
+        """
+        Get layer config
+        Serialization and deserialization should be done using tf.keras.serialize/deserialize,
+        which create and retrieve the "class_name" field automatically.
+        The resulting config below therefore does not contain the field.
+        """
+        config = super(MaskedLayer, self).get_config()
+        if "layer" not in config:
+            raise RuntimeError("Expected 'layer' field not found in config")
+        config.update(
+            {
+                "pruning_scheduler": self._pruning_scheduler.get_config(),
+                "mask_type": self._mask_type,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        config = config.copy()
+        layer = tf.keras.layers.deserialize(
+            config.pop("layer"), custom_objects={"MaskedLayer": MaskedLayer}
+        )
+        if not isinstance(layer, MaskedLayer) and not isinstance(
+            layer, tf.keras.layers.Layer
+        ):
+            raise RuntimeError("Unexpected layer created from config")
+        pruning_scheduler = SchedulerRegistry.from_config(
+            config.pop("pruning_scheduler")
+        )
+        if not isinstance(pruning_scheduler, PruningScheduler):
+            raise RuntimeError("Unexpected pruning scheduler type created from config")
+        mask_type = config.pop("mask_type")
+        masked_layer = MaskedLayer(layer, pruning_scheduler, mask_type, **config)
+        return masked_layer
+
     def compute_output_shape(self, input_shape):
         return self._layer.compute_output_shape(input_shape)
 
@@ -303,6 +406,10 @@ class MaskedLayer(tf.keras.layers.Wrapper):
             return self._layer
         else:
             raise RuntimeError("Unrecognized layer")
+
+    @property
+    def masked_layer(self):
+        return self._layer
 
 
 def remove_pruning_masks(model: tf.keras.Model):
