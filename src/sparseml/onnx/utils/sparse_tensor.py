@@ -1,5 +1,6 @@
 """
-Helper functions for handling ONNX SparseTensorProto objects
+Helper functions for handling ONNX SparseTensorProto objects.
+onnx >= 1.6.0 is a requirement for using sparse tensors
 """
 
 
@@ -7,7 +8,16 @@ from copy import deepcopy
 from typing import Union
 
 import numpy
-from onnx import ModelProto, SparseTensorProto, TensorProto, numpy_helper
+from onnx import ModelProto, TensorProto, numpy_helper
+
+
+try:
+    from onnx import SparseTensorProto
+
+    sparse_tensor_import_error = None
+except Exception as sparse_tensor_err:
+    SparseTensorProto = None
+    sparse_tensor_import_error = sparse_tensor_err
 
 
 __all__ = [
@@ -16,6 +26,12 @@ __all__ = [
     "convert_model_initializers_to_sparse",
     "convert_sparse_initializers_to_dense",
 ]
+
+
+def _check_sparse_tensor_import():
+    if sparse_tensor_import_error:
+        # ONNX >= 1.6.0 required
+        raise sparse_tensor_import_error
 
 
 def create_sparse_tensor(
@@ -30,6 +46,7 @@ def create_sparse_tensor(
     :return: SparseTensorProto object built from the sparse representation of the input
         array
     """
+    _check_sparse_tensor_import()
     if isinstance(array, TensorProto):
         if not name:
             name = array.name or None
@@ -57,6 +74,7 @@ def sparse_tensor_to_dense(sparse_tensor: SparseTensorProto) -> TensorProto:
     :return: TensorProto object that is the dense representation of the given
         sparse tensor.
     """
+    _check_sparse_tensor_import()
     name = sparse_tensor.values.name
     values = numpy_helper.to_array(sparse_tensor.values)
     indices = numpy_helper.to_array(sparse_tensor.indices)
@@ -89,6 +107,7 @@ def convert_model_initializers_to_sparse(
     :return: the given model with initializers above the sparsity threshold
         converted to sparse initializers
     """
+    _check_sparse_tensor_import()
     if not inplace:
         model = deepcopy(model)
 
@@ -123,6 +142,7 @@ def convert_sparse_initializers_to_dense(
     :param inplace: True to do model conversion in place. Default is True
     :return: The given model with all sparse initializers converted to dense initializers
     """
+    _check_sparse_tensor_import()
     if not inplace:
         model = deepcopy(model)
 
