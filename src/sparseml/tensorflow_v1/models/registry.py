@@ -215,15 +215,23 @@ class ModelRegistry(object):
                 key, pretrained, pretrained_dataset
             )
             try:
-                paths = zoo_model.download_framework_files()
-                index_path = [path for path in paths if path.endswith(".index")]
+                zoo_model.download()
+                index_path = [
+                    path
+                    for path in zoo_model.framework_files
+                    if path.endswith(".index")
+                ]
                 index_path = index_path[0]
                 model_path = index_path[:-6]
                 saver.restore(sess, model_path)
             except Exception as ex:
                 # try one more time with overwrite on in case files were corrupted
-                paths = zoo_model.download_framework_files(overwrite=True)
-                index_path = [path for path in paths if path.endswith(".index")]
+                zoo_model.download(overwrite=True)
+                index_path = [
+                    path
+                    for path in zoo_model.framework_files
+                    if path.endswith(".index")
+                ]
 
                 if len(index_path) != 1:
                     raise FileNotFoundError(

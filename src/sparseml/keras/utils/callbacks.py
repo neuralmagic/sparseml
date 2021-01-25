@@ -89,7 +89,7 @@ class LoggerSettingCallback(keras.callbacks.Callback):
         Called at the begin of a batch in evaluation
 
         :param batch: batch index in current epoch
-        :param logs: dictionary of logs (see Keras Callback doc)        
+        :param logs: dictionary of logs (see Keras Callback doc)
         """
         super().on_test_batch_begin(batch, logs)
         self._set_logging_mode(LoggingMode.TEST)

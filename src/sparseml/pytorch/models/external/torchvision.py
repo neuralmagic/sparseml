@@ -96,12 +96,16 @@ def _registry_constructor_wrapper(key, constructor_function):
                 key, pretrained, pretrained_dataset
             )
             try:
-                paths = zoo_model.download_framework_files()
-                load_model(paths[0], model, load_strict, ignore)
+                zoo_model.download()
+                load_model(
+                    zoo_model.framework_files[0].path, model, load_strict, ignore
+                )
             except Exception as ex:
                 # try one more time with overwrite on in case file was corrupted
-                paths = zoo_model.download_framework_files(overwrite=True)
-                load_model(paths[0], model, load_strict, ignore)
+                zoo_model.download(overwrite=True)
+                load_model(
+                    zoo_model.framework_files[0].path, model, load_strict, ignore
+                )
 
         return model
 
