@@ -3,9 +3,10 @@ Built-in callbacks for Keras
 """
 
 from typing import List, Union
+
 import tensorflow
-from tensorflow import keras
-from tensorflow import Tensor
+from tensorflow import Tensor, keras
+
 from sparseml.keras.utils import KerasLogger, LoggingMode
 
 

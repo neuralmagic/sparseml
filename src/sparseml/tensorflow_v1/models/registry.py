@@ -215,7 +215,8 @@ class ModelRegistry(object):
                 key, pretrained, pretrained_dataset
             )
             try:
-                zoo_model.download()
+                for framework_file in zoo_model.framework_files:
+                    framework_file.download()
                 index_path = [
                     path
                     for path in zoo_model.framework_files
@@ -226,7 +227,8 @@ class ModelRegistry(object):
                 saver.restore(sess, model_path)
             except Exception as ex:
                 # try one more time with overwrite on in case files were corrupted
-                zoo_model.download(overwrite=True)
+                for framework_file in zoo_model.framework_files:
+                    framework_file.download(overwrite=True)
                 index_path = [
                     path
                     for path in zoo_model.framework_files

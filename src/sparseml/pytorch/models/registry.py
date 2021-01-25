@@ -332,16 +332,15 @@ class ModelRegistry(object):
                     key, pretrained, pretrained_dataset
                 )
                 try:
-                    zoo_model.download()
+                    framework_file = zoo_model.framework_files[0]
                     load_model(
-                        zoo_model.framework_files[0].path, model, load_strict, ignore
+                        framework_file.downloaded_path(), model, load_strict, ignore
                     )
                 except Exception as ex:
                     # try one more time with overwrite on in case file was corrupted
-                    zoo_model.download(overwrite=True)
-                    load_model(
-                        zoo_model.framework_files[0].path, model, load_strict, ignore
-                    )
+                    framework_file = zoo_model.framework_files[0]
+                    framework_file.download(overwrite=True)
+                    load_model(framework_file.path, model, load_strict, ignore)
 
             return model
 
