@@ -490,7 +490,7 @@ def mobilenet_v2_width(
     input_shape=(224, 224, 3),
     domain="cv",
     sub_domain="classification",
-    architecture="mobilenet-v2",
+    architecture="mobilenet_v2",
     sub_architecture="1.0",
     default_dataset="imagenet",
     default_desc="base",
