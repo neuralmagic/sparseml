@@ -76,8 +76,8 @@ class SSD300MobileNetBackbone(SSDBackbone):
     input_shape=(3, 300, 300),
     domain="cv",
     sub_domain="detection",
-    architecture="ssd-lite",
-    sub_architecture="mobilenet-v2",
+    architecture="ssd_lite",
+    sub_architecture="mobilenet_v2",
     default_dataset="coco",
     default_desc="base",
 )

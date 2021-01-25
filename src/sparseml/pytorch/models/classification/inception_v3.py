@@ -455,7 +455,7 @@ class InceptionV3(Module):
     input_shape=(3, 299, 299),
     domain="cv",
     sub_domain="classification",
-    architecture="inception-v3",
+    architecture="inception_v3",
     sub_architecture="none",
     default_dataset="imagenet",
     default_desc="base",

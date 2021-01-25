@@ -120,7 +120,7 @@ class ModelRegistry(object):
 
         :param key: the model key (name) to retrieve
         :param pretrained: True to load pretrained weights; to load a specific version
-            give a string with the name of the version (optim, optim-perf), default True
+            give a string with the name of the version (pruned-moderate, base), default True
         :param pretrained_dataset: The dataset to load for the model
         :return: the sparsezoo Model reference for the given model
         """
@@ -215,25 +215,15 @@ class ModelRegistry(object):
                 key, pretrained, pretrained_dataset
             )
             try:
-                for framework_file in zoo_model.framework_files:
-                    framework_file.download()
-                index_path = [
-                    path
-                    for path in zoo_model.framework_files
-                    if path.endswith(".index")
-                ]
+                paths = zoo_model.download_framework_files()
+                index_path = [path for path in paths if path.endswith(".index")]
                 index_path = index_path[0]
                 model_path = index_path[:-6]
                 saver.restore(sess, model_path)
             except Exception as ex:
                 # try one more time with overwrite on in case files were corrupted
-                for framework_file in zoo_model.framework_files:
-                    framework_file.download(overwrite=True)
-                index_path = [
-                    path
-                    for path in zoo_model.framework_files
-                    if path.endswith(".index")
-                ]
+                paths = zoo_model.download_framework_files(overwrite=True)
+                index_path = [path for path in paths if path.endswith(".index")]
 
                 if len(index_path) != 1:
                     raise FileNotFoundError(
