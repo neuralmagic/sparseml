@@ -237,7 +237,7 @@ class _AddNoOpWrapper(Module):
         self.module = module
 
     def forward(self, inp):
-        inp = inp + 0.0  # no-op
+        inp = inp + 0  # no-op
         return self.module(inp)
 
 
