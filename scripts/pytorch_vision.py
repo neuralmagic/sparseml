@@ -43,7 +43,6 @@ usage: vision.py train [-h] --arch-key ARCH_KEY [--pretrained PRETRAINED]
                        [--save-best-after SAVE_BEST_AFTER]
                        [--save-epochs SAVE_EPOCHS [SAVE_EPOCHS ...]]
                        [--use-mixed-precision] [--debug-steps DEBUG_STEPS]
-                       [--local_rank LOCAL_RANK]
 
 Train and/or prune an image classification or detection architecture on a
 dataset
@@ -127,8 +126,6 @@ optional arguments:
   --debug-steps DEBUG_STEPS
                         Amount of steps to run for training and testing for a
                         debug mode
-  --local_rank LOCAL_RANK
-                        Do not set: argument set by torch.distributed for DDP
 
 
 ##########
@@ -465,6 +462,14 @@ def parse_args():
         "using the sparseml API"
     )
 
+    # DDP argument, necessary for launching via torch.distributed
+    parser.add_argument(
+        "--local_rank",  # DO NOT MODIFY
+        type=int,
+        default=-1,
+        help=argparse.SUPPRESS,  # hide from help text
+    )
+
     subparsers = parser.add_subparsers(dest="command")
     train_parser = subparsers.add_parser(
         TRAIN_COMMAND,
@@ -707,14 +712,6 @@ def parse_args():
                 type=int,
                 default=-1,
                 help="Amount of steps to run for training and testing for a debug mode",
-            )
-
-            # DDP argument
-            par.add_argument(
-                "--local_rank",  # DO NOT MODIFY
-                type=int,
-                default=-1,
-                help="Do not set: argument set by torch.distributed for DDP",
             )
 
         if par == export_parser:
