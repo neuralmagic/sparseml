@@ -7,7 +7,7 @@ from typing import List, Union
 import tensorflow
 from tensorflow import Tensor, keras
 
-from sparseml.keras.utils import KerasLogger, LoggingMode
+from sparseml.keras.utils.logger import KerasLogger, LoggingMode
 
 
 __all__ = [
