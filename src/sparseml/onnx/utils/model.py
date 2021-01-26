@@ -671,7 +671,7 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
         _check_args(args, kwargs)
         nm_batch = list(batch.values())
         pred_time = time.time()
-        pred = self._engine.mapped_forward(nm_batch)
+        pred = self._engine.mapped_run(nm_batch)
         pred_time = time.time() - pred_time
 
         return pred, pred_time
