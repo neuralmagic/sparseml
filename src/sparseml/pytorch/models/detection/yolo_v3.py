@@ -262,8 +262,8 @@ class YoloV3(Module):
     input_shape=(3, 640, 640),
     domain="cv",
     sub_domain="detection",
-    architecture="yolo",
-    sub_architecture="v3",
+    architecture="yolo_v3",
+    sub_architecture="none",
     default_dataset="coco",
     default_desc="base",
 )

@@ -3,10 +3,11 @@ Built-in callbacks for Keras
 """
 
 from typing import List, Union
+
 import tensorflow
-from tensorflow import keras
-from tensorflow import Tensor
-from sparseml.keras.utils import KerasLogger, LoggingMode
+from tensorflow import Tensor, keras
+
+from sparseml.keras.utils.logger import KerasLogger, LoggingMode
 
 
 __all__ = [
@@ -89,7 +90,7 @@ class LoggerSettingCallback(keras.callbacks.Callback):
         Called at the begin of a batch in evaluation
 
         :param batch: batch index in current epoch
-        :param logs: dictionary of logs (see Keras Callback doc)        
+        :param logs: dictionary of logs (see Keras Callback doc)
         """
         super().on_test_batch_begin(batch, logs)
         self._set_logging_mode(LoggingMode.TEST)

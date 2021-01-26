@@ -69,7 +69,7 @@ def _registry_constructor_wrapper(key, constructor_function):
             if provided will override the pretrained param
         :param pretrained: True to load the default pretrained weights,
             a string to load a specific pretrained weight
-            (ex: base, optim, optim-perf),
+            (ex: base, pruned-moderate),
             or False to not load any pretrained weights
         :param pretrained_dataset: The dataset to load pretrained weights for
             (ex: imagenet, mnist, etc).
@@ -96,11 +96,13 @@ def _registry_constructor_wrapper(key, constructor_function):
                 key, pretrained, pretrained_dataset
             )
             try:
-                paths = zoo_model.download_framework_files()
+                paths = zoo_model.download_framework_files(extensions=[".pth"])
                 load_model(paths[0], model, load_strict, ignore)
             except Exception as ex:
                 # try one more time with overwrite on in case file was corrupted
-                paths = zoo_model.download_framework_files(overwrite=True)
+                paths = zoo_model.download_framework_files(
+                    overwrite=True, extensions=[".pth"]
+                )
                 load_model(paths[0], model, load_strict, ignore)
 
         return model

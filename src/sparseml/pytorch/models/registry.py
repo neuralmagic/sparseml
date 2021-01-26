@@ -69,7 +69,7 @@ class ModelRegistry(object):
 
         :param key: the model key (name) to create
         :param pretrained: True to load pretrained weights; to load a specific version
-            give a string with the name of the version (optim, optim-perf), default None
+            give a string with the name of the version (pruned-moderate, base), default None
         :param pretrained_path: A model file path to load into the created model
         :param pretrained_dataset: The dataset to load for the model
         :param load_strict: True to make sure all states are found in and
@@ -332,11 +332,13 @@ class ModelRegistry(object):
                     key, pretrained, pretrained_dataset
                 )
                 try:
-                    paths = zoo_model.download_framework_files()
+                    paths = zoo_model.download_framework_files(extensions=[".pth"])
                     load_model(paths[0], model, load_strict, ignore)
                 except Exception as ex:
                     # try one more time with overwrite on in case file was corrupted
-                    paths = zoo_model.download_framework_files(overwrite=True)
+                    paths = zoo_model.download_framework_files(
+                        overwrite=True, extensions=[".pth"]
+                    )
                     load_model(paths[0], model, load_strict, ignore)
 
             return model

@@ -120,7 +120,7 @@ class ModelRegistry(object):
 
         :param key: the model key (name) to retrieve
         :param pretrained: True to load pretrained weights; to load a specific version
-            give a string with the name of the version (optim, optim-perf), default True
+            give a string with the name of the version (pruned-moderate, base), default True
         :param pretrained_dataset: The dataset to load for the model
         :return: the sparsezoo Model reference for the given model
         """
