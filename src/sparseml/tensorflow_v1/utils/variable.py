@@ -80,8 +80,9 @@ def clean_tensor_name(var_tens: Union[str, tf_compat.Tensor]) -> str:
         (removes read and indices at the end)
     """
     name = var_tens if isinstance(var_tens, str) else var_tens.name
-    name = re.sub(r"/read:[0-9]+$", "", name)
-    name = re.sub(r":[0-9]+$", "", name)
+    name = re.sub(r"/read/_.+:[0-9]+$", "", name)  # x/read/_12__cv__46:0 -> x
+    name = re.sub(r"/read:[0-9]+$", "", name)  # x/read:0 -> x
+    name = re.sub(r":[0-9]+$", "", name)  # x:0 -> x
 
     return name
 
@@ -237,7 +238,11 @@ def any_str_or_regex_matches_tensor_name(
             if re.match(pattern, tensor_name) or re.match(pattern, clean_name):
                 return True
         else:
-            if tensor_name == name_or_regex or clean_name == name_or_regex:
+            if (
+                tensor_name == name_or_regex
+                or clean_name == name_or_regex
+                or clean_name == clean_tensor_name(name_or_regex)
+            ):
                 return True
     return False
 
@@ -258,7 +263,11 @@ def _validate_all_params_found(
     for name_or_regex in name_or_regex_patterns:
         # Convert all name_or_regex values to regex patterns since we may want
         # full names to match based on tensor name extensions
-        pattern = name_or_regex if name_or_regex[:3] != "re:" else name_or_regex[3:]
+        pattern = (
+            clean_tensor_name(name_or_regex)
+            if name_or_regex[:3] != "re:"
+            else name_or_regex[3:]
+        )
 
         if any(re.match(pattern, name) for name in tensor_names):
             continue  # regex pattern matches at least one full parameter name
