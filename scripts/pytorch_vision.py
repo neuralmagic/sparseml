@@ -898,15 +898,14 @@ def _create_val_dataset_and_loader(
         or not (args.is_main_process and args.dataset != "imagefolder")
     ):
         return None, None  # val dataset not needed
-    with torch_distributed_zero_first(args.local_rank):  # only download once locally
-        val_dataset = DatasetRegistry.create(
-            args.dataset,
-            root=args.dataset_path,
-            train=False,
-            rand_trans=False,
-            image_size=image_size,
-            **args.dataset_kwargs,
-        )
+    val_dataset = DatasetRegistry.create(
+        args.dataset,
+        root=args.dataset_path,
+        train=False,
+        rand_trans=False,
+        image_size=image_size,
+        **args.dataset_kwargs,
+    )
     if args.is_main_process:
         is_training = args.command == TRAIN_COMMAND
         val_loader = DataLoader(
