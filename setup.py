@@ -12,7 +12,7 @@ _deps = [
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<1.8.0",
-    "onnxruntime>=1.0.0,<1.4.0",
+    "onnxruntime>=1.0.0,<1.6.0",
     "pandas<1.0.0",
     "psutil>=5.0.0",
     "requests>=2.0.0",
