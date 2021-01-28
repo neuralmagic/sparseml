@@ -76,10 +76,17 @@ setup(
     version="0.1.0",
     author="Neuralmagic, Inc.",
     author_email="support@neuralmagic.com",
-    description="Libraries for state-of-the-art deep neural network optimization algorithms, enabling simple pipelines integration with a few lines of code",
+    description=(
+        "Libraries for state-of-the-art deep neural network optimization algorithms, "
+        "enabling simple pipelines integration with a few lines of code"
+    ),
     long_description=_setup_long_description()[0],
     long_description_content_type=_setup_long_description()[1],
-    keywords="inference, machine learning, neural network, computer vision, nlp, cv, deep learning, torch, pytorch, tensorflow, keras, sparsity, pruning, deep learning libraries, onnx, quantization, automl"
+    keywords=(
+        "inference, machine learning, neural network, computer vision, nlp, cv, "
+        "deep learning, torch, pytorch, tensorflow, keras, sparsity, pruning, deep "
+        "learning libraries, onnx, quantization, automl"
+    ),
     license="Apache",
     url="https://github.com/neuralmagic/sparseml",
     package_dir=_setup_package_dir(),
