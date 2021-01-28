@@ -5,7 +5,6 @@ Export Keras models to the local device.
 import os
 from typing import Any, List
 
-import onnx
 from tensorflow.keras import Model
 
 from sparseml.utils import clean_path, create_parent_dirs, tensors_export
@@ -47,6 +46,7 @@ class ModelExporter(object):
         name: str = "model.onnx",
         opset: int = DEFAULT_ONNX_OPSET,
         doc_string: str = "",
+        **kwargs,
     ):
         """
         Export an ONNX file for the current model.
@@ -54,18 +54,23 @@ class ModelExporter(object):
         :param name: name of the onnx file to save
         :param opset: onnx opset to use for exported model. Default is 11
         :param doc_string: optional doc string for exported ONNX model
+        :param kwargs: additional parameters passed into convert_keras
         """
         if keras2onnx_import_error is not None:
             raise keras2onnx_import_error
 
         model_name = self._model.name or name.split(".onnx")[0]
         onnx_model = keras2onnx.convert_keras(
-            self._model, name=model_name, target_opset=opset, doc_string=doc_string
+            self._model,
+            name=model_name,
+            target_opset=opset,
+            doc_string=doc_string,
+            **kwargs,
         )
 
         onnx_path = os.path.join(self._output_dir, name)
         create_parent_dirs(onnx_path)
-        onnx.save(onnx_model, onnx_path)
+        keras2onnx.save_model(onnx_model, onnx_path)
 
     def export_keras(self):
         """
