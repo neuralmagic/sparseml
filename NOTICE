@@ -1,8 +1,10 @@
-Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+SparseML
+Copyright 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+
+This product includes software developed at Neuralmagic, Inc. (https://www.neuralmagic.com).
 
 Source code in this repository is variously licensed under the Apache License
-Version 2.0, an Apache-compatible license. Please see
-LICENSE for more information.
+Version 2.0, an Apache-compatible license.
 
 * For a copy of the Apache License Version 2.0, please see LICENSE
   as included in this repository's top-level directory.
@@ -20,7 +22,7 @@ NOTICES
 All implementations in this repository are subject to Neural Magic's Legal Policies
 https://www.neuralmagic.com/legal
 
-All packages as defined in the requirements.txt and their associated licenses.
+Package dependencies are defined in the Python setup.py file in this repository's top-level directory and have their own Apache-compatible licenses and terms.
 
 PyTorch License https://github.com/pytorch/pytorch/blob/master/LICENSE
 
@@ -28,7 +30,8 @@ PyTorch torchvision and models License https://github.com/pytorch/vision/blob/ma
 
 TensorFlow License https://github.com/tensorflow/tensorflow/blob/master/LICENSE
 
-Examples given in some of the notebooks make use of fast.ai's 
+Some APIs and classes in SparseML make use of fast.ai's 
 Imagenette / Imagewoof dataset https://github.com/fastai/imagenette 
-provided under the 
-Apache License 2.0 https://github.com/fastai/imagenette/blob/master/LICENSE
+provided under the Apache License 2.0 https://github.com/fastai/imagenette/blob/master/LICENSE
+
+Other external dependencies, if referenced in this repository's various subdirectories, are subject to their associated licenses and terms.

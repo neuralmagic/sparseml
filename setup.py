@@ -74,16 +74,13 @@ def _setup_long_description() -> Tuple[str, str]:
 setup(
     name="sparseml",
     version="0.1.0",
-    author="Mark Kurtz, Benjamin Fineran, Tuan Nguyen, Kevin Rodriguez, Dan Alistarh",
+    author="Neuralmagic, Inc.",
     author_email="support@neuralmagic.com",
-    description="Python library for integrating with common deep learning frameworks "
-    "to apply SOTA model optimization techniques to simplify and "
-    "accelerate performance",
+    description="Libraries for state-of-the-art deep neural network optimization algorithms, enabling simple pipelines integration with a few lines of code",
     long_description=_setup_long_description()[0],
     long_description_content_type=_setup_long_description()[1],
-    keywords="inference machine learning neural network computer vision nlp cv "
-    "deep learning torch pytorch tensorflow keras",
-    license="[TODO]",
+    keywords="inference, machine learning, neural network, computer vision, nlp, cv, deep learning, torch, pytorch, tensorflow, keras, sparsity, pruning, deep learning libraries, onnx, quantization, automl"
+    license="Apache",
     url="https://github.com/neuralmagic/sparseml",
     package_dir=_setup_package_dir(),
     packages=_setup_packages(),
@@ -99,6 +96,7 @@ setup(
         "Intended Audience :: Education",
         "Intended Audience :: Information Technology",
         "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
