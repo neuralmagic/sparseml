@@ -7,14 +7,14 @@ cd notebooks
 jupyter notebook
 ```
 
-Additionally, the some notebooks may make use of the [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) package.
+Additionally, some notebooks may make use of the [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) package.
 You may need to enable the Jupyter extension to properly see the UIs.
 Use the following command to do so: `jupyter nbextension enable --py widgetsnbextension`.
 If Jupyter was already running, restart after running the command.
 
 Once the Jupyter session has started, you can open the desired notebooks.
 Note, the TensorFlow V1 notebooks are tested with TensorFlow version ~= 1.15.0. 
-For best results, make sure your system matches that version.
+For best results, confirm your system matches that version.
 
 | Script     |      Description      |
 |----------|-------------|

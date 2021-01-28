@@ -108,7 +108,7 @@ def parse_args():
     parser.add_argument(
         "--recipe-path",
         type=str,
-        default=None,
+        required=True,
         help="The path to the yaml file containing the sparseml modifiers and "
         "schedule to apply them with",
     )

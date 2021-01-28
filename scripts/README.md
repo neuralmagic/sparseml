@@ -1,12 +1,11 @@
 # Scripts for SparseML
 
-[TODO: ENGINEERING: EDIT THE FOLLOWING SO IT REFLECTS ANY UPDATES; THEN REMOVE THIS COMMENT.]
-
-This directory provides easy-of-use scripts for performing common SparseML work-flows.  This includes
+This directory provides easy-of-use scripts for performing common SparseML work
+flows.  This includes
 model training, pruning, quantization, exporting, and sensitivity analysis.
 
 These scripts natively support models in the SparseML submodules, however can be adapted for use with your own models
-or used to inspire new work-flows.  To see examples of simple integrations with SparseML check out our
+or used to inspire new workflows.  To see examples of simple integrations with SparseML check out our
 [notebooks](https://github.com/neuralmagic/sparseml/tree/main/notebooks)
 and [examples](https://github.com/neuralmagic/sparseml/tree/main/examples).  
 
