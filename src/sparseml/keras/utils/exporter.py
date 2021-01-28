@@ -56,7 +56,8 @@ class ModelExporter(object):
         :param name: name of the onnx file to save
         :param opset: onnx opset to use for exported model. Default is 11
         :param doc_string: optional doc string for exported ONNX model
-        :param kwargs: additional parameters passed into convert_keras
+        :param debug_mode: debug mode, default to True, passed into `convert_keras`
+        :param kwargs: additional parameters passed into `convert_keras`
         """
         if keras2onnx_import_error is not None:
             raise keras2onnx_import_error
