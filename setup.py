@@ -36,6 +36,7 @@ _dev_deps = [
     "rinohtype>=0.4.2",
     "sphinxcontrib-apidoc>=0.3.0",
     "wheel>=0.36.2",
+    "sphinx-rtd-theme",
 ]
 
 
