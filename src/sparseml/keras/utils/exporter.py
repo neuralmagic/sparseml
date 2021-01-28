@@ -2,7 +2,6 @@
 Export Keras models to the local device.
 """
 
-import logging
 import os
 from typing import Any, List
 
@@ -61,11 +60,6 @@ class ModelExporter(object):
         """
         if keras2onnx_import_error is not None:
             raise keras2onnx_import_error
-
-        if debug_mode:
-            logging.warning(
-                "Calling export_onnx with debug_mode on; certain optimization might be unavailable."
-            )
 
         model_name = self._model.name or name.split(".onnx")[0]
         onnx_model = keras2onnx.convert_keras(

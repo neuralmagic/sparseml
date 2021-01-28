@@ -223,7 +223,7 @@ def main():
     pruned_model = manager.finalize(model_for_pruning)
     exporter = ModelExporter(pruned_model, output_dir=pruned_model_dir)
     onnx_model_name = "pruned_resnet20_v1.onnx"
-    exporter.export_onnx(name=onnx_model_name, debug_mode=False)
+    exporter.export_onnx(name=onnx_model_name)
     print(
         "Model exported to {}".format(os.path.join(pruned_model_dir, onnx_model_name))
     )
