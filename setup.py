@@ -84,8 +84,8 @@ setup(
     long_description_content_type=_setup_long_description()[1],
     keywords=(
         "inference, machine learning, neural network, computer vision, nlp, cv, "
-        "deep learning, torch, pytorch, tensorflow, keras, sparsity, pruning, deep "
-        "learning libraries, onnx, quantization, automl"
+        "deep learning, torch, pytorch, tensorflow, keras, sparsity, pruning, "
+        "deep learning libraries, onnx, quantization, automl"
     ),
     license="Apache",
     url="https://github.com/neuralmagic/sparseml",

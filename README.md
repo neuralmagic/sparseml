@@ -184,8 +184,8 @@ The integration is done using the `ScheduledModifierManager` class which can be 
 This class handles modifying the TensorFlow graph for the desired optimizations.
 With this setup, the training process can then be modified as desired to optimize the model.
 
-#### Estimator based pipelines
-Estimator based pipelines are simpler to integrate with as compared to session based pipelines.
+#### Estimator-based pipelines
+Estimator-based pipelines are simpler to integrate with as compared to session-based pipelines.
 The `ScheduledModifierManager` can override the necessary callbacks in the estimator to modify 
 the graph using the `modify_estimator` function.
 
@@ -201,8 +201,8 @@ manager.modify_estimator(estimator, steps_per_epoch=num_train_batches)
 # Normal estimator training code...
 ```
 
-#### Session based pipelines
-Session based pipelines need a little bit more as compared to estimator based pipelines; however,
+#### Session-based pipelines
+Session-based pipelines need a little bit more as compared to estimator-based pipelines; however,
 it is still designed to require only a few lines of code for integration.
 After graph creation, the manager's `create_ops` method must be called.
 This will modify the graph as needed for the optimizations and return modifying ops and extras.
