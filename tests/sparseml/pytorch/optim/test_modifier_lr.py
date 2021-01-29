@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import math
 import os
 import sys
@@ -11,6 +25,10 @@ from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
+)
+
+
+from tests.sparseml.pytorch.optim.test_modifier import (  # noqa isort:skip
     test_epoch,
     test_loss,
     test_steps_per_epoch,
@@ -52,7 +70,11 @@ SET_LR = 0.1
 )
 class TestSetLRModifierImpl(ScheduledModifierTest):
     def test_lifecycle(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -67,20 +89,20 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
             )
 
             for step in range(test_steps_per_epoch):
-                test_epoch = float(epoch) + float(step) / float(test_steps_per_epoch)
+                epoch_test = float(epoch) + float(step) / float(test_steps_per_epoch)
 
                 if epoch < modifier.start_epoch:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
                 elif (
                     epoch == modifier.start_epoch
                     or (modifier.start_epoch == -1 and epoch == 0)
                 ) and step == 0:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
                 else:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
 
                 if epoch >= modifier.start_epoch:
                     assert (
@@ -176,7 +198,11 @@ EPOCH_APPLY_RANGE = 15
 )
 class TestLRModifierExponentialImpl(ScheduledUpdateModifierTest):
     def test_lifecycle(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -198,27 +224,27 @@ class TestLRModifierExponentialImpl(ScheduledUpdateModifierTest):
                 )
 
             for step in range(test_steps_per_epoch):
-                test_epoch = float(epoch) + float(step) / float(test_steps_per_epoch)
+                epoch_test = float(epoch) + float(step) / float(test_steps_per_epoch)
 
-                if test_epoch < modifier.start_epoch:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
-                elif abs(test_epoch - modifier.start_epoch) < sys.float_info.epsilon:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                if epoch_test < modifier.start_epoch:
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+                elif abs(epoch_test - modifier.start_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
-                elif test_epoch < modifier.end_epoch or modifier.end_epoch == -1:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                elif epoch_test < modifier.end_epoch or modifier.end_epoch == -1:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
-                elif abs(test_epoch - modifier.end_epoch) < sys.float_info.epsilon:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                elif abs(epoch_test - modifier.end_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
                 else:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
 
                 assert (
                     abs(get_optim_learning_rate(optimizer) - expected) < EPSILON
@@ -320,7 +346,11 @@ def test_lr_modifier_exponential_yaml():
 )
 class TestLRModifierStepImpl(ScheduledUpdateModifierTest):
     def test_lifecycle(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -351,27 +381,27 @@ class TestLRModifierStepImpl(ScheduledUpdateModifierTest):
                 )
 
             for step in range(test_steps_per_epoch):
-                test_epoch = float(epoch) + float(step) / float(test_steps_per_epoch)
+                epoch_test = float(epoch) + float(step) / float(test_steps_per_epoch)
 
-                if test_epoch < modifier.start_epoch:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
-                elif abs(test_epoch - modifier.start_epoch) < sys.float_info.epsilon:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                if epoch_test < modifier.start_epoch:
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+                elif abs(epoch_test - modifier.start_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
-                elif test_epoch < modifier.end_epoch or modifier.end_epoch == -1:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                elif epoch_test < modifier.end_epoch or modifier.end_epoch == -1:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
-                elif abs(test_epoch - modifier.end_epoch) < sys.float_info.epsilon:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                elif abs(epoch_test - modifier.end_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
                 else:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
 
                 assert (
                     abs(get_optim_learning_rate(optimizer) - expected) < EPSILON
@@ -476,7 +506,11 @@ MILESTONES = [5, 9, 12]
 )
 class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
     def test_lifecycle(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -494,27 +528,27 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
                 expected = modifier.init_lr * modifier.lr_kwargs["gamma"] ** num_gammas
 
             for step in range(test_steps_per_epoch):
-                test_epoch = float(epoch) + float(step) / float(test_steps_per_epoch)
+                epoch_test = float(epoch) + float(step) / float(test_steps_per_epoch)
 
-                if test_epoch < modifier.start_epoch:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
-                elif abs(test_epoch - modifier.start_epoch) < sys.float_info.epsilon:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                if epoch_test < modifier.start_epoch:
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+                elif abs(epoch_test - modifier.start_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
-                elif test_epoch < modifier.end_epoch or modifier.end_epoch == -1:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                elif epoch_test < modifier.end_epoch or modifier.end_epoch == -1:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
-                elif abs(test_epoch - modifier.end_epoch) < sys.float_info.epsilon:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                elif abs(epoch_test - modifier.end_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
                 else:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
 
                 optim_lr = get_optim_learning_rate(optimizer)
                 assert (
@@ -615,9 +649,13 @@ def test_lr_modifier_multi_step_yaml():
     ],
     scope="function",
 )
-class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
+class TestLRModifierCosineAnnealingImpl(ScheduledUpdateModifierTest):
     def test_lifecycle(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -627,34 +665,34 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
 
         for epoch in range(int(modifier.end_epoch) + 5):
             for step in range(test_steps_per_epoch):
-                test_epoch = float(epoch) + float(step) / float(test_steps_per_epoch)
+                epoch_test = float(epoch) + float(step) / float(test_steps_per_epoch)
 
-                if test_epoch < modifier.start_epoch:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
-                elif abs(test_epoch - modifier.start_epoch) < sys.float_info.epsilon:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                if epoch_test < modifier.start_epoch:  # noqa: F811
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+                elif abs(epoch_test - modifier.start_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
+                    )  # noqa: F811
+                elif epoch_test < modifier.end_epoch or modifier.end_epoch == -1:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
+                    modifier.scheduled_update(
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
-                elif test_epoch < modifier.end_epoch or modifier.end_epoch == -1:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
+                elif abs(epoch_test - modifier.end_epoch) < sys.float_info.epsilon:
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
                     modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
-                    )
-                elif abs(test_epoch - modifier.end_epoch) < sys.float_info.epsilon:
-                    assert modifier.update_ready(test_epoch, test_steps_per_epoch)
-                    modifier.scheduled_update(
-                        model, optimizer, test_epoch, test_steps_per_epoch
+                        model, optimizer, epoch_test, test_steps_per_epoch
                     )
                 else:
-                    assert not modifier.update_ready(test_epoch, test_steps_per_epoch)
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
 
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-def test_lr_modifier_multi_step_yaml():
+def test_lr_modifier_cosine_annealing_yaml():
     lr_class = "CosineAnnealingWarmRestarts"
     lr_kwargs = {"lr_min": 0.001, "cycle_epochs": 5}
     start_epoch = 2.0
