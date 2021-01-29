@@ -1,3 +1,17 @@
+# Copyright 2021-present Neuralmagic, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 
 import pytest
@@ -5,20 +19,19 @@ import torch
 from torch.nn import Conv2d, Linear
 
 from sparseml.pytorch.optim import QuantizationModifier
-from tests.sparseml.pytorch.helpers import (
-    ConvNet,
-    LinearNet,
-    create_optim_sgd,
+from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
+from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
+
+
+from tests.sparseml.pytorch.optim.test_modifier import (  # noqa isort:skip
     test_epoch,
     test_loss,
     test_steps_per_epoch,
 )
-from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
-
 
 try:
     from torch import quantization as torch_quantization
-except:
+except Exception:
     torch_quantization = None
 
 
@@ -65,7 +78,11 @@ def _is_quantiable_module(module):
 @pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
 class TestQuantizationModifierImpl(ScheduledModifierTest):
     def test_lifecycle(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()

@@ -1,3 +1,17 @@
+# Copyright 2021-present Neuralmagic, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Example script for running training and optimization tasks on torchvision
 classification models with an imagefolder based dataset using SparseML.
@@ -75,14 +89,15 @@ import time
 from types import ModuleType
 
 import torch
-from sparseml.utils import create_dirs
-from sparseml.pytorch.datasets.classification import ImageFolderDataset
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.utils import ModuleExporter, PythonLogger, load_model
 from torch.nn import CrossEntropyLoss
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torchvision import models
+
+from sparseml.pytorch.datasets.classification import ImageFolderDataset
+from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.pytorch.utils import ModuleExporter, PythonLogger, load_model
+from sparseml.utils import create_dirs
 
 
 MODEL_IMAGE_SIZES = {
