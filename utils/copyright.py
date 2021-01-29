@@ -1,4 +1,4 @@
-# Copyright 2021-present Neuralmagic, Inc.
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from typing import List, NamedTuple, Tuple
 
 
 COPYRIGHT_LINES = [
-    "Copyright 2021-present Neuralmagic, Inc.",
+    "Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.",
     "",
     'Licensed under the Apache License, Version 2.0 (the "License");',
     "you may not use this file except in compliance with the License.",
@@ -230,7 +230,7 @@ def _file_header_info(lines: List[str], file_type: str) -> _HeaderInfo:
 def _code_comment_prefix_suffix(file_type: str) -> Tuple[str, str]:
     if file_type == "python":
         return "#", ""
-    elif file_type == "html":
+    elif file_type == "html" or file_type == "markdown":
         return "<!--", "-->"
     elif file_type == "css" or file_type == "javascript":
         return "/*", "*/"
@@ -253,6 +253,8 @@ def _file_type(file_path: str) -> str:
         return "html"
     elif file_path.endswith(".css"):
         return "css"
+    elif file_path.endswith(".md"):
+        return "markdown"
 
     return "unknown"
 
