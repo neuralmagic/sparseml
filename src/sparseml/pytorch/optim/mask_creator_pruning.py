@@ -170,7 +170,8 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
     def get_grouping_fn(grouping_fn_name: str) -> Callable[[Tensor, List[int]], Tensor]:
         """
         :param grouping_fn_name: name of grouping function to get torch function for
-        :return: torch function for grouping_fn_name if available, raises error otherwise
+        :return: torch function for grouping_fn_name if available,
+            raises error otherwise
         """
         if grouping_fn_name not in GroupedPruningMaskCreator._GROUPING_FUNCTIONS:
             raise ValueError(
@@ -404,10 +405,9 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         for tens_dim, block_dim in zip(tens_shape, block_shape):
             if tens_dim % block_dim != 0:
                 raise ValueError(
-                    "Invalid block_shape {} for parameter shape {}."
-                    " Elements of block_shape must divide parameter shape evenly".format(
-                        block_shape, tens_shape
-                    )
+                    f"Invalid block_shape {block_shape} for parameter shape "
+                    f"{tens_shape}. Elements of block_shape must divide parameter "
+                    f"shape evenly"
                 )
         # Compute blocked tensor shape
         if len(block_shape) > 1 and block_shape[1] > 1:
@@ -435,8 +435,8 @@ mask_creator_name_to_constructor_lambda = {
 
 def load_mask_creator(obj: Union[str, Iterable[int]]) -> PruningMaskCreator:
     """
-    :param obj: Formatted string or block shape iterable specifying SparsityMaskCreator object to
-        return
+    :param obj: Formatted string or block shape iterable specifying SparsityMaskCreator
+        object to return
     :return: SparsityMaskCreator object created from obj
     """
     if isinstance(obj, str) and obj in mask_creator_name_to_constructor_lambda:

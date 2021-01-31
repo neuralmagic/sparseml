@@ -39,9 +39,6 @@ def sparsity(model: keras.Model):
         layer_sparsity_dict = {}
 
         for i, weight in enumerate(layer.trainable_weights):
-            weight_name = (
-                weight.name if hasattr(weight, "name") else "weight_{}".format(i)
-            )
             mask = tf.cast(tf.equal(weight, zero), tf.uint8)
 
             weight_size = tf.size(weight)

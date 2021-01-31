@@ -24,7 +24,7 @@ from typing import Any, NamedTuple, Union
 
 import numpy
 import onnx
-from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
+from onnx import ModelProto, NodeProto, numpy_helper
 
 from sparseml.onnx.utils import (
     get_batch_norm_params,

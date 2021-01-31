@@ -15,12 +15,12 @@
 import os
 
 import pytest
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 
 try:
     import pycocotools
-except:
+except Exception:
     pycocotools = None
 
 from sparseml.pytorch.datasets import CocoDetectionDataset, DatasetRegistry

@@ -16,6 +16,8 @@
 Generic code used as utilities and helpers for PyTorch
 """
 
+# flake8: noqa
+
 from .benchmarker import *
 from .exporter import *
 from .helpers import *

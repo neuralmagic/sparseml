@@ -25,7 +25,7 @@ from torch import Tensor
 
 try:
     from torchvision.ops.boxes import batched_nms
-except:
+except Exception:
     batched_nms = None
 
 

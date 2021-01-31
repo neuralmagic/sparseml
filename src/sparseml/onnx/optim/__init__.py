@@ -17,5 +17,7 @@ Recalibration code for the ONNX framework.
 Handles things like model pruning.
 """
 
+# flake8: noqa
+
 from .analyzer_model import *
 from .sensitivity_pruning import *

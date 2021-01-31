@@ -33,7 +33,6 @@ from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     LossWrapper,
     ModuleRunFuncs,
-    ModuleRunResults,
     ModuleTester,
     PyTorchLogger,
     get_prunable_layers,

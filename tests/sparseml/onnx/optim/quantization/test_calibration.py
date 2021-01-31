@@ -15,7 +15,6 @@
 import os
 
 import numpy as np
-import onnx
 import pytest
 
 from sparseml.onnx.optim.quantization.calibration import CalibrationSession
@@ -49,7 +48,7 @@ def test_augmented_graph(model_lambda, static):
     )
 
     # Test Augmented Graph
-    aug_model = calibrator.model_augmented
+    calibrator.model_augmented
     aug_model_nodes = [n.name for n in calibrator.model_augmented.graph.node]
 
     for node in calibrator.model.graph.node:

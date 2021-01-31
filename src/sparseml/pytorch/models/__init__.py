@@ -16,6 +16,8 @@
 Code for creating and loading models in PyTorch
 """
 
+# flake8: noqa
+
 from .classification import *
 from .detection import *
 from .external import *

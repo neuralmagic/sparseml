@@ -16,6 +16,8 @@
 Generic code used as utilities and helpers for Keras
 """
 
+# flake8: noqa
+
 from .callbacks import *
 from .exporter import *
 from .logger import *

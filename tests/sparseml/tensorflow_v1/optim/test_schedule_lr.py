@@ -38,7 +38,7 @@ from sparseml.tensorflow_v1.utils import tf_compat
 def test_step_lr_schedule(
     start_step: int, end_step: int, init_lr: float, step_size: int, gamma: float
 ):
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         global_step = tf_compat.placeholder(dtype=tf_compat.int64, shape=[])
         learning_rate = step_lr_schedule(
             global_step, start_step, end_step, step_size, init_lr, gamma
@@ -74,7 +74,7 @@ def test_step_lr_schedule(
 def test_multi_step_lr_schedule(
     start_step: int, milestone_steps: List[int], init_lr: float, gamma: float
 ):
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         global_step = tf_compat.placeholder(dtype=tf_compat.int64, shape=[])
         learning_rate = multi_step_lr_schedule(
             global_step, start_step, milestone_steps, init_lr, gamma

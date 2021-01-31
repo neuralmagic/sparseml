@@ -154,7 +154,8 @@ def convert_sparse_initializers_to_dense(
     """
     :param model: ONNX model with sparse initializers to convert to dense representation
     :param inplace: True to do model conversion in place. Default is True
-    :return: The given model with all sparse initializers converted to dense initializers
+    :return: The given model with all sparse initializers converted to dense
+        initializers
     """
     _check_sparse_tensor_import()
     if not inplace:

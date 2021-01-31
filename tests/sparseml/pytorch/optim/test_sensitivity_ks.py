@@ -45,7 +45,7 @@ def test_module_ks_sensitivity_analysis_one_shot(model):
         assert len(res.averages) > 0
         assert res.sparse_average > 0
         assert res.sparse_integral > 0
-        assert res.sparse_comparison > 0
+        assert res.sparse_comparison() > 0
 
 
 def _test_one_shot_ks_loss_sensitivity_helper(

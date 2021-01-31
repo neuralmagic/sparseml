@@ -64,7 +64,7 @@ def test_approx_ks_loss_sensitivity(net_const: Callable):
 def test_loss_sensitivity(
     net_const: Callable, inp_arr: numpy.ndarray, labs_arr: numpy.ndarray
 ):
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         out, inp = net_const()
         labels = tf_compat.placeholder(
             tf_compat.float32, [None, *labs_arr.shape[1:]], name="logits"

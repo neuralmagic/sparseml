@@ -92,7 +92,7 @@ def test_fat_exp_relu():
     x_tens = torch.randn(1, 8, 64, 64)
     threshold = torch.tensor(0.1)
     compression = torch.tensor(100.0)
-    out = fat_exp_relu(x_tens, threshold, compression)
+    fat_exp_relu(x_tens, threshold, compression)
 
 
 @pytest.mark.skipif(

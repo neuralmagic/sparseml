@@ -134,7 +134,8 @@ class ModelRegistry(object):
 
         :param key: the model key (name) to retrieve
         :param pretrained: True to load pretrained weights; to load a specific version
-            give a string with the name of the version (pruned-moderate, base), default True
+            give a string with the name of the version (pruned-moderate, base),
+            default True
         :param pretrained_dataset: The dataset to load for the model
         :return: the sparsezoo Model reference for the given model
         """
@@ -234,7 +235,7 @@ class ModelRegistry(object):
                 index_path = index_path[0]
                 model_path = index_path[:-6]
                 saver.restore(sess, model_path)
-            except Exception as ex:
+            except Exception:
                 # try one more time with overwrite on in case files were corrupted
                 paths = zoo_model.download_framework_files(overwrite=True)
                 index_path = [path for path in paths if path.endswith(".index")]

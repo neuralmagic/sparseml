@@ -42,7 +42,7 @@ def test_mobilenets_v2(
     key: str, pretrained: Union[bool, str], test_input: bool, const: Callable
 ):
     # test out the stand alone constructor
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         inputs = tf_compat.placeholder(
             tf_compat.float32, [None, 224, 224, 3], name="inputs"
         )
@@ -57,7 +57,7 @@ def test_mobilenets_v2(
                 assert out.sum() != 0
 
     # test out the registry
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         inputs = tf_compat.placeholder(
             tf_compat.float32, [None, 224, 224, 3], name="inputs"
         )

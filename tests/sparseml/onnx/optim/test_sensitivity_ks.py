@@ -24,11 +24,10 @@ from sparseml.onnx.optim.sensitivity_pruning import (
     pruning_perf_sens_one_shot,
 )
 from sparseml.onnx.utils.data import DataLoader
-from tests.sparseml.onnx.helpers import (
-    GENERATE_TEST_FILES,
-    OnnxRepoModelFixture,
-    onnx_repo_models,
-)
+from tests.sparseml.onnx.helpers import GENERATE_TEST_FILES, OnnxRepoModelFixture
+
+
+from tests.sparseml.onnx.helpers import onnx_repo_models  # noqa isort: skip
 
 
 try:
@@ -56,7 +55,7 @@ OnnxModelAnalysisFixture = NamedTuple(
 
 @pytest.fixture(scope="session")
 def onnx_models_with_analysis(
-    request, onnx_repo_models: OnnxRepoModelFixture
+    request, onnx_repo_models: OnnxRepoModelFixture  # noqa: F811
 ) -> OnnxModelAnalysisFixture:
     data_path = "test_sensitivity_ks_data"
     sparsity_levels = [0, 0.4, 0.8, 0.99]

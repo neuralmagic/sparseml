@@ -13,7 +13,8 @@
 # limitations under the License.
 
 """
-Code related to convenience functions for controlling the calculation of losses and metrics
+Code related to convenience functions for controlling the calculation of losses and
+metrics.
 Additionally adds in support for knowledge distillation
 """
 

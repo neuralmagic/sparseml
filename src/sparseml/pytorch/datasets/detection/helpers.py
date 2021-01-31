@@ -117,7 +117,8 @@ def yolo_collate_fn(
     input.
     :param batch: a batch of data points and annotations transformed by
         bounding_box_and_labels_to_yolo_fmt
-    :return: the batch stacked as tensors for all values except for the original annotations
+    :return: the batch stacked as tensors for all values except for the
+        original annotations
     """
     images = []
     targets = []
@@ -141,7 +142,8 @@ def ssd_collate_fn(
     Collate function to be used for creating a DataLoader with values transformed by
     encode_annotation_bounding_boxes.
     :param batch: a batch of data points transformed by encode_annotation_bounding_boxes
-    :return: the batch stacked as tensors for all values except for the original annotations
+    :return: the batch stacked as tensors for all values except for the
+        original annotations
     """
     images = []
     enc_boxes = []

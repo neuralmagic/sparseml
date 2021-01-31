@@ -183,7 +183,9 @@ class ModuleExporter(object):
             self._module,
             optimizer,
             epoch,
-            use_zipfile_serialization_if_available=use_zipfile_serialization_if_available,
+            use_zipfile_serialization_if_available=(
+                use_zipfile_serialization_if_available
+            ),
             include_modifiers=include_modifiers,
         )
 
@@ -235,7 +237,7 @@ class ModuleExporter(object):
                 )
 
                 if lab is not None:
-                    exported_label = tensors_export(
+                    tensors_export(
                         lab, labels_dir, "lab", counter=exp_counter, break_batch=True
                     )
 
@@ -300,5 +302,5 @@ def _delete_trivial_onnx_adds(model: onnx.ModelProto):
                 # remove node and constant
                 model.graph.node.remove(add_node)
                 model.graph.node.remove(add_const_node)
-        except:  # skip node on any error
+        except Exception:  # skip node on any error
             continue

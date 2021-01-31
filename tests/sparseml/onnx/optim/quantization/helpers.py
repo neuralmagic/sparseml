@@ -16,7 +16,6 @@
 Helper functions to test quantization package
 """
 
-import os
 import tempfile
 
 import numpy as np
@@ -55,9 +54,7 @@ def onnx_conv_net() -> ModelProto:
 
     # Conv Layer
     conv1_weight = _random_float_tensor("conv1.weight", 1, 3, 3, 3)
-    conv1_output = onnx.helper.make_tensor_value_info(
-        "conv1.output", TensorProto.FLOAT, [1, 1, 5, 5]
-    )
+    onnx.helper.make_tensor_value_info("conv1.output", TensorProto.FLOAT, [1, 1, 5, 5])
     conv1_node = onnx.helper.make_node(
         "Conv",
         ["input", "conv1.weight"],
@@ -72,9 +69,7 @@ def onnx_conv_net() -> ModelProto:
     bn1_bias = _random_float_tensor("bn1.bias", 1)
     bn1_mean = _random_float_tensor("bn1.running_mean", 1)
     bn1_var = _random_float_tensor("bn1.running_var", 1)
-    bn1_output = onnx.helper.make_tensor_value_info(
-        "bn1.output", TensorProto.FLOAT, [1, 1, 5, 5]
-    )
+    onnx.helper.make_tensor_value_info("bn1.output", TensorProto.FLOAT, [1, 1, 5, 5])
     bn1_node = onnx.helper.make_node(
         "BatchNormalization",
         [
@@ -90,9 +85,7 @@ def onnx_conv_net() -> ModelProto:
 
     # Conv Layer 2
     conv2_weight = _random_float_tensor("conv2.weight", 1, 1, 3, 3)
-    conv2_output = onnx.helper.make_tensor_value_info(
-        "conv2.output", TensorProto.FLOAT, [1, 1, 5, 5]
-    )
+    onnx.helper.make_tensor_value_info("conv2.output", TensorProto.FLOAT, [1, 1, 5, 5])
     conv2_node = onnx.helper.make_node(
         "Conv",
         ["bn1.output", "conv2.weight"],
@@ -155,9 +148,7 @@ def onnx_linear_net() -> ModelProto:
 
     # MatMul Layer 1
     matmul1_weight = _random_float_tensor("matmul1.weight", 20, 20)
-    matmul1_output = onnx.helper.make_tensor_value_info(
-        "matmul1.output", TensorProto.FLOAT, [20, 20]
-    )
+    onnx.helper.make_tensor_value_info("matmul1.output", TensorProto.FLOAT, [20, 20])
     matmul1_node = onnx.helper.make_node(
         "MatMul", ["input", "matmul1.weight"], ["matmul1.output"], name="MatMul1"
     )

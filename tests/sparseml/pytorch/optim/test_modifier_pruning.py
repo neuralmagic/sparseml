@@ -27,7 +27,7 @@ from tests.sparseml.pytorch.optim.test_modifier import (
 )
 
 
-from tests.sparseml.pytorch.optim.test_modifier import (  # noqa isort:skip
+from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_epoch,
     test_loss,
     test_steps_per_epoch,

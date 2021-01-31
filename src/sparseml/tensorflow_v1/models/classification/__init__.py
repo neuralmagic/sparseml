@@ -15,6 +15,9 @@
 """
 Models related to image classification field in computer vision
 """
+
+# flake8: noqa
+
 from .mnist import *
 from .mobilenet import *
 from .mobilenet_v2 import *

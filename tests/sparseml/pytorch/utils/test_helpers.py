@@ -468,7 +468,7 @@ class ComplexModule(Module):
 )
 def test_tensors_module_forward(module, tensors, check_feat_lab_inp):
     out = tensors_module_forward(tensors, module, check_feat_lab_inp)
-    assert out
+    assert len(out)
 
 
 @pytest.mark.skipif(

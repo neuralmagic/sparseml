@@ -108,7 +108,7 @@ def test_analyzer(
     out = model(tens)
     analyzer.enabled = False
     out = model(tens)
-    assert out
+    assert len(out)
 
     desc = analyzer.layer_desc(name)
     assert desc.params == params

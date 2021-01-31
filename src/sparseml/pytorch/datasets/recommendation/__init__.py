@@ -15,3 +15,5 @@
 """
 Datasets related to recommendations field
 """
+
+# flake8: noqa

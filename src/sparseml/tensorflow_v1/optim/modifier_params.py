@@ -25,11 +25,7 @@ from sparseml.tensorflow_v1.optim.modifier import (
     ScheduledModifier,
     TensorFlowModifierYAML,
 )
-from sparseml.tensorflow_v1.utils import (
-    any_str_or_regex_matches_tensor_name,
-    get_prunable_ops,
-    tf_compat,
-)
+from sparseml.tensorflow_v1.utils import any_str_or_regex_matches_tensor_name, tf_compat
 from sparseml.utils import ALL_TOKEN, convert_to_bool, flatten_iterable
 
 
@@ -175,7 +171,7 @@ class TrainableParamsModifier(ScheduledModifier):
             if match_params
             else tf_compat.trainable_variables()
         )
-        for variable in tf_compat.global_variables():
+        for variable in all_variables:
             if match_params and not any_str_or_regex_matches_tensor_name(
                 variable.name, self._params
             ):

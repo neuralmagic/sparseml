@@ -27,7 +27,7 @@ from typing import List, Union
 
 try:
     from torchvision import models as torchvision_models
-except:
+except Exception:
     torchvision_models = None
 
 from sparseml.pytorch.models.registry import ModelRegistry
@@ -111,13 +111,13 @@ def _registry_constructor_wrapper(key, constructor_function):
             )
             try:
                 paths = zoo_model.download_framework_files(extensions=[".pth"])
-                load_model(paths[0], model, load_strict, ignore)
-            except Exception as ex:
+                load_model(paths[0], model, load_strict, ignore_error_tensors)
+            except Exception:
                 # try one more time with overwrite on in case file was corrupted
                 paths = zoo_model.download_framework_files(
                     overwrite=True, extensions=[".pth"]
                 )
-                load_model(paths[0], model, load_strict, ignore)
+                load_model(paths[0], model, load_strict, ignore_error_tensors)
 
         return model
 

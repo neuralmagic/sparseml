@@ -76,14 +76,16 @@ class CalibrationSession:
     @property
     def model(self):
         """
-        :return: The loaded model, if optimization has run, will be the optimized version
+        :return: The loaded model, if optimization has run,
+            will be the optimized version
         """
         return self._model
 
     @property
     def model_augmented(self):
         """
-        :return: The augmented model, if optimization has run, will be the optimized version
+        :return: The augmented model, if optimization has run,
+            will be the optimized version
         """
         return self._model_augmented
 
@@ -97,7 +99,8 @@ class CalibrationSession:
             print("Optimizing {}...".format(self._onnx_file))
             model_optimized = fold_conv_bns(self._onnx_file)
             if model_optimized is None:
-                raise Exception  # no optimization performed, skip the rest of this block
+                # no optimization performed, skip the rest of this block
+                raise Exception()
             onnx.checker.check_model(
                 model_optimized
             )  # should raise exception if broken

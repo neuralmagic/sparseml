@@ -31,7 +31,7 @@ from sparseml.tensorflow_v1.utils import tf_compat
     reason="Skipping model tests",
 )
 def test_mnist():
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         inputs = tf_compat.placeholder(
             tf_compat.float32, [None, 28, 28, 1], name="inputs"
         )
@@ -62,7 +62,7 @@ def test_mnist():
     ],
 )
 def test_mnist_registry(key: str, pretrained: Union[bool, str], test_input: bool):
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         inputs = tf_compat.placeholder(
             tf_compat.float32, [None, 28, 28, 1], name="inputs"
         )

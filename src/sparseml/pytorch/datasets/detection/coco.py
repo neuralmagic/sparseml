@@ -31,7 +31,7 @@ try:
     from torchvision.datasets import CocoDetection
 
     import pycocotools
-except:
+except Exception:
     CocoDetection = object
     pycocotools = None
 
@@ -168,9 +168,7 @@ class CocoDetectionDataset(CocoDetection):
 
         elif not os.path.isdir(root):
             raise ValueError(
-                "Coco Dataset Path {root} does not exist. Please download dataset.".format(
-                    root=root
-                )
+                f"Coco Dataset Path {root} does not exist. Please download dataset."
             )
         yolo_preprocess = preprocessing_type == "yolo"
         trans = [

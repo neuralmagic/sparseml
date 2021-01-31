@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import tempfile
 
 import pytest
 from torch.utils.data import Dataset

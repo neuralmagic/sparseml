@@ -17,27 +17,16 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
-from typing import NamedTuple
 
 import torch
-from onnx import ModelProto, NodeProto, numpy_helper
 from torch.nn import BatchNorm2d, Conv2d, Module, ReLU
 
 
 try:
     from torch import quantization as torch_quantization
-except:
+except Exception:
     torch_quantization = None
 
-from sparseml.onnx.utils import (
-    get_init_by_name,
-    get_node_output_nodes,
-    get_node_params,
-    get_nodes_by_output_id,
-    remove_node_and_params_from_graph,
-    swap_node_output,
-    update_model_param,
-)
 from sparseml.pytorch.nn import ReLU as ReLU_nm
 
 

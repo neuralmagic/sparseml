@@ -13,8 +13,8 @@
 # limitations under the License.
 
 """
-Perform optimization tasks on image classification and object detection models in PyTorch
-including:
+Perform optimization tasks on image classification and object detection models in
+PyTorch including:
 * Model pruning
 * Quantization aware training
 * Sparse transfer learning
@@ -152,7 +152,8 @@ usage: vision.py export [-h] --arch-key ARCH_KEY [--pretrained PRETRAINED]
                         [--dataset-kwargs DATASET_KWARGS]
                         [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
                         [--num-samples NUM_SAMPLES] [--onnx-opset ONNX_OPSET]
-                        [--use-zipfile-serialization-if-available USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE]
+                        [--use-zipfile-serialization-if-available
+                            USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE]
 
 Export a model to onnx as well as store sample inputs, outputs, and labels
 
@@ -391,7 +392,7 @@ python scripts/pytorch_vision.py pruning_sensitivity \
     --dataset-path ~/datasets/ILSVRC2012
 
 ##########
-Example command for running one shot KS sensitivity analysis on ssd300_resnet50 for coco:
+Example command for running one shot KS sens analysis on ssd300_resnet50 for coco:
 python scripts/pytorch_vision.py pruning_sensitivity \
     --arch-key ssd300_resnet50 --dataset coco \
     --dataset-path ~/datasets/coco-detection
@@ -408,7 +409,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import torch
 from torch.nn import Module
@@ -600,8 +601,10 @@ def parse_args():
                 "--device",
                 type=str,
                 default=default_device(),
-                help="The device to run on (can also include ids for data parallel), ex:"
-                " cpu, cuda, cuda:0,1",
+                help=(
+                    "The device to run on (can also include ids for data parallel), ex:"
+                    " cpu, cuda, cuda:0,1"
+                ),
             )
             par.add_argument(
                 "--loader-num-workers",
@@ -667,9 +670,11 @@ def parse_args():
             par.add_argument(
                 "--sparse-transfer-learn",
                 action="store_true",
-                help="Enable sparse transfer learning modifiers to enforce the sparsity "
-                "for already sparse layers. The modifiers are added to the "
-                "ones to be loaded from the recipe-path",
+                help=(
+                    "Enable sparse transfer learning modifiers to enforce the sparsity "
+                    "for already sparse layers. The modifiers are added to the "
+                    "ones to be loaded from the recipe-path"
+                ),
             )
             par.add_argument(
                 "--eval-mode",
@@ -718,8 +723,11 @@ def parse_args():
             par.add_argument(
                 "--use-mixed-precision",
                 action="store_true",
-                help="Trains model using mixed precision. Supported environments are single GPU"
-                " and multiple GPUs using DistributedDataParallel with one GPU per process",
+                help=(
+                    "Trains model using mixed precision. Supported environments are "
+                    "single GPU and multiple GPUs using DistributedDataParallel with "
+                    "one GPU per process"
+                ),
             )
             par.add_argument(
                 "--debug-steps",
@@ -1121,7 +1129,7 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
             if args.rank != -1:  # sync DDP dataloaders
                 train_loader.sampler.set_epoch(epoch)
 
-            train_res = trainer.run_epoch(
+            trainer.run_epoch(
                 train_loader,
                 epoch,
                 max_steps=args.debug_steps,
@@ -1189,7 +1197,9 @@ def export(args, model, val_loader, save_dir):
     # export PyTorch state dict
     LOGGER.info("exporting pytorch in {}".format(save_dir))
     exporter.export_pytorch(
-        use_zipfile_serialization_if_available=args.use_zipfile_serialization_if_available
+        use_zipfile_serialization_if_available=(
+            args.use_zipfile_serialization_if_available
+        )
     )
     onnx_exported = False
 

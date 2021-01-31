@@ -780,7 +780,8 @@ def load_recipe_yaml_str(file_path: str) -> str:
         yaml_str = yaml_file.read()
         if extension == "md":
             # extract YAML front matter from markdown recipe card
-            # adapted from https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
+            # adapted from
+            # https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
             yaml_delim = r"(?:---|\+\+\+)"
             yaml = r"(.*?)"
             re_pattern = r"^\s*" + yaml_delim + yaml + yaml_delim

@@ -332,7 +332,7 @@ class TensorBoardLogger(PyTorchLogger):
         """
         try:
             self._writer.add_hparams(params, {})
-        except Exception as ex:
+        except Exception:
             # fall back incase add_hparams isn't available, log as scalars
             for name, val in params.items():
                 self.log_scalar(name, val)

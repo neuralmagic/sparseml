@@ -12,4 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Neural Network layers and ops for TensorFlow V1
+"""
+
+# flake8: noqa
+
 from .layers import *

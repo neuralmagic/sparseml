@@ -17,6 +17,8 @@ Recalibration code for the PyTorch framework.
 Handles things like model pruning and increasing activation sparsity.
 """
 
+# flake8: noqa
+
 from .analyzer_as import *
 from .analyzer_module import *
 from .analyzer_pruning import *

@@ -29,7 +29,7 @@ from sparseml.tensorflow_v1.utils import tf_compat
 
 
 def _validate(dataset: ImageFolderDataset, size: int):
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         batch_size = 16
 
         with tf_compat.device("/cpu:0"):

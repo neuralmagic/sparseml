@@ -15,7 +15,6 @@
 import os
 from typing import Callable, Dict, List, Union
 
-import numpy as np
 import pytest
 
 from sparseml.tensorflow_v1.optim import (
@@ -133,7 +132,7 @@ class ModifierTest(BaseModifierTest):
             return tf_compat.estimator.EstimatorSpec(mode)
 
         modifier = modifier_lambda()
-        graph = tf_compat.get_default_graph()
+        tf_compat.get_default_graph()
         estimator = tf_compat.estimator.Estimator(
             model_fn=model_fn,
         )

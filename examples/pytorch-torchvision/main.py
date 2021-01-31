@@ -116,9 +116,12 @@ def parse_args():
         "--model",
         type=str,
         required=True,
-        help="The torchvision model class to use, ex: inception_v3, resnet50, mobilenet_v2 "
-        "model name is fed directly to torchvision.models, more information can be found here "
-        "https://pytorch.org/docs/stable/torchvision/models.html",
+        help=(
+            "The torchvision model class to use, ex: inception_v3, resnet50, "
+            "mobilenet_v2 model name is fed directly to torchvision.models, "
+            "more information can be found here "
+            "https://pytorch.org/docs/stable/torchvision/models.html"
+        ),
     )
     parser.add_argument(
         "--recipe-path",
@@ -132,8 +135,10 @@ def parse_args():
         type=int,
         required=False,
         default=None,
-        help="Size of image to use for model input. Default is 224 unless pytorch documentation "
-        "specifies otherwise",
+        help=(
+            "Size of image to use for model input. Default is 224 unless pytorch "
+            "documentation specifies otherwise"
+        ),
     )
     parser.add_argument(
         "--batch-size",
@@ -295,11 +300,12 @@ def train_model(
                 # track history if only in train
                 with torch.set_grad_enabled(phase == "train"):
                     # Get model outputs and calculate loss
-                    # Special case for inception because in training it has an auxiliary output. In train
-                    #   mode we calculate the loss by summing the final output and the auxiliary output
-                    #   but in testing we only consider the final output.
+                    # Special case for inception because in training it has an
+                    # auxiliary output. In train mode we calculate the loss by summing
+                    # the final output and the auxiliary output but in testing we
+                    # only consider the final output.
                     if is_inception and phase == "train":
-                        # From https://discuss.pytorch.org/t/how-to-optimize-inception-model-with-auxiliary-classifiers/7958
+                        # From https://discuss.pytorch.org/t/how-to-optimize-inception-model-with-auxiliary-classifiers/7958  # noqa
                         outputs, aux_outputs = model(inputs)
                         loss1 = criterion(outputs, labels)
                         loss2 = criterion(aux_outputs, labels)

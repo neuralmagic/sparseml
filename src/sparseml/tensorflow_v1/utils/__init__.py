@@ -16,6 +16,8 @@
 Generic code used as utilities and helpers for TensorFlow
 """
 
+# flake8: noqa
+
 from .exporter import *
 from .helpers import *
 from .loss import *

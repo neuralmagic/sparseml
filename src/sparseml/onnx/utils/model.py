@@ -17,6 +17,7 @@ Utilities for ONNX models and running inference with them
 """
 import logging
 import os
+import re
 import tempfile
 import time
 from abc import ABC, abstractmethod
@@ -144,11 +145,11 @@ class ModelRunner(ABC):
         """
         outputs = []
         times = []
-        for output, time in self.run_iter(
+        for output, pred_time in self.run_iter(
             data_loader, desc, show_progress, max_steps, *args, **kwargs
         ):
             outputs.append(output)
-            times.append(time)
+            times.append(pred_time)
 
         return outputs, times
 
@@ -162,7 +163,8 @@ class ModelRunner(ABC):
         **kwargs,
     ):
         """
-        Iteratively runs inference for a model for the data given in the data_loader iterator
+        Iteratively runs inference for a model for the data given in the
+        data_loader iterator
 
         :param data_loader: the data_loader used to load batches of data to
             run through the model
@@ -170,8 +172,8 @@ class ModelRunner(ABC):
         :param show_progress: True to show a tqdm bar when running, False otherwise
         :param max_steps: maximum number of steps to take for the data_loader
             instead of running over all the data
-        :return: a tuple containing the list of outputs and the list of times
-            for running the data
+        :return: an iterator to go through the tuples containing
+            the list of outputs and the list of times for running the data
         """
         counter_len = len(data_loader) if not data_loader.infinite else None
 
@@ -190,9 +192,6 @@ class ModelRunner(ABC):
             if not show_progress
             else auto.tqdm(enumerate(data_loader), desc=desc, total=progress_steps)
         )
-
-        outputs = []
-        times = []
 
         for batch, (data, label) in data_iter:
             _LOGGER.debug("calling batch_forward for batch {}".format(batch))
@@ -227,7 +226,8 @@ class OpenVINOModelRunner(ModelRunner):
     :param nthreads: number of threads to run the model
     :param batch_size: Batch size value. If not specified, the batch size value is
         determined from Intermediate Representation
-    :param shape: shape to be set for the input(s). For example, "input1[1,3,224,224],input2[1,4]"
+    :param shape: shape to be set for the input(s).
+        For example, "input1[1,3,224,224],input2[1,4]"
         or "[1,3,224,224]" in case of one input size.
     """
 
@@ -469,7 +469,7 @@ class ORTModelRunner(ModelRunner):
 
         # Note: If ORT was built with OpenMP, use OpenMP env variable such as
         # OMP_NUM_THREADS to control the number of threads.
-        # See: https://github.com/microsoft/onnxruntime/blob/master/docs/ONNX_Runtime_Perf_Tuning.md
+        # See: https://github.com/microsoft/onnxruntime/blob/master/docs/ONNX_Runtime_Perf_Tuning.md  # noqa
         sess_options.intra_op_num_threads = nthreads
 
         sess_options.log_severity_level = 3

@@ -161,7 +161,7 @@ class ParallelWorker(object):
 
             try:
                 val = source_queue.get(block=True, timeout=0.01)
-            except Empty as err:
+            except Empty:
                 continue
 
             res = worker_func(val)
