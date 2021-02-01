@@ -321,7 +321,15 @@ TensorFlow V1:
 
 ```bash
 pip install sparseml[tf_v1]
-```
+``` 
+
+TensorFlow V1 with GPU operations enabled:
+```bash
+pip install sparseml[tf_v1_gpu]
+``` 
+Depending on your device and CUDA version, you may need to install additional
+dependencies for using TensorFlow V1 with GPU operations.  You can find these
+steps [here](https://www.tensorflow.org/install/gpu#older_versions_of_tensorflow).
 
 ## Resources and Learning More
 
