@@ -158,7 +158,7 @@ class ModelExporter(object):
             )
 
             if lab is not None:
-                exported_label = tensors_export(
+                tensors_export(
                     lab, labels_dir, "lab", counter=exp_counter, break_batch=True
                 )
 

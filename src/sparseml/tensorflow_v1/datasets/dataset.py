@@ -119,8 +119,8 @@ class Dataset(metaclass=ABCMeta):
 
             dataset = dataset.map(self.processor, num_parallel_calls=num_parallel_calls)
 
-            # Together with shuffling above, putting batch after repeat yields batches that
-            # straddle epoch boundaries
+            # Together with shuffling above, putting batch after repeat yields
+            # batches that straddle epoch boundaries
             dataset = dataset.repeat(repeat_count)
             dataset = dataset.batch(batch_size)
 

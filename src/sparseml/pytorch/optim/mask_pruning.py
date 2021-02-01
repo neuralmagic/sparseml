@@ -59,7 +59,8 @@ class ModuleParamPruningMask(object):
         :param track_grad_mom: store the gradient updates to the parameter with a
             momentum variable must be in the range [0.0, 1.0), if set to 0.0 then will
             only keep most recent
-        :param mask_creator: object to define sparisty mask creation, default is unstructured mask
+        :param mask_creator: object to define sparisty mask creation,
+            default is unstructured mask
         :param layer_name: the name of the layer the parameter to mask is located in
         """
         self._layer = layer
@@ -230,9 +231,8 @@ class ModuleParamPruningMask(object):
 
         if value.shape != self._param.data.shape:
             raise ValueError(
-                "param_tensor shape of {} does not match layer.param shape of {}".format(
-                    value.shape, self._param.shape
-                )
+                f"param_tensor shape of {value.shape} does not match layer.param "
+                f"shape of {self._param.shape}"
             )
 
         value = self._check_regen_value(value)

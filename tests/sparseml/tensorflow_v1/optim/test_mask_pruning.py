@@ -418,7 +418,7 @@ def test_get_or_create_ks_schedule_ops(
 ):
     group = "test-group"
 
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         global_step = tf_compat.train.get_or_create_global_step()
         step_placeholder = tf_compat.placeholder(dtype=tf_compat.int64, name="step")
         global_assign = global_step.assign(step_placeholder)

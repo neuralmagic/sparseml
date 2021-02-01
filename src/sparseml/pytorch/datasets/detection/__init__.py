@@ -16,6 +16,8 @@
 Datasets related to object detection field in computer vision
 """
 
+# flake8: noqa
+
 from .coco import *
 from .helpers import *
 from .voc import *

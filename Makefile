@@ -6,7 +6,33 @@ CHECKGLOBS := 'examples/**/*.py' 'scripts/**/*.py' 'src/**/*.py' 'tests/**/*.py'
 DOCDIR := docs
 MDCHECKGLOBS := 'docs/**/*.md' 'examples/**/*.md' 'notebooks/**/*.md' 'scripts/**/*.md'
 MDCHECKFILES := CODE_OF_CONDUCT.md CONTRIBUTING.md DEVELOPING.md README.md
-TARGET := ""  # directory/file/function to target with pytest
+
+TARGETS := ""  # targets for running pytests: keras,onnx,pytorch,pytorch_models,pytorch_datasets,tensorflow_v1,tensorflow_v1_models,tensorflow_v1_datasets
+PYTEST_ARGS := ""
+ifneq ($(findstring keras,$(TARGETS)),keras)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/keras
+endif
+ifneq ($(findstring onnx,$(TARGETS)),onnx)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/onnx
+endif
+ifneq ($(findstring pytorch,$(TARGETS)),pytorch)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/pytorch
+endif
+ifneq ($(findstring pytorch_models,$(TARGETS)),pytorch_models)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/pytorch/models
+endif
+ifneq ($(findstring pytorch_datasets,$(TARGETS)),pytorch_datasets)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/pytorch/datasets
+endif
+ifneq ($(findstring tensorflow_v1,$(TARGETS)),tensorflow_v1)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/tensorflow_v1
+endif
+ifneq ($(findstring tensorflow_v1_models,$(TARGETS)),tensorflow_v1_models)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/tensorflow_v1/models
+endif
+ifneq ($(findstring tensorflow_v1_datasets,$(TARGETS)),tensorflow_v1_datasets)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/tensorflow_v1/datasets
+endif
 
 # run checks on all files for the repo
 quality:
@@ -28,7 +54,7 @@ style:
 # run tests for the repo
 test:
 	@echo "Running python tests";
-	@pytest $(TARGET);
+	pytest tests $(PYTEST_ARGS)
 
 # create docs
 docs:

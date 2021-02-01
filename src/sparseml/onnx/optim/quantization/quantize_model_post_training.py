@@ -61,7 +61,8 @@ def quantize_model_post_training(
     :param include_nodes: List of operator names force to be quantized
     :param augmented_model_path: file path to save augmented model to for verification
     :param static: True to use static quantization. Default is static.
-    :param symmetric_weight: True to use symmetric weight quantization.  Default is False
+    :param symmetric_weight: True to use symmetric weight quantization.
+        Default is False
     :param force_fusions: True to force fusions in quantization. Default is False
     :param show_progress: If true, will display a tqdm progress bar during calibration.
         Default is True

@@ -16,6 +16,8 @@
 Code for creating and loading datasets in PyTorch
 """
 
+# flake8: noqa
+
 from .classification import *
 from .detection import *
 from .generic import *

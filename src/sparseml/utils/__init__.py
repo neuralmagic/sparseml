@@ -16,6 +16,8 @@
 General utility functions used throughout sparseml
 """
 
+# flake8: noqa
+
 from .frameworks import *
 from .helpers import *
 from .singleton import *

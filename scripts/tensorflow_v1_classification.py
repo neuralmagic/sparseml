@@ -200,10 +200,12 @@ usage: classification.py pruning_sensitivity [-h] --arch-key ARCH_KEY
                                              [--dataset-kwargs DATASET_KWARGS]
                                              [--model-tag MODEL_TAG]
                                              [--save-dir SAVE_DIR]
-                                             [--dataset-parallel-calls DATASET_PARALLEL_CALLS]
+                                             [--dataset-parallel-calls
+                                                DATASET_PARALLEL_CALLS]
                                              [--shuffle-buffer-size SHUFFLE_BUFFER_SIZE]
                                              [--approximate]
-                                             [--steps-per-measurement STEPS_PER_MEASUREMENT]
+                                             [--steps-per-measurement
+                                                STEPS_PER_MEASUREMENT]
                                              [--batch-size BATCH_SIZE]
 
 Run a kernel sparsity (pruning) analysis for a given model
@@ -301,7 +303,6 @@ import argparse
 import json
 import math
 import os
-from copy import deepcopy
 from typing import Dict, Optional, Tuple
 
 import numpy
@@ -472,9 +473,11 @@ def parse_args():
             par.add_argument(
                 "--sparse-transfer-learn",
                 action="store_true",
-                help="Enable sparse transfer learning modifiers to enforce the sparsity "
-                "for already sparse layers. The modifiers are added to the "
-                "ones to be loaded from the recipe-path",
+                help=(
+                    "Enable sparse transfer learning modifiers to enforce the sparsity "
+                    "for already sparse layers. The modifiers are added to the "
+                    "ones to be loaded from the recipe-path"
+                ),
             )
             par.add_argument(
                 "--eval-mode",
@@ -825,7 +828,7 @@ def export(
     if not skip_samples:
         val_dataset, num_classes = _create_dataset(args, train=False)
 
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         input_shape = ModelRegistry.input_shape(args.arch_key)
         inputs = tf_compat.placeholder(
             tf_compat.float32, [None] + list(input_shape), name="inputs"

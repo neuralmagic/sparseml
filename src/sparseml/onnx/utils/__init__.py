@@ -16,6 +16,8 @@
 Generic code used as utilities and helpers for ONNX
 """
 
+# flake8: noqa
+
 from .data import *
 from .graph_editor import *
 from .graph_optimizer import *

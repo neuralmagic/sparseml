@@ -78,8 +78,8 @@ def remove_node_and_params_from_graph(
     Deletes a node from the mdoel graph as well as its parameters listed in node.input
     :param model: Model to delete from
     :param node: Node to delete
-    :param keep_params: Names of node input initializers not to remove from graph default
-        is None.
+    :param keep_params: Names of node input initializers not to remove from graph
+        default is None.
     """
     keep_params = keep_params or []
     for param in model.graph.initializer:
@@ -177,8 +177,8 @@ def prune_model_one_shot_iter(
     model: ModelProto, nodes: List[NodeProto], sparsity: Union[float, List[float]]
 ):
     """
-    Iteratively prune a model in-place with one shot pruning (no retraining) according to
-    magnitude pruning. Does so in an unstructured way currently
+    Iteratively prune a model in-place with one shot pruning (no retraining) according
+    to magnitude pruning. Does so in an unstructured way currently
 
     :param model: the model to apply pruning to
     :param nodes: the nodes within the model to prune to the desired sparsities

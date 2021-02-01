@@ -23,7 +23,10 @@ from sparseml.onnx.utils import (
     prune_model_one_shot,
     prune_unstructured,
 )
-from tests.sparseml.onnx.helpers import OnnxRepoModelFixture, onnx_repo_models
+from tests.sparseml.onnx.helpers import OnnxRepoModelFixture
+
+
+from tests.sparseml.onnx.helpers import onnx_repo_models  # noqa isort: skip
 
 
 def _test_correct_sparsity(pruned_array, sparsity, tolerance=1e-4):
@@ -71,7 +74,7 @@ def test_prune_unstructured(array, sparsities):
 
 @pytest.mark.parametrize("sparsity", [(0.01), (0.5), (0.99), (0.999)])
 def test_prune_model_one_shot(
-    onnx_repo_models: OnnxRepoModelFixture, sparsity: List[float]
+    onnx_repo_models: OnnxRepoModelFixture, sparsity: List[float]  # noqa: F811
 ):
     model_path = onnx_repo_models.model_path
     model = load_model(model_path)
@@ -87,7 +90,9 @@ def test_prune_model_one_shot(
         _test_correct_sparsity(weight.val, sparsity, 5.5e-3)
 
 
-def test_prune_model_one_shot_sparsity_list(onnx_repo_models: OnnxRepoModelFixture):
+def test_prune_model_one_shot_sparsity_list(
+    onnx_repo_models: OnnxRepoModelFixture,  # noqa: F811
+):
     model_path = onnx_repo_models.model_path
     model = load_model(model_path)
     nodes = [

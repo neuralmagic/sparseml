@@ -169,10 +169,9 @@ class ConstantPruningModifier(ScheduledModifier):
         for param_name, mask_tensor in state_dict.items():
             if param_name not in module_masks:
                 raise RuntimeError(
-                    "Unexpected parameter name when loading state dict for ConstantKSModifier"
-                    "Manager has parameters {}, given {}".format(
-                        list(module_masks.keys()), param_name
-                    )
+                    f"Unexpected parameter name when loading state dict for "
+                    f"ConstantKSModifier Manager has parameters "
+                    f"{list(module_masks.keys())}, given {param_name}"
                 )
             mask_disabled = False
             if not module_masks[param_name].enabled:
@@ -412,10 +411,9 @@ class GMPruningModifier(ScheduledUpdateModifier):
         for param_name, mask_tensor in state_dict.items():
             if param_name not in module_masks:
                 raise RuntimeError(
-                    "Unexpected parameter name when loading state dict for GradualKSModifier"
-                    "Manager has parameters {}, given {}".format(
-                        list(module_masks.keys()), param_name
-                    )
+                    f"Unexpected parameter name when loading state dict for "
+                    f"GradualKSModifier Manager has parameters "
+                    f"{list(module_masks.keys())}, given {param_name}"
                 )
             mask_disabled = False
             if not module_masks[param_name].enabled:

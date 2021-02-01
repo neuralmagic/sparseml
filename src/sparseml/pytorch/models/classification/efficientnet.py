@@ -19,7 +19,7 @@ Further info can be found in the paper `here <https://arxiv.org/abs/1905.11946>`
 
 import math
 from collections import OrderedDict
-from typing import Dict, List, Tuple, Union
+from typing import List, Tuple, Union
 
 from torch import Tensor
 from torch.nn import (

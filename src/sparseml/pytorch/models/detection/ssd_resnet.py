@@ -41,8 +41,9 @@ class SSD300ResNetBackbone(SSDBackbone):
     for an SSD300 model for various ResNet sub architecture backbones
 
     :param sub_arch: the ResNet sub architecture to use for this backbone
-    :param pretrained: True to load pretrained ResNet weights; to load a specific version
-        give a string with the name of the version (optim, optim-perf). Default is True
+    :param pretrained: True to load pretrained ResNet weights; to load a specific
+        version give a string with the name of the version (optim, optim-perf).
+        Default is True
     :param pretrained_path: An optional model file path to load into the created model.
         Will override pretrained parameter
     """

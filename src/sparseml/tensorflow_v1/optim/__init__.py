@@ -17,6 +17,8 @@ Recalibration code for the TensorFlow framework.
 Handles things like model pruning and increasing activation sparsity.
 """
 
+# flake8: noqa
+
 from .analyzer_module import *
 from .manager import *
 from .mask_creator_pruning import *

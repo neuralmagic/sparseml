@@ -17,4 +17,6 @@ Integrations with external model repos to register
 with the sparseml.pytorch model registry.
 """
 
+# flake8: noqa
+
 from .torchvision import *

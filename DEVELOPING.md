@@ -53,15 +53,15 @@ repository's code matches its standards.
 **EXAMPLE: test changes locally**
 
 ```bash
-make test TARGET=<path-to-tests-subdirectory>
+make test TARGETS=<CSV of frameworks to run>
 ```
 
-This will run all SparseML unit tests under a given subdirectory.
-The target should be specified, because not all framework dependencies can be installed to run all tests.
+This will run the targeted SparseML unit tests for the frameworks specified.
+The targets should be specified, because not all framework dependencies can be installed to run all tests.
 
 To run just PyTorch tests, run
 ```bash
-make test TARGET=tests/sparseml/pytorch
+make test TARGETS=pytorch
 ```
 
 File any error found before changes as an Issue and fix any errors found after making changes before submitting a Pull Request.

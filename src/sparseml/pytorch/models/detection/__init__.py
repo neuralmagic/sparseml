@@ -16,6 +16,8 @@
 Models related to object detection field in computer vision
 """
 
+# flake8: noqa
+
 from .ssd import *
 from .ssd_lite import *
 from .ssd_mobilenet import *

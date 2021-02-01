@@ -19,11 +19,7 @@ import torch
 from torch.utils.data import Dataset
 
 from packaging import version
-from sparseml.pytorch.datasets import (
-    DatasetRegistry,
-    VOCDetectionDataset,
-    VOCSegmentationDataset,
-)
+from sparseml.pytorch.datasets import DatasetRegistry, VOCDetectionDataset
 
 
 def _validate_voc(dataset: Dataset, size: int):

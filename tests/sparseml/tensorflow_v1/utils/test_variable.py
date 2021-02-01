@@ -72,7 +72,7 @@ def test_op_input_var():
     ],
 )
 def test_get_prunable_ops(net_const, expected_ops: List[str]):
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         net_const()
         ops = get_prunable_ops()
         assert len(ops) == len(expected_ops)

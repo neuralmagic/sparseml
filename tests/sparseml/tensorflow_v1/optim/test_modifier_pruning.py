@@ -22,12 +22,10 @@ from sparseml.tensorflow_v1.optim import (
     EXTRAS_KEY_SUMMARIES,
     BlockPruningMaskCreator,
     ConstantPruningModifier,
-    DimensionPruningMaskCreator,
     GMPruningModifier,
     ScheduledModifierManager,
 )
 from sparseml.tensorflow_v1.utils import (
-    VAR_INDEX_FROM_TRAINABLE,
     batch_cross_entropy_loss,
     eval_tensor_sparsity,
     tf_compat,
@@ -112,7 +110,6 @@ class TestConstantPruningModifierImpl(ScheduledModifierTest):
 
                             if epoch < modifier.start_epoch:
                                 assert masked_sparsity < 1e-2
-                                assert not update_ready_val
                             else:
                                 assert masked_sparsity == last_sparsities[index]
                                 last_sparsities[index] = masked_sparsity
@@ -273,7 +270,7 @@ class TestGMPruningModifierImpl(ScheduledModifierTest):
 
                         sess.run(mod_ops)
                         update_ready_val = sess.run(modifier.update_ready)
-                        sparsity_val = sess.run(modifier.sparsity)
+                        sess.run(modifier.sparsity)
 
                         for index, op_vars in enumerate(modifier.prune_op_vars):
                             mask_sparsity = eval_tensor_sparsity(op_vars.mask)
@@ -353,11 +350,11 @@ def test_gm_pruning_training_with_manager():
             for epoch in range(int(modifier.end_epoch + 2.0)):
                 for step in range(steps_per_epoch):
                     sess.run(train_op, feed_dict={inputs: batch_inp, labels: batch_lab})
-                    step_counter = sess.run(global_step)
+                    sess.run(global_step)
 
                     sess.run(mod_ops)
                     update_ready_val = sess.run(modifier.update_ready)
-                    sparsity_val = sess.run(modifier.sparsity)
+                    sess.run(modifier.sparsity)
 
                     for index, op_vars in enumerate(modifier.prune_op_vars):
                         mask_sparsity = eval_tensor_sparsity(op_vars.mask)

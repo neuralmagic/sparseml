@@ -17,8 +17,7 @@ import pytest
 import tensorflow as tf
 
 from sparseml.keras.optim import MaskedLayer, UnstructuredPruningMaskCreator
-
-from .mock import *
+from tests.sparseml.keras.optim.mock import DenseLayerCreator, MockPruningScheduler
 
 
 @pytest.mark.parametrize(

@@ -17,6 +17,8 @@ Recalibration code shared across ML frameworks.
 Handles things like model pruning and increasing activation sparsity.
 """
 
+# flake8: noqa
+
 from .analyzer import *
 from .learning_rate import *
 from .manager import *

@@ -378,7 +378,7 @@ def extract_node_shapes(model: ModelProto) -> Dict[str, NodeShape]:
                         if isinstance(index_shape, float)
                         else int(index_shape)
                     )
-                except:
+                except Exception:
                     # not parsable as an int (none or string)
                     # set to None
                     shape[index] = None
@@ -797,7 +797,7 @@ def is_prunable_node(model: ModelProto, node: NodeProto) -> bool:
         # try to get the weight param, if this fails then
         # it's not a trainable version of the node and therefore not prunable
         get_node_params(model, node, include_values=False)
-    except:
+    except Exception:
         return False
 
     return True
@@ -992,8 +992,8 @@ def get_kernel_shape(attributes: Dict[str, Any]) -> Union[List[float], None]:
     Get the kernel shape from a dictionary of a model's attributes
 
     :param attributes: a dictionary of a model's attributes
-    :return: the kernel shape if attribute contains either the kernel or kernel_shape field,
-        otherwise None
+    :return: the kernel shape if attribute contains either the kernel or
+        kernel_shape field, otherwise None
     """
     if "kernel" in attributes:
         return attributes["kernel"]
@@ -1104,8 +1104,8 @@ def _calculate_flops_matmul(
     """
     Calculates flops in a onnx MatMul operation.
 
-    If input shape only contains 1 input, in otherwords the value of the first index is 1, then
-    the matrix operation is treated as a Gemm operation.
+    If input shape only contains 1 input, in otherwords the value of the
+    first index is 1, then the matrix operation is treated as a Gemm operation.
 
     Otherwise the operation is treated like a numpy operation.
 
@@ -1156,8 +1156,8 @@ def _attempt_cast_as_float(value: Any) -> float:
 def _array_as_numeric(array: Union[List, None]) -> Union[List, None]:
     """
     :param array: an array like list
-    :return: the array with any non numeric or None values replaced with 1 if array itself
-        is not None, otherwise return None
+    :return: the array with any non numeric or None values replaced with 1
+        if array itself is not None, otherwise return None
     """
     if array is None:
         return None

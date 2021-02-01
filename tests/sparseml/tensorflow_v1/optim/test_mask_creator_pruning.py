@@ -62,7 +62,7 @@ def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
     with tf_compat.Session() as sess:
         sess.run(tf_compat.global_variables_initializer())
 
-        initial_mask_sparsity = eval_tensor_sparsity(initial_mask, sess)
+        eval_tensor_sparsity(initial_mask, sess)
         new_mask_sparsity = eval_tensor_sparsity(new_mask, sess)
 
         assert abs(new_mask_sparsity - sparsity_val) < 1e-2

@@ -15,3 +15,5 @@
 """
 Models related to recommendations
 """
+
+# flake8: noqa

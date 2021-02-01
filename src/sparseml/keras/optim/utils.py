@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import tensorflow as tf
-
 
 __all__ = ["get_layer_name_from_param"]
 
@@ -30,7 +28,5 @@ def get_layer_name_from_param(param: str):
                 found = True
                 break
         if not found:
-            raise ValueError(
-                "Unrecognized weight names. Expected: ".format(known_weights)
-            )
+            raise ValueError(f"Unrecognized weight names. Expected: {known_weights}")
     return param[:pos]

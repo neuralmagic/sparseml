@@ -274,8 +274,8 @@ class DimensionPruningMaskCreator(GroupedPruningMaskCreator):
                 self._dim = [0]
             else:
                 raise ValueError(
-                    "filter pruning unsupported for tensors with fewer than 3 dimensions."
-                    " Received Tensor with shape {}".format(tensor.shape)
+                    f"filter pruning unsupported for tensors with fewer than "
+                    f"3 dimensions. Received Tensor with shape {tensor.shape}"
                 )
         elif self._dim_name == "channel":
             # in channel should be the second to last dimension
@@ -444,10 +444,9 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         for tens_dim, block_dim in zip(tens_shape, block_shape):
             if tens_dim % block_dim != 0:
                 raise ValueError(
-                    "Invalid block_shape {} for parameter shape {}."
-                    " Elements of block_shape must divide parameter shape evenly".format(
-                        block_shape, tens_shape
-                    )
+                    f"Invalid block_shape {block_shape} for parameter shape "
+                    f"{tens_shape}. Elements of block_shape must divide parameter "
+                    f"shape evenly"
                 )
         # If this is a series of conv filters, reorder so in and out channels are first
         if n_dims >= 3:
@@ -484,8 +483,8 @@ mask_creator_name_to_constructor_lambda = {
 
 def load_mask_creator(obj: Union[str, Iterable[int]]) -> PruningMaskCreator:
     """
-    :param obj: Formatted string or iterable of block_shape specifying SparsityMaskCreator
-        object to return
+    :param obj: Formatted string or iterable of block_shape specifying
+        SparsityMaskCreator object to return
     :return: SparsityMaskCreator object created from obj
     """
     if isinstance(obj, str) and obj in mask_creator_name_to_constructor_lambda:

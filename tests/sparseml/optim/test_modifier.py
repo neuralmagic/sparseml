@@ -194,7 +194,7 @@ class BaseScheduledTest(object):
         assert prop.serializable
         assert "_initialized" in prop.restrictions
 
-        val = modifier.end_epoch
+        modifier.end_epoch
 
         with pytest.raises(ValueError):
             modifier.end_epoch = modifier._min_end - 1.0
@@ -442,13 +442,13 @@ def test_modifier_prop_class():
 
 
 def test_base_object():
-    obj = BaseObject()
+    BaseObject()
 
     with pytest.raises(ValueError):
-        obj = BaseObject(one=1)
+        BaseObject(one=1)
 
     with pytest.raises(TypeError):
-        obj = BaseObject(1)
+        BaseObject(1)
 
 
 @ModifierYAML("test_framework")

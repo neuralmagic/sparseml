@@ -213,7 +213,8 @@ def get_ops_and_inputs_by_name_or_regex(
                     for read_op in read_ops
                     for read_tensor in ge.sgv(read_op).outputs
                 }
-                # gets ops that read from read_tensors and filters any ops that were created by mask_ks
+                # gets ops that read from read_tensors and filters any ops
+                # that were created by mask_ks
                 consuming_ops_with_input = [
                     (consuming_op, read_tensor)
                     for read_tensor in read_tensors

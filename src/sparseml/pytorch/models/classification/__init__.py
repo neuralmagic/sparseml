@@ -16,6 +16,8 @@
 Models related to image classification field in computer vision
 """
 
+# flake8: noqa
+
 from .darknet import *
 from .efficientnet import *
 from .inception_v3 import *

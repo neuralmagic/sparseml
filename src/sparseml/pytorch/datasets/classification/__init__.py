@@ -16,6 +16,8 @@
 Datasets related to image classification field in computer vision
 """
 
+# flake8: noqa
+
 from .cifar import *
 from .imagefolder import *
 from .imagenet import *

@@ -34,7 +34,7 @@ __all__ = ["TrainableParamsModifier"]
 
 
 class TrainableParamsCallback(tensorflow.keras.callbacks.Callback):
-    def __init__(self, optimizer, layers, trainable, start_step, end_step):
+    def __init__(self, model, optimizer, layers, trainable, start_step, end_step):
         self.model = model
         self.optimizer = optimizer
         self.layers = layers
@@ -45,7 +45,7 @@ class TrainableParamsCallback(tensorflow.keras.callbacks.Callback):
         self.step = None
 
     def on_train_begin(self, logs=None):
-        self.step = tf.keras.backend.get_value(self.optimizer.iterations)
+        self.step = tensorflow.keras.backend.get_value(self.optimizer.iterations)
 
     def on_train_batch_begin(self, batch, logs=None):
         if self.step == self.start_step:
@@ -191,7 +191,11 @@ class TrainableParamsModifier(ScheduledModifier):
             )
 
     def modify(
-        self, model, optimizer, steps_per_epoch: int, input_tensors: tf.Tensor = None
+        self,
+        model,
+        optimizer,
+        steps_per_epoch: int,
+        input_tensors: tensorflow.Tensor = None,
     ):
         model, optimizer, callback = super(TrainableParamsModifier, self).modify(
             model, optimizer, steps_per_epoch, input_tensors=input_tensors
@@ -199,6 +203,6 @@ class TrainableParamsModifier(ScheduledModifier):
         start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=False)
         layers = [layer for layer in model.layers if layer.name in self.layer_names]
         trainable_param_callback = TrainableParamsCallback(
-            optimizer, layers, self.trainable, start_step, end_step
+            model, optimizer, layers, self.trainable, start_step, end_step
         )
         return model, optimizer, trainable_param_callback

@@ -16,11 +16,12 @@ import json
 import os
 
 import pytest
-from onnx import load_model
 
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
 from sparsezoo import Zoo
-from tests.sparseml.onnx.helpers import analyzer_models
+
+
+from tests.sparseml.onnx.helpers import analyzer_models  # noqa isort: skip
 
 
 GENERATE_TEST_FILES = os.getenv("NM_ML_GENERATE_ONNX_TEST_DATA", False)
@@ -158,7 +159,7 @@ def _test_model_analyzer(model_path: str, expected_output: str):
     assert analyzer == analyzer_from_json
 
 
-def test_model_analyzer(analyzer_models):
+def test_model_analyzer(analyzer_models):  # noqa: F811
     model_path, expected_output = analyzer_models
     _test_model_analyzer(model_path, expected_output)
 

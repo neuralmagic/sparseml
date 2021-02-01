@@ -112,7 +112,7 @@ class GraphExporter(object):
 
         try:
             from tf2onnx import tf_loader as loader
-        except:
+        except Exception:
             from tf2onnx import loader
 
         pb_path = clean_path(pb_path)

@@ -116,7 +116,7 @@ class EstimatorModelFn(ABC):
             )
 
             # Modifier ops and extras
-            # Note that extras such as for pruning masks are needed for eval mode as well
+            # Note that extras such as for pruning masks are needed for eval mode too
             (
                 mod_manager,
                 mod_update_ops_hook,
@@ -481,8 +481,8 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
 
         with tf_compat.name_scope("train"):
             # We are using tf.layers.batch_normalization to support previous versions
-            # of TF, which requires us explicite model the dependency between the update of
-            # moving average and variance with training op
+            # of TF, which requires us explicite model the dependency between the
+            # update of moving average and variance with training op
             update_ops = tf_compat.get_collection(tf_compat.GraphKeys.UPDATE_OPS)
             with tf_compat.control_dependencies(update_ops):
                 training_op = optimizer.minimize(loss, global_step=global_step)

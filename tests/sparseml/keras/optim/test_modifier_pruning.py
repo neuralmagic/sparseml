@@ -17,8 +17,7 @@ import pytest
 import tensorflow as tf
 
 from sparseml.keras.optim import GMPruningModifier
-
-from .mock import *
+from tests.sparseml.keras.optim.mock import model_01
 
 
 @pytest.mark.parametrize(

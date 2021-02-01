@@ -18,7 +18,6 @@ grouping modifiers and running them together.
 Also handles loading modifiers from yaml files
 """
 
-import collections
 import itertools
 from typing import Any, Callable, Dict, List, Tuple, Union
 

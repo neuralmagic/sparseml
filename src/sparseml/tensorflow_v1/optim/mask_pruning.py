@@ -18,17 +18,13 @@ aka model pruning, on a TensorFlow graph.
 """
 
 from collections import namedtuple
-from typing import Callable, List, Tuple, Union
+from typing import List, Tuple
 
 import tensorflow.contrib.graph_editor as ge
 
-from sparseml.tensorflow_v1.optim.mask_creator_pruning import (
-    PruningMaskCreator,
-    UnstructuredPruningMaskCreator,
-)
+from sparseml.tensorflow_v1.optim.mask_creator_pruning import PruningMaskCreator
 from sparseml.tensorflow_v1.utils import (
     clean_tensor_name,
-    get_op_input_var,
     get_ops_and_inputs_by_name_or_regex,
     get_tensor_var,
     is_prunable_op,
@@ -880,8 +876,8 @@ def create_ks_scheduled_constant_graph_ops(
 
     :param graph: the tf graph to pull the operator out of for applying the pruning to
     :param global_step: the global optimizer step for the training graph
-    :param var_names: a list of names or regex patterns to create constant ops for within
-        the graph
+    :param var_names: a list of names or regex patterns to create constant ops
+        for within the graph
     :param begin_step: the global step to begin pruning at
     :param end_step: the global step to end pruning at
     :param ks_group: the group identifier the scope should be created under

@@ -17,6 +17,8 @@ Code for working with the keras framework for creating /
 editing models for performance in the Neural Magic System
 """
 
+# flake8: noqa
+
 try:
     import tensorflow
 

@@ -32,7 +32,6 @@ from torch.nn import (
     init,
 )
 
-from sparseml.pytorch.models import darknet53
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.nn import Hardswish
 
@@ -294,8 +293,8 @@ def yolo_v3(
     :param pretrained_backbone: True to load pretrained DarkNet weights; to load a
         specific version give a string with the name of the version (optim, optim-perf).
         Default is True
-    :param pretrained_path_backbone: An optional model file path to load into the DarkNet
-        backbone. Default is None
+    :param pretrained_path_backbone: An optional model file path to load into the
+        DarkNet backbone. Default is None
     :return: the created Yolo model
     """
     backbone = ModelRegistry.create(

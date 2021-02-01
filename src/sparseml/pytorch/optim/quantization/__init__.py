@@ -16,5 +16,7 @@
 Tools for quantizing and exporting PyTorch models
 """
 
+# flake8: noqa
+
 from .helpers import *
 from .quantize_qat_export import *

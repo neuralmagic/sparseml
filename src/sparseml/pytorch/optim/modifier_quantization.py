@@ -28,7 +28,7 @@ from torch.optim.optimizer import Optimizer
 try:
     from torch import quantization as torch_quantization
     from torch.nn import intrinsic as torch_intrinsic
-except:
+except Exception:
     torch_quantization = None
     torch_intrinsic = None
 
@@ -88,7 +88,8 @@ class QuantizationModifier(ScheduledModifier):
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
-                "Unable to import package torch.quantization and/or torch.nn.intrinsic. "
+                "Unable to import package torch.quantization and/or "
+                "torch.nn.intrinsic. "
                 "Try upgrading your PyTorch version to use the QuantizationModifier."
             )
         if end_epoch != -1:
@@ -319,10 +320,10 @@ class QuantizationModifier(ScheduledModifier):
             and self._disable_quantization_observer_epoch < self._start_epoch
         ):
             raise ValueError(
-                "disable_quantization_observer_epoch may not be greater than start_epoch"
-                " for QuantizationModifier, received: {} with start_epoch {}".format(
-                    self._disable_quantization_observer_epoch, self._start_epoch
-                )
+                f"disable_quantization_observer_epoch may not be greater than "
+                f"start_epoch for QuantizationModifier, received: "
+                f"{self._disable_quantization_observer_epoch} with start_epoch "
+                f"{self._start_epoch}"
             )
 
         if (

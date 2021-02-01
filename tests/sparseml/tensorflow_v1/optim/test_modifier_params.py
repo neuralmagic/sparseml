@@ -154,7 +154,7 @@ def test_trainable_params_modifier_with_training():
             for epoch in range(10):
                 for step in range(steps_per_epoch):
                     sess.run(train_op, feed_dict={inputs: batch_inp, labels: batch_lab})
-                    step_counter = sess.run(global_step)
+                    sess.run(global_step)
             # Compare initial and final variable values
             for idx, init_non_trainable_var in enumerate(init_non_trainable_vars):
                 final_non_trainable_var = non_trainable_vars[idx].eval(session=sess)

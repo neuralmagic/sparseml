@@ -59,7 +59,7 @@ class BatchBenchmarkResults(object):
         )
 
     def __str__(self) -> str:
-        return "{}()".format(
+        return "{}({})".format(
             self.__class__.__name__,
             ", ".join(
                 [

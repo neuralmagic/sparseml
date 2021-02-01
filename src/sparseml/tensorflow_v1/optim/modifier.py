@@ -136,7 +136,7 @@ class Modifier(BaseModifier):
         """
         orig_model_func = (
             estimator._model_fn
-        )  # type: Callable[[Any...], tf_compat.estimator.EstimatorSpec]
+        )  # type: Callable[[Any...], tf_compat.estimator.EstimatorSpec]  # noqa
 
         def _model_func(
             features: Dict[str, tf_compat.Tensor],

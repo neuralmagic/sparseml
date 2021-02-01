@@ -37,8 +37,9 @@ class SSD300MobileNetBackbone(SSDBackbone):
     for an SSD300 model for various MobileNet architecture backbones
 
     :param version: the MobileNet version to use for this backbone
-    :param pretrained: True to load pretrained MobileNet weights; to load a specific version
-        give a string with the name of the version (optim, optim-perf). Default is True
+    :param pretrained: True to load pretrained MobileNet weights; to load a specific
+        version give a string with the name of the version (optim, optim-perf).
+        Default is True
     :param pretrained_path: An optional model file path to load into the created model.
         Will override pretrained parameter
     """

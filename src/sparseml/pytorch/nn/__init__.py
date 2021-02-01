@@ -16,6 +16,8 @@
 Layers / operators for PyTorch models
 """
 
+# flake8: noqa
+
 from .activations import *
 from .fatrelu import *
 from .se import *

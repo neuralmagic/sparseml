@@ -19,7 +19,7 @@ ex to perform model pruning.
 """
 
 import math
-from typing import Dict, List
+from typing import List
 
 from sparseml.optim.modifier import BaseObject, BaseScheduled, ModifierProp
 from sparseml.utils import clean_path, create_parent_dirs
@@ -53,10 +53,6 @@ class BaseManager(BaseObject):
 
     def __str__(self) -> str:
         return "\n".join(self.to_string_lines())
-
-    @ModifierProp()
-    def modifiers(self) -> Dict[str, List[BaseScheduled]]:
-        return {"modifiers": self._modifiers}
 
     @ModifierProp(serializable=False)
     def modifiers(self) -> List[BaseScheduled]:

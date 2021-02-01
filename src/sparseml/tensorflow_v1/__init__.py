@@ -17,6 +17,8 @@ Code for working with the tensorflow_v1 framework for creating /
 editing models for performance in the Neural Magic System
 """
 
+# flake8: noqa
+
 try:
     import tensorflow
 
