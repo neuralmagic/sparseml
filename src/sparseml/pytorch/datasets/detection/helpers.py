@@ -125,7 +125,7 @@ def yolo_collate_fn(
     annotations = []
     for idx, (image, (target, annotation)) in enumerate(batch):
         images.append(image.unsqueeze(0))
-        img_label = torch.ones(target.size(0), 1)
+        img_label = torch.ones(target.size(0), 1) * idx
         targets.append(torch.cat((img_label, target), 1))
         annotations.append(annotation)
 
