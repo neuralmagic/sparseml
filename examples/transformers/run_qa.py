@@ -147,7 +147,7 @@ def postprocess_qa_predictions(
             The threshold used to select the null answer: if the best answer has a score that is less than the score of
             the null answer minus this threshold, the null answer is selected for this example (note that the score of
             the null answer for an example giving several features is the minimum of the scores for the null answer on
-            each feature: all features must be aligned on the fact they `want` to predict a null answer).
+            each feature: all features must be aligned on the fact they `t` to predict a null answer).
             Only useful when :obj:`version_2_with_negative` is :obj:`True`.
         output_dir (:obj:`str`, `optional`):
             If provided, the dictionaries of predictions, n_best predictions (with their scores and logits) and, if
