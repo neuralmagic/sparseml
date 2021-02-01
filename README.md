@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# ![icon for SparseMl](docs/icon-sparseml.png) SparseML
+# ![icon for SparseMl](https://github.com/neuralmagic/sparseml/blob/main/docs/icon-sparseml.png) SparseML
 
 ### Libraries for state-of-the-art deep neural network optimization algorithms, enabling simple pipelines integration with a few lines of code
 
 <p>
-    <a href="https://github.com/neuralmagic/comingsoon/blob/master/LICENSE">
+    <a href="https://github.com/neuralmagic/sparseml/blob/master/LICENSE">
         <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/comingsoon.svg?color=purple&style=for-the-badge" height=25>
     </a>
     <a href="https://docs.neuralmagic.com/sparseml/">
@@ -28,7 +28,7 @@ limitations under the License.
     <a href="https://github.com/neuralmagic/sparseml/releases">
         <img alt="GitHub release" src="https://img.shields.io/github/release/neuralmagic/sparseml.svg?style=for-the-badge" height=25>
     </a>
-    <a href="https://github.com/neuralmagic.com/comingsoon/blob/master/CODE_OF_CONDUCT.md">
+    <a href="https://github.com/neuralmagic.com/sparseml/blob/master/CODE_OF_CONDUCT.md">
         <img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg?color=yellow&style=for-the-badge" height=25>
     </a>
      <a href="https://www.youtube.com/channel/UCo8dO_WMGYbWCRnj_Dxr4EA">
@@ -44,37 +44,28 @@ limitations under the License.
 
 ## Overview
 
-SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art 
-optimization algorithms such as [pruning](https://neuralmagic.com/blog/pruning-overview/) and 
-[quantization](https://arxiv.org/abs/1609.07061) to any neural network. 
-General, recipe-driven approaches built around these optimizations enable the simplification
-of creating faster and smaller models for the ML performance community at large. 
+SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art optimization algorithms such as [pruning](https://neuralmagic.com/blog/pruning-overview/) and [quantization](https://arxiv.org/abs/1609.07061) to any neural network. General, recipe-driven approaches built around these optimizations enable the simplification of creating faster and smaller models for the ML performance community at large.
 
 SparseML is integrated for easy model optimizations within the [PyTorch](https://pytorch.org/),
 [Keras](https://keras.io/), and [TensorFlow V1](http://tensorflow.org/) ecosystems currently.
 
 ### Related Products
 
-- [DeepSparse](https://github.com/neuralmagic/deepsparse): 
-  CPU inference engine that delivers unprecedented performance for sparse models
-- [SparseZoo](https://github.com/neuralmagic/sparsezoo): 
-  Neural network model repository for highly sparse models and optimization recipes
-- [Sparsify](https://github.com/neuralmagic/sparsify): 
-  Easy-to-use autoML interface to optimize deep neural networks for 
-  better inference performance and a smaller footprint
+- [DeepSparse](https://github.com/neuralmagic/deepsparse): CPU inference engine that delivers unprecedented performance for sparse models
+- [SparseZoo](https://github.com/neuralmagic/sparsezoo): Neural network model repository for highly sparse models and optimization recipes
+- [Sparsify](https://github.com/neuralmagic/sparsify): Easy-to-use autoML interface to optimize deep neural networks for better inference performance and a smaller footprint
 
 ## Quick Tour
 
 To enable flexibility, ease of use, and repeatability, optimizing a model is generally done using a recipe file.
 The files encode the instructions needed for modifying the model and/or training process as a list of modifiers.
 Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
-The files are written in [YAML](https://yaml.org/) and stored in YAML or 
-[markdown](https://www.markdownguide.org/) files using 
-[YAML front matter](https://assemble.io/docs/YAML-front-matter.html).
+The files are written in [YAML](https://yaml.org/) and stored in YAML or [markdown](https://www.markdownguide.org/) files using [YAML front matter](https://assemble.io/docs/YAML-front-matter.html).
 The rest of the SparseML system is coded to parse the recipe files into a native format for the desired framework
 and apply the modifications to the model and training pipeline.
 
 A sample recipe for pruning a model generally looks like the following:
+
 ```yaml
 version: 0.1.0
 modifiers:
@@ -100,29 +91,21 @@ modifiers:
         params: ['sections.0.0.conv1.weight', 'sections.0.0.conv2.weight', 'sections.0.0.conv3.weight']
 ```
 
-More information on the available recipes, formats, and arguments can be found [here](docs/optimization-recipes.md). 
-Additionally all code implementations of the modifiers under the `optim` packages 
-for the frameworks are documented with example YAML formats.
+More information on the available recipes, formats, and arguments can be found [here](https://github.com/neuralmagic/sparseml/blob/main/docs/optimization-recipes.md). Additionally, all code implementations of the modifiers under the `optim` packages for the frameworks are documented with example YAML formats.
 
-Pre-configured recipes and the resulting models can be explored and downloaded from the 
-[SparseZoo](https://github.com/neuralmagic/sparsezoo).
-Also, [Sparsify](https://github.com/neuralmagic/sparsify) 
-enables autoML style creation of optimization recipes for use with SparseML.
+Pre-configured recipes and the resulting models can be explored and downloaded from the [SparseZoo](https://github.com/neuralmagic/sparsezoo). Also, [Sparsify](https://github.com/neuralmagic/sparsify) enables autoML style creation of optimization recipes for use with SparseML.
 
 For a more in-depth read, check out [SparseML documentation](https://docs.neuralmagic.com/sparseml/).
 
 ### PyTorch Optimization
 
 The PyTorch optimization libraries are located under the `sparseml.pytorch.optim` package.
-Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into 
-PyTorch training pipelines.
+Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into PyTorch training pipelines.
 
-The integration is done using the `ScheduledOptimizer` class. 
-It is intended to wrap your current optimizer and its step function.
-The step function then calls into the `ScheduledModifierManager` class which can be created from a recipe file.
-With this setup, the training process can then be modified as desired to optimize the model.
+The integration is done using the `ScheduledOptimizer` class. It is intended to wrap your current optimizer and its step function. The step function then calls into the `ScheduledModifierManager` class which can be created from a recipe file. With this setup, the training process can then be modified as desired to optimize the model.
 
 To enable all of this, the integration code you'll need to write is only a handful of lines:
+
 ```python
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 
@@ -139,18 +122,17 @@ optimizer = ScheduledOptimizer(optimizer, model, manager, steps_per_epoch=num_tr
 ### Keras Optimization
 
 The Keras optimization libraries are located under the `sparseml.keras.optim` package.
-Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into 
-Keras training pipelines.
+Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into Keras training pipelines.
 
 The integration is done using the `ScheduledModifierManager` class which can be created from a recipe file.
 This class handles modifying the Keras objects for the desired optimizations using the `modify` method.
 The edited model, optimizer, and any callbacks necessary to modify the training process are returned.
-The model and optimizer can be used normally and the callbacks must be passed into 
-the `fit` or `fit_generator` function.
+The model and optimizer can be used normally and the callbacks must be passed into the `fit` or `fit_generator` function.
 If using `train_on_batch`, the callbacks must be invoked after each call.
 After training is completed, call into the manager's `finalize` method to clean up the graph for exporting.
 
 To enable all of this, the integration code you'll need to write is only a handful of lines:
+
 ```python
 from sparseml.keras.optim import ScheduledModifierManager
 
@@ -175,19 +157,16 @@ save_model = manager.finalize(model)
 
 ### TensorFlow V1 Optimization
 
-The TensorFlow optimization libraries for TensorFlow version 1.X are located under the 
-`sparseml.tensorflow_v1.optim` package.
-Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into 
-TensorFlow V1 training pipelines.
+The TensorFlow optimization libraries for TensorFlow version 1.X are located under the `sparseml.tensorflow_v1.optim` package. Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into TensorFlow V1 training pipelines.
 
 The integration is done using the `ScheduledModifierManager` class which can be created from a recipe file.
 This class handles modifying the TensorFlow graph for the desired optimizations.
 With this setup, the training process can then be modified as desired to optimize the model.
 
 #### Estimator-based pipelines
+
 Estimator-based pipelines are simpler to integrate with as compared to session-based pipelines.
-The `ScheduledModifierManager` can override the necessary callbacks in the estimator to modify 
-the graph using the `modify_estimator` function.
+The `ScheduledModifierManager` can override the necessary callbacks in the estimator to modify the graph using the `modify_estimator` function.
 
 ```python
 from sparseml.tensorflow_v1.optim import ScheduledModifierManager
@@ -202,6 +181,7 @@ manager.modify_estimator(estimator, steps_per_epoch=num_train_batches)
 ```
 
 #### Session-based pipelines
+
 Session-based pipelines need a little bit more as compared to estimator-based pipelines; however,
 it is still designed to require only a few lines of code for integration.
 After graph creation, the manager's `create_ops` method must be called.
@@ -234,18 +214,14 @@ with tf_compat.Graph().as_default() as graph:
 
 ### Exporting to ONNX
 
-[ONNX](https://onnx.ai/) is a generic representation for neural network graphs that 
-most ML frameworks can be converted to.
-Some inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse) 
-natively take in ONNX for deployment pipelines, 
-so convenience functions for conversion and export are provided for the supported frameworks.
+[ONNX](https://onnx.ai/) is a generic representation for neural network graphs that most ML frameworks can be converted to. Some inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse) natively take in ONNX for deployment pipelines, so convenience functions for conversion and export are provided for the supported frameworks.
 
 #### Exporting PyTorch to ONNX
 
 ONNX is built into the PyTorch system natively.
-The `ModuleExporter` class under the `sparseml.pytorch.utils` package features an 
-`export_onnx` function built on top of this native support.
+The `ModuleExporter` class under the `sparseml.pytorch.utils` package features an `export_onnx` function built on top of this native support.
 Example code:
+
 ```python
 import os
 import torch
@@ -258,11 +234,10 @@ exporter.export_onnx(sample_batch=torch.randn(1, 1, 28, 28))
 ```
 
 #### Exporting Keras to ONNX
-ONNX is not built into the Keras system, but is supported through an ONNX official tool 
-[keras2onnx](https://github.com/onnx/keras-onnx).
-The `ModelExporter` class under the `sparseml.keras.utils` package features an 
-`export_onnx` function built on top of keras2onnx.
+
+ONNX is not built into the Keras system, but is supported through an ONNX official tool [keras2onnx](https://github.com/onnx/keras-onnx). The `ModelExporter` class under the `sparseml.keras.utils` package features an `export_onnx` function built on top of keras2onnx.
 Example code:
+
 ```python
 import os
 from sparseml.keras.utils import ModelExporter
@@ -273,12 +248,14 @@ exporter.export_onnx()
 ```
 
 #### Exporting TensorFlow V1 to ONNX
+
 ONNX is not built into the TensorFlow system, but it is supported through an ONNX official tool
 [tf2onnx](https://github.com/onnx/tensorflow-onnx).
 The `GraphExporter` class under the `sparseml.tensorflow_v1.utils` package features an
 `export_onnx` function built on top of tf2onnx.
 Note that the ONNX file is created from the protobuf graph representation, so `export_pb` must be called first.
 Example code:
+
 ```python
 import os
 from sparseml.tensorflow_v1.utils import tf_compat, GraphExporter
@@ -304,8 +281,7 @@ exporter.export_onnx(inputs=input_names, outputs=output_names)
 ### Installation
 
 This repository is tested on Python 3.6+, and Linux/Debian systems.
-It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) 
-to keep your system in order.
+It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
 
 Install with pip using:
 
@@ -313,29 +289,35 @@ Install with pip using:
 pip install sparseml
 ```
 
-Then if you would like to explore any of the [scripts](scripts/), [notebooks](notebooks/), or [examples](examples/)
+Then if you would like to explore any of the [scripts](https://github.com/neuralmagic/sparseml/blob/main/scripts/), [notebooks](https://github.com/neuralmagic/sparseml/blob/main/notebooks/), or [examples](https://github.com/neuralmagic/sparseml/blob/main/examples/)
 clone the repository and install any additional dependencies as required.
 
 #### Supported Framework Versions
+
 The currently supported framework versions are:
 
 - PyTorch supported versions: `>= 1.1.0, < 1.7.0`
 - Keras supported versions: `>=2.2` (through the TensorFlow `2.X` package)
 - TensorFlow V1 supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
 
-
 #### Optional Dependencies
+
 Additionally, optional dependencies can be installed based on the framework you are using.
 
 PyTorch:
+
 ```bash
 pip install sparseml[torch]
 ```
+
 Keras:
+
 ```bash
 pip install sparseml[tf_keras]
 ```
+
 TensorFlow V1:
+
 ```bash
 pip install sparseml[tf_v1]
 ```
@@ -346,34 +328,28 @@ pip install sparseml[tf_v1]
 - [SparseML Documentation](https://docs.neuralmagic.com/sparseml/)
 - [Sparsify Documentation](https://docs.neuralmagic.com/sparsify/)
 - [DeepSparse Documentation](https://docs.neuralmagic.com/deepsparse/)
-- Neural Magic [Blog](https://www.neuralmagic.com/blog/), 
-  [Resources](https://www.neuralmagic.com/resources/), 
-  [Website](https://www.neuralmagic.com/)
+- Neural Magic [Blog](https://www.neuralmagic.com/blog/), [Resources](https://www.neuralmagic.com/resources/), [Website](https://www.neuralmagic.com/)
 
 ## Contributing
 
-We appreciate contributions to the code, examples, and documentation as well as bug reports and feature requests! 
-[Learn how here](CONTRIBUTING.md).
+We appreciate contributions to the code, examples, and documentation as well as bug reports and feature requests! [Learn how here](https://github.com/neuralmagic/sparseml/blob/main/CONTRIBUTING.md).
 
 ## Join the Community
 
-For user help or questions about Sparsify, 
-use our [GitHub Discussions](https://www.github.com/neuralmagic/sparseml/discussions/). Everyone is welcome!
+For user help or questions about Sparsify, use our [GitHub Discussions](https://www.github.com/neuralmagic/sparseml/discussions/). Everyone is welcome!
 
-You can get the latest news, webinar and event invites, research papers, 
-and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
+You can get the latest news, webinar and event invites, research papers, and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
 
-For more general questions about Neural Magic, 
-please email us at [learnmore@neuralmagic.com](mailto:learnmore@neuralmagic.com) 
-or fill out this [form](http://neuralmagic.com/contact/).
+For more general questions about Neural Magic, please email us at [learnmore@neuralmagic.com](mailto:learnmore@neuralmagic.com) or fill out this [form](http://neuralmagic.com/contact/).
 
 ## License
 
-The project is licensed under the [Apache License Version 2.0](LICENSE).
+The project is licensed under the [Apache License Version 2.0](https://github.com/neuralmagic/sparseml/blob/main/LICENSE).
 
 ## Release History
 
 Official builds are hosted on PyPi
+
 - stable: [sparseml](https://pypi.org/project/sparseml/)
 - nightly (dev): [sparseml-nightly](https://pypi.org/project/sparseml-nightly/)
 
