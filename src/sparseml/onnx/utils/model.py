@@ -617,7 +617,8 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
 
     :param model: the path to the ONNX model file or the loaded onnx.ModelProto
     :param batch_size: the size of the batch to create the model for
-    :param num_cores: the number of physical cores to run the model on
+    :param num_cores: the number of physical cores to run the model on. Defaults
+        to run on all available cores
     :param loss: the loss function, if any, to run for evaluation of the model
     """
 
@@ -625,7 +626,7 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
         self,
         model: Union[str, ModelProto],
         batch_size: int,
-        num_cores: int = -1,
+        num_cores: int = None,
         loss: Union[
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ] = None,
@@ -783,14 +784,15 @@ class DeepSparseAnalyzeModelRunner(_DeepSparseBaseModelRunner):
 
     :param model: the path to the ONNX model file or the loaded onnx.ModelProto
     :param batch_size: the size of the batch to create the model for
-    :param num_cores: the number of physical cores to run the model on
+    :param num_cores: the number of physical cores to run the model on. Defaults
+        to run on all available cores
     """
 
     def __init__(
         self,
         model: Union[str, ModelProto],
         batch_size: int,
-        num_cores: int = -1,
+        num_cores: int = None,
     ):
         super().__init__(model, batch_size, num_cores, loss=None)
 

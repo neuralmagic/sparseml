@@ -389,7 +389,7 @@ def pruning_perf_sens_one_shot_iter(
     model: Union[str, ModelProto],
     data: DataLoader,
     batch_size: int,
-    num_cores: int = -1,
+    num_cores: int = None,
     iterations_per_check: int = 10,
     warmup_iterations_per_check: int = 5,
     sparsity_levels: List[float] = default_pruning_sparsities_perf(),
@@ -408,7 +408,8 @@ def pruning_perf_sens_one_shot_iter(
         to calculate the sparse sensitivity analysis for
     :param data: the data to run through the model
     :param batch_size: the size of the batch to create the model in neural magic for
-    :param num_cores: number of physical cores to run on
+    :param num_cores: number of physical cores to run on. Default is the maximum number
+        of cores available
     :param iterations_per_check: number of iterations to run for perf details
     :param warmup_iterations_per_check: number of iterations to run before perf details
     :param sparsity_levels: the sparsity levels to calculate the loss for for each param
@@ -484,7 +485,7 @@ def pruning_perf_sens_one_shot(
     model: Union[str, ModelProto],
     data: DataLoader,
     batch_size: int,
-    num_cores: int = -1,
+    num_cores: int = None,
     iterations_per_check: int = 10,
     warmup_iterations_per_check: int = 5,
     sparsity_levels: List[float] = default_pruning_sparsities_perf(),
@@ -500,7 +501,8 @@ def pruning_perf_sens_one_shot(
         to calculate the sparse sensitivity analysis for
     :param data: the data to run through the model
     :param batch_size: the size of the batch to create the model in neural magic for
-    :param num_cores: number of physical cores to run on
+    :param num_cores: number of physical cores to run on. Default is the maximum
+        available
     :param iterations_per_check: number of iterations to run for perf details
     :param warmup_iterations_per_check: number of iterations to run before perf details
     :param sparsity_levels: the sparsity levels to calculate the loss for for each param

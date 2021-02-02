@@ -753,7 +753,7 @@ OnnxRepoModelFixture = NamedTuple(
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "resnet-v1",
+                "architecture": "resnet_v1",
                 "sub_architecture": "50",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -769,7 +769,7 @@ OnnxRepoModelFixture = NamedTuple(
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "mobilenet-v1",
+                "architecture": "mobilenet_v1",
                 "sub_architecture": "1.0",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -786,14 +786,14 @@ OnnxRepoModelFixture = NamedTuple(
 def onnx_repo_models(request) -> OnnxRepoModelFixture:
     model_args, model_name = request.param
     model = Zoo.load_model(**model_args)
-    model_path = model.download_onnx_file(overwrite=False)
-    data_paths = model.download_data_files(overwrite=False)
+    model_path = model.onnx_file.downloaded_path()
+    data_paths = [data_file.downloaded_path() for data_file in model.data.values()]
 
     input_paths = None
     output_paths = None
     for path in data_paths:
-        if "_sample-inputs" in path:
-            input_paths = path.split(".tar")[0]
-        elif "_sample-outputs" in path:
-            output_paths = path.split(".tar")[0]
+        if "sample-inputs" in path:
+            input_paths = path
+        elif "sample-outputs" in path:
+            output_paths = path
     return OnnxRepoModelFixture(model_path, model_name, input_paths, output_paths)

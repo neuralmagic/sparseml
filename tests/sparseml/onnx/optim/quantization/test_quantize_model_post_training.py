@@ -93,7 +93,7 @@ def test_quantize_model_post_training_mnist():
         sub_domain="classification",
         architecture="mnistnet",
         framework="pytorch",
-    )[0].download_onnx_file()
+    )[0].onnx_file.downloaded_path()
     quant_model_path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
 
     # Prepare sample validation dataset
@@ -132,7 +132,7 @@ def test_quantize_model_post_training_resnet50_imagenette():
     resnet50_imagenette_path = Zoo.load_model(
         domain="cv",
         sub_domain="classification",
-        architecture="resnet-v1",
+        architecture="resnet_v1",
         sub_architecture="50",
         framework="pytorch",
         repo="sparseml",
@@ -141,7 +141,7 @@ def test_quantize_model_post_training_resnet50_imagenette():
         optim_name="base",
         optim_category="none",
         optim_target=None,
-    ).download_onnx_file(overwrite=True)
+    ).onnx_file.downloaded_path()
     quant_model_path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
 
     # Prepare sample validation dataset
