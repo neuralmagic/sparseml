@@ -17,10 +17,26 @@ limitations under the License.
 ## Tutorials for SparseML
 Tutorials, which are implemented as Jupyter Notebooks for easy consumption and editing, 
 are provided under the `notebooks` directory.
+
 To run one of the tutorials, start a Jupyter session in the `notebooks` directory.
 ```bash
 cd notebooks
 jupyter notebook
+```
+
+If you are running the notebooks from within a virtual environment (recommended), you may create a kernel
+attached to the environment as follows:
+
+```bash
+python -m ipykernel install --user --name your_env --display-name "Python (your_env)".
+```
+
+This kernel should then be available for you under the "Kernel > Change kernel" menu item. If a notebook displays
+TensorBoard and you are running it from a remote server, you may forward the port that TensorBoard uses (by default 6006)
+to your local machine:
+
+```bash
+ssh -N -f -L localhost:6006:localhost:6006 user@remote_ip_address
 ```
 
 Additionally, some notebooks may make use of the [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) package.
