@@ -43,7 +43,7 @@ from tests.sparseml.pytorch.models.utils import compare_model
         ("ssd300_resnet18", False, True, True, ssd300_resnet18),
         ("ssd300_resnet34", False, True, True, ssd300_resnet34),
         ("ssd300_resnet50", False, True, True, ssd300_resnet50),
-        ("ssd300_resnet50", False, "optim-perf", True, ssd300_resnet50),
+        ("ssd300_resnet50", False, "pruned-moderate", True, ssd300_resnet50),
         ("ssd300_resnet101", False, True, True, ssd300_resnet101),
         ("ssd300_resnet152", False, True, True, ssd300_resnet152),
     ],

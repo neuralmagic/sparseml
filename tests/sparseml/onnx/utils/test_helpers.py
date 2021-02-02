@@ -360,7 +360,7 @@ def test_onnx_node_sparsities():
     models = Zoo.search_models(
         domain="cv",
         sub_domain="classification",
-        architecture="mobilenet-v1",
+        architecture="mobilenet_v1",
         dataset="imagenet",
         framework="pytorch",
         optim_name="pruned",
@@ -370,7 +370,7 @@ def test_onnx_node_sparsities():
     assert len(models) > 0
 
     for model in models:
-        file_path = model.download_onnx_file()
+        file_path = model.onnx_file.downloaded_path()
 
         tot, nodes = onnx_nodes_sparsities(file_path)
 

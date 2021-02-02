@@ -41,7 +41,7 @@ DataloaderModelFixture = NamedTuple(
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "resnet-v1",
+                "architecture": "resnet_v1",
                 "sub_architecture": "50",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -59,7 +59,7 @@ DataloaderModelFixture = NamedTuple(
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "mobilenet-v1",
+                "architecture": "mobilenet_v1",
                 "sub_architecture": "1.0",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -78,7 +78,7 @@ DataloaderModelFixture = NamedTuple(
 def dataloader_models(request) -> DataloaderModelFixture:
     model_args, input_shapes, output_shapes, data_types = request.param
     model = Zoo.load_model(**model_args)
-    model_path = model.download_onnx_file(overwrite=False)
+    model_path = model.onnx_file.downloaded_path()
 
     return DataloaderModelFixture(model_path, input_shapes, output_shapes, data_types)
 

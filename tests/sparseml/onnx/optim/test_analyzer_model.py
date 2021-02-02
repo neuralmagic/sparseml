@@ -37,7 +37,7 @@ RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "resnet-v1",
+                "architecture": "resnet_v1",
                 "sub_architecture": "50",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -55,7 +55,7 @@ def analyzer_models_repo(request):
     model_args, output_path = request.param
     output_path = os.path.join(RELATIVE_PATH, "test_analyzer_model_data", output_path)
     model = Zoo.load_model(**model_args)
-    model_path = model.download_onnx_file(overwrite=False)
+    model_path = model.onnx_file.downloaded_path()
 
     if GENERATE_TEST_FILES:
         analyzer = ModelAnalyzer(model_path)

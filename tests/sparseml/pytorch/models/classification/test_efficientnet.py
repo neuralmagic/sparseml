@@ -31,29 +31,29 @@ from tests.sparseml.pytorch.models.utils import compare_model
     reason="Skipping model tests",
 )
 @pytest.mark.parametrize(
-    "key,pretrained,test_input,match_const, match_args",
+    "key,pretrained,test_input,match_const,model_args",
     [
         ("efficientnet_b0", False, True, efficientnet_b0, {}),
         ("efficientnet_b0", "base", False, efficientnet_b0, {}),
-        ("efficientnet_b0", "optim-perf", False, efficientnet_b0, {"se_mod": True}),
+        ("efficientnet_b0", "arch-moderate", False, efficientnet_b0, {"se_mod": True}),
         ("efficientnet_b4", False, True, efficientnet_b4, {}),
         ("efficientnet_b4", "base", False, efficientnet_b4, {}),
-        ("efficientnet_b4", "optim-perf", False, efficientnet_b4, {"se_mod": True}),
+        ("efficientnet_b4", "arch-moderate", False, efficientnet_b4, {"se_mod": True}),
     ],
 )
 def test_efficientnet(
     key: str,
     pretrained: Union[bool, str],
-    match_const: Callable,
     test_input: bool,
-    match_args: dict,
+    match_const: Callable,
+    model_args: dict,
 ):
-    model = ModelRegistry.create(key, pretrained)
-    diff_model = match_const(**match_args)
+    model = ModelRegistry.create(key, pretrained, **model_args)
+    diff_model = match_const(**model_args)
 
     if pretrained:
         compare_model(model, diff_model, same=False)
-        match_model = ModelRegistry.create(key, pretrained)
+        match_model = ModelRegistry.create(key, pretrained, **model_args)
         compare_model(model, match_model, same=True)
 
     if test_input:

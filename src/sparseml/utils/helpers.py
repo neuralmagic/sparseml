@@ -19,7 +19,6 @@ Common functions for interfacing with python primitives and directories/files.
 
 import errno
 import fnmatch
-import glob
 import logging
 import os
 import re
@@ -29,6 +28,8 @@ from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy
+
+from sparsezoo.utils import load_numpy_list
 
 
 __all__ = [
@@ -487,20 +488,22 @@ def load_labeled_data(
     Assumes sorted ordering for on disk. Will match between when a file glob is passed
     for either data and/or labels.
 
-    :param data: the file glob or list of arrays to use for data
-    :param labels: the file glob or list of arrays to use for labels, if any
+    :param data: the file glob, file path to numpy data tar ball, or list of arrays to
+        use for data
+    :param labels: the file glob, file path to numpy data tar ball, or list of arrays
+        to use for labels, if any
     :param raise_on_error: True to raise on any error that occurs;
         False to log a warning, ignore, and continue
     :return: a list containing tuples of the data, labels. If labels was passed in
         as None, will now contain a None for the second index in each tuple
     """
     if isinstance(data, str):
-        data = sorted(glob.glob(data))
+        data = load_numpy_list(data)
 
     if labels is None:
         labels = [None for _ in range(len(data))]
     elif isinstance(labels, str):
-        labels = sorted(glob.glob(labels))
+        labels = load_numpy_list(labels)
 
     if len(data) != len(labels) and labels:
         # always raise this error, lengths must match

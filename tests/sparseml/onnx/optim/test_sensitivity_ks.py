@@ -103,8 +103,6 @@ def _create_sensitivity_ks_data(
     perf_path: str,
     sparsity_levels: Union[List[float], None],
 ):
-    input_paths = os.path.join(input_paths, "*.npz")
-    output_paths = os.path.join(output_paths, "*.npz")
     dataloader = DataLoader(input_paths, output_paths, 1)
     analysis = pruning_loss_sens_magnitude(model_path)
     analysis.save_json(loss_approx_path)
@@ -113,7 +111,7 @@ def _create_sensitivity_ks_data(
         model_path,
         dataloader,
         1,
-        10,
+        1,
         show_progress=False,
         sparsity_levels=sparsity_levels,
     )
@@ -124,8 +122,8 @@ def _create_sensitivity_ks_data(
             model_path,
             dataloader,
             1,
-            -1,
-            iterations_per_check=30,
+            None,
+            iterations_per_check=10,
             warmup_iterations_per_check=5,
             sparsity_levels=sparsity_levels,
             show_progress=False,
@@ -189,9 +187,9 @@ def test_approx_ks_loss_sensitivity(
 def test_one_shot_ks_loss_sensitivity(
     onnx_models_with_analysis: OnnxModelAnalysisFixture,
 ):
-    input_paths = os.path.join(onnx_models_with_analysis.input_paths, "*.npz")
-    output_paths = os.path.join(onnx_models_with_analysis.output_paths, "*.npz")
-    dataloader = DataLoader(input_paths, output_paths, 1)
+    dataloader = DataLoader(
+        onnx_models_with_analysis.input_paths, onnx_models_with_analysis.output_paths, 1
+    )
 
     analysis = pruning_loss_sens_one_shot(
         onnx_models_with_analysis.model_path,
@@ -227,15 +225,15 @@ def test_one_shot_ks_perf_sensitivity(
         onnx_models_with_analysis.perf_path
     )
 
-    input_paths = os.path.join(onnx_models_with_analysis.input_paths, "*.npz")
-    output_paths = os.path.join(onnx_models_with_analysis.output_paths, "*.npz")
-    dataloader = DataLoader(input_paths, output_paths, 1)
+    dataloader = DataLoader(
+        onnx_models_with_analysis.input_paths, onnx_models_with_analysis.output_paths, 1
+    )
 
     analysis = pruning_perf_sens_one_shot(
         onnx_models_with_analysis.model_path,
         dataloader,
         1,
-        -1,
+        None,
         iterations_per_check=10,
         warmup_iterations_per_check=3,
         sparsity_levels=onnx_models_with_analysis.sparsity_levels,

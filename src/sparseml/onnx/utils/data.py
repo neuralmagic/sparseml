@@ -48,8 +48,10 @@ class DataLoader(object):
     Iterator returns a tuple containing (data, label).
     label is only returned if label data was passed in.
 
-    :param data: a file glob pointing to numpy files or loaded numpy data
-    :param labels: a file glob pointing to numpy files or loaded numpy data
+    :param data: a file glob pointing to numpy files, path to a tar ball of numpy
+        files, or loaded numpy data
+    :param labels: a file glob pointing to numpy files path to a tar ball of numpy
+        files, or loaded numpy data
     :param batch_size: the size of batches to create for the iterator
     :param iter_steps: the number of steps (batches) to create.
         Set to -1 for infinite, 0 for running through the loaded data once,
