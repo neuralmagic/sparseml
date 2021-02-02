@@ -45,6 +45,7 @@ def update_model_param(
     Removes the parameter with name param_name from the model
     Creates a new parameter using val
     Adds val to the model with name param_name as an update
+
     :param model: The model to update
     :param param_name: The parameter name in the model to update
     :param val: The new value of the parameter
@@ -62,6 +63,7 @@ def swap_node_output(node: onnx.NodeProto, output: str) -> None:
     """
     Deletes the current output of the node and replaces it with the provided value
     Assumes that the node only has one output
+
     :param node: Node to change the output of
     :param output: New output value
     """
@@ -76,6 +78,7 @@ def remove_node_and_params_from_graph(
 ) -> None:
     """
     Deletes a node from the mdoel graph as well as its parameters listed in node.input
+
     :param model: Model to delete from
     :param node: Node to delete
     :param keep_params: Names of node input initializers not to remove from graph

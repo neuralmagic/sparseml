@@ -48,13 +48,15 @@ _keras_deps = ["tensorflow~=2.2", "keras2onnx>=1.0.0"]
 
 _dev_deps = [
     "black>=20.8b1",
-    "pytest~=5.3.5",
-    "pytest-html>=1.0.0",
     "flake8>=3.8.3",
     "isort>=5.7.0",
     "rinohtype>=0.4.2",
-    "sphinxcontrib-apidoc>=0.3.0",
+    "recommonmark>=0.7.0",
+    "sphinx>=3.4.0",
+    "sphinx-copybutton>=0.3.0",
+    "sphinx-markdown-tables>=0.0.15",
     "wheel>=0.36.2",
+    "pytest>=6.0.0",
     "sphinx-rtd-theme",
 ]
 

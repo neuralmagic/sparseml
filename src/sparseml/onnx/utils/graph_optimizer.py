@@ -111,6 +111,7 @@ def fold_conv_bns(onnx_file: str) -> onnx.ModelProto:
     """
     When a batch norm op is the only child operator of a conv op, this function
     will fold the batch norm into the conv and return the processed graph
+
     :param onnx_file: file path to ONNX model to process
     :return: A loaded ONNX model with BatchNormalization ops folded into Conv ops
         where possible

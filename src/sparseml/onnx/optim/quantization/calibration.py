@@ -257,6 +257,7 @@ class CalibrationSession:
     def process_batch(self, input_batch: Dict[str, np.ndarray]) -> None:
         """
         Updates the model's calibration thresholds based on a run of the input batch
+
         :param input_batch: Dictionary of pre-processed model input batch to use, with
             input names mapped to a numpy array of the batch
         """

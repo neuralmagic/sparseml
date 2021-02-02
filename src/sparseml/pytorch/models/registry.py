@@ -248,7 +248,7 @@ class ModelRegistry(object):
 
         :param wrapped_constructor: Model constructor wrapped to be compatible
             by call from ModelRegistry.create should have pretrained, pretrained_path,
-            pretrained_dataset, load_strict, ignore_error_tensors, and **kwargs as
+            pretrained_dataset, load_strict, ignore_error_tensors, and kwargs as
             arguments
         :param key: the model key (name) to create
         :param input_shape: the specified input shape for the model

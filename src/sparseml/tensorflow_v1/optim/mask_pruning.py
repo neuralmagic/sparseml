@@ -20,7 +20,12 @@ aka model pruning, on a TensorFlow graph.
 from collections import namedtuple
 from typing import List, Tuple
 
-import tensorflow.contrib.graph_editor as ge
+try:
+    import tensorflow.contrib.graph_editor as graph_editor
+    tf_contrib_err = None
+except Exception as err:
+    graph_editor = None
+    tf_contrib_err = err
 
 from sparseml.tensorflow_v1.optim.mask_creator_pruning import PruningMaskCreator
 from sparseml.tensorflow_v1.utils import (
@@ -179,7 +184,10 @@ def create_op_pruning_no_update(
     :return: a named tuple containing the assignment op, mask variable,
         threshold tensor, and masked tensor
     """
-    op_sgv = ge.sgv(op)
+    if tf_contrib_err:
+        raise tf_contrib_err
+
+    op_sgv = graph_editor.sgv(op)
 
     # create the necessary variables first
     with tf_compat.variable_scope(
@@ -207,7 +215,7 @@ def create_op_pruning_no_update(
         op_swapped_inputs = [
             inp if inp != op_input else op_inp_tens for inp in op_sgv.inputs
         ]
-        ge.swap_inputs(op, op_swapped_inputs)
+        graph_editor.swap_inputs(op, op_swapped_inputs)
     tf_compat.add_to_collection(
         PruningScope.collection_name(ks_group, PruningScope.OP_MASKED_VAR), masked
     )
