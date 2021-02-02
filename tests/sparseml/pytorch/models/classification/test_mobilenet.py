@@ -36,8 +36,8 @@ from tests.sparseml.pytorch.models.utils import compare_model
         ("mobilenet", False, True),
         ("mobilenet", True, False),
         ("mobilenet", "base", False),
-        ("mobilenet", "optim", False),
-        ("mobilenet", "optim-perf", False),
+        ("mobilenet", "pruned-conservative", False),
+        ("mobilenet", "pruned-moderate", False),
     ],
 )
 def test_mobilenets(key: str, pretrained: Union[bool, str], test_input: bool):

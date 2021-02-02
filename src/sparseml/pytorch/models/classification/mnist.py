@@ -132,7 +132,7 @@ class MnistNet(Module):
     domain="cv",
     sub_domain="classification",
     architecture="mnistnet",
-    sub_architecture="none",
+    sub_architecture=None,
     default_dataset="mnist",
     default_desc="base",
 )
