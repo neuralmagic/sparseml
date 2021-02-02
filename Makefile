@@ -4,7 +4,7 @@ BUILDDIR := $(PWD)
 CHECKDIRS := examples notebooks scripts src tests utils setup.py
 CHECKGLOBS := 'examples/**/*.py' 'scripts/**/*.py' 'src/**/*.py' 'tests/**/*.py' 'utils/**/*.py' setup.py
 DOCDIR := docs
-MDCHECKGLOBS := 'docs/**/*.md' 'examples/**/*.md' 'notebooks/**/*.md' 'scripts/**/*.md'
+MDCHECKGLOBS := 'docs/**/*.md' 'docs/**/*.rst' 'examples/**/*.md' 'notebooks/**/*.md' 'scripts/**/*.md'
 MDCHECKFILES := CODE_OF_CONDUCT.md CONTRIBUTING.md DEVELOPING.md README.md
 
 TARGETS := ""  # targets for running pytests: keras,onnx,pytorch,pytorch_models,pytorch_datasets,tensorflow_v1,tensorflow_v1_models,tensorflow_v1_datasets
@@ -58,8 +58,8 @@ test:
 
 # create docs
 docs:
-	sphinx-apidoc -o "$(DOCDIR)/source/" src/sparseml;
-	cd $(DOCDIR) && $(MAKE) html;
+	export SPARSEML_IGNORE_TFV1="True"; sphinx-apidoc -o "$(DOCDIR)/source/api/" src/sparseml;
+	export SPARSEML_IGNORE_TFV1="True"; cd $(DOCDIR) && $(MAKE) html;
 
 # creates wheel file
 build:

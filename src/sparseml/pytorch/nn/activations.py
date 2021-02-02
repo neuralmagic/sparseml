@@ -97,10 +97,11 @@ class Swish(Module):
 
 def hard_swish(x_tens: Tensor, inplace: bool = False):
     """
-    Hardswish layer implementation:
-        0 for x <= -3
-        x for x >= 3
-        x * (x + 3) / 6 otherwise
+    | Hardswish layer implementation:
+    |    0 for x <= -3
+    |    x for x >= 3
+    |    x * (x + 3) / 6 otherwise
+
     More information can be found in the paper
     `here <https://arxiv.org/abs/1905.02244>`__.
 
@@ -121,10 +122,11 @@ def hard_swish(x_tens: Tensor, inplace: bool = False):
 
 class Hardswish(Module):
     """
-    Hardswish layer implementation:
-        0 for x <= -3
-        x for x >= 3
-        x * (x + 3) / 6 otherwise
+    | Hardswish layer implementation:
+    |    0 for x <= -3
+    |    x for x >= 3
+    |    x * (x + 3) / 6 otherwise
+
     More information can be found in the paper
     `here <https://arxiv.org/abs/1905.02244>`__.
 

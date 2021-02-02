@@ -1176,13 +1176,13 @@ def get_quantize_parent_for_dequantize_node(
 ) -> Union[NodeProto, None]:
     """
     Returns the first quantize node found by traversing the first node input of the
-    given de-quantize node's ancestors.  All inputs to de-quantize nodes should have
+    given de-quantize node's ancestors. All inputs to de-quantize nodes should have
     a quantize node ancestor.
 
     :param quantized_model: the model the de-quantize node is from
     :param dequantize_node: the node to get an associated quantize node for
     :return: the first quantize node found by traversing the first node input of the
-    given de-quantize node's ancestors. If no quantize node is found, returns None
+        given de-quantize node's ancestors. If no quantize node is found, returns None
     """
     curr_node = dequantize_node
     while curr_node is not None and curr_node.op_type != "QuantizeLinear":

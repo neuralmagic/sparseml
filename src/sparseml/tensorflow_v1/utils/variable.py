@@ -16,8 +16,14 @@ import re
 from typing import List, Tuple, Union
 
 import numpy
-import tensorflow.contrib.graph_editor as ge
-from tensorflow.contrib.graph_editor.util import ListView
+
+try:
+    import tensorflow.contrib.graph_editor as graph_editor
+    from tensorflow.contrib.graph_editor.util import ListView
+except Exception as err:
+    graph_editor = None
+    ListView = None
+    tf_contrib_err = err
 
 from sparseml.tensorflow_v1.utils.helpers import tf_compat
 
@@ -114,7 +120,10 @@ def get_op_input_var(
     :param var_index: the index to guide which input to grab from the operation
     :return: the tensor input that represents the variable input for the operation
     """
-    op_sgv = ge.sgv(operation)
+    if tf_contrib_err:
+        raise tf_contrib_err
+
+    op_sgv = graph_editor.sgv(operation)
     var_index = get_op_var_index(var_index, op_sgv.inputs)
 
     return op_sgv.inputs[var_index]
@@ -189,6 +198,8 @@ def get_ops_and_inputs_by_name_or_regex(
         patterns, then will match on all prunable layers and return variables using
         get_op_input_var
     """
+    if tf_contrib_err:
+        raise tf_contrib_err
 
     if not graph:
         graph = tf_compat.get_default_graph()
@@ -205,20 +216,20 @@ def get_ops_and_inputs_by_name_or_regex(
                 # get all the read ops for the var
                 read_ops = [
                     read_op
-                    for read_op in ge.get_consuming_ops(var_tens)
+                    for read_op in graph_editor.get_consuming_ops(var_tens)
                     if "/read" == read_op.name[-5:]
                 ]  # filter for /read ops
                 read_tensors = {
                     read_tensor
                     for read_op in read_ops
-                    for read_tensor in ge.sgv(read_op).outputs
+                    for read_tensor in graph_editor.sgv(read_op).outputs
                 }
                 # gets ops that read from read_tensors and filters any ops
                 # that were created by mask_ks
                 consuming_ops_with_input = [
                     (consuming_op, read_tensor)
                     for read_tensor in read_tensors
-                    for consuming_op in ge.get_consuming_ops(read_tensor)
+                    for consuming_op in graph_editor.get_consuming_ops(read_tensor)
                 ]
                 for op, inp in consuming_ops_with_input:
                     if "_nm_ks" not in op.name:
@@ -226,8 +237,8 @@ def get_ops_and_inputs_by_name_or_regex(
                     else:
                         nm_ks_consuming_ops_with_input = [
                             (consuming_op, inp)
-                            for output_tens in ge.sgv(op).outputs
-                            for consuming_op in ge.get_consuming_ops(output_tens)
+                            for output_tens in graph_editor.sgv(op).outputs
+                            for consuming_op in graph_editor.get_consuming_ops(output_tens)
                             if "_nm_ks" not in consuming_op.name
                         ]
                         prunable_ops_and_inputs += nm_ks_consuming_ops_with_input

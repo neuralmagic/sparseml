@@ -20,7 +20,7 @@ tensorboard/*
 onnx/*
 repos/*
 
-*.rst
+/docs/source/api/*.rst
 
 ### Python template
 # Byte-compiled / optimized / DLL files

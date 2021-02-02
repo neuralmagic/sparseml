@@ -395,10 +395,11 @@ def ssd_random_crop(
     Performs one of the random SSD crops on a given image, bounding boxes,
     and labels as implemented in the original paper.
 
-    Chooses between following 3 conditions:
-        1. Preserve the original image
-        2. Random crop minimum IoU is among 0.1, 0.3, 0.5, 0.7, 0.9
-        3. Random crop
+    | Chooses between following 3 conditions:
+    |     1. Preserve the original image
+    |     2. Random crop minimum IoU is among 0.1, 0.3, 0.5, 0.7, 0.9
+    |     3. Random crop
+
     Adapted from: https://github.com/chauhan-utk/src.DomainAdaptation
 
     :param image: the image to potentially crop

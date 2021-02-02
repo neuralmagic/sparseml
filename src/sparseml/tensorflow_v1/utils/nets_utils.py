@@ -173,7 +173,7 @@ def mobilenet_v1_arg_scope(
     batch_norm_decay: float = 0.9997,
     batch_norm_epsilon: float = 0.001,
     batch_norm_updates_collections: tf.GraphKeys = tf.GraphKeys.UPDATE_OPS,
-    normalizer_fn: Callable = slim.batch_norm,
+    normalizer_fn: Callable = slim.batch_norm if slim else None,
 ):
     """
     Adapted from slim to allow for Xavier initializer

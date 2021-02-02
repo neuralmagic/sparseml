@@ -19,12 +19,18 @@ editing models for performance in the Neural Magic System
 
 # flake8: noqa
 
+import os as _os
+
+
 try:
     import tensorflow
 
-    version = [int(v) for v in tensorflow.__version__.split(".")]
-    if version[0] != 1 or version[1] < 8:
-        raise Exception
+    if not _os.getenv("SPARSEML_IGNORE_TFV1", False):
+        # special use case so docs can be generated without having
+        # conflicting TF versions for V1 and Keras
+        version = [int(v) for v in tensorflow.__version__.split(".")]
+        if version[0] != 1 or version[1] < 8:
+            raise Exception
 except:
     raise RuntimeError(
         "Unable to import tensorflow. tensorflow>=1.8,<2.0 is required"

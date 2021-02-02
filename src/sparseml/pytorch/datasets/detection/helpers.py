@@ -52,7 +52,7 @@ class AnnotatedImageTransforms(object):
     (images and annotations for object detection).
 
     :param transforms: List of transformations that take an image and annotation as
-    their parameters.
+        their parameters.
     """
 
     def __init__(self, transforms: List):
@@ -92,7 +92,8 @@ def random_horizontal_flip_image_and_annotations(
     image: Image.Image, annotations: Tuple[Tensor, Tensor], p: float = 0.5
 ) -> Tuple[Image.Image, Tuple[Tensor, Tensor]]:
     """
-    Perorms a horizontal flip on given image and bounding boxes with probability p.
+    Performs a horizontal flip on given image and bounding boxes with probability p.
+
     :param image: the image to randomly flip
     :param annotations: a tuple of bounding boxes and their labels for this image
     :param p: the probability to flip with. Default is 0.5
@@ -115,6 +116,7 @@ def yolo_collate_fn(
     """
     Collate function to be used for creating a DataLoader with values for Yolo model
     input.
+
     :param batch: a batch of data points and annotations transformed by
         bounding_box_and_labels_to_yolo_fmt
     :return: the batch stacked as tensors for all values except for the
@@ -141,6 +143,7 @@ def ssd_collate_fn(
     """
     Collate function to be used for creating a DataLoader with values transformed by
     encode_annotation_bounding_boxes.
+
     :param batch: a batch of data points transformed by encode_annotation_bounding_boxes
     :return: the batch stacked as tensors for all values except for the
         original annotations

@@ -263,6 +263,7 @@ def postprocess_yolo(
     """
     Decode the outputs of a Yolo model and perform non maximum suppression
     on the predicted boxes.
+
     :param preds: list of Yolo model output tensors
     :param input_shape: shape of input image to model. Default is [640, 640]
     :param yolo_grids: optional YoloGrids object for caching previously used grid shapes
