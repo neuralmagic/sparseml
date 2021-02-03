@@ -18,33 +18,47 @@ limitations under the License.
 Tutorials, which are implemented as Jupyter Notebooks for easy consumption and editing, 
 are provided under the `notebooks` directory.
 
-To run one of the tutorials, start a Jupyter session in the `notebooks` directory.
-```bash
-cd notebooks
-jupyter notebook
-```
 
-If you are running the notebooks from within a virtual environment (recommended), you may create a kernel
-attached to the environment as follows:
+Assuming you are running the notebooks from within a virtual environment (recommended), you may follow the steps
+below to prepare and launch your notebooks:
+
+1. Create a kernel attached to the environment:
 
 ```bash
 python -m ipykernel install --user --name your_env --display-name "Python (your_env)".
 ```
 
-This kernel should then be available for you under the "Kernel > Change kernel" menu item. If a notebook displays
-TensorBoard and you are running it from a remote server, you may forward the port that TensorBoard uses (by default 6006)
-to your local machine:
+This kernel should then be available for you under the "Kernel > Change kernel" menu item.
+
+2. If a notebook displays TensorBoard and you are running it from a remote server, you may forward the
+port that TensorBoard uses (by default 6006) to your local machine:
 
 ```bash
 ssh -N -f -L localhost:6006:localhost:6006 user@remote_ip_address
 ```
 
-Additionally, some notebooks may make use of the [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) package.
-You may need to enable the Jupyter extension to properly see the UIs.
-Use the following command to do so: `jupyter nbextension enable --py widgetsnbextension`.
-If Jupyter was already running, restart after running the command.
+**Tip:** If the port is unavailable, you may look for the process using it with `sudo lsof -i :6006` and release it with
+`kill -9 <PROCESS_ID>`. The above binding command also allows you to view TensorBoard outside your notebook by going to
+`localhost:6006` from your local machine.
 
-Once the Jupyter session has started, you can open the desired notebooks.
+3. Some notebooks may make use of the [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) package.
+You may need to enable the Jupyter extension to properly see the UIs with the following command:
+
+```bash
+jupyter nbextension enable --py widgetsnbextension.
+```
+
+4. Start a Jupyter session in the `notebooks` directory, optionally using an available port of your choice (e.g., 8890):
+
+```bash
+cd notebooks
+jupyter notebook --port=8890
+```
+
+Again, if you are running the Jupyter server from a remote server, you may bind the notebook port as you did with TensorBoard, then
+view it from your local machine with `localhost:8890`.
+
+
 Note, the TensorFlow V1 notebooks are tested with TensorFlow version ~= 1.15.0. 
 For best results, confirm your system matches that version.
 
