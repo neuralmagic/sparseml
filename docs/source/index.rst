@@ -107,6 +107,5 @@ Additionally, more information can be found via
     :maxdepth: 2
     :caption: Help and Support
 
-    `Bugs, Feature Requests <https://github.com/neuralmagic/sparseml/discussions>`_ 
-    `Support, General Q&A <https://github.com/neuralmagic/sparseml/issues>`_ 
-   
+    Bugs, Feature Requests <https://github.com/neuralmagic/sparseml/issues>
+    Support, General Q&A <https://github.com/neuralmagic/sparseml/discussions>
