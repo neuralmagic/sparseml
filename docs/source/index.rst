@@ -83,8 +83,8 @@ Release History
 ===============
 
 Official builds are hosted on PyPi
-- stable: `sparsezoo <https://pypi.org/project/sparseml/ />`_
-- nightly (dev): `sparsezoo-nightly <https://pypi.org/project/sparseml-nightly/ />`_
+- stable: `sparseml <https://pypi.org/project/sparseml/ />`_
+- nightly (dev): `sparseml-nightly <https://pypi.org/project/sparseml-nightly/ />`_
 
 Additionally, more information can be found via
 `GitHub Releases <https://github.com/neuralmagic/sparseml/releases />`_.
