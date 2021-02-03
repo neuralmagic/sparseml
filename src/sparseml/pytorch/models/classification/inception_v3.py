@@ -470,7 +470,7 @@ class InceptionV3(Module):
     domain="cv",
     sub_domain="classification",
     architecture="inception_v3",
-    sub_architecture="none",
+    sub_architecture=None,
     default_dataset="imagenet",
     default_desc="base",
     def_ignore_error_tensors=[

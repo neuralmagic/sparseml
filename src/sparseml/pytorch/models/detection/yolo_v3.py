@@ -276,7 +276,7 @@ class YoloV3(Module):
     domain="cv",
     sub_domain="detection",
     architecture="yolo_v3",
-    sub_architecture="none",
+    sub_architecture="spp",
     default_dataset="coco",
     default_desc="base",
 )

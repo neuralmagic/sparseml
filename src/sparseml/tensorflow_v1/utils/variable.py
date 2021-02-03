@@ -17,6 +17,7 @@ from typing import List, Tuple, Union
 
 import numpy
 
+
 try:
     import tensorflow.contrib.graph_editor as graph_editor
     from tensorflow.contrib.graph_editor.util import ListView
@@ -238,7 +239,9 @@ def get_ops_and_inputs_by_name_or_regex(
                         nm_ks_consuming_ops_with_input = [
                             (consuming_op, inp)
                             for output_tens in graph_editor.sgv(op).outputs
-                            for consuming_op in graph_editor.get_consuming_ops(output_tens)
+                            for consuming_op in graph_editor.get_consuming_ops(
+                                output_tens
+                            )
                             if "_nm_ks" not in consuming_op.name
                         ]
                         prunable_ops_and_inputs += nm_ks_consuming_ops_with_input
