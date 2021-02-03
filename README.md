@@ -331,6 +331,8 @@ pip install sparseml[tf_v1_gpu]
 
 Depending on your device and CUDA version, you may need to install additional dependencies for using TensorFlow V1 with GPU operations.  You can find these steps [here](https://www.tensorflow.org/install/gpu#older_versions_of_tensorflow).
 
+Note, TensorFlow V1 is no longer being built for newer operating systems such as Ubuntu 20.04. Therefore, SparseML with TensorFlow V1 is unsupported on these operating systems as well.
+
 ## Resources and Learning More
 
 - [SparseZoo Documentation](https://docs.neuralmagic.com/sparsezoo/)
