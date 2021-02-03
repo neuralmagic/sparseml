@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# ![icon for SparseMl](https://github.com/neuralmagic/sparseml/blob/main/docs/icon-sparseml.png) SparseML
+# ![icon for SparseMl](https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png) SparseML
 
 ### Libraries for state-of-the-art deep neural network optimization algorithms, enabling simple pipelines integration with a few lines of code
 
@@ -23,7 +23,7 @@ limitations under the License.
         <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/comingsoon.svg?color=purple&style=for-the-badge" height=25>
     </a>
     <a href="https://docs.neuralmagic.com/sparseml/">
-        <img alt="Documentation" src="https://img.shields.io/website/http/neuralmagic.com/sparseml/index.html.svg?down_color=red&down_message=offline&up_message=online&style=for-the-badge" height=25>
+        <img alt="Documentation" src="https://img.shields.io/website/http/docs.neuralmagic.com/sparseml/index.html.svg?down_color=red&down_message=offline&up_message=online&style=for-the-badge" height=25>
     </a>
     <a href="https://github.com/neuralmagic/sparseml/releases">
         <img alt="GitHub release" src="https://img.shields.io/github/release/neuralmagic/sparseml.svg?style=for-the-badge" height=25>
@@ -163,7 +163,7 @@ The integration is done using the `ScheduledModifierManager` class which can be 
 This class handles modifying the TensorFlow graph for the desired optimizations.
 With this setup, the training process can then be modified as desired to optimize the model.
 
-#### Estimator-based pipelines
+#### Estimator-Based pipelines
 
 Estimator-based pipelines are simpler to integrate with as compared to session-based pipelines.
 The `ScheduledModifierManager` can override the necessary callbacks in the estimator to modify the graph using the `modify_estimator` function.
@@ -180,7 +180,7 @@ manager.modify_estimator(estimator, steps_per_epoch=num_train_batches)
 # Normal estimator training code...
 ```
 
-#### Session-based pipelines
+#### Session-Based pipelines
 
 Session-based pipelines need a little bit more as compared to estimator-based pipelines; however,
 it is still designed to require only a few lines of code for integration.
@@ -321,15 +321,15 @@ TensorFlow V1:
 
 ```bash
 pip install sparseml[tf_v1]
-``` 
+```
 
 TensorFlow V1 with GPU operations enabled:
+
 ```bash
 pip install sparseml[tf_v1_gpu]
-``` 
-Depending on your device and CUDA version, you may need to install additional
-dependencies for using TensorFlow V1 with GPU operations.  You can find these
-steps [here](https://www.tensorflow.org/install/gpu#older_versions_of_tensorflow).
+```
+
+Depending on your device and CUDA version, you may need to install additional dependencies for using TensorFlow V1 with GPU operations.  You can find these steps [here](https://www.tensorflow.org/install/gpu#older_versions_of_tensorflow).
 
 ## Resources and Learning More
 
