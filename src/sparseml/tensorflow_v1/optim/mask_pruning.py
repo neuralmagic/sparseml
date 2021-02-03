@@ -20,8 +20,10 @@ aka model pruning, on a TensorFlow graph.
 from collections import namedtuple
 from typing import List, Tuple
 
+
 try:
     import tensorflow.contrib.graph_editor as graph_editor
+
     tf_contrib_err = None
 except Exception as err:
     graph_editor = None
