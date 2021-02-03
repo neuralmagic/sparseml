@@ -28,7 +28,7 @@ limitations under the License.
     <a href="https://github.com/neuralmagic/sparseml/releases">
         <img alt="GitHub release" src="https://img.shields.io/github/release/neuralmagic/sparseml.svg?style=for-the-badge" height=25>
     </a>
-    <a href="https://github.com/neuralmagic.com/sparseml/blob/main/CODE_OF_CONDUCT.md">
+    <a href="https://github.com/neuralmagic/sparseml/blob/main/CODE_OF_CONDUCT.md">
         <img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg?color=yellow&style=for-the-badge" height=25>
     </a>
      <a href="https://www.youtube.com/channel/UCo8dO_WMGYbWCRnj_Dxr4EA">
