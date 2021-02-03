@@ -22,15 +22,16 @@ are provided under the `notebooks` directory.
 Assuming you are running the notebooks from within a virtual environment (recommended), you may follow the steps
 below to prepare and launch your notebooks:
 
-1. Create a kernel attached to the environment:
+<ol>
+<li> Create a kernel attached to the environment:
 
 ```bash
 python -m ipykernel install --user --name your_env --display-name "Python (your_env)".
 ```
 
-This kernel should then be available for you under the "Kernel > Change kernel" menu item.
+This kernel should then be available for you under the "Kernel > Change kernel" menu item.</li>
 
-2. If a notebook displays TensorBoard and you are running it from a remote server, you may forward the
+<li> If a notebook displays TensorBoard and you are running it from a remote server, you may forward the
 port that TensorBoard uses (by default 6006) to your local machine:
 
 ```bash
@@ -39,16 +40,17 @@ ssh -N -f -L localhost:6006:localhost:6006 user@remote_ip_address
 
 **Tip:** If the port is unavailable, you may look for the process using it with `sudo lsof -i :6006` and release it with
 `kill -9 <PROCESS_ID>`. The above binding command also allows you to view TensorBoard outside your notebook by going to
-`localhost:6006` from your local machine.
+`localhost:6006` from your local machine.</li>
 
-3. Some notebooks may make use of the [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) package.
+<li> Some notebooks may make use of the [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) package.
 You may need to enable the Jupyter extension to properly see the UIs with the following command:
 
 ```bash
 jupyter nbextension enable --py widgetsnbextension.
 ```
+</li>
 
-4. Start a Jupyter session in the `notebooks` directory, optionally using an available port of your choice (e.g., 8890):
+<li> Start a Jupyter session in the `notebooks` directory, optionally using an available port of your choice (e.g., 8890):
 
 ```bash
 cd notebooks
@@ -56,8 +58,8 @@ jupyter notebook --port=8890
 ```
 
 Again, if you are running the Jupyter server from a remote server, you may bind the notebook port as you did with TensorBoard, then
-view it from your local machine with `localhost:8890`.
-
+view it from your local machine with `localhost:8890`.</li>
+</ol>
 
 Note, the TensorFlow V1 notebooks are tested with TensorFlow version ~= 1.15.0. 
 For best results, confirm your system matches that version.
