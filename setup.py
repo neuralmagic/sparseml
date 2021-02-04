@@ -13,20 +13,21 @@
 # limitations under the License.
 
 import sys
+from datetime import date
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
 
 
+_PACKAGE_NAME = "sparseml"
+_VERSION = "0.1.0"
 _NIGHTLY = "nightly" in sys.argv
+
 if _NIGHTLY:
+    _PACKAGE_NAME += "-nightly"
+    _VERSION += "." + date.today().strftime("%Y%m%d")
     # remove nightly param so it does not break bdist_wheel
     sys.argv.remove("nightly")
-
-
-_PACKAGE_NAME = "sparseml" if not _NIGHTLY else "sparseml-nightly"
-_VERSION = "0.1.0"
-
 
 _deps = [
     "jupyter>=1.0.0",
@@ -46,9 +47,7 @@ _deps = [
     "tqdm>=4.0.0",
     "toposort>=1.0",
 ]
-_nm_deps = [
-    f"sparsezoo~={_VERSION}" if not _NIGHTLY else "sparsezoo-nightly",
-]
+_nm_deps = [f"{'sparsezoo-nightly' if _NIGHTLY else 'sparsezoo'}~={_VERSION}"]
 _pytorch_deps = ["torch>=1.1.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
