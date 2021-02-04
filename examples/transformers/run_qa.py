@@ -835,7 +835,7 @@ def main():
     optim = load_optimizer(model, TrainingArguments)
     steps_per_epoch = math.ceil(len(datasets["train"]) / 24)
     manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
-    optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
+    optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=logger)
 
     # Initialize our Trainer
     trainer = QuestionAnsweringTrainer(
@@ -848,6 +848,7 @@ def main():
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
+        optimizer =(optim, None)
     )
 
     param_in_scope_regex = ["re:.*key\.weight", "re:.*value\.weight","re:.*query\.weight","re:.*dense\.weight"]
