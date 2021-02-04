@@ -850,12 +850,16 @@ def main():
         compute_metrics=compute_metrics,
     )
 
+    param_in_scope_regex = ["re:.*key\.weight", "re:.*value\.weight","re:.*query\.weight","re:.*dense\.weight"]
+    print('Sparsity of Model prior to training:{}'.format(get_sparsity_by_regex(model, param_in_scope_regex)))
     # Training
     if training_args.do_train:
         trainer.train(
             model_path=model_args.model_name_or_path if os.path.isdir(model_args.model_name_or_path) else None
         )
+        print(get_sparsity_by_regex(model, param_in_scope_regex))
         trainer.save_model()  # Saves the tokenizer too for easy upload
+    print('Sparsity of Model after to training:{}'.format(get_sparsity_by_regex(model, param_in_scope_regex)))
 
     
     
@@ -872,7 +876,7 @@ def main():
                 for key, value in results.items():
                     logger.info(f"  {key} = {value}")
                     writer.write(f"{key} = {value}\n")
-
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
     # Export model to onnx
     exporter = ModuleExporter(model, output_dir=os.path.join(".", model_args.onnx_output_name))
     sample_batch = convert_example_to_features(datasets["validation"][0], tokenizer, data_args.max_seq_length, data_args.doc_stride, data_args.max_query_length)
