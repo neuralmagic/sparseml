@@ -12,9 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
+
+
+_NIGHTLY = "nightly" in sys.argv
+if _NIGHTLY:
+    # remove nightly param so it does not break bdist_wheel
+    sys.argv.remove("nightly")
+
+
+_PACKAGE_NAME = "sparseml" if not _NIGHTLY else "sparseml-nightly"
+_VERSION = "0.1.0"
 
 
 _deps = [
@@ -32,9 +43,11 @@ _deps = [
     "requests>=2.0.0",
     "scikit-image>=0.15.0",
     "scipy>=1.0.0",
-    "sparsezoo>=0.1.0",
     "tqdm>=4.0.0",
     "toposort>=1.0",
+]
+_nm_deps = [
+    f"sparsezoo~={_VERSION}" if not _NIGHTLY else "sparsezoo-nightly",
 ]
 _pytorch_deps = ["torch>=1.1.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0"]
@@ -72,7 +85,7 @@ def _setup_package_dir() -> Dict:
 
 
 def _setup_install_requires() -> List:
-    return _deps
+    return _nm_deps + _deps
 
 
 def _setup_extras() -> Dict:
@@ -95,8 +108,8 @@ def _setup_long_description() -> Tuple[str, str]:
 
 
 setup(
-    name="sparseml",
-    version="0.1.0",
+    name=_PACKAGE_NAME,
+    version=_VERSION,
     author="Neuralmagic, Inc.",
     author_email="support@neuralmagic.com",
     description=(

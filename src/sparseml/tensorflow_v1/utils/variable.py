@@ -21,6 +21,7 @@ import numpy
 try:
     import tensorflow.contrib.graph_editor as graph_editor
     from tensorflow.contrib.graph_editor.util import ListView
+
     tf_contrib_err = None
 except Exception as err:
     graph_editor = None
