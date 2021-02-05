@@ -202,6 +202,7 @@ def test_create_op_pruning_conv(sparsity_val: float, mask_creator: PruningMaskCr
                 assert sess.run(mask_vals_are_grouped)
 
 
+@pytest.mark.flaky
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",
@@ -391,6 +392,7 @@ def test_apply_op_vars_masks(
                 assert abs(var_sparsity - sparsity_val) < 1e-2
 
 
+@pytest.mark.flaky
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",
@@ -502,6 +504,7 @@ def _expected_sparsity(
     )
 
 
+@pytest.mark.flaky
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",

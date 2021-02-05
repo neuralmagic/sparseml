@@ -85,6 +85,7 @@ def resnet_v2_50(init_weights):
         return tf_compat.get_default_graph()
 
 
+@pytest.mark.flaky
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",
