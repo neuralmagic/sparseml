@@ -26,6 +26,7 @@ from sparseml.tensorflow_v1.optim import (
 from sparseml.tensorflow_v1.utils import eval_tensor_sparsity, tf_compat
 
 
+@pytest.mark.flaky
 @pytest.mark.parametrize(
     ("tensor_shape,mask_creator"),
     [

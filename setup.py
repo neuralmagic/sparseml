@@ -57,6 +57,7 @@ _dev_deps = [
     "sphinx-markdown-tables>=0.0.15",
     "wheel>=0.36.2",
     "pytest>=6.0.0",
+    "flaky>=3.0.0",
     "sphinx-rtd-theme",
 ]
 
