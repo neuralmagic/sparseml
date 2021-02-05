@@ -50,13 +50,13 @@ Overview
 ========
 
 SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art optimization
-algorithms such as `pruning <https://neuralmagic.com/blog/pruning-overview/ />`_ and
+algorithms such as `pruning <https://neuralmagic.com/blog/pruning-overview />`_ and
 `quantization <https://arxiv.org/abs/1609.07061 />`_ to any neural network.
 General, recipe-driven approaches built around these optimizations enable the simplification of creating faster
 and smaller models for the ML performance community at large.
 
-SparseML is integrated for easy model optimizations within the `PyTorch <https://pytorch.org/ />`_,
-`Keras <https://keras.io/ />`_, and `TensorFlow V1 <http://tensorflow.org/ />`_ ecosystems currently.
+SparseML is integrated for easy model optimizations within the `PyTorch <https://pytorch.org />`_,
+`Keras <https://keras.io />`_, and `TensorFlow V1 <http://tensorflow.org />`_ ecosystems currently.
 
 Related Products
 ================
@@ -72,19 +72,19 @@ Related Products
 Resources and Learning More
 ===========================
 
-- `SparseZoo Documentation <https://docs.neuralmagic.com/sparsezoo/ />`_
-- `Sparsify Documentation <https://docs.neuralmagic.com/sparsify/ />`_
-- `DeepSparse Documentation <https://docs.neuralmagic.com/deepsparse/ />`_
-- `Neural Magic Blog <https://www.neuralmagic.com/blog/ />`_,
-  `Resources <https://www.neuralmagic.com/resources/ />`_,
-  `Website <https://www.neuralmagic.com/ />`_
+- `SparseZoo Documentation <https://docs.neuralmagic.com/sparsezoo />`_
+- `Sparsify Documentation <https://docs.neuralmagic.com/sparsify />`_
+- `DeepSparse Documentation <https://docs.neuralmagic.com/deepsparse />`_
+- `Neural Magic Blog <https://www.neuralmagic.com/blog />`_,
+  `Resources <https://www.neuralmagic.com/resources />`_,
+  `Website <https://www.neuralmagic.com />`_
 
 Release History
 ===============
 
 Official builds are hosted on PyPi
-- stable: `sparseml <https://pypi.org/project/sparseml/ />`_
-- nightly (dev): `sparseml-nightly <https://pypi.org/project/sparseml-nightly/ />`_
+- stable: `sparseml <https://pypi.org/project/sparseml />`_
+- nightly (dev): `sparseml-nightly <https://pypi.org/project/sparseml-nightly />`_
 
 Additionally, more information can be found via
 `GitHub Releases <https://github.com/neuralmagic/sparseml/releases />`_.
