@@ -296,9 +296,22 @@ class BaseModifier(BaseObject):
             modifiers = container
         else:  # Dict
             modifiers = []
-            for key, modifier_list in container.items():
-                if "modifiers" in key and isinstance(modifier_list, List):
-                    modifiers.extend(modifier_list)
+            for name, item in container.items():
+                if "modifiers" in name and isinstance(item, List):
+                    modifiers.extend(item)
+                elif isinstance(item, BaseModifier):
+                    modifiers.append(item)
+                elif isinstance(item, List) and any(
+                    isinstance(element, BaseModifier) for element in item
+                ):
+                    modifier_type = type(
+                        [mod for mod in item if isinstance(mod, BaseModifier)][0]
+                    )
+                    raise ValueError(
+                        "Invalid modifier location. Grouped modifiers in recipes must "
+                        "be listed in lists with 'modifiers' in its name. A modifier of "
+                        f"type {modifier_type} was found in recipe list {name}"
+                    )
 
         return modifiers
 
