@@ -705,3 +705,71 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
 )
 class TestScheduledUpdateModifierImpl(ScheduledUpdateModifierTest):
     pass
+
+
+_SAMPLE_RECIPE = """
+modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 1.0
+
+  - !SetLearningRateModifier
+    start_epoch: 0.0
+    learning_rate: 0.1
+"""
+
+_SAMPLE_GROUPED_RECIPE = """
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 50.0
+
+  - !SetLearningRateModifier
+    start_epoch: 0.0
+    learning_rate: 0.1
+
+pruning_modifiers:
+  - !GMPruningModifier
+    start_epoch: 0
+    end_epoch: 40
+    init_sparsity: 0.05
+    final_sparsity: 0.85
+    params: __ALL__
+    update_frequency: 0.5
+"""
+
+
+@pytest.mark.parametrize(
+    "modifier_str,num_modifiers",
+    [
+        (_SAMPLE_RECIPE, 2),
+        (_SAMPLE_GROUPED_RECIPE, 3),
+    ],
+)
+def test_load_list(modifier_str, num_modifiers):
+    modifier_list = Modifier.load_list(modifier_str)
+    assert len(modifier_list) == num_modifiers
+
+
+_SAMPLE_BAD_RECIPE = """
+incorrect_modifier_list_name:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 1.0
+
+  - !SetLearningRateModifier
+    start_epoch: 0.0
+    learning_rate: 0.1
+"""
+
+
+@pytest.mark.parametrize(
+    "modifier_str",
+    [
+        _SAMPLE_BAD_RECIPE,
+    ],
+)
+def test_load_list_fails(modifier_str):
+    # expect ValueError mentioning 'modifiers'
+    with pytest.raises(ValueError, match=r".*'modifiers'.*"):
+        Modifier.load_list(modifier_str)
