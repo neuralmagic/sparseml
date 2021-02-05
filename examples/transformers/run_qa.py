@@ -357,7 +357,7 @@ class DataTrainingArguments:
         default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     nm_prune_config: Optional[str] = field(
-        default='prune-config.yaml', metadata={"help":"The input file name for the Neural Magic pruning config"}
+        default='prune_config_files/prune-config.yaml', metadata={"help":"The input file name for the Neural Magic pruning config"}
     )
     dataset_config_name: Optional[str] = field(
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
@@ -472,7 +472,7 @@ def get_sparsity_by_regex(
                 param_count += np.prod(param.size())
                 param_set_to_zero += torch.sum(param.data == 0)
     sparsity = float(param_set_to_zero/param_count)
-    return float(param_set_to_zero/param_count)
+    return sparsity
 
 def get_n_params_by_regex(
     module: Module, param_names: List[str]
@@ -527,8 +527,6 @@ def convert_example_to_features(example, tokenizer, max_seq_length, doc_stride, 
         for sub_token in sub_tokens:
             tok_to_orig_index.append(i)
             all_doc_tokens.append(sub_token)
-    tok_start_position = None
-    tok_end_position = None
     max_tokens_for_doc = max_seq_length - len(query_tokens) - 3
     _DocSpan = collections.namedtuple("DocSpan", ["start", "length"])
     doc_spans = []
@@ -835,7 +833,7 @@ def main():
     optim = load_optimizer(model, TrainingArguments)
     steps_per_epoch = math.ceil(len(datasets["train"]) / 24)
     manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
-    optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=logger)
+    optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
 
     # Initialize our Trainer
     trainer = QuestionAnsweringTrainer(
@@ -848,7 +846,7 @@ def main():
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
-        optimizer =(optim, None)
+        optimizers =(optim, None)
     )
 
     param_in_scope_regex = ["re:.*key\.weight", "re:.*value\.weight","re:.*query\.weight","re:.*dense\.weight"]

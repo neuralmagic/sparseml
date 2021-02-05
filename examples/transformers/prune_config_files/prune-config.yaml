@@ -20,7 +20,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -32,7 +32,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -44,7 +44,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -56,7 +56,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -68,7 +68,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -80,7 +80,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -92,7 +92,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -104,7 +104,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -116,7 +116,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -128,7 +128,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -140,7 +140,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -152,7 +152,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -164,7 +164,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -176,7 +176,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -188,7 +188,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -200,7 +200,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -212,7 +212,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -224,7 +224,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -236,7 +236,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -248,7 +248,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -260,7 +260,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -272,7 +272,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -284,7 +284,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -296,7 +296,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -308,7 +308,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -320,7 +320,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -332,7 +332,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -344,7 +344,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -356,7 +356,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -368,7 +368,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -380,7 +380,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -392,7 +392,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -404,7 +404,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -416,7 +416,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -428,7 +428,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -440,7 +440,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -452,7 +452,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -464,7 +464,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -476,7 +476,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -488,7 +488,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -500,7 +500,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -512,7 +512,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -524,7 +524,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -536,7 +536,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -548,7 +548,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -560,7 +560,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -572,7 +572,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -584,7 +584,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -596,7 +596,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -608,7 +608,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -620,7 +620,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -632,7 +632,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -644,7 +644,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -656,7 +656,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -668,7 +668,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -680,7 +680,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -692,7 +692,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -704,7 +704,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -716,7 +716,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -728,7 +728,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -740,7 +740,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -752,7 +752,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -764,7 +764,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -776,7 +776,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -788,7 +788,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -800,7 +800,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -812,7 +812,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -824,7 +824,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -836,7 +836,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -848,7 +848,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
@@ -860,7 +860,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 1
         final_sparsity: 0.99
-        init_sparsity: 0
+        init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
