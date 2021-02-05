@@ -294,8 +294,11 @@ class BaseModifier(BaseObject):
             modifiers = [container]
         elif isinstance(container, List):
             modifiers = container
-        else:
-            modifiers = container["modifiers"]
+        else:  # Dict
+            modifiers = []
+            for key, modifier_list in container.items():
+                if "modifiers" in key and isinstance(modifier_list, List):
+                    modifiers.extend(modifier_list)
 
         return modifiers
 

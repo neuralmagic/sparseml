@@ -25,6 +25,9 @@ The files are written in [YAML](https://yaml.org/) and stored in YAML or
 The rest of the SparseML system is coded to parse the recipe files into a native format for the desired framework
 and apply the modifications to the model and training pipeline.
 
+In a recipe, any top level list with "modifiers" in its name will be included
+in the parsed list of modifiers during SparseML optimization.
+
 The easiest ways to get or create optimization recipes are by either using 
 the pre-configured recipes in [SparseZoo](https://github.com/neuralmagic/sparsezoo) or 
 using [Sparsify's](https://github.com/neuralmagic/sparsify) autoML style creation.
