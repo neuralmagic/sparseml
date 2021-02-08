@@ -26,52 +26,57 @@ This script will:
 - Export model to onnx.
 ##########
 Command help:
-usage: main.py [-h] --model MODEL [--recipe-path RECIPE_PATH]
-                               [--image-size IMAGE_SIZE]
-                               [--batch-size BATCH_SIZE]
-                               [--pretrained PRETRAINED]
-                               [--checkpoint-path CHECKPOINT_PATH]
-                               --imagefolder-path IMAGEFOLDER_PATH
-                               [--loader-num-workers LOADER_NUM_WORKERS]
-                               [--loader-pin-memory LOADER_PIN_MEMORY]
-                               [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
-Train or finetune an image classification model from torchvision.models
-optional arguments:
-  -h, --help            show this help message and exit
-  --model MODEL         The torchvision model class to use, ex: inception_v3,
-                        resnet50, mobilenet_v2 model name is fed directly to
-                        torchvision.models, more information can be found here
-                        https://pytorch.org/docs/stable/torchvision/models.htm
-                        l
-  --recipe-path RECIPE_PATH
-                        The path to the yaml file containing the sparseml
-                        modifiers and schedule to apply them with
-  --image-size IMAGE_SIZE
-                        Size of image to use for model input. Default is 224
-                        unless pytorch documentation specifies otherwise
-  --batch-size BATCH_SIZE
-                        Batch size to use when training model. Default is 32
-  --pretrained PRETRAINED
-                        Set True to use torchvisions pretrained weights, to
-                        not set weights, set False. default is true.
-  --checkpoint-path CHECKPOINT_PATH
-                        A path to a previous checkpoint to load the state from
-                        and resume the state for. If provided, pretrained will
-                        be ignored
-  --imagefolder-path IMAGEFOLDER_PATH
-                        Path to root of dataset's generic 'image folder' path.
-                        Should have an image folder structure like imagenet
-                        with subdirectories 'train' and 'val' see https://pyto
-                        rch.org/docs/stable/torchvision/datasets.html#imagefol
-                        der
-  --loader-num-workers LOADER_NUM_WORKERS
-                        The number of workers to use for data loading
-  --loader-pin-memory LOADER_PIN_MEMORY
-                        Use pinned memory for data loading
-  --model-tag MODEL_TAG
-                        A tag to use for the model for saving results under
-                        save-dir, defaults to the model arch and dataset used
-  --save-dir SAVE_DIR   The path to the directory for saving results
+usage: main.py [-h] \
+    --model_name_or_path MODEL \
+    [--dataset_name]  \
+    [--num_train_epochs] \
+    [--do_train] \
+    [--do_eval] \
+    [--per_device_train_batch_size] \
+    [--per_device_eval_batch_size] \
+    [--learning_rate]\
+    [--max_seq_length]\
+    [--doc_stride]\
+    [--output_dir] \
+    [--overwrite_output_dir] \
+    [--cache_dir]\
+    [--preprocessing_num_workers] \
+    [--seed] 42 \
+    [--nm_prune_config]
+    [--do_onnx_export]
+    [--onnx_export_path]
+
+Train, prune, and evaluate a transformer base question answering model on squad. 
+    -h, --help            show this help message and exit
+    --model_name_or_path MODEL      The path to the transformers model you wish to train
+                                    or the name of the pretrained language model you wish
+                                    to use. ex: bert-base-uncased.
+    --dataset_name                  The name of which dataset you want to use to train or
+                                    your model. ex: squad for using SQuAD.
+    --num_train_epochs              Paramater to control how many training epochs you wish
+                                    your model to train.
+    --do_train                      Boolean denoting if the model should be trained
+                                    or not. Default is false.
+    --do_eval                       Boolean denoting if the model should be evaluated
+                                    or not. Default is false.
+    --per_device_train_batch_size   Size of each training batch based on samples per GPU. 
+                                    12 will fit in a 11gb GPU, 16 in a 16gb.
+    --per_device_eval_batch_size    Size of each training batch based on samples per GPU. 
+                                    12 will fit in a 11gb GPU, 16 in a 16gb.
+    --learning_rate                 Learning rate initial float value. ex: 3e-5.
+    --max_seq_length                Int for the max sequence length to be parsed as a context 
+                                    window. ex: 384 tokens.
+    --output_dir                    Path which model checkpoints and paths should be saved.
+    --overwrite_output_dir          Boolean to define if the 
+    --cache_dir                     Directiory which cached transformer files(datasets, models
+                                    , tokenizers) are saved for fast loading. 
+    --preprocessing_num_workers     The amount of cpu workers which are used to process datasets
+    --seed                          Int which determines what random seed is for training/shuffling
+    --nm_prune_config               Path to the neural magic prune configuration file. examples can
+                                    be found in prune_config_files but are customized for bert-base-uncased. 
+    --do_onnx_export                Boolean denoting if the model should be exported to onnx
+    --onnx_export_path              Path where onnx model path will be exported. ex: onnx-export
+
 ##########
 Example command for training a 95% sparse BERT SQUAD model for 1 epoch:
 python examples/transformers/main.py \
@@ -90,7 +95,9 @@ python examples/transformers/main.py \
     --cache_dir cache \
     --preprocessing_num_workers 8 \
     --seed 42 \
-    --nm_prune_config prune_config_files/95sparsity1epoch.yaml 
+    --nm_prune_config prune_config_files/95sparsity1epoch.yaml \
+    --do_onnx_export \
+    --onnx_export_path 95sparsity1epoch/ 
 """
 import collections
 import json
@@ -155,7 +162,6 @@ class ModelArguments:
     """
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
     """
-
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
@@ -169,22 +175,25 @@ class ModelArguments:
         default=None,
         metadata={"help": "Path to directory to store the pretrained models downloaded from huggingface.co"},
     )
-    onnx_output_name: Optional[str] = field(
-        default='onnx-export', metadata={"help": "Path to export onnx optimized model"}
-    )
-
 
 @dataclass
 class DataTrainingArguments:
     """
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
-
-    dataset_name: Optional[str] = field(
-        default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
-    )
+    #### NM specific additions to scrips
     nm_prune_config: Optional[str] = field(
-        default='prune_config_files/prune-config.yaml', metadata={"help":"The input file name for the Neural Magic pruning config"}
+        default='prune_config_files/prune-config.yaml', metadata={"help": "The input file name for the Neural Magic pruning config"}
+    )
+    do_onnx_export: bool = field(
+        default=False, metadata={"help": "Export model to onnx"}
+    )
+    onnx_export_path: Optional[str] = field(
+        default='onnx-export', metadata={"help": "The filename and path which will be where onnx model is outputed"}
+    )
+    #### Original training arguments
+    dataset_name: Optional[str] = field(
+        default='squad', metadata={"help": "The name of the dataset to use (via the datasets library). The default is squad."}
     )
     dataset_config_name: Optional[str] = field(
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
@@ -647,9 +656,7 @@ def load_optimizer(model, args):
     return optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs)
 
 
-def convert_example_to_features(
-    example, tokenizer, max_seq_length, doc_stride, max_query_length
-):
+def convert_example_to_features(example, tokenizer, max_seq_length, doc_stride, max_query_length):
     Feature = collections.namedtuple(
         "Feature",
         [
@@ -747,8 +754,156 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
             best_span_index = span_index
     return cur_span_index == best_span_index
 
-
 def main():
+    ### Dataset processing classes in main due to hugging face custom dataset map
+    def prepare_train_features(examples):
+        # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
+        # in one example possible giving several features when a context is long, each of those features having a
+        # context that overlaps a bit the context of the previous feature.
+        tokenized_examples = tokenizer(
+            examples[question_column_name if pad_on_right else context_column_name],
+            examples[context_column_name if pad_on_right else question_column_name],
+            truncation="only_second" if pad_on_right else "only_first",
+            max_length=data_args.max_seq_length,
+            stride=data_args.doc_stride,
+            return_overflowing_tokens=True,
+            return_offsets_mapping=True,
+            padding="max_length" if data_args.pad_to_max_length else False,
+        )
+
+        # Since one example might give us several features if it has a long context, we need a map from a feature to
+        # its corresponding example. This key gives us just that.
+        sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
+        # The offset mappings will give us a map from token to character position in the original context. This will
+        # help us compute the start_positions and end_positions.
+        offset_mapping = tokenized_examples.pop("offset_mapping")
+
+        # Let's label those examples!
+        tokenized_examples["start_positions"] = []
+        tokenized_examples["end_positions"] = []
+
+        for i, offsets in enumerate(offset_mapping):
+            # We will label impossible answers with the index of the CLS token.
+            input_ids = tokenized_examples["input_ids"][i]
+            cls_index = input_ids.index(tokenizer.cls_token_id)
+
+            # Grab the sequence corresponding to that example (to know what is the context and what is the question).
+            sequence_ids = tokenized_examples.sequence_ids(i)
+
+            # One example can give several spans, this is the index of the example containing this span of text.
+            sample_index = sample_mapping[i]
+            answers = examples[answer_column_name][sample_index]
+            # If no answers are given, set the cls_index as answer.
+            if len(answers["answer_start"]) == 0:
+                tokenized_examples["start_positions"].append(cls_index)
+                tokenized_examples["end_positions"].append(cls_index)
+            else:
+                # Start/end character index of the answer in the text.
+                start_char = answers["answer_start"][0]
+                end_char = start_char + len(answers["text"][0])
+
+                # Start token index of the current span in the text.
+                token_start_index = 0
+                while sequence_ids[token_start_index] != (1 if pad_on_right else 0):
+                    token_start_index += 1
+
+                # End token index of the current span in the text.
+                token_end_index = len(input_ids) - 1
+                while sequence_ids[token_end_index] != (1 if pad_on_right else 0):
+                    token_end_index -= 1
+
+                # Detect if the answer is out of the span (in which case this feature is labeled with the CLS index).
+                if not (
+                    offsets[token_start_index][0] <= start_char
+                    and offsets[token_end_index][1] >= end_char
+                ):
+                    tokenized_examples["start_positions"].append(cls_index)
+                    tokenized_examples["end_positions"].append(cls_index)
+                else:
+                    # Otherwise move the token_start_index and token_end_index to the two ends of the answer.
+                    # Note: we could go after the last offset if the answer is the last word (edge case).
+                    while (
+                        token_start_index < len(offsets)
+                        and offsets[token_start_index][0] <= start_char
+                    ):
+                        token_start_index += 1
+                    tokenized_examples["start_positions"].append(token_start_index - 1)
+                    while offsets[token_end_index][1] >= end_char:
+                        token_end_index -= 1
+                    tokenized_examples["end_positions"].append(token_end_index + 1)
+        return tokenized_examples
+
+    def compute_metrics(p: EvalPrediction):
+        return metric.compute(predictions=p.predictions, references=p.label_ids)
+    # Post-processing:
+    def post_processing_function(examples, features, predictions):
+        predictions = postprocess_qa_predictions(
+            examples=examples,
+            features=features,
+            predictions=predictions,
+            version_2_with_negative=data_args.version_2_with_negative,
+            n_best_size=data_args.n_best_size,
+            max_answer_length=data_args.max_answer_length,
+            null_score_diff_threshold=data_args.null_score_diff_threshold,
+            output_dir=training_args.output_dir,
+            is_world_process_zero=trainer.is_world_process_zero(),
+        )
+        if data_args.version_2_with_negative:
+            formatted_predictions = [
+                {"id": k, "prediction_text": v, "no_answer_probability": 0.0}
+                for k, v in predictions.items()
+            ]
+        else:
+            formatted_predictions = [
+                {"id": k, "prediction_text": v} for k, v in predictions.items()
+            ]
+        references = [
+            {"id": ex["id"], "answers": ex[answer_column_name]}
+            for ex in datasets["validation"]
+        ]
+        return EvalPrediction(predictions=formatted_predictions, label_ids=references)
+
+    # Validation preprocessing
+    def prepare_validation_features(examples):
+        # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
+        # in one example possible giving several features when a context is long, each of those features having a
+        # context that overlaps a bit the context of the previous feature.
+        tokenized_examples = tokenizer(
+            examples[question_column_name if pad_on_right else context_column_name],
+            examples[context_column_name if pad_on_right else question_column_name],
+            truncation="only_second" if pad_on_right else "only_first",
+            max_length=data_args.max_seq_length,
+            stride=data_args.doc_stride,
+            return_overflowing_tokens=True,
+            return_offsets_mapping=True,
+            padding="max_length" if data_args.pad_to_max_length else False,
+        )
+
+        # Since one example might give us several features if it has a long context, we need a map from a feature to
+        # its corresponding example. This key gives us just that.
+        sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
+
+        # For evaluation, we will need to convert our predictions to substrings of the context, so we keep the
+        # corresponding example_id and we will store the offset mappings.
+        tokenized_examples["example_id"] = []
+
+        for i in range(len(tokenized_examples["input_ids"])):
+            # Grab the sequence corresponding to that example (to know what is the context and what is the question).
+            sequence_ids = tokenized_examples.sequence_ids(i)
+            context_index = 1 if pad_on_right else 0
+
+            # One example can give several spans, this is the index of the example containing this span of text.
+            sample_index = sample_mapping[i]
+            tokenized_examples["example_id"].append(examples["id"][sample_index])
+
+            # Set to None the offset_mapping that are not part of the context so it's easy to determine if a token
+            # position is part of the context or not.
+            tokenized_examples["offset_mapping"][i] = [
+                (o if sequence_ids[k] == context_index else None)
+                for k, o in enumerate(tokenized_examples["offset_mapping"][i])
+            ]
+
+        return tokenized_examples
     parser = HfArgumentParser(
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
@@ -836,133 +991,14 @@ def main():
 
     pad_on_right = tokenizer.padding_side == "right"
 
-    def prepare_train_features(examples):
-        # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
-        # in one example possible giving several features when a context is long, each of those features having a
-        # context that overlaps a bit the context of the previous feature.
-        tokenized_examples = tokenizer(
-            examples[question_column_name if pad_on_right else context_column_name],
-            examples[context_column_name if pad_on_right else question_column_name],
-            truncation="only_second" if pad_on_right else "only_first",
-            max_length=data_args.max_seq_length,
-            stride=data_args.doc_stride,
-            return_overflowing_tokens=True,
-            return_offsets_mapping=True,
-            padding="max_length" if data_args.pad_to_max_length else False,
-        )
-
-        # Since one example might give us several features if it has a long context, we need a map from a feature to
-        # its corresponding example. This key gives us just that.
-        sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
-        # The offset mappings will give us a map from token to character position in the original context. This will
-        # help us compute the start_positions and end_positions.
-        offset_mapping = tokenized_examples.pop("offset_mapping")
-
-        # Let's label those examples!
-        tokenized_examples["start_positions"] = []
-        tokenized_examples["end_positions"] = []
-
-        for i, offsets in enumerate(offset_mapping):
-            # We will label impossible answers with the index of the CLS token.
-            input_ids = tokenized_examples["input_ids"][i]
-            cls_index = input_ids.index(tokenizer.cls_token_id)
-
-            # Grab the sequence corresponding to that example (to know what is the context and what is the question).
-            sequence_ids = tokenized_examples.sequence_ids(i)
-
-            # One example can give several spans, this is the index of the example containing this span of text.
-            sample_index = sample_mapping[i]
-            answers = examples[answer_column_name][sample_index]
-            # If no answers are given, set the cls_index as answer.
-            if len(answers["answer_start"]) == 0:
-                tokenized_examples["start_positions"].append(cls_index)
-                tokenized_examples["end_positions"].append(cls_index)
-            else:
-                # Start/end character index of the answer in the text.
-                start_char = answers["answer_start"][0]
-                end_char = start_char + len(answers["text"][0])
-
-                # Start token index of the current span in the text.
-                token_start_index = 0
-                while sequence_ids[token_start_index] != (1 if pad_on_right else 0):
-                    token_start_index += 1
-
-                # End token index of the current span in the text.
-                token_end_index = len(input_ids) - 1
-                while sequence_ids[token_end_index] != (1 if pad_on_right else 0):
-                    token_end_index -= 1
-
-                # Detect if the answer is out of the span (in which case this feature is labeled with the CLS index).
-                if not (
-                    offsets[token_start_index][0] <= start_char
-                    and offsets[token_end_index][1] >= end_char
-                ):
-                    tokenized_examples["start_positions"].append(cls_index)
-                    tokenized_examples["end_positions"].append(cls_index)
-                else:
-                    # Otherwise move the token_start_index and token_end_index to the two ends of the answer.
-                    # Note: we could go after the last offset if the answer is the last word (edge case).
-                    while (
-                        token_start_index < len(offsets)
-                        and offsets[token_start_index][0] <= start_char
-                    ):
-                        token_start_index += 1
-                    tokenized_examples["start_positions"].append(token_start_index - 1)
-                    while offsets[token_end_index][1] >= end_char:
-                        token_end_index -= 1
-                    tokenized_examples["end_positions"].append(token_end_index + 1)
-
-        return tokenized_examples
-
     if training_args.do_train:
         train_dataset = datasets["train"].map(
-            prepare_train_features,
+            prepare_train_features( data_args, question_column_name, pad_on_right, context_column_name),
             batched=True,
             num_proc=data_args.preprocessing_num_workers,
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
-    # Validation preprocessing
-    def prepare_validation_features(examples):
-        # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
-        # in one example possible giving several features when a context is long, each of those features having a
-        # context that overlaps a bit the context of the previous feature.
-        tokenized_examples = tokenizer(
-            examples[question_column_name if pad_on_right else context_column_name],
-            examples[context_column_name if pad_on_right else question_column_name],
-            truncation="only_second" if pad_on_right else "only_first",
-            max_length=data_args.max_seq_length,
-            stride=data_args.doc_stride,
-            return_overflowing_tokens=True,
-            return_offsets_mapping=True,
-            padding="max_length" if data_args.pad_to_max_length else False,
-        )
-
-        # Since one example might give us several features if it has a long context, we need a map from a feature to
-        # its corresponding example. This key gives us just that.
-        sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
-
-        # For evaluation, we will need to convert our predictions to substrings of the context, so we keep the
-        # corresponding example_id and we will store the offset mappings.
-        tokenized_examples["example_id"] = []
-
-        for i in range(len(tokenized_examples["input_ids"])):
-            # Grab the sequence corresponding to that example (to know what is the context and what is the question).
-            sequence_ids = tokenized_examples.sequence_ids(i)
-            context_index = 1 if pad_on_right else 0
-
-            # One example can give several spans, this is the index of the example containing this span of text.
-            sample_index = sample_mapping[i]
-            tokenized_examples["example_id"].append(examples["id"][sample_index])
-
-            # Set to None the offset_mapping that are not part of the context so it's easy to determine if a token
-            # position is part of the context or not.
-            tokenized_examples["offset_mapping"][i] = [
-                (o if sequence_ids[k] == context_index else None)
-                for k, o in enumerate(tokenized_examples["offset_mapping"][i])
-            ]
-
-        return tokenized_examples
 
     if training_args.do_eval:
         validation_dataset = datasets["validation"].map(
@@ -979,34 +1015,6 @@ def main():
         else DataCollatorWithPadding(tokenizer)
     )
 
-    # Post-processing:
-    def post_processing_function(examples, features, predictions):
-        predictions = postprocess_qa_predictions(
-            examples=examples,
-            features=features,
-            predictions=predictions,
-            version_2_with_negative=data_args.version_2_with_negative,
-            n_best_size=data_args.n_best_size,
-            max_answer_length=data_args.max_answer_length,
-            null_score_diff_threshold=data_args.null_score_diff_threshold,
-            output_dir=training_args.output_dir,
-            is_world_process_zero=trainer.is_world_process_zero(),
-        )
-        if data_args.version_2_with_negative:
-            formatted_predictions = [
-                {"id": k, "prediction_text": v, "no_answer_probability": 0.0}
-                for k, v in predictions.items()
-            ]
-        else:
-            formatted_predictions = [
-                {"id": k, "prediction_text": v} for k, v in predictions.items()
-            ]
-        references = [
-            {"id": ex["id"], "answers": ex[answer_column_name]}
-            for ex in datasets["validation"]
-        ]
-        return EvalPrediction(predictions=formatted_predictions, label_ids=references)
-
     current_dir = os.path.sep.join(os.path.join(__file__).split(os.path.sep)[:-1])
     metric = load_metric(
         os.path.join(current_dir, "squad_v2_local")
@@ -1014,16 +1022,15 @@ def main():
         else "squad"
     )
 
-    def compute_metrics(p: EvalPrediction):
-        return metric.compute(predictions=p.predictions, references=p.label_ids)
-
-
-    optim = load_optimizer(model, TrainingArguments)
-    steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.n_gpu*training_args.per_device_train_batch_size))
-    manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
+    ## Neural Magic Integration here. 
+    optim = load_optimizer(model, TrainingArguments) #We first create optimizers based on the method defined in transformers trainer class
+    steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.n_gpu * training_args.per_device_train_batch_size))
+    manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config) # Load a NM pruning config
+    
     optim = ScheduledOptimizer(
         optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None
     )
+    ### End of NM integration functions
 
     # Initialize our Trainer
     trainer = QuestionAnsweringTrainer(
@@ -1045,22 +1052,20 @@ def main():
         "re:.*query\.weight",
         "re:.*dense\.weight",
     ]
-    print(
-        "Sparsity of Model prior to training:{}".format(
-            get_sparsity_by_regex(model, param_in_scope_regex)
-        )
-    )
     # Training
     if training_args.do_train:
+        print(
+        "Sparsity of Model before training:{}".format(
+            get_sparsity_by_regex(model, param_in_scope_regex)
+        )
         trainer.train(
             model_path=model_args.model_name_or_path
             if os.path.isdir(model_args.model_name_or_path)
             else None
         )
-        print(get_sparsity_by_regex(model, param_in_scope_regex))
         trainer.save_model()  # Saves the tokenizer too for easy upload
-    print(
-        "Sparsity of Model after to training:{}".format(
+        print(
+        "Sparsity of Model after training:{}".format(
             get_sparsity_by_regex(model, param_in_scope_regex)
         )
     )
@@ -1078,22 +1083,27 @@ def main():
                 for key, value in results.items():
                     logger.info(f"  {key} = {value}")
                     writer.write(f"{key} = {value}\n")
-    os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    # Export model to onnx
-    exporter = ModuleExporter(
-        model, output_dir=os.path.join(".", model_args.onnx_output_name)
-    )
-    sample_batch = convert_example_to_features(
-        datasets["validation"][0],
-        tokenizer,
-        data_args.max_seq_length,
-        data_args.doc_stride,
-        data_args.max_query_length,
-    )
-    exporter.export_onnx(sample_batch=sample_batch)
+    
+    # Export to onnx using neural magic libraries. Sample input needs to be tokenized and formated
+    if data_args.do_onnx_export:
+        logger.info("*** Export to ONNX ***")
+        print("Exporting onnx model") 
+        data_args.onnx_export_path
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+        # Export model to onnx
+        exporter = ModuleExporter(
+            model, output_dir=data_args.onnx_export_path
+        )
+        sample_batch = convert_example_to_features(
+            datasets["validation"][0],
+            tokenizer,
+            data_args.max_seq_length,
+            data_args.doc_stride,
+            data_args.max_query_length,
+        )
+        exporter.export_onnx(sample_batch=sample_batch)
 
     return results
-
 
 if __name__ == "__main__":
     main()
