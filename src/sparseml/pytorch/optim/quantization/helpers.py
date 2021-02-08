@@ -17,7 +17,6 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
-from inspect import getmembers, isclass
 
 import torch
 from torch.nn import BatchNorm2d, Conv2d, Module, ReLU
@@ -42,10 +41,23 @@ __all__ = [
 
 _QUANTIZABLE_MODULE_TYPES = (
     {
-        module
-        for name, module in getmembers(nni.modules.fused, isclass)
-        if "Conv" in name or "Linear" in name
-    }  # i.e. Conv2d, ConvBnReLU2d, LinearReLU, etc
+        # Conv based layers
+        torch.nn.Conv1d,
+        torch.nn.Conv2d,
+        torch.nn.Conv3d,
+        nni.ConvBn1d,
+        nni.ConvBn2d,
+        nni.ConvBn3d,
+        nni.ConvReLU1d,
+        nni.ConvReLU2d,
+        nni.ConvReLU3d,
+        nni.ConvBnReLU1d,
+        nni.ConvBnReLU2d,
+        nni.ConvBnReLU3d,
+        # Linear Layers
+        torch.nn.Linear,
+        nni.LinearReLU,
+    }
     if nni
     else None
 )
