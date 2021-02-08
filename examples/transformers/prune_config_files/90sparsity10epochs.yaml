@@ -2,12 +2,12 @@ version: 1.1.0
 
 modifiers:
     - !EpochRangeModifier
-        end_epoch: 1
+        end_epoch: 10
         start_epoch: 0.0
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -18,8 +18,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -30,8 +30,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -42,8 +42,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -54,8 +54,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -66,8 +66,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -78,8 +78,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -90,8 +90,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -102,8 +102,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -114,8 +114,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -126,8 +126,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -138,8 +138,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -150,8 +150,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -162,8 +162,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -174,8 +174,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -186,8 +186,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -198,8 +198,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -210,8 +210,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -222,8 +222,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -234,8 +234,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -246,8 +246,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -258,8 +258,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -270,8 +270,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -282,8 +282,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -294,8 +294,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -306,8 +306,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -318,8 +318,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -330,8 +330,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -342,8 +342,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -354,8 +354,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -366,8 +366,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -378,8 +378,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -390,8 +390,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -402,8 +402,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -414,8 +414,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -426,8 +426,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -438,8 +438,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -450,8 +450,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -462,8 +462,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -474,8 +474,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -486,8 +486,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -498,8 +498,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -510,8 +510,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -522,8 +522,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -534,8 +534,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -546,8 +546,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -558,8 +558,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -570,8 +570,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -582,8 +582,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -594,8 +594,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -606,8 +606,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -618,8 +618,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -630,8 +630,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -642,8 +642,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -654,8 +654,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -666,8 +666,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -678,8 +678,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -690,8 +690,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -702,8 +702,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -714,8 +714,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -726,8 +726,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -738,8 +738,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -750,8 +750,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -762,8 +762,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -774,8 +774,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -786,8 +786,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -798,8 +798,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -810,8 +810,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -822,8 +822,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -834,8 +834,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -846,8 +846,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
@@ -858,8 +858,8 @@ modifiers:
         update_frequency: 0.01
 
     - !GMPruningModifier
-        end_epoch: 1
-        final_sparsity: 0.95
+        end_epoch: 8
+        final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True

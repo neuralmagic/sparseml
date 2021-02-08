@@ -1,6 +1,96 @@
+#!/usr/bin/env python
 # coding=utf-8
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
-Fine-Tune a QA model using transformers and sparseml
+Example script for integrating spaseml with the transformers library. 
+This script is addopted from hugging face's implementation for Question Answering on the SQUAD Dataset. 
+Hugging Face's original implementation is regularly updated and can be found at https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py
+This script will:
+- Load transformer based modesl
+- Load a sparseml training and pruning optimizer
+- Train on SQUAD
+- Evaluate on SQUAD
+- Export model to onnx.
+##########
+Command help:
+usage: main.py [-h] --model MODEL [--recipe-path RECIPE_PATH]
+                               [--image-size IMAGE_SIZE]
+                               [--batch-size BATCH_SIZE]
+                               [--pretrained PRETRAINED]
+                               [--checkpoint-path CHECKPOINT_PATH]
+                               --imagefolder-path IMAGEFOLDER_PATH
+                               [--loader-num-workers LOADER_NUM_WORKERS]
+                               [--loader-pin-memory LOADER_PIN_MEMORY]
+                               [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
+Train or finetune an image classification model from torchvision.models
+optional arguments:
+  -h, --help            show this help message and exit
+  --model MODEL         The torchvision model class to use, ex: inception_v3,
+                        resnet50, mobilenet_v2 model name is fed directly to
+                        torchvision.models, more information can be found here
+                        https://pytorch.org/docs/stable/torchvision/models.htm
+                        l
+  --recipe-path RECIPE_PATH
+                        The path to the yaml file containing the sparseml
+                        modifiers and schedule to apply them with
+  --image-size IMAGE_SIZE
+                        Size of image to use for model input. Default is 224
+                        unless pytorch documentation specifies otherwise
+  --batch-size BATCH_SIZE
+                        Batch size to use when training model. Default is 32
+  --pretrained PRETRAINED
+                        Set True to use torchvisions pretrained weights, to
+                        not set weights, set False. default is true.
+  --checkpoint-path CHECKPOINT_PATH
+                        A path to a previous checkpoint to load the state from
+                        and resume the state for. If provided, pretrained will
+                        be ignored
+  --imagefolder-path IMAGEFOLDER_PATH
+                        Path to root of dataset's generic 'image folder' path.
+                        Should have an image folder structure like imagenet
+                        with subdirectories 'train' and 'val' see https://pyto
+                        rch.org/docs/stable/torchvision/datasets.html#imagefol
+                        der
+  --loader-num-workers LOADER_NUM_WORKERS
+                        The number of workers to use for data loading
+  --loader-pin-memory LOADER_PIN_MEMORY
+                        Use pinned memory for data loading
+  --model-tag MODEL_TAG
+                        A tag to use for the model for saving results under
+                        save-dir, defaults to the model arch and dataset used
+  --save-dir SAVE_DIR   The path to the directory for saving results
+##########
+Example command for training a 95% sparse BERT SQUAD model for 1 epoch:
+python examples/transformers/main.py \
+    --model_name_or_path bert-base-uncased \
+    --dataset_name squad \
+    --num_train_epochs 1 \
+    --do_train \
+    --do_eval \
+    --per_device_train_batch_size 12 \
+    --per_device_eval_batch_size 12 \
+    --learning_rate 3e-5 \
+    --max_seq_length 384 \
+    --doc_stride 128 \
+    --output_dir 95sparsity1epoch/ \
+    --overwrite_output_dir \
+    --cache_dir cache \
+    --preprocessing_num_workers 8 \
+    --seed 42 \
+    --nm_prune_config prune_config_files/95sparsity1epoch.yaml 
 """
 import collections
 import json
@@ -11,7 +101,6 @@ import random
 import re
 import sys
 
-# from glob import glob
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -27,9 +116,6 @@ from tqdm.auto import tqdm
 import datasets
 import transformers
 from datasets import load_dataset, load_metric
-from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
-from sparseml.pytorch.utils import ModuleExporter
 from transformers import (
     AutoConfig,
     AutoModelForQuestionAnswering,
@@ -57,8 +143,123 @@ from transformers.optimization import (
 )
 from transformers.trainer_utils import PredictionOutput, is_main_process
 
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
+from sparseml.pytorch.utils import ModuleExporter
+from sparseml.pytorch.helpers import any_str_or_regex_matches_param_name
 
 logger = logging.getLogger(__name__)
+
+@dataclass
+class ModelArguments:
+    """
+    Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
+    """
+
+    model_name_or_path: str = field(
+        metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+    config_name: Optional[str] = field(
+        default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
+    )
+    tokenizer_name: Optional[str] = field(
+        default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
+    )
+    cache_dir: Optional[str] = field(
+        default=None,
+        metadata={"help": "Path to directory to store the pretrained models downloaded from huggingface.co"},
+    )
+    onnx_output_name: Optional[str] = field(
+        default='onnx-export', metadata={"help": "Path to export onnx optimized model"}
+    )
+
+
+@dataclass
+class DataTrainingArguments:
+    """
+    Arguments pertaining to what data we are going to input our model for training and eval.
+    """
+
+    dataset_name: Optional[str] = field(
+        default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
+    )
+    nm_prune_config: Optional[str] = field(
+        default='prune_config_files/prune-config.yaml', metadata={"help":"The input file name for the Neural Magic pruning config"}
+    )
+    dataset_config_name: Optional[str] = field(
+        default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
+    )
+    train_file: Optional[str] = field(default=None, metadata={"help": "The input training data file (a text file)."})
+    validation_file: Optional[str] = field(
+        default=None,
+        metadata={"help": "An optional input evaluation data file to evaluate the perplexity on (a text file)."},
+    )
+    overwrite_cache: bool = field(
+        default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
+    )
+    preprocessing_num_workers: Optional[int] = field(
+        default=None,
+        metadata={"help": "The number of processes to use for the preprocessing."},
+    )
+    max_seq_length: int = field(
+        default=384,
+        metadata={
+            "help": "The maximum total input sequence length after tokenization. Sequences longer "
+            "than this will be truncated, sequences shorter will be padded."
+        },
+    )
+    max_query_length: int = field(
+        default=30,
+        metadata={
+            "help": "The maximum total query length after tokenization"
+        },
+    )
+    pad_to_max_length: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether to pad all samples to `max_seq_length`. "
+            "If False, will pad the samples dynamically when batching to the maximum length in the batch (which can "
+            "be faster on GPU but will be slower on TPU)."
+        },
+    )
+    version_2_with_negative: bool = field(
+        default=False, metadata={"help": "If true, some of the examples do not have an answer."}
+    )
+    null_score_diff_threshold: float = field(
+        default=0.0,
+        metadata={
+            "help": "The threshold used to select the null answer: if the best answer has a score that is less than "
+            "the score of the null answer minus this threshold, the null answer is selected for this example. "
+            "Only useful when `version_2_with_negative=True`."
+        },
+    )
+    doc_stride: int = field(
+        default=128,
+        metadata={"help": "When splitting up a long document into chunks, how much stride to take between chunks."},
+    )
+    n_best_size: int = field(
+        default=20,
+        metadata={"help": "The total number of n-best predictions to generate when looking for an answer."},
+    )
+    max_answer_length: int = field(
+        default=30,
+        metadata={
+            "help": "The maximum length of an answer that can be generated. This is needed because the start "
+            "and end predictions are not conditioned on one another."
+        },
+    )
+
+    def __post_init__(self):
+        if self.dataset_name is None and self.train_file is None and self.validation_file is None:
+            raise ValueError("Need either a dataset name or a training/validation file.")
+        else:
+            if self.train_file is not None:
+                extension = self.train_file.split(".")[-1]
+                assert extension in ["csv", "json"], "`train_file` should be a csv or a json file."
+            if self.validation_file is not None:
+                extension = self.validation_file.split(".")[-1]
+                assert extension in ["csv", "json"], "`validation_file` should be a csv or a json file."
+ 
 
 
 class QuestionAnsweringTrainer(Trainer):
@@ -396,174 +597,6 @@ def postprocess_qa_predictions(
 
     return all_predictions
 
-
-@dataclass
-class ModelArguments:
-    """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
-    """
-
-    model_name_or_path: str = field(
-        metadata={
-            "help": "Path to pretrained model or model identifier from huggingface.co/models"
-        }
-    )
-    config_name: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Pretrained config name or path if not the same as model_name"
-        },
-    )
-    tokenizer_name: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Pretrained tokenizer name or path if not the same as model_name"
-        },
-    )
-    cache_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Path to directory to store the pretrained models downloaded from huggingface.co"
-        },
-    )
-    onnx_output_name: Optional[str] = field(
-        default="onnx-export", metadata={"help": "Path to export onnx optimized model"}
-    )
-
-
-@dataclass
-class DataTrainingArguments:
-    """
-    Arguments pertaining to what data we are going to input our model for training and eval.
-    """
-
-    dataset_name: Optional[str] = field(
-        default=None,
-        metadata={"help": "The name of the dataset to use (via the datasets library)."},
-    )
-    nm_prune_config: Optional[str] = field(
-        default="prune_config_files/prune-config.yaml",
-        metadata={"help": "The input file name for the Neural Magic pruning config"},
-    )
-    dataset_config_name: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The configuration name of the dataset to use (via the datasets library)."
-        },
-    )
-    train_file: Optional[str] = field(
-        default=None, metadata={"help": "The input training data file (a text file)."}
-    )
-    validation_file: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "An optional input evaluation data file to evaluate the perplexity on (a text file)."
-        },
-    )
-    overwrite_cache: bool = field(
-        default=False,
-        metadata={"help": "Overwrite the cached training and evaluation sets"},
-    )
-    preprocessing_num_workers: Optional[int] = field(
-        default=None,
-        metadata={"help": "The number of processes to use for the preprocessing."},
-    )
-    max_seq_length: int = field(
-        default=384,
-        metadata={
-            "help": "The maximum total input sequence length after tokenization. Sequences longer "
-            "than this will be truncated, sequences shorter will be padded."
-        },
-    )
-    max_query_length: int = field(
-        default=30,
-        metadata={"help": "The maximum total query length after tokenization"},
-    )
-    pad_to_max_length: bool = field(
-        default=True,
-        metadata={
-            "help": "Whether to pad all samples to `max_seq_length`. "
-            "If False, will pad the samples dynamically when batching to the maximum length in the batch (which can "
-            "be faster on GPU but will be slower on TPU)."
-        },
-    )
-    version_2_with_negative: bool = field(
-        default=False,
-        metadata={"help": "If true, some of the examples do not have an answer."},
-    )
-    null_score_diff_threshold: float = field(
-        default=0.0,
-        metadata={
-            "help": "The threshold used to select the null answer: if the best answer has a score that is less than "
-            "the score of the null answer minus this threshold, the null answer is selected for this example. "
-            "Only useful when `version_2_with_negative=True`."
-        },
-    )
-    doc_stride: int = field(
-        default=128,
-        metadata={
-            "help": "When splitting up a long document into chunks, how much stride to take between chunks."
-        },
-    )
-    n_best_size: int = field(
-        default=20,
-        metadata={
-            "help": "The total number of n-best predictions to generate when looking for an answer."
-        },
-    )
-    max_answer_length: int = field(
-        default=30,
-        metadata={
-            "help": "The maximum length of an answer that can be generated. This is needed because the start "
-            "and end predictions are not conditioned on one another."
-        },
-    )
-
-    def __post_init__(self):
-        if (
-            self.dataset_name is None
-            and self.train_file is None
-            and self.validation_file is None
-        ):
-            raise ValueError(
-                "Need either a dataset name or a training/validation file."
-            )
-        else:
-            if self.train_file is not None:
-                extension = self.train_file.split(".")[-1]
-                assert extension in [
-                    "csv",
-                    "json",
-                ], "`train_file` should be a csv or a json file."
-            if self.validation_file is not None:
-                extension = self.validation_file.split(".")[-1]
-                assert extension in [
-                    "csv",
-                    "json",
-                ], "`validation_file` should be a csv or a json file."
-
-
-def any_str_or_regex_matches_param_name(
-    param_name: str,
-    name_or_regex_patterns: List[str],
-) -> bool:
-    """
-    :param param_name: The name of a parameter
-    :param name_or_regex_patterns: List of full param names to match to the input or
-        regex patterns to match with that should be prefixed with 're:'
-    :return: True if any given str or regex pattern matches the given name
-    """
-    for name_or_regex in name_or_regex_patterns:
-        if name_or_regex[:3] == "re:":
-            pattern = name_or_regex[3:]
-            if re.match(pattern, param_name):
-                return True
-        else:
-            if param_name == name_or_regex:
-                return True
-    return False
-
-
 def get_sparsity_by_regex(module: Module, param_names: List[str]):
     """
     :param module: the module to get the matching layers and params from
@@ -583,24 +616,6 @@ def get_sparsity_by_regex(module: Module, param_names: List[str]):
                 param_set_to_zero += torch.sum(param.data == 0)
     sparsity = float(param_set_to_zero / param_count)
     return sparsity
-
-
-def get_n_params_by_regex(module: Module, param_names: List[str]):
-    """
-    :param module: the module to get the matching layers and params from
-    :param param_names: a list of names or regex patterns to match with full parameter
-        paths. Regex patterns must be specified with the prefix 're:'
-    ::return param_count: a int representing the numbers of parameters that match the regex patterns
-    """
-    param_count = 0
-    for layer_name, layer in module.named_modules():
-        for param_name, param in layer.named_parameters():
-            if "." in param_name:  # skip parameters of nested layers
-                continue
-            full_param_name = "{}.{}".format(layer_name, param_name)
-            if any_str_or_regex_matches_param_name(full_param_name, param_names):
-                param_count += np.prod(param.size())
-    return param_count
 
 
 def load_optimizer(model, args):
@@ -907,7 +922,6 @@ def main():
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
-
     # Validation preprocessing
     def prepare_validation_features(examples):
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
@@ -1003,8 +1017,9 @@ def main():
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
+
     optim = load_optimizer(model, TrainingArguments)
-    steps_per_epoch = math.ceil(len(datasets["train"]) / 24)
+    steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.n_gpu*training_args.per_device_train_batch_size))
     manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
     optim = ScheduledOptimizer(
         optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None
