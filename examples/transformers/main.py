@@ -153,7 +153,7 @@ from transformers.trainer_utils import PredictionOutput, is_main_process
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter
-from sparseml.pytorch.helpers import any_str_or_regex_matches_param_name
+from sparseml.pytorch.utils.helpers import any_str_or_regex_matches_param_name
 
 logger = logging.getLogger(__name__)
 
@@ -993,7 +993,7 @@ def main():
 
     if training_args.do_train:
         train_dataset = datasets["train"].map(
-            prepare_train_features( data_args, question_column_name, pad_on_right, context_column_name),
+            prepare_train_features,
             batched=True,
             num_proc=data_args.preprocessing_num_workers,
             remove_columns=column_names,
@@ -1057,7 +1057,7 @@ def main():
         print(
         "Sparsity of Model before training:{}".format(
             get_sparsity_by_regex(model, param_in_scope_regex)
-        )
+        ))
         trainer.train(
             model_path=model_args.model_name_or_path
             if os.path.isdir(model_args.model_name_or_path)
@@ -1067,8 +1067,7 @@ def main():
         print(
         "Sparsity of Model after training:{}".format(
             get_sparsity_by_regex(model, param_in_scope_regex)
-        )
-    )
+        ))
 
     # Evaluation
     results = {}
