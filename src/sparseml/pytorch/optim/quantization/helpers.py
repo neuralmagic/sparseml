@@ -17,14 +17,17 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
+from inspect import getmembers, isclass
 
 import torch
 from torch.nn import BatchNorm2d, Conv2d, Module, ReLU
 
 
 try:
+    import torch.nn.intrinsic as nni
     from torch import quantization as torch_quantization
 except Exception:
+    nni = None
     torch_quantization = None
 
 from sparseml.pytorch.nn import ReLU as ReLU_nm
@@ -37,15 +40,27 @@ __all__ = [
 ]
 
 
+_QUANTIZABLE_MODULE_TYPES = (
+    {
+        module
+        for name, module in getmembers(nni.modules.fused, isclass)
+        if "Conv" in name or "Linear" in name
+    }  # i.e. Conv2d, ConvBnReLU2d, LinearReLU, etc
+    if nni
+    else None
+)
+
+
 def add_quant_dequant(module):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
     :param module: the module to modify
     """
-    module_type = str(type(module)).split(".")[-1].lower()
-    is_quantizable_module = "conv" in module_type or "linear" in module_type
-
-    if is_quantizable_module and hasattr(module, "qconfig") and module.qconfig:
+    if (
+        type(module) in _QUANTIZABLE_MODULE_TYPES
+        and hasattr(module, "qconfig")
+        and module.qconfig
+    ):
         return torch_quantization.QuantWrapper(module)
 
     for name, child in module.named_children():
