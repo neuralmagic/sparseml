@@ -1087,7 +1087,6 @@ def main():
     if data_args.do_onnx_export:
         logger.info("*** Export to ONNX ***")
         print("Exporting onnx model") 
-        data_args.onnx_export_path
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         # Export model to onnx
         exporter = ModuleExporter(
