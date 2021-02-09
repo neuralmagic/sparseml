@@ -22,7 +22,6 @@ from sparseml.keras.optim import (
     GMPruningModifier,
     MaskedLayer,
     ScheduledModifierManager,
-    UnstructuredPruningMaskCreator,
 )
 from tests.sparseml.keras.optim.mock import (
     DenseLayerCreator,
@@ -138,7 +137,6 @@ def test_nested_layer_structure(modifier_lambdas, steps_per_epoch):
     model = mnist_model()
     modifiers = [mod() for mod in modifier_lambdas]
     manager = ScheduledModifierManager(modifiers)
-    loss = tf.keras.losses.categorical_crossentropy
     optimizer = tf.keras.optimizers.Adam()
     model, optimizer, callbacks = manager.modify(model, optimizer, steps_per_epoch)
 
@@ -153,8 +151,8 @@ def test_nested_layer_structure(modifier_lambdas, steps_per_epoch):
     ]
     assert len(model_masked_layer_names) == len(set(modifier_masked_layer_names))
 
-    # Verify that if a layer is modified by N modifiers, then the corresponding MaskedLayer
-    # will have N-1 number of MaskedLayer nested inside it
+    # Verify that if a layer is modified by N modifiers, then the corresponding
+    # MaskedLayer will have N-1 number of MaskedLayer nested inside it
     for layer in model.layers:
         if isinstance(layer, MaskedLayer):
             expected_layers = len(

@@ -14,7 +14,6 @@
 
 import abc
 import collections
-import functools
 import inspect
 from typing import List, Union
 
@@ -24,7 +23,6 @@ from sparseml.keras.optim.mask_pruning_creator import (
     PruningMaskCreator,
     load_mask_creator,
 )
-from sparseml.utils import Singleton
 
 
 __all__ = [
@@ -69,9 +67,9 @@ class PruningScheduler(abc.ABC):
 class SchedulerRegistry:
     """
     Registry of pruning schedulers
-    Each pruning scheduler class is expected to register using the decorator "register" class
-    method. The registry currently is used by the MaskedLayer to deserialize schedulers without
-    having to know any individual pruning schedulers.
+    Each pruning scheduler class is expected to register using the decorator "register"
+    class method. The registry currently is used by the MaskedLayer to deserialize
+    schedulers without having to know any individual pruning schedulers.
     """
 
     _REGISTRY = {}
@@ -345,8 +343,9 @@ class MaskedLayer(tf.keras.layers.Wrapper):
     def get_config(self):
         """
         Get layer config
-        Serialization and deserialization should be done using tf.keras.serialize/deserialize,
-        which create and retrieve the "class_name" field automatically.
+        Serialization and deserialization should be done using
+        tf.keras.serialize/deserialize, which create and retrieve the "class_name"
+        field automatically.
         The resulting config below therefore does not contain the field.
         """
         config = super(MaskedLayer, self).get_config()
