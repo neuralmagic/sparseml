@@ -183,7 +183,7 @@ class DataTrainingArguments:
     """
     #### NM specific additions to scrips
     nm_prune_config: Optional[str] = field(
-        default='prune_config_files/prune-config.yaml', metadata={"help": "The input file name for the Neural Magic pruning config"}
+        default='prune_config_files/noprune1epoch.yaml', metadata={"help": "The input file name for the Neural Magic pruning config"}
     )
     do_onnx_export: bool = field(
         default=False, metadata={"help": "Export model to onnx"}
