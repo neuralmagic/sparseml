@@ -58,7 +58,7 @@ _QUANTIZABLE_MODULE_TYPES = (
         torch.nn.Linear,
         nni.LinearReLU,
     }
-    if nni
+    if nni  # nni will always import if torch.quantization is available
     else None
 )
 
