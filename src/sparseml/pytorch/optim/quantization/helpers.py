@@ -23,8 +23,10 @@ from torch.nn import BatchNorm2d, Conv2d, Module, ReLU
 
 
 try:
+    import torch.nn.intrinsic as nni
     from torch import quantization as torch_quantization
 except Exception:
+    nni = None
     torch_quantization = None
 
 from sparseml.pytorch.nn import ReLU as ReLU_nm
@@ -37,15 +39,40 @@ __all__ = [
 ]
 
 
+_QUANTIZABLE_MODULE_TYPES = (
+    {
+        # Conv based layers
+        torch.nn.Conv1d,
+        torch.nn.Conv2d,
+        torch.nn.Conv3d,
+        nni.ConvBn1d,
+        nni.ConvBn2d,
+        nni.ConvBn3d,
+        nni.ConvReLU1d,
+        nni.ConvReLU2d,
+        nni.ConvReLU3d,
+        nni.ConvBnReLU1d,
+        nni.ConvBnReLU2d,
+        nni.ConvBnReLU3d,
+        # Linear Layers
+        torch.nn.Linear,
+        nni.LinearReLU,
+    }
+    if nni  # nni will always import if torch.quantization is available
+    else None
+)
+
+
 def add_quant_dequant(module):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
     :param module: the module to modify
     """
-    module_type = str(type(module)).split(".")[-1].lower()
-    is_quantizable_module = "conv" in module_type or "linear" in module_type
-
-    if is_quantizable_module and hasattr(module, "qconfig") and module.qconfig:
+    if (
+        type(module) in _QUANTIZABLE_MODULE_TYPES
+        and hasattr(module, "qconfig")
+        and module.qconfig
+    ):
         return torch_quantization.QuantWrapper(module)
 
     for name, child in module.named_children():
