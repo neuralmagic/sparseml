@@ -7,7 +7,7 @@ Using various pruning configuration files we demostrate the effect unstructured 
 These example scripts require sparseml, transformers, torch, datasets and associated to libraries. To install run the following command
 
 ```bash
-conda create -n sparsemlBERT python=3.8
+conda create -n sparsemlBERT python=3.7
 conda activate sparsemlBERT
 pip install torch sparseml transformers datasets
 ```
@@ -63,20 +63,20 @@ To demostrate the effect that various pruning regimes and techniques can have we
 
 | base model name       | sparsity 	| total train epochs    | prunned | one shot |pruning epochs| F1 Score 	| EM Score  |
 |-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
-| bert-base-uncased 	|0        	|1                  	|no       |no        |0            	|           |           |
+| bert-base-uncased 	|0        	|1                  	|no       |no        |0            	|09.685     |3.614      |
 | bert-base-uncased 	|0        	|2                  	|no       |no        |0            	|88.002     |80.634     |
 | bert-base-uncased 	|0        	|10                 	|no       |no        |0            	|87.603     |79.130     |
+| bert-base-uncased 	|80       	|1                  	|yes      |yes       |0          	|25.141     |15.998     |
 | bert-base-uncased 	|80       	|2                   	|yes      |no        |0            	|06.068    	|00.312     |
-| bert-base-uncased 	|80       	|1                  	|yes      |yes       |0          	|     |     |
 | bert-base-uncased 	|80       	|10                  	|yes      |no        |8          	|83.951     |74.409     |
-| bert-base-uncased 	|90       	|2                   	|yes      |no        |0            	|     |     |
-| bert-base-uncased 	|90       	|1                  	|yes      |yes       |0           	|     |     |
-| bert-base-uncased 	|90       	|10                 	|yes      |no        |8            	|  	  |     |
-| bert-base-uncased 	|95       	|2                   	|yes      |no        |0            	|     |     |
-| bert-base-uncased 	|95       	|1                  	|yes      |yes       |0           	|     |     |
+| bert-base-uncased 	|90       	|1                  	|yes      |yes       |0           	|16.064     |07.786     |
+| bert-base-uncased 	|90       	|2                   	|yes      |no        |0            	|64.185     |50.946     |
+| bert-base-uncased 	|90       	|10                 	|yes      |no        |8            	|79.091     |68.184     |
+| bert-base-uncased 	|95       	|1                  	|yes      |yes       |0           	|10.501     |4.929      |
+| bert-base-uncased 	|95       	|2                   	|yes      |no        |0            	|24.445     |14.437     |
 | bert-base-uncased 	|95       	|10                 	|yes      |no        |8            	|72.761  	|60.407     |
-| bert-base-uncased 	|99       	|2                   	|yes      |no        |0            	|     |     |
-| bert-base-uncased 	|99         |1                   	|yes      |yes       |0             |     |     |
+| bert-base-uncased 	|99         |1                   	|yes      |yes       |0             |09.685     |03.614     |
+| bert-base-uncased 	|99       	|2                   	|yes      |no        |0            	|17.433     |07.871     |
 | bert-base-uncased 	|99         |10                    	|yes      |no        |8             |47.306    	|32.564     |
 
 
