@@ -49,7 +49,7 @@ enabling simple pipelines integration with a few lines of code
 Overview
 ========
 
-SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art optimization
+SparseML is a toolkit that includes APIs, CLIs, scripts, and libraries that apply state-of-the-art optimization
 algorithms such as `pruning <https://neuralmagic.com/blog/pruning-overview />`_ and
 `quantization <https://arxiv.org/abs/1609.07061 />`_ to any neural network.
 General, recipe-driven approaches built around these optimizations enable the simplification of creating faster
@@ -104,8 +104,9 @@ Additionally, more information can be found via
     api/sparseml
 
 .. toctree::
-    :maxdepth: 2
-    :caption: Help and Support
+    :maxdepth: 3
+    :caption: Help
 
     Bugs, Feature Requests <https://github.com/neuralmagic/sparseml/issues>
     Support, General Q&A <https://github.com/neuralmagic/sparseml/discussions>
+    Neural Magic Docs <https://docs.neuralmagic.com>
