@@ -10,7 +10,7 @@ Integration between https://github.com/rwightman/pytorch-image-models and Sparse
 
 This script is adapted from https://github.com/rwightman/pytorch-image-models/blob/master/train.py
 to apply a SparseML recipe from the required `--sparseml-recipe-path` argument.
-Integration lines are preceded by commend blocks.  Run with `--help` for help printout,
+Integration lines are preceded by comment blocks.  Run with `--help` for help printout,
 more information can be found in the readme file.
 
 Latest pytorch-image-models commit this script is based on: aaa715b
@@ -56,6 +56,7 @@ from timm.utils import ApexScaler, NativeScaler
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter, PythonLogger, TensorBoardLogger
+from sparsezoo import Zoo
 
 try:
     from apex import amp
@@ -84,9 +85,29 @@ parser.add_argument('-c', '--config', default='', type=str, metavar='FILE',
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 
-# SparseML Recipe parameter
-parser.add_argument('--sparseml-recipe-path', required=True, type=str,
-                    help='path to a SparseML YAML or markdown recipe file')
+
+####################################################################################
+# Start SparseML arguments
+####################################################################################
+parser.add_argument(
+    "--sparseml-recipe-path",
+    required=True,
+    type=str,
+    help="path to a SparseML recipe file or a SparseZoo model stub for a recipe to load. "
+    "SparseZoo stubs should be preceded by 'zoo:'. i.e. '/path/to/local/recipe.yaml', "
+    "'zoo:zoo/model/stub'"
+)
+parser.add_argument(
+    "--sparse-transfer-learn",
+    action="store_true",
+    help="Enable sparse transfer learning modifiers to enforce the sparsity "
+    "if the recipe comes from a local file, modifiers will be added to the manager "
+    "to hold already sparse layers at the same sparsity level. If the recipe comes "
+    "from SparseZoo, the 'transfer' recipe for the model will be loaded instead",
+)
+####################################################################################
+# End SparseML arguments
+####################################################################################
 
 # Dataset / Model parameters
 parser.add_argument('data_dir', metavar='DIR',
@@ -102,7 +123,10 @@ parser.add_argument('--model', default='resnet101', type=str, metavar='MODEL',
 parser.add_argument('--pretrained', action='store_true', default=False,
                     help='Start with pretrained version of specified network (if avail)')
 parser.add_argument('--initial-checkpoint', default='', type=str, metavar='PATH',
-                    help='Initialize model from this checkpoint (default: none)')
+                    help='Initialize model from this checkpoint (default: none). '
+                    'can pass in "zoo" if using a SparseZoo recipe to load that recipes '
+                    'base weights, or pass in a SparseZoo model stub, prefixed with "zoo:" to '
+                    'load weights directly from SparseZoo')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='Resume full model and optimizer state from checkpoint (default: none)')
 parser.add_argument('--no-resume-opt', action='store_true', default=False,
@@ -357,6 +381,33 @@ def main():
 
     torch.manual_seed(args.seed + args.rank)
 
+    ####################################################################################
+    # Start - SparseML optional load weights from SparseZoo
+    ####################################################################################
+    if args.initial_checkpoint == "zoo":
+        # Load checkpoint from base weights associated with given SparseZoo recipe
+        if args.sparseml_recipe_path.startswith("zoo:"):
+            recipe_type = "transfer" if args.sparse_transfer_learn else "original"
+            args.initial_checkpoint = Zoo.download_recipe_base_framework_files(
+                args.sparseml_recipe_path,
+                recipe_type=recipe_type,
+                extensions=[".pth.tar", ".pth"]
+            )[0]
+        else:
+            raise ValueError(
+                "Attempting to load weights from SparseZoo recipe, but not given a "
+                "SparseZoo recipe stub.  When initial-checkpoint is set to 'zoo'. "
+                "sparseml-recipe-path must start with 'zoo:' and be a SparseZoo model "
+                f"stub. sparseml-recipe-path was set to {args.sparseml_recipe_path}"
+            )
+    elif args.initial_checkpoint.startswith("zoo:"):
+        # Load weights from a SparseZoo model stub
+        zoo_model = Zoo.load_model_from_stub(args.initial_checkpoint)
+        args.initial_checkpoint = zoo_model.download_framework_files(extensions=[".pth"])
+    ####################################################################################
+    # End - SparseML optional load weights from SparseZoo
+    ####################################################################################
+
     model = create_model(
         args.model,
         pretrained=args.pretrained,
@@ -599,7 +650,14 @@ def main():
         if output_dir
         else None
     )
-    manager = ScheduledModifierManager.from_yaml(args.sparseml_recipe_path)
+    # determine recipe type to be used if loading from SparseZoo
+    if args.sparseml_recipe_path.startswith("zoo:"):
+        zoo_recipe_type = "transfer" if args.sparse_transfer_learn else "original"
+    else:
+        zoo_recipe_type = None
+    manager = ScheduledModifierManager.from_yaml(
+        args.sparseml_recipe_path, zoo_recipe_type=zoo_recipe_type
+    )
     optimizer = ScheduledOptimizer(
         optimizer,
         model,
@@ -658,7 +716,7 @@ def main():
         #################################################################################
         if output_dir:
             _logger.info(
-                "training complete, exporting ONNX to {}/model.onnx".format(output_dir)
+                f"training complete, exporting ONNX to {output_dir}/model.onnx"
             )
             exporter = ModuleExporter(model, output_dir)
             exporter.export_onnx(torch.randn((1, *data_config["input_size"])))

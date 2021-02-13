@@ -15,7 +15,7 @@ limitations under the License.
 -->
 
 # SparseML-rwightman/pytorch-image-models integration
-This directory provides a training script for the popular
+This directory provides a SparseML integrated training script for the popular
 [rwightman/pytorch-image-models](https://github.com/rwightman/pytorch-image-models)
 repository also known as [timm](https://pypi.org/project/timm/).
 
@@ -26,14 +26,15 @@ Some of the tasks you can perform using this integration include, but are not li
 * model pruning
 * quantization-aware-training
 * sparse quantization-aware-training
+* sparse transfer learning
 
 ## Installation
-Both requirements can be installed via `pip install <package>` or can be cloned
+Both requirements can be installed via `pip` or can be cloned
 and installed from their respective source repositories.
 
 ```bash
 pip install git+https://github.com/rwightman/pytorch-image-models.git
-pip install spraseml[torchvision]
+pip install sparseml[torchvision]
 ```
 
 
@@ -41,7 +42,23 @@ pip install spraseml[torchvision]
 `examples/timm-sparseml/main.py` modifies
 [`train.py`](https://github.com/rwightman/pytorch-image-models/blob/master/train.py)
 from pytorch-image-models to include a `sparseml-recipe-path` argument
-to run SparseML optimizations with.  Running the script will
+to run SparseML optimizations with.  This can be a file path to a local
+SparseML recipe or a SparseZoo model stub prefixed by `zoo:` such as
+`zoo:cv-classification/resnet_v1-50/pytorch-rwightman/imagenet-augmented/pruned_quant-aggressive`.
+
+Additionally, for sparse transfer learning, the flag `--sparse-transfer-learn`
+was added.  Running the script with this flag will add modifiers to the given
+recipe that will keep the base sparsity constant during training, allowing
+the model to learn the new dataset while keeping the same optimized structure.
+If a SparseZoo recipe path is provided with sparse transfer learning enabled,
+then the the model's specific "transfer" recipe will be loaded instead.
+
+To load the base weights for a SparseZoo recipe as the initial checkpoint, set
+`--initial-checkpoint` to `zoo`.  To use the weights of a SparseZoo model as the
+initial checkpoint, pass that model's SparseZoo stub prefixed by `zoo:` to the
+`--initial-checkpoint` argument.
+
+Running the script will
 follow the normal pytorch-image-models training flow with the given
 SparseML optimizations enabled.
 
@@ -60,19 +77,49 @@ documentation, or export one with [Sparsify](https://github.com/neuralmagic/spar
 
 Documentation on the original script can be found
 [here](https://rwightman.github.io/pytorch-image-models/scripts/).
-The latest commit hash that `main.py` is included in the docstring.
+The latest commit hash that `main.py` is based on is included in the docstring.
 
 
 #### Example Command
+Training from a local recipe and checkpoint
 ```bash
 python examples/timm-sparseml/main.py \
   /PATH/TO/DATASET/imagenet/ \
   --sparseml-recipe-path /PATH/TO/RECIPE/recipe.yaml \
+  --initial-checkpoint PATH/TO/CHECKPOINT/model.pth \
   --dataset imagenet \
   --batch-size 64 \
   --remode pixel --reprob 0.6 --smoothing 0.1 \
   --output models/optimized \
   --model resnet50 \
-  --initial-checkpoint PATH/TO/CHECKPOINT/model.pth \
+  --workers 8 \
+```  
+
+Training from a local recipe and SparseZoo checkpoint
+```bash
+python examples/timm-sparseml/main.py \
+  /PATH/TO/DATASET/imagenet/ \
+  --sparseml-recipe-path /PATH/TO/RECIPE/recipe.yaml \
+  --initial-checkpoint zoo:model/stub/path \
+  --dataset imagenet \
+  --batch-size 64 \
+  --remode pixel --reprob 0.6 --smoothing 0.1 \
+  --output models/optimized \
+  --model resnet50 \
+  --workers 8 \
+```  
+
+Training from a SparseZoo recipe and checkpoint with sparse transfer learning enabled
+```bash
+python examples/timm-sparseml/main.py \
+  /PATH/TO/DATASET/imagenet/ \
+  --sparseml-recipe-path zoo:model/stub/path \
+  --initial-checkpoint zoo \
+  --sparse-transfer-learn \
+  --dataset imagenet \
+  --batch-size 64 \
+  --remode pixel --reprob 0.6 --smoothing 0.1 \
+  --output models/optimized \
+  --model resnet50 \
   --workers 8 \
 ```  
