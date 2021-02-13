@@ -74,17 +74,27 @@ class ScheduledModifierManager(BaseManager, Modifier):
     """
 
     @staticmethod
-    def from_yaml(file_path: str, add_modifiers: List[Modifier] = None):
+    def from_yaml(
+        file_path: str,
+        add_modifiers: List[Modifier] = None,
+        zoo_recipe_type: Union[str, None] = None,
+    ):
         """
-        Convenience function used to create the manager of multiple modifiers
-        from a yaml file.
+        Convenience function used to create the manager of multiple modifiers from a
+        recipe file.
 
-        :param file_path: the path to the yaml file to load the modifier from
+        :param file_path: the path to the recipe file to load the modifier from, can
+            also be a SparseZoo model stub preceded by 'zoo:' to load a recipe for
+            a model stored in SparseZoo. i.e. '/path/to/local/recipe.yaml',
+            'zoo:model/stub/path'
         :param add_modifiers: additional modifiers that should be added to the
-            returned manager alongside the ones loaded from the yaml file
-        :return: ScheduledModifierManager() created from the yaml file
+            returned manager alongside the ones loaded from the recipe file
+        :param zoo_recipe_type: optional recipe type to specify when loading a recipe
+            from a SparseZoo stub leave None when loading from a local file.
+            i.e. 'original', 'transfer'
+        :return: ScheduledModifierManager() created from the recipe file
         """
-        yaml_str = load_recipe_yaml_str(file_path)
+        yaml_str = load_recipe_yaml_str(file_path, zoo_recipe_type)
         modifiers = Modifier.load_list(yaml_str)
         if add_modifiers:
             modifiers.extend(add_modifiers)

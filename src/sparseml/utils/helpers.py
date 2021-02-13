@@ -29,6 +29,7 @@ from urllib.parse import urlparse
 
 import numpy
 
+from sparsezoo import Zoo
 from sparsezoo.utils import load_numpy_list
 
 
@@ -763,16 +764,32 @@ def _tensors_export_batch(
     )
 
 
-def load_recipe_yaml_str(file_path: str) -> str:
+def load_recipe_yaml_str(
+    file_path: str, zoo_recipe_type: Union[str, None] = None
+) -> str:
     """
     Loads a YAML recipe file to a string or
     extracts recipe from YAML front matter in a sparsezoo markdown recipe card.
 
     YAML front matter: https://jekyllrb.com/docs/front-matter/
 
-    :param file_path: file path to recipe YAML file or markdown recipe card
+    :param file_path: file path to recipe YAML file or markdown recipe card or
+        stub to a SparseZoo model whose recipe will be downloaded and loaded.
+        SparseZoo stubs should be preceded by 'zoo:'. i.e.
+        '/path/to/local/recipe.yaml', 'zoo:model/stub/path'
+    :param zoo_recipe_type: optional recipe type to specify when loading a recipe
+        from a SparseZoo stub leave None when loading from a local file.
+        i.e. 'original', 'transfer'
     :return: the recipe YAML configuration loaded as a string
     """
+    if file_path.startswith("zoo:"):
+        zoo_kwargs = {"recipe_type": zoo_recipe_type} if zoo_recipe_type else {}
+        file_path = Zoo.download_recipe_from_stub(file_path, **zoo_kwargs)
+    elif zoo_recipe_type is not None:
+        raise ValueError(
+            f"zoo_recipe_type was set to {zoo_recipe_type} but a SparseZoo stub was "
+            f"not specified by path {file_path}. Stub paths should be prefixed by 'zoo:'"
+        )
     extension = file_path.lower().split(".")[-1]
     if extension not in ["md", "yaml"]:
         raise ValueError(
