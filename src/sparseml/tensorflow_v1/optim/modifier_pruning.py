@@ -237,7 +237,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     Applies based on magnitude pruning without any structure to the pruning.
 
     | Sample yaml:
-    |   !GradualKSModifier
+    |   !GMPruningModifier
     |       params: __ALL__
     |       init_sparsity: 0.05
     |       final_sparsity: 0.8

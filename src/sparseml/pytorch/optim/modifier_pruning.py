@@ -304,7 +304,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     Applies based on magnitude pruning unless otherwise specified by mask_type.
 
     | Sample yaml:
-    |   !GradualKSModifier
+    |   !GMPruningModifier
     |       init_sparsity: 0.05
     |       final_sparsity: 0.8
     |       start_epoch: 0.0
@@ -412,7 +412,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
             if param_name not in module_masks:
                 raise RuntimeError(
                     f"Unexpected parameter name when loading state dict for "
-                    f"GradualKSModifier Manager has parameters "
+                    f"GMPruningModifier Manager has parameters "
                     f"{list(module_masks.keys())}, given {param_name}"
                 )
             mask_disabled = False
