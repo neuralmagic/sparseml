@@ -56,7 +56,7 @@ class ConstantPruningModifier(ScheduledModifier):
     Useful for transfer learning use cases.
 
     | Sample yaml:
-    |   !ConstantKSModifier
+    |   !ConstantPruningModifier
     |       params: __ALL__
     |       start_epoch: 0.0
     |       end_epoch: 10.0

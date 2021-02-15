@@ -77,7 +77,7 @@ class ConstantPruningModifier(ScheduledModifier):
     Useful for transfer learning use cases.
 
     | Sample yaml:
-    |   !ConstantKSModifier
+    |   !ConstantPruningModifier
     |       start_epoch: 0.0
     |       end_epoch: 10.0
     |       params: ['re:.*weight']
@@ -170,7 +170,7 @@ class ConstantPruningModifier(ScheduledModifier):
             if param_name not in module_masks:
                 raise RuntimeError(
                     f"Unexpected parameter name when loading state dict for "
-                    f"ConstantKSModifier Manager has parameters "
+                    f"ConstantPruningModifier Manager has parameters "
                     f"{list(module_masks.keys())}, given {param_name}"
                 )
             mask_disabled = False
