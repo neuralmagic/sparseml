@@ -23,6 +23,12 @@ from typing import List, Tuple, Union
 
 import tensorflow as tf
 
+
+try:
+    import keras
+except ModuleNotFoundError:
+    import tensorflow.keras as keras
+
 from sparseml.keras.utils import KerasLogger
 from sparseml.optim import (
     BaseModifier,
@@ -107,7 +113,7 @@ class Modifier(BaseModifier):
         callback = None
         return model, optimizer, callback
 
-    def finalize(self, model: tf.keras.Model):
+    def finalize(self, model: keras.Model):
         """
         Remove extra information related to the modifier from the model that is
         not necessary for exporting

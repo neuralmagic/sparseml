@@ -23,6 +23,7 @@ from sparseml.keras.optim.mask_pruning_creator import (
     PruningMaskCreator,
     load_mask_creator,
 )
+from sparseml.keras.utils import keras
 
 
 __all__ = [
@@ -80,7 +81,7 @@ class PruningScheduler(abc.ABC):
         if "class_name" not in config:
             raise ValueError("The 'class_name' not found in config: {}".format(config))
         class_name = config["class_name"]
-        return tf.keras.utils.deserialize_keras_object(
+        return keras.utils.deserialize_keras_object(
             config,
             module_objects=globals(),
             custom_objects={class_name: PruningScheduler._REGISTRY[class_name]},
@@ -121,7 +122,7 @@ class MaskAndWeightUpdater:
         self._update_ready = None
 
     def _is_pruning_step(self) -> bool:
-        global_step_val = tf.keras.backend.get_value(self._global_step)
+        global_step_val = keras.backend.get_value(self._global_step)
         assert global_step_val >= 0
         update_ready = self._pruning_scheduler.should_prune(global_step_val)
         return update_ready
@@ -132,7 +133,7 @@ class MaskAndWeightUpdater:
 
         def _update_masks_and_weights():
             assignments = []
-            global_step_val = tf.keras.backend.get_value(self._global_step)
+            global_step_val = keras.backend.get_value(self._global_step)
             for masked_param_info in self._pruning_vars:
                 new_sparsity = self._pruning_scheduler.target_sparsity(global_step_val)
                 new_mask = self._mask_creator.create_sparsity_mask(
@@ -181,26 +182,26 @@ class MaskAndWeightUpdater:
         def _no_update():
             return tf.no_op("no_update")
 
-        training = tf.keras.backend.learning_phase() if training is None else training
+        training = keras.backend.learning_phase() if training is None else training
         return tf.cond(tf.cast(training, tf.bool), _update, _no_update)
 
 
 _LAYER_PRUNABLE_PARAMS_MAP = {
-    tf.keras.layers.Conv1D: ["kernel"],
-    tf.keras.layers.Conv2D: ["kernel"],
-    tf.keras.layers.Conv2DTranspose: ["kernel"],
-    tf.keras.layers.Conv3D: ["kernel"],
-    tf.keras.layers.Conv3DTranspose: ["kernel"],
-    tf.keras.layers.Dense: ["kernel"],
-    tf.keras.layers.Embedding: ["embeddings"],
-    tf.keras.layers.LocallyConnected1D: ["kernel"],
-    tf.keras.layers.LocallyConnected2D: ["kernel"],
-    tf.keras.layers.SeparableConv1D: ["pointwise_kernel"],
-    tf.keras.layers.SeparableConv2D: ["pointwise_kernel"],
+    keras.layers.Conv1D: ["kernel"],
+    keras.layers.Conv2D: ["kernel"],
+    keras.layers.Conv2DTranspose: ["kernel"],
+    keras.layers.Conv3D: ["kernel"],
+    keras.layers.Conv3DTranspose: ["kernel"],
+    keras.layers.Dense: ["kernel"],
+    keras.layers.Embedding: ["embeddings"],
+    keras.layers.LocallyConnected1D: ["kernel"],
+    keras.layers.LocallyConnected2D: ["kernel"],
+    keras.layers.SeparableConv1D: ["pointwise_kernel"],
+    keras.layers.SeparableConv2D: ["pointwise_kernel"],
 }
 
 
-def _get_default_prunable_params(layer: tf.keras.layers.Layer):
+def _get_default_prunable_params(layer: keras.layers.Layer):
     if layer.__class__ in _LAYER_PRUNABLE_PARAMS_MAP:
         prunable_param_names = _LAYER_PRUNABLE_PARAMS_MAP[layer.__class__]
         return {
@@ -216,7 +217,7 @@ def _get_default_prunable_params(layer: tf.keras.layers.Layer):
         )
 
 
-class MaskedLayer(tf.keras.layers.Wrapper):
+class MaskedLayer(keras.layers.Wrapper):
     """
     Masked layer is a layer wrapping around another layer with a mask; the mask however
     is shared if the enclosed layer is again of MaskedLayer type
@@ -229,13 +230,13 @@ class MaskedLayer(tf.keras.layers.Wrapper):
 
     def __init__(
         self,
-        layer: tf.keras.layers.Layer,
+        layer: keras.layers.Layer,
         pruning_scheduler: PruningScheduler,
         mask_type: Union[str, List[int]] = "unstructured",
         **kwargs,
     ):
         if not isinstance(layer, MaskedLayer) and not isinstance(
-            layer, tf.keras.layers.Layer
+            layer, keras.layers.Layer
         ):
             raise ValueError(
                 "Invalid layer passed in, expected MaskedLayer or a keras Layer, "
@@ -257,7 +258,7 @@ class MaskedLayer(tf.keras.layers.Wrapper):
         self._global_step = self.add_weight(
             "global_step",
             shape=[],
-            initializer=tf.keras.initializers.Constant(-1),
+            initializer=keras.initializers.Constant(-1),
             dtype=tf.int64,
             trainable=False,
         )
@@ -276,7 +277,7 @@ class MaskedLayer(tf.keras.layers.Wrapper):
             # for the "core", inner-most, Keras built-in layer
             return self._layer.pruning_vars
 
-        assert isinstance(self._layer, tf.keras.layers.Layer)
+        assert isinstance(self._layer, keras.layers.Layer)
         prunable_params = _get_default_prunable_params(self._layer)
 
         pruning_vars = []
@@ -284,14 +285,14 @@ class MaskedLayer(tf.keras.layers.Wrapper):
             mask = self.add_weight(
                 "mask",
                 shape=param.shape,
-                initializer=tf.keras.initializers.get("ones"),
+                initializer=keras.initializers.get("ones"),
                 dtype=param.dtype,
                 trainable=False,
             )
             sparsity = self.add_weight(
                 "sparsity",
                 shape=[],
-                initializer=tf.keras.initializers.get("zeros"),
+                initializer=keras.initializers.get("zeros"),
                 dtype=param.dtype,
                 trainable=False,
             )
@@ -302,7 +303,7 @@ class MaskedLayer(tf.keras.layers.Wrapper):
         """
         Forward function for calling layer instance as function
         """
-        training = tf.keras.backend.learning_phase() if training is None else training
+        training = keras.backend.learning_phase() if training is None else training
 
         def _apply_masks_to_weights():
             with tf.control_dependencies([self._mask_updater.apply_masks()]):
@@ -327,7 +328,7 @@ class MaskedLayer(tf.keras.layers.Wrapper):
         """
         Get layer config
         Serialization and deserialization should be done using
-        tf.keras.serialize/deserialize, which create and retrieve the "class_name"
+        keras.serialize/deserialize, which create and retrieve the "class_name"
         field automatically.
         The resulting config below therefore does not contain the field.
         """
@@ -345,11 +346,11 @@ class MaskedLayer(tf.keras.layers.Wrapper):
     @classmethod
     def from_config(cls, config):
         config = config.copy()
-        layer = tf.keras.layers.deserialize(
+        layer = keras.layers.deserialize(
             config.pop("layer"), custom_objects={"MaskedLayer": MaskedLayer}
         )
         if not isinstance(layer, MaskedLayer) and not isinstance(
-            layer, tf.keras.layers.Layer
+            layer, keras.layers.Layer
         ):
             raise RuntimeError("Unexpected layer created from config")
         pruning_scheduler = PruningScheduler.deserialize(
@@ -384,7 +385,7 @@ class MaskedLayer(tf.keras.layers.Wrapper):
     def pruned_layer(self):
         if isinstance(self._layer, MaskedLayer):
             return self._layer.pruned_layer
-        elif isinstance(self._layer, tf.keras.layers.Layer):
+        elif isinstance(self._layer, keras.layers.Layer):
             return self._layer
         else:
             raise RuntimeError("Unrecognized layer")
@@ -394,7 +395,7 @@ class MaskedLayer(tf.keras.layers.Wrapper):
         return self._layer
 
 
-def remove_pruning_masks(model: tf.keras.Model):
+def remove_pruning_masks(model: keras.Model):
     """
     Remove pruning masks from a model that was pruned using the MaskedLayer logic
     :param model: a model that was pruned using MaskedLayer
@@ -410,7 +411,7 @@ def remove_pruning_masks(model: tf.keras.Model):
         ) or layer.__class__.__name__.endswith("MaskedLayer")
         if is_masked_layer:
             return _get_pruned_layer(layer.layer)
-        elif isinstance(layer, tf.keras.layers.Layer):
+        elif isinstance(layer, keras.layers.Layer):
             return layer
         else:
             raise ValueError("Unknown layer type")
@@ -425,6 +426,6 @@ def remove_pruning_masks(model: tf.keras.Model):
 
     # TODO: while the resulting model could be exported to ONNX, its built status
     # is removed
-    return tf.keras.models.clone_model(
+    return keras.models.clone_model(
         model, input_tensors=None, clone_function=_remove_pruning_masks
     )

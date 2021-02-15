@@ -19,7 +19,13 @@ on models while pruning.
 
 from typing import Dict, List, Union
 
-import tensorflow
+import tensorflow as tf
+
+
+try:
+    import keras
+except ModuleNotFoundError:
+    import tensorflow.keras as keras
 
 from sparseml.keras.optim.mask_pruning import (
     MaskedLayer,
@@ -222,10 +228,8 @@ class SparsityFreezer(PruningScheduler):
         if tensor is None:
             raise ValueError("Invalid empty tensor")
         if self._start_step <= step < self._end_step:
-            mask = tensorflow.cast(tensorflow.not_equal(tensor, 0.0), tensor.dtype)
-            sparsity = tensorflow.math.reduce_sum(1.0 - mask).numpy() / tensorflow.size(
-                tensor
-            )
+            mask = tf.cast(tf.not_equal(tensor, 0.0), tensor.dtype)
+            sparsity = tf.math.reduce_sum(1.0 - mask).numpy() / tf.size(tensor)
         elif step == self._end_step:
             sparsity = 0.0
         else:
@@ -242,7 +246,7 @@ class SparsityFreezer(PruningScheduler):
         return config
 
 
-class PruningModifierCallback(tensorflow.keras.callbacks.Callback):
+class PruningModifierCallback(keras.callbacks.Callback):
     """
     A callback to update masks and weights at the end of certain training step
 
@@ -260,8 +264,8 @@ class PruningModifierCallback(tensorflow.keras.callbacks.Callback):
 
         :param logs: dictionary of logs (see Keras Callback doc)
         """
-        self.step = tensorflow.keras.backend.get_value(self.optim_iters)
-        tensorflow.keras.backend.batch_set_value(
+        self.step = keras.backend.get_value(self.optim_iters)
+        keras.backend.batch_set_value(
             [(layer.global_step, self.step) for layer in self.prunable_layers]
         )
 
@@ -272,7 +276,7 @@ class PruningModifierCallback(tensorflow.keras.callbacks.Callback):
         :param batch: batch index in current epoch
         :param logs: dictionary of logs (see Keras Callback doc)
         """
-        tensorflow.keras.backend.batch_set_value(
+        keras.backend.batch_set_value(
             [(layer.global_step, self.step) for layer in self.prunable_layers]
         )
 
@@ -325,7 +329,7 @@ class SparsityLoggingCallback(LoggerSettingCallback):
         :param logs: dictionary of logs (see Keras Callback doc)
         """
         super().on_train_begin(logs)
-        self._step = tensorflow.keras.backend.get_value(self._start_step)
+        self._step = keras.backend.get_value(self._start_step)
 
     def on_epoch_end(self, epoch, logs=None):
         """
@@ -368,9 +372,7 @@ class SparsityLoggingCallback(LoggerSettingCallback):
         log_data = {}
         for layer in self._prunable_layers:
             for masked_param in layer.pruning_vars:
-                sparsity = tensorflow.math.subtract(
-                    1, tensorflow.math.reduce_mean(masked_param.mask)
-                )
+                sparsity = tf.math.subtract(1, tf.math.reduce_mean(masked_param.mask))
                 log_data["sparsity@{}".format(masked_param.name)] = sparsity
         return log_data
 
@@ -458,7 +460,7 @@ class ConstantPruningModifier(ScheduledModifier):
         return self._update_ready
 
     @property
-    def sparsity(self) -> Union[None, tensorflow.Tensor]:
+    def sparsity(self) -> Union[None, tf.Tensor]:
         """
         :return: the created sparsity tensor for setting the pruning ops
             if create_ops has been called, else None
@@ -473,12 +475,10 @@ class ConstantPruningModifier(ScheduledModifier):
         if is_start_step:
             if tensor is None:
                 raise RuntimeError("Unexpected empty weight")
-            mask = tensorflow.cast(tensorflow.not_equal(tensor, 0.0), tensor.dtype)
-            self._sparsity = tensorflow.math.reduce_sum(
-                1.0 - mask
-            ).numpy() / tensorflow.size(tensor)
+            mask = tf.cast(tf.not_equal(tensor, 0.0), tensor.dtype)
+            self._sparsity = tf.math.reduce_sum(1.0 - mask).numpy() / tf.size(tensor)
         elif is_end_step:
-            mask = tensorflow.ones_like(tensor)
+            mask = tf.ones_like(tensor)
             self._sparsity = 0.0
         else:
             self._sparsity = None
@@ -490,7 +490,7 @@ class ConstantPruningModifier(ScheduledModifier):
         sparsity_scheduler = SparsityFreezer(begin_step, end_step)
         return sparsity_scheduler
 
-    def _clone_layer(self, layer: tensorflow.keras.layers.Layer):
+    def _clone_layer(self, layer: keras.layers.Layer):
         cloned_layer = layer
         if layer.name in self.layer_names:  # TODO: handle regex params
             cloned_layer = MaskedLayer(
@@ -505,7 +505,7 @@ class ConstantPruningModifier(ScheduledModifier):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tensorflow.Tensor = None,
+        input_tensors: tf.Tensor = None,
     ):
         """
         Modify model and optimizer
@@ -525,7 +525,7 @@ class ConstantPruningModifier(ScheduledModifier):
             input_tensors=input_tensors,
         )
         self._sparsity_scheduler = self._create_sparsity_scheduler(steps_per_epoch)
-        cloned_model = tensorflow.keras.models.clone_model(
+        cloned_model = keras.models.clone_model(
             model,
             input_tensors,
             clone_function=self._clone_layer,
@@ -539,7 +539,7 @@ class ConstantPruningModifier(ScheduledModifier):
             callbacks.append(sparsity_logging_callback)
         return cloned_model, optimizer, callbacks
 
-    def finalize(self, model: tensorflow.keras.Model):
+    def finalize(self, model: keras.Model):
         """
         Remove extra information related to the modifier from the model that is
         not necessary for exporting
@@ -788,7 +788,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         return self._update_ready
 
     @property
-    def sparsity(self) -> Union[None, tensorflow.Tensor]:
+    def sparsity(self) -> Union[None, tf.Tensor]:
         """
         :return: the created sparsity tensor for setting the pruning ops
             if create_ops has been called, else None
@@ -860,7 +860,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         )
         return sparsity_scheduler
 
-    def _clone_layer(self, layer: tensorflow.keras.layers.Layer):
+    def _clone_layer(self, layer: keras.layers.Layer):
         cloned_layer = layer
         if (
             layer.name in self.layer_names
@@ -877,7 +877,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tensorflow.Tensor = None,
+        input_tensors: tf.Tensor = None,
     ):
         """
         Modify model and optimizer, and provide callbacks to process the model
@@ -901,7 +901,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         self._sparsity_scheduler = self._create_sparsity_scheduler(steps_per_epoch)
 
         # Clone model and additional set up
-        cloned_model = tensorflow.keras.models.clone_model(
+        cloned_model = keras.models.clone_model(
             model,
             input_tensors,
             clone_function=self._clone_layer,
@@ -923,7 +923,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     def prunable_layers(self):
         return self._masked_layers
 
-    def finalize(self, model: tensorflow.keras.Model):
+    def finalize(self, model: keras.Model):
         """
         Remove extra information related to the modifier from the model that is
         not necessary for exporting

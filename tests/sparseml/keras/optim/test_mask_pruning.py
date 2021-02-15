@@ -27,6 +27,7 @@ from sparseml.keras.optim import (
     ScheduledModifierManager,
     remove_pruning_masks,
 )
+from sparseml.keras.utils import keras
 from tests.sparseml.keras.optim.mock import (
     DenseLayerCreator,
     MockPruningScheduler,
@@ -73,16 +74,14 @@ from tests.sparseml.keras.optim.mock import (
 def test_mask_update_explicit(
     layer_lambda, pruning_scheduler, mask_type, expected_mask
 ):
-    if tf.__version__ < "2":
-        pytest.skip("Test needs to be fixed to run with tensorflow_v1 1.x")
     layer = layer_lambda()
     masked_layer = MaskedLayer(layer, pruning_scheduler, mask_type)
     masked_layer.build(input_shape=None)
     update_steps = list(pruning_scheduler.step_and_sparsity_pairs.keys())
     for idx, update_step in enumerate(update_steps):
-        tf.keras.backend.batch_set_value([(masked_layer.global_step, update_step)])
+        keras.backend.batch_set_value([(masked_layer.global_step, update_step)])
         masked_layer.mask_updater.conditional_update(training=True)
-        mask = tf.keras.backend.get_value(masked_layer.masks[0])
+        mask = keras.backend.get_value(masked_layer.masks[0])
         assert np.allclose(mask, expected_mask[idx])
 
 
@@ -141,7 +140,7 @@ def test_nested_layer_structure(modifier_lambdas, steps_per_epoch):
     model = mnist_model()
     modifiers = [mod() for mod in modifier_lambdas]
     manager = ScheduledModifierManager(modifiers)
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer = keras.optimizers.Adam()
     model, optimizer, callbacks = manager.modify(model, optimizer, steps_per_epoch)
 
     model.build(input_shape=(1, 28, 28, 1))
@@ -183,7 +182,7 @@ def test_nested_layer_structure(modifier_lambdas, steps_per_epoch):
     )
     assert model_config == new_model.get_config()
 
-    tf.keras.backend.clear_session()
+    keras.backend.clear_session()
 
 
 @pytest.mark.parametrize(
@@ -215,22 +214,25 @@ def test_nested_layer_structure(modifier_lambdas, steps_per_epoch):
 def test_save_load_masked_model(modifier_lambdas, epochs, batch_size):
     # Data
     num_classes = 10
-    (x_train, y_train), _ = tf.keras.datasets.mnist.load_data()
-    y_train = tf.keras.utils.to_categorical(y_train, num_classes)
-
+    (x_train, y_train), _ = keras.datasets.mnist.load_data()
+    y_train = keras.utils.to_categorical(y_train, num_classes)
     N = 2 * batch_size
     x_train = x_train[:N, :]
     y_train = y_train[:N, :]
+
+    if tf.__version__ < "2.2.0":
+        x_train = tf.expand_dims(x_train, axis=-1)
+        y_train = tf.expand_dims(y_train, axis=-1)
 
     # Model
     model = mnist_model()
     modifiers = [mod() for mod in modifier_lambdas]
     manager = ScheduledModifierManager(modifiers)
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer = keras.optimizers.Adam()
     steps_per_epoch = math.ceil(len(x_train) / batch_size)
     model, optimizer, callbacks = manager.modify(model, optimizer, steps_per_epoch)
     model.compile(
-        loss=tf.keras.losses.categorical_crossentropy,
+        loss=keras.losses.categorical_crossentropy,
         optimizer=optimizer,
         metrics=["accuracy"],
         run_eagerly=True,
@@ -243,7 +245,7 @@ def test_save_load_masked_model(modifier_lambdas, epochs, batch_size):
     with tempfile.TemporaryDirectory() as save_dir:
         checkpoint_filepath = os.path.join(save_dir, "model.tf")
         model.save(checkpoint_filepath)
-        new_model = tf.keras.models.load_model(checkpoint_filepath)
+        new_model = keras.models.load_model(checkpoint_filepath)
 
         # Verify two models are different objects
         assert id(model) != id(new_model)
@@ -259,7 +261,7 @@ def test_save_load_masked_model(modifier_lambdas, epochs, batch_size):
     assert mask_count == 0
 
 
-def _assert_equal_models(model: tf.keras.Model, new_model: tf.keras.Model):
+def _assert_equal_models(model: keras.Model, new_model: keras.Model):
     for layer, new_layer in zip(model.layers, new_model.layers):
         weights, new_weights = layer.get_weights(), new_layer.get_weights()
         assert len(weights) == len(new_weights)
@@ -277,7 +279,7 @@ def _count_nested_masked_layers_in_config(layer_config: Dict):
     return 1 + _count_nested_masked_layers_in_config(layer_config["config"]["layer"])
 
 
-def _count_nested_masked_layers(layer: Union[MaskedLayer, tf.keras.layers.Layer]):
+def _count_nested_masked_layers(layer: Union[MaskedLayer, keras.layers.Layer]):
     if not isinstance(layer, MaskedLayer):
         return 0
     return 1 + _count_nested_masked_layers(layer.masked_layer)

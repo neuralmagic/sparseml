@@ -16,6 +16,12 @@ import numpy as np
 import pytest
 import tensorflow as tf
 
+
+try:
+    import keras
+except ModuleNotFoundError:
+    import tensorflow.keras as keras
+
 from sparseml.keras.optim import GMPruningModifier
 from tests.sparseml.keras.optim.mock import model_01
 
@@ -64,8 +70,8 @@ class TestGMPruningModifier:
     def test_lifecycle(self, model_lambda, modifier_lambda, steps_per_epoch):
         model = model_lambda()
         modifier = modifier_lambda()
-        loss = tf.keras.losses.categorical_crossentropy
-        optimizer = tf.keras.optimizers.Adam()
+        loss = keras.losses.categorical_crossentropy
+        optimizer = keras.optimizers.Adam()
         model, optimizer, callbacks = modifier.modify(model, optimizer, steps_per_epoch)
         assert len(callbacks) == 1
         step_callback = callbacks[0]
@@ -78,7 +84,7 @@ class TestGMPruningModifier:
         M = 10
         X_train = np.random.normal(size=(N, model.inputs[0].shape[1]))
         classes = np.random.randint(0, M, size=N)
-        y_train = tf.keras.utils.to_categorical(classes, num_classes=M)
+        y_train = keras.utils.to_categorical(classes, num_classes=M)
 
         step_callback.on_train_begin()
         for epoch in range(epochs):

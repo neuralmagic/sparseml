@@ -19,7 +19,11 @@ Export Keras models to the local device.
 import os
 from typing import Any, List
 
-from tensorflow.keras import Model
+
+try:
+    import keras
+except ModuleNotFoundError:
+    import tensorflow.keras as keras
 
 from sparseml.utils import clean_path, create_parent_dirs, tensors_export
 
@@ -49,7 +53,7 @@ class ModelExporter(object):
 
     def __init__(
         self,
-        model: Model,
+        model: keras.Model,
         output_dir: str,
     ):
         self._model = model

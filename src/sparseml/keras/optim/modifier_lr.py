@@ -19,8 +19,16 @@ Learning rate modifiers for Keras models
 from typing import Dict, List, Union
 
 import tensorflow as tf
-from tensorflow.keras import backend as K
-from tensorflow.keras.optimizers.schedules import LearningRateSchedule
+
+
+try:
+    import keras
+    from keras import backend as K
+    from keras.optimizers.schedules import LearningRateSchedule
+except ModuleNotFoundError:
+    import tensorflow.keras as keras
+    from tensorflow.keras import backend as K
+    from tensorflow.keras.optimizers.schedules import LearningRateSchedule
 
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
@@ -35,7 +43,7 @@ from sparseml.utils import ALL_TOKEN
 __all__ = ["SetLearningRateModifier", "LearningRateModifier"]
 
 
-class LRModifierCallback(tf.keras.callbacks.Callback):
+class LRModifierCallback(keras.callbacks.Callback):
     """
     Callback to modify learning rate of an optimizer
 
@@ -47,10 +55,10 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
 
     def __init__(
         self,
-        optimizer: tf.keras.optimizers.Optimizer,
+        optimizer: keras.optimizers.Optimizer,
         start_step: int,
         end_step: int,
-        learning_rate: Union[float, tf.keras.optimizers.schedules.LearningRateSchedule],
+        learning_rate: Union[float, keras.optimizers.schedules.LearningRateSchedule],
     ):
         self._optimizer = optimizer
         self._start_step = start_step
@@ -64,7 +72,10 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
 
         :param logs: dictionary of logs (see Keras Callback doc)
         """
-        self._step = tf.keras.backend.get_value(self._optimizer.iterations)
+        self._step = keras.backend.get_value(self._optimizer.iterations)
+
+    def on_batch_begin(self, batch, logs=None):
+        self.on_train_batch_begin(batch, logs=logs)
 
     def on_train_batch_begin(self, batch, logs=None):
         """
@@ -79,6 +90,9 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
             assert self._end_step > -1
             persist_lr = self._optimizer.lr(self._step)
             setattr(self._optimizer, "lr", persist_lr)
+
+    def on_batch_end(self, batch, logs=None):
+        self.on_train_batch_end(batch, logs=logs)
 
     def on_train_batch_end(self, batch, logs=None):
         """
@@ -255,7 +269,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         return model, optimizer, [lr_callback, lr_logging_callback]
 
 
-class _ExponentialDecay(tf.keras.optimizers.schedules.ExponentialDecay):
+class _ExponentialDecay(keras.optimizers.schedules.ExponentialDecay):
     def __init__(
         self,
         start_step,
@@ -290,7 +304,7 @@ class _ExponentialDecay(tf.keras.optimizers.schedules.ExponentialDecay):
         return config
 
 
-class _PiecewiseConstantDecay(tf.keras.optimizers.schedules.PiecewiseConstantDecay):
+class _PiecewiseConstantDecay(keras.optimizers.schedules.PiecewiseConstantDecay):
     def __init__(self, start_step, boundaries, values, name=None):
         super().__init__(boundaries, values, name=name)
         self._start_step = start_step

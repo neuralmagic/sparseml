@@ -16,7 +16,12 @@ from typing import List, Tuple
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.models import Model
+
+
+try:
+    import keras
+except ModuleNotFoundError:
+    import tensorflow.keras as keras
 
 from sparseml.keras.optim import PruningScheduler
 
@@ -52,21 +57,21 @@ class MockPruningScheduler(PruningScheduler):
         }
 
 
-class DenseLayer(tf.keras.layers.Dense):
+class DenseLayer(keras.layers.Dense):
     def __init__(self, weight: np.ndarray):
         super(DenseLayer, self).__init__(weight.shape[1], activation=None)
 
         self.kernel = self.add_weight(
             "kernel",
             shape=weight.shape,
-            initializer=tf.keras.initializers.Constant(weight),
+            initializer=keras.initializers.Constant(weight),
             dtype=tf.float32,
             trainable=False,
         )
         self.bias = self.add_weight(
             "bias",
             shape=(weight.shape[1],),
-            initializer=tf.keras.initializers.Constant(0.0),
+            initializer=keras.initializers.Constant(0.0),
             dtype=tf.float32,
             trainable=False,
         )
@@ -84,7 +89,7 @@ class DenseLayerCreator(LayerCreator):
         self.name = name
 
     def __call__(self, delay_build=False):
-        layer = tf.keras.layers.Dense(
+        layer = keras.layers.Dense(
             self.kernel.shape[-1], activation=None, name=self.name
         )
         if not delay_build:
@@ -101,7 +106,7 @@ class SequentialModelCreator:
         self.layer_creators = layer_creators
 
     def __call__(self):
-        model = tf.keras.Sequential()
+        model = keras.Sequential()
         for layer_creator in self.layer_creators:
             model.add(layer_creator(delay_build=True))
         input_shape = tf.TensorShape((None, self.layer_creators[0].kernel.shape[-2]))
@@ -110,10 +115,10 @@ class SequentialModelCreator:
 
 
 def model_01():
-    inputs = tf.keras.Input(shape=(5))
-    x = tf.keras.layers.Dense(10, name="dense_01")(inputs)
-    outputs = tf.keras.layers.Dense(10, name="dense_02")(x)
-    model = Model(inputs=inputs, outputs=outputs)
+    inputs = keras.Input(shape=(5))
+    x = keras.layers.Dense(10, name="dense_01")(inputs)
+    outputs = keras.layers.Dense(10, name="dense_02")(x)
+    model = keras.Model(inputs=inputs, outputs=outputs)
     return model
 
 

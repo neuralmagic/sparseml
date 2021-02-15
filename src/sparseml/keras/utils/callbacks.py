@@ -18,7 +18,6 @@ Built-in callbacks for Keras
 
 from typing import List, Union
 
-import tensorflow
 from tensorflow import Tensor
 
 from sparseml.keras.utils import keras
@@ -205,7 +204,7 @@ class LossesAndMetricsLoggingCallback(LoggerSettingCallback):
         :param logs: dictionary of logs (see Keras Callback doc)
         """
         super().on_train_begin(logs)
-        self._step = tensorflow.keras.backend.get_value(self._start_step)
+        self._step = keras.backend.get_value(self._start_step)
 
     def on_epoch_end(self, epoch, logs=None):
         """
