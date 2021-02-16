@@ -185,7 +185,7 @@ Notes:
    the script `scripts/pytorch/model_quantize_qat_export.py` or the function
    `neuralmagicML.pytorch.quantization.quantize_qat_export`.
 - If performing QAT on a sparse model, you must preserve sparsity during QAT by
-   applying a `ConstantKSModifier` or have already used a `GradualKSModifier` with
+   applying a `ConstantPruningModifier` or have already used a `GMPruningModifier` with
    `leave_enabled` set to True.
 
 Required Parameters:

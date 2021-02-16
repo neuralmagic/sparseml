@@ -56,7 +56,7 @@ class ConstantPruningModifier(ScheduledModifier):
     Useful for transfer learning use cases.
 
     | Sample yaml:
-    |   !ConstantKSModifier
+    |   !ConstantPruningModifier
     |       params: __ALL__
     |       start_epoch: 0.0
     |       end_epoch: 10.0
@@ -237,7 +237,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     Applies based on magnitude pruning without any structure to the pruning.
 
     | Sample yaml:
-    |   !GradualKSModifier
+    |   !GMPruningModifier
     |       params: __ALL__
     |       init_sparsity: 0.05
     |       final_sparsity: 0.8
