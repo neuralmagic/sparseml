@@ -29,6 +29,7 @@ from sparseml.optim import BaseManager
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import PyTorchLogger
 from sparseml.utils import load_recipe_yaml_str
+from sparsezoo.objects import OptimizationRecipe
 
 
 __all__ = ["ScheduledModifierManager", "load_manager"]
@@ -57,26 +58,24 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
     @staticmethod
     def from_yaml(
-        file_path: str,
+        file_path: Union[str, OptimizationRecipe],
         add_modifiers: List[Modifier] = None,
-        zoo_recipe_type: Union[str, None] = None,
     ):
         """
         Convenience function used to create the manager of multiple modifiers from a
         recipe file.
 
-        :param file_path: the path to the recipe file to load the modifier from, can
-            also be a SparseZoo model stub preceded by 'zoo:' to load a recipe for
-            a model stored in SparseZoo. i.e. '/path/to/local/recipe.yaml',
-            'zoo:model/stub/path'
+        :param file_path: the path to the recipe file to load the modifier from, or
+            a SparseZoo model stub to load a recipe for a model stored in SparseZoo.
+            SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
+            '?recipe_type=<type>' parameter. Can also be a SparseZoo OptimizationRecipe
+            object. i.e. '/path/to/local/recipe.yaml', 'zoo:model/stub/path',
+            'zoo:model/stub/path?recipe_type=transfer'
         :param add_modifiers: additional modifiers that should be added to the
             returned manager alongside the ones loaded from the recipe file
-        :param zoo_recipe_type: optional recipe type to specify when loading a recipe
-            from a SparseZoo stub leave None when loading from a local file.
-            i.e. 'original', 'transfer'
         :return: ScheduledModifierManager() created from the recipe file
         """
-        yaml_str = load_recipe_yaml_str(file_path, zoo_recipe_type)
+        yaml_str = load_recipe_yaml_str(file_path)
         modifiers = Modifier.load_list(yaml_str)
 
         if add_modifiers:
