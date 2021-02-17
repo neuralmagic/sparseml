@@ -250,6 +250,16 @@ class Modifier(BaseModifier):
         if not self._enabled:
             raise RuntimeError("modifier must be enabled")
 
+    def finalize(self, module: Module, optimizer: Optimizer):
+        """
+        Remove extra information and hooks added to the module and optimizer
+        by the Modifier.
+
+        :param module: module to finalize
+        :param optimizer: optimizer to finalize
+        """
+        self.enabled = False
+
 
 class ScheduledModifier(Modifier, BaseScheduled):
     """

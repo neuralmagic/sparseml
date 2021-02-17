@@ -18,7 +18,7 @@ Export PyTorch models to the local device
 
 import os
 from copy import deepcopy
-from typing import Any, Iterable, List
+from typing import Any, Dict, Iterable, List
 
 import numpy
 import onnx
@@ -160,7 +160,7 @@ class ModuleExporter(object):
         epoch: int = None,
         name: str = "model.pth",
         use_zipfile_serialization_if_available: bool = True,
-        include_modifiers: bool = False,
+        extras: Dict[str, Any] = None,
     ):
         """
         Export the pytorch state dicts into pth file within a
@@ -171,9 +171,9 @@ class ModuleExporter(object):
         :param name: name of the pytorch file to save
         :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
             exports the Module's state dict using the new zipfile serialization
-        :param include_modifiers: if True, and a ScheduledOptimizer is provided
-            as the optimizer, the associated ScheduledModifierManager and its
-            Modifiers will be exported under the 'manager' key. Default is False
+        :param extras: dictionary of additional names to objects to serialize in the saved
+            state dict. All values must have a callable `state_dict()` property.
+            i.e. {'manager': scheduled_modifier_manager}. Default is None
         """
         pytorch_path = os.path.join(self._output_dir, "pytorch")
         pth_path = os.path.join(pytorch_path, name)
@@ -186,7 +186,7 @@ class ModuleExporter(object):
             use_zipfile_serialization_if_available=(
                 use_zipfile_serialization_if_available
             ),
-            include_modifiers=include_modifiers,
+            extras=extras,
         )
 
     def export_samples(

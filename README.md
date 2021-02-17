@@ -102,21 +102,29 @@ For a more in-depth read, check out [SparseML documentation](https://docs.neural
 The PyTorch optimization libraries are located under the `sparseml.pytorch.optim` package.
 Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into PyTorch training pipelines.
 
-The integration is done using the `ScheduledOptimizer` class. It is intended to wrap your current optimizer and its step function. The step function then calls into the `ScheduledModifierManager` class which can be created from a recipe file. With this setup, the training process can then be modified as desired to optimize the model.
+The integration is done using the `ScheduledModifierManager` class. It wraps your current optimizer's step function to apply SparseML `Modifier` optimizations at each step.
+The `ScheduledModifierManager` class can be created from a recipe file or `SparseZoo` optimized model stub.
+
+With this setup, the training process can then be modified as desired to optimize the model using SparseML recipes.
 
 To enable all of this, the integration code you'll need to write is only a handful of lines:
 
 ```python
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.pytorch.optim import ScheduledModifierManager
 
+# setup
 model = None  # your model definition
 optimizer = None  # your optimizer definition
 num_train_batches = len(train_data) / batch_size  # your number of batches per training epoch
 
+# integration
 manager = ScheduledModifierManager.from_yaml("/PATH/TO/recipe.yaml")
-optimizer = ScheduledOptimizer(optimizer, model, manager, steps_per_epoch=num_train_batches)
+manager.initialize(model, optimizer, steps_per_epoch=num_train_batches)
 
 # PyTorch training code...
+
+# finalize cleans up any added parameters or hooks
+manager.finalize(model, optimizer)
 ```
 
 ### Keras Optimization

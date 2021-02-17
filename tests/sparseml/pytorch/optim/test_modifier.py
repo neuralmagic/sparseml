@@ -26,6 +26,7 @@ from sparseml.pytorch.optim import (
     Modifier,
     PyTorchModifierYAML,
     ScheduledModifier,
+    ScheduledModifierManager,
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
@@ -67,8 +68,12 @@ class ModifierTest(BaseModifierTest):
         model: Module = None,
         optimizer: Optimizer = None,
         log_initialize: bool = True,
+        steps_per_epoch: float = None,
     ):
-        modifier.initialize(model, optimizer)
+        if isinstance(modifier, ScheduledModifierManager):
+            modifier.initialize(model, optimizer, steps_per_epoch)
+        else:
+            modifier.initialize(model, optimizer)
 
         if log_initialize:
             modifier.initialize_loggers([PythonLogger()])
@@ -128,10 +133,15 @@ class ModifierTest(BaseModifierTest):
     ):
         model = model_lambda()
         optimizer = optim_lambda(model)
+
+        initialize_kwargs = {"model": model, "optimizer": optimizer}
+        if isinstance(modifier_lambda(), ScheduledModifierManager):
+            initialize_kwargs["steps_per_epoch"] = test_steps_per_epoch
+
         super().test_props(
             modifier_lambda,
             framework=PYTORCH_FRAMEWORK,
-            initialize_kwargs={"model": model, "optimizer": optimizer},
+            initialize_kwargs=initialize_kwargs,
         )
 
     def test_initialize(
@@ -197,7 +207,9 @@ class ModifierTest(BaseModifierTest):
         with pytest.raises(RuntimeError):
             modifier.update(model, optimizer, test_epoch, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
 
         modifier.enabled = False
         with pytest.raises(RuntimeError):
@@ -221,12 +233,25 @@ class ModifierTest(BaseModifierTest):
         with pytest.raises(RuntimeError):
             modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer, log_initialize=False)
+        self.initialize_helper(
+            modifier,
+            model,
+            optimizer,
+            log_initialize=False,
+            steps_per_epoch=test_steps_per_epoch,
+        )
 
-        with pytest.raises(RuntimeError):
-            modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
+        if not isinstance(modifier, ScheduledModifierManager):
+            with pytest.raises(RuntimeError):
+                modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer, log_initialize=True)
+        self.initialize_helper(
+            modifier,
+            model,
+            optimizer,
+            log_initialize=True,
+            steps_per_epoch=test_steps_per_epoch,
+        )
 
         modifier.enabled = False
         with pytest.raises(RuntimeError):
@@ -253,7 +278,9 @@ class ModifierTest(BaseModifierTest):
                 test_loss, model, optimizer, test_epoch, test_steps_per_epoch
             )
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
         new_loss = modifier.loss_update(
             test_loss, model, optimizer, test_epoch, test_steps_per_epoch
         )
@@ -277,7 +304,9 @@ class ModifierTest(BaseModifierTest):
                 model, optimizer, test_epoch, test_steps_per_epoch
             )
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
 
         modifier.enabled = False
         with pytest.raises(RuntimeError):
@@ -305,7 +334,9 @@ class ModifierTest(BaseModifierTest):
                 model, optimizer, test_epoch, test_steps_per_epoch
             )
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
 
         modifier.enabled = False
         with pytest.raises(RuntimeError):
@@ -362,7 +393,9 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.start_pending(0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
         modifier.enabled = False
         assert not modifier.start_pending(modifier.start_epoch, test_steps_per_epoch)
         modifier.enabled = True
@@ -388,7 +421,9 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.end_pending(0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
         self.start_helper(modifier, model, optimizer)
         modifier.enabled = False
         assert not modifier.end_pending(modifier.start_epoch, test_steps_per_epoch)
@@ -416,7 +451,9 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.update_ready(0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
         modifier.enabled = False
         assert not modifier.update_ready(modifier.start_epoch, test_steps_per_epoch)
         modifier.enabled = True
@@ -446,7 +483,9 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.scheduled_update(model, optimizer, 0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
 
         if modifier.start_epoch <= 0.0:
             modifier.scheduled_update(model, optimizer, 0.0, test_steps_per_epoch)
@@ -502,12 +541,24 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer, log_initialize=False)
+        self.initialize_helper(
+            modifier,
+            model,
+            optimizer,
+            log_initialize=False,
+            steps_per_epoch=test_steps_per_epoch,
+        )
 
         with pytest.raises(RuntimeError):
             modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer, log_initialize=True)
+        self.initialize_helper(
+            modifier,
+            model,
+            optimizer,
+            log_initialize=True,
+            steps_per_epoch=test_steps_per_epoch,
+        )
 
         for epoch in range(
             int(modifier.start_epoch) if modifier.start_epoch >= 0.0 else 0,
@@ -575,7 +626,9 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
         self.start_helper(modifier, model, optimizer)
         min_update_freq = 1.0 / float(test_steps_per_epoch)
 
@@ -609,7 +662,9 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(
+            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
+        )
         self.start_helper(modifier, model, optimizer)
         min_update_freq = 1.0 / float(test_steps_per_epoch)
 
