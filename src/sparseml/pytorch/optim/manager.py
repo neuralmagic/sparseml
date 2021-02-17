@@ -89,7 +89,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param step: the step (batch) within the epoch to set the
             current global step to match
         """
-        if getattr(optimizer.step, "_with_modifiers", False):
+        if not getattr(optimizer.step, "_with_modifiers", False):
             raise RuntimeError(
                 "Optimizer not initialized with ScheduledModifierManager.initialize"
             )
