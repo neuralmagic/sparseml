@@ -414,7 +414,7 @@ from typing import Any, List, Tuple, Union
 import torch
 from torch.nn import Module
 from torch.nn import functional as torch_functional
-from torch.optim import SGD, Adam
+from torch.optim import SGD, Adam, Optimizer
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -432,7 +432,6 @@ from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import (
     ConstantPruningModifier,
     ScheduledModifierManager,
-    ScheduledOptimizer,
     default_exponential_check_lrs,
     lr_loss_sensitivity,
     pruning_loss_sens_magnitude,
@@ -969,7 +968,7 @@ def _create_scheduled_optimizer(
     model: Module,
     train_loader: DataLoader,
     loggers: List[Any],
-) -> Tuple[int, ScheduledOptimizer, ScheduledModifierManager]:
+) -> Tuple[int, Optimizer, ScheduledModifierManager]:
     # optimizer setup
     if args.optim == "SGD":
         optim_const = SGD
@@ -1012,13 +1011,8 @@ def _create_scheduled_optimizer(
     manager = ScheduledModifierManager.from_yaml(
         file_path=args.recipe_path, add_modifiers=add_mods
     )
-    optim = ScheduledOptimizer(
-        optim,
-        model,
-        manager,
-        steps_per_epoch=len(train_loader),
-        loggers=loggers,
-    )
+    manager.initialize(model, optim, steps_per_epoch=len(train_loader), loggers=loggers)
+
     LOGGER.info("created manager: {}".format(manager))
     return epoch, optim, manager
 
@@ -1114,8 +1108,8 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
         LOGGER.info("starting training from epoch {}".format(epoch))
 
         if epoch > 0:
-            LOGGER.info("adjusting ScheduledOptimizer to restore point")
-            optim.adjust_current_step(epoch, 0)
+            LOGGER.info("adjusting Manager to restore point")
+            ScheduledModifierManager.adjust_optimizer_step(optim, epoch, 0)
 
         best_loss = None
         val_res = None
@@ -1124,7 +1118,7 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
             if args.debug_steps > 0:
                 # correct since all optimizer steps are not
                 # taken in the epochs for debug mode
-                optim.adjust_current_step(epoch, 0)
+                ScheduledModifierManager.adjust_optimizer_step(optim, epoch, 0)
 
             if args.rank != -1:  # sync DDP dataloaders
                 train_loader.sampler.set_epoch(epoch)
@@ -1173,6 +1167,8 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
 
         # export the final model
         LOGGER.info("completed...")
+        # finalize manager
+        manager.finalize(model, optim)
         if args.is_main_process:
             _save_model_training(
                 model, optim, input_shape, "model", save_dir, epoch, val_res

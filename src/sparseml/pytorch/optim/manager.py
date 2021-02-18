@@ -18,6 +18,8 @@ grouping modifiers and running them together.
 Also handles loading modifiers from yaml files
 """
 
+import weakref
+from functools import wraps
 from typing import Dict, List, Union
 
 import torch
@@ -76,21 +78,122 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
         return manager
 
+    @staticmethod
+    def adjust_optimizer_step(optimizer: Optimizer, epoch: int, step: int):
+        """
+        Adjust the current step for the optimizer's managed schedule to the given
+        epoch and step.
+
+        :param optimizer: the manager initialized optimizer to adjust the step for
+        :param epoch: the epoch to set the current global step to match
+        :param step: the step (batch) within the epoch to set the
+            current global step to match
+        """
+        if not getattr(optimizer.step, "_with_modifiers", False):
+            raise RuntimeError(
+                "Optimizer not initialized with ScheduledModifierManager.initialize"
+            )
+        optimizer._steps = epoch * optimizer._steps_per_epoch + step
+        _set_scheduled_epoch(optimizer)
+
     def __init__(self, modifiers: List[ScheduledModifier]):
         super().__init__(modifiers=modifiers)
 
-    def initialize(self, module: Module, optimizer: Optimizer):
+    def initialize(
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        steps_per_epoch: int,
+        loggers: Union[List[PyTorchLogger], None] = None,
+    ):
         """
         Handles initializing and setting up the contained modifiers
         Called once on construction of the scheduled optimizer
 
-        :param module: module to modify
         :param optimizer: optimizer to modify
+        :param module: module to modify
+        :param steps_per_epoch: the number of steps or batches in each epoch,
+            used to calculate decimals within the epoch
+        :param loggers: loggers to log important info to within the modifiers;
+            ex tensorboard or to the console
         """
+        if steps_per_epoch <= 0:
+            raise ValueError("steps_per_epoch must be >= 0")
+
         super().initialize(module, optimizer)
 
         for mod in self._modifiers:
             mod.initialize(module, optimizer)
+
+        self._modify_optimizer_step(module, optimizer, steps_per_epoch)
+
+        self.initialize_loggers(loggers)
+
+    def _modify_optimizer_step(
+        self, module: Module, optimizer: Optimizer, steps_per_epoch: int
+    ):
+        def _step_with_modifiers(step_method):
+            if getattr(step_method, "_with_modifiers", False):
+                # `optimizer.step()` has already been replaced, return.
+                return step_method
+
+            # Prevent cyclic references by keeping a weak reference
+            # to optimizer class and original unbound step method
+            optim_ref = weakref.ref(step_method.__self__)
+            original_step_func = step_method.__func__
+            optim_cls = optim_ref().__class__
+            del step_method
+
+            recipe_manager = self
+
+            @wraps(original_step_func)
+            def modifier_step_wrapper(*args, **kwargs):
+                optim_instance = optim_ref()
+
+                # set current epoch
+                _set_scheduled_epoch(optim_instance)
+
+                # run modifiers
+                recipe_manager.update(
+                    module,
+                    optim_instance,
+                    optim_instance._epoch,
+                    optim_instance._steps_per_epoch,
+                )
+                recipe_manager.optimizer_pre_step(
+                    module,
+                    optim_instance,
+                    optim_instance._epoch,
+                    optim_instance._steps_per_epoch,
+                )
+
+                # optimizer step
+                optim_outputs = original_step_func.__get__(optim_instance, optim_cls)(
+                    *args, **kwargs
+                )
+
+                # post step hooks
+                recipe_manager.optimizer_post_step(
+                    module,
+                    optim_instance,
+                    optim_instance._epoch,
+                    optim_instance._steps_per_epoch,
+                )
+                optim_instance._steps += 1
+
+                return optim_outputs
+
+            # Note that the returned function here is no longer a bound method,
+            # so attributes like `__func__` and `__self__` no longer exist.
+            modifier_step_wrapper._with_modifiers = True
+            modifier_step_wrapper._original_step_func = original_step_func
+            return modifier_step_wrapper
+
+        # wrap optimizer step method
+        optimizer.step = _step_with_modifiers(optimizer.step)
+        optimizer._epoch = 0
+        optimizer._steps = 0
+        optimizer._steps_per_epoch = steps_per_epoch
 
     def state_dict(self) -> Dict[str, Dict]:
         """
@@ -244,6 +347,33 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
             mod.optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 
+    def finalize(self, module: Module, optimizer: Optimizer):
+        """
+        Remove extra information and hooks added to the module and optimizer
+        by the Modifier.
+
+        :param module: module to finalize
+        :param optimizer: optimizer to finalize
+        """
+        super().finalize(module, optimizer)
+        for mod in self._modifiers:
+            mod.finalize(module, optimizer)
+
+        # revert optimizer to use original step, do not invoke manager
+        original_step_func = getattr(optimizer.step, "_original_step_func", None)
+        if original_step_func:
+            # delete wrapped step function and added variables
+            del optimizer.step  # delete wrapped step function
+            del optimizer._epoch
+            del optimizer._steps
+            del optimizer._steps_per_epoch
+
+            # bind unbound original step function back to optimizer instance and reset
+            bound_original_step_func = original_step_func.__get__(
+                optimizer, optimizer.__class__
+            )
+            setattr(optimizer, "step", bound_original_step_func)
+
 
 def load_manager(
     path: str, manager: ScheduledModifierManager, map_location: Union[None, str] = "cpu"
@@ -259,3 +389,11 @@ def load_manager(
     if "manager" in state_dict:
         state_dict = state_dict["manager"]
     manager.load_state_dict(state_dict)
+
+
+def _set_scheduled_epoch(optimizer: Optimizer):
+    epoch_num = optimizer._steps // optimizer._steps_per_epoch
+    epoch_steps = optimizer._steps % optimizer._steps_per_epoch
+    optimizer._epoch = float(epoch_num) + float(epoch_steps) / float(
+        optimizer._steps_per_epoch
+    )

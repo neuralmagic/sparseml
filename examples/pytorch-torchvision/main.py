@@ -95,7 +95,7 @@ from torch.utils.data import DataLoader
 from torchvision import models
 
 from sparseml.pytorch.datasets.classification import ImageFolderDataset
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter, PythonLogger, load_model
 from sparseml.utils import create_dirs
 
@@ -408,10 +408,9 @@ def main(args):
     # add sparseml modifiers #
     ##########################
     manager = ScheduledModifierManager.from_yaml(args.recipe_path)
-    optimizer = ScheduledOptimizer(
-        optimizer,
+    manager.initialize(
         model,
-        manager,
+        optimizer,
         steps_per_epoch=len(train_loader),
         loggers=[PythonLogger()],
     )
@@ -432,6 +431,7 @@ def main(args):
     ########################
     # export trained model #
     ########################
+    manager.finalize(model, optimizer)
     exporter = ModuleExporter(model, save_dir)
     sample_input = torch.randn(image_shape).unsqueeze(0)  # sample batch for ONNX export
     exporter.export_onnx(sample_input)

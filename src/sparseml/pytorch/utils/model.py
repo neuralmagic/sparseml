@@ -17,7 +17,7 @@ Code related to interacting with a trained model such as saving, loading, etc
 """
 
 from collections import OrderedDict
-from typing import List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import torch
 from torch.nn import DataParallel, Module
@@ -135,7 +135,7 @@ def save_model(
     optimizer: Optimizer = None,
     epoch: Union[int, None] = None,
     use_zipfile_serialization_if_available: bool = True,
-    include_modifiers: bool = False,
+    extras: Dict[str, Any] = None,
 ):
     """
     Save a model's state dict into a file at the given path.
@@ -147,9 +147,9 @@ def save_model(
     :param epoch: the epoch to save
     :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
         exports the model's state dict using the new zipfile serialization
-    :param include_modifiers: if True, and a ScheduledOptimizer is provided
-        as the optimizer, the associated ScheduledModifierManager and its
-        Modifiers will be exported under the 'manager' key. Default is False
+    :param extras: dictionary of additional names to objects to serialize in the saved
+        state dict. All values must have a callable `state_dict()` property.
+        i.e. {'manager': scheduled_modifier_manager}. Default is None
     """
     create_parent_dirs(path)
 
@@ -170,8 +170,9 @@ def save_model(
     if epoch:
         save_dict["epoch"] = epoch
 
-    if include_modifiers and optimizer and hasattr(optimizer, "manager_state_dict"):
-        save_dict["manager"] = optimizer.manager_state_dict()
+    if extras:
+        for name, obj in extras.items():
+            save_dict["name"] = obj.state_dict()
 
     if torch.__version__ < "1.6":
         torch.save(save_dict, path)
