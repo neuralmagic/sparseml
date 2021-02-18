@@ -18,7 +18,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Model
 
-from sparseml.keras.optim import PruningScheduler, SchedulerRegistry
+from sparseml.keras.optim import PruningScheduler
 
 
 __all__ = [
@@ -30,7 +30,6 @@ __all__ = [
 ]
 
 
-@SchedulerRegistry.register
 class MockPruningScheduler(PruningScheduler):
     def __init__(self, step_and_sparsity_pairs: List[Tuple]):
         self._org_pairs = step_and_sparsity_pairs

@@ -24,7 +24,6 @@ import tensorflow
 from sparseml.keras.optim.mask_pruning import (
     MaskedLayer,
     PruningScheduler,
-    SchedulerRegistry,
     remove_pruning_masks,
 )
 from sparseml.keras.optim.modifier import (
@@ -42,7 +41,6 @@ from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 __all__ = ["ConstantPruningModifier", "GMPruningModifier"]
 
 
-@SchedulerRegistry.register
 class FunctionalScheduler(PruningScheduler):
     """
     Pruning scheduler based on a predefined function
@@ -179,7 +177,6 @@ class FunctionalScheduler(PruningScheduler):
         return config
 
 
-@SchedulerRegistry.register
 class SparsityFreezer(PruningScheduler):
     """
     A sparsity scheduler that fix the sparsity level based on
@@ -386,7 +383,7 @@ class SparsityLoggingCallback(LoggerSettingCallback):
 
 
 @KerasModifierYAML()
-class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
+class ConstantPruningModifier(ScheduledModifier):
     """
     Holds the sparsity level and shape for a given param constant while training.
     Useful for transfer learning use cases.

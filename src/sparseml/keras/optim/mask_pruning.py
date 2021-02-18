@@ -28,7 +28,6 @@ from sparseml.keras.optim.mask_pruning_creator import (
 __all__ = [
     "MaskedLayer",
     "PruningScheduler",
-    "SchedulerRegistry",
     "remove_pruning_masks",
 ]
 
@@ -37,6 +36,12 @@ class PruningScheduler(abc.ABC):
     """
     Abstract pruning scheduler
     """
+
+    _REGISTRY = {}
+
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        PruningScheduler._register_class(cls)
 
     @abc.abstractmethod
     def should_prune(self, step: int) -> bool:
@@ -63,30 +68,8 @@ class PruningScheduler(abc.ABC):
     def get_config(self):
         raise NotImplementedError("Not implemented")
 
-
-class SchedulerRegistry:
-    """
-    Registry of pruning schedulers
-    Each pruning scheduler class is expected to register using the decorator "register"
-    class method. The registry currently is used by the MaskedLayer to deserialize
-    schedulers without having to know any individual pruning schedulers.
-    """
-
-    _REGISTRY = {}
-
     @classmethod
-    def register(cls, scheduler):
-        """
-        Used as a decorator for a pruning scheduler
-
-        :param scheduler: a pruning scheduler class to be decorated
-        """
-        if scheduler.__name__ not in SchedulerRegistry._REGISTRY:
-            SchedulerRegistry._REGISTRY[scheduler.__name__] = scheduler
-        return scheduler
-
-    @classmethod
-    def from_config(cls, config):
+    def deserialize(cls, config):
         """
         Deserialize a pruning scheduler from config returned by scheduler's
         get_config method
@@ -100,12 +83,12 @@ class SchedulerRegistry:
         return tf.keras.utils.deserialize_keras_object(
             config,
             module_objects=globals(),
-            custom_objects={class_name: SchedulerRegistry._REGISTRY[class_name]},
+            custom_objects={class_name: PruningScheduler._REGISTRY[class_name]},
         )
 
     @classmethod
-    def registry(cls):
-        return SchedulerRegistry._REGISTRY
+    def _register_class(cls, target_cls):
+        PruningScheduler._REGISTRY[target_cls.__name__] = target_cls
 
 
 MaskedParamInfo = collections.namedtuple(
@@ -369,7 +352,7 @@ class MaskedLayer(tf.keras.layers.Wrapper):
             layer, tf.keras.layers.Layer
         ):
             raise RuntimeError("Unexpected layer created from config")
-        pruning_scheduler = SchedulerRegistry.from_config(
+        pruning_scheduler = PruningScheduler.deserialize(
             config.pop("pruning_scheduler")
         )
         if not isinstance(pruning_scheduler, PruningScheduler):
