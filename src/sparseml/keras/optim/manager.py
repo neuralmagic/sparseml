@@ -26,6 +26,7 @@ from sparseml.keras.optim.modifier import Modifier, ScheduledModifier
 from sparseml.keras.utils.logger import KerasLogger
 from sparseml.optim import BaseManager
 from sparseml.utils import load_recipe_yaml_str
+from sparsezoo.objects import OptimizationRecipe
 
 
 __all__ = ["ScheduledModifierManager"]
@@ -37,15 +38,23 @@ class ScheduledModifierManager(BaseManager, Modifier):
     """
 
     @staticmethod
-    def from_yaml(file_path: str, add_modifiers: List[Modifier] = None):
+    def from_yaml(
+        file_path: Union[str, OptimizationRecipe],
+        add_modifiers: List[Modifier] = None,
+    ):
         """
-        Convenience function used to create the manager of multiple modifiers
-        from a yaml file.
+        Convenience function used to create the manager of multiple modifiers from a
+        recipe file.
 
-        :param file_path: the path to the yaml file to load the modifier from
+        :param file_path: the path to the recipe file to load the modifier from, or
+            a SparseZoo model stub to load a recipe for a model stored in SparseZoo.
+            SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
+            '?recipe_type=<type>' parameter. Can also be a SparseZoo OptimizationRecipe
+            object. i.e. '/path/to/local/recipe.yaml', 'zoo:model/stub/path',
+            'zoo:model/stub/path?recipe_type=transfer'
         :param add_modifiers: additional modifiers that should be added to the
-            returned manager alongside the ones loaded from the yaml file
-        :return: ScheduledModifierManager() created from the yaml file
+            returned manager alongside the ones loaded from the recipe file
+        :return: ScheduledModifierManager() created from the recipe file
         """
         yaml_str = load_recipe_yaml_str(file_path)
         modifiers = Modifier.load_list(yaml_str)
