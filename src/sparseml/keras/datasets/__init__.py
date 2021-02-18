@@ -13,13 +13,12 @@
 # limitations under the License.
 
 """
-Generic code used as utilities and helpers for Keras
+Code for creating and loading datasets in Keras
 """
 
 # flake8: noqa
 
-from .callbacks import *
-from .compat import *
-from .exporter import *
-from .logger import *
-from .model import *
+from .classification import *
+from .dataset import *
+from .helpers import *
+from .registry import *

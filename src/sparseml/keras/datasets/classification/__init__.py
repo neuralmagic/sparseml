@@ -13,13 +13,10 @@
 # limitations under the License.
 
 """
-Generic code used as utilities and helpers for Keras
+Datasets related to image classification field in computer vision
 """
 
 # flake8: noqa
 
-from .callbacks import *
-from .compat import *
-from .exporter import *
-from .logger import *
-from .model import *
+from .imagefolder import *
+from .imagenette import *

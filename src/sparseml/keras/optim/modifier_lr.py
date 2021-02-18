@@ -20,7 +20,11 @@ from typing import Dict, List, Union
 
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.optimizers.schedules import LearningRateSchedule
+from tensorflow.keras.optimizers.schedules import (
+    LearningRateSchedule,
+    ExponentialDecay,
+    PiecewiseConstantDecay,
+)
 
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
@@ -168,7 +172,10 @@ class LearningRateLoggingCallback(LoggerSettingCallback):
         self._step += 1
 
     def _get_lr(self):
-        lr = self.model.optimizer.lr
+        try:
+            lr = getattr(self.model.optimizer, "lr")
+        except AttributeError:
+            lr = getattr(self.model.optimizer, "learning_rate")
         if isinstance(lr, LearningRateSchedule):
             lr_val = lr(self.model.optimizer.iterations)
         else:
@@ -255,62 +262,6 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         return model, optimizer, [lr_callback, lr_logging_callback]
 
 
-class _ExponentialDecay(tf.keras.optimizers.schedules.ExponentialDecay):
-    def __init__(
-        self,
-        start_step,
-        initial_learning_rate,
-        decay_steps,
-        decay_rate,
-        staircase=False,
-        name=None,
-    ):
-        super().__init__(
-            initial_learning_rate,
-            decay_steps,
-            decay_rate,
-            staircase=staircase,
-            name=name,
-        )
-        self._start_step = start_step
-
-    @property
-    def start_step(self):
-        return self._start_step
-
-    def __call__(self, step):
-        if step < self.start_step:
-            raise ValueError("Invalid step passed in")
-        steps_count = step - self.start_step
-        return super().__call__(steps_count)
-
-    def get_config(self):
-        config = super().get_config()
-        config = config.update({"start_step": self.start_step})
-        return config
-
-
-class _PiecewiseConstantDecay(tf.keras.optimizers.schedules.PiecewiseConstantDecay):
-    def __init__(self, start_step, boundaries, values, name=None):
-        super().__init__(boundaries, values, name=name)
-        self._start_step
-
-    @property
-    def start_step(self):
-        return self._start_step
-
-    def __call__(self, step):
-        if step < self.start_step:
-            raise ValueError("Invalid step passed in")
-        steps_count = step - self.start_step
-        return super().__call__(steps_count)
-
-    def get_config(self):
-        config = super().get_config()
-        config = config.update({"start_step": self.start_step})
-        return config
-
-
 @KerasModifierYAML()
 class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
     """
@@ -372,8 +323,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         start_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=False)
 
         if lr_class == "StepLR":
-            learning_rate = _ExponentialDecay(
-                start_step,
+            learning_rate = ExponentialDecay(
                 self.init_lr,
                 lr_kwargs["step_size"],
                 lr_kwargs["gamma"],
@@ -383,14 +333,14 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         elif lr_class == "MultiStepLR":
             boundaries = lr_kwargs["milestones"]
             values = [
-                self.init_lr * (lr_kwargs["gamma"] ^ k) for k in range(len(boundaries))
+                self.init_lr * (lr_kwargs["gamma"] ** k)
+                for k in range(len(boundaries) + 1)
             ]
-            learning_rate = _PiecewiseConstantDecay(
-                start_step, boundaries, values, name="MultiStepLR"
+            learning_rate = PiecewiseConstantDecay(
+                boundaries, values, name="MultiStepLR"
             )
         elif lr_class == "ExponentialLR":
-            learning_rate = _ExponentialDecay(
-                start_step,
+            learning_rate = ExponentialDecay(
                 self.init_lr,
                 lr_kwargs["step_size"],
                 lr_kwargs["gamma"],
@@ -419,7 +369,6 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         :param input_tensors: optional input tensors
         :return: modified model, optimizer and callbacks
         """
-
         model, optimizer, callback = super(LearningRateModifier, self).modify(
             model,
             optimizer,
