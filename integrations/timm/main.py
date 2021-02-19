@@ -9,7 +9,7 @@
 Integration between https://github.com/rwightman/pytorch-image-models and SparseML
 
 This script is adapted from https://github.com/rwightman/pytorch-image-models/blob/master/train.py
-to apply a SparseML recipe from the required `--sparseml-recipe-path` argument.
+to apply a SparseML recipe from the required `--sparseml-recipe` argument.
 Integration lines are preceded by comment blocks.  Run with `--help` for help printout,
 more information can be found in the readme file.
 
@@ -54,9 +54,10 @@ from timm.optim import create_optimizer
 from timm.scheduler import create_scheduler
 from timm.utils import ApexScaler, NativeScaler
 
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter, PythonLogger, TensorBoardLogger
 from sparsezoo import Zoo
+import warnings
 
 try:
     from apex import amp
@@ -90,20 +91,12 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 # Start SparseML arguments
 ####################################################################################
 parser.add_argument(
-    "--sparseml-recipe-path",
+    "--sparseml-recipe",
     required=True,
     type=str,
     help="path to a SparseML recipe file or a SparseZoo model stub for a recipe to load. "
     "SparseZoo stubs should be preceded by 'zoo:'. i.e. '/path/to/local/recipe.yaml', "
     "'zoo:zoo/model/stub'"
-)
-parser.add_argument(
-    "--sparse-transfer-learn",
-    action="store_true",
-    help="Enable sparse transfer learning modifiers to enforce the sparsity "
-    "if the recipe comes from a local file, modifiers will be added to the manager "
-    "to hold already sparse layers at the same sparsity level. If the recipe comes "
-    "from SparseZoo, the 'transfer' recipe for the model will be loaded instead",
 )
 ####################################################################################
 # End SparseML arguments
@@ -169,41 +162,38 @@ parser.add_argument('--clip-grad', type=float, default=None, metavar='NORM',
 
 
 # Learning rate schedule parameters
-####################################################################################
-# SparseML Integration, hide lr args, they will be overridden by SparseML
-####################################################################################
-# parser.add_argument('--sched', default='step', type=str, metavar='SCHEDULER',
-#                     help='LR scheduler (default: "step"')
+parser.add_argument('--sched', default='step', type=str, metavar='SCHEDULER',
+                    help='LR scheduler (default: "step"')
 parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
-                    help=argparse.SUPPRESS)  # hide from help text
-# parser.add_argument('--lr-noise', type=float, nargs='+', default=None, metavar='pct, pct',
-#                     help='learning rate noise on/off epoch percentages')
-# parser.add_argument('--lr-noise-pct', type=float, default=0.67, metavar='PERCENT',
-#                     help='learning rate noise limit percent (default: 0.67)')
-# parser.add_argument('--lr-noise-std', type=float, default=1.0, metavar='STDDEV',
-#                     help='learning rate noise std-dev (default: 1.0)')
-# parser.add_argument('--lr-cycle-mul', type=float, default=1.0, metavar='MULT',
-#                     help='learning rate cycle len multiplier (default: 1.0)')
-# parser.add_argument('--lr-cycle-limit', type=int, default=1, metavar='N',
-#                     help='learning rate cycle limit')
-# parser.add_argument('--warmup-lr', type=float, default=0.0001, metavar='LR',
-#                     help='warmup learning rate (default: 0.0001)')
-# parser.add_argument('--min-lr', type=float, default=1e-5, metavar='LR',
-#                     help='lower lr bound for cyclic schedulers that hit 0 (1e-5)')
-# # parser.add_argument('--epochs', type=int, default=200, metavar='N',
-# #                     help='number of epochs to train (default: 2)')
-# parser.add_argument('--start-epoch', default=None, type=int, metavar='N',
-#                     help='manual epoch number (useful on restarts)')
-# parser.add_argument('--decay-epochs', type=float, default=30, metavar='N',
-#                     help='epoch interval to decay LR')
-# parser.add_argument('--warmup-epochs', type=int, default=3, metavar='N',
-#                     help='epochs to warmup LR, if scheduler supports')
-# parser.add_argument('--cooldown-epochs', type=int, default=10, metavar='N',
-#                     help='epochs to cooldown LR at min_lr, after cyclic schedule ends')
-# parser.add_argument('--patience-epochs', type=int, default=10, metavar='N',
-#                     help='patience epochs for Plateau LR scheduler (default: 10')
-# parser.add_argument('--decay-rate', '--dr', type=float, default=0.1, metavar='RATE',
-#                     help='LR decay rate (default: 0.1)')
+                    help='learning rate')
+parser.add_argument('--lr-noise', type=float, nargs='+', default=None, metavar='pct, pct',
+                    help='learning rate noise on/off epoch percentages')
+parser.add_argument('--lr-noise-pct', type=float, default=0.67, metavar='PERCENT',
+                    help='learning rate noise limit percent (default: 0.67)')
+parser.add_argument('--lr-noise-std', type=float, default=1.0, metavar='STDDEV',
+                    help='learning rate noise std-dev (default: 1.0)')
+parser.add_argument('--lr-cycle-mul', type=float, default=1.0, metavar='MULT',
+                    help='learning rate cycle len multiplier (default: 1.0)')
+parser.add_argument('--lr-cycle-limit', type=int, default=1, metavar='N',
+                    help='learning rate cycle limit')
+parser.add_argument('--warmup-lr', type=float, default=0.0001, metavar='LR',
+                    help='warmup learning rate (default: 0.0001)')
+parser.add_argument('--min-lr', type=float, default=1e-5, metavar='LR',
+                    help='lower lr bound for cyclic schedulers that hit 0 (1e-5)')
+parser.add_argument('--epochs', type=int, default=200, metavar='N',
+                    help='number of epochs to train (default: 2)')
+parser.add_argument('--start-epoch', default=None, type=int, metavar='N',
+                    help='manual epoch number (useful on restarts)')
+parser.add_argument('--decay-epochs', type=float, default=30, metavar='N',
+                    help='epoch interval to decay LR')
+parser.add_argument('--warmup-epochs', type=int, default=3, metavar='N',
+                    help='epochs to warmup LR, if scheduler supports')
+parser.add_argument('--cooldown-epochs', type=int, default=10, metavar='N',
+                    help='epochs to cooldown LR at min_lr, after cyclic schedule ends')
+parser.add_argument('--patience-epochs', type=int, default=10, metavar='N',
+                    help='patience epochs for Plateau LR scheduler (default: 10')
+parser.add_argument('--decay-rate', '--dr', type=float, default=0.1, metavar='RATE',
+                    help='LR decay rate (default: 0.1)')
 
 ####################################################################################
 # End SparseML integration hide LR args
@@ -386,19 +376,17 @@ def main():
     ####################################################################################
     if args.initial_checkpoint == "zoo":
         # Load checkpoint from base weights associated with given SparseZoo recipe
-        if args.sparseml_recipe_path.startswith("zoo:"):
-            recipe_type = "transfer" if args.sparse_transfer_learn else "original"
+        if args.sparseml_recipe.startswith("zoo:"):
             args.initial_checkpoint = Zoo.download_recipe_base_framework_files(
-                args.sparseml_recipe_path,
-                recipe_type=recipe_type,
+                args.sparseml_recipe,
                 extensions=[".pth.tar", ".pth"]
             )[0]
         else:
             raise ValueError(
                 "Attempting to load weights from SparseZoo recipe, but not given a "
                 "SparseZoo recipe stub.  When initial-checkpoint is set to 'zoo'. "
-                "sparseml-recipe-path must start with 'zoo:' and be a SparseZoo model "
-                f"stub. sparseml-recipe-path was set to {args.sparseml_recipe_path}"
+                "sparseml-recipe must start with 'zoo:' and be a SparseZoo model "
+                f"stub. sparseml-recipe was set to {args.sparseml_recipe}"
             )
     elif args.initial_checkpoint.startswith("zoo:"):
         # Load weights from a SparseZoo model stub
@@ -517,24 +505,15 @@ def main():
         # NOTE: EMA model does not need to be wrapped by DDP
 
     # setup learning rate schedule and starting epoch
-    ####################################################################################
-    # SparseML integration suppress lr_scheduler
-    # let SparseML recipe handle LR schedule
-    # set epoch range later using recipe
-    ####################################################################################
-    lr_scheduler = None
-    # lr_scheduler, num_epochs = create_scheduler(args, optimizer)
-    # start_epoch = 0
-    # if args.start_epoch is not None:
-    #     # a specified start_epoch will always override the resume epoch
-    #     start_epoch = args.start_epoch
-    # elif resume_epoch is not None:
-    #     start_epoch = resume_epoch
-    # if lr_scheduler is not None and start_epoch > 0:
-    #     lr_scheduler.step(start_epoch)
-    ####################################################################################
-    # End SparseML integration suppress lr_scheduler
-    ####################################################################################
+    lr_scheduler, num_epochs = create_scheduler(args, optimizer)
+    start_epoch = 0
+    if args.start_epoch is not None:
+        # a specified start_epoch will always override the resume epoch
+        start_epoch = args.start_epoch
+    elif resume_epoch is not None:
+        start_epoch = resume_epoch
+    if lr_scheduler is not None and start_epoch > 0:
+        lr_scheduler.step(start_epoch)
 
     # create the train and eval datasets
     dataset_train = create_dataset(
@@ -650,23 +629,22 @@ def main():
         if output_dir
         else None
     )
-    # determine recipe type to be used if loading from SparseZoo
-    if args.sparseml_recipe_path.startswith("zoo:"):
-        zoo_recipe_type = "transfer" if args.sparse_transfer_learn else "original"
-    else:
-        zoo_recipe_type = None
-    manager = ScheduledModifierManager.from_yaml(
-        args.sparseml_recipe_path, zoo_recipe_type=zoo_recipe_type
-    )
-    optimizer = ScheduledOptimizer(
-        optimizer,
+    manager = ScheduledModifierManager.from_yaml(args.sparseml_recipe)
+    manager.initialize(
         model,
-        manager,
+        optimizer,
         steps_per_epoch=len(loader_train),
         loggers=sparseml_loggers
     )
-    start_epoch = manager.min_epochs  # override min_epochs
-    num_epochs = manager.max_epochs or num_epochs  # override num_epochs
+    # override lr scheduler if recipe makes any LR updates
+    if any("LearningRate" in str(modifier) for modifier in manager.modifiers):
+        _logger.info("Disabling timm LR scheduler, managing LR using SparseML recipe")
+        lr_scheduler = None
+    if manager.max_epochs:
+        _logger.info(
+            f"Overriding max_epochs to {manager.max_epochs} from SparseML recipe"
+        )
+        num_epochs = manager.max_epochs or num_epochs
     ####################################################################################
     # End SparseML Integration
     ####################################################################################

@@ -103,7 +103,11 @@ def get_qat_qconfig() -> torch_quantization.QConfig:
     )
 
 
-def fuse_module_conv_bn_relus(module: Module, inplace: bool = True) -> Module:
+def fuse_module_conv_bn_relus(
+    module: Module,
+    inplace: bool = True,
+    override_bn_subclasses: bool = True,
+) -> Module:
     """
     Performs fusion of Conv2d, BatchNorm2d, and ReLU layers found in the
     given module. To be fused, these layers must appear sequentially in
@@ -115,6 +119,10 @@ def fuse_module_conv_bn_relus(module: Module, inplace: bool = True) -> Module:
 
     :param module: the module to fuse
     :param inplace: set True to perform fusions in-place. default is True
+    :param override_bn_subclasses: if true, modules that are subclasses of
+        BatchNorm2d will be modified to be BatchNorm2d but with the forward
+        pass and state variables copied from the subclass. This is so these
+        BN modules can pass PyTorch type checking when fusing. Default is True
     :return: the fused module
     """
     if torch_quantization is None:
@@ -139,7 +147,15 @@ def fuse_module_conv_bn_relus(module: Module, inplace: bool = True) -> Module:
             and submodule_name == current_block_submodule_name
         ):
             if isinstance(layer, ReLU_nm):
-                _replace_nm_relu(module, name, layer)
+                _set_submodule(module, name, ReLU(inplace=layer.inplace))
+            if (
+                override_bn_subclasses
+                and isinstance(layer, BatchNorm2d)
+                and not type(layer) is BatchNorm2d
+            ):
+                # swap BN subclass with overwritten BN class that will pass torch
+                # type checking
+                _set_submodule(module, name, _wrap_bn_sub_class(layer))
             current_block.append(name)
         else:
             if current_block:
@@ -155,10 +171,17 @@ def fuse_module_conv_bn_relus(module: Module, inplace: bool = True) -> Module:
     return module
 
 
-def _replace_nm_relu(root_module, relu_path, nm_relu):
+def _set_submodule(root_module, sub_module_path, sub_module):
     current_module = root_module
-    relu_path = relu_path.split(".")
-    for sub_module in relu_path[:-1]:
-        current_module = getattr(current_module, sub_module)
-    new_relu = ReLU(inplace=nm_relu.inplace)
-    setattr(current_module, relu_path[-1], new_relu)
+    sub_module_path = sub_module_path.split(".")
+    for child_module in sub_module_path[:-1]:
+        current_module = getattr(current_module, child_module)
+    setattr(current_module, sub_module_path[-1], sub_module)
+
+
+def _wrap_bn_sub_class(bn_subclass):
+    batch_norm = BatchNorm2d(bn_subclass.num_features)
+    batch_norm.__dict__ = bn_subclass.__dict__
+    batch_norm.forward = bn_subclass.forward
+    del bn_subclass
+    return batch_norm

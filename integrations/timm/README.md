@@ -39,9 +39,9 @@ pip install sparseml[torchvision]
 
 
 ## Script
-`examples/timm-sparseml/main.py` modifies
+`integrations/timm/main.py` modifies
 [`train.py`](https://github.com/rwightman/pytorch-image-models/blob/master/train.py)
-from pytorch-image-models to include a `sparseml-recipe-path` argument
+from pytorch-image-models to include a `sparseml-recipe` argument
 to run SparseML optimizations with.  This can be a file path to a local
 SparseML recipe or a SparseZoo model stub prefixed by `zoo:` such as
 `zoo:cv-classification/resnet_v1-50/pytorch-rwightman/imagenet-augmented/pruned_quant-aggressive`.
@@ -64,9 +64,8 @@ SparseML optimizations enabled.
 
 Some considerations:
 
-* `--sparseml-recipe-path` is a required parameter
+* `--sparseml-recipe` is a required parameter
 * `--epochs` will now be overridden by the epochs set in the SparseML recipe
-* All learning rate parameters and schedulers from the original script will be overritten by learning rate modifiers in the SparseML recipe
 * Modifiers will log their outputs to the console as well as to a tensorboard file
 * After training is complete, the final model will be exported to ONNX using SparseML
 
@@ -83,9 +82,9 @@ The latest commit hash that `main.py` is based on is included in the docstring.
 #### Example Command
 Training from a local recipe and checkpoint
 ```bash
-python examples/timm-sparseml/main.py \
+python integrations/timm/main.py \
   /PATH/TO/DATASET/imagenet/ \
-  --sparseml-recipe-path /PATH/TO/RECIPE/recipe.yaml \
+  --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
   --initial-checkpoint PATH/TO/CHECKPOINT/model.pth \
   --dataset imagenet \
   --batch-size 64 \
@@ -97,9 +96,9 @@ python examples/timm-sparseml/main.py \
 
 Training from a local recipe and SparseZoo checkpoint
 ```bash
-python examples/timm-sparseml/main.py \
+python integrations/timm/main.py \
   /PATH/TO/DATASET/imagenet/ \
-  --sparseml-recipe-path /PATH/TO/RECIPE/recipe.yaml \
+  --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
   --initial-checkpoint zoo:model/stub/path \
   --dataset imagenet \
   --batch-size 64 \
@@ -111,9 +110,9 @@ python examples/timm-sparseml/main.py \
 
 Training from a SparseZoo recipe and checkpoint with sparse transfer learning enabled
 ```bash
-python examples/timm-sparseml/main.py \
+python integrations/timm/main.py \
   /PATH/TO/DATASET/imagenet/ \
-  --sparseml-recipe-path zoo:model/stub/path \
+  --sparseml-recipe zoo:model/stub/path \
   --initial-checkpoint zoo \
   --sparse-transfer-learn \
   --dataset imagenet \

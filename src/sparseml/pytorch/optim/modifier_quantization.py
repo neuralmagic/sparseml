@@ -19,7 +19,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 """
 
 
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -75,6 +75,8 @@ class QuantizationModifier(ScheduledModifier):
         None to not stop tracking batch norm stats during QAT. Default is None
     :param end_epoch: Disabled, setting to anything other than -1 will raise an
         exception. For compatibility with YAML serialization only.
+    :param model_fuse_fn_kwargs: dictionary of keyword argument values to be passed
+        to the model fusing function
     """
 
     def __init__(
@@ -85,6 +87,7 @@ class QuantizationModifier(ScheduledModifier):
         disable_quantization_observer_epoch: Union[float, None] = None,
         freeze_bn_stats_epoch: Union[float, None] = None,
         end_epoch: float = -1,
+        model_fuse_fn_kwargs: Dict[str, Any] = None,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -103,6 +106,7 @@ class QuantizationModifier(ScheduledModifier):
         self._start_epoch = start_epoch
         self._submodules = submodules
         self._model_fuse_fn_name = model_fuse_fn_name
+        self._model_fuse_fn_kwargs = model_fuse_fn_kwargs or {}
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
 
@@ -254,9 +258,10 @@ class QuantizationModifier(ScheduledModifier):
                             self._model_fuse_fn_name
                         )
                     )
-                module_fuse_fn()
+                module_fuse_fn(**self._model_fuse_fn_kwargs)
             elif self._model_fuse_fn_name is None:  # default auto fn
-                fuse_module_conv_bn_relus(module, inplace=True)
+                self._model_fuse_fn_kwargs["inplace"] = True
+                fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
             # prepare each module / submodule for quantization
             qconfig = get_qat_qconfig()
             for quant_module in self._modules_to_quantize:
