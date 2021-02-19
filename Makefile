@@ -1,10 +1,10 @@
 .PHONY: build docs test
 
 BUILDDIR := $(PWD)
-CHECKDIRS := examples notebooks scripts src tests utils setup.py
-CHECKGLOBS := 'examples/**/*.py' 'scripts/**/*.py' 'src/**/*.py' 'tests/**/*.py' 'utils/**/*.py' setup.py
+CHECKDIRS := integrations notebooks scripts src tests utils setup.py
+CHECKGLOBS := 'integrations/**/*.py' 'scripts/**/*.py' 'src/**/*.py' 'tests/**/*.py' 'utils/**/*.py' setup.py
 DOCDIR := docs
-MDCHECKGLOBS := 'docs/**/*.md' 'docs/**/*.rst' 'examples/**/*.md' 'notebooks/**/*.md' 'scripts/**/*.md'
+MDCHECKGLOBS := 'docs/**/*.md' 'docs/**/*.rst' 'integrations/**/*.md' 'notebooks/**/*.md' 'scripts/**/*.md'
 MDCHECKFILES := CODE_OF_CONDUCT.md CONTRIBUTING.md DEVELOPING.md README.md
 
 BUILD_ARGS :=  # set nightly to build nightly release
