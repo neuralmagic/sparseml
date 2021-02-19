@@ -18,23 +18,34 @@ Export PyTorch models to the local device
 
 import os
 from copy import deepcopy
-from typing import Any, Iterable, List
+from typing import Any, Dict, Callable, Iterable, List, Optional, Tuple
 
 import numpy
 import onnx
 import torch
 from onnx import numpy_helper
+from PIL import Image
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
+from torch.utils.data import DataLoader, Dataset
 
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
     tensors_to_device,
 )
-from sparseml.pytorch.utils.model import is_parallel_model, save_model
+from sparseml.pytorch.utils.model import (
+    is_parallel_model,
+    save_model,
+    script_model,
+    trace_model,
+)
 from sparseml.utils import clean_path, create_parent_dirs
+
+
+# from sparseml.pytorch.datasets.registry import DatasetRegistry
+# from sparseml.pytorch.models.registry import ModelRegistry
 
 
 __all__ = ["ModuleExporter"]
@@ -62,6 +73,70 @@ class ModuleExporter(object):
 
         self._module = deepcopy(module).to("cpu").eval()
         self._output_dir = clean_path(output_dir)
+
+    def export_all(
+        self,
+        dataset: Dataset,
+        shuffle: bool = False,
+        max_samples: int = 20,
+        data_split_cb: Optional[Callable[[Any], Tuple[Any, Any]]] = None,
+        label_mapping_cb: Optional[Callable[Any, Any]] = None,
+        dataset_wrapper: Optional[Callable[[Any], Dataset]] = None,
+        trace_script: bool = False,
+    ):
+        """
+        Creates and exports all related content of module including
+        sample data, onnx, pytorch and torchscript.
+
+        :param dataset: Dataset used to generate sample data
+        :param shuffle: Whether to shuffle sample data
+        :param max_samples: Max number of sample data to create
+        :param data_split_cb: Callback function to split data sample into a tuple
+            containing the input data and the label data. If set to None will assume
+            an iterable dataset with the first value in sample data containing the
+            input and the rest containing labels
+        :param label_mapping_cb: Callback function to mapping dataset label to other
+            formats.
+        :param dataset_wrapper: Wrapper function for the dataset to add original data
+            to each sample. If set to None will default to use the
+            'iter_dataset_with_orig_wrapper' function.
+        :param trace_script: If true, creates torchscript via tracing. Otherwise,
+            creates the torchscripe via scripting.
+        """
+        if data_split_cb is None:
+            data_split_cb = _iterable_data_split_cb
+
+        if dataset_wrapper is None:
+            dataset_wrapper = iter_dataset_with_orig_wrapper()
+        wrapped_dataset = dataset_wrapper(dataset)
+
+        dataloader = DataLoader(wrapped_dataset, batch_size=1, shuffle=shuffle)
+
+        sample_batches = []
+        sample_labels = []
+        sample_originals = []
+        for sample in dataloader:
+            originals = [sample[-1]]
+
+            inputs, labels = data_split_cb(sample[: len(sample) - 1])
+            if label_mapping_cb:
+                labels = label_mapping_cb(labels)
+
+            sample_batches.append(inputs)
+            sample_labels.append(labels)
+            sample_originals.append(originals)
+            if len(sample_batches) == max_samples:
+                break
+
+        # module_exporter = ModuleExporter(model, save_path)
+        self.export_onnx(sample_batch=sample_batches[0])
+        self.export_pytorch()
+        self.export_torchscript(trace=trace_script, sample_batch=sample_batches[0])
+        self.export_samples(
+            sample_batches,
+            sample_labels=sample_labels,
+            sample_originals=sample_originals,
+        )
 
     def export_onnx(
         self,
@@ -154,6 +229,30 @@ class ModuleExporter(object):
             _delete_trivial_onnx_adds(onnx_model)
             onnx.save(onnx_model, onnx_path)
 
+    def export_torchscript(
+        self,
+        name: str = "model.pts",
+        trace: bool = False,
+        sample_batch: Optional[Any] = None,
+    ):
+        """
+        Export the torchscript into a pts file within a framework directory.
+
+        :param name: name of the torchscript file to save
+        :param trace: If true creates the torchscript model via tracing with the
+            provided sample_batch, otherwise creates the torchscript via scripting.
+        :param sample_batch: the batch to trace the torchscript model if trace is set to
+            True.
+        """
+        path = os.path.join(self._output_dir, "framework", name)
+        create_parent_dirs(path)
+        if trace:
+            if sample_batch is None:
+                raise Exception("'sample_batch' must be passed if tracing model.")
+            trace_model(path, self._module, sample_batch)
+        else:
+            script_model(path, self._module)
+
     def export_pytorch(
         self,
         optimizer: Optimizer = None,
@@ -175,7 +274,7 @@ class ModuleExporter(object):
             as the optimizer, the associated ScheduledModifierManager and its
             Modifiers will be exported under the 'manager' key. Default is False
         """
-        pytorch_path = os.path.join(self._output_dir, "pytorch")
+        pytorch_path = os.path.join(self._output_dir, "framework")
         pth_path = os.path.join(pytorch_path, name)
         create_parent_dirs(pth_path)
         save_model(
@@ -192,7 +291,8 @@ class ModuleExporter(object):
     def export_samples(
         self,
         sample_batches: List[Any],
-        sample_labels: List[Any] = None,
+        sample_labels: Optional[List[Any]] = None,
+        sample_originals: Optional[List[Any]] = None,
         exp_counter: int = 0,
     ):
         """
@@ -205,14 +305,18 @@ class ModuleExporter(object):
         :param exp_counter: the counter to start exporting the tensor files at
         """
         sample_batches = [tensors_to_device(batch, "cpu") for batch in sample_batches]
-        inputs_dir = os.path.join(self._output_dir, "_sample-inputs")
-        outputs_dir = os.path.join(self._output_dir, "_sample-outputs")
-        labels_dir = os.path.join(self._output_dir, "_sample-labels")
+        inputs_dir = os.path.join(self._output_dir, "sample-inputs")
+        outputs_dir = os.path.join(self._output_dir, "sample-outputs")
+        labels_dir = os.path.join(self._output_dir, "sample-labels")
+        originals_dir = os.path.join(self._output_dir, "sample-originals")
 
         with torch.no_grad():
-            for batch, lab in zip(
+            for batch, lab, orig in zip(
                 sample_batches,
                 sample_labels if sample_labels else [None for _ in sample_batches],
+                sample_originals
+                if sample_originals
+                else [None for _ in sample_originals],
             ):
                 out = tensors_module_forward(batch, self._module)
 
@@ -241,8 +345,106 @@ class ModuleExporter(object):
                         lab, labels_dir, "lab", counter=exp_counter, break_batch=True
                     )
 
+                if orig is not None:
+                    tensors_export(
+                        orig,
+                        originals_dir,
+                        "orig",
+                        counter=exp_counter,
+                        break_batch=True,
+                    )
+
                 assert len(exported_input) == len(exported_output)
                 exp_counter += len(exported_input)
+
+
+def iter_dataset_with_orig_wrapper(
+    get_original_cb: Optional[Callable] = None,
+) -> Callable[[Dataset], Dataset]:
+    """
+    Creates a wrapper function which, when passed an iterable dataset, returns a
+        wrapped dataset. The wrapped dataset returns untransformed input data at
+        the end of the array.
+    :param get_original_cb: Callback function for returning the original input
+        data from the dataset. When set to None, uses `disable_transform_cb`
+        function.
+    :return: The wrapper function
+    """
+    if get_original_cb is None:
+        get_original_cb = disable_transform_cb()
+
+    def _iter_dataset_with_orig_wrapper(dataset: Dataset):
+        return _IterableDatasetWrapper(dataset, get_original_cb=get_original_cb)
+
+    return _iter_dataset_with_orig_wrapper
+
+
+class _IterableDatasetWrapper(Dataset):
+    def __init__(
+        self,
+        dataset: Dataset,
+        get_original_cb: Callable,
+    ):
+        self.dataset = dataset
+        self.get_original_cb = get_original_cb
+
+    def __len__(self) -> int:
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        data = self.dataset[idx]
+        if self.get_original_cb:
+            original_sample = self.get_original_cb(self.dataset, idx)
+        else:
+            original_sample = None
+
+        return data + (original_sample,)
+
+
+def disable_transform_cb(
+    max_width=600, max_height=600
+) -> Callable[[Dataset, int], numpy.ndarray]:
+    """
+    Creates a callable function which, given an iterable image dataset and
+        an index idx, returns the untransformed but padded image at that index.
+        Assumes that the transformation function is attribute 'transform'
+        in dataset and that the image is index 0 in the getter.
+    :param max_width: max width of padded image. If image width is higher it
+        will be resized to fit max dimension.
+    :param max_height: max height of padded image. If image height is higher
+        it will be resized to fit max dimension.
+    :return: callable function
+    """
+
+    def _disable_transform(dataset: Dataset, idx: int) -> numpy.ndarray:
+        if hasattr(dataset, "transform"):
+            transform_cache = dataset.transform
+            dataset.transform = None
+            original_sample = dataset[idx][0]
+
+            # Pads original image
+            width, height = original_sample.size
+            original_sample = original_sample.resize(
+                (min(width, max_width), min(max_height, height))
+            )
+            padding_left = int((max_width - width) / 2)
+
+            padding_top = int((max_height - height) / 2)
+            result = Image.new(original_sample.mode, (max_width, max_height), color=0)
+            result.paste(original_sample, (padding_left, padding_top))
+
+            original_sample = numpy.array(result)
+
+            dataset.transform = transform_cache
+        else:
+            original_sample = numpy.array(dataset[idx][0])
+        return original_sample
+
+    return _disable_transform
+
+
+def _iterable_data_split_cb(data: List):
+    return ((data[0],), data[1:])
 
 
 class _AddNoOpWrapper(Module):

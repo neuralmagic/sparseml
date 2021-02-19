@@ -40,6 +40,8 @@ __all__ = [
     "load_optimizer",
     "load_epoch",
     "save_model",
+    "script_model",
+    "trace_model",
     "model_to_device",
     "parallelize_model",
     "device_to_name_ids",
@@ -127,6 +129,38 @@ def load_epoch(path: str, map_location: Union[None, str] = "cpu") -> Union[int, 
         return model_dict["epoch"]
 
     return None
+
+
+def trace_model(
+    path: str,
+    model: Module,
+    sample_batch: Any,
+):
+    """
+    Convenience function which traces the provided module using the sample batch
+    into a TorchScript script and saves to provied path.
+
+    :param path: path to save torchscript
+    :param model: module to convert to TorchScript
+    :param sample_batch: sample batch to trace module with
+    """
+    script = torch.jit.trace_module(model, sample_batch)
+    torch.jit.save(script, path)
+
+
+def script_model(
+    path: str,
+    model: Module,
+):
+    """
+    Convenience function which scripts the provided module into a TorchScript script
+    and saves to provied path.
+
+    :param path: path to save torchscript
+    :param model: module to convert to torchscript
+    """
+    script = torch.jit.script(model)
+    torch.jit.save(script, path)
 
 
 def save_model(
