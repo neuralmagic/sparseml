@@ -13,7 +13,9 @@ to apply a SparseML recipe from the required `--sparseml-recipe` argument.
 Integration lines are preceded by comment blocks.  Run with `--help` for help printout,
 more information can be found in the readme file.
 
-Latest pytorch-image-models commit this script is based on: aaa715b
+Latest pytorch-image-models commit this script is based on:
+https://github.com/rwightman/pytorch-image-models/tree/aaa715b1e94a8d10a2c0ff0f4abef7ddc97b2576
+(commit hash: aaa715b)
 
 Original doc-string:
 
@@ -194,10 +196,6 @@ parser.add_argument('--patience-epochs', type=int, default=10, metavar='N',
                     help='patience epochs for Plateau LR scheduler (default: 10')
 parser.add_argument('--decay-rate', '--dr', type=float, default=0.1, metavar='RATE',
                     help='LR decay rate (default: 0.1)')
-
-####################################################################################
-# End SparseML integration hide LR args
-####################################################################################
 
 # Augmentation & regularization parameters
 parser.add_argument('--no-aug', action='store_true', default=False,

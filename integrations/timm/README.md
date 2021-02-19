@@ -46,12 +46,12 @@ to run SparseML optimizations with.  This can be a file path to a local
 SparseML recipe or a SparseZoo model stub prefixed by `zoo:` such as
 `zoo:cv-classification/resnet_v1-50/pytorch-rwightman/imagenet-augmented/pruned_quant-aggressive`.
 
-Additionally, for sparse transfer learning, the flag `--sparse-transfer-learn`
-was added.  Running the script with this flag will add modifiers to the given
-recipe that will keep the base sparsity constant during training, allowing
-the model to learn the new dataset while keeping the same optimized structure.
-If a SparseZoo recipe path is provided with sparse transfer learning enabled,
-then the the model's specific "transfer" recipe will be loaded instead.
+Additionally, to run sparse transfer learning with a SparseZoo model that has
+a transfer learning recipe, add `?recipe_type=transfer` as part of the model stub.
+i.e. `zoo:cv-classification/resnet_v1-50/pytorch-rwightman/imagenet-augmented/pruned_quant-aggressive?recipe_type=transfer`.
+This will run a recipe that holds the optimized sparsity structure the same while allowing
+non-zero weights to be updated during training, so pre-learned optimizations can be applied
+to different datasets.
 
 To load the base weights for a SparseZoo recipe as the initial checkpoint, set
 `--initial-checkpoint` to `zoo`.  To use the weights of a SparseZoo model as the
@@ -112,9 +112,8 @@ Training from a SparseZoo recipe and checkpoint with sparse transfer learning en
 ```bash
 python integrations/timm/main.py \
   /PATH/TO/DATASET/imagenet/ \
-  --sparseml-recipe zoo:model/stub/path \
+  --sparseml-recipe zoo:model/stub/path?recipe_type=transfer \
   --initial-checkpoint zoo \
-  --sparse-transfer-learn \
   --dataset imagenet \
   --batch-size 64 \
   --remode pixel --reprob 0.6 --smoothing 0.1 \
