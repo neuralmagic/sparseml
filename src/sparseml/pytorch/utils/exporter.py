@@ -18,7 +18,7 @@ Export PyTorch models to the local device
 
 import os
 from copy import deepcopy
-from typing import Any, Dict, Callable, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import numpy
 import onnx
