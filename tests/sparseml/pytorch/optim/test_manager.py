@@ -52,23 +52,6 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function"
 )
 class TestManagerImpl(ModifierTest):
-    def test_initialize(
-        self,
-        modifier_lambda: Callable[[], Modifier],
-        model_lambda: Callable[[], Module],
-        optim_lambda: Callable[[Module], Optimizer],
-        test_steps_per_epoch: float,  # noqa: F811
-    ):
-        modifier = modifier_lambda()
-        model = model_lambda()
-        optimizer = optim_lambda(model)
-
-        self.initialize_helper(
-            modifier, model, optimizer, steps_per_epoch=test_steps_per_epoch
-        )
-        assert modifier.initialized
-        assert optimizer.step._with_modifiers  # assert modifier steps added
-
     def test_yaml(
         self,
         modifier_lambda: Callable[[], Modifier],
@@ -79,38 +62,6 @@ class TestManagerImpl(ModifierTest):
     ):
         # no yaml tests for manager
         return
-
-    def test_lifecycle(
-        self,
-        modifier_lambda,
-        model_lambda,
-        optim_lambda,
-        test_steps_per_epoch,  # noqa: F811
-    ):
-        manager = modifier_lambda()
-        model = model_lambda()
-        optimizer = optim_lambda(model)
-
-        original_step_func = optimizer.step.__func__
-
-        self.initialize_helper(
-            manager, model, optimizer, steps_per_epoch=test_steps_per_epoch
-        )
-        assert manager.initialized
-        assert optimizer.step._with_modifiers  # assert modifier steps added
-        assert optimizer.step._original_step_func is original_step_func
-        assert optimizer.step != original_step_func
-
-        assert optimizer._steps == 0
-        assert optimizer._epoch == 0.0
-        for i in range(1, test_steps_per_epoch + 2):
-            optimizer.step()
-            assert optimizer._steps == i
-        assert optimizer._epoch >= 1.0
-
-        # test original step func is restored
-        manager.finalize(model, optimizer)
-        assert optimizer.step.__func__ is original_step_func
 
 
 @pytest.mark.skipif(

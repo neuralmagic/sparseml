@@ -291,19 +291,7 @@ class ConstantPruningModifier(ScheduledModifier):
         # be sure to apply mask again after optimizer update because
         # weights may have changed (optimizer with momentum, not masking gradient)
         for mask in self._module_masks:
-            mask.enabled = False
-
-    def finalize(self, module: Module, optimizer: Optimizer):
-        """
-        Remove extra information and hooks added to the module and optimizer
-        by the Modifier.
-
-        :param module: module to finalize
-        :param optimizer: optimizer to finalize
-        """
-        super().finalize(module, optimizer)
-        for mask in self._module_masks:
-            mask.enabled = False
+            mask.apply()
 
 
 @PyTorchModifierYAML()
@@ -663,18 +651,6 @@ class GMPruningModifier(ScheduledUpdateModifier):
         # have changed (optimizer with momentum, not masking gradient)
         for mask in self._module_masks:
             mask.apply()
-
-    def finalize(self, module: Module, optimizer: Optimizer):
-        """
-        Remove extra information and hooks added to the module and optimizer
-        by the Modifier.
-
-        :param module: module to finalize
-        :param optimizer: optimizer to finalize
-        """
-        super().finalize(module, optimizer)
-        for mask in self._module_masks:
-            mask.enabled = False
 
     def validate(self):
         """
