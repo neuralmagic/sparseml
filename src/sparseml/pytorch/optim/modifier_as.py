@@ -348,15 +348,3 @@ class ASRegModifier(ScheduledModifier):
         reduced = reduced / len(tens)
 
         return reduced
-
-    def finalize(self, module: Module, optimizer: Optimizer):
-        """
-        Remove extra information and hooks added to the module and optimizer
-        by the Modifier.
-
-        :param module: module to finalize
-        :param optimizer: optimizer to finalize
-        """
-        super().finalize(module, optimizer)
-        for tracker in self._trackers:
-            tracker.disable()
