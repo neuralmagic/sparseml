@@ -56,7 +56,7 @@ from timm.optim import create_optimizer
 from timm.scheduler import create_scheduler
 from timm.utils import ApexScaler, NativeScaler
 
-from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter, PythonLogger, TensorBoardLogger
 from sparsezoo import Zoo
 import warnings
@@ -628,9 +628,10 @@ def main():
         else None
     )
     manager = ScheduledModifierManager.from_yaml(args.sparseml_recipe)
-    manager.initialize(
-        model,
+    optimizer = ScheduledOptimizer(
         optimizer,
+        model,
+        manager,
         steps_per_epoch=len(loader_train),
         loggers=sparseml_loggers
     )
