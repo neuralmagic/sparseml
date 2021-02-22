@@ -17,7 +17,7 @@ Code related to interacting with a trained model such as saving, loading, etc
 """
 
 from collections import OrderedDict
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import torch
 from torch.nn import DataParallel, Module
