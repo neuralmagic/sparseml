@@ -24,12 +24,15 @@ import numpy
 import onnx
 import torch
 from onnx import numpy_helper
-from PIL import Image
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader, Dataset
 
+from sparseml.pytorch.utils.callbacks import (
+    iter_dataset_with_orig_wrapper,
+    iterable_data_split_cb,
+)
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -42,10 +45,6 @@ from sparseml.pytorch.utils.model import (
     trace_model,
 )
 from sparseml.utils import clean_path, create_parent_dirs
-
-
-# from sparseml.pytorch.datasets.registry import DatasetRegistry
-# from sparseml.pytorch.models.registry import ModelRegistry
 
 
 __all__ = ["ModuleExporter"]
@@ -80,9 +79,10 @@ class ModuleExporter(object):
         shuffle: bool = False,
         max_samples: int = 20,
         data_split_cb: Optional[Callable[[Any], Tuple[Any, Any]]] = None,
-        label_mapping_cb: Optional[Callable[Any, Any]] = None,
+        label_mapping_cb: Optional[Callable[[Any], Any]] = None,
         dataset_wrapper: Optional[Callable[[Any], Dataset]] = None,
         trace_script: bool = False,
+        fail_on_torchscript_failure: bool = True,
     ):
         """
         Creates and exports all related content of module including
@@ -102,9 +102,11 @@ class ModuleExporter(object):
             'iter_dataset_with_orig_wrapper' function.
         :param trace_script: If true, creates torchscript via tracing. Otherwise,
             creates the torchscripe via scripting.
+        :param fail_on_torchscript_failure: If true, fails if torchscript is unable
+            to export model.
         """
         if data_split_cb is None:
-            data_split_cb = _iterable_data_split_cb
+            data_split_cb = iterable_data_split_cb
 
         if dataset_wrapper is None:
             dataset_wrapper = iter_dataset_with_orig_wrapper()
@@ -121,6 +123,7 @@ class ModuleExporter(object):
             inputs, labels = data_split_cb(sample[: len(sample) - 1])
             if label_mapping_cb:
                 labels = label_mapping_cb(labels)
+                print(labels)
 
             sample_batches.append(inputs)
             sample_labels.append(labels)
@@ -128,10 +131,14 @@ class ModuleExporter(object):
             if len(sample_batches) == max_samples:
                 break
 
-        # module_exporter = ModuleExporter(model, save_path)
         self.export_onnx(sample_batch=sample_batches[0])
         self.export_pytorch()
-        self.export_torchscript(trace=trace_script, sample_batch=sample_batches[0])
+        try:
+            self.export_torchscript(trace=trace_script, sample_batch=sample_batches[0])
+        except Exception as e:
+            if fail_on_torchscript_failure:
+                raise e
+
         self.export_samples(
             sample_batches,
             sample_labels=sample_labels,
@@ -356,95 +363,6 @@ class ModuleExporter(object):
 
                 assert len(exported_input) == len(exported_output)
                 exp_counter += len(exported_input)
-
-
-def iter_dataset_with_orig_wrapper(
-    get_original_cb: Optional[Callable] = None,
-) -> Callable[[Dataset], Dataset]:
-    """
-    Creates a wrapper function which, when passed an iterable dataset, returns a
-        wrapped dataset. The wrapped dataset returns untransformed input data at
-        the end of the array.
-    :param get_original_cb: Callback function for returning the original input
-        data from the dataset. When set to None, uses `disable_transform_cb`
-        function.
-    :return: The wrapper function
-    """
-    if get_original_cb is None:
-        get_original_cb = disable_transform_cb()
-
-    def _iter_dataset_with_orig_wrapper(dataset: Dataset):
-        return _IterableDatasetWrapper(dataset, get_original_cb=get_original_cb)
-
-    return _iter_dataset_with_orig_wrapper
-
-
-class _IterableDatasetWrapper(Dataset):
-    def __init__(
-        self,
-        dataset: Dataset,
-        get_original_cb: Callable,
-    ):
-        self.dataset = dataset
-        self.get_original_cb = get_original_cb
-
-    def __len__(self) -> int:
-        return len(self.dataset)
-
-    def __getitem__(self, idx):
-        data = self.dataset[idx]
-        if self.get_original_cb:
-            original_sample = self.get_original_cb(self.dataset, idx)
-        else:
-            original_sample = None
-
-        return data + (original_sample,)
-
-
-def disable_transform_cb(
-    max_width=600, max_height=600
-) -> Callable[[Dataset, int], numpy.ndarray]:
-    """
-    Creates a callable function which, given an iterable image dataset and
-        an index idx, returns the untransformed but padded image at that index.
-        Assumes that the transformation function is attribute 'transform'
-        in dataset and that the image is index 0 in the getter.
-    :param max_width: max width of padded image. If image width is higher it
-        will be resized to fit max dimension.
-    :param max_height: max height of padded image. If image height is higher
-        it will be resized to fit max dimension.
-    :return: callable function
-    """
-
-    def _disable_transform(dataset: Dataset, idx: int) -> numpy.ndarray:
-        if hasattr(dataset, "transform"):
-            transform_cache = dataset.transform
-            dataset.transform = None
-            original_sample = dataset[idx][0]
-
-            # Pads original image
-            width, height = original_sample.size
-            original_sample = original_sample.resize(
-                (min(width, max_width), min(max_height, height))
-            )
-            padding_left = int((max_width - width) / 2)
-
-            padding_top = int((max_height - height) / 2)
-            result = Image.new(original_sample.mode, (max_width, max_height), color=0)
-            result.paste(original_sample, (padding_left, padding_top))
-
-            original_sample = numpy.array(result)
-
-            dataset.transform = transform_cache
-        else:
-            original_sample = numpy.array(dataset[idx][0])
-        return original_sample
-
-    return _disable_transform
-
-
-def _iterable_data_split_cb(data: List):
-    return ((data[0],), data[1:])
 
 
 class _AddNoOpWrapper(Module):
