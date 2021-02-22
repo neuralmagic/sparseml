@@ -16,6 +16,7 @@
 Export PyTorch models to the local device
 """
 
+import logging
 import os
 from copy import deepcopy
 from typing import Any, Callable, Iterable, List, Optional, Tuple
@@ -51,6 +52,7 @@ __all__ = ["ModuleExporter"]
 
 
 DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
+_LOGGER = logging.getLogger(__name__)
 
 
 class ModuleExporter(object):
@@ -73,7 +75,7 @@ class ModuleExporter(object):
         self._module = deepcopy(module).to("cpu").eval()
         self._output_dir = clean_path(output_dir)
 
-    def export_all(
+    def export_to_zoo(
         self,
         dataset: Dataset,
         shuffle: bool = False,
@@ -123,7 +125,6 @@ class ModuleExporter(object):
             inputs, labels = data_split_cb(sample[: len(sample) - 1])
             if label_mapping_cb:
                 labels = label_mapping_cb(labels)
-                print(labels)
 
             sample_batches.append(inputs)
             sample_labels.append(labels)
@@ -138,6 +139,10 @@ class ModuleExporter(object):
         except Exception as e:
             if fail_on_torchscript_failure:
                 raise e
+            else:
+                _LOGGER.warn(
+                    f"Unable to create torchscript file. Following error occurred: {e}"
+                )
 
         self.export_samples(
             sample_batches,
