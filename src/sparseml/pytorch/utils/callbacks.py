@@ -25,6 +25,7 @@ from sparseml.utils.class_mappings import (
     COCO_CLASSES_80,
     IMAGENET_CLASSES,
     IMAGENETTE_CLASSES,
+    VOC_CLASSES,
 )
 
 
@@ -158,7 +159,7 @@ def iterable_data_split_cb(
 # Callbacks for mapping labels
 #
 ##############################
-def apply_one_hot_label_mapping(labels: List[Tensor], class_names: Dict[str, str]):
+def apply_one_hot_label_mapping(labels: List[Tensor], class_names: Dict[Any, str]):
     def _apply_label(label: int):
         one_hot_label = [0] * len(class_names.keys())
         one_hot_label[label] = 1
@@ -170,6 +171,19 @@ def apply_one_hot_label_mapping(labels: List[Tensor], class_names: Dict[str, str
     ]
 
     return arr
+
+
+def apply_box_label_mapping(labels: List[List[Tensor]], class_names: Dict[Any, str]):
+    class_names = [
+        class_names[i] if i in class_names else ""
+        for i in range(max(class_names.keys()) + 1)
+    ]
+
+    return [
+        [label[0] for label in labels],
+        [label[1] for label in labels],
+        [numpy.array([class_names] * labels[0][0].shape[0])],
+    ]
 
 
 def cifar10_label_mapping(labels: List[Tensor]):
@@ -194,7 +208,7 @@ def mnist_label_mapping(labels: List[Tensor]):
     return apply_one_hot_label_mapping(labels, {idx: str(idx) for idx in range(10)})
 
 
-def coco_yolo_2017_mapping(labels: List[Tensor]):
+def coco_yolo_2017_mapping(labels: List[List[Tensor]]):
     class_names = [val for _, val in COCO_CLASSES_80.items()]
 
     return [
@@ -203,14 +217,9 @@ def coco_yolo_2017_mapping(labels: List[Tensor]):
     ]
 
 
-def coco_mapping(labels: List[Tensor]):
-    class_names = [
-        COCO_CLASSES[i] if i in COCO_CLASSES else ""
-        for i in range(max(COCO_CLASSES.keys()) + 1)
-    ]
+def coco_mapping(labels: List[List[Tensor]]):
+    return apply_box_label_mapping(labels, COCO_CLASSES)
 
-    return [
-        [label[0] for label in labels],
-        [label[1] for label in labels],
-        [numpy.array([class_names] * labels[0][0].shape[0])],
-    ]
+
+def voc_mapping(labels: List[List[Tensor]]):
+    return apply_box_label_mapping(labels, VOC_CLASSES)
