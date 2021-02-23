@@ -24,12 +24,12 @@ to the powerful training flows provided in the yolov5 repository.
 
 Some of the tasks you can perform using this integration include, but are not limited to:
 * model pruning
-* quantization-aware-training
-* sparse quantization-aware-training
+* quantization-aware training
+* sparse quantization-aware training
 * sparse transfer learning
 
 ## Installation
-To use both the script, clone both repositories, install their dependencies,
+To use the script, clone both repositories, install their dependencies,
 and copy the integrated training script into the yolov5 directory to run from.
 
 ```bash
@@ -68,10 +68,12 @@ Some considerations:
 * `--sparseml-recipe` is a required parameter
 * `--epochs` will now be overridden by the epochs set in the SparseML recipe
 * if using learning rate schedulers both with the yolov5 script and your recipe, they
-may conflict with each other causing unintended side effects, choose
-hyperparameters accordingly.
-* Modifiers will log their outputs to the console as well as to the tensorboard file
+may conflict with each other causing unintended side effects, so choose
+hyperparameters accordingly
+* Modifiers will log their outputs to the console as well as to the TensorBoard file
 * After training is complete, the final model will be exported to ONNX using SparseML
+* By default, EMA is disabled when using `train.py`. This is to allow for best compatibility
+with pruning and quantization.  To enable, set the `--use-ema` flag
 
 You can learn how to build or download a recipe using the
 [SparseML](https://github.com/neuralmagic/sparseml)
@@ -89,5 +91,5 @@ Call the script from the `yolov5` directory, passing in the same arguments as
 ```bash
 python train.py \
   --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
-  <regular yolov5/train.py paramters>
+  <regular yolov5/train.py parameters>
 ```  

@@ -196,7 +196,13 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         logger.info('Using SyncBatchNorm()')
 
     # EMA
-    ema = ModelEMA(model) if rank in [-1, 0] else None
+    ####################################################################################
+    # Start SparseML Integration - optional EMA
+    ####################################################################################
+    ema = ModelEMA(model) if rank in [-1, 0] and opt.use_ema else None
+    ####################################################################################
+    # End SparseML Integration - optional EMA
+    ####################################################################################
 
     # DDP mode
     if cuda and rank != -1:
@@ -213,7 +219,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 
     # Process 0
     if rank in [-1, 0]:
-        ema.updates = start_epoch * nb // accumulate  # set EMA updates
+        if ema:
+            ema.updates = start_epoch * nb // accumulate  # set EMA updates
         testloader = create_dataloader(test_path, imgsz_test, batch_size * 2, gs, opt,  # testloader
                                        hyp=hyp, cache=opt.cache_images and not opt.notest, rect=True, rank=-1,
                                        world_size=opt.world_size, workers=opt.workers,
@@ -385,12 +392,13 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             # mAP
             if ema:
                 ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride', 'class_weights'])
+
             final_epoch = epoch + 1 == epochs
             if not opt.notest or final_epoch:  # Calculate mAP
                 results, maps, times = test.test(opt.data,
                                                  batch_size=batch_size * 2,
                                                  imgsz=imgsz_test,
-                                                 model=ema.ema,
+                                                 model=ema.ema if ema else model,
                                                  single_cls=opt.single_cls,
                                                  dataloader=testloader,
                                                  save_dir=save_dir,
@@ -428,7 +436,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                     ckpt = {'epoch': epoch,
                             'best_fitness': best_fitness,
                             'training_results': f.read(),
-                            'model': ema.ema,
+                            'model': ema.ema if ema else model,
                             'optimizer': None if final_epoch else optimizer.state_dict(),
                             'wandb_id': wandb_run.id if wandb else None}
 
@@ -515,6 +523,11 @@ if __name__ == '__main__':
         "using a SparseZoo recipe to load that recipes base weights, or pass in a "
         "SparseZoo model stub, prefixed with 'zoo:' to load weights directly from "
         "SparseZoo",
+    )
+    parser.add_argument(
+        "--use-ema",
+        action="store_true",
+        help="set flag to enable EMA updates. disabled by default in SparseML integration"
     )
     ####################################################################################
     # End SparseML arguments
