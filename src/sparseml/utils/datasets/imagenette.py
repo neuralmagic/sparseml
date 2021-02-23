@@ -26,7 +26,26 @@ from sparseml.utils import clean_path, create_dirs
 from sparsezoo.utils import download_file
 
 
-__all__ = ["ImagenetteSize", "ImagenetteDownloader", "ImagewoofDownloader"]
+__all__ = [
+    "ImagenetteSize",
+    "ImagenetteDownloader",
+    "ImagewoofDownloader",
+    "IMAGENETTE_CLASSES",
+]
+
+
+IMAGENETTE_CLASSES = {
+    0: "tench",
+    1: "English springer",
+    2: "cassette player",
+    3: "chain saw",
+    4: "church",
+    5: "French horn",
+    6: "garbage truck",
+    7: "gas pump",
+    8: "golf ball",
+    9: "parachute",
+}
 
 
 class ImagenetteSize(Enum):

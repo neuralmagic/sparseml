@@ -144,7 +144,7 @@ def trace_model(
     :param model: module to convert to TorchScript
     :param sample_batch: sample batch to trace module with
     """
-    script = torch.jit.trace_module(model, sample_batch)
+    script = torch.jit.trace_module(model, {"forward": sample_batch})
     torch.jit.save(script, path)
 
 
