@@ -17,6 +17,7 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
+from typing import Union
 
 import torch
 from torch.nn import BatchNorm2d, Conv2d, Module, ReLU
@@ -103,7 +104,11 @@ def get_qat_qconfig() -> torch_quantization.QConfig:
     )
 
 
-def fuse_module_conv_bn_relus(module: Module, inplace: bool = True) -> Module:
+def fuse_module_conv_bn_relus(
+    module: Module,
+    inplace: bool = True,
+    override_bn_subclasses_forward: Union[bool, str] = True,
+) -> Module:
     """
     Performs fusion of Conv2d, BatchNorm2d, and ReLU layers found in the
     given module. To be fused, these layers must appear sequentially in
@@ -115,6 +120,12 @@ def fuse_module_conv_bn_relus(module: Module, inplace: bool = True) -> Module:
 
     :param module: the module to fuse
     :param inplace: set True to perform fusions in-place. default is True
+    :param override_bn_subclasses_forward: if True, modules that are subclasses of
+        BatchNorm2d will be modified to be BatchNorm2d but with the forward
+        pass and state variables copied from the subclass. This is so these
+        BN modules can pass PyTorch type checking when fusing. Can set to
+        "override-only" and only parameters will be overwritten, not the
+        forward pass. Default is True
     :return: the fused module
     """
     if torch_quantization is None:
@@ -139,7 +150,22 @@ def fuse_module_conv_bn_relus(module: Module, inplace: bool = True) -> Module:
             and submodule_name == current_block_submodule_name
         ):
             if isinstance(layer, ReLU_nm):
-                _replace_nm_relu(module, name, layer)
+                _set_submodule(module, name, ReLU(inplace=layer.inplace))
+            if isinstance(layer, BatchNorm2d) and not type(layer) is BatchNorm2d:
+                if not override_bn_subclasses_forward:
+                    raise RuntimeError(
+                        "Detected a Conv-BN block that uses a subclass of BatchNorm2d. "
+                        "This will cause a type error when fusing with PyTorch, "
+                        "set override_bn_subclasses_forward to True or 'override-only "
+                        "to modify this BN subclass to be a BatchNorm2d object"
+                    )
+                # swap BN subclass with overwritten BN class that will pass torch
+                # type checking
+                overwritten_bn = _wrap_bn_sub_class(
+                    layer,
+                    override_forward=override_bn_subclasses_forward != "override-only",
+                )
+                _set_submodule(module, name, overwritten_bn),
             current_block.append(name)
         else:
             if current_block:
@@ -155,10 +181,18 @@ def fuse_module_conv_bn_relus(module: Module, inplace: bool = True) -> Module:
     return module
 
 
-def _replace_nm_relu(root_module, relu_path, nm_relu):
+def _set_submodule(root_module, sub_module_path, sub_module):
     current_module = root_module
-    relu_path = relu_path.split(".")
-    for sub_module in relu_path[:-1]:
-        current_module = getattr(current_module, sub_module)
-    new_relu = ReLU(inplace=nm_relu.inplace)
-    setattr(current_module, relu_path[-1], new_relu)
+    sub_module_path = sub_module_path.split(".")
+    for child_module in sub_module_path[:-1]:
+        current_module = getattr(current_module, child_module)
+    setattr(current_module, sub_module_path[-1], sub_module)
+
+
+def _wrap_bn_sub_class(bn_subclass, override_forward=True):
+    batch_norm = BatchNorm2d(bn_subclass.num_features)
+    batch_norm.__dict__ = bn_subclass.__dict__
+    if override_forward:
+        batch_norm.forward = bn_subclass.forward
+    del bn_subclass
+    return batch_norm
