@@ -47,8 +47,8 @@ SparseML recipe or a SparseZoo model stub prefixed by `zoo:` such as
 `zoo:cv-classification/resnet_v1-50/pytorch-rwightman/imagenet-augmented/pruned_quant-aggressive`.
 
 Additionally, to run sparse transfer learning with a SparseZoo model that has
-a transfer learning recipe, add `?recipe_type=transfer` as part of the model stub.
-i.e. `zoo:cv-classification/resnet_v1-50/pytorch-rwightman/imagenet-augmented/pruned_quant-aggressive?recipe_type=transfer`.
+a transfer learning recipe, add `?recipe_type=transfer_learn` as part of the model stub.
+i.e. `zoo:cv-classification/resnet_v1-50/pytorch-rwightman/imagenet-augmented/pruned_quant-aggressive?recipe_type=transfer_learn`.
 This will run a recipe that holds the optimized sparsity structure the same while allowing
 non-zero weights to be updated during training, so pre-learned optimizations can be applied
 to different datasets.
@@ -112,7 +112,7 @@ Training from a SparseZoo recipe and checkpoint with sparse transfer learning en
 ```bash
 python integrations/timm/train.py \
   /PATH/TO/DATASET/imagenet/ \
-  --sparseml-recipe zoo:model/stub/path?recipe_type=transfer \
+  --sparseml-recipe zoo:model/stub/path?recipe_type=transfer_learn \
   --initial-checkpoint zoo \
   --dataset imagenet \
   --batch-size 64 \
