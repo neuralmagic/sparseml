@@ -39,7 +39,7 @@ pip install sparseml[torchvision]
 
 
 ## Script
-`integrations/timm/main.py` modifies
+`integrations/timm/train.py` modifies
 [`train.py`](https://github.com/rwightman/pytorch-image-models/blob/master/train.py)
 from pytorch-image-models to include a `sparseml-recipe` argument
 to run SparseML optimizations with.  This can be a file path to a local
@@ -76,13 +76,13 @@ documentation, or export one with [Sparsify](https://github.com/neuralmagic/spar
 
 Documentation on the original script can be found
 [here](https://rwightman.github.io/pytorch-image-models/scripts/).
-The latest commit hash that `main.py` is based on is included in the docstring.
+The latest commit hash that `train.py` is based on is included in the docstring.
 
 
 #### Example Command
 Training from a local recipe and checkpoint
 ```bash
-python integrations/timm/main.py \
+python integrations/timm/train.py \
   /PATH/TO/DATASET/imagenet/ \
   --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
   --initial-checkpoint PATH/TO/CHECKPOINT/model.pth \
@@ -96,7 +96,7 @@ python integrations/timm/main.py \
 
 Training from a local recipe and SparseZoo checkpoint
 ```bash
-python integrations/timm/main.py \
+python integrations/timm/train.py \
   /PATH/TO/DATASET/imagenet/ \
   --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
   --initial-checkpoint zoo:model/stub/path \
@@ -110,7 +110,7 @@ python integrations/timm/main.py \
 
 Training from a SparseZoo recipe and checkpoint with sparse transfer learning enabled
 ```bash
-python integrations/timm/main.py \
+python integrations/timm/train.py \
   /PATH/TO/DATASET/imagenet/ \
   --sparseml-recipe zoo:model/stub/path?recipe_type=transfer \
   --initial-checkpoint zoo \
