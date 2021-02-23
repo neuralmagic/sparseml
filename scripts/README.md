@@ -23,7 +23,7 @@ model training, pruning, quantization, exporting, and sensitivity analysis.
 These scripts natively support models in the SparseML submodules, however can be adapted for use with your own models
 or used to inspire new workflows.  To see examples of simple integrations with SparseML check out our
 [notebooks](https://github.com/neuralmagic/sparseml/tree/main/notebooks)
-and [examples](https://github.com/neuralmagic/sparseml/tree/main/examples).  
+and [integrations](https://github.com/neuralmagic/sparseml/tree/main/integrations).  
 
 To run one of the scripts, invoke it with a Python command from the command line along with the relevant arguments.
 

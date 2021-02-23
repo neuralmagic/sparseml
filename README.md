@@ -289,7 +289,7 @@ Install with pip using:
 pip install sparseml
 ```
 
-Then if you would like to explore any of the [scripts](https://github.com/neuralmagic/sparseml/blob/main/scripts/), [notebooks](https://github.com/neuralmagic/sparseml/blob/main/notebooks/), or [examples](https://github.com/neuralmagic/sparseml/blob/main/examples/)
+Then if you would like to explore any of the [scripts](https://github.com/neuralmagic/sparseml/blob/main/scripts/), [notebooks](https://github.com/neuralmagic/sparseml/blob/main/notebooks/), or [integrations](https://github.com/neuralmagic/sparseml/blob/main/integrations/)
 clone the repository and install any additional dependencies as required.
 
 #### Supported Framework Versions
@@ -343,7 +343,7 @@ Note, TensorFlow V1 is no longer being built for newer operating systems such as
 
 ## Contributing
 
-We appreciate contributions to the code, examples, and documentation as well as bug reports and feature requests! [Learn how here](https://github.com/neuralmagic/sparseml/blob/main/CONTRIBUTING.md).
+We appreciate contributions to the code, examples, integrations, and documentation as well as bug reports and feature requests! [Learn how here](https://github.com/neuralmagic/sparseml/blob/main/CONTRIBUTING.md).
 
 ## Join the Community
 

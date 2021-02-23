@@ -15,11 +15,11 @@
 """
 Example of pruning a ResNet20-v1 model pretrained on the Cifar-10 dataset.
 The pretrained model and this pruning script were adapted from:
-https://keras.io/zh/examples/cifar10_resnet/
+https://keras.io/zh/integrations/cifar10_resnet/
 
 Run the following command from the top repo directory:
 
-   python3 examples/keras/prune_resnet20.py
+   python3 integrations/keras/prune_resnet20.py
 
 """
 
@@ -41,7 +41,7 @@ from sparsezoo.models import Zoo
 
 
 # Root directory
-root_dir = "./examples/keras"
+root_dir = "./integrations/keras"
 
 # Logging setup
 log_dir = os.path.join(root_dir, "tensorboard", "resnet20_v1")

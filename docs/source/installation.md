@@ -25,4 +25,4 @@ Install with pip using:
 pip install sparseml
 ```
 
-Then if you would like to explore any of the [scripts](https://github.com/neuralmagic/sparseml/tree/main/scripts), [notebooks](https://github.com/neuralmagic/sparseml/tree/main/notebooks), or [examples](https://github.com/neuralmagic/sparseml/tree/main/examples) clone the repository and install any additional dependencies as required.
+Then if you would like to explore any of the [scripts](https://github.com/neuralmagic/sparseml/tree/main/scripts), [notebooks](https://github.com/neuralmagic/sparseml/tree/main/notebooks), or [integrations](https://github.com/neuralmagic/sparseml/tree/main/integrations) clone the repository and install any additional dependencies as required.
