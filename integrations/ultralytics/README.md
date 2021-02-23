@@ -17,7 +17,7 @@ limitations under the License.
 # SparseML-ultralytics/yolov5 integration
 This directory provides a SparseML integrated training script for the popular
 [ultralytics/yolov5](https://github.com/ultralytics/yolov5)
-repository also known as [timm](https://pypi.org/project/timm/).
+repository.
 
 Using this integration, you will be able to apply SparseML optimizations
 to the powerful training flows provided in the yolov5 repository.
@@ -38,7 +38,7 @@ git clone https://github.com/ultralytics/yolov5.git
 git clone https://github.com/neuralmagic/sparseml.git
 
 # copy script
-cp sparseml/examples/ultralytics-sparseml/main.py yolov5
+cp sparseml/integrations/ultralytics/main.py yolov5
 cd yolov5
 
 # install dependencies
@@ -48,19 +48,12 @@ pip install sparseml
 
 
 ## Script
-`examples/timm-sparseml/main.py` modifies
+`integrations/ultralytics/main.py` modifies
 [`train.py`](https://github.com/ultralytics/yolov5/blob/master/train.py)
-from yolov5 to include a `sparseml-recipe-path` argument
+from yolov5 to include a `sparseml-recipe` argument
 to run SparseML optimizations with.  This can be a file path to a local
 SparseML recipe or a SparseZoo model stub prefixed by `zoo:` such as
 `zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive`.
-
-Additionally, for sparse transfer learning, the flag `--sparse-transfer-learn`
-was added.  Running the script with this flag will add modifiers to the given
-recipe that will keep the base sparsity constant during training, allowing
-the model to learn the new dataset while keeping the same optimized structure.
-If a SparseZoo recipe path is provided with sparse transfer learning enabled,
-then the the model's specific "transfer" recipe will be loaded instead.
 
 To load the base weights for a SparseZoo recipe as the initial checkpoint, set
 `--initial-checkpoint` to `zoo`.  To use the weights of a SparseZoo model as the
@@ -72,7 +65,7 @@ follow the normal yolov5 training flow with the given SparseML optimizations ena
 
 Some considerations:
 
-* `--sparseml-recipe-path` is a required parameter
+* `--sparseml-recipe` is a required parameter
 * `--epochs` will now be overridden by the epochs set in the SparseML recipe
 * if using learning rate schedulers both with the yolov5 script and your recipe, they
 may conflict with each other causing unintended side effects, choose
@@ -95,6 +88,6 @@ Call the script from the `yolov5` directory, passing in the same arguments as
 `train.py`, with the additional SparseML argument(s) included.
 ```bash
 python main.py \
-  --sparseml-recipe-path /PATH/TO/RECIPE/recipe.yaml \
+  --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
   <regular yolov5/train.py paramters>
 ```  

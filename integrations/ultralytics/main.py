@@ -7,11 +7,13 @@
 Integration between https://github.com/ultralytics/yolov5 and SparseML
 
 This script is adapted from https://github.com/ultralytics/yolov5/blob/master/train.py
-to apply a SparseML recipe from the required `--sparseml-recipe-path` argument.
+to apply a SparseML recipe from the required `--sparseml-recipe` argument.
 Integration lines are preceded by comment blocks.  Run with `--help` for help printout,
 more information can be found in the readme file.
 
-Latest yolov5 commit this script is based on: c9bda11
+Latest yolov5 commit this script is based on:
+https://github.com/ultralytics/yolov5/tree/c9bda112aebaa0be846864f9d224191d0e19d419
+commit hash: c9bda11
 """
 import argparse
 import logging
@@ -244,14 +246,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     ####################################################################################
     # Start SparseML Integration
     ####################################################################################
-    # determine recipe type to be used if loading from SparseZoo
-    if opt.sparseml_recipe_path.startswith("zoo:"):
-        zoo_recipe_type = "transfer" if opt.sparse_transfer_learn else "original"
-    else:
-        zoo_recipe_type = None
-    manager = ScheduledModifierManager.from_yaml(
-        opt.sparseml_recipe_path, zoo_recipe_type=zoo_recipe_type
-    )
+    manager = ScheduledModifierManager.from_yaml(opt.sparseml_recipe)
     optimizer = ScheduledOptimizer(
         optimizer,
         model,
@@ -259,8 +254,15 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         steps_per_epoch=len(dataloader),
         loggers=[PythonLogger(), TensorBoardLogger(writer=tb_writer)]
     )
-    start_epoch = manager.min_epochs or start_epoch  # override min_epochs
-    epochs = manager.max_epochs or epochs  # override num_epochs
+    # override lr scheduler if recipe makes any LR updates
+    if any("LearningRate" in str(modifier) for modifier in manager.modifiers):
+        logger.info("Disabling yolo LR scheduler, managing LR using SparseML recipe")
+        scheduler = None
+    if manager.max_epochs:
+        epochs = manager.max_epochs or epochs  # override num_epochs
+        logger.info(
+            f"overriding number of epochs from SparseML manager to {manager.max_epochs}"
+        )
     ####################################################################################
     # End SparseML Integration
     ####################################################################################
@@ -271,7 +273,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     # nw = min(nw, (epochs - start_epoch) / 2 * nb)  # limit warmup to < 1/2 of training
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
-    scheduler.last_epoch = start_epoch - 1  # do not move
+    if scheduler:
+        scheduler.last_epoch = start_epoch - 1  # do not move
     scaler = amp.GradScaler(enabled=cuda)
     compute_loss = ComputeLoss(model)  # init loss class
     logger.info(f'Image sizes {imgsz} train, {imgsz_test} test\n'
@@ -374,7 +377,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 
         # Scheduler
         lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
-        scheduler.step()
+        if scheduler:
+            scheduler.step()
 
         # DDP process 0 or single-GPU
         if rank in [-1, 0]:
@@ -496,20 +500,12 @@ if __name__ == '__main__':
     # Start SparseML arguments
     ####################################################################################
     parser.add_argument(
-        "--sparseml-recipe-path",
+        "--sparseml-recipe",
         required=True,
         type=str,
         help="path to a SparseML recipe file or a SparseZoo model stub for a recipe to load. "
              "SparseZoo stubs should be preceded by 'zoo:'. i.e. '/path/to/local/recipe.yaml', "
              "'zoo:zoo/model/stub'"
-    )
-    parser.add_argument(
-        "--sparse-transfer-learn",
-        action="store_true",
-        help="Enable sparse transfer learning modifiers to enforce the sparsity "
-             "if the recipe comes from a local file, modifiers will be added to the manager "
-             "to hold already sparse layers at the same sparsity level. If the recipe comes "
-             "from SparseZoo, the 'transfer' recipe for the model will be loaded instead",
     )
     parser.add_argument('--weights', type=str, default='yolov5s.pt', help='initial weights path')
     parser.add_argument(
@@ -568,19 +564,17 @@ if __name__ == '__main__':
     ####################################################################################
     if opt.weights == "zoo":
         # Load checkpoint from base weights associated with given SparseZoo recipe
-        if opt.sparseml_recipe_path.startswith("zoo:"):
-            recipe_type = "transfer" if opt.sparse_transfer_learn else "original"
+        if opt.sparseml_recipe.startswith("zoo:"):
             opt.weights = Zoo.download_recipe_base_framework_files(
-                opt.sparseml_recipe_path,
-                recipe_type=recipe_type,
+                opt.sparseml_recipe,
                 extensions=[".pt", ".pth"]
             )[0]
         else:
             raise ValueError(
                 "Attempting to load weights from SparseZoo recipe, but not given a "
                 "SparseZoo recipe stub.  When --weights is set to 'zoo'. "
-                "sparseml-recipe-path must start with 'zoo:' and be a SparseZoo model "
-                f"stub. sparseml-recipe-path was set to {args.sparseml_recipe_path}"
+                "sparseml-recipe must start with 'zoo:' and be a SparseZoo model "
+                f"stub. sparseml-recipe was set to {args.sparseml_recipe}"
             )
     elif opt.weights.startswith("zoo:"):
         # Load weights from a SparseZoo model stub
