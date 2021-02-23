@@ -38,7 +38,7 @@ git clone https://github.com/ultralytics/yolov5.git
 git clone https://github.com/neuralmagic/sparseml.git
 
 # copy script
-cp sparseml/integrations/ultralytics/main.py yolov5
+cp sparseml/integrations/ultralytics/train.py yolov5
 cd yolov5
 
 # install dependencies
@@ -48,7 +48,7 @@ pip install sparseml
 
 
 ## Script
-`integrations/ultralytics/main.py` modifies
+`integrations/ultralytics/train.py` modifies
 [`train.py`](https://github.com/ultralytics/yolov5/blob/master/train.py)
 from yolov5 to include a `sparseml-recipe` argument
 to run SparseML optimizations with.  This can be a file path to a local
@@ -80,14 +80,14 @@ documentation, or export one with [Sparsify](https://github.com/neuralmagic/spar
 
 Documentation on the original script can be found
 [here](https://github.com/ultralytics/yolov5).
-The latest commit hash that `main.py` is based on is included in the docstring.
+The latest commit hash that `train.py` is based on is included in the docstring.
 
 
 #### Example Command
 Call the script from the `yolov5` directory, passing in the same arguments as
 `train.py`, with the additional SparseML argument(s) included.
 ```bash
-python main.py \
+python train.py \
   --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
   <regular yolov5/train.py paramters>
 ```  
