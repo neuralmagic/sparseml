@@ -507,7 +507,6 @@ if __name__ == '__main__':
              "SparseZoo stubs should be preceded by 'zoo:'. i.e. '/path/to/local/recipe.yaml', "
              "'zoo:zoo/model/stub'"
     )
-    parser.add_argument('--weights', type=str, default='yolov5s.pt', help='initial weights path')
     parser.add_argument(
         "--weights",
         type=str,
