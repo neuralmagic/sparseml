@@ -21,6 +21,8 @@ from setuptools import find_packages, setup
 
 _PACKAGE_NAME = "sparseml"
 _VERSION = "0.1.0"
+_VERSION_MAJOR, _VERSION_MINOR, _VERSION_BUG = _VERSION.split(".")
+_VERSION_MAJOR_MINOR = f"{_VERSION_MAJOR}.{_VERSION_MINOR}"
 _NIGHTLY = "nightly" in sys.argv
 
 if _NIGHTLY:
@@ -47,7 +49,12 @@ _deps = [
     "tqdm>=4.0.0",
     "toposort>=1.0",
 ]
-_nm_deps = [f"{'sparsezoo-nightly' if _NIGHTLY else 'sparsezoo'}~={_VERSION}"]
+_nm_deps = [
+    f"{'sparsezoo-nightly' if _NIGHTLY else 'sparsezoo'}~={_VERSION_MAJOR_MINOR}"
+]
+_deepsparse_deps = [
+    f"{'deepsparse-nightly' if _NIGHTLY else 'deepsparse'}~={_VERSION_MAJOR_MINOR}"
+]
 _pytorch_deps = ["torch>=1.1.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
@@ -91,6 +98,7 @@ def _setup_install_requires() -> List:
 def _setup_extras() -> Dict:
     return {
         "dev": _dev_deps,
+        "deepsparse": _deepsparse_deps,
         "torch": _pytorch_deps,
         "torchvision": _pytorch_vision_deps,
         "tf_v1": _tensorflow_v1_deps,
