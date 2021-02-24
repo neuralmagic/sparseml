@@ -258,8 +258,6 @@ class ModuleExporter(object):
         path = os.path.join(self._output_dir, "framework", name)
         create_parent_dirs(path)
         if sample_batch:
-            if sample_batch is None:
-                raise Exception("'sample_batch' must be passed if tracing model.")
             trace_model(path, self._module, sample_batch)
         else:
             script_model(path, self._module)
