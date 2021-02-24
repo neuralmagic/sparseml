@@ -308,7 +308,10 @@ class ModelRegistry(object):
         ):
             """
             :param pretrained_path: A path to the pretrained weights to load,
-                if provided will override the pretrained param
+                if provided will override the pretrained param. May also be
+                a SparseZoo stub path preceded by 'zoo:' with the optional
+                `?recipe_type=` argument. If given a recipe type, the base
+                model weights for that recipe will be loaded
             :param pretrained: True to load the default pretrained weights,
                 a string to load a specific pretrained weight
                 (ex: base, optim, optim-perf),
