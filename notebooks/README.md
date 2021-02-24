@@ -46,7 +46,7 @@ ssh -N -f -L localhost:6006:localhost:6006 user@remote_ip_address
 You may need to enable the Jupyter extension to properly see the UIs with the following command:
 
 ```bash
-jupyter nbextension enable --py widgetsnbextension.
+jupyter nbextension enable --py widgetsnbextension
 ```
 </li>
 
