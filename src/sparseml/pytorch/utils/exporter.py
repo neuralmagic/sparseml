@@ -132,7 +132,10 @@ class ModuleExporter(object):
         self.export_onnx(sample_batch=sample_batches[0])
         self.export_pytorch(export_entire_model=export_entire_model)
         try:
-            self.export_torchscript(trace=trace_script, sample_batch=sample_batches[0])
+            if trace_script:
+                self.export_torchscript(sample_batch=sample_batches[0])
+            else:
+                self.export_torchscript()
         except Exception as e:
             if fail_on_torchscript_failure:
                 raise e
@@ -241,21 +244,20 @@ class ModuleExporter(object):
     def export_torchscript(
         self,
         name: str = "model.pts",
-        trace: bool = False,
         sample_batch: Optional[Any] = None,
     ):
         """
-        Export the torchscript into a pts file within a framework directory.
+        Export the torchscript into a pts file within a framework directory. If
+        a sample batch is provided, will create torchscript model in trace mode.
+        Otherwise uses script to create torchscript.
 
         :param name: name of the torchscript file to save
-        :param trace: If true creates the torchscript model via tracing with the
-            provided sample_batch, otherwise creates the torchscript via scripting.
-        :param sample_batch: the batch to trace the torchscript model if trace is set to
-            True.
+        :param sample_batch: If provided, will create torchscript model via tracing
+            using the sample_batch
         """
         path = os.path.join(self._output_dir, "framework", name)
         create_parent_dirs(path)
-        if trace:
+        if sample_batch:
             if sample_batch is None:
                 raise Exception("'sample_batch' must be passed if tracing model.")
             trace_model(path, self._module, sample_batch)
