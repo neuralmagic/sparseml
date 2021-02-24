@@ -17,8 +17,7 @@
 SparseML |version|
 ===================
 
-Libraries for state-of-the-art deep neural network optimization algorithms,
-enabling simple pipelines integration with a few lines of code
+Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models
 
 .. raw:: html
 
@@ -58,16 +57,20 @@ and smaller models for the ML performance community at large.
 SparseML is integrated for easy model optimizations within the `PyTorch <https://pytorch.org />`_,
 `Keras <https://keras.io />`_, and `TensorFlow V1 <http://tensorflow.org />`_ ecosystems currently.
 
-Related Products
-================
+Sparsification
+==============
 
-- `DeepSparse <https://github.com/neuralmagic/deepsparse />`_:
-  CPU inference engine that delivers unprecedented performance for sparse models
-- `SparseZoo <https://github.com/neuralmagic/sparsezoo />`_:
-  Neural network model repository for highly sparse models and optimization recipes
-- `Sparsify <https://github.com/neuralmagic/sparsify />`_:
-  Easy-to-use autoML interface to optimize deep neural networks for
-  better inference performance and a smaller footprint
+Sparsification is the process of taking a trained deep learning model and removing redundant information from the over precise and over parameterized network resulting in a faster and smaller model.
+Techniques for sparsification are all encompassing including everything from inducing sparsity using `pruning <https://neuralmagic.com/blog/pruning-overview/>`_ and `quantization <https://arxiv.org/abs/1609.07061>`_ to enabling naturally occurring sparsity using `activation sparsity <http://proceedings.mlr.press/v119/kurtz20a.html>`_ or `winograd/FFT <https://arxiv.org/abs/1509.09308>`_.
+When implemented correctly, these techniques result in significantly more performant and smaller models with limited to no effect on the baseline metrics.
+For example, pruning plus quantization can give over [7x improvements in performance](resnet50link) while recovering to nearly the same baseline.
+
+The DeepSparse product suite builds on top of sparsification enabling you to easily apply the techniques to your datasets/models using recipe driven approaches.
+Recipes encode the directions for how to sparsify a model into a simple, easily editable format.
+Download a sparsification recipe/sparsified model from the `SparseZoo <https://github.com/neuralmagic/sparsezoo>`_ or create one using `Sparsify <https://github.com/neuralmagic/sparsify>`_, apply it using `SparseML <https://github.com/neuralmagic/sparseml>`_ with only a few lines of code, and deploy with the `DeepSparse Engine <https://github.com/neuralmagic/deepsparse>`_ for unprecedented performance on CPUs.
+Visualization of the full product flow:
+
+<img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-overview.svg" width="960px">
 
 Resources and Learning More
 ===========================

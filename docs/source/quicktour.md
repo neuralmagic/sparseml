@@ -16,12 +16,11 @@ limitations under the License.
 
 ## Quick Tour
 
-To enable flexibility, ease of use, and repeatability, optimizing a model is generally done using a recipe file.
-The files encode the instructions needed for modifying the model and/or training process as a list of modifiers.
+To enable flexibility, ease of use, and repeatability, sparsifying a model is generally done using a recipe.
+The recipes encode the instructions needed for modifying the model and/or training process as a list of modifiers.
 Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
 The files are written in [YAML](https://yaml.org/) and stored in YAML or [markdown](https://www.markdownguide.org/) files using [YAML front matter](https://assemble.io/docs/YAML-front-matter.html).
-The rest of the SparseML system is coded to parse the recipe files into a native format for the desired framework
-and apply the modifications to the model and training pipeline.
+The rest of the SparseML system is coded to parse the recipes into a native format for the desired framework and apply the modifications to the model and training pipeline.
 
 A sample recipe for pruning a model generally looks like the following:
 
@@ -56,12 +55,15 @@ Pre-configured recipes and the resulting models can be explored and downloaded f
 
 For a more in-depth read, check out [SparseML documentation](https://docs.neuralmagic.com/sparseml/).
 
-### PyTorch Optimization
+### PyTorch Sparsification
 
-The PyTorch optimization libraries are located under the `sparseml.pytorch.optim` package.
-Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into PyTorch training pipelines.
+The PyTorch sparsification libraries are located under the `sparseml.pytorch.optim` package.
+Inside are APIs designed to make model sparsification as easy as possible by integrating seamlessly into PyTorch training pipelines.
 
-The integration is done using the `ScheduledOptimizer` class. It is intended to wrap your current optimizer and its step function. The step function then calls into the `ScheduledModifierManager` class which can be created from a recipe file. With this setup, the training process can then be modified as desired to optimize the model.
+The integration is done using the `ScheduledOptimizer` class. 
+It is intended to wrap your current optimizer and its step function. 
+The step function then calls into the `ScheduledModifierManager` class which can be created from a recipe file. 
+With this setup, the training process can then be modified as desired to sparsify the model.
 
 To enable all of this, the integration code you'll need to write is only a handful of lines:
 
@@ -80,11 +82,11 @@ optimizer = ScheduledOptimizer(optimizer, model, manager, steps_per_epoch=num_tr
 
 ### Keras Optimization
 
-The Keras optimization libraries are located under the `sparseml.keras.optim` package.
-Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into Keras training pipelines.
+The Keras sparsification libraries are located under the `sparseml.keras.optim` package.
+Inside are APIs designed to make model sparsification as easy as possible by integrating seamlessly into Keras training pipelines.
 
 The integration is done using the `ScheduledModifierManager` class which can be created from a recipe file.
-This class handles modifying the Keras objects for the desired optimizations using the `modify` method.
+This class handles modifying the Keras objects for the desired algorithms using the `modify` method.
 The edited model, optimizer, and any callbacks necessary to modify the training process are returned.
 The model and optimizer can be used normally and the callbacks must be passed into the `fit` or `fit_generator` function.
 If using `train_on_batch`, the callbacks must be invoked after each call.
@@ -114,15 +116,16 @@ model.fit(..., callbacks=callbacks)
 save_model = manager.finalize(model)
 ```
 
-### TensorFlow V1 Optimization
+### TensorFlow V1 Sparsification
 
-The TensorFlow optimization libraries for TensorFlow version 1.X are located under the `sparseml.tensorflow_v1.optim` package. Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into TensorFlow V1 training pipelines.
+The TensorFlow sparsification libraries for TensorFlow version 1.X are located under the `sparseml.tensorflow_v1.optim` package. 
+Inside are APIs designed to make model sparsification as easy as possible by integrating seamlessly into TensorFlow V1 training pipelines.
 
 The integration is done using the `ScheduledModifierManager` class which can be created from a recipe file.
-This class handles modifying the TensorFlow graph for the desired optimizations.
-With this setup, the training process can then be modified as desired to optimize the model.
+This class handles modifying the TensorFlow graph for the desired algorithms.
+With this setup, the training process can then be modified as desired to sparsify the model.
 
-#### Estimator-based pipelines
+#### Estimator-Based pipelines
 
 Estimator-based pipelines are simpler to integrate with as compared to session-based pipelines.
 The `ScheduledModifierManager` can override the necessary callbacks in the estimator to modify the graph using the `modify_estimator` function.
@@ -139,12 +142,12 @@ manager.modify_estimator(estimator, steps_per_epoch=num_train_batches)
 # Normal estimator training code...
 ```
 
-#### Session-based pipelines
+#### Session-Based pipelines
 
 Session-based pipelines need a little bit more as compared to estimator-based pipelines; however,
 it is still designed to require only a few lines of code for integration.
 After graph creation, the manager's `create_ops` method must be called.
-This will modify the graph as needed for the optimizations and return modifying ops and extras.
+This will modify the graph as needed for the algorithms and return modifying ops and extras.
 After creating the session and training normally, call into `session.run` with the modifying ops after each step.
 Modifying extras contain objects such as tensorboard summaries of the modifiers to be used if desired.
 Finally, once completed, `complete_graph` must be called to remove the modifying ops for saving and export.
@@ -235,3 +238,4 @@ with tf_compat.Graph().as_default() as graph:
         exporter.export_pb(outputs=[logits])
 
 exporter.export_onnx(inputs=input_names, outputs=output_names)
+```
