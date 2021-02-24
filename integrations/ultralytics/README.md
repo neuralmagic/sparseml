@@ -72,8 +72,12 @@ may conflict with each other causing unintended side effects, so choose
 hyperparameters accordingly
 * Modifiers will log their outputs to the console as well as to the TensorBoard file
 * After training is complete, the final model will be exported to ONNX using SparseML
-* By default, EMA is disabled when using `train.py`. This is to allow for best compatibility
-with pruning and quantization.  To enable, set the `--use-ema` flag
+* By default, EMA is disabled when using the integrated `train.py`. This is to allow
+for best compatibility with pruning and quantization.  To enable, set the `--use-ema`
+flag
+* By default, Automatic Mixed Precision (AMP) is disabled when using the integrated
+`train.py`. This is because mixed precision is not supported for PyTorch
+quantization-aware training.  To enable, set the `--use-amp` flag
 
 You can learn how to build or download a recipe using the
 [SparseML](https://github.com/neuralmagic/sparseml)
