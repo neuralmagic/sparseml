@@ -17,12 +17,10 @@ limitations under the License.
 # PyTorch Sparse-Quantized Transfer Learning with SparseML
 
 <figure class="image">
-  <img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-sparsification-model_sparsezoo-recipe_sparsezoo.svg">
-  <figcaption><sub>Paths to sparse-quantized acceleration in the Neural Magic ecosystem</sub></figcaption>
+  <img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-sparsification-model_recipe_sparsezoo-sparseml_transfer_learning.svg" max-width="960">
 </figure>
-<br/><br/>
 
-
+## Overview
 [Pruning](https://neuralmagic.com/blog/pruning-overview/) and
 [quantization](https://arxiv.org/abs/1609.07061) are well-established methods for accelerating
 neural networks.  Individually, both methods yield significant speedups for CPU inference
