@@ -92,3 +92,14 @@ python scripts/pytorch_vision.py train \
     --optim-args '{}' \
     --model-tag resnet50-imagenette-pruned_quant-transfer_learned
 ```
+
+
+### Further Reading
+To learn more about this sparse-quantized ResNet-50 model's benchmarks check out
+[this blog post](https://neuralmagic.com/blog/benchmark-resnet50-with-deepsparse).
+
+For more information on creating sparse and quantized models, check out our
+[documentation](https://neuralmagic.com/contact/).
+
+[Contact us here](https://neuralmagic.com/contact/) with any questions or potential
+cases.
