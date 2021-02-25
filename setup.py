@@ -121,8 +121,8 @@ setup(
     author="Neuralmagic, Inc.",
     author_email="support@neuralmagic.com",
     description=(
-        "Libraries for state-of-the-art deep neural network optimization algorithms, "
-        "enabling simple pipelines integration with a few lines of code"
+        "Libraries for applying sparsification recipes to neural networks with a "
+        "few lines of code, enabling faster and smaller models"
     ),
     long_description=_setup_long_description()[0],
     long_description_content_type=_setup_long_description()[1],

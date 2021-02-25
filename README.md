@@ -16,7 +16,7 @@ limitations under the License.
 
 # ![icon for SparseMl](https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png) SparseML
 
-### Libraries for state-of-the-art deep neural network optimization algorithms, enabling simple pipelines integration with a few lines of code
+### Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models
 
 <p>
     <a href="https://github.com/neuralmagic/sparseml/blob/main/LICENSE">
@@ -44,25 +44,37 @@ limitations under the License.
 
 ## Overview
 
-SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art optimization algorithms such as [pruning](https://neuralmagic.com/blog/pruning-overview/) and [quantization](https://arxiv.org/abs/1609.07061) to any neural network. General, recipe-driven approaches built around these optimizations enable the simplification of creating faster and smaller models for the ML performance community at large.
+SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art sparsification algorithms such as pruning and quantization to any neural network. 
+General, recipe-driven approaches built around these algorithms enable the simplification of creating faster and smaller models for the ML performance community at large.
 
-SparseML is integrated for easy model optimizations within the [PyTorch](https://pytorch.org/),
-[Keras](https://keras.io/), and [TensorFlow V1](http://tensorflow.org/) ecosystems currently.
+This repository contains integrations within the [PyTorch](https://pytorch.org/), [Keras](https://keras.io/), and [TensorFlow V1](http://tensorflow.org/) ecosystems, allowing for seamless model sparsification.
 
-### Related Products
+## Sparsification
 
-- [DeepSparse](https://github.com/neuralmagic/deepsparse): CPU inference engine that delivers unprecedented performance for sparse models
-- [SparseZoo](https://github.com/neuralmagic/sparsezoo): Neural network model repository for highly sparse models and optimization recipes
-- [Sparsify](https://github.com/neuralmagic/sparsify): Easy-to-use autoML interface to optimize deep neural networks for better inference performance and a smaller footprint
+Sparsification is the process of taking a trained deep learning model and removing redundant information from the overprecise and over-parameterized network resulting in a faster and smaller model.
+Techniques for sparsification are all encompassing including everything from inducing sparsity using [pruning](https://neuralmagic.com/blog/pruning-overview/) and [quantization](https://arxiv.org/abs/1609.07061) to enabling naturally occurring sparsity using [activation sparsity](http://proceedings.mlr.press/v119/kurtz20a.html) or [winograd/FFT](https://arxiv.org/abs/1509.09308). 
+When implemented correctly, these techniques result in significantly more performant and smaller models with limited to no effect on the baseline metrics.
+For example, pruning plus quantization can give over [7x improvements in performance](https://neuralmagic.com/blog/benchmark-resnet50-with-deepsparse) while recovering to nearly the same baseline accuracy.
+
+The Deep Sparse product suite builds on top of sparsification enabling you to easily apply the techniques to your datasets and models using recipe-driven approaches.
+Recipes encode the directions for how to sparsify a model into a simple, easily editable format.
+- Download a sparsification recipe and sparsified model from the [SparseZoo](https://github.com/neuralmagic/sparsezoo).
+- Alternatively, create a recipe for your model using [Sparsify](https://github.com/neuralmagic/sparsify).
+- Apply your recipe with only a few lines of code using [SparseML](https://github.com/neuralmagic/sparseml).
+- Finally, for GPU-level performance on CPUs, deploy your sparse-quantized model with the [DeepSparse Engine](https://github.com/neuralmagic/deepsparse).
+
+
+**Full Deep Sparse product flow:**  
+
+<img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-overview.svg" width="960px">
 
 ## Quick Tour
 
-To enable flexibility, ease of use, and repeatability, optimizing a model is generally done using a recipe file.
-The files encode the instructions needed for modifying the model and/or training process as a list of modifiers.
+To enable flexibility, ease of use, and repeatability, sparsifying a model is generally done using a recipe.
+The recipes encode the instructions needed for modifying the model and/or training process as a list of modifiers.
 Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
 The files are written in [YAML](https://yaml.org/) and stored in YAML or [markdown](https://www.markdownguide.org/) files using [YAML front matter](https://assemble.io/docs/YAML-front-matter.html).
-The rest of the SparseML system is coded to parse the recipe files into a native format for the desired framework
-and apply the modifications to the model and training pipeline.
+The rest of the SparseML system is coded to parse the recipes into a native format for the desired framework and apply the modifications to the model and training pipeline.
 
 A sample recipe for pruning a model generally looks like the following:
 
@@ -97,12 +109,15 @@ Pre-configured recipes and the resulting models can be explored and downloaded f
 
 For a more in-depth read, check out [SparseML documentation](https://docs.neuralmagic.com/sparseml/).
 
-### PyTorch Optimization
+### PyTorch Sparsification
 
-The PyTorch optimization libraries are located under the `sparseml.pytorch.optim` package.
-Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into PyTorch training pipelines.
+The PyTorch sparsification libraries are located under the `sparseml.pytorch.optim` package.
+Inside are APIs designed to make model sparsification as easy as possible by integrating seamlessly into PyTorch training pipelines.
 
-The integration is done using the `ScheduledOptimizer` class. It is intended to wrap your current optimizer and its step function. The step function then calls into the `ScheduledModifierManager` class which can be created from a recipe file. With this setup, the training process can then be modified as desired to optimize the model.
+The integration is done using the `ScheduledOptimizer` class. 
+It is intended to wrap your current optimizer and its step function. 
+The step function then calls into the `ScheduledModifierManager` class which can be created from a recipe file. 
+With this setup, the training process can then be modified as desired to sparsify the model.
 
 To enable all of this, the integration code you'll need to write is only a handful of lines:
 
@@ -121,11 +136,11 @@ optimizer = ScheduledOptimizer(optimizer, model, manager, steps_per_epoch=num_tr
 
 ### Keras Optimization
 
-The Keras optimization libraries are located under the `sparseml.keras.optim` package.
-Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into Keras training pipelines.
+The Keras sparsification libraries are located under the `sparseml.keras.optim` package.
+Inside are APIs designed to make model sparsification as easy as possible by integrating seamlessly into Keras training pipelines.
 
 The integration is done using the `ScheduledModifierManager` class which can be created from a recipe file.
-This class handles modifying the Keras objects for the desired optimizations using the `modify` method.
+This class handles modifying the Keras objects for the desired algorithms using the `modify` method.
 The edited model, optimizer, and any callbacks necessary to modify the training process are returned.
 The model and optimizer can be used normally and the callbacks must be passed into the `fit` or `fit_generator` function.
 If using `train_on_batch`, the callbacks must be invoked after each call.
@@ -155,13 +170,14 @@ model.fit(..., callbacks=callbacks)
 save_model = manager.finalize(model)
 ```
 
-### TensorFlow V1 Optimization
+### TensorFlow V1 Sparsification
 
-The TensorFlow optimization libraries for TensorFlow version 1.X are located under the `sparseml.tensorflow_v1.optim` package. Inside are APIs designed to make model optimization as easy as possible by integrating seamlessly into TensorFlow V1 training pipelines.
+The TensorFlow sparsification libraries for TensorFlow version 1.X are located under the `sparseml.tensorflow_v1.optim` package. 
+Inside are APIs designed to make model sparsification as easy as possible by integrating seamlessly into TensorFlow V1 training pipelines.
 
 The integration is done using the `ScheduledModifierManager` class which can be created from a recipe file.
-This class handles modifying the TensorFlow graph for the desired optimizations.
-With this setup, the training process can then be modified as desired to optimize the model.
+This class handles modifying the TensorFlow graph for the desired algorithms.
+With this setup, the training process can then be modified as desired to sparsify the model.
 
 #### Estimator-Based pipelines
 
@@ -185,7 +201,7 @@ manager.modify_estimator(estimator, steps_per_epoch=num_train_batches)
 Session-based pipelines need a little bit more as compared to estimator-based pipelines; however,
 it is still designed to require only a few lines of code for integration.
 After graph creation, the manager's `create_ops` method must be called.
-This will modify the graph as needed for the optimizations and return modifying ops and extras.
+This will modify the graph as needed for the algorithms and return modifying ops and extras.
 After creating the session and training normally, call into `session.run` with the modifying ops after each step.
 Modifying extras contain objects such as tensorboard summaries of the modifiers to be used if desired.
 Finally, once completed, `complete_graph` must be called to remove the modifying ops for saving and export.
