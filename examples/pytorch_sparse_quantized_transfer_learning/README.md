@@ -28,7 +28,7 @@ neural networks.  Individually, both methods yield significant speedups for CPU 
 option for real-time model inference.
 
 Sparse-quantized models leverage both techniques and
-[can achieve speedups upwards of 7x](https://neuralmagic.com/blog/benchmark-resnet50-with-deepsparse)
+can achieve noticeable speedups
 when using the [DeepSparse Engine](https://github.com/neuralmagic/deepsparse) with
 [compatible hardware](https://docs.neuralmagic.com/deepsparse/hardware.html).
 
@@ -101,8 +101,6 @@ python scripts/pytorch_vision.py train \
 
 
 ### Further Reading
-To learn more about this sparse-quantized ResNet-50 model's benchmarks check out
-[this blog post](https://neuralmagic.com/blog/benchmark-resnet50-with-deepsparse).
 
 For more information on creating sparse and quantized models, check out our
 [documentation](https://neuralmagic.com/contact/).
