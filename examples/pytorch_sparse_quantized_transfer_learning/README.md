@@ -16,14 +16,22 @@ limitations under the License.
 
 # PyTorch Sparse-Quantized Transfer Learning with SparseML
 
+<figure class="image">
+  <img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-sparsification-model_sparsezoo-recipe_sparsezoo.svg">
+  <figcaption><sub>Paths to sparse-quantized acceleration in the Neural Magic ecosystem</sub></figcaption>
+</figure>
+<br/><br/>
+
+
 [Pruning](https://neuralmagic.com/blog/pruning-overview/) and
 [quantization](https://arxiv.org/abs/1609.07061) are well-established methods for accelerating
 neural networks.  Individually, both methods yield significant speedups for CPU inference
 (a theoretical maximum of 4x for INT8 quantization) and can make CPU deployments an attractive
 option for real-time model inference.
 
-Sparse-quantized models leverage both techniques and can achieve speedups upwards of 6-7x when using
-the [DeepSparse Engine](https://github.com/neuralmagic/deepsparse) with
+Sparse-quantized models leverage both techniques and
+[can achieve speedups upwards of 7x](https://neuralmagic.com/blog/benchmark-resnet50-with-deepsparse)
+when using the [DeepSparse Engine](https://github.com/neuralmagic/deepsparse) with
 [compatible hardware](https://docs.neuralmagic.com/deepsparse/hardware.html).
 
 Using powerful [SparseML](https://github.com/neuralmagic/sparseml) recipes, it is easy to create sparse-quantized models.
@@ -101,5 +109,9 @@ To learn more about this sparse-quantized ResNet-50 model's benchmarks check out
 For more information on creating sparse and quantized models, check out our
 [documentation](https://neuralmagic.com/contact/).
 
-[Contact us here](https://neuralmagic.com/contact/) with any questions or potential
-cases.
+SparseML and its companion packages are open-source and constantly improving.
+Keep an eye out for new models, algorithms, and faster speeds.
+If you have any questions, extensions, or use cases feel free to,
+[contribute](https://github.com/neuralmagic/sparseml/blob/main/CONTRIBUTING.md),
+[open an issue](https://github.com/neuralmagic/sparseml/issues),
+or [contact us](https://neuralmagic.com/contact/).
