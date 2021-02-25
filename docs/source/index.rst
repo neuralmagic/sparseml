@@ -68,7 +68,7 @@ For example, pruning plus quantization can give over [7x improvements in perform
 The DeepSparse product suite builds on top of sparsification enabling you to easily apply the techniques to your datasets/models using recipe driven approaches.
 Recipes encode the directions for how to sparsify a model into a simple, easily editable format.
 Download a sparsification recipe/sparsified model from the `SparseZoo <https://github.com/neuralmagic/sparsezoo>`_ or create one using `Sparsify <https://github.com/neuralmagic/sparsify>`_, apply it using `SparseML <https://github.com/neuralmagic/sparseml>`_ with only a few lines of code, and deploy with the `DeepSparse Engine <https://github.com/neuralmagic/deepsparse>`_ for unprecedented performance on CPUs.
-Visualization of the full product flow:
+**Full Deep Sparse product flow:**  
 
 <img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-overview.svg" width="960px">
 
