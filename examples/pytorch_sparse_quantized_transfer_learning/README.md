@@ -17,10 +17,10 @@ limitations under the License.
 # PyTorch Sparse-Quantized Transfer Learning with SparseML
 
 [Pruning](https://neuralmagic.com/blog/pruning-overview/) and
-[quantization](https://arxiv.org/abs/1609.07061) are well established methods for accelerating
+[quantization](https://arxiv.org/abs/1609.07061) are well-established methods for accelerating
 neural networks.  Individually, both methods yield significant speedups for CPU inference
 (a theoretical maximum of 4x for INT8 quantization) and can make CPU deployments an attractive
-option for real time model inference.
+option for real-time model inference.
 
 Sparse-quantized models leverage both techniques and can achieve speedups upwards of 6-7x when using
 the [DeepSparse Engine](https://github.com/neuralmagic/deepsparse) with
@@ -30,6 +30,17 @@ Using powerful [SparseML](https://github.com/neuralmagic/sparseml) recipes, it i
 Additionally, the SparseML team is actively creating pre-trained sparse-quantized models that maintain accuracy
 targets and achieve high CPU speedups - and it is easy to leverage these models for speedups with your own datasets
 using sparse-quantized transfer learning.
+
+## Sparse-Quantized Transfer Learning
+
+[Transfer learning](https://en.wikipedia.org/wiki/Transfer_learning) is a technique that
+involves retraining a pre-trained model to learn a new task, with the benefit of starting
+from the pre-trained model's already learned behavior. Sparse-quantized transfer takes the
+additional step of reusing both the pre-trained weights, and pre-trained sparse model
+structure of an existing sparse-quantized model to train it on a new ML task.
+
+This technique allows engineers and researchers to create sparse-quantized optimizations
+for one model and then easily re-apply them to accelerate many tasks.
 
 Sparse-quantized transfer learning takes place in two phases:
 1. Sparse transfer learning \- fine tuning the pre-trained model with the new dataset
@@ -49,12 +60,12 @@ transfer learning with this model.
 
 ### Notebook
 `sparseml/examples/pytorch_sparse_quantized_transfer_learning/pytorch_sparse_quantized_transfer_learning.ipynb`
-is a jupyter notebook that provides a step-by-step walk-through for
+is a Jupyter Notebook that provides a step-by-step walk-through for
  - setting up sparse-quantized transfer learning
  - integrating SparseML with any PyTorch training flow
  - ONNX export
  - benchmarking with the DeepSparse Engine 
- 
+
 Run `jupyter notebook` and navigate to this notebook file to run the example.
 
 ### Script
