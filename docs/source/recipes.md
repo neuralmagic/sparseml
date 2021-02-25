@@ -30,7 +30,7 @@ In a recipe, modifiers must be written in a list that includes "modifiers" in it
 The easiest ways to get or create recipes are by either using the pre-configured recipes in [SparseZoo](https://github.com/neuralmagic/sparsezoo) or using [Sparsify's](https://github.com/neuralmagic/sparsify) automatic creation.
 
 However, power users may be inclined to create their own recipes by hand to enable more 
-fine grained control or to add in custom modifiers.
+fine-grained control or to add in custom modifiers.
 
 A sample recipe for pruning a model generally looks like the following:
 ```yaml
