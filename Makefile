@@ -1,13 +1,14 @@
 .PHONY: build docs test
 
 BUILDDIR := $(PWD)
-CHECKDIRS := examples notebooks scripts src tests utils setup.py
-CHECKGLOBS := 'examples/**/*.py' 'scripts/**/*.py' 'src/**/*.py' 'tests/**/*.py' 'utils/**/*.py' setup.py
+CHECKDIRS := examples integrations notebooks scripts src tests utils setup.py
+CHECKGLOBS := 'examples/**/*.py' 'integrations/**/*.py' 'scripts/**/*.py' 'src/**/*.py' 'tests/**/*.py' 'utils/**/*.py' setup.py
 DOCDIR := docs
-MDCHECKGLOBS := 'docs/**/*.md' 'docs/**/*.rst' 'examples/**/*.md' 'notebooks/**/*.md' 'scripts/**/*.md'
+MDCHECKGLOBS := 'docs/**/*.md' 'docs/**/*.rst' 'examples/**/*.md' 'integrations/**/*.md' 'notebooks/**/*.md' 'scripts/**/*.md'
 MDCHECKFILES := CODE_OF_CONDUCT.md CONTRIBUTING.md DEVELOPING.md README.md
 
-TARGETS := ""  # targets for running pytests: keras,onnx,pytorch,pytorch_models,pytorch_datasets,tensorflow_v1,tensorflow_v1_datasets
+BUILD_ARGS :=  # set nightly to build nightly release
+TARGETS := ""  # targets for running pytests: keras,onnx,pytorch,pytorch_models,pytorch_datasets,tensorflow_v1,tensorflow_v1_models,tensorflow_v1_datasets
 PYTEST_ARGS := ""
 ifneq ($(findstring keras,$(TARGETS)),keras)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/keras
@@ -63,7 +64,7 @@ docs:
 
 # creates wheel file
 build:
-	python3 setup.py sdist bdist_wheel
+	python3 setup.py sdist bdist_wheel $(BUILD_ARGS)
 
 # clean package
 clean:

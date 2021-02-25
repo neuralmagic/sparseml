@@ -31,14 +31,14 @@ To begin, run `pip install sparseml[torchvision]`
 
 ## Notebook
 For a quick, step-by-step walk-through of performing the integration and pruning a model run through the
-[pruning.ipynb](https://github.com/neuralmagic/sparseml/blob/main/examples/pytorch-torchvision/pruning.ipynb) notebook.
+[pruning.ipynb](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch-torchvision/pruning.ipynb) notebook.
 
 Run `jupyter notebook` in your terminal and navigate to the notebook in your browser to get started.
 
 ## Script
-`examples/pytorch-torchvision/main.py` is an ease-of-use script for applying a SparseML optimization recipe to a torchvision classification model.
+`integrations/pytorch-torchvision/main.py` is an ease-of-use script for applying a SparseML optimization recipe to a torchvision classification model.
 The script file is fully documented with descriptions, a command help printout, and example commands.
-You can also run `python examples/pytorch-torchvision/main.py -h` for a help printout.
+You can also run `python integrations/pytorch-torchvision/main.py -h` for a help printout.
 
 To run this script, you will need a SparseML recipe as well as an
 [ImageFolder](https://pytorch.org/docs/stable/torchvision/datasets.html#imagefolder)-like classification dataset to train
@@ -59,7 +59,7 @@ in the script file documentation.  The optimization learning rate, and number of
 
 example command:
 ```bash
-python examples/pytorch-torchvision/main.py \
+python integrations/pytorch-torchvision/main.py \
     --recipe-path ~/sparseml_recipes/pruning_resnet50.yaml \
     --model resnet50 \
     --imagefolder-path ~/datasets/my_imagefolder \

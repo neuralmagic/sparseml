@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Optimization Recipes
+# Sparsification Recipes
 
-All optimization APIs are designed to work with recipe files.
+All SparseML Sparsification APIs are designed to work with recipes.
 The files encode the instructions needed for modifying the model and/or training process as a list of modifiers.
 Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
 The files are written in [YAML](https://yaml.org/) and stored in YAML or 
@@ -25,12 +25,12 @@ The files are written in [YAML](https://yaml.org/) and stored in YAML or
 The rest of the SparseML system is coded to parse the recipe files into a native format for the desired framework
 and apply the modifications to the model and training pipeline.
 
-The easiest ways to get or create optimization recipes are by either using 
-the pre-configured recipes in [SparseZoo](https://github.com/neuralmagic/sparsezoo) or 
-using [Sparsify's](https://github.com/neuralmagic/sparsify) autoML style creation.
+In a recipe, modifiers must be written in a list that includes "modifiers" in its name.
+
+The easiest ways to get or create recipes are by either using the pre-configured recipes in [SparseZoo](https://github.com/neuralmagic/sparsezoo) or using [Sparsify's](https://github.com/neuralmagic/sparsify) automatic creation.
 
 However, power users may be inclined to create their own recipes by hand to enable more 
-fine grained control or to add in custom modifiers.
+fine-grained control or to add in custom modifiers.
 
 A sample recipe for pruning a model generally looks like the following:
 ```yaml
@@ -183,7 +183,7 @@ Notes:
    the script `scripts/pytorch/model_quantize_qat_export.py` or the function
    `neuralmagicML.pytorch.quantization.quantize_qat_export`.
 - If performing QAT on a sparse model, you must preserve sparsity during QAT by
-   applying a `ConstantKSModifier` or have already used a `GradualKSModifier` with
+   applying a `ConstantPruningModifier` or have already used a `GMPruningModifier` with
    `leave_enabled` set to True.
 
 Required Parameters:

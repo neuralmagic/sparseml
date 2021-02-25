@@ -26,11 +26,13 @@ __all__ = [
     "SequentialModelCreator",
     "MockPruningScheduler",
     "model_01",
+    "mnist_model",
 ]
 
 
 class MockPruningScheduler(PruningScheduler):
     def __init__(self, step_and_sparsity_pairs: List[Tuple]):
+        self._org_pairs = step_and_sparsity_pairs
         self.step_and_sparsity_pairs = {
             step: sparsity for (step, sparsity) in step_and_sparsity_pairs
         }
@@ -42,6 +44,12 @@ class MockPruningScheduler(PruningScheduler):
         update_ready = step in self.step_and_sparsity_pairs
         sparsity = self.step_and_sparsity_pairs[step] if update_ready else None
         return sparsity
+
+    def get_config(self):
+        return {
+            "class_name": self.__class__.__name__,
+            "step_and_sparsity_pairs": self._org_pairs,
+        }
 
 
 class DenseLayer(tf.keras.layers.Dense):
@@ -107,3 +115,33 @@ def model_01():
     outputs = tf.keras.layers.Dense(10, name="dense_02")(x)
     model = Model(inputs=inputs, outputs=outputs)
     return model
+
+
+def mnist_model():
+    inputs = tf.keras.Input(shape=(28, 28, 1), name="inputs")
+
+    # Block 1
+    x = tf.keras.layers.Conv2D(16, 5, strides=1)(inputs)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.ReLU()(x)
+
+    # Block 2
+    x = tf.keras.layers.Conv2D(32, 5, strides=2)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.ReLU()(x)
+
+    # Block 3
+    x = tf.keras.layers.Conv2D(64, 5, strides=1)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.ReLU()(x)
+
+    # Block 4
+    x = tf.keras.layers.Conv2D(128, 5, strides=2)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.ReLU()(x)
+
+    x = tf.keras.layers.AveragePooling2D(pool_size=1)(x)
+    x = tf.keras.layers.Flatten()(x)
+    outputs = tf.keras.layers.Dense(10, activation="softmax", name="outputs")(x)
+
+    return tf.keras.Model(inputs=inputs, outputs=outputs)

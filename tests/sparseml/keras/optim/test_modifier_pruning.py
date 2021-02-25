@@ -60,7 +60,7 @@ from tests.sparseml.keras.optim.mock import model_01
     scope="function",
 )
 @pytest.mark.parametrize("steps_per_epoch", [10], scope="function")
-class TestGradualKSModifier:
+class TestGMPruningModifier:
     def test_lifecycle(self, model_lambda, modifier_lambda, steps_per_epoch):
         model = model_lambda()
         modifier = modifier_lambda()

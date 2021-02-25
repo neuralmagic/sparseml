@@ -24,6 +24,7 @@ from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
 
 from sparseml.utils.helpers import create_parent_dirs
+from sparsezoo import Zoo
 
 
 try:
@@ -57,7 +58,10 @@ def load_model(
     """
     Load the state dict into a model from a given file.
 
-    :param path: the path to the pth file to load the state dict from
+    :param path: the path to the pth file to load the state dict from.
+        May also be a SparseZoo stub path preceded by 'zoo:' with the optional
+        `?recipe_type=` argument. If given a recipe type, the base model weights
+        for that recipe will be loaded.
     :param model: the model to load the state dict into
     :param strict: True to enforce that all tensors match between the model
         and the file; False otherwise
@@ -67,6 +71,15 @@ def load_model(
         look like they came from DataParallel type setup (start with module.).
         This removes "module." all keys
     """
+    if path.startswith("zoo:"):
+        if "recipe_type=" in path:
+            path = Zoo.download_recipe_base_framework_files(path, extensions=[".pth"])[
+                0
+            ]
+        else:
+            path = Zoo.load_model_from_stub(path).download_framework_files(
+                extensions=[".pth"]
+            )[0]
     model_dict = torch.load(path, map_location="cpu")
     current_dict = model.state_dict()
 

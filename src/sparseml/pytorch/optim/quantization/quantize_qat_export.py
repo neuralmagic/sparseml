@@ -569,15 +569,23 @@ def _remove_duplicate_quantize__ops(model: ModelProto):
             remove_node_and_params_from_graph(model, remove_node)
 
 
-def quantize_torch_qat_export(model: ModelProto, inplace: bool = True) -> ModelProto:
+def quantize_torch_qat_export(
+    model: Union[ModelProto, str],
+    output_file_path: Union[str, None] = None,
+    inplace: bool = True,
+) -> ModelProto:
     """
-    :param model: The model to convert
+    :param model: The model to convert, or a file path to it
+    :param output_file_path: File path to save the converted model to
     :param inplace: If true, does conversion of model in place. Default is true
     :return: Converts a model exported from a torch QAT session from a QAT graph with
         fake quantize ops surrounding operations to a quantized graph with quantized
         operations. All quantized Convs and FC inputs and outputs be surrounded by
         fake quantize ops
     """
+    if isinstance(model, str):
+        model = onnx.load(model)
+
     if not inplace:
         model = deepcopy(model)
 
@@ -588,5 +596,8 @@ def quantize_torch_qat_export(model: ModelProto, inplace: bool = True) -> ModelP
     _convert_quantizable_ops(model)
     quantize_resnet_identity_add_inputs(model)
     _remove_duplicate_quantize__ops(model)
+
+    if output_file_path:
+        onnx.save(model, output_file_path)
 
     return model

@@ -12,10 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+from datetime import date
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
 
+
+_PACKAGE_NAME = "sparseml"
+_VERSION = "0.1.1"
+_VERSION_MAJOR, _VERSION_MINOR, _VERSION_BUG = _VERSION.split(".")
+_VERSION_MAJOR_MINOR = f"{_VERSION_MAJOR}.{_VERSION_MINOR}"
+_NIGHTLY = "nightly" in sys.argv
+
+if _NIGHTLY:
+    _PACKAGE_NAME += "-nightly"
+    _VERSION += "." + date.today().strftime("%Y%m%d")
+    # remove nightly param so it does not break bdist_wheel
+    sys.argv.remove("nightly")
 
 _deps = [
     "jupyter>=1.0.0",
@@ -32,9 +46,14 @@ _deps = [
     "requests>=2.0.0",
     "scikit-image>=0.15.0",
     "scipy>=1.0.0",
-    "sparsezoo>=0.1.0",
     "tqdm>=4.0.0",
     "toposort>=1.0",
+]
+_nm_deps = [
+    f"{'sparsezoo-nightly' if _NIGHTLY else 'sparsezoo'}~={_VERSION_MAJOR_MINOR}"
+]
+_deepsparse_deps = [
+    f"{'deepsparse-nightly' if _NIGHTLY else 'deepsparse'}~={_VERSION_MAJOR_MINOR}"
 ]
 _pytorch_deps = ["torch>=1.1.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0"]
@@ -57,6 +76,7 @@ _dev_deps = [
     "sphinx-markdown-tables>=0.0.15",
     "wheel>=0.36.2",
     "pytest>=6.0.0",
+    "flaky>=3.0.0",
     "sphinx-rtd-theme",
 ]
 
@@ -72,12 +92,13 @@ def _setup_package_dir() -> Dict:
 
 
 def _setup_install_requires() -> List:
-    return _deps
+    return _nm_deps + _deps
 
 
 def _setup_extras() -> Dict:
     return {
         "dev": _dev_deps,
+        "deepsparse": _deepsparse_deps,
         "torch": _pytorch_deps,
         "torchvision": _pytorch_vision_deps,
         "tf_v1": _tensorflow_v1_deps,
@@ -95,13 +116,13 @@ def _setup_long_description() -> Tuple[str, str]:
 
 
 setup(
-    name="sparseml",
-    version="0.1.0",
+    name=_PACKAGE_NAME,
+    version=_VERSION,
     author="Neuralmagic, Inc.",
     author_email="support@neuralmagic.com",
     description=(
-        "Libraries for state-of-the-art deep neural network optimization algorithms, "
-        "enabling simple pipelines integration with a few lines of code"
+        "Libraries for applying sparsification recipes to neural networks with a "
+        "few lines of code, enabling faster and smaller models"
     ),
     long_description=_setup_long_description()[0],
     long_description_content_type=_setup_long_description()[1],
