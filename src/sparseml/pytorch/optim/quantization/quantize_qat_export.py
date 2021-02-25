@@ -583,6 +583,9 @@ def quantize_torch_qat_export(
         operations. All quantized Convs and FC inputs and outputs be surrounded by
         fake quantize ops
     """
+    if isinstance(model, str):
+        model = onnx.load(model)
+
     if not inplace:
         model = deepcopy(model)
 
