@@ -56,7 +56,7 @@ Techniques for sparsification are all encompassing including everything from ind
 When implemented correctly, these techniques result in significantly more performant and smaller models with limited to no effect on the baseline metrics.
 For example, pruning plus quantization can give over [7x improvements in performance](resnet50link) while recovering to nearly the same baseline accuracy.
 
-The DeepSparse product suite builds on top of sparsification enabling you to easily apply the techniques to your datasets/models using recipe driven approaches.
+The Deep Sparse product suite builds on top of sparsification enabling you to easily apply the techniques to your datasets and models using recipe-driven approaches.
 Recipes encode the directions for how to sparsify a model into a simple, easily editable format.
 - Download a sparsification recipe and sparsified model from the [SparseZoo](https://github.com/neuralmagic/sparsezoo).
 - Alternatively, create a recipe for your model using [Sparsify](https://github.com/neuralmagic/sparsify).
