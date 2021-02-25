@@ -48,14 +48,10 @@ Libraries for applying sparsification recipes to neural networks with a few line
 Overview
 ========
 
-SparseML is a toolkit that includes APIs, CLIs, scripts, and libraries that apply state-of-the-art optimization
-algorithms such as `pruning <https://neuralmagic.com/blog/pruning-overview />`_ and
-`quantization <https://arxiv.org/abs/1609.07061 />`_ to any neural network.
-General, recipe-driven approaches built around these optimizations enable the simplification of creating faster
-and smaller models for the ML performance community at large.
+SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art sparsification algorithms such as pruning and quantization to any neural network.
+General, recipe-driven approaches built around these algorithms enable the simplification of creating faster and smaller models for the ML performance community at large.
 
-SparseML is integrated for easy model optimizations within the `PyTorch <https://pytorch.org />`_,
-`Keras <https://keras.io />`_, and `TensorFlow V1 <http://tensorflow.org />`_ ecosystems currently.
+`This repository <https://github.com/neuralmagic/sparseml>`_ contains integrations within the `PyTorch <https://pytorch.org />`_, `Keras <https://keras.io />`_, and `TensorFlow V1 <http://tensorflow.org />`_, allowing for seamless model sparsification.
 
 Sparsification
 ==============
@@ -63,7 +59,7 @@ Sparsification
 Sparsification is the process of taking a trained deep learning model and removing redundant information from the overprecise and over-parameterized network resulting in a faster and smaller model.
 Techniques for sparsification are all encompassing including everything from inducing sparsity using `pruning <https://neuralmagic.com/blog/pruning-overview/>`_ and `quantization <https://arxiv.org/abs/1609.07061>`_ to enabling naturally occurring sparsity using `activation sparsity <http://proceedings.mlr.press/v119/kurtz20a.html>`_ or `winograd/FFT <https://arxiv.org/abs/1509.09308>`_.
 When implemented correctly, these techniques result in significantly more performant and smaller models with limited to no effect on the baseline metrics.
-For example, pruning plus quantization can give over [7x improvements in performance](resnet50link) while recovering to nearly the same baseline accuracy.
+For example, pruning plus quantization can give over `7x improvements in performance <https://neuralmagic.com/blog/benchmark-resnet50-with-deepsparse>`_ while recovering to nearly the same baseline accuracy.
 
 The Deep Sparse product suite builds on top of sparsification enabling you to easily apply the techniques to your datasets and models using recipe-driven approaches.
 Recipes encode the directions for how to sparsify a model into a simple, easily editable format.
@@ -80,22 +76,22 @@ Recipes encode the directions for how to sparsify a model into a simple, easily 
 Resources and Learning More
 ===========================
 
-- `SparseZoo Documentation <https://docs.neuralmagic.com/sparsezoo />`_
-- `Sparsify Documentation <https://docs.neuralmagic.com/sparsify />`_
-- `DeepSparse Documentation <https://docs.neuralmagic.com/deepsparse />`_
-- `Neural Magic Blog <https://www.neuralmagic.com/blog />`_,
-  `Resources <https://www.neuralmagic.com/resources />`_,
-  `Website <https://www.neuralmagic.com />`_
+- `SparseZoo Documentation <https://docs.neuralmagic.com/sparsezoo>`_
+- `Sparsify Documentation <https://docs.neuralmagic.com/sparsify>`_
+- `DeepSparse Documentation <https://docs.neuralmagic.com/deepsparse>`_
+- `Neural Magic Blog <https://www.neuralmagic.com/blog>`_,
+  `Resources <https://www.neuralmagic.com/resources>`_,
+  `Website <https://www.neuralmagic.com>`_
 
 Release History
 ===============
 
 Official builds are hosted on PyPi
-- stable: `sparseml <https://pypi.org/project/sparseml />`_
-- nightly (dev): `sparseml-nightly <https://pypi.org/project/sparseml-nightly />`_
+- stable: `sparseml <https://pypi.org/project/sparseml>`_
+- nightly (dev): `sparseml-nightly <https://pypi.org/project/sparseml-nightly>`_
 
 Additionally, more information can be found via
-`GitHub Releases <https://github.com/neuralmagic/sparseml/releases />`_.
+`GitHub Releases <https://github.com/neuralmagic/sparseml/releases>`_.
 
 .. toctree::
     :maxdepth: 3
