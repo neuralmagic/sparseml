@@ -60,7 +60,7 @@ from pruning.
 ## ResNet-50 Imagenette Example
 
 The [SparseZoo](https://github.com/neuralmagic/sparseml) hosts a sparse-quantized ResNet-50 model trained
-on the ImageNet dataset.  It maintains 99% of the baseline accuracy and can achieve over 6.5x
+on the ImageNet dataset.  It maintains 99% of the baseline accuracy and can achieve noticeable
 speedup using the DeepSparse Engine.  There are multiple paths to explore sparse-quantized
 transfer learning with this model.
 
