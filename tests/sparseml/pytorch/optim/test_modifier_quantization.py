@@ -193,9 +193,9 @@ def test_quantization_modifier_yaml():
         == obj_modifier.start_epoch
     )
     assert (
-        yaml_modifier.submodules
-        == serialized_modifier.submodules
-        == obj_modifier.submodules
+        sorted(yaml_modifier.submodules)
+        == sorted(serialized_modifier.submodules)
+        == sorted(obj_modifier.submodules)
     )
     assert (
         yaml_modifier.model_fuse_fn_name
