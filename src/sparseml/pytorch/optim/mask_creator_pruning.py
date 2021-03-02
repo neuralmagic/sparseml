@@ -160,26 +160,35 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
     _map_mask_to_tensor
     """
 
-    _GROUPING_FUNCTIONS = {
-        "mean": lambda args: torch.mean(**args),
-        "max": lambda args: torch.max(**args)[0],
-        "min": lambda args: torch.min(**args)[0],
-    }
+    _VALID_GROUPING_FN_NAMES = ["mean", "max", "min"]
 
     @staticmethod
-    def get_grouping_fn(grouping_fn_name: str) -> Callable[[Tensor, List[int]], Tensor]:
+    def reduce_tensor(
+        tensor: Tensor,
+        dim: Union[int, List[int]],
+        reduce_fn_name: str,
+        keepdim: bool = True,
+    ) -> Tensor:
         """
-        :param grouping_fn_name: name of grouping function to get torch function for
-        :return: torch function for grouping_fn_name if available,
-            raises error otherwise
+
+        :param tensor: the tensor to reduce
+        :param dim: dimension or list of dimension to reduce along
+        :param reduce_fn_name: function name to reduce tensor with. valid options
+            are 'mean', 'max', 'min'
+        :param keepdim: preserves the reduced dimension(s) in returned tensor shape
+            as shape 1. default is True
+        :return: Tensor reduced along the given dimension(s)
         """
-        if grouping_fn_name not in GroupedPruningMaskCreator._GROUPING_FUNCTIONS:
-            raise ValueError(
-                "Invalid grouping fn {}, valid grouping fns: {}".format(
-                    grouping_fn_name, GroupedPruningMaskCreator._GROUPING_FUNCTIONS
-                )
-            )
-        return GroupedPruningMaskCreator._GROUPING_FUNCTIONS[grouping_fn_name]
+        if reduce_fn_name == "mean":
+            return torch.mean(input=tensor, dim=dim, keepdim=keepdim)
+        if reduce_fn_name == "max":
+            return torch.max(input=tensor, dim=dim, keepdim=keepdim)[0]
+        if reduce_fn_name == "min":
+            return torch.min(input=tensor, dim=dim, keepdim=keepdim)[0]
+        raise ValueError(
+            f"Invalid grouping fn {reduce_fn_name}, valid grouping fns: "
+            f"{GroupedPruningMaskCreator._VALID_GROUPING_FN_NAMES}"
+        )
 
     @abstractmethod
     def group_tensor(self, tensor: Tensor) -> Tensor:
@@ -263,7 +272,7 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
         if isinstance(dim, int):
             dim = [dim]
         self._dim_name = None
-        self._grouping_fn = GroupedPruningMaskCreator.get_grouping_fn(grouping_fn_name)
+        self._grouping_fn_name = grouping_fn_name
         if isinstance(dim, str):
             valid_dim_names = ["channel", "filter"]
             if dim in valid_dim_names:
@@ -290,8 +299,8 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
                 " Received tensor with shape {}".format(tensor.shape)
             )
         reduced_dims = [idx for idx in range(n_dims) if idx not in self._dim]
-        reduced_tensor = self._grouping_fn(
-            {"input": torch.abs(tensor), "dim": reduced_dims, "keepdim": True}
+        reduced_tensor = GroupedPruningMaskCreator.reduce_tensor(
+            torch.abs(tensor), reduced_dims, self._grouping_fn_name
         )
         return reduced_tensor.type(tensor.type())
 
@@ -343,7 +352,7 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
                 ).format(block_shape)
             )
         self._block_shape = block_shape
-        self._grouping_fn = GroupedPruningMaskCreator.get_grouping_fn(grouping_fn_name)
+        self._grouping_fn_name = grouping_fn_name
 
     def group_tensor(self, tensor: Tensor) -> Tensor:
         """
@@ -353,8 +362,8 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         """
         blocked_tens_shape = self._get_blocked_tens_shape_and_validate(tensor.shape)
         blocked_tensor = tensor.reshape(blocked_tens_shape)
-        reduced_blocks = self._grouping_fn(
-            {"input": torch.abs(blocked_tensor), "dim": 1, "keepdim": True}
+        reduced_blocks = GroupedPruningMaskCreator.reduce_tensor(
+            torch.abs(blocked_tensor), 1, self._grouping_fn_name
         )
         return reduced_blocks.type(tensor.type())
 
