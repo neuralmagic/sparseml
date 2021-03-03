@@ -7,8 +7,6 @@ Using various pruning configuration files we demostrate the effect unstructured 
 These example scripts require sparseml, transformers, torch, datasets and associated to libraries. To install run the following command
 
 ```bash
-conda create -n sparsemlBERT python=3.7
-conda activate sparsemlBERT
 pip install torch sparseml transformers datasets
 ```
 
