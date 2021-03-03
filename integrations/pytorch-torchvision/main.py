@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Example script for running training and optimization tasks on torchvision
 classification models with an imagefolder based dataset using SparseML.
@@ -62,7 +76,7 @@ optional arguments:
 
 ##########
 Example command for pruning resnet50 on an imagefolder dataset:
-python examples/pytorch-torchvision/main.py \
+python integrations/pytorch-torchvision/main.py \
     --recipe-path ~/sparseml_recipes/pruning_resnet50.yaml \
     --model resnet50 \
     --imagefolder-path ~/datasets/ILSVRC2012 \
@@ -75,14 +89,15 @@ import time
 from types import ModuleType
 
 import torch
-from sparseml.utils import create_dirs
-from sparseml.pytorch.datasets.classification import ImageFolderDataset
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.utils import ModuleExporter, PythonLogger, load_model
 from torch.nn import CrossEntropyLoss
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torchvision import models
+
+from sparseml.pytorch.datasets.classification import ImageFolderDataset
+from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.pytorch.utils import ModuleExporter, PythonLogger, load_model
+from sparseml.utils import create_dirs
 
 
 MODEL_IMAGE_SIZES = {
@@ -101,14 +116,17 @@ def parse_args():
         "--model",
         type=str,
         required=True,
-        help="The torchvision model class to use, ex: inception_v3, resnet50, mobilenet_v2 "
-        "model name is fed directly to torchvision.models, more information can be found here "
-        "https://pytorch.org/docs/stable/torchvision/models.html",
+        help=(
+            "The torchvision model class to use, ex: inception_v3, resnet50, "
+            "mobilenet_v2 model name is fed directly to torchvision.models, "
+            "more information can be found here "
+            "https://pytorch.org/docs/stable/torchvision/models.html"
+        ),
     )
     parser.add_argument(
         "--recipe-path",
         type=str,
-        default=None,
+        required=True,
         help="The path to the yaml file containing the sparseml modifiers and "
         "schedule to apply them with",
     )
@@ -117,8 +135,10 @@ def parse_args():
         type=int,
         required=False,
         default=None,
-        help="Size of image to use for model input. Default is 224 unless pytorch documentation "
-        "specifies otherwise",
+        help=(
+            "Size of image to use for model input. Default is 224 unless pytorch "
+            "documentation specifies otherwise"
+        ),
     )
     parser.add_argument(
         "--batch-size",
@@ -280,11 +300,12 @@ def train_model(
                 # track history if only in train
                 with torch.set_grad_enabled(phase == "train"):
                     # Get model outputs and calculate loss
-                    # Special case for inception because in training it has an auxiliary output. In train
-                    #   mode we calculate the loss by summing the final output and the auxiliary output
-                    #   but in testing we only consider the final output.
+                    # Special case for inception because in training it has an
+                    # auxiliary output. In train mode we calculate the loss by summing
+                    # the final output and the auxiliary output but in testing we
+                    # only consider the final output.
                     if is_inception and phase == "train":
-                        # From https://discuss.pytorch.org/t/how-to-optimize-inception-model-with-auxiliary-classifiers/7958
+                        # From https://discuss.pytorch.org/t/how-to-optimize-inception-model-with-auxiliary-classifiers/7958  # noqa
                         outputs, aux_outputs = model(inputs)
                         loss1 = criterion(outputs, labels)
                         loss2 = criterion(aux_outputs, labels)

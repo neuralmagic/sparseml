@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from typing import Callable, List
 
@@ -188,6 +202,7 @@ def test_create_op_pruning_conv(sparsity_val: float, mask_creator: PruningMaskCr
                 assert sess.run(mask_vals_are_grouped)
 
 
+@pytest.mark.flaky
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",
@@ -377,6 +392,7 @@ def test_apply_op_vars_masks(
                 assert abs(var_sparsity - sparsity_val) < 1e-2
 
 
+@pytest.mark.flaky
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",
@@ -404,7 +420,7 @@ def test_get_or_create_ks_schedule_ops(
 ):
     group = "test-group"
 
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         global_step = tf_compat.train.get_or_create_global_step()
         step_placeholder = tf_compat.placeholder(dtype=tf_compat.int64, name="step")
         global_assign = global_step.assign(step_placeholder)
@@ -488,6 +504,7 @@ def _expected_sparsity(
     )
 
 
+@pytest.mark.flaky
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_TENSORFLOW_TESTS", False),
     reason="Skipping tensorflow_v1 tests",

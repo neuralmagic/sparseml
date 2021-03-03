@@ -1,8 +1,23 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Utilities for ONNX models and running inference with them
 """
 import logging
 import os
+import re
 import tempfile
 import time
 from abc import ABC, abstractmethod
@@ -130,11 +145,11 @@ class ModelRunner(ABC):
         """
         outputs = []
         times = []
-        for output, time in self.run_iter(
+        for output, pred_time in self.run_iter(
             data_loader, desc, show_progress, max_steps, *args, **kwargs
         ):
             outputs.append(output)
-            times.append(time)
+            times.append(pred_time)
 
         return outputs, times
 
@@ -148,7 +163,8 @@ class ModelRunner(ABC):
         **kwargs,
     ):
         """
-        Iteratively runs inference for a model for the data given in the data_loader iterator
+        Iteratively runs inference for a model for the data given in the
+        data_loader iterator
 
         :param data_loader: the data_loader used to load batches of data to
             run through the model
@@ -156,8 +172,8 @@ class ModelRunner(ABC):
         :param show_progress: True to show a tqdm bar when running, False otherwise
         :param max_steps: maximum number of steps to take for the data_loader
             instead of running over all the data
-        :return: a tuple containing the list of outputs and the list of times
-            for running the data
+        :return: an iterator to go through the tuples containing
+            the list of outputs and the list of times for running the data
         """
         counter_len = len(data_loader) if not data_loader.infinite else None
 
@@ -176,9 +192,6 @@ class ModelRunner(ABC):
             if not show_progress
             else auto.tqdm(enumerate(data_loader), desc=desc, total=progress_steps)
         )
-
-        outputs = []
-        times = []
 
         for batch, (data, label) in data_iter:
             _LOGGER.debug("calling batch_forward for batch {}".format(batch))
@@ -213,7 +226,8 @@ class OpenVINOModelRunner(ModelRunner):
     :param nthreads: number of threads to run the model
     :param batch_size: Batch size value. If not specified, the batch size value is
         determined from Intermediate Representation
-    :param shape: shape to be set for the input(s). For example, "input1[1,3,224,224],input2[1,4]"
+    :param shape: shape to be set for the input(s).
+        For example, "input1[1,3,224,224],input2[1,4]"
         or "[1,3,224,224]" in case of one input size.
     """
 
@@ -455,7 +469,7 @@ class ORTModelRunner(ModelRunner):
 
         # Note: If ORT was built with OpenMP, use OpenMP env variable such as
         # OMP_NUM_THREADS to control the number of threads.
-        # See: https://github.com/microsoft/onnxruntime/blob/master/docs/ONNX_Runtime_Perf_Tuning.md
+        # See: https://github.com/microsoft/onnxruntime/blob/master/docs/ONNX_Runtime_Perf_Tuning.md  # noqa
         sess_options.intra_op_num_threads = nthreads
 
         sess_options.log_severity_level = 3
@@ -603,7 +617,8 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
 
     :param model: the path to the ONNX model file or the loaded onnx.ModelProto
     :param batch_size: the size of the batch to create the model for
-    :param num_cores: the number of physical cores to run the model on
+    :param num_cores: the number of physical cores to run the model on. Defaults
+        to run on all available cores
     :param loss: the loss function, if any, to run for evaluation of the model
     """
 
@@ -611,7 +626,7 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
         self,
         model: Union[str, ModelProto],
         batch_size: int,
-        num_cores: int = -1,
+        num_cores: int = None,
         loss: Union[
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ] = None,
@@ -671,7 +686,7 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
         _check_args(args, kwargs)
         nm_batch = list(batch.values())
         pred_time = time.time()
-        pred = self._engine.mapped_forward(nm_batch)
+        pred = self._engine.mapped_run(nm_batch)
         pred_time = time.time() - pred_time
 
         return pred, pred_time
@@ -769,14 +784,15 @@ class DeepSparseAnalyzeModelRunner(_DeepSparseBaseModelRunner):
 
     :param model: the path to the ONNX model file or the loaded onnx.ModelProto
     :param batch_size: the size of the batch to create the model for
-    :param num_cores: the number of physical cores to run the model on
+    :param num_cores: the number of physical cores to run the model on. Defaults
+        to run on all available cores
     """
 
     def __init__(
         self,
         model: Union[str, ModelProto],
         batch_size: int,
-        num_cores: int = -1,
+        num_cores: int = None,
     ):
         super().__init__(model, batch_size, num_cores, loss=None)
 

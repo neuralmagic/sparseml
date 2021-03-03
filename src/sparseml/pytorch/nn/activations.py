@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Implementations related to activations for neural networks in PyTorch
 """
@@ -83,10 +97,11 @@ class Swish(Module):
 
 def hard_swish(x_tens: Tensor, inplace: bool = False):
     """
-    Hardswish layer implementation:
-        0 for x <= -3
-        x for x >= 3
-        x * (x + 3) / 6 otherwise
+    | Hardswish layer implementation:
+    |    0 for x <= -3
+    |    x for x >= 3
+    |    x * (x + 3) / 6 otherwise
+
     More information can be found in the paper
     `here <https://arxiv.org/abs/1905.02244>`__.
 
@@ -107,10 +122,11 @@ def hard_swish(x_tens: Tensor, inplace: bool = False):
 
 class Hardswish(Module):
     """
-    Hardswish layer implementation:
-        0 for x <= -3
-        x for x >= 3
-        x * (x + 3) / 6 otherwise
+    | Hardswish layer implementation:
+    |    0 for x <= -3
+    |    x for x >= 3
+    |    x * (x + 3) / 6 otherwise
+
     More information can be found in the paper
     `here <https://arxiv.org/abs/1905.02244>`__.
 

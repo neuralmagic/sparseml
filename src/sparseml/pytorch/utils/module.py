@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Code related to running a module through training and testing over a dataset.
 Allows reporting of progress and override functions and hooks.
@@ -356,7 +370,8 @@ class ModuleRunFuncs(object):
         Expected to be called with the model and the output from the loss function
         as a dict mapping of names to tensors returns nothing
 
-        :param value: the callable used to run a backwards pass for the given loss functions
+        :param value: the callable used to run a backwards pass for the given
+            loss functions
         """
         self._model_backward = value
 
@@ -544,8 +559,8 @@ class ModuleRunner(ABC):
         ex 100 will log every 100 batches
     :param log_summary: True to log the final summary results after the run completes
     :param device_context: ModuleDeviceContext with settings to enable mixed precision
-        using torch.cuda.amp or adjust losses when using DistributedDataParallel. Default
-        settings do not use mixed precision or account for DDP.
+        using torch.cuda.amp or adjust losses when using DistributedDataParallel.
+        Default settings do not use mixed precision or account for DDP.
     """
 
     def __init__(
@@ -856,9 +871,9 @@ class ModuleTrainer(ModuleRunner):
         ex 100 will log every 100 batches
     :param log_summary: True to log the final summary results after the run completes
     :param device_context: ModuleDeviceContext with settings to enable mixed precision
-        using torch.cuda.amp or adjust losses when using DistributedDataParallel. Default
-        settings do not use mixed precision or account for DDP. Will raise an exception
-        if torch version does not support amp.
+        using torch.cuda.amp or adjust losses when using DistributedDataParallel.
+        Default settings do not use mixed precision or account for DDP.
+        Will raise an exception if torch version does not support amp.
     """
 
     def __init__(
@@ -899,8 +914,8 @@ class ModuleTrainer(ModuleRunner):
                 )
             if optim_closure is not None:
                 raise RuntimeError(
-                    "Optimizer closures are not currently supported when training using "
-                    "torch.cuda.amp.GradScaler."
+                    "Optimizer closures are not currently supported when training "
+                    "using torch.cuda.amp.GradScaler."
                 )
             self._scaler = GradScaler()
         else:
@@ -1028,9 +1043,9 @@ class ModuleTester(ModuleRunner):
         ex 100 will log every 100 batches
     :param log_summary: True to log the final summary results after the run completes
     :param device_context: ModuleDeviceContext with settings to enable mixed precision
-        using torch.cuda.amp or adjust losses when using DistributedDataParallel. Default
-        settings do not use mixed precision or account for DDP. Will raise an exception
-        if torch version does not support amp.
+        using torch.cuda.amp or adjust losses when using DistributedDataParallel.
+        Default settings do not use mixed precision or account for DDP.
+        Will raise an exception if torch version does not support amp.
     """
 
     def __init__(

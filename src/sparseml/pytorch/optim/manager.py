@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Contains base code related to modifier managers: modifier managers handle
 grouping modifiers and running them together.
@@ -6,6 +20,7 @@ Also handles loading modifiers from yaml files
 
 from typing import Dict, List, Union
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -14,6 +29,7 @@ from sparseml.optim import BaseManager
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import PyTorchLogger
 from sparseml.utils import load_recipe_yaml_str
+from sparsezoo.objects import OptimizationRecipe
 
 
 __all__ = ["ScheduledModifierManager", "load_manager"]
@@ -41,15 +57,23 @@ class ScheduledModifierManager(BaseManager, Modifier):
     """
 
     @staticmethod
-    def from_yaml(file_path: str, add_modifiers: List[Modifier] = None):
+    def from_yaml(
+        file_path: Union[str, OptimizationRecipe],
+        add_modifiers: List[Modifier] = None,
+    ):
         """
         Convenience function used to create the manager of multiple modifiers from a
-        yaml file.
+        recipe file.
 
-        :param file_path: the path to the yaml file to load the modifier from
+        :param file_path: the path to the recipe file to load the modifier from, or
+            a SparseZoo model stub to load a recipe for a model stored in SparseZoo.
+            SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
+            '?recipe_type=<type>' parameter. Can also be a SparseZoo OptimizationRecipe
+            object. i.e. '/path/to/local/recipe.yaml', 'zoo:model/stub/path',
+            'zoo:model/stub/path?recipe_type=transfer'
         :param add_modifiers: additional modifiers that should be added to the
-            returned manager alongside the ones loaded from the yaml file
-        :return: ScheduledModifierManager() created from the yaml file
+            returned manager alongside the ones loaded from the recipe file
+        :return: ScheduledModifierManager() created from the recipe file
         """
         yaml_str = load_recipe_yaml_str(file_path)
         modifiers = Modifier.load_list(yaml_str)

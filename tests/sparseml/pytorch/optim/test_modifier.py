@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import sys
 from typing import Callable, List, Union
@@ -21,6 +35,10 @@ from tests.sparseml.pytorch.helpers import (
     LinearNet,
     create_optim_adam,
     create_optim_sgd,
+)
+
+
+from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_epoch,
     test_loss,
     test_steps_per_epoch,
@@ -61,8 +79,8 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         super().test_constructor(modifier_lambda, framework=PYTORCH_FRAMEWORK)
 
@@ -72,8 +90,8 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         super().test_yaml(modifier_lambda, framework=PYTORCH_FRAMEWORK)
 
@@ -83,8 +101,8 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         super().test_yaml_key(modifier_lambda, framework=PYTORCH_FRAMEWORK)
 
@@ -94,8 +112,8 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         super().test_repr(modifier_lambda, framework=PYTORCH_FRAMEWORK)
 
@@ -105,8 +123,8 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         model = model_lambda()
         optimizer = optim_lambda(model)
@@ -134,12 +152,12 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
-        optimizer = optim_lambda(model)
+        optim_lambda(model)
 
         loggers = []
         expected_loggers = []
@@ -169,8 +187,8 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -193,8 +211,8 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -222,9 +240,9 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
-        test_loss: Tensor,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
+        test_loss: Tensor,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -247,8 +265,8 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -275,8 +293,8 @@ class ModifierTest(BaseModifierTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -313,8 +331,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         super().test_props_start(modifier_lambda, framework=PYTORCH_FRAMEWORK)
 
@@ -324,8 +342,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         super().test_props_end(modifier_lambda, framework=PYTORCH_FRAMEWORK)
 
@@ -334,8 +352,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -360,8 +378,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -388,8 +406,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -418,8 +436,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -457,8 +475,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         with pytest.raises(RuntimeError):
             super().test_update(
@@ -474,8 +492,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -504,8 +522,8 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         with pytest.raises(RuntimeError):
             super().test_log_update(
@@ -528,8 +546,8 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         modifier_lambda: Callable[[], Modifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         super().test_props_frequency(modifier_lambda, framework=PYTORCH_FRAMEWORK)
 
@@ -544,8 +562,8 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         modifier_lambda: Callable[[], ScheduledUpdateModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         super().test_update_ready(
             modifier_lambda,
@@ -578,8 +596,8 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         modifier_lambda: Callable[[], ScheduledUpdateModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: float,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: float,  # noqa: F811
     ):
         super().test_scheduled_update(
             modifier_lambda,
@@ -687,3 +705,71 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
 )
 class TestScheduledUpdateModifierImpl(ScheduledUpdateModifierTest):
     pass
+
+
+_SAMPLE_RECIPE = """
+modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 1.0
+
+  - !SetLearningRateModifier
+    start_epoch: 0.0
+    learning_rate: 0.1
+"""
+
+_SAMPLE_GROUPED_RECIPE = """
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 50.0
+
+  - !SetLearningRateModifier
+    start_epoch: 0.0
+    learning_rate: 0.1
+
+pruning_modifiers:
+  - !GMPruningModifier
+    start_epoch: 0
+    end_epoch: 40
+    init_sparsity: 0.05
+    final_sparsity: 0.85
+    params: __ALL__
+    update_frequency: 0.5
+"""
+
+
+@pytest.mark.parametrize(
+    "modifier_str,num_modifiers",
+    [
+        (_SAMPLE_RECIPE, 2),
+        (_SAMPLE_GROUPED_RECIPE, 3),
+    ],
+)
+def test_load_list(modifier_str, num_modifiers):
+    modifier_list = Modifier.load_list(modifier_str)
+    assert len(modifier_list) == num_modifiers
+
+
+_SAMPLE_BAD_RECIPE = """
+incorrect_modifier_list_name:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 1.0
+
+  - !SetLearningRateModifier
+    start_epoch: 0.0
+    learning_rate: 0.1
+"""
+
+
+@pytest.mark.parametrize(
+    "modifier_str",
+    [
+        _SAMPLE_BAD_RECIPE,
+    ],
+)
+def test_load_list_fails(modifier_str):
+    # expect ValueError mentioning 'modifiers'
+    with pytest.raises(ValueError, match=r".*'modifiers'.*"):
+        Modifier.load_list(modifier_str)

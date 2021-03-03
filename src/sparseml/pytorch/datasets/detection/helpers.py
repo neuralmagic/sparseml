@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Helper classes and functions for PyTorch detection data loaders
 """
@@ -38,7 +52,7 @@ class AnnotatedImageTransforms(object):
     (images and annotations for object detection).
 
     :param transforms: List of transformations that take an image and annotation as
-    their parameters.
+        their parameters.
     """
 
     def __init__(self, transforms: List):
@@ -78,7 +92,8 @@ def random_horizontal_flip_image_and_annotations(
     image: Image.Image, annotations: Tuple[Tensor, Tensor], p: float = 0.5
 ) -> Tuple[Image.Image, Tuple[Tensor, Tensor]]:
     """
-    Perorms a horizontal flip on given image and bounding boxes with probability p.
+    Performs a horizontal flip on given image and bounding boxes with probability p.
+
     :param image: the image to randomly flip
     :param annotations: a tuple of bounding boxes and their labels for this image
     :param p: the probability to flip with. Default is 0.5
@@ -101,16 +116,18 @@ def yolo_collate_fn(
     """
     Collate function to be used for creating a DataLoader with values for Yolo model
     input.
+
     :param batch: a batch of data points and annotations transformed by
         bounding_box_and_labels_to_yolo_fmt
-    :return: the batch stacked as tensors for all values except for the original annotations
+    :return: the batch stacked as tensors for all values except for the
+        original annotations
     """
     images = []
     targets = []
     annotations = []
     for idx, (image, (target, annotation)) in enumerate(batch):
         images.append(image.unsqueeze(0))
-        img_label = torch.ones(target.size(0), 1)
+        img_label = torch.ones(target.size(0), 1) * idx
         targets.append(torch.cat((img_label, target), 1))
         annotations.append(annotation)
 
@@ -126,8 +143,10 @@ def ssd_collate_fn(
     """
     Collate function to be used for creating a DataLoader with values transformed by
     encode_annotation_bounding_boxes.
+
     :param batch: a batch of data points transformed by encode_annotation_bounding_boxes
-    :return: the batch stacked as tensors for all values except for the original annotations
+    :return: the batch stacked as tensors for all values except for the
+        original annotations
     """
     images = []
     enc_boxes = []

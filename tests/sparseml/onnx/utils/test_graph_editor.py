@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import List
 
 import numpy
@@ -9,7 +23,10 @@ from sparseml.onnx.utils import (
     prune_model_one_shot,
     prune_unstructured,
 )
-from tests.sparseml.onnx.helpers import OnnxRepoModelFixture, onnx_repo_models
+from tests.sparseml.onnx.helpers import OnnxRepoModelFixture
+
+
+from tests.sparseml.onnx.helpers import onnx_repo_models  # noqa isort: skip
 
 
 def _test_correct_sparsity(pruned_array, sparsity, tolerance=1e-4):
@@ -57,7 +74,7 @@ def test_prune_unstructured(array, sparsities):
 
 @pytest.mark.parametrize("sparsity", [(0.01), (0.5), (0.99), (0.999)])
 def test_prune_model_one_shot(
-    onnx_repo_models: OnnxRepoModelFixture, sparsity: List[float]
+    onnx_repo_models: OnnxRepoModelFixture, sparsity: List[float]  # noqa: F811
 ):
     model_path = onnx_repo_models.model_path
     model = load_model(model_path)
@@ -73,7 +90,9 @@ def test_prune_model_one_shot(
         _test_correct_sparsity(weight.val, sparsity, 5.5e-3)
 
 
-def test_prune_model_one_shot_sparsity_list(onnx_repo_models: OnnxRepoModelFixture):
+def test_prune_model_one_shot_sparsity_list(
+    onnx_repo_models: OnnxRepoModelFixture,  # noqa: F811
+):
     model_path = onnx_repo_models.model_path
     model = load_model(model_path)
     nodes = [

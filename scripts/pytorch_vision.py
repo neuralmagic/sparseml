@@ -1,6 +1,20 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
-Perform optimization tasks on image classification and object detection models in PyTorch
-including:
+Perform optimization tasks on image classification and object detection models in
+PyTorch including:
 * Model pruning
 * Quantization aware training
 * Sparse transfer learning
@@ -43,7 +57,6 @@ usage: vision.py train [-h] --arch-key ARCH_KEY [--pretrained PRETRAINED]
                        [--save-best-after SAVE_BEST_AFTER]
                        [--save-epochs SAVE_EPOCHS [SAVE_EPOCHS ...]]
                        [--use-mixed-precision] [--debug-steps DEBUG_STEPS]
-                       [--local_rank LOCAL_RANK]
 
 Train and/or prune an image classification or detection architecture on a
 dataset
@@ -67,7 +80,9 @@ optional arguments:
   --checkpoint-path CHECKPOINT_PATH
                         A path to a previous checkpoint to load the state from
                         and resume the state for. If provided, pretrained will
-                        be ignored
+                        be ignored. If using a SparseZoo recipe, can also
+                        provide 'zoo' to load the base weights associated with
+                        that recipe
   --model-kwargs MODEL_KWARGS
                         kew word arguments to be passed to model constructor,
                         should be given as a json object
@@ -99,9 +114,9 @@ optional arguments:
                         in as a json object
   --recipe-path RECIPE_PATH
                         The path to the yaml file containing the modifiers and
-                        schedule to apply them with. If set to
-                        'transfer_learning', then will create a schedule to
-                        enable sparse transfer learning
+                        schedule to apply them with.  Can also provide a
+                        SparseZoo stub prefixed with 'zoo:' with an optional
+                        '?recipe_type=' argument"
   --sparse-transfer-learn
                         Enable sparse transfer learning modifiers to enforce
                         the sparsity for already sparse layers. The modifiers
@@ -127,8 +142,6 @@ optional arguments:
   --debug-steps DEBUG_STEPS
                         Amount of steps to run for training and testing for a
                         debug mode
-  --local_rank LOCAL_RANK
-                        Do not set: argument set by torch.distributed for DDP
 
 
 ##########
@@ -141,7 +154,8 @@ usage: vision.py export [-h] --arch-key ARCH_KEY [--pretrained PRETRAINED]
                         [--dataset-kwargs DATASET_KWARGS]
                         [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
                         [--num-samples NUM_SAMPLES] [--onnx-opset ONNX_OPSET]
-                        [--use-zipfile-serialization-if-available USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE]
+                        [--use-zipfile-serialization-if-available
+                            USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE]
 
 Export a model to onnx as well as store sample inputs, outputs, and labels
 
@@ -380,7 +394,7 @@ python scripts/pytorch_vision.py pruning_sensitivity \
     --dataset-path ~/datasets/ILSVRC2012
 
 ##########
-Example command for running one shot KS sensitivity analysis on ssd300_resnet50 for coco:
+Example command for running one shot KS sens analysis on ssd300_resnet50 for coco:
 python scripts/pytorch_vision.py pruning_sensitivity \
     --arch-key ssd300_resnet50 --dataset coco \
     --dataset-path ~/datasets/coco-detection
@@ -397,7 +411,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import torch
 from torch.nn import Module
@@ -450,6 +464,7 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import convert_to_bool, create_dirs
+from sparsezoo import Zoo
 
 
 LOGGER = get_main_logger()
@@ -463,6 +478,14 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Run tasks on classification and detection models and datasets "
         "using the sparseml API"
+    )
+
+    # DDP argument, necessary for launching via torch.distributed
+    parser.add_argument(
+        "--local_rank",  # DO NOT MODIFY
+        type=int,
+        default=-1,
+        help=argparse.SUPPRESS,  # hide from help text
     )
 
     subparsers = parser.add_subparsers(dest="command")
@@ -520,12 +543,20 @@ def parse_args():
             "Default is None which will load the default dataset for the architecture."
             " Ex can be set to imagenet, cifar10, etc",
         )
+        checkpoint_path_help = (
+            "A path to a previous checkpoint to load the state from and "
+            "resume the state for. If provided, pretrained will be ignored"
+        )
+        if par == train_parser:
+            checkpoint_path_help += (
+                ". If using a SparseZoo recipe, can also provide 'zoo' to load "
+                "the base weights associated with that recipe"
+            )
         par.add_argument(
             "--checkpoint-path",
             type=str,
             default=None,
-            help="A path to a previous checkpoint to load the state from and "
-            "resume the state for. If provided, pretrained will be ignored",
+            help=checkpoint_path_help,
         )
         par.add_argument(
             "--model-kwargs",
@@ -581,8 +612,10 @@ def parse_args():
                 "--device",
                 type=str,
                 default=default_device(),
-                help="The device to run on (can also include ids for data parallel), ex:"
-                " cpu, cuda, cuda:0,1",
+                help=(
+                    "The device to run on (can also include ids for data parallel), ex:"
+                    " cpu, cuda, cuda:0,1"
+                ),
             )
             par.add_argument(
                 "--loader-num-workers",
@@ -642,15 +675,17 @@ def parse_args():
                 type=str,
                 default=None,
                 help="The path to the yaml file containing the modifiers and "
-                "schedule to apply them with. If set to 'transfer_learning', "
-                "then will create a schedule to enable sparse transfer learning",
+                "schedule to apply them with. Can also provide a SparseZoo stub "
+                "prefixed with 'zoo:' with an optional '?recipe_type=' argument",
             )
             par.add_argument(
                 "--sparse-transfer-learn",
                 action="store_true",
-                help="Enable sparse transfer learning modifiers to enforce the sparsity "
-                "for already sparse layers. The modifiers are added to the "
-                "ones to be loaded from the recipe-path",
+                help=(
+                    "Enable sparse transfer learning modifiers to enforce the sparsity "
+                    "for already sparse layers. The modifiers are added to the "
+                    "ones to be loaded from the recipe-path"
+                ),
             )
             par.add_argument(
                 "--eval-mode",
@@ -699,22 +734,17 @@ def parse_args():
             par.add_argument(
                 "--use-mixed-precision",
                 action="store_true",
-                help="Trains model using mixed precision. Supported environments are single GPU"
-                " and multiple GPUs using DistributedDataParallel with one GPU per process",
+                help=(
+                    "Trains model using mixed precision. Supported environments are "
+                    "single GPU and multiple GPUs using DistributedDataParallel with "
+                    "one GPU per process"
+                ),
             )
             par.add_argument(
                 "--debug-steps",
                 type=int,
                 default=-1,
                 help="Amount of steps to run for training and testing for a debug mode",
-            )
-
-            # DDP argument
-            par.add_argument(
-                "--local_rank",  # DO NOT MODIFY
-                type=int,
-                default=-1,
-                help="Do not set: argument set by torch.distributed for DDP",
             )
 
         if par == export_parser:
@@ -901,15 +931,14 @@ def _create_val_dataset_and_loader(
         or not (args.is_main_process and args.dataset != "imagefolder")
     ):
         return None, None  # val dataset not needed
-    with torch_distributed_zero_first(args.local_rank):  # only download once locally
-        val_dataset = DatasetRegistry.create(
-            args.dataset,
-            root=args.dataset_path,
-            train=False,
-            rand_trans=False,
-            image_size=image_size,
-            **args.dataset_kwargs,
-        )
+    val_dataset = DatasetRegistry.create(
+        args.dataset,
+        root=args.dataset_path,
+        train=False,
+        rand_trans=False,
+        image_size=image_size,
+        **args.dataset_kwargs,
+    )
     if args.is_main_process:
         is_training = args.command == TRAIN_COMMAND
         val_loader = DataLoader(
@@ -1111,7 +1140,7 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
             if args.rank != -1:  # sync DDP dataloaders
                 train_loader.sampler.set_epoch(epoch)
 
-            train_res = trainer.run_epoch(
+            trainer.run_epoch(
                 train_loader,
                 epoch,
                 max_steps=args.debug_steps,
@@ -1179,7 +1208,9 @@ def export(args, model, val_loader, save_dir):
     # export PyTorch state dict
     LOGGER.info("exporting pytorch in {}".format(save_dir))
     exporter.export_pytorch(
-        use_zipfile_serialization_if_available=args.use_zipfile_serialization_if_available
+        use_zipfile_serialization_if_available=(
+            args.use_zipfile_serialization_if_available
+        )
     )
     onnx_exported = False
 
@@ -1317,6 +1348,17 @@ def main(args):
         num_classes = dataset_attributes["num_classes"]
 
     with torch_distributed_zero_first(args.local_rank):  # only download once locally
+        if args.checkpoint_path == "zoo":
+            if args.recipe_path and args.recipe_path.startswith("zoo:"):
+                args.checkpoint_path = Zoo.download_recipe_base_framework_files(
+                    args.recipe_path, extensions=[".pth"]
+                )[0]
+            else:
+                raise ValueError(
+                    "'zoo' provided as --checkpoint-path but a SparseZoo stub"
+                    " prefixed by 'zoo:' not provided as --recipe-path"
+                )
+
         model = ModelRegistry.create(
             args.arch_key,
             args.pretrained,

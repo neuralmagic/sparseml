@@ -1,12 +1,27 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import os
 
 import pytest
-from onnx import load_model
 
 from sparseml.onnx.optim import ModelAnalyzer, NodeAnalyzer
 from sparsezoo import Zoo
-from tests.sparseml.onnx.helpers import analyzer_models
+
+
+from tests.sparseml.onnx.helpers import analyzer_models  # noqa isort: skip
 
 
 GENERATE_TEST_FILES = os.getenv("NM_ML_GENERATE_ONNX_TEST_DATA", False)
@@ -22,7 +37,7 @@ RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "resnet-v1",
+                "architecture": "resnet_v1",
                 "sub_architecture": "50",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -40,7 +55,7 @@ def analyzer_models_repo(request):
     model_args, output_path = request.param
     output_path = os.path.join(RELATIVE_PATH, "test_analyzer_model_data", output_path)
     model = Zoo.load_model(**model_args)
-    model_path = model.download_onnx_file(overwrite=False)
+    model_path = model.onnx_file.downloaded_path()
 
     if GENERATE_TEST_FILES:
         analyzer = ModelAnalyzer(model_path)
@@ -144,7 +159,7 @@ def _test_model_analyzer(model_path: str, expected_output: str):
     assert analyzer == analyzer_from_json
 
 
-def test_model_analyzer(analyzer_models):
+def test_model_analyzer(analyzer_models):  # noqa: F811
     model_path, expected_output = analyzer_models
     _test_model_analyzer(model_path, expected_output)
 

@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Utilities for data loading into numpy for use in ONNX supported systems
 """
@@ -34,8 +48,10 @@ class DataLoader(object):
     Iterator returns a tuple containing (data, label).
     label is only returned if label data was passed in.
 
-    :param data: a file glob pointing to numpy files or loaded numpy data
-    :param labels: a file glob pointing to numpy files or loaded numpy data
+    :param data: a file glob pointing to numpy files, path to a tar ball of numpy
+        files, or loaded numpy data
+    :param labels: a file glob pointing to numpy files path to a tar ball of numpy
+        files, or loaded numpy data
     :param batch_size: the size of batches to create for the iterator
     :param iter_steps: the number of steps (batches) to create.
         Set to -1 for infinite, 0 for running through the loaded data once,

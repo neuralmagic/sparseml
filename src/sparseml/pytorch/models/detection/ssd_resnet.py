@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Implementations for SSD models with ResNet backbones
 """
@@ -27,8 +41,9 @@ class SSD300ResNetBackbone(SSDBackbone):
     for an SSD300 model for various ResNet sub architecture backbones
 
     :param sub_arch: the ResNet sub architecture to use for this backbone
-    :param pretrained: True to load pretrained ResNet weights; to load a specific version
-        give a string with the name of the version (optim, optim-perf). Default is True
+    :param pretrained: True to load pretrained ResNet weights; to load a specific
+        version give a string with the name of the version (optim, optim-perf).
+        Default is True
     :param pretrained_path: An optional model file path to load into the created model.
         Will override pretrained parameter
     """

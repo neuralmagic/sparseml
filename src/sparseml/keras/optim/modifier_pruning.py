@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
@@ -11,10 +25,6 @@ from sparseml.keras.optim.mask_pruning import (
     MaskedLayer,
     PruningScheduler,
     remove_pruning_masks,
-)
-from sparseml.keras.optim.mask_pruning_creator import (
-    PruningMaskCreator,
-    load_mask_creator,
 )
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
@@ -60,6 +70,14 @@ class FunctionalScheduler(PruningScheduler):
         self._inter_func = inter_func
 
     @property
+    def init_sparsity(self):
+        return self._init_sparsity
+
+    @property
+    def final_sparsity(self):
+        return self._final_sparsity
+
+    @property
     def start_step(self):
         return self._start_step
 
@@ -70,6 +88,10 @@ class FunctionalScheduler(PruningScheduler):
     @property
     def update_frequency_steps(self):
         return self._update_frequency_steps
+
+    @property
+    def inter_func(self):
+        return self._inter_func
 
     @property
     def exponent(self) -> float:
@@ -140,6 +162,20 @@ class FunctionalScheduler(PruningScheduler):
             sparsity = self._final_sparsity
         return sparsity
 
+    def get_config(self):
+        config = {
+            "class_name": self.__class__.__name__,
+            "config": {
+                "init_sparsity": self.init_sparsity,
+                "final_sparsity": self.final_sparsity,
+                "start_step": self.start_step,
+                "end_step": self.end_step,
+                "update_frequency_steps": self.update_frequency_steps,
+                "inter_func": self.inter_func,
+            },
+        }
+        return config
+
 
 class SparsityFreezer(PruningScheduler):
     """
@@ -157,6 +193,14 @@ class SparsityFreezer(PruningScheduler):
     ):
         self._start_step = start_step
         self._end_step = end_step
+
+    @property
+    def start_step(self):
+        return self._start_step
+
+    @property
+    def end_step(self):
+        return self._ends_step
 
     def should_prune(self, step: int) -> bool:
         """
@@ -188,6 +232,14 @@ class SparsityFreezer(PruningScheduler):
             # Undefined sparsity
             sparsity = None
         return sparsity
+
+    def get_config(self):
+        config = {
+            "class_name": self.__class__.__name__,
+            "start_step": self.start_step,
+            "end_step": self.end_step,
+        }
+        return config
 
 
 class PruningModifierCallback(tensorflow.keras.callbacks.Callback):
@@ -331,7 +383,7 @@ class SparsityLoggingCallback(LoggerSettingCallback):
 
 
 @KerasModifierYAML()
-class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
+class ConstantPruningModifier(ScheduledModifier):
     """
     Holds the sparsity level and shape for a given param constant while training.
     Useful for transfer learning use cases.
@@ -373,7 +425,7 @@ class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
         self._masked_layers = []
 
         self._sparsity_scheduler = None
-        self._mask_creator = load_mask_creator("unstructured")
+        self._mask_type = "unstructured"
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
@@ -442,7 +494,7 @@ class ConstantPruningModifier(ScheduledModifier, PruningScheduler):
         cloned_layer = layer
         if layer.name in self.layer_names:  # TODO: handle regex params
             cloned_layer = MaskedLayer(
-                layer, self._sparsity_scheduler, self._mask_creator, name=layer.name
+                layer, self._sparsity_scheduler, self._mask_type, name=layer.name
             )
             self._masked_layers.append(cloned_layer)
         return cloned_layer
@@ -539,7 +591,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameter's in and out
-        channels, or a PruningMaskCreator object. default is 'unstructured'
+        channels. default is 'unstructured'
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -555,7 +607,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         update_frequency: float,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
-        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+        mask_type: Union[str, List[int]] = "unstructured",
         leave_enabled: bool = True,
     ):
         super(GMPruningModifier, self).__init__(
@@ -577,10 +629,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
         self._mask_type = mask_type
-        self._mask_creator = mask_type
         self._leave_enabled = convert_to_bool(leave_enabled)
-        if not isinstance(mask_type, PruningMaskCreator):
-            self._mask_creator = load_mask_creator(mask_type)
         self._prune_op_vars = None
         self._update_ready = None
         self._sparsity = None
@@ -680,21 +729,18 @@ class GMPruningModifier(ScheduledUpdateModifier):
         self.validate()
 
     @ModifierProp()
-    def mask_type(self) -> Union[str, List[int], PruningMaskCreator]:
+    def mask_type(self) -> Union[str, List[int]]:
         """
-        :return: the PruningMaskCreator object used
+        :return: the mask type used
         """
         return self._mask_type
 
     @mask_type.setter
-    def mask_type(self, value: Union[str, List[int], PruningMaskCreator]):
+    def mask_type(self, value: Union[str, List[int]]):
         """
-        :param value: the PruningMaskCreator object to use
+        :param value: the mask type to use
         """
         self._mask_type = value
-        self._mask_creator = value
-        if not isinstance(value, PruningMaskCreator):
-            self._mask_creator = load_mask_creator(value)
 
     @ModifierProp()
     def leave_enabled(self) -> bool:
@@ -820,7 +866,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
             layer.name in self.layer_names
         ):  # TODO: handle regex params --- see create_ops in TF version
             cloned_layer = MaskedLayer(
-                layer, self._sparsity_scheduler, self._mask_creator, name=layer.name
+                layer, self._sparsity_scheduler, self._mask_type, name=layer.name
             )
             self._masked_layers.append(cloned_layer)
         return cloned_layer

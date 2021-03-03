@@ -1,5 +1,18 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
-import random
 import tempfile
 
 import numpy as np
@@ -16,7 +29,6 @@ from sparseml.onnx.utils import (
 )
 from sparseml.pytorch.datasets import ImagenetteDataset, ImagenetteSize, MNISTDataset
 from sparsezoo import Zoo
-from tests.sparseml.onnx.optim.quantization.helpers import make_tmp_onnx_file
 
 
 def _test_model_is_quantized(
@@ -81,7 +93,7 @@ def test_quantize_model_post_training_mnist():
         sub_domain="classification",
         architecture="mnistnet",
         framework="pytorch",
-    )[0].download_onnx_file()
+    )[0].onnx_file.downloaded_path()
     quant_model_path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
 
     # Prepare sample validation dataset
@@ -120,7 +132,7 @@ def test_quantize_model_post_training_resnet50_imagenette():
     resnet50_imagenette_path = Zoo.load_model(
         domain="cv",
         sub_domain="classification",
-        architecture="resnet-v1",
+        architecture="resnet_v1",
         sub_architecture="50",
         framework="pytorch",
         repo="sparseml",
@@ -129,7 +141,7 @@ def test_quantize_model_post_training_resnet50_imagenette():
         optim_name="base",
         optim_category="none",
         optim_target=None,
-    ).download_onnx_file(overwrite=True)
+    ).onnx_file.downloaded_path()
     quant_model_path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
 
     # Prepare sample validation dataset

@@ -1,12 +1,27 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Built-in callbacks for Keras
 """
 
 from typing import List, Union
+
 import tensorflow
-from tensorflow import keras
-from tensorflow import Tensor
-from sparseml.keras.utils import KerasLogger, LoggingMode
+from tensorflow import Tensor, keras
+
+from sparseml.keras.utils.logger import KerasLogger, LoggingMode
 
 
 __all__ = [
@@ -89,7 +104,7 @@ class LoggerSettingCallback(keras.callbacks.Callback):
         Called at the begin of a batch in evaluation
 
         :param batch: batch index in current epoch
-        :param logs: dictionary of logs (see Keras Callback doc)        
+        :param logs: dictionary of logs (see Keras Callback doc)
         """
         super().on_test_batch_begin(batch, logs)
         self._set_logging_mode(LoggingMode.TEST)

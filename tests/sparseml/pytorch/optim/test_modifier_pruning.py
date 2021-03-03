@@ -1,21 +1,33 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 
 import pytest
 import torch
-from torch.optim import SGD
 
-from sparseml.pytorch.optim import (
-    BlockPruningMaskCreator,
-    ConstantPruningModifier,
-    DimensionSparsityMaskCreator,
-    GMPruningModifier,
-)
+from sparseml.pytorch.optim import ConstantPruningModifier, GMPruningModifier
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
     create_optim_adam,
     create_optim_sgd,
+)
+
+
+from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_epoch,
     test_loss,
     test_steps_per_epoch,
@@ -27,7 +39,7 @@ def _test_state_dict_save_load(
     modifier_lambda,
     model_lambda,
     optim_lambda,
-    test_steps_per_epoch,
+    test_steps_per_epoch,  # noqa: F811
     is_gm_pruning,
 ):
     modifier = modifier_lambda()
@@ -43,8 +55,8 @@ def _test_state_dict_save_load(
     for mask in state_dict.values():
         if is_gm_pruning:
             # check that the mask sparsity is the applied one leaving a relatively
-            # large margin of error since parameter sizes are small so the exact sparsity
-            # cannot always be attained
+            # large margin of error since parameter sizes are small so the exact
+            # sparsity cannot always be attained
             assert (
                 abs(1 - (mask.sum() / mask.numel()) - modifier.applied_sparsity) < 0.05
             )
@@ -91,7 +103,11 @@ def _test_state_dict_save_load(
 )
 class TestConstantPruningModifier(ScheduledModifierTest):
     def test_lifecycle(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -118,7 +134,11 @@ class TestConstantPruningModifier(ScheduledModifierTest):
                 assert not modifier.update_ready(epoch, test_steps_per_epoch)
 
     def test_state_dict_save_load(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         _test_state_dict_save_load(
             self,
@@ -216,7 +236,11 @@ def test_constant_pruning_yaml():
 )
 class TestGMPruningModifier(ScheduledUpdateModifierTest):
     def test_lifecycle(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -252,7 +276,11 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
             assert modifier.applied_sparsity == modifier.final_sparsity
 
     def test_state_dict_save_load(
-        self, modifier_lambda, model_lambda, optim_lambda, test_steps_per_epoch
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
     ):
         _test_state_dict_save_load(
             self,

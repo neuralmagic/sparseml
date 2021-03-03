@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
@@ -63,7 +77,7 @@ class ConstantPruningModifier(ScheduledModifier):
     Useful for transfer learning use cases.
 
     | Sample yaml:
-    |   !ConstantKSModifier
+    |   !ConstantPruningModifier
     |       start_epoch: 0.0
     |       end_epoch: 10.0
     |       params: ['re:.*weight']
@@ -155,10 +169,9 @@ class ConstantPruningModifier(ScheduledModifier):
         for param_name, mask_tensor in state_dict.items():
             if param_name not in module_masks:
                 raise RuntimeError(
-                    "Unexpected parameter name when loading state dict for ConstantKSModifier"
-                    "Manager has parameters {}, given {}".format(
-                        list(module_masks.keys()), param_name
-                    )
+                    f"Unexpected parameter name when loading state dict for "
+                    f"ConstantPruningModifier Manager has parameters "
+                    f"{list(module_masks.keys())}, given {param_name}"
                 )
             mask_disabled = False
             if not module_masks[param_name].enabled:
@@ -291,7 +304,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     Applies based on magnitude pruning unless otherwise specified by mask_type.
 
     | Sample yaml:
-    |   !GradualKSModifier
+    |   !GMPruningModifier
     |       init_sparsity: 0.05
     |       final_sparsity: 0.8
     |       start_epoch: 0.0
@@ -398,10 +411,9 @@ class GMPruningModifier(ScheduledUpdateModifier):
         for param_name, mask_tensor in state_dict.items():
             if param_name not in module_masks:
                 raise RuntimeError(
-                    "Unexpected parameter name when loading state dict for GradualKSModifier"
-                    "Manager has parameters {}, given {}".format(
-                        list(module_masks.keys()), param_name
-                    )
+                    f"Unexpected parameter name when loading state dict for "
+                    f"GMPruningModifier Manager has parameters "
+                    f"{list(module_masks.keys())}, given {param_name}"
                 )
             mask_disabled = False
             if not module_masks[param_name].enabled:

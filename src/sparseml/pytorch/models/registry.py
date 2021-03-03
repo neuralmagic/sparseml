@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Code related to the PyTorch model registry for easily creating models.
 """
@@ -69,7 +83,8 @@ class ModelRegistry(object):
 
         :param key: the model key (name) to create
         :param pretrained: True to load pretrained weights; to load a specific version
-            give a string with the name of the version (optim, optim-perf), default None
+            give a string with the name of the version (pruned-moderate, base).
+            Default None
         :param pretrained_path: A model file path to load into the created model
         :param pretrained_dataset: The dataset to load for the model
         :param load_strict: True to make sure all states are found in and
@@ -233,7 +248,7 @@ class ModelRegistry(object):
 
         :param wrapped_constructor: Model constructor wrapped to be compatible
             by call from ModelRegistry.create should have pretrained, pretrained_path,
-            pretrained_dataset, load_strict, ignore_error_tensors, and **kwargs as
+            pretrained_dataset, load_strict, ignore_error_tensors, and kwargs as
             arguments
         :param key: the model key (name) to create
         :param input_shape: the specified input shape for the model
@@ -293,7 +308,10 @@ class ModelRegistry(object):
         ):
             """
             :param pretrained_path: A path to the pretrained weights to load,
-                if provided will override the pretrained param
+                if provided will override the pretrained param. May also be
+                a SparseZoo stub path preceded by 'zoo:' with the optional
+                `?recipe_type=` argument. If given a recipe type, the base
+                model weights for that recipe will be loaded
             :param pretrained: True to load the default pretrained weights,
                 a string to load a specific pretrained weight
                 (ex: base, optim, optim-perf),
@@ -332,11 +350,13 @@ class ModelRegistry(object):
                     key, pretrained, pretrained_dataset
                 )
                 try:
-                    paths = zoo_model.download_framework_files()
+                    paths = zoo_model.download_framework_files(extensions=[".pth"])
                     load_model(paths[0], model, load_strict, ignore)
-                except Exception as ex:
+                except Exception:
                     # try one more time with overwrite on in case file was corrupted
-                    paths = zoo_model.download_framework_files(overwrite=True)
+                    paths = zoo_model.download_framework_files(
+                        overwrite=True, extensions=[".pth"]
+                    )
                     load_model(paths[0], model, load_strict, ignore)
 
             return model

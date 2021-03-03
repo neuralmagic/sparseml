@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from typing import Callable, Union
 
@@ -40,8 +54,8 @@ from tests.sparseml.pytorch.models.utils import compare_model
         ("vgg16", False, True, vgg16),
         ("vgg16", True, False, vgg16),
         ("vgg16", "base", False, vgg16),
-        ("vgg16", "optim", False, vgg16),
-        ("vgg16", "optim-perf", False, vgg16),
+        ("vgg16", "pruned-conservative", False, vgg16),
+        ("vgg16", "pruned-moderate", False, vgg16),
         ("vgg16bn", False, True, vgg16bn),
         ("vgg16bn", True, False, vgg16bn),
         ("vgg19", False, True, vgg19),

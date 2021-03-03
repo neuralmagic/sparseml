@@ -1,20 +1,37 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Code related to applying a mask onto a variable to impose kernel sparsity,
 aka model pruning, on a TensorFlow graph.
 """
 
 from collections import namedtuple
-from typing import Callable, List, Tuple, Union
+from typing import List, Tuple
 
-import tensorflow.contrib.graph_editor as ge
 
-from sparseml.tensorflow_v1.optim.mask_creator_pruning import (
-    PruningMaskCreator,
-    UnstructuredPruningMaskCreator,
-)
+try:
+    import tensorflow.contrib.graph_editor as graph_editor
+
+    tf_contrib_err = None
+except Exception as err:
+    graph_editor = None
+    tf_contrib_err = err
+
+from sparseml.tensorflow_v1.optim.mask_creator_pruning import PruningMaskCreator
 from sparseml.tensorflow_v1.utils import (
     clean_tensor_name,
-    get_op_input_var,
     get_ops_and_inputs_by_name_or_regex,
     get_tensor_var,
     is_prunable_op,
@@ -169,7 +186,10 @@ def create_op_pruning_no_update(
     :return: a named tuple containing the assignment op, mask variable,
         threshold tensor, and masked tensor
     """
-    op_sgv = ge.sgv(op)
+    if tf_contrib_err:
+        raise tf_contrib_err
+
+    op_sgv = graph_editor.sgv(op)
 
     # create the necessary variables first
     with tf_compat.variable_scope(
@@ -197,7 +217,7 @@ def create_op_pruning_no_update(
         op_swapped_inputs = [
             inp if inp != op_input else op_inp_tens for inp in op_sgv.inputs
         ]
-        ge.swap_inputs(op, op_swapped_inputs)
+        graph_editor.swap_inputs(op, op_swapped_inputs)
     tf_compat.add_to_collection(
         PruningScope.collection_name(ks_group, PruningScope.OP_MASKED_VAR), masked
     )
@@ -866,8 +886,8 @@ def create_ks_scheduled_constant_graph_ops(
 
     :param graph: the tf graph to pull the operator out of for applying the pruning to
     :param global_step: the global optimizer step for the training graph
-    :param var_names: a list of names or regex patterns to create constant ops for within
-        the graph
+    :param var_names: a list of names or regex patterns to create constant ops
+        for within the graph
     :param begin_step: the global step to begin pruning at
     :param end_step: the global step to end pruning at
     :param ks_group: the group identifier the scope should be created under

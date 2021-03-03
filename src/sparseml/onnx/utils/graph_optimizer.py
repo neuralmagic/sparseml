@@ -1,14 +1,26 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Helper functions to optimize ONNX Graphs.
 """
 
 
-from collections import namedtuple
 from typing import Tuple, Union
 
 import numpy as np
 import onnx
-from onnx import numpy_helper
 
 from sparseml.onnx.utils.graph_editor import (
     remove_node_and_params_from_graph,
@@ -99,6 +111,7 @@ def fold_conv_bns(onnx_file: str) -> onnx.ModelProto:
     """
     When a batch norm op is the only child operator of a conv op, this function
     will fold the batch norm into the conv and return the processed graph
+
     :param onnx_file: file path to ONNX model to process
     :return: A loaded ONNX model with BatchNormalization ops folded into Conv ops
         where possible

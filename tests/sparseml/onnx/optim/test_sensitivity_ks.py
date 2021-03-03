@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from typing import Any, Dict, List, NamedTuple, Union
 
@@ -10,11 +24,10 @@ from sparseml.onnx.optim.sensitivity_pruning import (
     pruning_perf_sens_one_shot,
 )
 from sparseml.onnx.utils.data import DataLoader
-from tests.sparseml.onnx.helpers import (
-    GENERATE_TEST_FILES,
-    OnnxRepoModelFixture,
-    onnx_repo_models,
-)
+from tests.sparseml.onnx.helpers import GENERATE_TEST_FILES, OnnxRepoModelFixture
+
+
+from tests.sparseml.onnx.helpers import onnx_repo_models  # noqa isort: skip
 
 
 try:
@@ -42,7 +55,7 @@ OnnxModelAnalysisFixture = NamedTuple(
 
 @pytest.fixture(scope="session")
 def onnx_models_with_analysis(
-    request, onnx_repo_models: OnnxRepoModelFixture
+    request, onnx_repo_models: OnnxRepoModelFixture  # noqa: F811
 ) -> OnnxModelAnalysisFixture:
     data_path = "test_sensitivity_ks_data"
     sparsity_levels = [0, 0.4, 0.8, 0.99]
@@ -90,8 +103,6 @@ def _create_sensitivity_ks_data(
     perf_path: str,
     sparsity_levels: Union[List[float], None],
 ):
-    input_paths = os.path.join(input_paths, "*.npz")
-    output_paths = os.path.join(output_paths, "*.npz")
     dataloader = DataLoader(input_paths, output_paths, 1)
     analysis = pruning_loss_sens_magnitude(model_path)
     analysis.save_json(loss_approx_path)
@@ -100,7 +111,7 @@ def _create_sensitivity_ks_data(
         model_path,
         dataloader,
         1,
-        10,
+        1,
         show_progress=False,
         sparsity_levels=sparsity_levels,
     )
@@ -111,8 +122,8 @@ def _create_sensitivity_ks_data(
             model_path,
             dataloader,
             1,
-            -1,
-            iterations_per_check=30,
+            None,
+            iterations_per_check=10,
             warmup_iterations_per_check=5,
             sparsity_levels=sparsity_levels,
             show_progress=False,
@@ -176,9 +187,9 @@ def test_approx_ks_loss_sensitivity(
 def test_one_shot_ks_loss_sensitivity(
     onnx_models_with_analysis: OnnxModelAnalysisFixture,
 ):
-    input_paths = os.path.join(onnx_models_with_analysis.input_paths, "*.npz")
-    output_paths = os.path.join(onnx_models_with_analysis.output_paths, "*.npz")
-    dataloader = DataLoader(input_paths, output_paths, 1)
+    dataloader = DataLoader(
+        onnx_models_with_analysis.input_paths, onnx_models_with_analysis.output_paths, 1
+    )
 
     analysis = pruning_loss_sens_one_shot(
         onnx_models_with_analysis.model_path,
@@ -214,15 +225,15 @@ def test_one_shot_ks_perf_sensitivity(
         onnx_models_with_analysis.perf_path
     )
 
-    input_paths = os.path.join(onnx_models_with_analysis.input_paths, "*.npz")
-    output_paths = os.path.join(onnx_models_with_analysis.output_paths, "*.npz")
-    dataloader = DataLoader(input_paths, output_paths, 1)
+    dataloader = DataLoader(
+        onnx_models_with_analysis.input_paths, onnx_models_with_analysis.output_paths, 1
+    )
 
     analysis = pruning_perf_sens_one_shot(
         onnx_models_with_analysis.model_path,
         dataloader,
         1,
-        -1,
+        None,
         iterations_per_check=10,
         warmup_iterations_per_check=3,
         sparsity_levels=onnx_models_with_analysis.sparsity_levels,

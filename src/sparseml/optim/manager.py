@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Code related to managers that is shared across frameworks.
 Managers control groups of modifiers to allow modifying the training process of a model;
@@ -5,7 +19,7 @@ ex to perform model pruning.
 """
 
 import math
-from typing import Dict, List
+from typing import List
 
 from sparseml.optim.modifier import BaseObject, BaseScheduled, ModifierProp
 from sparseml.utils import clean_path, create_parent_dirs
@@ -39,10 +53,6 @@ class BaseManager(BaseObject):
 
     def __str__(self) -> str:
         return "\n".join(self.to_string_lines())
-
-    @ModifierProp()
-    def modifiers(self) -> Dict[str, List[BaseScheduled]]:
-        return {"modifiers": self._modifiers}
 
     @ModifierProp(serializable=False)
     def modifiers(self) -> List[BaseScheduled]:

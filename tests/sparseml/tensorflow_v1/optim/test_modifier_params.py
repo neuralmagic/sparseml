@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from typing import Callable
 
@@ -140,7 +154,7 @@ def test_trainable_params_modifier_with_training():
             for epoch in range(10):
                 for step in range(steps_per_epoch):
                     sess.run(train_op, feed_dict={inputs: batch_inp, labels: batch_lab})
-                    step_counter = sess.run(global_step)
+                    sess.run(global_step)
             # Compare initial and final variable values
             for idx, init_non_trainable_var in enumerate(init_non_trainable_vars):
                 final_non_trainable_var = non_trainable_vars[idx].eval(session=sess)

@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Provides a class for performing quantization calibration on an Onnx model.
 """
@@ -62,14 +76,16 @@ class CalibrationSession:
     @property
     def model(self):
         """
-        :return: The loaded model, if optimization has run, will be the optimized version
+        :return: The loaded model, if optimization has run,
+            will be the optimized version
         """
         return self._model
 
     @property
     def model_augmented(self):
         """
-        :return: The augmented model, if optimization has run, will be the optimized version
+        :return: The augmented model, if optimization has run,
+            will be the optimized version
         """
         return self._model_augmented
 
@@ -83,7 +99,8 @@ class CalibrationSession:
             print("Optimizing {}...".format(self._onnx_file))
             model_optimized = fold_conv_bns(self._onnx_file)
             if model_optimized is None:
-                raise Exception  # no optimization performed, skip the rest of this block
+                # no optimization performed, skip the rest of this block
+                raise Exception()
             onnx.checker.check_model(
                 model_optimized
             )  # should raise exception if broken
@@ -240,6 +257,7 @@ class CalibrationSession:
     def process_batch(self, input_batch: Dict[str, np.ndarray]) -> None:
         """
         Updates the model's calibration thresholds based on a run of the input batch
+
         :param input_batch: Dictionary of pre-processed model input batch to use, with
             input names mapped to a numpy array of the batch
         """

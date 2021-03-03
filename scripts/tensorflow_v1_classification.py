@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Perform optimization tasks on image classification tensorflow_v1 including:
 * Model training
@@ -186,10 +200,12 @@ usage: classification.py pruning_sensitivity [-h] --arch-key ARCH_KEY
                                              [--dataset-kwargs DATASET_KWARGS]
                                              [--model-tag MODEL_TAG]
                                              [--save-dir SAVE_DIR]
-                                             [--dataset-parallel-calls DATASET_PARALLEL_CALLS]
+                                             [--dataset-parallel-calls
+                                                DATASET_PARALLEL_CALLS]
                                              [--shuffle-buffer-size SHUFFLE_BUFFER_SIZE]
                                              [--approximate]
-                                             [--steps-per-measurement STEPS_PER_MEASUREMENT]
+                                             [--steps-per-measurement
+                                                STEPS_PER_MEASUREMENT]
                                              [--batch-size BATCH_SIZE]
 
 Run a kernel sparsity (pruning) analysis for a given model
@@ -287,10 +303,10 @@ import argparse
 import json
 import math
 import os
-from copy import deepcopy
 from typing import Dict, Optional, Tuple
 
 import numpy
+
 from sparseml import get_main_logger
 from sparseml.tensorflow_v1.datasets import (
     Dataset,
@@ -457,9 +473,11 @@ def parse_args():
             par.add_argument(
                 "--sparse-transfer-learn",
                 action="store_true",
-                help="Enable sparse transfer learning modifiers to enforce the sparsity "
-                "for already sparse layers. The modifiers are added to the "
-                "ones to be loaded from the recipe-path",
+                help=(
+                    "Enable sparse transfer learning modifiers to enforce the sparsity "
+                    "for already sparse layers. The modifiers are added to the "
+                    "ones to be loaded from the recipe-path"
+                ),
             )
             par.add_argument(
                 "--eval-mode",
@@ -810,7 +828,7 @@ def export(
     if not skip_samples:
         val_dataset, num_classes = _create_dataset(args, train=False)
 
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         input_shape = ModelRegistry.input_shape(args.arch_key)
         inputs = tf_compat.placeholder(
             tf_compat.float32, [None] + list(input_shape), name="inputs"

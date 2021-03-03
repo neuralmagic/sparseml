@@ -5,6 +5,10 @@
 # Latest Commit: fc5e65a
 # Modifications: quantize_data function modified for compatibility with NMIE
 # --------------------------------------------------------------------------
+
+# neuralmagic: no copyright
+# flake8: noqa
+
 import os
 import struct
 

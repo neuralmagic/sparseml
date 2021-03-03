@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from typing import List
 
@@ -24,7 +38,7 @@ from sparseml.tensorflow_v1.utils import tf_compat
 def test_step_lr_schedule(
     start_step: int, end_step: int, init_lr: float, step_size: int, gamma: float
 ):
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         global_step = tf_compat.placeholder(dtype=tf_compat.int64, shape=[])
         learning_rate = step_lr_schedule(
             global_step, start_step, end_step, step_size, init_lr, gamma
@@ -60,7 +74,7 @@ def test_step_lr_schedule(
 def test_multi_step_lr_schedule(
     start_step: int, milestone_steps: List[int], init_lr: float, gamma: float
 ):
-    with tf_compat.Graph().as_default() as graph:
+    with tf_compat.Graph().as_default():
         global_step = tf_compat.placeholder(dtype=tf_compat.int64, shape=[])
         learning_rate = multi_step_lr_schedule(
             global_step, start_step, milestone_steps, init_lr, gamma

@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Contains code for loggers that help visualize the information from each modifier
 """
@@ -14,11 +28,14 @@ from torch import Tensor
 
 
 try:
-    from torch.utils.tensorboard import SummaryWriter
-except ModuleNotFoundError:
-    from tensorboardX import SummaryWriter
-except ImportError:
-    from tensorboardX import SummaryWriter
+    try:
+        from torch.utils.tensorboard import SummaryWriter
+    except (ModuleNotFoundError, ImportError):
+        from tensorboardX import SummaryWriter
+    tensorboard_import_error = None
+except Exception as tensorboard_err:
+    SummaryWriter = None
+    tensorboard_import_error = tensorboard_err
 
 from sparseml.utils import create_dirs
 
@@ -290,6 +307,8 @@ class TensorBoardLogger(PyTorchLogger):
         name: str = "tensorboard",
     ):
         super().__init__(name)
+        if tensorboard_import_error:
+            raise tensorboard_import_error
 
         if writer and log_path:
             raise ValueError(
@@ -313,7 +332,7 @@ class TensorBoardLogger(PyTorchLogger):
         """
         try:
             self._writer.add_hparams(params, {})
-        except Exception as ex:
+        except Exception:
             # fall back incase add_hparams isn't available, log as scalars
             for name, val in params.items():
                 self.log_scalar(name, val)

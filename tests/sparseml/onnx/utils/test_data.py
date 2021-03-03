@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import math
 import os
 import tempfile
@@ -27,7 +41,7 @@ DataloaderModelFixture = NamedTuple(
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "resnet-v1",
+                "architecture": "resnet_v1",
                 "sub_architecture": "50",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -45,7 +59,7 @@ DataloaderModelFixture = NamedTuple(
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "mobilenet-v1",
+                "architecture": "mobilenet_v1",
                 "sub_architecture": "1.0",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -64,7 +78,7 @@ DataloaderModelFixture = NamedTuple(
 def dataloader_models(request) -> DataloaderModelFixture:
     model_args, input_shapes, output_shapes, data_types = request.param
     model = Zoo.load_model(**model_args)
-    model_path = model.download_onnx_file(overwrite=False)
+    model_path = model.onnx_file.downloaded_path()
 
     return DataloaderModelFixture(model_path, input_shapes, output_shapes, data_types)
 

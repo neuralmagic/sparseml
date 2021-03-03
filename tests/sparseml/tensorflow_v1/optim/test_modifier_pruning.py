@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from typing import Callable
 
@@ -8,12 +22,10 @@ from sparseml.tensorflow_v1.optim import (
     EXTRAS_KEY_SUMMARIES,
     BlockPruningMaskCreator,
     ConstantPruningModifier,
-    DimensionPruningMaskCreator,
     GMPruningModifier,
     ScheduledModifierManager,
 )
 from sparseml.tensorflow_v1.utils import (
-    VAR_INDEX_FROM_TRAINABLE,
     batch_cross_entropy_loss,
     eval_tensor_sparsity,
     tf_compat,
@@ -98,7 +110,6 @@ class TestConstantPruningModifierImpl(ScheduledModifierTest):
 
                             if epoch < modifier.start_epoch:
                                 assert masked_sparsity < 1e-2
-                                assert not update_ready_val
                             else:
                                 assert masked_sparsity == last_sparsities[index]
                                 last_sparsities[index] = masked_sparsity
@@ -259,7 +270,7 @@ class TestGMPruningModifierImpl(ScheduledModifierTest):
 
                         sess.run(mod_ops)
                         update_ready_val = sess.run(modifier.update_ready)
-                        sparsity_val = sess.run(modifier.sparsity)
+                        sess.run(modifier.sparsity)
 
                         for index, op_vars in enumerate(modifier.prune_op_vars):
                             mask_sparsity = eval_tensor_sparsity(op_vars.mask)
@@ -339,11 +350,11 @@ def test_gm_pruning_training_with_manager():
             for epoch in range(int(modifier.end_epoch + 2.0)):
                 for step in range(steps_per_epoch):
                     sess.run(train_op, feed_dict={inputs: batch_inp, labels: batch_lab})
-                    step_counter = sess.run(global_step)
+                    sess.run(global_step)
 
                     sess.run(mod_ops)
                     update_ready_val = sess.run(modifier.update_ready)
-                    sparsity_val = sess.run(modifier.sparsity)
+                    sess.run(modifier.sparsity)
 
                     for index, op_vars in enumerate(modifier.prune_op_vars):
                         mask_sparsity = eval_tensor_sparsity(op_vars.mask)

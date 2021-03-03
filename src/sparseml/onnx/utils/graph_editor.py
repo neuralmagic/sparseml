@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Helper functions to edit ONNX Graphs.
 """
@@ -31,6 +45,7 @@ def update_model_param(
     Removes the parameter with name param_name from the model
     Creates a new parameter using val
     Adds val to the model with name param_name as an update
+
     :param model: The model to update
     :param param_name: The parameter name in the model to update
     :param val: The new value of the parameter
@@ -48,6 +63,7 @@ def swap_node_output(node: onnx.NodeProto, output: str) -> None:
     """
     Deletes the current output of the node and replaces it with the provided value
     Assumes that the node only has one output
+
     :param node: Node to change the output of
     :param output: New output value
     """
@@ -62,10 +78,11 @@ def remove_node_and_params_from_graph(
 ) -> None:
     """
     Deletes a node from the mdoel graph as well as its parameters listed in node.input
+
     :param model: Model to delete from
     :param node: Node to delete
-    :param keep_params: Names of node input initializers not to remove from graph default
-        is None.
+    :param keep_params: Names of node input initializers not to remove from graph
+        default is None.
     """
     keep_params = keep_params or []
     for param in model.graph.initializer:
@@ -163,8 +180,8 @@ def prune_model_one_shot_iter(
     model: ModelProto, nodes: List[NodeProto], sparsity: Union[float, List[float]]
 ):
     """
-    Iteratively prune a model in-place with one shot pruning (no retraining) according to
-    magnitude pruning. Does so in an unstructured way currently
+    Iteratively prune a model in-place with one shot pruning (no retraining) according
+    to magnitude pruning. Does so in an unstructured way currently
 
     :param model: the model to apply pruning to
     :param nodes: the nodes within the model to prune to the desired sparsities

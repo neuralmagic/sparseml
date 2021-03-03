@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Code related to applying a mask onto a parameter to impose kernel sparsity,
 aka model pruning
@@ -45,7 +59,8 @@ class ModuleParamPruningMask(object):
         :param track_grad_mom: store the gradient updates to the parameter with a
             momentum variable must be in the range [0.0, 1.0), if set to 0.0 then will
             only keep most recent
-        :param mask_creator: object to define sparisty mask creation, default is unstructured mask
+        :param mask_creator: object to define sparisty mask creation,
+            default is unstructured mask
         :param layer_name: the name of the layer the parameter to mask is located in
         """
         self._layer = layer
@@ -216,9 +231,8 @@ class ModuleParamPruningMask(object):
 
         if value.shape != self._param.data.shape:
             raise ValueError(
-                "param_tensor shape of {} does not match layer.param shape of {}".format(
-                    value.shape, self._param.shape
-                )
+                f"param_tensor shape of {value.shape} does not match layer.param "
+                f"shape of {self._param.shape}"
             )
 
         value = self._check_regen_value(value)

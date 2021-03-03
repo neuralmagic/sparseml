@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Model function creator classes to be used with estimator
 """
@@ -102,7 +116,7 @@ class EstimatorModelFn(ABC):
             )
 
             # Modifier ops and extras
-            # Note that extras such as for pruning masks are needed for eval mode as well
+            # Note that extras such as for pruning masks are needed for eval mode too
             (
                 mod_manager,
                 mod_update_ops_hook,
@@ -467,8 +481,8 @@ class ClassificationEstimatorModelFn(EstimatorModelFn):
 
         with tf_compat.name_scope("train"):
             # We are using tf.layers.batch_normalization to support previous versions
-            # of TF, which requires us explicite model the dependency between the update of
-            # moving average and variance with training op
+            # of TF, which requires us explicite model the dependency between the
+            # update of moving average and variance with training op
             update_ops = tf_compat.get_collection(tf_compat.GraphKeys.UPDATE_OPS)
             with tf_compat.control_dependencies(update_ops):
                 training_op = optimizer.minimize(loss, global_step=global_step)

@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Modifier for changing the state of a modules params while training according to
 certain update formulas or patterns.
@@ -11,11 +25,7 @@ from sparseml.tensorflow_v1.optim.modifier import (
     ScheduledModifier,
     TensorFlowModifierYAML,
 )
-from sparseml.tensorflow_v1.utils import (
-    any_str_or_regex_matches_tensor_name,
-    get_prunable_ops,
-    tf_compat,
-)
+from sparseml.tensorflow_v1.utils import any_str_or_regex_matches_tensor_name, tf_compat
 from sparseml.utils import ALL_TOKEN, convert_to_bool, flatten_iterable
 
 
@@ -161,7 +171,7 @@ class TrainableParamsModifier(ScheduledModifier):
             if match_params
             else tf_compat.trainable_variables()
         )
-        for variable in tf_compat.global_variables():
+        for variable in all_variables:
             if match_params and not any_str_or_regex_matches_tensor_name(
                 variable.name, self._params
             ):

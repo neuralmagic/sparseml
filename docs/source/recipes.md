@@ -1,41 +1,73 @@
-# Config Files for Model Recalibration
+<!--
+Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 
-[TODO: ENGINEERING: EDIT THE FOLLOWING SO IT MENTIONS SPARSIFY AND REMOVE WHAT IS NO LONGER RELEVANT]
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-All recalibration APIs are designed to work with configuration files.
-These configuration files are written in [YAML](https://yaml.org/) and are loaded into modifying Python objects when recalibrating the models.
-The config files additionally have the same interface across the ML frameworks.
-This enables relatively minimal changes to the config files to load an original config for a PyTorch model into TensorFlow, for example.
+   http://www.apache.org/licenses/LICENSE-2.0
 
-An interactive UI will be rolled out in a future release to support easier modification and creation of the config files. For now, UIs with basic functions are provided in the supporting [tutorial notebooks](#tutorials).
-We recommend becoming familiar with these first.
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 
-The config.yaml files are made up of individual modifiers. These modifiers handle changing different parts of the training process.
+# Sparsification Recipes
 
-In general, each modifier will have a start and an end epoch for when the modifier should be active.
-The modifiers will start at `start_epoch` and run until `end_epoch`.
+All SparseML Sparsification APIs are designed to work with recipes.
+The files encode the instructions needed for modifying the model and/or training process as a list of modifiers.
+Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
+The files are written in [YAML](https://yaml.org/) and stored in YAML or 
+[markdown](https://www.markdownguide.org/) files using 
+[YAML front matter](https://assemble.io/docs/YAML-front-matter.html).
+The rest of the SparseML system is coded to parse the recipe files into a native format for the desired framework
+and apply the modifications to the model and training pipeline.
 
-Note that it does not run through `end_epoch`.
-Additionally, all epoch values support decimal values such that they can be started somewhere in the middle of an epoch. For example, `start_epoch: 2.5` will start in the middle of the second training epoch.
+In a recipe, modifiers must be written in a list that includes "modifiers" in its name.
 
-The most commonly used modifiers are enumerated as subsections below. Also, here is a simple example of a config.yaml file that prunes all layers in a model:
+The easiest ways to get or create recipes are by either using the pre-configured recipes in [SparseZoo](https://github.com/neuralmagic/sparsezoo) or using [Sparsify's](https://github.com/neuralmagic/sparsify) automatic creation.
 
+However, power users may be inclined to create their own recipes by hand to enable more 
+fine-grained control or to add in custom modifiers.
+
+A sample recipe for pruning a model generally looks like the following:
 ```yaml
-version: 1.0.0
-
+version: 0.1.0
 modifiers:
     - !EpochRangeModifier
         start_epoch: 0.0
-        end_epoch: 25.0
+        end_epoch: 70.0
 
-    - !GradualKSModifier
-        params: __ALL__
-        init_sparsity: 0.05
-        final_sparsity: 0.8
-        start_epoch: 5.0
-        end_epoch: 20.0
+    - !LearningRateModifier
+        start_epoch: 0
+        end_epoch: -1.0
+        update_frequency: -1.0
+        init_lr: 0.005
+        lr_class: MultiStepLR
+        lr_kwargs: {'milestones': [43, 60], 'gamma': 0.1}
+
+    - !GMPruningModifier
+        start_epoch: 0
+        end_epoch: 40
         update_frequency: 1.0
+        init_sparsity: 0.05
+        final_sparsity: 0.85
+        mask_type: unstructured
+        params: ['sections.0.0.conv1.weight', 'sections.0.0.conv2.weight', 'sections.0.0.conv3.weight']
 ```
+
+## Modifiers Intro
+
+Recipes can contain multiple modifiers, each modifying a portion of the training process in a different way.
+In general, each modifier will have a start and an end epoch for when the modifier should be active.
+The modifiers will start at `start_epoch` and run until `end_epoch`.
+Note that it does not run through `end_epoch`.
+Additionally, all epoch values support decimal values such that they can be started somewhere in the middle of an epoch. 
+For example, `start_epoch: 2.5` will start in the middle of the second training epoch.
+
+The most commonly used modifiers are enumerated as subsections below.
 
 ## Training Epoch Modifiers
 
@@ -62,16 +94,17 @@ Required Parameters:
 
 ## Pruning Modifiers
 
-The pruning modifiers handle creating or enforcing kernel sparsity for a specified layer(s) in a given model.
+The pruning modifiers handle [pruning](https://neuralmagic.com/blog/pruning-overview/) 
+the specified layer(s) in a given model.
 
-### ConstantKSModifier
+### ConstantPruningModifier
 
-The `ConstantKSModifier` enforces the sparsity structure and level for an already pruned layer(s) in a model.
-The modifier is used for transfer learning from an already pruned model.
-The weights are allowed to make updates to enable transferring to a new task; however, the sparsity is unchanged.
+The `ConstantPruningModifier` enforces the sparsity structure and level for an already pruned layer(s) in a model.
+The modifier is generally used for transfer learning from an already pruned model or 
+to enforce sparsity while quantizing.
+The weights remain trainable in this setup; however, the sparsity is unchanged.
 
 Required Parameters:
-
 - `params`: The parameters in the model to prune.
    This can be set to a string containing `__ALL__` to prune all parameters, a list to specify the targeted parameters,
    or regex patterns prefixed by 're:' of parameter name patterns to match.
@@ -81,19 +114,19 @@ Required Parameters:
 Example:
 
 ```yaml
-    - !ConstantKSModifier
+    - !ConstantPruningModifier
         params: __ALL__
 ```
 
-#### GradualKSModifier
+#### GMPruningModifier
 
-The `GradualKSModifier` prunes the parameter(s) in a model to a target sparsity 
-(percentage of 0's for a layer's param/variable).
+The `GMPruningModifier` prunes the parameter(s) in a model to a 
+target sparsity (percentage of 0's for a layer's param/variable) 
+using [gradual magnitude pruning] (https://neuralmagic.com/blog/pruning-gmp/).
 This is done gradually from an initial to final sparsity (`init_sparsity`, `final_sparsity`)
 over a range of epochs (`start_epoch`, `end_epoch`) and updated at a specific interval defined by the `update_frequency`.
 For example, using the following settings `start_epoch: 0`, `end_epoch: 5`, `update_frequency: 1`, 
 `init_sparsity: 0.05`, `final_sparsity: 0.8` will do the following:
-
 - at epoch 0 set the sparsity for the specified param(s) to 5%
 - once every epoch, gradually increase the sparsity towards 80%
 - by the start of epoch 5, stop pruning and set the final sparsity for the specified param(s) to 80%
@@ -125,7 +158,7 @@ Required Parameters:
 Example:
 
 ```yaml
-    - !GradualKSModifier
+    - !GMPruningModifier
         params: ['blocks.1.conv']
         init_sparsity: 0.05
         final_sparsity: 0.8
@@ -136,11 +169,13 @@ Example:
 
 ### Quantization Modifiers
 
-The `QuantizationModifier` sets the model to run with quantization aware training (QAT).
-QAT emulates the prescision loss of int8 quantization during training so weights can be
-learned to limit any accuracy loss from quantization. Once the `QuantizationModifier` is
-enabled, it cannot be disabled (no `end_epoch`). Quantization zero points are set to be
-asymmetric for activations and symmetric for weights. Currently only available in PyTorch.
+The `QuantizationModifier` sets the model to run with 
+[quantization aware training (QAT)](https://pytorch.org/docs/stable/quantization.html).
+QAT emulates the precision loss of int8 quantization during training so weights can be
+learned to limit any accuracy loss from quantization. 
+Once the `QuantizationModifier` is enabled, it cannot be disabled (no `end_epoch`). 
+Quantization zero points are set to be asymmetric for activations and symmetric for weights. 
+Currently only available in PyTorch.
 
 Notes:
 - ONNX exports of PyTorch QAT models will be QAT models themselves (emulated quantization).
@@ -148,7 +183,7 @@ Notes:
    the script `scripts/pytorch/model_quantize_qat_export.py` or the function
    `neuralmagicML.pytorch.quantization.quantize_qat_export`.
 - If performing QAT on a sparse model, you must preserve sparsity during QAT by
-   applying a `ConstantKSModifier` or have already used a `GradualKSModifier` with
+   applying a `ConstantPruningModifier` or have already used a `GMPruningModifier` with
    `leave_enabled` set to True.
 
 Required Parameters:
@@ -212,8 +247,9 @@ Required Parameters:
 - `end_epoch`: The epoch to stop modifying the LR before.
    This supports floating-point values to enable stopping pruning between epochs. 
 - `lr_class`: The LR class to use, one of [`ExponentialLR`, `StepLR`, `MultiStepLR`].
-- `lr_kwargs`: The named arguments for the `lr_class`.- `init_lr`: [Optional] The initial LR to set at `start_epoch` and to use for creating the schedules. 
-    If not given, the optimizer's current LR will be used at startup.
+- `lr_kwargs`: The named arguments for the `lr_class`.
+- `init_lr`: [Optional] The initial LR to set at `start_epoch` and to use for creating the schedules. 
+   If not given, the optimizer's current LR will be used at startup.
 
  Example:
 

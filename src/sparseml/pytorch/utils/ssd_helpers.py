@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Helper functions and classes for creating and training PyTorch SSD models
 """
@@ -16,7 +30,7 @@ from torch import Tensor
 
 try:
     from torchvision.ops.boxes import batched_nms, box_iou
-except:
+except Exception:
     box_iou = None
     batched_nms = None
 
@@ -224,9 +238,9 @@ class DefaultBoxes(object):
         max_detections: int = 200,
     ) -> List[Tuple[Tensor, Tensor, Tensor]]:
         """
-        Decodes a batch detection model outputs from default box offsets and class scores
-        to ltrb formatted bounding boxes, predicted labels, and scores for each image
-        of the batch using non maximum suppression.
+        Decodes a batch detection model outputs from default box offsets and class
+        scores to ltrb formatted bounding boxes, predicted labels, and scores
+        for each image of the batch using non maximum suppression.
 
         :param boxes: Encoded default-box offsets. Expected shape:
             batch_size,4,num_default_boxes
@@ -313,14 +327,16 @@ def get_default_boxes_300(voc: bool = False) -> DefaultBoxes:
     """
     Convenience function for generating DefaultBoxes object for standard SSD300 model
 
-    :param voc: set True if default boxes should be made for VOC dataset. Will set scales to
-        be slightly larger than for the default COCO dataset configuration
+    :param voc: set True if default boxes should be made for VOC dataset.
+        Will set scales to be slightly larger than for the default
+        COCO dataset configuration
     :return: DefaultBoxes object implemented for standard SSD300 models
     """
     image_size = 300
     feature_maps = [38, 19, 10, 5, 3, 1]
     steps = [8, 16, 32, 64, 100, 300]
-    # use the scales here: https://github.com/amdegroot/ssd.pytorch/blob/master/data/config.py
+    # use the scales here:
+    # https://github.com/amdegroot/ssd.pytorch/blob/master/data/config.py
     if voc:
         scales = [[30, 60], [60, 111], [111, 162], [162, 213], [213, 264], [264, 315]]
     else:
@@ -379,10 +395,11 @@ def ssd_random_crop(
     Performs one of the random SSD crops on a given image, bounding boxes,
     and labels as implemented in the original paper.
 
-    Chooses between following 3 conditions:
-        1. Preserve the original image
-        2. Random crop minimum IoU is among 0.1, 0.3, 0.5, 0.7, 0.9
-        3. Random crop
+    | Chooses between following 3 conditions:
+    |     1. Preserve the original image
+    |     2. Random crop minimum IoU is among 0.1, 0.3, 0.5, 0.7, 0.9
+    |     3. Random crop
+
     Adapted from: https://github.com/chauhan-utk/src.DomainAdaptation
 
     :param image: the image to potentially crop
@@ -581,7 +598,7 @@ class MeanAveragePrecision(object):
         # run postprocessing / nms
         nms_results = self._postprocessing_fn(model_output)
 
-        # match nms results to ground truth objects for each image in the batch and store
+        # match nms results to ground truth objects for each batch image and store
         for prediction, annotations in zip(nms_results, ground_truth_annotations):
             actual_boxes, actual_labels = annotations
 

@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from typing import Callable, Union
 
@@ -39,25 +53,23 @@ from tests.sparseml.pytorch.models.utils import compare_model
         ("resnet18", False, True, resnet18),
         ("resnet18", True, True, resnet18),
         ("resnet18", "base", True, resnet18),
-        ("resnet18", "optim", True, resnet18),
+        ("resnet18", "pruned-conservative", True, resnet18),
         ("resnetv2_18", False, True, resnetv2_18),
         ("resnet34", False, True, resnet34),
         ("resnet34", True, True, resnet34),
         ("resnet34", "base", True, resnet34),
-        ("resnet34", "optim", True, resnet34),
+        ("resnet34", "pruned-conservative", True, resnet34),
         ("resnetv2_34", False, True, resnetv2_34),
         ("resnet50", False, True, resnet50),
         ("resnet50", True, False, resnet50),
         ("resnet50", "base", False, resnet50),
-        ("resnet50", "optim", False, resnet50),
-        ("resnet50", "optim-perf", False, resnet50),
+        ("resnet50", "pruned-conservative", False, resnet50),
+        ("resnet50", "pruned-moderate", False, resnet50),
         ("resnet50_2xwidth", False, True, resnet50_2xwidth),
         ("resnet50_2xwidth", True, False, resnet50_2xwidth),
         ("resnet50_2xwidth", "base", False, resnet50_2xwidth),
         ("resnetv2_50", False, True, resnetv2_50),
         ("resnext50", False, True, resnext50),
-        ("resnext50", True, False, resnext50),
-        ("resnext50", "base", False, resnext50),
         ("resnet101", False, True, resnet101),
         ("resnet101", True, False, resnet101),
         ("resnet101", "base", False, resnet101),

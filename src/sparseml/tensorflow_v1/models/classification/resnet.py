@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 TensorFlow ResNet implementation.
 Further info on ResNet can be found in the paper
@@ -431,7 +445,7 @@ def resnet_const(
     input_shape=(224, 224, 3),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="18",
     default_dataset="imagenet",
     default_desc="base",
@@ -491,7 +505,7 @@ def resnet18(
     input_shape=(32, 32, 3),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="20",
     default_dataset="Cifar10",
     default_desc="base",
@@ -537,7 +551,7 @@ def resnet20(
     input_shape=(224, 224, 3),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="34",
     default_dataset="imagenet",
     default_desc="base",
@@ -597,7 +611,7 @@ def resnet34(
     input_shape=(224, 224, 3),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="50",
     default_dataset="imagenet",
     default_desc="base",
@@ -677,7 +691,7 @@ def resnet50(
     input_shape=(224, 224, 3),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="101",
     default_dataset="imagenet",
     default_desc="base",
@@ -757,7 +771,7 @@ def resnet101(
     input_shape=(224, 224, 3),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="152",
     default_dataset="imagenet",
     default_desc="base",

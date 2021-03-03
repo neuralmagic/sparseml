@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 General utility helper functions.
 Common functions for interfacing with python primitives and directories/files.
@@ -5,7 +19,6 @@ Common functions for interfacing with python primitives and directories/files.
 
 import errno
 import fnmatch
-import glob
 import logging
 import os
 import re
@@ -15,6 +28,10 @@ from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy
+
+from sparsezoo import Zoo
+from sparsezoo.objects import OptimizationRecipe
+from sparsezoo.utils import load_numpy_list
 
 
 __all__ = [
@@ -473,20 +490,22 @@ def load_labeled_data(
     Assumes sorted ordering for on disk. Will match between when a file glob is passed
     for either data and/or labels.
 
-    :param data: the file glob or list of arrays to use for data
-    :param labels: the file glob or list of arrays to use for labels, if any
+    :param data: the file glob, file path to numpy data tar ball, or list of arrays to
+        use for data
+    :param labels: the file glob, file path to numpy data tar ball, or list of arrays
+        to use for labels, if any
     :param raise_on_error: True to raise on any error that occurs;
         False to log a warning, ignore, and continue
     :return: a list containing tuples of the data, labels. If labels was passed in
         as None, will now contain a None for the second index in each tuple
     """
     if isinstance(data, str):
-        data = sorted(glob.glob(data))
+        data = load_numpy_list(data)
 
     if labels is None:
         labels = [None for _ in range(len(data))]
     elif isinstance(labels, str):
-        labels = sorted(glob.glob(labels))
+        labels = load_numpy_list(labels)
 
     if len(data) != len(labels) and labels:
         # always raise this error, lengths must match
@@ -746,16 +765,30 @@ def _tensors_export_batch(
     )
 
 
-def load_recipe_yaml_str(file_path: str) -> str:
+def load_recipe_yaml_str(file_path: Union[str, OptimizationRecipe]) -> str:
     """
     Loads a YAML recipe file to a string or
     extracts recipe from YAML front matter in a sparsezoo markdown recipe card.
+    Recipes can also be provided as SparseZoo model stubs or OptimizationRecipe
+    objects.
 
     YAML front matter: https://jekyllrb.com/docs/front-matter/
 
-    :param file_path: file path to recipe YAML file or markdown recipe card
+    :param file_path: file path to recipe YAML file or markdown recipe card or
+        stub to a SparseZoo model whose recipe will be downloaded and loaded.
+        SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
+        '?recipe_type=<type>' parameter. Can also be a SparseZoo OptimizationRecipe
+        object. i.e. '/path/to/local/recipe.yaml', 'zoo:model/stub/path',
+        'zoo:model/stub/path?recipe_type=transfer'
     :return: the recipe YAML configuration loaded as a string
     """
+    if isinstance(file_path, OptimizationRecipe):
+        # download and unwrap OptimizationRecipe object
+        file_path = file_path.downloaded_path()
+    elif file_path.startswith("zoo:"):
+        # download from zoo stub
+        file_path = Zoo.download_recipe_from_stub(file_path)
+
     extension = file_path.lower().split(".")[-1]
     if extension not in ["md", "yaml"]:
         raise ValueError(
@@ -766,7 +799,8 @@ def load_recipe_yaml_str(file_path: str) -> str:
         yaml_str = yaml_file.read()
         if extension == "md":
             # extract YAML front matter from markdown recipe card
-            # adapted from https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
+            # adapted from
+            # https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
             yaml_delim = r"(?:---|\+\+\+)"
             yaml = r"(.*?)"
             re_pattern = r"^\s*" + yaml_delim + yaml + yaml_delim

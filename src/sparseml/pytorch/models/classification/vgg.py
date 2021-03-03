@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 PyTorch VGG implementations.
 Further info can be found in the paper `here <https://arxiv.org/abs/1409.1556>`__.
@@ -224,7 +238,7 @@ def vgg11(num_classes: int = 1000, class_type: str = "single") -> VGG:
     domain="cv",
     sub_domain="classification",
     architecture="vgg",
-    sub_architecture="11-bn",
+    sub_architecture="11_bn",
     default_dataset="imagenet",
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
@@ -310,7 +324,7 @@ def vgg13(num_classes: int = 1000, class_type: str = "single") -> VGG:
     domain="cv",
     sub_domain="classification",
     architecture="vgg",
-    sub_architecture="13-bn",
+    sub_architecture="13_bn",
     default_dataset="imagenet",
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
@@ -396,7 +410,7 @@ def vgg16(num_classes: int = 1000, class_type: str = "single") -> VGG:
     domain="cv",
     sub_domain="classification",
     architecture="vgg",
-    sub_architecture="16-bn",
+    sub_architecture="16_bn",
     default_dataset="imagenet",
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],
@@ -482,7 +496,7 @@ def vgg19(num_classes: int = 1000, class_type: str = "single") -> VGG:
     domain="cv",
     sub_domain="classification",
     architecture="vgg",
-    sub_architecture="19-bn",
+    sub_architecture="19_bn",
     default_dataset="imagenet",
     default_desc="base",
     def_ignore_error_tensors=["classifier.mlp.6.weight", "classifier.mlp.6.bias"],

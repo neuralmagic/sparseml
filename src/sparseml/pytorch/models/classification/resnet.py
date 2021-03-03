@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 PyTorch ResNet, ResNet V2, ResNext implementations.
 Further info on ResNet can be found in the paper
@@ -522,7 +536,7 @@ class ResNet(Module):
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="18",
     default_dataset="imagenet",
     default_desc="base",
@@ -563,7 +577,7 @@ def resnet18(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v2",
+    architecture="resnet_v2",
     sub_architecture="18",
     default_dataset="imagenet",
     default_desc="base",
@@ -604,7 +618,7 @@ def resnetv2_18(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="34",
     default_dataset="imagenet",
     default_desc="base",
@@ -645,7 +659,7 @@ def resnet34(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v2",
+    architecture="resnet_v2",
     sub_architecture="34",
     default_dataset="imagenet",
     default_desc="base",
@@ -686,7 +700,7 @@ def resnetv2_34(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="50",
     default_dataset="imagenet",
     default_desc="base",
@@ -743,7 +757,7 @@ def resnet50(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v2",
+    architecture="resnet_v2",
     sub_architecture="50",
     default_dataset="imagenet",
     default_desc="base",
@@ -810,8 +824,8 @@ def resnetv2_50(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
-    sub_architecture="50-2xwidth",
+    architecture="resnet_v1",
+    sub_architecture="50_2x",
     default_dataset="imagenet",
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
@@ -928,7 +942,7 @@ def resnext50(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="101",
     default_dataset="imagenet",
     default_desc="base",
@@ -985,7 +999,7 @@ def resnet101(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v2",
+    architecture="resnet_v2",
     sub_architecture="101",
     default_dataset="imagenet",
     default_desc="base",
@@ -1052,8 +1066,8 @@ def resnetv2_101(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
-    sub_architecture="101-2xwidth",
+    architecture="resnet_v1",
+    sub_architecture="101_2x",
     default_dataset="imagenet",
     default_desc="base",
     def_ignore_error_tensors=["classifier.fc.weight", "classifier.fc.bias"],
@@ -1170,7 +1184,7 @@ def resnext101(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v1",
+    architecture="resnet_v1",
     sub_architecture="152",
     default_dataset="imagenet",
     default_desc="base",
@@ -1227,7 +1241,7 @@ def resnet152(num_classes: int = 1000, class_type: str = "single") -> ResNet:
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",
-    architecture="resnet-v2",
+    architecture="resnet_v2",
     sub_architecture="152",
     default_dataset="imagenet",
     default_desc="base",

@@ -1,9 +1,32 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import re
 from typing import List, Tuple, Union
 
 import numpy
-import tensorflow.contrib.graph_editor as ge
-from tensorflow.contrib.graph_editor.util import ListView
+
+
+try:
+    import tensorflow.contrib.graph_editor as graph_editor
+    from tensorflow.contrib.graph_editor.util import ListView
+
+    tf_contrib_err = None
+except Exception as err:
+    graph_editor = None
+    ListView = None
+    tf_contrib_err = err
 
 from sparseml.tensorflow_v1.utils.helpers import tf_compat
 
@@ -80,8 +103,9 @@ def clean_tensor_name(var_tens: Union[str, tf_compat.Tensor]) -> str:
         (removes read and indices at the end)
     """
     name = var_tens if isinstance(var_tens, str) else var_tens.name
-    name = re.sub(r"/read:[0-9]+$", "", name)
-    name = re.sub(r":[0-9]+$", "", name)
+    name = re.sub(r"/read/_.+:[0-9]+$", "", name)  # x/read/_12__cv__46:0 -> x
+    name = re.sub(r"/read:[0-9]+$", "", name)  # x/read:0 -> x
+    name = re.sub(r":[0-9]+$", "", name)  # x:0 -> x
 
     return name
 
@@ -99,7 +123,10 @@ def get_op_input_var(
     :param var_index: the index to guide which input to grab from the operation
     :return: the tensor input that represents the variable input for the operation
     """
-    op_sgv = ge.sgv(operation)
+    if tf_contrib_err:
+        raise tf_contrib_err
+
+    op_sgv = graph_editor.sgv(operation)
     var_index = get_op_var_index(var_index, op_sgv.inputs)
 
     return op_sgv.inputs[var_index]
@@ -174,6 +201,8 @@ def get_ops_and_inputs_by_name_or_regex(
         patterns, then will match on all prunable layers and return variables using
         get_op_input_var
     """
+    if tf_contrib_err:
+        raise tf_contrib_err
 
     if not graph:
         graph = tf_compat.get_default_graph()
@@ -190,19 +219,20 @@ def get_ops_and_inputs_by_name_or_regex(
                 # get all the read ops for the var
                 read_ops = [
                     read_op
-                    for read_op in ge.get_consuming_ops(var_tens)
+                    for read_op in graph_editor.get_consuming_ops(var_tens)
                     if "/read" == read_op.name[-5:]
                 ]  # filter for /read ops
                 read_tensors = {
                     read_tensor
                     for read_op in read_ops
-                    for read_tensor in ge.sgv(read_op).outputs
+                    for read_tensor in graph_editor.sgv(read_op).outputs
                 }
-                # gets ops that read from read_tensors and filters any ops that were created by mask_ks
+                # gets ops that read from read_tensors and filters any ops
+                # that were created by mask_ks
                 consuming_ops_with_input = [
                     (consuming_op, read_tensor)
                     for read_tensor in read_tensors
-                    for consuming_op in ge.get_consuming_ops(read_tensor)
+                    for consuming_op in graph_editor.get_consuming_ops(read_tensor)
                 ]
                 for op, inp in consuming_ops_with_input:
                     if "_nm_ks" not in op.name:
@@ -210,8 +240,10 @@ def get_ops_and_inputs_by_name_or_regex(
                     else:
                         nm_ks_consuming_ops_with_input = [
                             (consuming_op, inp)
-                            for output_tens in ge.sgv(op).outputs
-                            for consuming_op in ge.get_consuming_ops(output_tens)
+                            for output_tens in graph_editor.sgv(op).outputs
+                            for consuming_op in graph_editor.get_consuming_ops(
+                                output_tens
+                            )
                             if "_nm_ks" not in consuming_op.name
                         ]
                         prunable_ops_and_inputs += nm_ks_consuming_ops_with_input
@@ -237,7 +269,11 @@ def any_str_or_regex_matches_tensor_name(
             if re.match(pattern, tensor_name) or re.match(pattern, clean_name):
                 return True
         else:
-            if tensor_name == name_or_regex or clean_name == name_or_regex:
+            if (
+                tensor_name == name_or_regex
+                or clean_name == name_or_regex
+                or clean_name == clean_tensor_name(name_or_regex)
+            ):
                 return True
     return False
 
@@ -258,7 +294,11 @@ def _validate_all_params_found(
     for name_or_regex in name_or_regex_patterns:
         # Convert all name_or_regex values to regex patterns since we may want
         # full names to match based on tensor name extensions
-        pattern = name_or_regex if name_or_regex[:3] != "re:" else name_or_regex[3:]
+        pattern = (
+            clean_tensor_name(name_or_regex)
+            if name_or_regex[:3] != "re:"
+            else name_or_regex[3:]
+        )
 
         if any(re.match(pattern, name) for name in tensor_names):
             continue  # regex pattern matches at least one full parameter name

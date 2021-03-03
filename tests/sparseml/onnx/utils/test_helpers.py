@@ -1,13 +1,21 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import numpy
 import pytest
 from onnx import TensorProto, load_model, numpy_helper
-from onnx.helper import (
-    make_graph,
-    make_model,
-    make_node,
-    make_tensor,
-    make_tensor_value_info,
-)
+from onnx.helper import make_graph, make_model, make_node, make_tensor_value_info
 
 from sparseml.onnx.utils import (
     NodeParam,
@@ -41,7 +49,12 @@ from sparseml.onnx.utils import (
     onnx_nodes_sparsities,
 )
 from sparsezoo import Zoo
-from tests.sparseml.onnx.helpers import extract_node_models, onnx_repo_models
+
+
+from tests.sparseml.onnx.helpers import (  # noqa isort: skip
+    extract_node_models,
+    onnx_repo_models,
+)
 
 
 @pytest.fixture
@@ -132,7 +145,7 @@ def prunable_onnx_model():
     return model_def
 
 
-def test_check_load_model(onnx_repo_models):
+def test_check_load_model(onnx_repo_models):  # noqa: F811
     model_path = onnx_repo_models.model_path
     loaded_model = load_model(model_path)
     assert loaded_model == check_load_model(model_path)
@@ -246,7 +259,7 @@ def test_get_prunable_node_from_foldable(foldable_onnx_model):
     )
 
 
-def test_get_init_by_name(onnx_repo_models):
+def test_get_init_by_name(onnx_repo_models):  # noqa: F811
     model = load_model(onnx_repo_models.model_path)
     for init in model.graph.initializer:
         assert init == get_init_by_name(model, init.name)
@@ -347,7 +360,7 @@ def test_onnx_node_sparsities():
     models = Zoo.search_models(
         domain="cv",
         sub_domain="classification",
-        architecture="mobilenet-v1",
+        architecture="mobilenet_v1",
         dataset="imagenet",
         framework="pytorch",
         optim_name="pruned",
@@ -357,7 +370,7 @@ def test_onnx_node_sparsities():
     assert len(models) > 0
 
     for model in models:
-        file_path = model.download_onnx_file()
+        file_path = model.onnx_file.downloaded_path()
 
         tot, nodes = onnx_nodes_sparsities(file_path)
 
@@ -389,7 +402,7 @@ def test_onnx_node_sparsities():
             assert val.params_zero_count > 0
 
 
-def test_extract_node_shape(extract_node_models):
+def test_extract_node_shape(extract_node_models):  # noqa: F811
     model_path, expected_output = extract_node_models
     onnx_model = load_model(model_path)
     node_shapes = extract_node_shapes(onnx_model)

@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Modifier for models through quantization aware training.
 
@@ -5,7 +19,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 """
 
 
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -14,7 +28,7 @@ from torch.optim.optimizer import Optimizer
 try:
     from torch import quantization as torch_quantization
     from torch.nn import intrinsic as torch_intrinsic
-except:
+except Exception:
     torch_quantization = None
     torch_intrinsic = None
 
@@ -61,6 +75,8 @@ class QuantizationModifier(ScheduledModifier):
         None to not stop tracking batch norm stats during QAT. Default is None
     :param end_epoch: Disabled, setting to anything other than -1 will raise an
         exception. For compatibility with YAML serialization only.
+    :param model_fuse_fn_kwargs: dictionary of keyword argument values to be passed
+        to the model fusing function
     """
 
     def __init__(
@@ -71,10 +87,12 @@ class QuantizationModifier(ScheduledModifier):
         disable_quantization_observer_epoch: Union[float, None] = None,
         freeze_bn_stats_epoch: Union[float, None] = None,
         end_epoch: float = -1,
+        model_fuse_fn_kwargs: Dict[str, Any] = None,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
-                "Unable to import package torch.quantization and/or torch.nn.intrinsic. "
+                "Unable to import package torch.quantization and/or "
+                "torch.nn.intrinsic. "
                 "Try upgrading your PyTorch version to use the QuantizationModifier."
             )
         if end_epoch != -1:
@@ -88,6 +106,7 @@ class QuantizationModifier(ScheduledModifier):
         self._start_epoch = start_epoch
         self._submodules = submodules
         self._model_fuse_fn_name = model_fuse_fn_name
+        self._model_fuse_fn_kwargs = model_fuse_fn_kwargs or {}
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
 
@@ -239,9 +258,10 @@ class QuantizationModifier(ScheduledModifier):
                             self._model_fuse_fn_name
                         )
                     )
-                module_fuse_fn()
+                module_fuse_fn(**self._model_fuse_fn_kwargs)
             elif self._model_fuse_fn_name is None:  # default auto fn
-                fuse_module_conv_bn_relus(module, inplace=True)
+                self._model_fuse_fn_kwargs["inplace"] = True
+                fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
             # prepare each module / submodule for quantization
             qconfig = get_qat_qconfig()
             for quant_module in self._modules_to_quantize:
@@ -305,10 +325,10 @@ class QuantizationModifier(ScheduledModifier):
             and self._disable_quantization_observer_epoch < self._start_epoch
         ):
             raise ValueError(
-                "disable_quantization_observer_epoch may not be greater than start_epoch"
-                " for QuantizationModifier, received: {} with start_epoch {}".format(
-                    self._disable_quantization_observer_epoch, self._start_epoch
-                )
+                f"disable_quantization_observer_epoch may not be greater than "
+                f"start_epoch for QuantizationModifier, received: "
+                f"{self._disable_quantization_observer_epoch} with start_epoch "
+                f"{self._start_epoch}"
             )
 
         if (

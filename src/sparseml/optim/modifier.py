@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Code related to modifiers that is shared across frameworks.
 Modifiers allow modifying the training process of a model; ex to perform model pruning.
@@ -280,8 +294,24 @@ class BaseModifier(BaseObject):
             modifiers = [container]
         elif isinstance(container, List):
             modifiers = container
-        else:
-            modifiers = container["modifiers"]
+        else:  # Dict
+            modifiers = []
+            for name, item in container.items():
+                if "modifiers" in name and isinstance(item, List):
+                    modifiers.extend(item)
+                elif isinstance(item, BaseModifier):
+                    modifiers.append(item)
+                elif isinstance(item, List) and any(
+                    isinstance(element, BaseModifier) for element in item
+                ):
+                    modifier_type = type(
+                        [mod for mod in item if isinstance(mod, BaseModifier)][0]
+                    )
+                    raise ValueError(
+                        "Invalid modifier location. Grouped modifiers in recipes must "
+                        "be listed in lists with 'modifiers' in its name. A modifier of "
+                        f"type {modifier_type} was found in recipe list {name}"
+                    )
 
         return modifiers
 

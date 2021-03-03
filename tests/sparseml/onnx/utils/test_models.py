@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 from typing import Any, Callable, Dict, List, NamedTuple
 
@@ -7,9 +21,9 @@ from onnx import load_model
 
 from sparseml.onnx.utils.data import DataLoader
 from sparseml.onnx.utils.model import (
-    ModelRunner,
     DeepSparseAnalyzeModelRunner,
     DeepSparseModelRunner,
+    ModelRunner,
     ORTModelRunner,
     max_available_cores,
 )
@@ -34,7 +48,7 @@ OnnxModelDataFixture = NamedTuple(
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "resnet-v1",
+                "architecture": "resnet_v1",
                 "sub_architecture": "50",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -49,7 +63,7 @@ OnnxModelDataFixture = NamedTuple(
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "mobilenet-v1",
+                "architecture": "mobilenet_v1",
                 "sub_architecture": "1.0",
                 "framework": "pytorch",
                 "repo": "sparseml",
@@ -65,15 +79,15 @@ OnnxModelDataFixture = NamedTuple(
 def onnx_models_with_data(request) -> OnnxModelDataFixture:
     model_args = request.param
     model = Zoo.load_model(**model_args)
-    model_path = model.download_onnx_file(overwrite=False)
-    data_paths = model.download_data_files(overwrite=False)
+    model_path = model.onnx_file.downloaded_path()
+    data_paths = [data_file.downloaded_path() for data_file in model.data.values()]
     inputs_paths = None
     outputs_paths = None
     for path in data_paths:
-        if "_sample-inputs" in path:
-            inputs_paths = path.split(".tar")[0]
-        elif "_sample-outputs" in path:
-            outputs_paths = path.split(".tar")[0]
+        if "sample-inputs" in path:
+            inputs_paths = path
+        elif "sample-outputs" in path:
+            outputs_paths = path
     return OnnxModelDataFixture(model_path, inputs_paths, outputs_paths)
 
 
@@ -101,15 +115,12 @@ def _test_model(
 ):
     model = load_model(model_path)
 
-    input_glob = os.path.join(input_paths, "*")
-    output_glob = os.path.join(output_paths, "*")
-
-    dataloader = DataLoader(input_glob, output_glob, 2, 0)
+    dataloader = DataLoader(input_paths, output_paths, 2, 0)
     model_runner = runner_constructor(model, batch_size=2)
     outputs, _ = model_runner.run(dataloader)
     _test_output(outputs, dataloader, batch_size=2)
 
-    dataloader = DataLoader(input_glob, output_glob, 1, 0)
+    dataloader = DataLoader(input_paths, output_paths, 1, 0)
     model_runner = runner_constructor(
         model,
         batch_size=1,

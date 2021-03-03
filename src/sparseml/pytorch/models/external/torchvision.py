@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Module to register torchvision imagenet classification models
 with the sparseml.pytorch model registry.
@@ -13,7 +27,7 @@ from typing import List, Union
 
 try:
     from torchvision import models as torchvision_models
-except:
+except Exception:
     torchvision_models = None
 
 from sparseml.pytorch.models.registry import ModelRegistry
@@ -66,10 +80,13 @@ def _registry_constructor_wrapper(key, constructor_function):
     ):
         """
         :param pretrained_path: A path to the pretrained weights to load,
-            if provided will override the pretrained param
+            if provided will override the pretrained param. May also be
+            a SparseZoo stub path preceded by 'zoo:' with the optional
+            `?recipe_type=` argument. If given a recipe type, the base
+                model weights for that recipe will be loaded
         :param pretrained: True to load the default pretrained weights,
             a string to load a specific pretrained weight
-            (ex: base, optim, optim-perf),
+            (ex: base, pruned-moderate),
             or False to not load any pretrained weights
         :param pretrained_dataset: The dataset to load pretrained weights for
             (ex: imagenet, mnist, etc).
@@ -96,12 +113,14 @@ def _registry_constructor_wrapper(key, constructor_function):
                 key, pretrained, pretrained_dataset
             )
             try:
-                paths = zoo_model.download_framework_files()
-                load_model(paths[0], model, load_strict, ignore)
-            except Exception as ex:
+                paths = zoo_model.download_framework_files(extensions=[".pth"])
+                load_model(paths[0], model, load_strict, ignore_error_tensors)
+            except Exception:
                 # try one more time with overwrite on in case file was corrupted
-                paths = zoo_model.download_framework_files(overwrite=True)
-                load_model(paths[0], model, load_strict, ignore)
+                paths = zoo_model.download_framework_files(
+                    overwrite=True, extensions=[".pth"]
+                )
+                load_model(paths[0], model, load_strict, ignore_error_tensors)
 
         return model
 
