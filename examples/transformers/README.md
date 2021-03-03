@@ -16,7 +16,7 @@ pip install torch sparseml transformers datasets
 To custom prune a model first go to the prune-config.yaml file and modify the parameters to your needs. We have provided a range of pruning configurations in the prune_config_files folder. 
 !EpochRangeModifier controls how long the model trains for and Each !GMPruningModifier modifies controls how each portion is pruned. You can modify end_epoch to control how long the pruning regime lasts and final_sparsity and init_sparsity define the speed which the module is pruned and the final sparsity.
 ### Training 
-```python
+```bash
 python main.py  \
  --model_name_or_path bert-base-uncased \
  --dataset_name squad \
@@ -35,7 +35,7 @@ python main.py  \
 ```
 
 #### Evaluation
-```python
+```bash
 python main.py  \
  --model_name_or_path bert-base-uncased-99sparsity-10total8gmp/ \
  --dataset_name squad \
@@ -47,7 +47,7 @@ python main.py  \
  --preprocessing_num_workers 4 \
 ```
 #### ONNX Export
-```python
+```bash
 python main.py  \
  --model_name_or_path bert-base-uncased-99sparsity-10total8gmp/
  --do_eval  \
