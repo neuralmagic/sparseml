@@ -227,8 +227,6 @@ class ModelRegistry(object):
         default_dataset: str,
         default_desc: str,
         repo_source: str,
-        def_ignore_error_tensors: List[str] = None,
-        desc_args: Dict[str, Tuple[str, Any]] = None,
     ):
         """
         Register a model with the registry from a model constructor or provider function
@@ -283,8 +281,6 @@ class ModelRegistry(object):
             pretrained_path: str = None,
             pretrained: Union[bool, str] = False,
             pretrained_dataset: str = None,
-            load_strict: bool = True,
-            ignore_error_tensors: List[str] = None,
             *args,
             **kwargs,
         ):
@@ -298,10 +294,6 @@ class ModelRegistry(object):
             :param pretrained_dataset: The dataset to load pretrained weights for
                 (ex: imagenet, mnist, etc).
                 If not supplied will default to the one preconfigured for the model.
-            :param load_strict: True to raise an error on issues with state dict
-                loading from pretrained_path or pretrained, False to ignore
-            :param ignore_error_tensors: Tensors to ignore while checking the state dict
-                for weights loaded from pretrained_path or pretrained
             """
             attributes = ModelRegistry._ATTRIBUTES[key]
 
@@ -309,13 +301,6 @@ class ModelRegistry(object):
                 kwargs[attributes.args[pretrained][0]] = attributes.args[pretrained][1]
 
             model = const_func(*args, **kwargs)
-            ignore = []
-
-            if ignore_error_tensors:
-                ignore.extend(ignore_error_tensors)
-            elif attributes.ignore_error_tensors:
-                ignore.extend(attributes.ignore_error_tensors)
-
             if isinstance(pretrained, str):
                 if pretrained.lower() == "true":
                     pretrained = True
@@ -329,7 +314,7 @@ class ModelRegistry(object):
                     key, pretrained, pretrained_dataset
                 )
                 try:
-                    paths = zoo_model.download_framework_files(extensions=[".pth"])
+                    paths = zoo_model.download_framework_files(extensions=[".h5"])
                     load_model(paths[0], model, load_strict, ignore)
                 except Exception:
                     # try one more time with overwrite on in case file was corrupted

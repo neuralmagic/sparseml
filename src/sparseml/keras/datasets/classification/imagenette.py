@@ -20,15 +20,13 @@ More info for the dataset can be found `here <https://github.com/fastai/imagenet
 
 from typing import Union
 
-from sparseml.keras.datasets.classification.imagefolder import (
-    ImageFolderDataset,
-)
+from sparseml.keras.datasets.classification.imagefolder import ImageFolderDataset
 from sparseml.keras.datasets.registry import DatasetRegistry
 from sparseml.utils.datasets import (
     IMAGENET_RGB_MEANS,
     IMAGENET_RGB_STDS,
-    ImagenetteSize,
     ImagenetteDownloader,
+    ImagenetteSize,
     default_dataset_path,
 )
 
@@ -63,7 +61,7 @@ class ImagenetteDataset(ImageFolderDataset, ImagenetteDownloader):
         self,
         root: str = default_dataset_path("imagenette"),
         train: bool = True,
-        dataset_size: ImagenetteSize = ImagenetteSize.full,
+        dataset_size: ImagenetteSize = ImagenetteSize.s320,
         image_size: Union[int, None] = None,
         download: bool = True,
     ):

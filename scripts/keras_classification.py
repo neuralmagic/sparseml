@@ -117,31 +117,39 @@ optional arguments:
   --optim-args OPTIM_ARGS
                         Additional args to be passed to the optimizer passed
                         in as a json object
+
+###33333333
+EXAMPLE: Fine-tune a ResNet50 model from Keras Application, pretrained on Imagenet,
+for the Imagenette dataset. The recipe could be used to define learning rate schedule.
+
+python scripts/keras_classification.py train \
+     --arch-key keras_applications.ResNet50 \
+     --dataset imagenette \
+     --dataset-path /hdd/datasets/imagenette \
+     --train-batch-size 64 \
+     --recipe-path <RECIPE_PATH>
+
 """
 
 import argparse
 import json
-import os
 import math
+import os
 from typing import Optional, Tuple
 
 import tensorflow as tf
 from tensorflow import keras
 
 from sparseml import get_main_logger
+from sparseml.keras.datasets import Dataset, DatasetRegistry
 from sparseml.keras.models import ModelRegistry
-from sparseml.utils import create_dirs
-from sparseml.keras.datasets import (
-    Dataset,
-    DatasetRegistry,
-)
 from sparseml.keras.optim import ScheduledModifierManager
-from sparseml.keras.utils import TensorBoardLogger, LossesAndMetricsLoggingCallback
+from sparseml.keras.utils import LossesAndMetricsLoggingCallback, TensorBoardLogger
+from sparseml.utils import create_dirs
 
 
 LOGGER = get_main_logger()
 TRAIN_COMMAND = "train"
-EVAL_COMMAND = "evaluate"
 EXPORT_COMMAND = "export"
 
 
@@ -155,10 +163,6 @@ def parse_args():
     train_parser = subparsers.add_parser(
         TRAIN_COMMAND,
         description="Train and/or prune an image classification model",
-    )
-    eval_parser = subparsers.add_parser(
-        EVAL_COMMAND,
-        description="Evaluate an image classification model",
     )
     export_parser = subparsers.add_parser(
         EXPORT_COMMAND,
@@ -488,9 +492,21 @@ def create_model(args, input_shape, num_classes):
         args.checkpoint_path,
         args.pretrained_dataset,
         input_shape=input_shape,
-        classes=num_classes,
         **kwargs,
     )
+
+    if (
+        args.pretrained_dataset is not None
+        and args.dataset is not None
+        and args.pretrained_dataset != args.dataset
+    ):
+        # Set up the model for fine-tuning
+        model.trainable = False
+        new_output = keras.layers.Dense(num_classes, activation="softmax")(
+            model.layers[-2].output
+        )
+        model = keras.Model(model.input, new_output)
+
     return model
 
 
@@ -561,7 +577,7 @@ def main(args):
 
     # Model saving
     checkpoint_filepath = os.path.join(
-        save_dir, "model.{epoch:02d}-{val_accuracy:.2f}.h5"
+        save_dir, "model.{epoch:02d}-{val_accuracy:.2f}.tf"
     )
     checkpoint_callback = keras.callbacks.ModelCheckpoint(
         filepath=checkpoint_filepath,
@@ -608,6 +624,11 @@ if __name__ == "__main__":
 #
 # Example runs:
 #
+
+#
+# python scripts/keras_classification.py train --arch-key keras_applications.ResNet50 --dataset imagenette --dataset-path /hdd/datasets/imagenette --train-batch-size 64 --recipe-path /hdd/src/sparseml/examples/keras/resnet50_imagenette.yaml
+
+
 # python scripts/keras_classification.py train --arch-key keras_applications.ResNet50 --checkpoint-path /hdd/src/sparseml/keras_classification/keras_applications.ResNet50@imagenette__43/model.01-0.17.h5 --dataset imagenette --dataset-path /hdd/datasets/imagenette --train-batch-size 64 --recipe-path /hdd/src/sparseml/examples/keras/resnet50_imagenette.yaml
 #
 #######################################

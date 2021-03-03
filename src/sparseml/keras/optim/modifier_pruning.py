@@ -866,7 +866,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
             layer.name in self.layer_names
         ):  # TODO: handle regex params --- see create_ops in TF version
             cloned_layer = MaskedLayer(
-                layer, self._sparsity_scheduler, self._mask_type, name=layer.name
+                layer, self._sparsity_scheduler, self._mask_type, name="masked_{}".format(layer.name)
             )
             self._masked_layers.append(cloned_layer)
         return cloned_layer

@@ -72,7 +72,6 @@ def _registry_constructor_wrapper(key, model_func):
         pretrained_path: str = None,
         pretrained: Union[bool, str] = False,
         pretrained_dataset: str = None,
-        num_classes: int = None,
         **kwargs,
     ):
         """
@@ -96,7 +95,6 @@ def _registry_constructor_wrapper(key, model_func):
         if pretrained:
             if pretrained_dataset == "imagenet":
                 weights = "imagenet"  # Imagenet pretrained weights
-                num_classes
             elif pretrained_path is not None:
                 weights = pretrained_path  # Path to a weight file
         if weights is not None:
