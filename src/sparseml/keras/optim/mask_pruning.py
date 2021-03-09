@@ -401,9 +401,26 @@ def remove_pruning_masks(model: tf.keras.Model):
     :return: the original model with pruned weights
     """
 
+    def _get_pruned_layer(layer):
+        # If the model is loaded through SavedFormat, the layer of type
+        # MaskedLayer would belong to a special package, hence the
+        # second check below based simply on class name
+        is_masked_layer = isinstance(
+            layer, MaskedLayer
+        ) or layer.__class__.__name__.endswith("MaskedLayer")
+        if is_masked_layer:
+            return _get_pruned_layer(layer.layer)
+        elif isinstance(layer, tf.keras.layers.Layer):
+            return layer
+        else:
+            raise ValueError("Unknown layer type")
+
     def _remove_pruning_masks(layer):
-        if isinstance(layer, MaskedLayer):
-            return layer.pruned_layer
+        is_masked_layer = isinstance(
+            layer, MaskedLayer
+        ) or layer.__class__.__name__.endswith("MaskedLayer")
+        if is_masked_layer:
+            return _get_pruned_layer(layer)
         return layer
 
     # TODO: while the resulting model could be exported to ONNX, its built status

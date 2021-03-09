@@ -286,14 +286,14 @@ class _ExponentialDecay(tf.keras.optimizers.schedules.ExponentialDecay):
 
     def get_config(self):
         config = super().get_config()
-        config = config.update({"start_step": self.start_step})
+        config.update({"start_step": self.start_step})
         return config
 
 
 class _PiecewiseConstantDecay(tf.keras.optimizers.schedules.PiecewiseConstantDecay):
     def __init__(self, start_step, boundaries, values, name=None):
         super().__init__(boundaries, values, name=name)
-        self._start_step
+        self._start_step = start_step
 
     @property
     def start_step(self):
@@ -307,7 +307,7 @@ class _PiecewiseConstantDecay(tf.keras.optimizers.schedules.PiecewiseConstantDec
 
     def get_config(self):
         config = super().get_config()
-        config = config.update({"start_step": self.start_step})
+        config.update({"start_step": self.start_step})
         return config
 
 
@@ -383,7 +383,8 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         elif lr_class == "MultiStepLR":
             boundaries = lr_kwargs["milestones"]
             values = [
-                self.init_lr * (lr_kwargs["gamma"] ^ k) for k in range(len(boundaries))
+                self.init_lr * (lr_kwargs["gamma"] ** k)
+                for k in range(len(boundaries) + 1)
             ]
             learning_rate = _PiecewiseConstantDecay(
                 start_step, boundaries, values, name="MultiStepLR"
