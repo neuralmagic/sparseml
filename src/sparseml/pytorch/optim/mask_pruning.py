@@ -17,7 +17,8 @@ Code related to applying a mask onto a parameter to impose kernel sparsity,
 aka model pruning
 """
 
-from typing import Tuple, Union
+from enum import Enum
+from typing import List, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -30,7 +31,26 @@ from sparseml.pytorch.optim.mask_creator_pruning import (
 from sparseml.pytorch.utils import mask_difference
 
 
-__all__ = ["ModuleParamPruningMask"]
+__all__ = [
+    "PruningScoreTypes",
+    "ModuleParamPruningMask",
+]
+
+
+class PruningScoreTypes(str, Enum):
+    """
+    Methods for scoring parameters for pruning
+    """
+
+    MAGNITUDE = "magnitude"  # https://neuralmagic.com/blog/pruning-gmp/
+    MOVEMENT = "movement"  # https://arxiv.org/abs/2005.07683
+
+    @staticmethod
+    def values() -> List[str]:
+        """
+        :return: List of string values this Enum can take
+        """
+        return [score_type.value for score_type in PruningScoreTypes]
 
 
 class ModuleParamPruningMask(object):
@@ -47,6 +67,7 @@ class ModuleParamPruningMask(object):
         track_grad_mom: float = -1.0,
         mask_creator: PruningMaskCreator = UnstructuredPruningMaskCreator(),
         layer_name: str = None,
+        score_type: PruningScoreTypes = PruningScoreTypes.MAGNITUDE,
     ):
         """
         :param layer: the layer containing the parameter to mask
@@ -62,6 +83,8 @@ class ModuleParamPruningMask(object):
         :param mask_creator: object to define sparisty mask creation,
             default is unstructured mask
         :param layer_name: the name of the layer the parameter to mask is located in
+        :param score_type: the method used to score parameters for masking, i.e.
+            'magnitude', 'movement'. Default is 'magnitude'
         """
         self._layer = layer
         self._param_name = param_name
@@ -88,10 +111,20 @@ class ModuleParamPruningMask(object):
         self._param_init = None  # type: Tensor
         self._param_unmasked = None  # type: Tensor
         self._param_grad = None  # type: Tensor
+        self._param_movement = None  # type: Tensor
+
+        # validate score type
+        if score_type not in PruningScoreTypes.values():
+            raise ValueError(
+                f"Invalid score_type: {score_type}. "
+                f"Valid values: {PruningScoreTypes.values()}"
+            )
+        self._score_type = score_type
 
         self._setup_param_init()
         self._setup_param_unmasked()
         self._setup_param_grad()
+        self._setup_param_movement()
 
     def __del__(self):
         self._delete_hooks()
@@ -221,6 +254,13 @@ class ModuleParamPruningMask(object):
         """
         return self._param_grad
 
+    @property
+    def param_movement(self) -> Union[None, Tensor]:
+        """
+        :return: The current movement score for the parameter
+        """
+        return self._param_movement
+
     def set_param_data(self, value: Tensor):
         """
         :param value: the value to set as the current tensor for the parameter,
@@ -282,24 +322,25 @@ class ModuleParamPruningMask(object):
         unless otherwise defined by this object's mask_creator.
 
         """
-        value = self._mask_creator.create_sparsity_mask_from_tensor(self._param.data)
+        mask = self._mask_creator.create_sparsity_mask_from_tensor(self._param.data)
 
-        return self.set_param_mask(value)
+        return self.set_param_mask(mask)
 
     def set_param_mask_from_abs_threshold(
         self, threshold: Union[float, Tensor]
     ) -> Tensor:
         """
         Convenience function to set the parameter mask such that if
-        abs(value) <= threshold the it is masked to 0
+        score(value) <= threshold the it is masked to 0
 
         :param threshold: the threshold at which all values will be masked to 0
         """
-        value = self._mask_creator.create_sparsity_mask_from_abs_threshold(
-            self._param.data, threshold
+        score_tens = self._score_parameter()
+        mask = self._mask_creator.create_sparsity_mask_from_threshold(
+            score_tens, threshold
         )
 
-        return self.set_param_mask(value)
+        return self.set_param_mask(mask)
 
     def set_param_mask_from_sparsity(self, sparsity: float) -> Tensor:
         """
@@ -309,9 +350,10 @@ class ModuleParamPruningMask(object):
 
         :param sparsity: the decimal sparsity to set the param mask to
         """
-        value = self._mask_creator.create_sparsity_mask(self._param.data, sparsity)
+        score_tens = self._score_parameter()
+        mask = self._mask_creator.create_sparsity_mask(score_tens, sparsity)
 
-        return self.set_param_mask(value)
+        return self.set_param_mask(mask)
 
     def apply(self):
         """
@@ -371,6 +413,14 @@ class ModuleParamPruningMask(object):
                 torch.empty_like(self._param.data).copy_(self._param_grad)
             )
 
+        if (
+            self._param_movement is not None
+            and self._param.data.device != self._param_movement.device
+        ):
+            self._param_movement = ModuleParamPruningMask._detach_tens(
+                torch.empty_like(self._param.data).copy_(self._param_movement)
+            )
+
     def _create_hooks(self):
         if self._forward_hook is None:
             self._forward_hook = self._layer.register_forward_pre_hook(
@@ -398,7 +448,30 @@ class ModuleParamPruningMask(object):
                 (1.0 - self._track_grad_mom) * grad
             )
 
-        return grad.mul_(self._param_mask)
+        # mask gradient
+        grad.mul_(self._param_mask)
+
+        if self._param_movement is not None:
+            # movement = -sum(grad * weight)
+            self._param_movement.add_(-1.0 * grad * self._param.data)
+
+        return grad
+
+    def _score_parameter(self):
+        if self._score_type == PruningScoreTypes.MAGNITUDE:
+            # S = |W|
+            return torch.abs(self._param.data)
+        if self._score_type == PruningScoreTypes.MOVEMENT:
+            if torch.all(self._param_movement == 0.0):
+                # uninitialized gradient, use magnitude
+                return torch.abs(self._param.data)
+
+            # S = -dL/dW * W
+            score = self._param_movement
+            # ensure that already masked values have the lowest score
+            score[score == 0.0] = score.min() - 1
+
+            return score
 
     def _setup_param_init(self):
         if self._store_init and self._param_init is None:
@@ -423,6 +496,12 @@ class ModuleParamPruningMask(object):
             )
         elif self._track_grad_mom < 0.0 and self._param_grad is not None:
             self._param_grad = None
+
+    def _setup_param_movement(self):
+        if self._score_type == PruningScoreTypes.MOVEMENT:
+            self._param_movement = ModuleParamPruningMask._detach_tens(
+                self._param.data.new_zeros(self._param.data.shape)
+            )
 
     @staticmethod
     def _detach_tens(tens) -> Tensor:

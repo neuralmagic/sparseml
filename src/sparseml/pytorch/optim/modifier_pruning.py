@@ -28,7 +28,10 @@ from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
     load_mask_creator,
 )
-from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask
+from sparseml.pytorch.optim.mask_pruning import (
+    ModuleParamPruningMask,
+    PruningScoreTypes,
+)
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
@@ -336,6 +339,8 @@ class GMPruningModifier(ScheduledUpdateModifier):
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameters in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
+    :param score_type: Method used to score parameters for masking, i.e.
+        'magnitude', 'movement'. Default is 'magnitude'
     """
 
     def __init__(
@@ -350,6 +355,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+        score_type: PruningScoreTypes = PruningScoreTypes.MAGNITUDE,
     ):
         super().__init__(
             log_types=log_types,
@@ -368,6 +374,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         self._inter_func = inter_func
         self._mask_type = mask_type
         self._mask_creator = mask_type
+        self._score_type = score_type
         if not isinstance(mask_type, PruningMaskCreator):
             self._mask_creator = load_mask_creator(mask_type)
         self._module_masks = []  # type: List[ModuleParamPruningMask]
@@ -527,6 +534,13 @@ class GMPruningModifier(ScheduledUpdateModifier):
         if not isinstance(value, PruningMaskCreator):
             self._mask_creator = load_mask_creator(value)
 
+    @ModifierProp()
+    def score_type(self) -> PruningScoreTypes:
+        """
+        :return: the the scoring method used for pruning
+        """
+        return self._score_type
+
     @ModifierProp(serializable=False)
     def applied_sparsity(self) -> float:
         """
@@ -562,6 +576,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
                     param_name,
                     mask_creator=self._mask_creator,
                     layer_name=layer_name,
+                    score_type=self._score_type,
                 )
             )
             self._analyzers.append(ModulePruningAnalyzer(layer, layer_name, param_name))
