@@ -18,7 +18,7 @@ Using various pruning configuration files we demostrate the effect unstructured 
 These example scripts require sparseml, transformers, torch, datasets and associated to libraries. To install run the following command
 
 ```bash
-pip install torch sparseml transformers datasets
+pip install sparseml[torch] torch transformers datasets
 ```
 
 ## Usage
@@ -87,7 +87,7 @@ To demostrate the effect that various pruning regimes and techniques can have we
 | bert-base-uncased 	|99         |1                   	|yes      |yes       |0             |09.685     |03.614     |
 | bert-base-uncased 	|99       	|2                   	|yes      |no        |0            	|17.433     |07.871     |
 | bert-base-uncased 	|99         |10                    	|yes      |no        |8             |47.306    	|32.564     |
-
+|-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
 
 ## Script origin and how to integrate sparseml with other Transformers projects
 This script is based on the example BERT-QA implementation in transformers found [here](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py). 
@@ -108,31 +108,7 @@ from transformers.optimization import (
 )
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter
-from sparseml.pytorch.helpers import any_str_or_regex_matches_param_name
-
-
-def get_sparsity_by_regex(module: Module, param_names: List[str]):
-    """
-    :param module: the module to get the matching layers and params from
-    :param param_names: a list of names or regex patterns to match with full parameter
-        paths. Regex patterns must be specified with the prefix 're:'
-    ::return sparsity: a float representing the percetage of zero-weight parameters
-    """
-    param_count = 0
-    param_set_to_zero = 0
-    for layer_name, layer in module.named_modules():
-        for param_name, param in layer.named_parameters():
-            if "." in param_name:  # skip parameters of nested layers
-                continue
-            full_param_name = "{}.{}".format(layer_name, param_name)
-            if any_str_or_regex_matches_param_name(full_param_name, param_names):
-                param_count += np.prod(param.size())
-                param_set_to_zero += torch.sum(param.data == 0)
-    sparsity = float(param_set_to_zero / param_count)
-    return sparsity
-
 
 def load_optimizer(model, args):
     no_decay = ["bias", "LayerNorm.weight"]
@@ -161,6 +137,127 @@ def load_optimizer(model, args):
     }
     optimizer_kwargs["lr"] = args.learning_rate
     return optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs)
+
+def convert_example_to_features(example, tokenizer, max_seq_length, doc_stride, max_query_length):
+    Feature = collections.namedtuple(
+        "Feature",
+        [
+            "unique_id",
+            "tokens",
+            "example_index",
+            "token_to_orig_map",
+            "token_is_max_context",
+        ],
+    )
+    extra = []
+    unique_id = 0
+    query_tokens = tokenizer.tokenize(example["question"])[0:max_query_length]
+    tok_to_orig_index = []
+    orig_to_tok_index = []
+    all_doc_tokens = []
+    for (i, token) in enumerate(example["context"]):
+        orig_to_tok_index.append(len(all_doc_tokens))
+        sub_tokens = tokenizer.tokenize(token)
+        for sub_token in sub_tokens:
+            tok_to_orig_index.append(i)
+            all_doc_tokens.append(sub_token)
+    max_tokens_for_doc = max_seq_length - len(query_tokens) - 3
+    _DocSpan = collections.namedtuple("DocSpan", ["start", "length"])
+    doc_spans = []
+    start_offset = 0
+    while start_offset < len(all_doc_tokens):
+        length = len(all_doc_tokens) - start_offset
+        if length > max_tokens_for_doc:
+            length = max_tokens_for_doc
+        doc_spans.append(_DocSpan(start=start_offset, length=length))
+        if start_offset + length == len(all_doc_tokens):
+            break
+        start_offset += min(length, doc_stride)
+    for (doc_span_index, doc_span) in enumerate(doc_spans):
+        tokens = []
+        token_to_orig_map = {}
+        token_is_max_context = {}
+        segment_ids = []
+        tokens.append("[CLS]")
+        segment_ids.append(0)
+        for token in query_tokens:
+            tokens.append(token)
+            segment_ids.append(0)
+        tokens.append("[SEP]")
+        segment_ids.append(0)
+        for i in range(doc_span.length):
+            split_token_index = doc_span.start + i
+            token_to_orig_map[len(tokens)] = tok_to_orig_index[split_token_index]
+            is_max_context = _check_is_max_context(
+                doc_spans, doc_span_index, split_token_index
+            )
+            token_is_max_context[len(tokens)] = is_max_context
+            tokens.append(all_doc_tokens[split_token_index])
+            segment_ids.append(1)
+        tokens.append("[SEP]")
+        segment_ids.append(1)
+        input_ids = tokenizer.convert_tokens_to_ids(tokens)
+        input_mask = [1] * len(input_ids)
+        while len(input_ids) < max_seq_length:
+            input_ids.append(0)
+            input_mask.append(0)
+            segment_ids.append(0)
+        feature = Feature(
+            unique_id=unique_id,
+            tokens=tokens,
+            example_index=0,
+            token_to_orig_map=token_to_orig_map,
+            token_is_max_context=token_is_max_context,
+        )
+        extra.append(feature)
+        unique_id += 1
+        # extra is used as additional data but sparseml doesn't support it
+    return (
+        torch.from_numpy(np.array([np.array(input_ids, dtype=np.int64)])),
+        torch.from_numpy(np.array([np.array(input_mask, dtype=np.int64)])),
+        torch.from_numpy(np.array([np.array(segment_ids, dtype=np.int64)])),
+    )
+
+
+def _check_is_max_context(doc_spans, cur_span_index, position):
+    best_score = None
+    best_span_index = None
+    for (span_index, doc_span) in enumerate(doc_spans):
+        end = doc_span.start + doc_span.length - 1
+        if position < doc_span.start:
+            continue
+        if position > end:
+            continue
+        num_left_context = position - doc_span.start
+        num_right_context = end - position
+        score = min(num_left_context, num_right_context) + 0.01 * doc_span.length
+        if best_score is None or score > best_score:
+            best_score = score
+            best_span_index = span_index
+    return cur_span_index == best_span_index
+```
+We add some sparseml arguments
+```python
+@dataclass
+class DataTrainingArguments:
+    """
+    Arguments pertaining to what data we are going to input our model for training and eval.
+    """
+    ####################################################################################
+    # Start SparseML Integration
+    ####################################################################################
+    nm_prune_config: Optional[str] = field(
+        default='recipes/noprune1epoch.yaml', metadata={"help": "The input file name for the Neural Magic pruning config"}
+    )
+    do_onnx_export: bool = field(
+        default=False, metadata={"help": "Export model to onnx"}
+    )
+    onnx_export_path: Optional[str] = field(
+        default='onnx-export', metadata={"help": "The filename and path which will be where onnx model is outputed"}
+    )
+    ####################################################################################
+    # End SparseML Integration
+    ####################################################################################
 ```
 Use the code below to load sparseml optimizers
 ```python
@@ -168,10 +265,8 @@ Use the code below to load sparseml optimizers
 optim = load_optimizer(model, TrainingArguments) #We first create optimizers based on the method defined in transformers trainer class
 steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.n_gpu * training_args.per_device_train_batch_size))
 manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config) # Load a NM pruning config
-
-optim = ScheduledOptimizer(
-    optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None
-)
+manager.initialize(model, optim, steps_per_epoch=steps_per_epoch)
+manager.finalize(model, optim)
 ```
 Modify the hugging face trainer to take the sparseml optimzier as shown below
 ```python
@@ -192,7 +287,14 @@ trainer = QuestionAnsweringTrainer(
 Finally, export the model. Its worth noting that you will have to create a sample batch which will be task dependent. The code shown below is specific for SQuAD style question answering
 ```python
 exporter = ModuleExporter(
-    model, output_dir=data_args.onnx_export_path
+    model, output_dir='onnx-export'
+)
+sample_batch = convert_example_to_features(
+    datasets["validation"][0],
+    tokenizer,
+    data_args.max_seq_length,
+    data_args.doc_stride,
+    data_args.max_query_length,
 )
 exporter.export_onnx(sample_batch=sample_batch)
 ```
