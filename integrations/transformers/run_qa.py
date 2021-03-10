@@ -156,7 +156,6 @@ from transformers.trainer_utils import PredictionOutput, is_main_process
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import ModuleExporter
-from sparseml.pytorch.utils.helpers import any_str_or_regex_matches_param_name
 
 logger = logging.getLogger(__name__)
 
@@ -896,9 +895,6 @@ def main():
             ]
 
         return tokenized_examples
-    print(TrainingArguments)
-    print(DataTrainingArguments)
-    print(ModelArguments)
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -1040,12 +1036,6 @@ def main():
         optimizers=(optim, None),
     )
 
-    param_in_scope_regex = [
-        "re:.*key\.weight",
-        "re:.*value\.weight",
-        "re:.*query\.weight",
-        "re:.*dense\.weight",
-    ]
     # Training
     if training_args.do_train:
         trainer.train(
