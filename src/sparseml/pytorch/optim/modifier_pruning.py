@@ -53,7 +53,12 @@ from sparseml.utils import (
 )
 
 
-__all__ = ["ConstantPruningModifier", "GMPruningModifier"]
+__all__ = [
+    "ConstantPruningModifier",
+    "GMPruningModifier",
+    "MagnitudePruningModifier",
+    "MovementPruningModifier",
+]
 
 
 def _log_sparsity(
@@ -304,7 +309,8 @@ class GMPruningModifier(ScheduledUpdateModifier):
     init_sparsity until final_sparsity is reached over a given amount of time
     and applied with an interpolated function for each step taken.
 
-    Applies based on magnitude pruning unless otherwise specified by mask_type.
+    Pruning is unstructured and magnitude based by default. Structure can be
+    specified by mask_type.
 
     | Sample yaml:
     |   !GMPruningModifier
@@ -318,6 +324,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     |       inter_func: cubic
     |       log_types: __ALL__
     |       mask_type: unstructured
+    |       score_type: magnitude
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
@@ -709,3 +716,150 @@ class GMPruningModifier(ScheduledUpdateModifier):
                     " available are {} for {}"
                 ).format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__)
             )
+
+
+@PyTorchModifierYAML()
+class MagnitudePruningModifier(ScheduledUpdateModifier):
+    """
+    Gradually applies kernel sparsity to a given parameter or parameters from
+    init_sparsity until final_sparsity is reached over a given amount of time
+    and applied with an interpolated function for each step taken.
+
+    Uses magnitude pruning to gradually mask parameter values. Pruning is
+    unstructured by default, structure can be specified by mask_type.
+
+    | Sample yaml:
+    |   !MagnitudePruningModifier
+    |       init_sparsity: 0.05
+    |       final_sparsity: 0.8
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       update_frequency: 1.0
+    |       params: ["re:.*weight"]
+    |       leave_enabled: True
+    |       inter_func: cubic
+    |       log_types: __ALL__
+    |       mask_type: unstructured
+
+    :param init_sparsity: the initial sparsity for the param to start with at
+        start_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The number of epochs or fraction of epochs to update at
+        between start and end
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param inter_func: the type of interpolation function to use:
+        [linear, cubic, inverse_cubic]
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'channel', 'filter']), List to define block shape of a parameters in and out
+        channels, or a SparsityMaskCreator object. default is 'unstructured'
+    """
+
+    def __init__(
+        self,
+        init_sparsity: float,
+        final_sparsity: float,
+        start_epoch: float,
+        end_epoch: float,
+        update_frequency: float,
+        params: Union[str, List[str]],
+        leave_enabled: bool = True,
+        inter_func: str = "cubic",
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+    ):
+        super().__init__(
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            params=params,
+            leave_enabled=leave_enabled,
+            inter_func=inter_func,
+            log_types=log_types,
+            mask_type=mask_type,
+            score_type=PruningScoreTypes.MAGNITUDE
+        )
+
+
+@PyTorchModifierYAML()
+class MovementPruningModifier(ScheduledUpdateModifier):
+    """
+    Gradually applies kernel sparsity to a given parameter or parameters from
+    init_sparsity until final_sparsity is reached over a given amount of time
+    and applied with an interpolated function for each step taken.
+
+    Uses movement pruning to gradually mask parameter values. Pruning is
+    unstructured by default, structure can be specified by mask_type.
+    Movement pruning paper: https://arxiv.org/abs/2005.07683
+
+    | Sample yaml:
+    |   !MovementPruningModifier
+    |       init_sparsity: 0.05
+    |       final_sparsity: 0.8
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       update_frequency: 1.0
+    |       params: ["re:.*weight"]
+    |       leave_enabled: True
+    |       inter_func: cubic
+    |       log_types: __ALL__
+    |       mask_type: unstructured
+
+    :param init_sparsity: the initial sparsity for the param to start with at
+        start_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The number of epochs or fraction of epochs to update at
+        between start and end
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters.
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param inter_func: the type of interpolation function to use:
+        [linear, cubic, inverse_cubic]
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'channel', 'filter']), List to define block shape of a parameters in and out
+        channels, or a SparsityMaskCreator object. default is 'unstructured'
+    """
+
+    def __init__(
+            self,
+            init_sparsity: float,
+            final_sparsity: float,
+            start_epoch: float,
+            end_epoch: float,
+            update_frequency: float,
+            params: Union[str, List[str]],
+            leave_enabled: bool = True,
+            inter_func: str = "cubic",
+            log_types: Union[str, List[str]] = ALL_TOKEN,
+            mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+    ):
+        super().__init__(
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            params=params,
+            leave_enabled=leave_enabled,
+            inter_func=inter_func,
+            log_types=log_types,
+            mask_type=mask_type,
+            score_type=PruningScoreTypes.MOVEMENT
+        )
