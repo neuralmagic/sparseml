@@ -87,7 +87,8 @@ To demostrate the effect that various pruning regimes and techniques can have we
 | bert-base-uncased 	|99         |1                   	|yes      |yes       |0             |09.685     |03.614     |
 | bert-base-uncased 	|99       	|2                   	|yes      |no        |0            	|17.433     |07.871     |
 | bert-base-uncased 	|99         |10                    	|yes      |no        |8             |47.306    	|32.564     |
-|-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
+
+
 
 ## Script origin and how to integrate sparseml with other Transformers projects
 This script is based on the example BERT-QA implementation in transformers found [here](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py). 

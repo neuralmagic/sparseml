@@ -653,7 +653,9 @@ def main():
     if data_args.layers_to_keep > 0:
         logger.info("Dropping %s model layers", data_args.layers_to_keep)
         model = dropLayers(model, data_args.layers_to_keep)
-        
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    logger.info("Model has %s parameters", params)    
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
         raise ValueError(
