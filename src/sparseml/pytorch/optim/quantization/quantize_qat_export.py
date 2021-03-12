@@ -199,36 +199,20 @@ def _fold_relu_quants(model: ModelProto):
         remove_node_and_params_from_graph(model, relu_node)
 
 
-def _convert_tensor_constant_to_initializer(
-    model: ModelProto,
-    const_node: NodeProto,
-):
-    # create initializer
-    const_array = numpy_helper.to_array(const_node.attribute[0].t)
-    # convert int8 -> uint8
-    if const_array.dtype == numpy.int8:
-        const_array = const_array + 128
-        const_array = const_array.astype(numpy.uint8)
-    initializer = numpy_helper.from_array(const_array, name=const_node.output[0])
-    # add initializer to graph
-    model.graph.initializer.append(initializer)
-    # remove const node from graph
-    model.graph.node.remove(const_node)
-
-
-def _convert_quantization_constants_to_initializers(model: ModelProto):
-    for quant_node in model.graph.node:
-        if quant_node.op_type not in _QUANTIZE_OP_NAMES:
-            continue
-
-        scale_const = get_nodes_by_output_id(model, quant_node.input[1])
-        zp_const = get_nodes_by_output_id(model, quant_node.input[2])
-        consts = scale_const + zp_const
-        for const in consts:
-            if const.op_type != "Constant":
-                continue
-            # constants should be tensor type
-            _convert_tensor_constant_to_initializer(model, const)
+def _convert_single_constants_to_initializers(model: ModelProto):
+    non_single_constant_nodes = []  # list of nodes to keep
+    for node in model.graph.node:
+        if node.op_type != "Constant" or len(node.attribute) != 1:
+            non_single_constant_nodes.append(node)
+            continue  # skip non-constants, and constants with multiple tensors
+        # extract tensor and name it with the appropriate edge
+        const_tensor = node.attribute[0].t
+        const_tensor.name = node.output[0]
+        # add named tensor to initializer list
+        model.graph.initializer.append(const_tensor)
+    # bulk remove all converted constants by overwriting node list
+    model.graph.ClearField("node")
+    model.graph.node.extend(non_single_constant_nodes)
 
 
 def _delete_repeated_qat_blocks(model: ModelProto):
@@ -293,7 +277,7 @@ def _attribute_to_kwarg(attribute: onnx.AttributeProto):
 
 
 def _quantize_array(
-    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
+    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.int8
 ) -> numpy.ndarray:
     dmin = numpy.iinfo(dtype).min
     dmax = numpy.iinfo(dtype).max
@@ -591,7 +575,7 @@ def quantize_torch_qat_export(
 
     _fold_qat_conv_bns(model)
     _fold_relu_quants(model)
-    _convert_quantization_constants_to_initializers(model)
+    _convert_single_constants_to_initializers(model)
     _delete_repeated_qat_blocks(model)
     _convert_quantizable_ops(model)
     quantize_resnet_identity_add_inputs(model)
