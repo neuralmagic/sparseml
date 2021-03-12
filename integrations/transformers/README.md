@@ -108,6 +108,7 @@ from transformers.optimization import (
 )
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter
 
 def load_optimizer(model, args):
@@ -262,11 +263,10 @@ class DataTrainingArguments:
 Use the code below to load sparseml optimizers
 ```python
 ## Neural Magic Integration here. 
-optim = load_optimizer(model, TrainingArguments) #We first create optimizers based on the method defined in transformers trainer class
-steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.n_gpu * training_args.per_device_train_batch_size))
-manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config) # Load a NM pruning config
-manager.initialize(model, optim, steps_per_epoch=steps_per_epoch)
-manager.finalize(model, optim)
+optim = load_optimizer(model, TrainingArguments)
+steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.per_device_train_batch_size*training_args._n_gpu))
+manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
+optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
 ```
 Modify the hugging face trainer to take the sparseml optimzier as shown below
 ```python
