@@ -34,9 +34,7 @@ usage: classification.py train [-h] --arch-key ARCH_KEY
                                [--save-best-after SAVE_BEST_AFTER]
                                [--save-epochs SAVE_EPOCHS [SAVE_EPOCHS ...]]
                                [--init-lr INIT_LR] [--optim-args OPTIM_ARGS]
-
 Train and/or prune an image classification model
-
 optional arguments:
   -h, --help            show this help message and exit
   --arch-key ARCH_KEY   The type of model to use, ex: resnet50, vgg16,
@@ -56,7 +54,9 @@ optional arguments:
   --checkpoint-path CHECKPOINT_PATH
                         A path to a previous checkpoint to load the state from
                         and resume the state for. If provided, pretrained will
-                        be ignored
+                        be ignored. Specify "zoo" to load a model from SparseZoo
+                        based on other information such as arch key and pretrained
+                        dataset.
   --model-kwargs MODEL_KWARGS
                         kew word arguments to be passed to model constructor,
                         should be given as a json object
@@ -74,26 +74,24 @@ optional arguments:
                         A tag to use for the model for saving results under
                         save-dir, defaults to the model arch and dataset used
   --save-dir SAVE_DIR   The path to the directory for saving results
-
   --train-dataset-parallel-calls DATASET_PARALLEL_CALLS
                         the number of parallel workers for train dataset loading
   --train-shuffle-buffer-size SHUFFLE_BUFFER_SIZE
                         Shuffle buffer size for train dataset loading
   --train-prefetch-buffer-size PREFETCH_BUFFER_SIZE
                         Prefetch buffer size for train dataset loading
-
   --val-dataset-parallel-calls DATASET_PARALLEL_CALLS
                         the number of parallel workers for val dataset loading
   --val-shuffle-buffer-size SHUFFLE_BUFFER_SIZE
                         Shuffle buffer size for val dataset loading
   --val-prefetch-buffer-size PREFETCH_BUFFER_SIZE
                         Prefetch buffer size for val dataset loading
-
---recipe-path RECIPE_PATH
+  --recipe-path RECIPE_PATH
                         The path to the yaml file containing the modifiers and
                         schedule to apply them with. If set to
                         'transfer_learning', then will create a schedule to
-                        enable sparse transfer learning
+                        enable sparse transfer learning. Recipe from SparseZoo
+                        could be specified using model stub starting with "zoo:"
   --sparse-transfer-learn
                         Enable sparse transfer learning modifiers to enforce
                         the sparsity for already sparse layers. The modifiers
@@ -117,26 +115,21 @@ optional arguments:
   --optim-args OPTIM_ARGS
                         Additional args to be passed to the optimizer passed
                         in as a json object
-
 #############
 EXAMPLE: Fine-tune a ResNet50 model from Keras Application, pretrained on Imagenet,
 for the Imagenette dataset. The recipe could be used to define learning rate schedule.
 Note that there're no pruning performed from this experiment.
-
 python scripts/keras_classification.py train \
      --arch-key keras_applications.ResNet50 \
      --pretrained-dataset imagenet \
      --dataset imagenette \
-     --dataset-path /hdd/datasets/imagenette \
+     --dataset-path <DATASET_DIR> \
      --train-batch-size 64 \
      --recipe-path <RECIPE_PATH>
-
-
 ############
 EXAMPLE: Assuming that a ResNet50 model from Keras Application was fine-tuned for
 the Imagenette dataset. The following command specifies the model checkpoint after
 fine-tuning, and a recipe that could be used next to prune its weights:
-
 python scripts/keras_classification.py train \
      --arch-key keras_applications.ResNet50 \
      --checkpoint-path <MODEL_CHECKPOINT> \
@@ -145,21 +138,30 @@ python scripts/keras_classification.py train \
      --train-batch-size 64 \
      --recipe-path <RECIPE_PATH>
 
-############
-EXAMPLE: The following command loads a ResNet50 model from a checkpoint, then evaluate it
-on the validation of the Imagenette dataset.
+In the above command, specifying "zoo" for --checkpoint-path forces loading the
+base model from SparseZoo. The following command prunes a ResNet50 from Keras
+Applications fine-tuned for Imagenette dataset, using a recipe from SparseZoo:
 
+python scripts/keras_classification.py train \
+     --arch-key keras_applications.ResNet50 \
+     --checkpoint-path zoo \
+     --pretrained-dataset imagenette \
+     --dataset imagenette \
+     --dataset-path <DATASET_DIR> \
+     --train-batch-size 64 \
+     --recipe-path zoo:cv/classification/resnet_v1-50/keras/keras.applications/imagenette/pruned-moderate?recipe_type=original
+############
+EXAMPLE: The following command loads a ResNet50 model from a checkpoint, then
+evaluate it on the validation of the Imagenette dataset.
 python scripts/keras_classification.py evaluate \
      --arch-key keras_applications.ResNet50 \
      --checkpoint-path <MODEL_CHECKPOINT> \
      --dataset imagenette \
      --dataset-path /hdd/datasets/imagenette \
      --test-batch-size 64
-
 ############
 EXAMPLE: The following command loads a ResNet50 model from a checkpoint, then export it
 into ONNX format. It also generates a number of inputs, outputs and labels.
-
 python scripts/keras_classification.py export \
      --arch-key keras_applications.ResNet50 \
      --checkpoint-path <MODEL_CHECKPOINT> \
@@ -167,7 +169,6 @@ python scripts/keras_classification.py export \
      --dataset-path /hdd/datasets/imagenette \
      --num-samples <NUM_SAMPLES>
      --save-dir <EXPORT_DIR>
-
 """
 
 import argparse
@@ -377,7 +378,8 @@ def parse_args():
                 "--log-steps",
                 type=int,
                 default=-1,
-                help="Whether logging should be performed after every specified number of steps",
+                help="Whether logging should be performed after every specified number "
+                "of steps",
             )
             par.add_argument(
                 "--save-best-only",
@@ -544,14 +546,27 @@ def build_dataset(args, dataset: Dataset, train: bool = True) -> tf.data.Dataset
 
 def create_model(args, input_shape, num_classes):
     kwargs = args.model_kwargs
-    model = ModelRegistry.create(
-        args.arch_key,
-        args.pretrained,
-        args.checkpoint_path,
-        args.pretrained_dataset,
-        input_shape=input_shape,
-        **kwargs,
-    )
+
+    if args.checkpoint_path == "zoo":
+        zoo_model = ModelRegistry.create_zoo_model(
+            args.arch_key, args.pretrained, args.pretrained_dataset
+        )
+        model_file_paths = zoo_model.download_framework_files(extensions=[".h5"])
+        if not model_file_paths:
+            model_file_paths = zoo_model.download_framework_files(extensions=[".tf"])
+        if not model_file_paths:
+            raise RuntimeError("Error downloading model from SparseZoo")
+        model_file_path = model_file_paths[0]
+        model = keras.models.load_model(model_file_path)
+    else:
+        model = ModelRegistry.create(
+            args.arch_key,
+            args.pretrained,
+            args.checkpoint_path,
+            args.pretrained_dataset,
+            input_shape=input_shape,
+            **kwargs,
+        )
 
     if (
         args.pretrained_dataset is not None
@@ -694,7 +709,6 @@ def handle_export_command(args):
 
     train_dataset, num_classes = create_dataset(args, train=True, image_size=image_size)
     train_dataset = train_dataset.build(args.num_samples)
-    # train_dataset = build_dataset(args, train_dataset, train=True)
 
     model = create_model(args, input_shape, num_classes=num_classes)
     model = remove_pruning_masks(model)
