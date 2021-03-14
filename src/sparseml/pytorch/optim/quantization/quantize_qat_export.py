@@ -205,11 +205,16 @@ def _convert_single_constants_to_initializers(model: ModelProto):
         if node.op_type != "Constant" or len(node.attribute) != 1:
             non_single_constant_nodes.append(node)
             continue  # skip non-constants, and constants with multiple tensors
-        # extract tensor and name it with the appropriate edge
-        const_tensor = node.attribute[0].t
-        const_tensor.name = node.output[0]
+
+        # create initializer
+        const_array = numpy_helper.to_array(node.attribute[0].t)
+        # convert int8 -> uint8
+        if const_array.dtype == numpy.int8:
+            const_array = const_array + 128
+            const_array = const_array.astype(numpy.uint8)
         # add named tensor to initializer list
-        model.graph.initializer.append(const_tensor)
+        initializer = numpy_helper.from_array(const_array, name=node.output[0])
+        model.graph.initializer.append(initializer)
     # bulk remove all converted constants by overwriting node list
     model.graph.ClearField("node")
     model.graph.node.extend(non_single_constant_nodes)
@@ -277,7 +282,7 @@ def _attribute_to_kwarg(attribute: onnx.AttributeProto):
 
 
 def _quantize_array(
-    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.int8
+    array: numpy.ndarray, scale: float, zero_point: int, dtype: Any = numpy.uint8
 ) -> numpy.ndarray:
     dmin = numpy.iinfo(dtype).min
     dmax = numpy.iinfo(dtype).max
@@ -308,6 +313,7 @@ def _convert_quantizable_conv(
         weight_quantize_params.target,
         weight_quantize_params.scale,
         weight_quantize_params.zero_point,
+        weight_quantize_params.zero_point.dtype,
     )
     quantized_weight_name = "{}.weight_quantized".format(conv_node.name)
     quantized_weight_initializer = numpy_helper.from_array(
