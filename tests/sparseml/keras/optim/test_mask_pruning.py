@@ -25,7 +25,7 @@ from sparseml.keras.optim import (
     GMPruningModifier,
     MaskedLayer,
     ScheduledModifierManager,
-    remove_pruning_masks
+    remove_pruning_masks,
 )
 from tests.sparseml.keras.optim.mock import (
     DenseLayerCreator,
@@ -253,7 +253,9 @@ def test_save_load_masked_model(modifier_lambdas, epochs, batch_size):
 
     # Verify removing masked layers
     model = remove_pruning_masks(model)
-    mask_count = len([layer for layer in model.layers if isinstance(layer, MaskedLayer)])
+    mask_count = len(
+        [layer for layer in model.layers if isinstance(layer, MaskedLayer)]
+    )
     assert mask_count == 0
 
 
