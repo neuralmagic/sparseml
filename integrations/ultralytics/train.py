@@ -50,6 +50,7 @@ from utils.loss import ComputeLoss
 from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
 from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first
 
+from sparseml.pytorch.nn import replace_activations
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter, PythonLogger, TensorBoardLogger
 from sparsezoo import Zoo
@@ -253,6 +254,9 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     ####################################################################################
     # Start SparseML Integration
     ####################################################################################
+    if opt.leaky_relu:  # use LeakyReLU activations
+        model = replace_activations(model, "lrelu", inplace=True)
+
     manager = ScheduledModifierManager.from_yaml(opt.sparseml_recipe)
     optimizer = ScheduledOptimizer(
         optimizer,
@@ -534,6 +538,11 @@ if __name__ == '__main__':
         action="store_true",
         help="set flag to enable Automatic Mixed Precision (AMP). disabled by default "
         "in SparseML integration"
+    )
+    parser.add_argument(
+        "--leaky-relu",
+        action="store_true",
+        help="set flag to replace default SiLU activation functions with LeakyRelu"
     )
     ####################################################################################
     # End SparseML arguments

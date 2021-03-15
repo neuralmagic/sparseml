@@ -25,6 +25,12 @@ from torch.nn import ReLU as TReLU
 from torch.nn import ReLU6 as TReLU6
 
 
+try:
+    from torch.nn import SiLU
+except:
+    SiLU = None
+
+
 __all__ = [
     "ReLU",
     "ReLU6",
@@ -34,6 +40,7 @@ __all__ = [
     "hard_swish",
     "create_activation",
     "replace_activation",
+    "replace_activations",
     "is_activation",
 ]
 
@@ -158,7 +165,7 @@ def replace_activation(
     :param module: the module to replace the activation function in
     :param name: the name of the layer to replace the activation for
     :param act_type: the type of activation to replace with; options:
-        [relu, relu6, prelu, lrelu, swish]
+        [relu, relu6, prelu, lrelu, swish, silu]
     :param inplace: True to create the activation as an inplace, False otherwise
     :param num_channels: The number of channels to create the activation for
     :param kwargs: Additional kwargs to pass to the activation constructor
@@ -185,6 +192,42 @@ def replace_activation(
     return act
 
 
+def replace_activations(
+    module: Module,
+    act_type: str,
+    inplace: bool = False,
+    num_channels: Union[int, None] = None,
+    **kwargs,
+) -> Module:
+    """
+    General function to replace all activation functions in a Module
+    with a new one.
+
+    :param module: the module to replace the activation function in
+    :param act_type: the type of activation to replace with; options:
+        [relu, relu6, prelu, lrelu, swish, silu]
+    :param inplace: True to create the activation as an inplace, False otherwise
+    :param num_channels: The number of channels to create the activation for
+    :param kwargs: Additional kwargs to pass to the activation constructor
+    :return: the updated module
+    """
+    if is_activation(module):
+        return create_activation(
+            act_type, inplace=inplace, num_channels=num_channels, **kwargs
+        )
+
+    for child_name, child_module in module.named_children():
+        setattr(
+            module,
+            child_name,
+            replace_activations(
+                child_module, act_type, inplace, num_channels, **kwargs
+            ),
+        )
+
+    return module
+
+
 def create_activation(
     act_type: str, inplace: bool, num_channels: int, **kwargs
 ) -> Module:
@@ -192,7 +235,7 @@ def create_activation(
     Create an activation function using the given parameters.
 
     :param act_type: the type of activation to replace with; options:
-        [relu, relu6, prelu, lrelu, swish, hardswish]
+        [relu, relu6, prelu, lrelu, swish, hardswish, silu]
     :param inplace: True to create the activation as an inplace, False otherwise
     :param num_channels: The number of channels to create the activation for
     :param kwargs: Additional kwargs to pass to the activation constructor
@@ -218,6 +261,9 @@ def create_activation(
     if act_type == "hardswish":
         return Hardswish(num_channels=num_channels, inplace=inplace)
 
+    if act_type == "silu":
+        return SiLU(**kwargs)
+
     raise ValueError("unknown act_type given of {}".format(act_type))
 
 
@@ -236,4 +282,5 @@ def is_activation(module: Module) -> bool:
         or isinstance(module, LeakyReLU)
         or isinstance(module, Swish)
         or isinstance(module, Hardswish)
+        or (SiLU is not None and isinstance(module, SiLU))
     )
