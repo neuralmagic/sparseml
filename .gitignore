@@ -3,7 +3,11 @@
 tensorboard/*
 # Created by .ignore support plugin (hsz.mobi)
 !/data/.gitkeep
-
+# tranformer stuff
+examples/transformers/cache/
+examples/transformers/output/
+examples/transformers/runs/
+examples/transformers/wandb/
 /imagenet-schedule-training/
 /sparseml/models/pretrained/
 notebooks/logs/*
