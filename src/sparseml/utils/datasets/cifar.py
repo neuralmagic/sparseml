@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-General utilities for datasets in sparseml
-"""
+__all__ = ["CIFAR_10_CLASSES"]
 
-# flake8: noqa
-
-from .cifar import *
-from .coco import *
-from .helpers import *
-from .imagenet import *
-from .imagenette import *
-from .voc import *
+CIFAR_10_CLASSES = {
+    0: "airplane",
+    1: "automobile",
+    2: "bird",
+    3: "cat",
+    4: "deer",
+    5: "dog",
+    6: "frog",
+    7: "horse",
+    8: "ship",
+    9: "truck",
+}

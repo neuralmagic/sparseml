@@ -16,9 +16,10 @@
 Export PyTorch models to the local device
 """
 
+import logging
 import os
 from copy import deepcopy
-from typing import Any, Iterable, List
+from typing import Any, Callable, Iterable, List, Optional, Tuple
 
 import numpy
 import onnx
@@ -27,13 +28,19 @@ from onnx import numpy_helper
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
+from torch.utils.data import DataLoader
 
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
     tensors_to_device,
 )
-from sparseml.pytorch.utils.model import is_parallel_model, save_model
+from sparseml.pytorch.utils.model import (
+    is_parallel_model,
+    save_model,
+    script_model,
+    trace_model,
+)
 from sparseml.utils import clean_path, create_parent_dirs
 
 
@@ -41,6 +48,7 @@ __all__ = ["ModuleExporter"]
 
 
 DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
+_LOGGER = logging.getLogger(__name__)
 
 
 class ModuleExporter(object):
@@ -62,6 +70,85 @@ class ModuleExporter(object):
 
         self._module = deepcopy(module).to("cpu").eval()
         self._output_dir = clean_path(output_dir)
+
+    def export_to_zoo(
+        self,
+        dataloader: DataLoader,
+        original_dataloader: Optional[DataLoader] = None,
+        shuffle: bool = False,
+        max_samples: int = 20,
+        data_split_cb: Optional[Callable[[Any], Tuple[Any, Any]]] = None,
+        label_mapping_cb: Optional[Callable[[Any], Any]] = None,
+        trace_script: bool = False,
+        fail_on_torchscript_failure: bool = True,
+        export_entire_model: bool = False,
+    ):
+        """
+        Creates and exports all related content of module including
+        sample data, onnx, pytorch and torchscript.
+
+        :param dataloader: DataLoader used to generate sample data
+        :param original_dataloader: Optional dataloader to obtain the untransformed
+            image.
+        :param shuffle: Whether to shuffle sample data
+        :param max_samples: Max number of sample data to create
+        :param data_split_cb: Optional callback function to split data sample into
+            a tuple (features,labels). If not provided will assume dataloader
+            returns a tuple (features,labels).
+        :param label_mapping_cb: Optional callback function to mapping dataset label to
+            other   formats.
+        :param dataset_wrapper: Wrapper function for the dataset to add original data
+            to each sample. If set to None will default to use the
+            'iter_dataset_with_orig_wrapper' function.
+        :param trace_script: If true, creates torchscript via tracing. Otherwise,
+            creates the torchscripe via scripting.
+        :param fail_on_torchscript_failure: If true, fails if torchscript is unable
+            to export model.
+        :param export_entire_model: Exports entire file instead of state_dict
+        """
+        sample_batches = []
+        sample_labels = []
+        sample_originals = None
+        if original_dataloader is not None:
+            sample_originals = []
+            for originals in original_dataloader:
+                sample_originals.append(originals)
+                if len(sample_originals) == max_samples:
+                    break
+
+        for sample in dataloader:
+            if data_split_cb is not None:
+                features, labels = data_split_cb(sample)
+            else:
+                features, labels = sample
+            if label_mapping_cb:
+                labels = label_mapping_cb(labels)
+
+            sample_batches.append(features)
+            sample_labels.append(labels)
+            if len(sample_batches) == max_samples:
+                break
+
+        self.export_onnx(sample_batch=sample_batches[0])
+        self.export_pytorch(export_entire_model=export_entire_model)
+        try:
+            if trace_script:
+                self.export_torchscript(sample_batch=sample_batches[0])
+            else:
+                self.export_torchscript()
+        except Exception as e:
+            if fail_on_torchscript_failure:
+                raise e
+            else:
+                _LOGGER.warn(
+                    f"Unable to create torchscript file. Following error occurred: {e}"
+                )
+
+        self.export_samples(
+            sample_batches,
+            sample_labels=sample_labels,
+            sample_originals=sample_originals,
+        )
 
     def export_onnx(
         self,
@@ -154,6 +241,27 @@ class ModuleExporter(object):
             _delete_trivial_onnx_adds(onnx_model)
             onnx.save(onnx_model, onnx_path)
 
+    def export_torchscript(
+        self,
+        name: str = "model.pts",
+        sample_batch: Optional[Any] = None,
+    ):
+        """
+        Export the torchscript into a pts file within a framework directory. If
+        a sample batch is provided, will create torchscript model in trace mode.
+        Otherwise uses script to create torchscript.
+
+        :param name: name of the torchscript file to save
+        :param sample_batch: If provided, will create torchscript model via tracing
+            using the sample_batch
+        """
+        path = os.path.join(self._output_dir, "framework", name)
+        create_parent_dirs(path)
+        if sample_batch:
+            trace_model(path, self._module, sample_batch)
+        else:
+            script_model(path, self._module)
+
     def export_pytorch(
         self,
         optimizer: Optimizer = None,
@@ -161,6 +269,7 @@ class ModuleExporter(object):
         name: str = "model.pth",
         use_zipfile_serialization_if_available: bool = True,
         include_modifiers: bool = False,
+        export_entire_model: bool = False,
     ):
         """
         Export the pytorch state dicts into pth file within a
@@ -174,25 +283,31 @@ class ModuleExporter(object):
         :param include_modifiers: if True, and a ScheduledOptimizer is provided
             as the optimizer, the associated ScheduledModifierManager and its
             Modifiers will be exported under the 'manager' key. Default is False
+        :param export_entire_model: Exports entire file instead of state_dict
         """
-        pytorch_path = os.path.join(self._output_dir, "pytorch")
+        pytorch_path = os.path.join(self._output_dir, "framework")
         pth_path = os.path.join(pytorch_path, name)
         create_parent_dirs(pth_path)
-        save_model(
-            pth_path,
-            self._module,
-            optimizer,
-            epoch,
-            use_zipfile_serialization_if_available=(
-                use_zipfile_serialization_if_available
-            ),
-            include_modifiers=include_modifiers,
-        )
+
+        if export_entire_model:
+            torch.save(self._module, pth_path)
+        else:
+            save_model(
+                pth_path,
+                self._module,
+                optimizer,
+                epoch,
+                use_zipfile_serialization_if_available=(
+                    use_zipfile_serialization_if_available
+                ),
+                include_modifiers=include_modifiers,
+            )
 
     def export_samples(
         self,
         sample_batches: List[Any],
-        sample_labels: List[Any] = None,
+        sample_labels: Optional[List[Any]] = None,
+        sample_originals: Optional[List[Any]] = None,
         exp_counter: int = 0,
     ):
         """
@@ -205,14 +320,18 @@ class ModuleExporter(object):
         :param exp_counter: the counter to start exporting the tensor files at
         """
         sample_batches = [tensors_to_device(batch, "cpu") for batch in sample_batches]
-        inputs_dir = os.path.join(self._output_dir, "_sample-inputs")
-        outputs_dir = os.path.join(self._output_dir, "_sample-outputs")
-        labels_dir = os.path.join(self._output_dir, "_sample-labels")
+        inputs_dir = os.path.join(self._output_dir, "sample-inputs")
+        outputs_dir = os.path.join(self._output_dir, "sample-outputs")
+        labels_dir = os.path.join(self._output_dir, "sample-labels")
+        originals_dir = os.path.join(self._output_dir, "sample-originals")
 
         with torch.no_grad():
-            for batch, lab in zip(
+            for batch, lab, orig in zip(
                 sample_batches,
                 sample_labels if sample_labels else [None for _ in sample_batches],
+                sample_originals
+                if sample_originals
+                else [None for _ in sample_batches],
             ):
                 out = tensors_module_forward(batch, self._module)
 
@@ -239,6 +358,15 @@ class ModuleExporter(object):
                 if lab is not None:
                     tensors_export(
                         lab, labels_dir, "lab", counter=exp_counter, break_batch=True
+                    )
+
+                if orig is not None:
+                    tensors_export(
+                        orig,
+                        originals_dir,
+                        "orig",
+                        counter=exp_counter,
+                        break_batch=True,
                     )
 
                 assert len(exported_input) == len(exported_output)

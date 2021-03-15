@@ -309,8 +309,8 @@ class BaseModifier(BaseObject):
                     )
                     raise ValueError(
                         "Invalid modifier location. Grouped modifiers in recipes must "
-                        "be listed in lists with 'modifiers' in its name. A modifier of "
-                        f"type {modifier_type} was found in recipe list {name}"
+                        "be listed in lists with 'modifiers' in its name. A modifier "
+                        f"of type {modifier_type} was found in recipe list {name}"
                     )
 
         return modifiers

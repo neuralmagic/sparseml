@@ -356,7 +356,6 @@ def tensor_export(
     :param npz: True to export as an npz file, False otherwise
     :return: the path of the numpy file the tensor was exported to
     """
-
     if isinstance(tensor, Tensor):
         tensor = tensor.detach().cpu().numpy()
     elif isinstance(tensor, Dict):
@@ -364,7 +363,10 @@ def tensor_export(
             (key, val.detach().cpu().numpy()) for key, val in tensor.items()
         )
     elif isinstance(tensor, Iterable):
-        tensor = [val.detach().cpu().numpy() for val in tensor]
+        tensor = [
+            val.detach().cpu().numpy() if isinstance(val, Tensor) else val
+            for val in tensor
+        ]
     else:
         raise ValueError("Unrecognized type given for tensorr {}".format(tensor))
 
