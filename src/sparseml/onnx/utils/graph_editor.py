@@ -16,16 +16,18 @@
 Helper functions to edit ONNX Graphs.
 """
 
-from typing import Iterable, List, Union
+from collections import defaultdict
+from typing import Iterable, List, Optional, Union
 
 import numpy
 import onnx
-from onnx import ModelProto, NodeProto, numpy_helper
+from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
 
 from sparseml.onnx.utils.helpers import get_node_params
 
 
 __all__ = [
+    "ONNXGraph",
     "update_model_param",
     "swap_node_output",
     "remove_node_and_params_from_graph",
@@ -34,6 +36,110 @@ __all__ = [
     "prune_model_one_shot",
     "prune_model_one_shot_iter",
 ]
+
+
+class ONNXGraph(object):
+    """
+    Class for quick look-up of ONNX graph nodes and initializers. If graph state
+    changes outside of ONNXGraph class functions, update() should be called.
+
+    :param model: the ONNX graph to represent
+    """
+
+    def __init__(self, model: ModelProto):
+        self._model = model
+        self._output_id_to_node = {}
+        self._input_id_to_nodes = defaultdict(list)
+        self._name_to_initializer = {}
+
+        self.update()
+
+    def update(self, model: Optional[ModelProto] = None):
+        """
+        Update the graph state based on the model this graph represents or
+        the given model.
+
+        :param model: model to represent. defaults to current loaded model state
+        """
+        model = model or self._model
+
+        # nodes
+        self._output_id_to_node = {}
+        self._input_id_to_nodes = defaultdict(list)
+        for node in model.graph.node:
+            self._store_node_edges(node)
+
+        # initializers
+        self._name_to_initializer = {
+            init.name: init for init in model.graph.initializer
+        }
+
+    def _store_node_edges(self, node: NodeProto):
+        for output_id in node.output:
+            self._output_id_to_node[output_id] = node
+        for input_id in node.input:
+            self._input_id_to_nodes[input_id].append(node)
+
+    def get_init_by_name(self, name: str) -> Optional[TensorProto]:
+        """
+        :param name: name of initializer
+        :return: tensor of initializer with given name, returns None if the name does
+            not exist in the cached graph
+        """
+        return self._name_to_initializer.get(name)
+
+    def get_node_parents(
+        self, node: NodeProto
+    ) -> List[Union[NodeProto, TensorProto, None]]:
+        """
+        :param node: node to get the input objects for
+        :return: input nodes or tensors of this node in order. if an input doesn't exist,
+            None will be returned in its place
+        """
+        inputs = []
+        for input_id in node.input:
+            inp = None
+            if input_id in self._output_id_to_node:
+                inp = self._output_id_to_node[input_id]
+            elif input_id in self._name_to_initializer:
+                inp = self._name_to_initializer[input_id]
+            inputs.append(inp)
+        return inputs
+
+    def get_node_children(self, node: NodeProto) -> List[NodeProto]:
+        """
+        :param node: the node to get the children node of
+        :return: list of nodes that include this node as an output
+        """
+        children = []
+        for output_id in node.output:
+            children.extend(self._input_id_to_nodes[output_id])
+        return children
+
+    def add_node(self, node: NodeProto):
+        """
+        Adds the given node to the model and graph state
+        :param node: node to add to the model
+        """
+        self._model.graph.node.append(node)
+        self._store_node_edges(node)
+
+    def update_node_input(
+        self, node: NodeProto, input_id: str, input_idx: Optional[int] = None
+    ):
+        """
+        :param node: node to update the inputs of
+        :param input_id: new input_id to attach to the node
+        :param input_idx: optional index of the node input list to update,
+            if none is given, the new input id will be appended to the input list
+        """
+        if input_idx is not None:
+            if node in self._input_id_to_nodes[node.input[input_idx]]:
+                self._input_id_to_nodes[node.input[input_idx]].remove(node)
+            node.input[input_idx] = input_id
+        else:
+            node.input.append(input_id)
+        self._input_id_to_nodes[input_id].append(node)
 
 
 def update_model_param(

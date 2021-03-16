@@ -33,6 +33,7 @@ from sparseml.onnx.utils import (
     get_node_output_nodes,
     get_nodes_by_output_id,
     quantize_resnet_identity_add_inputs,
+    quantized_residual_add_optim,
     remove_node_and_params_from_graph,
     swap_node_output,
     update_model_param,
@@ -585,6 +586,7 @@ def quantize_torch_qat_export(
     _delete_repeated_qat_blocks(model)
     _convert_quantizable_ops(model)
     quantize_resnet_identity_add_inputs(model)
+    quantized_residual_add_optim(model)
     _remove_duplicate_quantize__ops(model)
 
     if output_file_path:
