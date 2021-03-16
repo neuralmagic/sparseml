@@ -235,12 +235,7 @@ def quantized_residual_add_optim(quantized_model: onnx.ModelProto) -> bool:
             continue
 
         # create de-quantize node for identity
-        dequant_node = onnx.helper.make_node(
-            "DequantizeLinear",
-            [quant_node.output[0]] + quant_node.input[1:],  # new inputs
-            [f"{quant_node.output[0]}_dequantized"],  # output name
-            f"{quant_node.name or quant_node.output[0]}_dequantized",  # node name
-        )
+        dequant_node = _make_dequant_node_for_quant(quant_node)
 
         # update graph
         identity_edge_idx = 0 if add_node.input[0] == node.output[0] else 1
@@ -248,4 +243,48 @@ def quantized_residual_add_optim(quantized_model: onnx.ModelProto) -> bool:
         graph.update_node_input(add_node, dequant_node.output[0], identity_edge_idx)
         optimization_made = True
 
+        # if any of the add children have are a quantize op while others aren't
+        # add a quant/dequant block to the non quantized paths to allow for fusion
+        # of the add
+        add_node_children = graph.get_node_children(add_node)
+        add_node_quant_child_idx = [
+            idx
+            for idx, node in enumerate(add_node_children)
+            if node.op_type == "QuantizeLinear"
+        ]
+        if not add_node_quant_child_idx or all(
+            n.op_type == "Add" or n.op_type == "QuantizeLinear"
+            for n in add_node_children
+        ):
+            # no quant child node, or all child nodes are quant/add nodes
+            continue
+
+        # make dequant pair node for quant child and add to graph
+        add_node_dequant_child = _make_dequant_node_for_quant(
+            add_node_children[add_node_quant_child_idx[0]]
+        )
+        graph.add_node(add_node_dequant_child)
+
+        # update all non quant node children to take the quant/dequant block as input
+        for add_child_node in add_node_children:
+            if add_child_node.op_type == "QuantizeLinear":
+                continue
+            add_node_id_idx = [
+                idx
+                for idx, output_id in enumerate(add_child_node.input)
+                if output_id == add_node.output[0]
+            ][0]
+            graph.update_node_input(
+                add_child_node, add_node_dequant_child.output[0], add_node_id_idx
+            )
+
     return optimization_made
+
+
+def _make_dequant_node_for_quant(quant_node: onnx.NodeProto) -> onnx.NodeProto:
+    return onnx.helper.make_node(
+        "DequantizeLinear",
+        [quant_node.output[0]] + quant_node.input[1:],  # new inputs
+        [f"{quant_node.output[0]}_dequantized"],  # output name
+        f"{quant_node.name or quant_node.output[0]}_dequantized",  # node name
+    )
