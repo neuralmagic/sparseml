@@ -61,17 +61,17 @@ class ONNXGraph(object):
 
         :param model: model to represent. defaults to current loaded model state
         """
-        model = model or self._model
+        self._model = model or self._model
 
         # nodes
         self._output_id_to_node = {}
         self._input_id_to_nodes = defaultdict(list)
-        for node in model.graph.node:
+        for node in self._model.graph.node:
             self._store_node_edges(node)
 
         # initializers
         self._name_to_initializer = {
-            init.name: init for init in model.graph.initializer
+            init.name: init for init in self._model.graph.initializer
         }
 
     def _store_node_edges(self, node: NodeProto):
