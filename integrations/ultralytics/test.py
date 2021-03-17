@@ -1,3 +1,8 @@
+# neuralmagic: no copyright
+# flake8: noqa
+# fmt: off
+# isort: skip_file
+
 import argparse
 import json
 import os
@@ -36,7 +41,8 @@ def test(data,
          save_conf=False,  # save auto-label confidences
          plots=True,
          log_imgs=0,  # number of logged images
-         compute_loss=None):
+         compute_loss=None,
+         half_precision=True):
     # Initialize/load model and set device
     training = model is not None
     if training:  # called by train.py
@@ -59,7 +65,7 @@ def test(data,
         #     model = nn.DataParallel(model)
 
     # Half
-    half = device.type != 'cpu'  # half precision only supported on CUDA
+    half = device.type != 'cpu' and half_precision  # half precision only supported on CUDA
     if half:
         model.half()
 
