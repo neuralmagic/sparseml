@@ -97,3 +97,8 @@ python train.py \
   --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
   <regular yolov5/train.py parameters>
 ```  
+
+
+## Server
+The `server/` directory contians an self-documented example of deploying a sparsified
+Yolo model with the DeepSparse engine.
