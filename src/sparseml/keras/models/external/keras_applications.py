@@ -31,7 +31,7 @@ from sparseml.keras.models.registry import ModelRegistry
 __all__ = []
 
 
-LOGGER = get_main_logger()
+_LOGGER = get_main_logger()
 
 
 _supported_model_funcs = ["ResNet50"]
@@ -98,15 +98,15 @@ def _registry_constructor_wrapper(key, model_func):
             elif pretrained_path is not None:
                 weights = pretrained_path  # Path to a weight file
         if weights is not None:
-            LOGGER.info("Model being created with weights from {}".format(weights))
+            _LOGGER.info("Model being created with weights from {}".format(weights))
         else:
-            LOGGER.info("Model being created with random weights")
+            _LOGGER.info("Model being created with random weights")
         try:
             model = model_func(weights=weights, **kwargs)
         except ValueError:
             # Load the model directly assuming "weights" contain all information
             # about the model
-            LOGGER.info("Loading model directly from {}".format(weights))
+            _LOGGER.info("Loading model directly from {}".format(weights))
             model = keras.models.load_model(weights)
         return model
 

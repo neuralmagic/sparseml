@@ -32,7 +32,7 @@ __all__ = [
 ]
 
 
-LOGGER = get_main_logger()
+_LOGGER = get_main_logger()
 
 """
 Simple named tuple object to store model info
@@ -77,6 +77,7 @@ class ModelRegistry(object):
     ) -> keras.Model:
         """
         Create a new model for the given key
+
         :param key: the model key (name) to create
         :param pretrained: True to load pretrained weights; to load a specific version
             give a string with the name of the version (pruned-moderate, base).
@@ -108,6 +109,7 @@ class ModelRegistry(object):
     ) -> Model:
         """
         Create a sparsezoo Model for the desired model in the zoo
+
         :param key: the model key (name) to retrieve
         :param pretrained: True to load pretrained weights; to load a specific version
             give a string with the name of the version (optim, optim-perf), default True
@@ -174,6 +176,7 @@ class ModelRegistry(object):
     ):
         """
         Register a model with the registry. Should be used as a decorator
+
         :param key: the model key (name) to create
         :param input_shape: the specified input shape for the model
         :param domain: the domain the model belongs to; ex: cv, nlp, etc
@@ -232,6 +235,7 @@ class ModelRegistry(object):
     ):
         """
         Register a model with the registry from a model constructor or provider function
+
         :param wrapped_constructor: Model constructor wrapped to be compatible
             by call from ModelRegistry.create should have pretrained, pretrained_path,
             pretrained_dataset, load_strict, ignore_error_tensors, and kwargs as
@@ -312,7 +316,7 @@ class ModelRegistry(object):
                 try:
                     model.load_weights(pretrained_path)
                 except ValueError:
-                    LOGGER.info("Loading model from {}".format(pretrained_path))
+                    _LOGGER.info("Loading model from {}".format(pretrained_path))
                     model = keras.models.load_model(pretrained_path)
             elif pretrained:
                 zoo_model = ModelRegistry.create_zoo_model(
@@ -329,7 +333,8 @@ class ModelRegistry(object):
                     raise RuntimeError("Error downloading model from SparseZoo")
                 model_file_path = model_file_paths[0]
                 model = keras.models.load_model(model_file_path)
-
+            else:
+                model = const_func(*args, **kwargs)
             return model
 
         return wrapper

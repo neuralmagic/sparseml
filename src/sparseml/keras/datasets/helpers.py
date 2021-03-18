@@ -33,6 +33,7 @@ def random_scaling_crop(
     """
     Random crop implementation which also randomly scales the crop taken
     as well as the aspect ratio of the crop.
+
     :param scale_range: the (min, max) of the crop scales to take from the orig image
     :param ratio_range: the (min, max) of the aspect ratios to take from the orig image
     :return: the callable function for random scaling crop op,
@@ -66,13 +67,3 @@ def random_scaling_crop(
         return img
 
     return rand_crop
-
-
-def random_hue(max_delta_range: Tuple[float, float] = [0, 0.5]):
-    def _random_hue(image):
-        max_delta = tf.random.uniform(
-            shape=[1], minval=max_delta_range[0], maxval=max_delta_range[1]
-        )[0]
-        return tf.image.random_hue(image, max_delta)
-
-    return _random_hue

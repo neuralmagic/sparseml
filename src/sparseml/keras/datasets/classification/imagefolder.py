@@ -53,6 +53,7 @@ SplitsTransforms = NamedTuple(
 def imagenet_normalizer(img: tf.Tensor, mode: str):
     """
     Normalize an image using mean and std of the imagenet dataset
+
     :param img: The input image to normalize
     :param mode: either "tf", "caffe", "torch"
     :return: The normalized image

@@ -46,6 +46,7 @@ class Dataset(metaclass=ABCMeta):
     ) -> tf.data.Dataset:
         """
         Create the dataset in the current graph using tf.data APIs
+
         :param batch_size: the batch size to create the dataset for
         :param repeat_count: the number of times to repeat the dataset,
             if unset or None, will repeat indefinitely
