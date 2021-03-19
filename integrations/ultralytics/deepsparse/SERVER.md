@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Example Yolo Model Server and Client Using DeepSparse Flask
+# Example YOLO Model Server and Client Using DeepSparse Flask
 
-To illustrate how the DeepSparse engine can be used for Yolo model deployments, this directory
+To illustrate how the DeepSparse engine can be used for YOLO model deployments, this directory
 contains a sample model server and client. 
 
 The server uses Flask to create an app with the DeepSparse Engine hosting a
-compiled Yolo model.
+compiled YOLOv3 model.
 The client can make requests into the server returning object detection results for given images.
 
 

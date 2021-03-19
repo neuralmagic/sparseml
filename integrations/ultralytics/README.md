@@ -20,7 +20,7 @@ This directory provides a SparseML integrated training script for the popular
 repository.
 
 Using this integration, you will be able to apply SparseML optimizations
-to the powerful training flows provided in the yolov5 repository.
+to the powerful training flows provided in the `yolov5` repository.
 
 Some of the tasks you can perform using this integration include, but are not limited to:
 * model pruning
@@ -30,7 +30,7 @@ Some of the tasks you can perform using this integration include, but are not li
 
 ## Installation
 To use the script, clone both repositories, install their dependencies,
-and copy the integrated training script into the yolov5 directory to run from.
+and copy the integrated training script into the `yolov5` directory to run from.
 
 ```bash
 # clone
@@ -50,7 +50,7 @@ pip install sparseml
 ## Script
 `integrations/ultralytics/train.py` modifies
 [`train.py`](https://github.com/ultralytics/yolov5/blob/master/train.py)
-from yolov5 to include a `sparseml-recipe` argument
+from `yolov5` to include a `sparseml-recipe` argument
 to run SparseML optimizations with.  This can be a file path to a local
 SparseML recipe or a SparseZoo model stub prefixed by `zoo:` such as
 `zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive`.
@@ -61,13 +61,13 @@ initial checkpoint, pass that model's SparseZoo stub prefixed by `zoo:` to the
 `--initial-checkpoint` argument.
 
 Running the script will
-follow the normal yolov5 training flow with the given SparseML optimizations enabled.
+follow the normal `yolov5` training flow with the given SparseML optimizations enabled.
 
 Some considerations:
 
 * `--sparseml-recipe` is a required parameter
 * `--epochs` will now be overridden by the epochs set in the SparseML recipe
-* if using learning rate schedulers both with the yolov5 script and your recipe, they
+* if using learning rate schedulers both with the `yolov5` script and your recipe, they
 may conflict with each other causing unintended side effects, so choose
 hyperparameters accordingly
 * Modifiers will log their outputs to the console as well as to the TensorBoard file
