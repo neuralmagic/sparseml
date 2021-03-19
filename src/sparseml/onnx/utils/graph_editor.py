@@ -74,12 +74,6 @@ class ONNXGraph(object):
             init.name: init for init in self._model.graph.initializer
         }
 
-    def _store_node_edges(self, node: NodeProto):
-        for output_id in node.output:
-            self._output_id_to_node[output_id] = node
-        for input_id in node.input:
-            self._input_id_to_nodes[input_id].append(node)
-
     def get_init_by_name(self, name: str) -> Optional[TensorProto]:
         """
         :param name: name of initializer
@@ -119,6 +113,7 @@ class ONNXGraph(object):
     def add_node(self, node: NodeProto):
         """
         Adds the given node to the model and graph state
+
         :param node: node to add to the model
         """
         self._model.graph.node.append(node)
@@ -140,6 +135,12 @@ class ONNXGraph(object):
         else:
             node.input.append(input_id)
         self._input_id_to_nodes[input_id].append(node)
+
+    def _store_node_edges(self, node: NodeProto):
+        for output_id in node.output:
+            self._output_id_to_node[output_id] = node
+        for input_id in node.input:
+            self._input_id_to_nodes[input_id].append(node)
 
 
 def update_model_param(
