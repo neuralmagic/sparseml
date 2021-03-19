@@ -67,6 +67,10 @@ The app exposes HTTP endpoints at:
 
 For a full list of options, run `python server.py -h`.
 
+Currently, the server is set to do pre-processing for the yolov3-spp
+model, if other models are used, the image shape, output shapes, and
+anchor grids should be updated. 
+
 ### Client
 
 `client.py` provides a `YoloDetectionClient` object to make requests to the server easy.
