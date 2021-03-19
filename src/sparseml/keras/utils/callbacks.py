@@ -19,8 +19,9 @@ Built-in callbacks for Keras
 from typing import List, Union
 
 import tensorflow
-from tensorflow import Tensor, keras
+from tensorflow import Tensor
 
+from sparseml.keras.utils import keras
 from sparseml.keras.utils.logger import KerasLogger, LoggingMode
 
 
@@ -233,7 +234,10 @@ class LossesAndMetricsLoggingCallback(LoggerSettingCallback):
             return
         for logger in self._loggers:
             assert logger.mode == LoggingMode.TRAIN
-            if logger.update_freq == "batch" or self._step % logger.update_freq == 0:
+            if logger.update_freq == "batch" or (
+                isinstance(logger.update_freq, int)
+                and self._step % logger.update_freq == 0
+            ):
                 for tag, value in logs.items():
                     logger.log_scalar("batch_{}".format(tag), value, step=self._step)
 

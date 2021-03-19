@@ -13,14 +13,10 @@
 # limitations under the License.
 
 """
-Generic code used as utilities and helpers for Keras
+Integrations with external model repos to register
+with the sparseml.keras model registry.
 """
 
 # flake8: noqa
 
-from .compat import *
-from .callbacks import *
-from .compat import *
-from .exporter import *
-from .logger import *
-from .model import *
+from .keras_applications import *
