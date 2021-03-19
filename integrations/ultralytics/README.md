@@ -102,6 +102,39 @@ python train.py \
 ```  
 
 
-## Server
-The `server/` directory contians an self-documented example of deploying a sparsified
-Yolo model with the DeepSparse engine.
+## DeepSparse Examples
+The [DeepSparse](https://github.com/neuralmagic/deepsparse) engine can be used for effcient
+inference on sparsified YOLOv3 models.  The `deepsparse` directory contains examples of using
+DeepSparse for benchmarking performance and in an inference server environment.
+
+### Installation
+To use these examples after performing the previous installations, copy over the python files
+to the `yolov5` directory and install DeepSparse.
+
+```bash
+# copy DeepSparse python files
+cp sparseml/integrations/ultralytics/deepsparse/*.py yolov5
+cd yolov5
+
+# install deepsparse and server dependencies
+pip install deepsparse flask flask-cors
+```
+
+
+### Benchmarking
+`benchmarking.py` is a script for benchmarking sparsified and quantized YOLOv3
+performance with DeepSparse.  For a full list of options run `python benchmarking.py -h`.
+
+To run a benchmark run:
+```bash
+python benchmark.py
+    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_90
+    --data_path /PATH/TO/COCO/DATASET/val2017
+    --batch-size 32
+```
+
+Note for quantized performance, your CPU must support VNNI instructions.
+
+### Server
+`sparseml/integrations/ultralytics/deepsparse/SERVER.md` contains relevant
+documentation for running the server and client examples.

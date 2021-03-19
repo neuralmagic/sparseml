@@ -36,8 +36,8 @@ If both repositories are already cloned, you may skip that step.
 git clone https://github.com/ultralytics/yolov5.git
 git clone https://github.com/neuralmagic/sparseml.git
 
-# copy script
-cp sparseml/integrations/ultralytics/server/*.py yolov5
+# copy DeepSparse python files
+cp sparseml/integrations/ultralytics/deepsparse/*.py yolov5
 cd yolov5
 
 # install dependencies
