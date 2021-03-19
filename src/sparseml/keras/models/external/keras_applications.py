@@ -113,7 +113,7 @@ def _registry_constructor_wrapper(key, model_func):
 
 def _get_architecture(model_name):
     if model_name == "ResNet50":
-        return "ResNet_v1", "50"
+        return "resnet_v1", "50"
     else:
         raise ValueError("Model {} unknown or not supported".format(model_name))
 
