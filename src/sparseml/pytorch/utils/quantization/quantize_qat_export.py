@@ -620,55 +620,55 @@ def _convert_quantizable_matmul_and_add(
     )
     model.graph.node.append(qmatmul_node)
 
-    # ### QLinearAdd
-    # # quantize bias
-    # bias_initializer = get_init_by_name(model, bias_add_node.input[1])
-    # if bias_initializer is None:
-    #     return
-    # bias_initializer = numpy_helper.to_array(bias_initializer)
-    # bias_scale = input_quantize_params.scale * weight_quantize_params.scale
-    # bias_zero_point = 0
-    # quantized_bias = _quantize_array(bias_initializer, bias_scale, bias_zero_point)
-    # quantized_bias_name = "{}.bias_quantized".format(bias_add_node.name)
-    # quantized_bias_initializer = numpy_helper.from_array(
-    #     quantized_bias, name=quantized_bias_name
-    # )
-    # model.graph.initializer.append(quantized_bias_initializer)
-    # quantized_bias_scale_name = "{}.scale".format(quantized_bias_name)
-    # model.graph.initializer.append(
-    #     numpy_helper.from_array(
-    #         numpy.asarray(bias_scale), name=quantized_bias_scale_name
-    #     )
-    # )
-    # quantized_bias_zero_point_name = "{}.zero_point".format(quantized_bias_name)
-    # model.graph.initializer.append(
-    #     numpy_helper.from_array(
-    #         numpy.asarray(bias_zero_point, dtype=numpy.uint8),
-    #         name=quantized_bias_zero_point_name,
-    #     )
-    # )
+    ### QLinearAdd
+    # quantize bias
+    bias_initializer = get_init_by_name(model, bias_add_node.input[1])
+    if bias_initializer is None:
+        return
+    bias_initializer = numpy_helper.to_array(bias_initializer)
+    bias_scale = input_quantize_params.scale * weight_quantize_params.scale
+    bias_zero_point = 0
+    quantized_bias = _quantize_array(bias_initializer, bias_scale, bias_zero_point)
+    quantized_bias_name = "{}.bias_quantized".format(bias_add_node.name)
+    quantized_bias_initializer = numpy_helper.from_array(
+        quantized_bias, name=quantized_bias_name
+    )
+    model.graph.initializer.append(quantized_bias_initializer)
+    quantized_bias_scale_name = "{}.scale".format(quantized_bias_name)
+    model.graph.initializer.append(
+        numpy_helper.from_array(
+            numpy.asarray(bias_scale), name=quantized_bias_scale_name
+        )
+    )
+    quantized_bias_zero_point_name = "{}.zero_point".format(quantized_bias_name)
+    model.graph.initializer.append(
+        numpy_helper.from_array(
+            numpy.asarray(bias_zero_point, dtype=numpy.uint8),
+            name=quantized_bias_zero_point_name,
+        )
+    )
 
-    # # get qadd inputs and outputs
-    # qadd_input = qmatmul_output
-    # # TODO: need to get different scales/zero points here
-    # qadd_inputs = [
-    #     qadd_input,  # x
-    #     output_quantize_node.input[1],  # x_scale
-    #     output_quantize_node.input[2],  # x_zero_point
-    #     quantized_bias_name,  # b
-    #     quantized_bias_scale_name,  # b_scale
-    #     quantized_bias_zero_point_name,  # b_zero_point
-    #     output_quantize_node.input[1],  # y_scale
-    #     output_quantize_node.input[2],  # y_zero_point
-    # ]
-    # qadd_output = output_quantize_node.output[0]
-    # qadd_name = "{}_quant".format(bias_add_node.name)
-    # kwargs = {"domain": "com.microsoft"}
-    # # create qlinearadd node and add it to graph
-    # qadd_node = onnx.helper.make_node(
-    #     "QLinearAdd", qadd_inputs, [qadd_output], qadd_name, **kwargs,
-    # )
-    # model.graph.node.append(qadd_node)
+    # get qadd inputs and outputs
+    qadd_input = qmatmul_output
+    # TODO: need to get different scales/zero points here
+    qadd_inputs = [
+        qadd_input,  # x
+        output_quantize_node.input[1],  # x_scale
+        output_quantize_node.input[2],  # x_zero_point
+        quantized_bias_name,  # b
+        quantized_bias_scale_name,  # b_scale
+        quantized_bias_zero_point_name,  # b_zero_point
+        output_quantize_node.input[1],  # y_scale
+        output_quantize_node.input[2],  # y_zero_point
+    ]
+    qadd_output = output_quantize_node.output[0]
+    qadd_name = "{}_quant".format(bias_add_node.name)
+    kwargs = {"domain": "com.microsoft"}
+    # create qlinearadd node and add it to graph
+    qadd_node = onnx.helper.make_node(
+        "QLinearAdd", qadd_inputs, [qadd_output], qadd_name, **kwargs,
+    )
+    model.graph.node.append(qadd_node)
 
     ### Cleanup
     # delete folded quantization ops
