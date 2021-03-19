@@ -18,20 +18,20 @@ using the DeepSparse Engine as the inference backend
 
 ##########
 Command help:
-usage: server.py [-h] [-s BATCH_SIZE] [-j NUM_CORES] [-a ADDRESS] [-p PORT]
- onnx_filepath
+usage: server.py [-h] [-b BATCH_SIZE] [-c NUM_CORES] [-a ADDRESS] [-p PORT]
+                 onnx-filepath
 
 Host a Yolo ONNX model as a server, using the DeepSparse Engine and Flask
 
 positional arguments:
-  onnx_filepath         The full filepath of the ONNX model file or SparseZoo stub
-                        to the model
+  onnx-filepath         The full filepath of the ONNX model file or SparseZoo
+                        stub to the model
 
 optional arguments:
   -h, --help            show this help message and exit
-  -s BATCH_SIZE, --batch_size BATCH_SIZE
+  -b BATCH_SIZE, --batch-size BATCH_SIZE
                         The batch size to run the analysis for
-  -j NUM_CORES, --num_cores NUM_CORES
+  -c NUM_CORES, --num-cores NUM_CORES
                         The number of physical cores to run the analysis on,
                         defaults to all physical cores available on the system
   -a ADDRESS, --address ADDRESS
@@ -54,6 +54,7 @@ import torch
 import cv2
 import flask
 from deepsparse import compile_model
+from deepsparse.utils import arrays_to_bytes, bytes_to_arrays
 from flask_cors import CORS
 
 # ultralytics/yolov5 imports
@@ -68,21 +69,21 @@ def parse_args():
     )
 
     parser.add_argument(
-        "onnx_filepath",
+        "onnx-filepath",
         type=str,
         help="The full filepath of the ONNX model file or SparseZoo stub to the model",
     )
 
     parser.add_argument(
-        "-s",
-        "--batch_size",
+        "-b",
+        "--batch-size",
         type=int,
         default=1,
         help="The batch size to run the analysis for",
     )
     parser.add_argument(
-        "-j",
-        "--num_cores",
+        "-c",
+        "--num-cores",
         type=int,
         default=0,
         help=(
@@ -124,37 +125,6 @@ _YOLO_V3_ANCHORS = [
 _YOLO_V3_ANCHOR_GRIDS = [t.clone().view(1, -1, 1, 1, 2) for t in _YOLO_V3_ANCHORS]
 _YOLO_V3_OUTPUT_SHAPES = [80, 40, 20]
 _YOLO_V3_GRIDS = [_get_grid(grid_size) for grid_size in _YOLO_V3_OUTPUT_SHAPES]
-
-
-def arrays_to_bytes(arrays: List[numpy.array]) -> str:
-    to_return = bytearray()
-    for arr in arrays:
-        arr_dtype = bytearray(str(arr.dtype), "utf-8")
-        arr_shape = bytearray(",".join([str(a) for a in arr.shape]), "utf-8")
-        sep = bytearray("|", "utf-8")
-        arr_bytes = arr.ravel().tobytes()
-        to_return += arr_dtype + sep + arr_shape + sep + arr_bytes
-    return to_return
-
-
-def bytes_to_arrays(serialized_arr: str) -> List[numpy.array]:
-    sep = "|".encode("utf-8")
-    arrays = []
-    i_start = 0
-    while i_start < len(serialized_arr) - 1:
-        i_0 = serialized_arr.find(sep, i_start)
-        i_1 = serialized_arr.find(sep, i_0 + 1)
-        arr_dtype = numpy.dtype(serialized_arr[i_start:i_0].decode("utf-8"))
-        arr_shape = tuple(
-            [int(a) for a in serialized_arr[i_0 + 1 : i_1].decode("utf-8").split(",")]
-        )
-        arr_num_bytes = numpy.prod(arr_shape) * arr_dtype.itemsize
-        arr_str = serialized_arr[i_1 + 1 : arr_num_bytes + (i_1 + 1)]
-        arr = numpy.frombuffer(arr_str, dtype=arr_dtype).reshape(arr_shape)
-        arrays.append(arr.copy())
-
-        i_start = i_1 + arr_num_bytes + 1
-    return arrays
 
 
 def _preprocess_image(

@@ -17,7 +17,6 @@ Client object for making requests to the example DeepSparse Yolo inference serve
 """
 
 
-import argparse
 import time
 from typing import List, Union
 
@@ -25,8 +24,7 @@ import numpy
 import requests
 
 import cv2
-from deepsparse.utils import generate_random_inputs
-from server import arrays_to_bytes, bytes_to_arrays
+from deepsparse.utils import arrays_to_bytes, bytes_to_arrays
 
 
 class YoloDetectionClient:
