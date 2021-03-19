@@ -108,6 +108,24 @@ def parse_args():
     return parser.parse_args()
 
 
+def _get_grid(size: int) -> torch.Tensor:
+    # adapted from yolov5.yolo.Detect._make_grid
+    coords_y, coords_x = torch.meshgrid([torch.arange(size), torch.arange(size)])
+    grid = torch.stack((coords_x, coords_y), 2)
+    return grid.view(1, 1, size, size, 2).float()
+
+
+# Yolo V3 specific variables
+_YOLO_V3_ANCHORS = [
+    torch.Tensor([[10, 13], [16, 30], [33, 23]]),
+    torch.Tensor([[30, 61], [62, 45], [59, 119]]),
+    torch.Tensor([[116, 90], [156, 198], [373, 326]]),
+]
+_YOLO_V3_ANCHOR_GRIDS = [t.clone().view(1, -1, 1, 1, 2) for t in _YOLO_V3_ANCHORS]
+_YOLO_V3_OUTPUT_SHAPES = [80, 40, 20]
+_YOLO_V3_GRIDS = [_get_grid(grid_size) for grid_size in _YOLO_V3_OUTPUT_SHAPES]
+
+
 def arrays_to_bytes(arrays: List[numpy.array]) -> str:
     to_return = bytearray()
     for arr in arrays:
@@ -153,14 +171,34 @@ def _preprocess_images(
 ) -> numpy.ndarray:
     # list of raw numpy images -> preprocessed batch of images
     images = [_preprocess_image(img, image_size) for img in images]
-    batch = numpy.stack(images)  # shape: (batch_size, 3, (image_size))
+
+    batch = numpy.stack(images, image_size)  # shape: (batch_size, 3, (image_size))
     return numpy.ascontiguousarray(batch)
 
 
-def _postprocess_outputs(outputs: List[numpy.ndarray]) -> List[numpy.ndarray]:
+def _pre_nms_postprocess(outputs: List[numpy.ndarray]) -> torch.Tensor:
+    # postprocess and transform raw outputs into single torch tensor
+    processed_outputs = []
+    for idx, pred in enumerate(outputs):
+        pred = torch.from_numpy(pred)
+        pred = pred.sigmoid()
+
+        # get grid and stride
+        grid = _YOLO_V3_GRIDS[idx]
+        anchor_grid = _YOLO_V3_ANCHOR_GRIDS[idx]
+        stride = 640 / _YOLO_V3_OUTPUT_SHAPES[idx]
+
+        # decode xywh box values
+        pred[..., 0:2] = (pred[..., 0:2] * 2.0 - 0.5 + grid) * stride
+        pred[..., 2:4] = (pred[..., 2:4] * 2) ** 2 * anchor_grid
+        # flatten anchor and grid dimensions -> (bs, num_predictions, num_classes + 5)
+        processed_outputs.append(pred.view(pred.size(0), -1, pred.size(-1)))
+    return torch.cat(processed_outputs, 1)
+
+
+def _postprocess_nms(outputs: torch.Tensor) -> List[numpy.ndarray]:
     # run nms in PyTorch, only post-process first output
-    output = torch.from_numpy(outputs[0])
-    nms_outputs = non_max_suppression(output)
+    nms_outputs = non_max_suppression(outputs)
     return [output.numpy() for output in nms_outputs]
 
 
@@ -194,9 +232,15 @@ def create_and_run_model_server(
 
         # post-processing
         postprocess_start_time = time.time()
-        outputs = _postprocess_outputs(outputs)
+        outputs = _pre_nms_postprocess(outputs)
         postprocess_time = time.time() - postprocess_start_time
-        print(f"Post-processing time: {postprocess_time * 1000.0:.4f}ms")
+        print(f"Post-processing, pre-nms time: {postprocess_time * 1000.0:.4f}ms")
+
+        # NMS
+        nms_start_time = time.time()
+        outputs = _postprocess_nms(outputs)
+        nms_time = time.time() - nms_start_time
+        print(f"nms time: {nms_time * 1000.0:.4f}ms")
 
         return arrays_to_bytes(outputs)
 
