@@ -41,6 +41,7 @@ from sparseml.pytorch.utils.model import (
     script_model,
     trace_model,
 )
+from sparseml.pytorch.utils.quantization import quantize_torch_qat_export
 from sparseml.utils import clean_path, create_parent_dirs
 
 
@@ -156,6 +157,7 @@ class ModuleExporter(object):
         name: str = "model.onnx",
         opset: int = DEFAULT_ONNX_OPSET,
         disable_bn_fusing: bool = True,
+        convert_qat: bool = False,
     ):
         """
         Export an onnx file for the current module and for a sample batch.
@@ -173,6 +175,10 @@ class ModuleExporter(object):
             sensitivity analyses of the exported graph.  Additionally, the DeepSparse
             inference engine, and other engines, perform batch norm fusing at model
             compilation.
+        :param convert_qat: if True and quantization aware training is detected in
+            the module being exported, the resulting QAT ONNX model will be converted
+            to a fully quantized ONNX model using `quantize_torch_qat_export`. Default
+            is False.
         """
         sample_batch = tensors_to_device(sample_batch, "cpu")
         onnx_path = os.path.join(self._output_dir, name)
@@ -240,6 +246,10 @@ class ModuleExporter(object):
             onnx_model = onnx.load(onnx_path)
             _delete_trivial_onnx_adds(onnx_model)
             onnx.save(onnx_model, onnx_path)
+
+        if convert_qat and is_quant_module:
+            # overwrite exported model with fully quantized version
+            quantize_torch_qat_export(model=onnx_path, output_file_path=onnx_path)
 
     def export_torchscript(
         self,

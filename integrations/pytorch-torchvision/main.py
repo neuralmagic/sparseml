@@ -434,7 +434,7 @@ def main(args):
     ########################
     exporter = ModuleExporter(model, save_dir)
     sample_input = torch.randn(image_shape).unsqueeze(0)  # sample batch for ONNX export
-    exporter.export_onnx(sample_input)
+    exporter.export_onnx(sample_input, convert_qat=True)
     exporter.export_pytorch()
     print("Model ONNX export and PyTorch weights saved to {}".format(save_dir))
 

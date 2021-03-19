@@ -34,7 +34,7 @@ except Exception:
 
 from sparseml.optim import ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.optim.quantization import (
+from sparseml.pytorch.utils.quantization import (
     add_quant_dequant,
     fuse_module_conv_bn_relus,
     get_qat_qconfig,

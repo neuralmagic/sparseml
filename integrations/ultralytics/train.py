@@ -527,7 +527,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             )
             model.model[-1].export = True  # do not export grid post-procesing
             exporter = ModuleExporter(model, save_dir)
-            exporter.export_onnx(torch.randn((1, 3, *imgsz)))
+            exporter.export_onnx(torch.randn((1, 3, *imgsz)), convert_qat=True)
         #################################################################################
         # End SparseML ONNX Export
         #################################################################################

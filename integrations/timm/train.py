@@ -696,7 +696,10 @@ def main():
                 f"training complete, exporting ONNX to {output_dir}/model.onnx"
             )
             exporter = ModuleExporter(model, output_dir)
-            exporter.export_onnx(torch.randn((1, *data_config["input_size"])))
+            exporter.export_onnx(
+                torch.randn((1, *data_config["input_size"])),
+                convert_qat=True
+            )
         #################################################################################
         # End SparseML ONNX Export
         #################################################################################
