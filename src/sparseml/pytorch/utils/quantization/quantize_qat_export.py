@@ -302,6 +302,27 @@ def _delete_multi_qat_blocks(model: ModelProto):
             delete_quant_node(model, dequant_node_1)
 
 
+def _delete_multi_qat_blocks(model: ModelProto):
+    # removes repeated qat quant/dequant blocks with the same parameters
+    # (Quant -> Dequant ->->-> Quant) -> (->->-> Quant)
+    quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
+    for quant_node_1 in quant_nodes:
+        quant_input = quant_node_1.input[0]
+        dequant_node_1 = _get_single_node_child(model, quant_node_1)
+        if not dequant_node_1 or dequant_node_1.op_type != "DequantizeLinear":
+            continue
+        if any(
+            q_node == "QuantizeLinear"
+            for q_node in get_node_output_nodes(model, dequant_node_1)
+        ):
+            for q_node in get_node_output_nodes(model, dequant_node_1):
+                # forward first qat block input to that of the second
+                q_node.input[0] = quant_node_1.input[0]
+            # delete repeated qunat/dequant block
+            delete_quant_node(model, quant_node_1)
+            delete_quant_node(model, dequant_node_1)
+
+
 def _attribute_to_kwarg(attribute: onnx.AttributeProto):
     # Adapted from ORT quantize.py
     if attribute.type == 0:
