@@ -18,24 +18,14 @@ Learning rate modifiers for Keras models
 
 from typing import Dict, List, Union
 
-import tensorflow as tf
-
-
-try:
-    import keras
-    from keras import backend as K
-    from keras.optimizers.schedules import LearningRateSchedule
-except ModuleNotFoundError:
-    import tensorflow.keras as keras
-    from tensorflow.keras import backend as K
-    from tensorflow.keras.optimizers.schedules import LearningRateSchedule
+from tensorflow import Tensor
 
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, LoggingMode
+from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, LoggingMode, keras
 from sparseml.optim import LearningRate, SetLearningRate
 from sparseml.utils import ALL_TOKEN
 
@@ -136,7 +126,7 @@ class LearningRateLoggingCallback(LoggerSettingCallback):
         :param logs: dictionary of logs (see Keras Callback doc)
         """
         super().on_train_begin(logs)
-        self._step = K.get_value(self.model.optimizer.iterations)
+        self._step = keras.backend.get_value(self.model.optimizer.iterations)
 
     def on_epoch_begin(self, epoch, logs=None):
         """
@@ -183,10 +173,10 @@ class LearningRateLoggingCallback(LoggerSettingCallback):
 
     def _get_lr(self):
         lr = self.model.optimizer.lr
-        if isinstance(lr, LearningRateSchedule):
+        if isinstance(lr, keras.optimizers.schedules.LearningRateSchedule):
             lr_val = lr(self.model.optimizer.iterations)
         else:
-            lr_val = K.get_value(lr)
+            lr_val = keras.backend.get_value(lr)
         return lr_val
 
     def _is_logging_step(self):
@@ -241,7 +231,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: Tensor = None,
     ):
         """
         Modify model and optimizer, and provide callbacks to process the model
@@ -422,7 +412,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: Tensor = None,
     ):
         """
         Modify model and optimizer, and provide callbacks to process the model

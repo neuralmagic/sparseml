@@ -19,13 +19,7 @@ on models while pruning.
 
 from typing import Dict, List, Union
 
-import tensorflow as tf
-
-
-try:
-    import keras
-except ModuleNotFoundError:
-    import tensorflow.keras as keras
+import tensorflow
 
 from sparseml.keras.optim.mask_pruning import (
     MaskedLayer,
@@ -39,8 +33,7 @@ from sparseml.keras.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.keras.optim.utils import get_layer_name_from_param
-from sparseml.keras.utils.callbacks import LoggerSettingCallback
-from sparseml.keras.utils.logger import KerasLogger
+from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, keras
 from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
 
@@ -223,13 +216,15 @@ class SparsityFreezer(PruningScheduler):
 
         :param step: training step
         :param tensor: tensor (e.g., weight) to compute the sparsity
-        :return: target sparsity
+        :return: target sparsity, or None
         """
         if tensor is None:
             raise ValueError("Invalid empty tensor")
         if self._start_step <= step < self._end_step:
-            mask = tf.cast(tf.not_equal(tensor, 0.0), tensor.dtype)
-            sparsity = tf.math.reduce_sum(1.0 - mask).numpy() / tf.size(tensor)
+            mask = tensorflow.cast(tensorflow.not_equal(tensor, 0.0), tensor.dtype)
+            sparsity = float(
+                tensorflow.math.reduce_sum(1.0 - mask).numpy() / tensorflow.size(tensor)
+            )
         elif step == self._end_step:
             sparsity = 0.0
         else:
@@ -372,7 +367,9 @@ class SparsityLoggingCallback(LoggerSettingCallback):
         log_data = {}
         for layer in self._prunable_layers:
             for masked_param in layer.pruning_vars:
-                sparsity = tf.math.subtract(1, tf.math.reduce_mean(masked_param.mask))
+                sparsity = tensorflow.math.subtract(
+                    1, tensorflow.math.reduce_mean(masked_param.mask)
+                )
                 log_data["sparsity@{}".format(masked_param.name)] = sparsity
         return log_data
 
@@ -460,7 +457,7 @@ class ConstantPruningModifier(ScheduledModifier):
         return self._update_ready
 
     @property
-    def sparsity(self) -> Union[None, tf.Tensor]:
+    def sparsity(self) -> Union[None, tensorflow.Tensor]:
         """
         :return: the created sparsity tensor for setting the pruning ops
             if create_ops has been called, else None
@@ -475,10 +472,12 @@ class ConstantPruningModifier(ScheduledModifier):
         if is_start_step:
             if tensor is None:
                 raise RuntimeError("Unexpected empty weight")
-            mask = tf.cast(tf.not_equal(tensor, 0.0), tensor.dtype)
-            self._sparsity = tf.math.reduce_sum(1.0 - mask).numpy() / tf.size(tensor)
+            mask = tensorflow.cast(tensorflow.not_equal(tensor, 0.0), tensor.dtype)
+            self._sparsity = tensorflow.math.reduce_sum(
+                1.0 - mask
+            ).numpy() / tensorflow.size(tensor)
         elif is_end_step:
-            mask = tf.ones_like(tensor)
+            mask = tensorflow.ones_like(tensor)
             self._sparsity = 0.0
         else:
             self._sparsity = None
@@ -505,7 +504,7 @@ class ConstantPruningModifier(ScheduledModifier):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: tensorflow.Tensor = None,
     ):
         """
         Modify model and optimizer
@@ -788,7 +787,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         return self._update_ready
 
     @property
-    def sparsity(self) -> Union[None, tf.Tensor]:
+    def sparsity(self) -> Union[None, tensorflow.Tensor]:
         """
         :return: the created sparsity tensor for setting the pruning ops
             if create_ops has been called, else None
@@ -877,7 +876,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: tensorflow.Tensor = None,
     ):
         """
         Modify model and optimizer, and provide callbacks to process the model

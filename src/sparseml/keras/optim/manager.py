@@ -20,7 +20,7 @@ Also handles loading modifiers from yaml files
 
 from typing import List, Union
 
-import tensorflow as tf
+from tensorflow import Tensor
 
 from sparseml.keras.optim.modifier import Modifier, ScheduledModifier
 from sparseml.keras.utils.compat import keras
@@ -76,7 +76,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         optimizer: keras.optimizers.Optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: Tensor = None,
     ):
         """
         Modify the model and optimizer based on the requirements of modifiers

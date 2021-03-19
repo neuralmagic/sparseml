@@ -19,12 +19,7 @@ Export Keras models to the local device.
 import os
 from typing import Any, List
 
-
-try:
-    import keras
-except ModuleNotFoundError:
-    import tensorflow.keras as keras
-
+from sparseml.keras.utils import keras
 from sparseml.utils import clean_path, create_parent_dirs, tensors_export
 
 

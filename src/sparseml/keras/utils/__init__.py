@@ -18,7 +18,6 @@ Generic code used as utilities and helpers for Keras
 
 # flake8: noqa
 
-from .compat import *
 from .callbacks import *
 from .compat import *
 from .exporter import *

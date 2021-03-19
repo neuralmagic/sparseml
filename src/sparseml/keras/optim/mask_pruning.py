@@ -17,7 +17,7 @@ import collections
 import inspect
 from typing import List, Union
 
-import tensorflow as tf
+import tensorflow
 
 from sparseml.keras.optim.mask_pruning_creator import (
     PruningMaskCreator,
@@ -113,7 +113,7 @@ class MaskAndWeightUpdater:
         pruning_vars: List[MaskedParamInfo],
         pruning_scheduler: PruningScheduler,
         mask_creator: PruningMaskCreator,
-        global_step: tf.Tensor,
+        global_step: tensorflow.Tensor,
     ):
         self._pruning_vars = pruning_vars
         self._pruning_scheduler = pruning_scheduler
@@ -129,7 +129,7 @@ class MaskAndWeightUpdater:
 
     def _conditional_training_update(self):
         def _no_update_masks_and_weights():
-            return tf.no_op("no_update")
+            return tensorflow.no_op("no_update")
 
         def _update_masks_and_weights():
             assignments = []
@@ -141,17 +141,17 @@ class MaskAndWeightUpdater:
                 )
                 assignments.append(masked_param_info.mask.assign(new_mask))
                 assignments.append(masked_param_info.sparsity.assign(new_sparsity))
-                masked_param = tf.math.multiply(
+                masked_param = tensorflow.math.multiply(
                     masked_param_info.param, masked_param_info.mask
                 )
                 assignments.append(masked_param_info.param.assign(masked_param))
-            return tf.group(assignments)
+            return tensorflow.group(assignments)
 
         update_ready = self._is_pruning_step()
 
         self._update_ready = update_ready
-        return tf.cond(
-            tf.cast(update_ready, tf.bool),
+        return tensorflow.cond(
+            tensorflow.cast(update_ready, tensorflow.bool),
             _update_masks_and_weights,
             _no_update_masks_and_weights,
         )
@@ -162,11 +162,11 @@ class MaskAndWeightUpdater:
         """
         assignments = []
         for masked_param_info in self._pruning_vars:
-            masked_param = tf.math.multiply(
+            masked_param = tensorflow.math.multiply(
                 masked_param_info.param, masked_param_info.mask
             )
             assignments.append(masked_param_info.param.assign(masked_param))
-        return tf.group(assignments)
+        return tensorflow.group(assignments)
 
     def conditional_update(self, training=None):
         """
@@ -176,14 +176,16 @@ class MaskAndWeightUpdater:
         """
 
         def _update():
-            with tf.control_dependencies([self._conditional_training_update()]):
-                return tf.no_op("update")
+            with tensorflow.control_dependencies([self._conditional_training_update()]):
+                return tensorflow.no_op("update")
 
         def _no_update():
-            return tf.no_op("no_update")
+            return tensorflow.no_op("no_update")
 
         training = keras.backend.learning_phase() if training is None else training
-        return tf.cond(tf.cast(training, tf.bool), _update, _no_update)
+        return tensorflow.cond(
+            tensorflow.cast(training, tensorflow.bool), _update, _no_update
+        )
 
 
 _LAYER_PRUNABLE_PARAMS_MAP = {
@@ -259,7 +261,7 @@ class MaskedLayer(keras.layers.Wrapper):
             "global_step",
             shape=[],
             initializer=keras.initializers.Constant(-1),
-            dtype=tf.int64,
+            dtype=tensorflow.int64,
             trainable=False,
         )
         self._mask_updater = MaskAndWeightUpdater(
@@ -299,21 +301,21 @@ class MaskedLayer(keras.layers.Wrapper):
             pruning_vars.append(MaskedParamInfo(name, param, mask, sparsity))
         return pruning_vars
 
-    def call(self, inputs: tf.Tensor, training=None):
+    def call(self, inputs: tensorflow.Tensor, training=None):
         """
         Forward function for calling layer instance as function
         """
         training = keras.backend.learning_phase() if training is None else training
 
         def _apply_masks_to_weights():
-            with tf.control_dependencies([self._mask_updater.apply_masks()]):
-                return tf.no_op("update")
+            with tensorflow.control_dependencies([self._mask_updater.apply_masks()]):
+                return tensorflow.no_op("update")
 
         def _no_apply_masks_to_weights():
-            return tf.no_op("no_update_masks")
+            return tensorflow.no_op("no_update_masks")
 
-        tf.cond(
-            tf.cast(training, tf.bool),
+        tensorflow.cond(
+            tensorflow.cast(training, tensorflow.bool),
             _apply_masks_to_weights,
             _no_apply_masks_to_weights,
         )

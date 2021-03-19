@@ -21,15 +21,9 @@ are implemented as modifiers.
 
 from typing import List, Tuple, Union
 
-import tensorflow as tf
+from tensorflow import Tensor
 
-
-try:
-    import keras
-except ModuleNotFoundError:
-    import tensorflow.keras as keras
-
-from sparseml.keras.utils import KerasLogger
+from sparseml.keras.utils import KerasLogger, keras
 from sparseml.optim import (
     BaseModifier,
     BaseScheduled,
@@ -98,7 +92,7 @@ class Modifier(BaseModifier):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: Tensor = None,
     ):
         """
         Modify model, optimizer based on the logic of the modifier. Return the modified

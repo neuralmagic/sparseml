@@ -19,13 +19,7 @@ certain update formulas or patterns.
 
 from typing import List, Union
 
-import tensorflow as tf
-
-
-try:
-    import keras
-except ModuleNotFoundError:
-    import tensorflow.keras as keras
+from tensorflow import Tensor
 
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
@@ -33,6 +27,7 @@ from sparseml.keras.optim.modifier import (
     ScheduledModifier,
 )
 from sparseml.keras.optim.utils import get_layer_name_from_param
+from sparseml.keras.utils import keras
 from sparseml.utils import ALL_TOKEN, convert_to_bool, flatten_iterable
 
 
@@ -201,7 +196,7 @@ class TrainableParamsModifier(ScheduledModifier):
         model,
         optimizer,
         steps_per_epoch: int,
-        input_tensors: tf.Tensor = None,
+        input_tensors: Tensor = None,
     ):
         model, optimizer, callback = super(TrainableParamsModifier, self).modify(
             model, optimizer, steps_per_epoch, input_tensors=input_tensors
