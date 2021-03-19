@@ -38,7 +38,7 @@ git clone https://github.com/ultralytics/yolov5.git
 git clone https://github.com/neuralmagic/sparseml.git
 
 # copy script
-cp sparseml/integrations/ultralytics/train.py yolov5
+cp sparseml/integrations/ultralytics/train.py sparseml/integrations/ultralytics/test.py yolov5
 cd yolov5
 
 # install dependencies
@@ -78,6 +78,9 @@ flag
 * By default, Automatic Mixed Precision (AMP) is disabled when using the integrated
 `train.py`. This is because mixed precision is not supported for PyTorch
 quantization-aware training.  To enable, set the `--use-amp` flag
+* By default, this integration will override the default activation function used by
+the repository and replace it with `LeakyRelu`. To avoid this behavior, set the
+`--no-leaky-relu-override` flag
 
 You can learn how to build or download a recipe using the
 [SparseML](https://github.com/neuralmagic/sparseml)

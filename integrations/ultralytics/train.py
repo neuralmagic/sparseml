@@ -57,6 +57,23 @@ from sparsezoo import Zoo
 logger = logging.getLogger(__name__)
 
 
+####################################################################################
+# Start SparseML Integration - load model checkpoint
+####################################################################################
+def _load_checkpoint_model_state_dict(checkpoint):  # -> Dict
+    def _strip_module_prefix(param_name):
+        return param_name if not name.startswith("module.") else param_name[7:]
+    model = checkpoint["model"]
+    return (
+        {_strip_module_prefix(name): param for name, param in model.items()}
+        if isinstance(model, dict)
+        else model.float().state_dict()
+    )
+####################################################################################
+# End SparseML Integration - load model checkpoint
+####################################################################################
+
+
 def train(hyp, opt, device, tb_writer=None, wandb=None):
     logger.info(colorstr('hyperparameters: ') + ', '.join(f'{k}={v}' for k, v in hyp.items()))
     save_dir, epochs, batch_size, total_batch_size, weights, rank = \
@@ -99,7 +116,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             ckpt['model'].yaml['anchors'] = round(hyp['anchors'])  # force autoanchor
         model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc).to(device)  # create
         exclude = ['anchor'] if opt.cfg or hyp.get('anchors') else []  # exclude keys
-        state_dict = ckpt['model'].float().state_dict()  # to FP32
+        state_dict = _load_checkpoint_model_state_dict(ckpt)  # SparseML integration
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(state_dict, strict=False)  # load
         logger.info('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
@@ -265,6 +282,13 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     if any("LearningRate" in str(modifier) for modifier in manager.modifiers):
         logger.info("Disabling yolo LR scheduler, managing LR using SparseML recipe")
         scheduler = None
+
+    # disable model pickling if QAT is set
+    qat = False
+    if any("Quantization" in str(modifier) for modifier in manager.modifiers):
+        logger.info("Disabling pickling for Yolo model, QAT modifiers present")
+        qat = True
+
     if manager.max_epochs:
         epochs = manager.max_epochs or epochs  # override num_epochs
         logger.info(
@@ -280,7 +304,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     # nw = min(nw, (epochs - start_epoch) / 2 * nb)  # limit warmup to < 1/2 of training
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
-    if scheduler:
+    if scheduler:  # SparseML integration
         scheduler.last_epoch = start_epoch - 1  # do not move
     scaler = amp.GradScaler(enabled=(cuda and opt.use_amp))
     compute_loss = ComputeLoss(model)  # init loss class
@@ -328,7 +352,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                 accumulate = max(1, np.interp(ni, xi, [1, nbs / total_batch_size]).round())
                 for j, x in enumerate(optimizer.param_groups):
                     # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                    x['lr'] = np.interp(ni, xi, [hyp['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
+                    if scheduler:  # SparseML integration, do not force warmup lr when overriding
+                        x['lr'] = np.interp(ni, xi, [hyp['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
                     if 'momentum' in x:
                         x['momentum'] = np.interp(ni, xi, [hyp['warmup_momentum'], hyp['momentum']])
 
@@ -384,7 +409,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
 
         # Scheduler
         lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
-        if scheduler:
+        if scheduler:  # SparseML integration
             scheduler.step()
 
         # DDP process 0 or single-GPU
@@ -405,7 +430,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                                                  verbose=nc < 50 and final_epoch,
                                                  plots=plots and final_epoch,
                                                  log_imgs=opt.log_imgs if wandb else 0,
-                                                 compute_loss=compute_loss)
+                                                 compute_loss=compute_loss,
+                                                 half=opt.use_amp)  # SparseML integration
 
             # Write
             with open(results_file, 'a') as f:
@@ -433,10 +459,11 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             save = (not opt.nosave) or (final_epoch and not opt.evolve)
             if save:
                 with open(results_file, 'r') as f:  # create checkpoint
+                    ckpt_model = ema.ema if ema else model if not qat else model.state_dict()  # SparseML integration
                     ckpt = {'epoch': epoch,
                             'best_fitness': best_fitness,
                             'training_results': f.read(),
-                            'model': ema.ema if ema else model,
+                            'model': ckpt_model,  # SparseML integration
                             'optimizer': None if final_epoch else optimizer.state_dict(),
                             'wandb_id': wandb_run.id if wandb else None}
 
@@ -471,12 +498,16 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         logger.info('%g epochs completed in %.3f hours.\n' % (epoch - start_epoch + 1, (time.time() - t0) / 3600))
         if opt.data.endswith('coco.yaml') and nc == 80:  # if COCO
             for conf, iou, save_json in ([0.25, 0.45, False], [0.001, 0.65, True]):  # speed, mAP tests
+                # SparseML integration - load test model
+                test_model = model if qat else attempt_load(final, device)
+                if opt.use_amp:
+                    test_model = test_model.half()
                 results, _, _ = test.test(opt.data,
                                           batch_size=batch_size * 2,
                                           imgsz=imgsz_test,
                                           conf_thres=conf,
                                           iou_thres=iou,
-                                          model=attempt_load(final, device).half(),
+                                          model=test_model,
                                           single_cls=opt.single_cls,
                                           dataloader=testloader,
                                           save_dir=save_dir,
@@ -488,6 +519,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             logger.info(
                 f"training complete, exporting ONNX to {save_dir}/model.onnx"
             )
+            model.model[-1].export = True  # do not export grid post-procesing
             exporter = ModuleExporter(model, save_dir)
             exporter.export_onnx(torch.randn((1, 3, *imgsz)))
         #################################################################################
