@@ -18,7 +18,7 @@ General dataset implementations for Keras
 
 from abc import ABCMeta, abstractmethod
 
-import tensorflow as tf
+import tensorflow
 
 
 __all__ = [
@@ -29,7 +29,7 @@ __all__ = [
 class Dataset(metaclass=ABCMeta):
     """
     Generic dataset implementation for Keras.
-    Expected to work with the tf.data APIs
+    Expected to work with the tensorflow.data APIs
     """
 
     @abstractmethod
@@ -43,9 +43,9 @@ class Dataset(metaclass=ABCMeta):
         shuffle_buffer_size: int = None,
         prefetch_buffer_size: int = None,
         num_parallel_calls: int = None,
-    ) -> tf.data.Dataset:
+    ) -> tensorflow.data.Dataset:
         """
-        Create the dataset in the current graph using tf.data APIs
+        Create the dataset in the current graph using tensorflow.data APIs
 
         :param batch_size: the batch size to create the dataset for
         :param repeat_count: the number of times to repeat the dataset,
@@ -56,7 +56,7 @@ class Dataset(metaclass=ABCMeta):
             otherwise the size of the buffer to use for buffering
         :param num_parallel_calls: the number of parallel calls to run the
             processor function with
-        :return: a tf.data.Dataset instance
+        :return: a tensorflow.data.Dataset instance
         """
         dataset = self.creator()
 
@@ -78,10 +78,10 @@ class Dataset(metaclass=ABCMeta):
         return dataset
 
     @abstractmethod
-    def creator(self) -> tf.data.Dataset:
+    def creator(self) -> tensorflow.data.Dataset:
         """
-        Implemented by sub classes to create a tf.data dataset for the given impl.
-        :return: a created tf.data dataset
+        Implemented by sub classes to create a tensorflow.data dataset for the given impl.
+        :return: a created tensorflow.data dataset
         """
         raise NotImplementedError()
 

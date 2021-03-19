@@ -23,17 +23,12 @@ import random
 from typing import Callable, Iterable, NamedTuple, Tuple, Union
 
 import numpy
-import tensorflow as tf
-from tensorflow.keras.applications.mobilenet import (
-    preprocess_input as mobilenet_preprocess_input,
-)
-from tensorflow.keras.applications.resnet import (
-    preprocess_input as resnet_preprocess_input,
-)
+import tensorflow
 
 from sparseml.keras.datasets.dataset import Dataset
 from sparseml.keras.datasets.helpers import random_scaling_crop
 from sparseml.keras.datasets.registry import DatasetRegistry
+from sparseml.keras.utils.compat import keras
 from sparseml.utils import clean_path
 from sparseml.utils.datasets import IMAGENET_RGB_MEANS, IMAGENET_RGB_STDS
 
@@ -50,7 +45,7 @@ SplitsTransforms = NamedTuple(
 )
 
 
-def imagenet_normalizer(img: tf.Tensor, mode: str):
+def imagenet_normalizer(img: tensorflow.Tensor, mode: str):
     """
     Normalize an image using mean and std of the imagenet dataset
 
@@ -59,9 +54,9 @@ def imagenet_normalizer(img: tf.Tensor, mode: str):
     :return: The normalized image
     """
     if mode == "tf":
-        preprocess_input = mobilenet_preprocess_input
+        preprocess_input = keras.applications.mobilenet.preprocess_input
     elif mode == "caffe":
-        preprocess_input = resnet_preprocess_input
+        preprocess_input = keras.applications.resnet.preprocess_input
     elif mode == "torch":
         preprocess_input = None
     else:
@@ -69,15 +64,15 @@ def imagenet_normalizer(img: tf.Tensor, mode: str):
     if preprocess_input is not None:
         processed_image = preprocess_input(img)
     else:
-        res = tf.cast(img, dtype=tf.float32) / 255.0
-        means = tf.constant(IMAGENET_RGB_MEANS, dtype=tf.float32)
-        stds = tf.constant(IMAGENET_RGB_STDS, dtype=tf.float32)
+        res = tensorflow.cast(img, dtype=tensorflow.float32) / 255.0
+        means = tensorflow.constant(IMAGENET_RGB_MEANS, dtype=tensorflow.float32)
+        stds = tensorflow.constant(IMAGENET_RGB_STDS, dtype=tensorflow.float32)
         processed_image = (res - means) / stds
     return processed_image
 
 
 def default_imagenet_normalizer():
-    def normalizer(img: tf.Tensor):
+    def normalizer(img: tensorflow.Tensor):
         # Default to the same preprocessing used by ResNet
         return imagenet_normalizer(img, "caffe")
 
@@ -118,7 +113,7 @@ class ImageFolderDataset(Dataset):
         pre_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
             train=(
                 random_scaling_crop(),
-                tf.image.random_flip_left_right,
+                tensorflow.image.random_flip_left_right,
             ),
             val=None,
         ),
@@ -196,14 +191,14 @@ class ImageFolderDataset(Dataset):
         """
         return self._num_classes
 
-    def processor(self, file_path: tf.Tensor, label: tf.Tensor):
+    def processor(self, file_path: tensorflow.Tensor, label: tensorflow.Tensor):
         """
         :param file_path: the path to the file to load an image from
         :param label: the label for the given image
         :return: a tuple containing the processed image and label
         """
-        img = tf.io.read_file(file_path)
-        img = tf.image.decode_jpeg(img, channels=3)
+        img = tensorflow.io.read_file(file_path)
+        img = tensorflow.image.decode_jpeg(img, channels=3)
 
         if self.pre_resize_transforms:
             transforms = (
@@ -215,7 +210,7 @@ class ImageFolderDataset(Dataset):
                 for trans in transforms:
                     img = trans(img)
         if self._image_size:
-            img = tf.image.resize(img, self.image_size)
+            img = tensorflow.image.resize(img, self.image_size)
 
         if self.post_resize_transforms:
             transforms = (
@@ -249,7 +244,7 @@ class ImageFolderDataset(Dataset):
         ]
         random.Random(42).shuffle(files_labels)
         files, labels = zip(*files_labels)
-        files = tf.constant(files)
-        labels = tf.constant(labels)
+        files = tensorflow.constant(files)
+        labels = tensorflow.constant(labels)
 
-        return tf.data.Dataset.from_tensor_slices((files, labels))
+        return tensorflow.data.Dataset.from_tensor_slices((files, labels))

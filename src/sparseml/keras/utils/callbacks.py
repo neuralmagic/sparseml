@@ -19,8 +19,9 @@ Built-in callbacks for Keras
 from typing import List, Union
 
 import tensorflow
-from tensorflow import Tensor, keras
+from tensorflow import Tensor
 
+from sparseml.keras.utils import keras
 from sparseml.keras.utils.logger import KerasLogger, LoggingMode
 
 

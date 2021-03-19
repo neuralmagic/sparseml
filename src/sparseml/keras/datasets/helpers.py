@@ -18,7 +18,7 @@ General utilities for dataset implementations for Keras
 
 from typing import Tuple
 
-import tensorflow as tf
+import tensorflow
 
 
 __all__ = [
@@ -40,29 +40,35 @@ def random_scaling_crop(
         takes in the image and outputs randomly cropped image
     """
 
-    def rand_crop(img: tf.Tensor):
-        orig_shape = tf.shape(img)
-        scale = tf.random.uniform(
+    def rand_crop(img: tensorflow.Tensor):
+        orig_shape = tensorflow.shape(img)
+        scale = tensorflow.random.uniform(
             shape=[1], minval=scale_range[0], maxval=scale_range[1]
         )[0]
-        ratio = tf.random.uniform(
+        ratio = tensorflow.random.uniform(
             shape=[1], minval=ratio_range[0], maxval=ratio_range[1]
         )[0]
-        height = tf.minimum(
-            tf.cast(
-                tf.round(tf.cast(orig_shape[0], dtype=tf.float32) * scale / ratio),
-                tf.int32,
+        height = tensorflow.minimum(
+            tensorflow.cast(
+                tensorflow.round(
+                    tensorflow.cast(orig_shape[0], dtype=tensorflow.float32)
+                    * scale
+                    / ratio
+                ),
+                tensorflow.int32,
             ),
             orig_shape[0],
         )
-        width = tf.minimum(
-            tf.cast(
-                tf.round(tf.cast(orig_shape[1], dtype=tf.float32) * scale),
-                tf.int32,
+        width = tensorflow.minimum(
+            tensorflow.cast(
+                tensorflow.round(
+                    tensorflow.cast(orig_shape[1], dtype=tensorflow.float32) * scale
+                ),
+                tensorflow.int32,
             ),
             orig_shape[1],
         )
-        img = tf.image.random_crop(img, [height, width, orig_shape[2]])
+        img = tensorflow.image.random_crop(img, [height, width, orig_shape[2]])
 
         return img
 
