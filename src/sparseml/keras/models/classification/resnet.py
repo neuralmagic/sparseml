@@ -13,15 +13,17 @@
 # limitations under the License.
 
 """
-TensorFlow ResNet implementation.
+Keras ResNet implementation.
 Further info on ResNet can be found in the paper
 `here <https://arxiv.org/abs/1512.03385>`__.
 """
 
 from typing import List, Union
 
-import tensorflow as tf
+import tensorflow
+
 from tensorflow import keras
+
 from tensorflow.keras import backend as K
 from tensorflow.keras import layers
 from tensorflow.keras.models import Model
@@ -42,19 +44,19 @@ BN_EPSILON = 1e-5
 BASE_NAME_SCOPE = "resnet"
 
 
-def _expand_name(prefix: str, suffix: str, sep: str = "/"):
+def _expand_name(prefix: str, suffix: str, sep: str = "."):
     return prefix + sep + suffix
 
 
 def _input(
     name: str,
-    x_tens: tf.Tensor,
-    training: Union[bool, tf.Tensor],
+    x_tens: tensorflow.Tensor,
+    training: Union[bool, tensorflow.Tensor],
     kernel_initializer,
     bias_initializer,
     beta_initializer,
     gamma_initializer,
-) -> tf.Tensor:
+) -> tensorflow.Tensor:
     bn_axis = 3 if K.image_data_format() == "channels_last" else 1
 
     x = layers.ZeroPadding2D(padding=((3, 3), (3, 3)), name=_expand_name(name, "pad"))(
@@ -77,15 +79,15 @@ def _input(
 
 def _identity_modifier(
     name: str,
-    x_tens: tf.Tensor,
-    training: Union[bool, tf.Tensor],
+    x_tens: tensorflow.Tensor,
+    training: Union[bool, tensorflow.Tensor],
     out_channels: int,
     stride: int,
     kernel_initializer,
     bias_initializer,
     beta_initializer,
     gamma_initializer,
-) -> tf.Tensor:
+) -> tensorflow.Tensor:
     bn_axis = 3 if K.image_data_format() == "channels_last" else 1
     shortcut = layers.Conv2D(
         out_channels, 1, strides=stride, name=_expand_name(name, "conv")
@@ -98,8 +100,8 @@ def _identity_modifier(
 
 def _bottleneck_block(
     name: str,
-    x_tens: tf.Tensor,
-    training: Union[bool, tf.Tensor],
+    x_tens: tensorflow.Tensor,
+    training: Union[bool, tensorflow.Tensor],
     out_channels: int,
     proj_channels: int,
     stride: int,
@@ -107,7 +109,7 @@ def _bottleneck_block(
     bias_initializer,
     beta_initializer,
     gamma_initializer,
-) -> tf.Tensor:
+) -> tensorflow.Tensor:
     bn_axis = 3 if K.image_data_format() == "channels_last" else 1
 
     x = layers.Conv2D(proj_channels, 1, name=_expand_name(name, "conv1"))(x_tens)
@@ -154,15 +156,16 @@ def _bottleneck_block(
 
 
 def _classifier(
-    x_tens: tf.Tensor,
-    training: Union[bool, tf.Tensor],
+    name: str,
+    x_tens: tensorflow.Tensor,
+    training: Union[bool, tensorflow.Tensor],
     num_classes: int,
     class_type: str,
     kernel_initializer,
     bias_initializer,
     beta_initializer,
     gamma_initializer,
-) -> tf.Tensor:
+) -> tensorflow.Tensor:
     x = layers.GlobalAveragePooling2D(name="avg_pool")(x_tens)
     if num_classes:
         if class_type:
@@ -175,7 +178,9 @@ def _classifier(
         else:
             act = None
 
-        outputs = layers.Dense(num_classes, activation=act, name="predictions")(x)
+        outputs = layers.Dense(
+            num_classes, activation=act, name=_expand_name(name, "fc")
+        )(x)
     else:
         outputs = x
     return outputs
@@ -210,13 +215,13 @@ class ResNetSection(object):
     def create(
         self,
         name: str,
-        x_tens: tf.Tensor,
-        training: Union[bool, tf.Tensor],
+        x_tens: tensorflow.Tensor,
+        training: Union[bool, tensorflow.Tensor],
         kernel_initializer,
         bias_initializer,
         beta_initializer,
         gamma_initializer,
-    ) -> tf.Tensor:
+    ) -> tensorflow.Tensor:
         """
         Create the section in the current graph and scope
 
@@ -236,7 +241,7 @@ class ResNetSection(object):
         stride = 2 if self.downsample else 1
 
         for block in range(self.num_blocks):
-            block_name = _expand_name(name, "block_{}".format(block))
+            block_name = _expand_name(name, "{}".format(block))
             if self.proj_channels > 0:
                 out = _bottleneck_block(
                     name=block_name,
@@ -269,8 +274,8 @@ class ResNetSection(object):
 
 
 def resnet_const(
-    x_tens: tf.Tensor,
-    training: Union[bool, tf.Tensor],
+    x_tens: tensorflow.Tensor,
+    training: Union[bool, tensorflow.Tensor],
     sec_settings: List[ResNetSection],
     num_classes: int,
     class_type: str,
@@ -313,7 +318,7 @@ def resnet_const(
 
     for sec_index, section in enumerate(sec_settings):
         out = section.create(
-            name="section_{}".format(sec_index),
+            name="sections.{}".format(sec_index),
             x_tens=out,
             training=training,
             kernel_initializer=kernel_initializer,
@@ -323,6 +328,7 @@ def resnet_const(
         )
 
     outputs = _classifier(
+        "classifier",
         out,
         training,
         num_classes,
@@ -347,8 +353,8 @@ def resnet_const(
     default_desc="base",
 )
 def resnet50(
-    inputs: tf.Tensor = None,
-    training: Union[bool, tf.Tensor] = True,
+    inputs: tensorflow.Tensor = None,
+    training: Union[bool, tensorflow.Tensor] = True,
     num_classes: int = 1000,
     class_type: str = None,
     kernel_initializer=keras.initializers.GlorotUniform(),
@@ -424,8 +430,8 @@ def resnet50(
     default_desc="base",
 )
 def resnet101(
-    inputs: tf.Tensor = None,
-    training: Union[bool, tf.Tensor] = True,
+    inputs: tensorflow.Tensor = None,
+    training: Union[bool, tensorflow.Tensor] = True,
     num_classes: int = 1000,
     class_type: str = None,
     kernel_initializer=keras.initializers.GlorotUniform(),
@@ -501,8 +507,8 @@ def resnet101(
     default_desc="base",
 )
 def resnet152(
-    inputs: tf.Tensor = None,
-    training: Union[bool, tf.Tensor] = True,
+    inputs: tensorflow.Tensor = None,
+    training: Union[bool, tensorflow.Tensor] = True,
     num_classes: int = 1000,
     class_type: str = None,
     kernel_initializer=keras.initializers.GlorotUniform(),

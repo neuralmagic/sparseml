@@ -146,16 +146,16 @@ def compare_model_outputs(pt_model, kr_model):
         return hook
 
     layer_pairs = [
-        (pt_model.input.conv, get_kr_layer(kr_model, "input/conv")),
+        (pt_model.input.conv, get_kr_layer(kr_model, "input.conv")),
         (
             pt_model.sections[1][3].conv3,
-            get_kr_layer(kr_model, "section_1/block_3/conv3"),
+            get_kr_layer(kr_model, "sections.1.3.conv3"),
         ),
         (
             pt_model.sections[3][2].conv3,
-            get_kr_layer(kr_model, "section_3/block_2/conv3"),
+            get_kr_layer(kr_model, "sections.3.2.conv3"),
         ),
-        (pt_model.classifier.softmax, get_kr_layer(kr_model, "predictions")),
+        (pt_model.classifier.softmax, get_kr_layer(kr_model, "classifier.fc")),
     ]
     pt_layer, kr_layer = layer_pairs[-1]
 
@@ -211,7 +211,6 @@ def _convert_model(
         metrics=["accuracy"],
         run_eagerly=True,
     )
-
     for layer in kr_model.layers:
         pt_layer_name = get_pytorch_name(layer.name, layer_mapping)
         if pt_layer_name is None:
@@ -257,18 +256,30 @@ def convert_pytorch_to_keras(
 
     # Export to ONNX
     exporter = ModelExporter(kr_model, model_dir)
-    exporter.export_onnx(name="model.onnx")
+    exporter.export_onnx(name="model.onnx", debug_mode=False)
+
+    # Samples
+    samples_dir = os.path.join(model_dir, "samples")
+    if not os.path.exists(samples_dir):
+        os.makedirs(samples_dir)
+    val_dataset = ImageNetDataset(IMAGENET_DIR, train=False)
+    val_dataset = val_dataset.build(batch_size=100, repeat_count=1)
+    for img_batch, label_batch in val_dataset.take(1):
+        output_batch = kr_model(img_batch)
+        np.save(os.path.join(samples_dir, "inputs.npy"), img_batch)
+        np.save(os.path.join(samples_dir, "outputs.npy"), output_batch)
+        np.save(os.path.join(samples_dir, "labels.npy"), label_batch)
 
 
 def convert_resnets_for_keras(output_dir: str):
     resnet_mapping = {
-        "input/conv": "input.conv",
-        "input/bn": "input.bn",
-        "section_([0-9]+)/block_([0-9]+)/conv([0-9]+)": "sections.{}.{}.conv{}",
-        "section_([0-9]+)/block_([0-9]+)/bn([0-9]+)": "sections.{}.{}.bn{}",
-        "section_([0-9]+)/block_([0-9]+)/identity/conv": "sections.{}.{}.identity.conv",
-        "section_([0-9]+)/block_([0-9]+)/identity/bn": "sections.{}.{}.identity.bn",
-        "predictions": "classifier.fc",
+        "input.conv": "input.conv",
+        "input.bn": "input.bn",
+        "sections.([0-9]+).([0-9]+).conv([0-9]+)": "sections.{}.{}.conv{}",
+        "sections.([0-9]+).([0-9]+).bn([0-9]+)": "sections.{}.{}.bn{}",
+        "sections.([0-9]+).([0-9]+).identity.conv": "sections.{}.{}.identity.conv",
+        "sections.([0-9]+).([0-9]+).identity.bn": "sections.{}.{}.identity.bn",
+        "classifier.fc": "classifier.fc",
     }
     convert_pytorch_to_keras(
         "resnet50",
