@@ -19,7 +19,7 @@ from typing import Dict, Union
 
 import numpy as np
 import pytest
-import tensorflow as tf
+import tensorflow
 
 from sparseml.keras.optim import (
     GMPruningModifier,
@@ -220,9 +220,9 @@ def test_save_load_masked_model(modifier_lambdas, epochs, batch_size):
     x_train = x_train[:N, :]
     y_train = y_train[:N, :]
 
-    if tf.__version__ < "2.2.0":
-        x_train = tf.expand_dims(x_train, axis=-1)
-        y_train = tf.expand_dims(y_train, axis=-1)
+    if tensorflow.__version__ < "2.2.0":
+        x_train = tensorflow.expand_dims(x_train, axis=-1)
+        y_train = tensorflow.expand_dims(y_train, axis=-1)
 
     # Model
     model = mnist_model()

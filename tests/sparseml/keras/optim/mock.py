@@ -15,15 +15,10 @@
 from typing import List, Tuple
 
 import numpy as np
-import tensorflow as tf
-
-
-try:
-    import keras
-except ModuleNotFoundError:
-    import tensorflow.keras as keras
+import tensorflow
 
 from sparseml.keras.optim import PruningScheduler
+from sparseml.keras.utils import keras
 
 
 __all__ = [
@@ -65,14 +60,14 @@ class DenseLayer(keras.layers.Dense):
             "kernel",
             shape=weight.shape,
             initializer=keras.initializers.Constant(weight),
-            dtype=tf.float32,
+            dtype=tensorflow.float32,
             trainable=False,
         )
         self.bias = self.add_weight(
             "bias",
             shape=(weight.shape[1],),
             initializer=keras.initializers.Constant(0.0),
-            dtype=tf.float32,
+            dtype=tensorflow.float32,
             trainable=False,
         )
 
@@ -109,7 +104,9 @@ class SequentialModelCreator:
         model = keras.Sequential()
         for layer_creator in self.layer_creators:
             model.add(layer_creator(delay_build=True))
-        input_shape = tf.TensorShape((None, self.layer_creators[0].kernel.shape[-2]))
+        input_shape = tensorflow.TensorShape(
+            (None, self.layer_creators[0].kernel.shape[-2])
+        )
         model.build(input_shape=input_shape)
         return model
 
@@ -123,30 +120,30 @@ def model_01():
 
 
 def mnist_model():
-    inputs = tf.keras.Input(shape=(28, 28, 1), name="inputs")
+    inputs = tensorflow.keras.Input(shape=(28, 28, 1), name="inputs")
 
     # Block 1
-    x = tf.keras.layers.Conv2D(16, 5, strides=1)(inputs)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.ReLU()(x)
+    x = tensorflow.keras.layers.Conv2D(16, 5, strides=1)(inputs)
+    x = tensorflow.keras.layers.BatchNormalization()(x)
+    x = tensorflow.keras.layers.ReLU()(x)
 
     # Block 2
-    x = tf.keras.layers.Conv2D(32, 5, strides=2)(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.ReLU()(x)
+    x = tensorflow.keras.layers.Conv2D(32, 5, strides=2)(x)
+    x = tensorflow.keras.layers.BatchNormalization()(x)
+    x = tensorflow.keras.layers.ReLU()(x)
 
     # Block 3
-    x = tf.keras.layers.Conv2D(64, 5, strides=1)(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.ReLU()(x)
+    x = tensorflow.keras.layers.Conv2D(64, 5, strides=1)(x)
+    x = tensorflow.keras.layers.BatchNormalization()(x)
+    x = tensorflow.keras.layers.ReLU()(x)
 
     # Block 4
-    x = tf.keras.layers.Conv2D(128, 5, strides=2)(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.ReLU()(x)
+    x = tensorflow.keras.layers.Conv2D(128, 5, strides=2)(x)
+    x = tensorflow.keras.layers.BatchNormalization()(x)
+    x = tensorflow.keras.layers.ReLU()(x)
 
-    x = tf.keras.layers.AveragePooling2D(pool_size=1)(x)
-    x = tf.keras.layers.Flatten()(x)
-    outputs = tf.keras.layers.Dense(10, activation="softmax", name="outputs")(x)
+    x = tensorflow.keras.layers.AveragePooling2D(pool_size=1)(x)
+    x = tensorflow.keras.layers.Flatten()(x)
+    outputs = tensorflow.keras.layers.Dense(10, activation="softmax", name="outputs")(x)
 
-    return tf.keras.Model(inputs=inputs, outputs=outputs)
+    return tensorflow.keras.Model(inputs=inputs, outputs=outputs)

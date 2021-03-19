@@ -14,15 +14,10 @@
 
 import numpy as np
 import pytest
-import tensorflow as tf
-
-
-try:
-    import keras
-except ModuleNotFoundError:
-    import tensorflow.keras as keras
+import tensorflow
 
 from sparseml.keras.optim import GMPruningModifier
+from sparseml.keras.utils import keras
 from tests.sparseml.keras.optim.mock import model_01
 
 
@@ -90,7 +85,7 @@ class TestGMPruningModifier:
         for epoch in range(epochs):
             for batch in range(batches):
                 step_callback.on_train_batch_begin(batch=unused_arg)
-                with tf.GradientTape() as tape:
+                with tensorflow.GradientTape() as tape:
                     logits = model(X_train, training=True)
                     loss_value = loss(y_train, logits)
                     grads = tape.gradient(loss_value, model.trainable_variables)

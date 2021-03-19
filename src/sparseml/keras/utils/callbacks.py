@@ -20,7 +20,7 @@ from typing import List, Union
 
 from tensorflow import Tensor
 
-from sparseml.keras.utils import keras
+from sparseml.keras.utils.compat import keras
 from sparseml.keras.utils.logger import KerasLogger, LoggingMode
 
 
