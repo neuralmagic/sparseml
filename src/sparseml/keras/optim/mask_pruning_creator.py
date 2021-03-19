@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Iterable, List, Tuple, Union
 
 import numpy
-import tensorflow as tf
+import tensorflow
 
 
 __all__ = [
@@ -42,8 +42,8 @@ class PruningMaskCreator(ABC):
     @abstractmethod
     def get_mask_initializer(
         self,
-        tensor: tf.Tensor,
-    ) -> Callable[[], tf.Tensor]:
+        tensor: tensorflow.Tensor,
+    ) -> Callable[[], tensorflow.Tensor]:
         """
         :param tensor: A tensor of a model layer's weights
         :return: Tensor initializer function for this sparsity mask
@@ -53,9 +53,9 @@ class PruningMaskCreator(ABC):
     @abstractmethod
     def create_sparsity_mask(
         self,
-        tensor: tf.Tensor,
-        sparsity: tf.Tensor,
-    ) -> tf.Tensor:
+        tensor: tensorflow.Tensor,
+        sparsity: tensorflow.Tensor,
+    ) -> tensorflow.Tensor:
         """
         :param tensor: A tensor of a model layer's weights
         :param sparsity: the target sparsity to use for assigning the masks
@@ -74,8 +74,8 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
 
     def get_mask_initializer(
         self,
-        tensor: tf.Tensor,
-    ) -> Callable[[], tf.Tensor]:
+        tensor: tensorflow.Tensor,
+    ) -> Callable[[], tensorflow.Tensor]:
         """
         :param tensor: A tensor of a model layer's weights
         :return: Initializer for tensor where an element is 1.0 for nonzero weights
@@ -84,44 +84,46 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         """
 
         def non_zero_mask_initializer(
-            shape: tf.TensorShape,
-            dtype: tf.DType = tf.float32,
+            shape: tensorflow.TensorShape,
+            dtype: tensorflow.DType = tensorflow.float32,
             partition_info: Any = None,  # unsued variable for compatability
-        ) -> tf.Tensor:
-            dtype = tf.as_dtype(dtype)
-            if not dtype.is_numpy_compatible or dtype == tf.string:
+        ) -> tensorflow.Tensor:
+            dtype = tensorflow.as_dtype(dtype)
+            if not dtype.is_numpy_compatible or dtype == tensorflow.string:
                 raise ValueError("Expected numeric or boolean dtype, got %s." % dtype)
 
-            return tf.cast(tf.not_equal(tensor, 0.0), dtype=dtype)
+            return tensorflow.cast(tensorflow.not_equal(tensor, 0.0), dtype=dtype)
 
         return non_zero_mask_initializer
 
     def create_sparsity_mask(
         self,
-        tensor: tf.Tensor,
-        sparsity: tf.Tensor,
-    ) -> tf.Tensor:
+        tensor: tensorflow.Tensor,
+        sparsity: tensorflow.Tensor,
+    ) -> tensorflow.Tensor:
         """
         :param tensor: A tensor of a model layer's weights
         :param sparsity: the target sparsity to use for assigning the masks
         :return: A sparsity mask close to the set sparsity based on the values of
             the input tensor
         """
-        abs_var = tf.abs(tensor)  # Magnitudes of weights
-        sparse_threshold_index = tf.cast(
-            tf.round(tf.cast(tf.size(abs_var), tf.float32) * sparsity),
-            tf.int32,
+        abs_var = tensorflow.abs(tensor)  # Magnitudes of weights
+        sparse_threshold_index = tensorflow.cast(
+            tensorflow.round(
+                tensorflow.cast(tensorflow.size(abs_var), tensorflow.float32) * sparsity
+            ),
+            tensorflow.int32,
         )
-        sparse_threshold_index = tf.minimum(
-            tf.maximum(sparse_threshold_index, 0),
-            tf.size(tensor) - 1,
+        sparse_threshold_index = tensorflow.minimum(
+            tensorflow.maximum(sparse_threshold_index, 0),
+            tensorflow.size(tensor) - 1,
         )
 
         try:
-            argsort = tf.argsort
+            argsort = tensorflow.argsort
         except Exception:
             try:
-                argsort = tf.contrib.framework.argsort
+                argsort = tensorflow.contrib.framework.argsort
             except Exception:
                 raise RuntimeError(
                     "cannot find argsort function in tensorflow_v1, "
@@ -129,16 +131,16 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
                 )
 
         # produce tensor where each element is the index in sorted order of abs_var
-        abs_var_flat = tf.reshape(abs_var, [-1])
-        element_ranks_flat = tf.scatter_nd(
-            tf.expand_dims(argsort(abs_var_flat), 1),
-            tf.range(abs_var_flat.get_shape()[0]),
+        abs_var_flat = tensorflow.reshape(abs_var, [-1])
+        element_ranks_flat = tensorflow.scatter_nd(
+            tensorflow.expand_dims(argsort(abs_var_flat), 1),
+            tensorflow.range(abs_var_flat.get_shape()[0]),
             abs_var_flat.get_shape(),
         )
-        element_ranks = tf.reshape(element_ranks_flat, abs_var.get_shape())
-        return tf.cast(
-            tf.math.greater_equal(element_ranks, sparse_threshold_index),
-            tf.float32,
+        element_ranks = tensorflow.reshape(element_ranks_flat, abs_var.get_shape())
+        return tensorflow.cast(
+            tensorflow.math.greater_equal(element_ranks, sparse_threshold_index),
+            tensorflow.float32,
         )
 
     def __str__(self):
@@ -156,13 +158,13 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
     """
 
     _GROUPING_OPS = {
-        "mean": tf.reduce_mean,
-        "max": tf.reduce_max,
-        "min": tf.reduce_min,
+        "mean": tensorflow.reduce_mean,
+        "max": tensorflow.reduce_max,
+        "min": tensorflow.reduce_min,
     }
 
     @staticmethod
-    def get_grouping_op(grouping_op_name: str) -> tf.Operation:
+    def get_grouping_op(grouping_op_name: str) -> tensorflow.Operation:
         """
         :param grouping_op_name: name of grouping operation to get tf operation for
         :return: tf operation for grouping_op_name if available, raises error otherwise
@@ -174,7 +176,7 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         return GroupedPruningMaskCreator._GROUPING_OPS[grouping_op_name]
 
     @abstractmethod
-    def group_tensor(self, tensor: tf.Tensor) -> tf.Tensor:
+    def group_tensor(self, tensor: tensorflow.Tensor) -> tensorflow.Tensor:
         """
         :param tensor: The tensor to reduce in groups
         :return: The grouped tensor
@@ -184,9 +186,9 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
     @abstractmethod
     def _map_mask_to_tensor(
         self,
-        grouped_mask: tf.Tensor,
-        original_tensor_shape: tf.TensorShape,
-    ) -> tf.Tensor:
+        grouped_mask: tensorflow.Tensor,
+        original_tensor_shape: tensorflow.TensorShape,
+    ) -> tensorflow.Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
         :param original_tensor_shape: Shape of the original tensor grouped_mask
@@ -198,33 +200,33 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
 
     def get_mask_initializer(
         self,
-        tensor: tf.Tensor,
-    ) -> Callable[[], tf.Tensor]:
+        tensor: tensorflow.Tensor,
+    ) -> Callable[[], tensorflow.Tensor]:
         """
         :param tensor: A tensor of a model layer's weights
         :return: Tensor initializer function for this sparsity mask
         """
 
         def grouped_non_zero_mask_initializer(
-            shape: tf.TensorShape,
-            dtype: tf.DType = tf.float32,
+            shape: tensorflow.TensorShape,
+            dtype: tensorflow.DType = tensorflow.float32,
             partition_info: Any = None,  # unsued variable for compatability
-        ) -> tf.Tensor:
-            dtype = tf.as_dtype(dtype)
-            if not dtype.is_numpy_compatible or dtype == tf.string:
+        ) -> tensorflow.Tensor:
+            dtype = tensorflow.as_dtype(dtype)
+            if not dtype.is_numpy_compatible or dtype == tensorflow.string:
                 raise ValueError("Expected numeric or boolean dtype, got %s." % dtype)
             grouped_tensor = self.group_tensor(tensor)
-            grouped_mask = tf.not_equal(grouped_tensor, 0.0)
+            grouped_mask = tensorflow.not_equal(grouped_tensor, 0.0)
             mask = self._map_mask_to_tensor(grouped_mask, tensor.shape)
-            return tf.cast(mask, dtype=dtype)
+            return tensorflow.cast(mask, dtype=dtype)
 
         return grouped_non_zero_mask_initializer
 
     def create_sparsity_mask(
         self,
-        tensor: tf.Tensor,
-        sparsity: tf.Tensor,
-    ) -> tf.Tensor:
+        tensor: tensorflow.Tensor,
+        sparsity: tensorflow.Tensor,
+    ) -> tensorflow.Tensor:
         """
         :param tensor: A tensor of a model layer's weights
         :param sparsity: the target sparsity to use for assigning the masks
@@ -267,7 +269,7 @@ class DimensionPruningMaskCreator(GroupedPruningMaskCreator):
                     )
                 )
 
-    def _set_dim_by_name_for_tensor(self, tensor: tf.Tensor):
+    def _set_dim_by_name_for_tensor(self, tensor: tensorflow.Tensor):
         n_dims = len(tensor.shape)
         if n_dims <= 2:
             if self._dim_name == "channel":
@@ -290,7 +292,7 @@ class DimensionPruningMaskCreator(GroupedPruningMaskCreator):
                 )
             )
 
-    def group_tensor(self, tensor: tf.Tensor) -> tf.Tensor:
+    def group_tensor(self, tensor: tensorflow.Tensor) -> tensorflow.Tensor:
         """
         :param tensor: The tensor to transform
         :return: The absolute mean values of the tensor grouped by the
@@ -301,16 +303,16 @@ class DimensionPruningMaskCreator(GroupedPruningMaskCreator):
         n_dims = len(tensor.shape)
         reduced_axis = [idx for idx in range(n_dims) if idx not in self._dim]
         return self._grouping_op(
-            tf.abs(tensor),
+            tensorflow.abs(tensor),
             axis=reduced_axis,
             keepdims=True,
         )
 
     def _map_mask_to_tensor(
         self,
-        grouped_mask: tf.Tensor,
-        original_tensor_shape: tf.TensorShape,
-    ) -> tf.Tensor:
+        grouped_mask: tensorflow.Tensor,
+        original_tensor_shape: tensorflow.TensorShape,
+    ) -> tensorflow.Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
         :param original_tensor_shape: Shape of the original tensor grouped_mask
@@ -319,12 +321,12 @@ class DimensionPruningMaskCreator(GroupedPruningMaskCreator):
             original_tensor_shape
         """
         # using tile instead of broadcast_to for compatibility with older tf versions
-        # equivalent to: tf.broadcast_to(grouped_mask, original_tensor_shape)
+        # equivalent to: tensorflow.broadcast_to(grouped_mask, original_tensor_shape)
         tile_vals = [
             dim if idx not in self._dim else 1
             for (idx, dim) in enumerate(original_tensor_shape)
         ]
-        return tf.tile(grouped_mask, tile_vals)
+        return tensorflow.tile(grouped_mask, tile_vals)
 
     def __str__(self):
         if self._dim_name is not None:
@@ -361,7 +363,7 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         self._block_shape = block_shape
         self._grouping_op = GroupedPruningMaskCreator.get_grouping_op(grouping_op_name)
 
-    def group_tensor(self, tensor: tf.Tensor) -> tf.Tensor:
+    def group_tensor(self, tensor: tensorflow.Tensor) -> tensorflow.Tensor:
         """
         :param tensor: The tensor to transform
         :return: The absolute mean values of the tensor grouped by blocks of
@@ -372,16 +374,18 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         n_dims = len(tensor.shape)
         if n_dims >= 3:
             tens_trans_dims = [n_dims - 2, n_dims - 1, *range(n_dims - 2)]
-            tensor = tf.transpose(tensor, tens_trans_dims)
-        blocked_tens = tf.reshape(tensor, blocked_tens_shape)
-        reduced_blocks = self._grouping_op(tf.abs(blocked_tens), 1, keepdims=True)
+            tensor = tensorflow.transpose(tensor, tens_trans_dims)
+        blocked_tens = tensorflow.reshape(tensor, blocked_tens_shape)
+        reduced_blocks = self._grouping_op(
+            tensorflow.abs(blocked_tens), 1, keepdims=True
+        )
         return reduced_blocks
 
     def _map_mask_to_tensor(
         self,
-        grouped_mask: tf.Tensor,
-        original_tensor_shape: tf.TensorShape,
-    ) -> tf.Tensor:
+        grouped_mask: tensorflow.Tensor,
+        original_tensor_shape: tensorflow.TensorShape,
+    ) -> tensorflow.Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
         :param original_tensor_shape: Shape of the original tensor grouped_mask
@@ -395,8 +399,8 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         ) = self._get_blocked_tens_shape_and_validate(original_tensor_shape)
         block_values_shape = [blocked_tens_shape[0], blocked_tens_shape[2]]
         # expand so every element has a corresponding value in the original tensor
-        block_mask = tf.reshape(grouped_mask, block_values_shape)
-        block_mask = tf.expand_dims(block_mask, 1)
+        block_mask = tensorflow.reshape(grouped_mask, block_values_shape)
+        block_mask = tensorflow.expand_dims(block_mask, 1)
 
         # Recover reduced dimension of block_mask, using tile instead of broadcast_to
         # for compatibility with older versions of tf
@@ -405,21 +409,21 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
             int(block_dim / mask_dim)
             for (block_dim, mask_dim) in zip(blocked_tens_shape, block_mask_shape)
         ]
-        # equivalent to: tf.broadcast_to(block_mask, blocked_tens_shape)
-        tensor_mask_blocked = tf.tile(block_mask, tile_shape)
+        # equivalent to: tensorflow.broadcast_to(block_mask, blocked_tens_shape)
+        tensor_mask_blocked = tensorflow.tile(block_mask, tile_shape)
 
-        mask = tf.reshape(tensor_mask_blocked, original_tensor_shape)
+        mask = tensorflow.reshape(tensor_mask_blocked, original_tensor_shape)
         # Undo channel / kernel transpose if applicable
         n_dims = len(original_tensor_shape)
         if n_dims >= 3:
             tens_trans_dims = [*range(2, n_dims), 0, 1]
-            mask = tf.transpose(mask, tens_trans_dims)
+            mask = tensorflow.transpose(mask, tens_trans_dims)
         return mask
 
     def _get_blocked_tens_shape_and_validate(
         self,
-        tens_shape: tf.TensorShape,
-    ) -> Tuple[List[int], tf.TensorShape]:
+        tens_shape: tensorflow.TensorShape,
+    ) -> Tuple[List[int], tensorflow.TensorShape]:
         """
         :param tens_shape: The shape of the tensor to group in blocks
         :return: shape of tens when blocked by block_shape and the original

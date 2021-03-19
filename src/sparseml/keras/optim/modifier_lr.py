@@ -18,16 +18,14 @@ Learning rate modifiers for Keras models
 
 from typing import Dict, List, Union
 
-import tensorflow as tf
-from tensorflow.keras import backend as K
-from tensorflow.keras.optimizers.schedules import LearningRateSchedule
+from tensorflow import Tensor
 
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, LoggingMode
+from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, LoggingMode, keras
 from sparseml.optim import LearningRate, SetLearningRate
 from sparseml.utils import ALL_TOKEN
 
@@ -35,7 +33,7 @@ from sparseml.utils import ALL_TOKEN
 __all__ = ["SetLearningRateModifier", "LearningRateModifier"]
 
 
-class LRModifierCallback(tf.keras.callbacks.Callback):
+class LRModifierCallback(keras.callbacks.Callback):
     """
     Callback to modify learning rate of an optimizer
 
@@ -47,10 +45,10 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
 
     def __init__(
         self,
-        optimizer: tf.keras.optimizers.Optimizer,
+        optimizer: keras.optimizers.Optimizer,
         start_step: int,
         end_step: int,
-        learning_rate: Union[float, tf.keras.optimizers.schedules.LearningRateSchedule],
+        learning_rate: Union[float, keras.optimizers.schedules.LearningRateSchedule],
     ):
         self._optimizer = optimizer
         self._start_step = start_step
@@ -64,7 +62,10 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
 
         :param logs: dictionary of logs (see Keras Callback doc)
         """
-        self._step = tf.keras.backend.get_value(self._optimizer.iterations)
+        self._step = keras.backend.get_value(self._optimizer.iterations)
+
+    def on_batch_begin(self, batch, logs=None):
+        self.on_train_batch_begin(batch, logs=logs)
 
     def on_train_batch_begin(self, batch, logs=None):
         """
@@ -79,6 +80,9 @@ class LRModifierCallback(tf.keras.callbacks.Callback):
             assert self._end_step > -1
             persist_lr = self._optimizer.lr(self._step)
             setattr(self._optimizer, "lr", persist_lr)
+
+    def on_batch_end(self, batch, logs=None):
+        self.on_train_batch_end(batch, logs=logs)
 
     def on_train_batch_end(self, batch, logs=None):
         """
@@ -122,7 +126,7 @@ class LearningRateLoggingCallback(LoggerSettingCallback):
         :param logs: dictionary of logs (see Keras Callback doc)
         """
         super().on_train_begin(logs)
-        self._step = K.get_value(self.model.optimizer.iterations)
+        self._step = keras.backend.get_value(self.model.optimizer.iterations)
 
     def on_epoch_begin(self, epoch, logs=None):
         """
@@ -169,10 +173,10 @@ class LearningRateLoggingCallback(LoggerSettingCallback):
 
     def _get_lr(self):
         lr = self.model.optimizer.lr
-        if isinstance(lr, LearningRateSchedule):
+        if isinstance(lr, keras.optimizers.schedules.LearningRateSchedule):
             lr_val = lr(self.model.optimizer.iterations)
         else:
-            lr_val = K.get_value(lr)
+            lr_val = keras.backend.get_value(lr)
         return lr_val
 
     def _is_logging_step(self):
@@ -227,7 +231,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: Tensor = None,
     ):
         """
         Modify model and optimizer, and provide callbacks to process the model
@@ -255,7 +259,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         return model, optimizer, [lr_callback, lr_logging_callback]
 
 
-class _ExponentialDecay(tf.keras.optimizers.schedules.ExponentialDecay):
+class _ExponentialDecay(keras.optimizers.schedules.ExponentialDecay):
     def __init__(
         self,
         start_step,
@@ -290,7 +294,7 @@ class _ExponentialDecay(tf.keras.optimizers.schedules.ExponentialDecay):
         return config
 
 
-class _PiecewiseConstantDecay(tf.keras.optimizers.schedules.PiecewiseConstantDecay):
+class _PiecewiseConstantDecay(keras.optimizers.schedules.PiecewiseConstantDecay):
     def __init__(self, start_step, boundaries, values, name=None):
         super().__init__(boundaries, values, name=name)
         self._start_step = start_step
@@ -408,7 +412,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: Tensor = None,
     ):
         """
         Modify model and optimizer, and provide callbacks to process the model

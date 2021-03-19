@@ -16,8 +16,9 @@
 Utils for Keras model
 """
 
-import tensorflow as tf
-from tensorflow import keras
+import tensorflow
+
+from sparseml.keras.utils import keras
 
 
 __all__ = ["sparsity"]
@@ -30,7 +31,7 @@ def sparsity(model: keras.Model):
     :param model: a Keras model
     :return: (1) model sparsity, (2) dictionary of layer sparsity
     """
-    zero = tf.constant(0, dtype=tf.float32)
+    zero = tensorflow.constant(0, dtype=tensorflow.float32)
     model_weight_size = 0
     model_zeros = 0
     sparsity_dict = {}
@@ -39,10 +40,12 @@ def sparsity(model: keras.Model):
         layer_sparsity_dict = {}
 
         for i, weight in enumerate(layer.trainable_weights):
-            mask = tf.cast(tf.equal(weight, zero), tf.uint8)
+            mask = tensorflow.cast(tensorflow.equal(weight, zero), tensorflow.uint8)
 
-            weight_size = tf.size(weight)
-            zeros = tf.cast(tf.math.count_nonzero(mask), tf.int32)
+            weight_size = tensorflow.size(weight)
+            zeros = tensorflow.cast(
+                tensorflow.math.count_nonzero(mask), tensorflow.int32
+            )
             layer_sparsity_dict[weight.name] = zeros / weight_size
 
             model_weight_size += weight_size

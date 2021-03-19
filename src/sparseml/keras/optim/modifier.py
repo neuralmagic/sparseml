@@ -21,9 +21,9 @@ are implemented as modifiers.
 
 from typing import List, Tuple, Union
 
-import tensorflow as tf
+from tensorflow import Tensor
 
-from sparseml.keras.utils import KerasLogger
+from sparseml.keras.utils import KerasLogger, keras
 from sparseml.optim import (
     BaseModifier,
     BaseScheduled,
@@ -92,7 +92,7 @@ class Modifier(BaseModifier):
         optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: Tensor = None,
     ):
         """
         Modify model, optimizer based on the logic of the modifier. Return the modified
@@ -107,7 +107,7 @@ class Modifier(BaseModifier):
         callback = None
         return model, optimizer, callback
 
-    def finalize(self, model: tf.keras.Model):
+    def finalize(self, model: keras.Model):
         """
         Remove extra information related to the modifier from the model that is
         not necessary for exporting

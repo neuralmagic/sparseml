@@ -20,9 +20,10 @@ Also handles loading modifiers from yaml files
 
 from typing import List, Union
 
-import tensorflow as tf
+from tensorflow import Tensor
 
 from sparseml.keras.optim.modifier import Modifier, ScheduledModifier
+from sparseml.keras.utils.compat import keras
 from sparseml.keras.utils.logger import KerasLogger
 from sparseml.optim import BaseManager
 from sparseml.utils import load_recipe_yaml_str
@@ -71,11 +72,11 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
     def modify(
         self,
-        model: Union[tf.keras.Model, tf.keras.Sequential],
-        optimizer: tf.keras.optimizers.Optimizer,
+        model: Union[keras.Model, keras.Sequential],
+        optimizer: keras.optimizers.Optimizer,
         steps_per_epoch: int,
         loggers: Union[KerasLogger, List[KerasLogger]] = None,
-        input_tensors: tf.Tensor = None,
+        input_tensors: Tensor = None,
     ):
         """
         Modify the model and optimizer based on the requirements of modifiers
@@ -106,14 +107,14 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 continue
             if isinstance(callback, list):
                 callbacks = callbacks + callback
-            elif isinstance(callback, tf.keras.callbacks.Callback):
+            elif isinstance(callback, keras.callbacks.Callback):
                 callbacks.append(callback)
             else:
                 raise RuntimeError("Invalid callback type")
         self._optimizer = optimizer
         return model, optimizer, callbacks
 
-    def finalize(self, model: tf.keras.Model):
+    def finalize(self, model: keras.Model):
         """
         Remove extra information related to the modifier from the model that is
         not necessary for exporting

@@ -15,10 +15,10 @@
 from typing import List, Tuple
 
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.models import Model
+import tensorflow
 
 from sparseml.keras.optim import PruningScheduler
+from sparseml.keras.utils import keras
 
 
 __all__ = [
@@ -52,22 +52,22 @@ class MockPruningScheduler(PruningScheduler):
         }
 
 
-class DenseLayer(tf.keras.layers.Dense):
+class DenseLayer(keras.layers.Dense):
     def __init__(self, weight: np.ndarray):
         super(DenseLayer, self).__init__(weight.shape[1], activation=None)
 
         self.kernel = self.add_weight(
             "kernel",
             shape=weight.shape,
-            initializer=tf.keras.initializers.Constant(weight),
-            dtype=tf.float32,
+            initializer=keras.initializers.Constant(weight),
+            dtype=tensorflow.float32,
             trainable=False,
         )
         self.bias = self.add_weight(
             "bias",
             shape=(weight.shape[1],),
-            initializer=tf.keras.initializers.Constant(0.0),
-            dtype=tf.float32,
+            initializer=keras.initializers.Constant(0.0),
+            dtype=tensorflow.float32,
             trainable=False,
         )
 
@@ -84,7 +84,7 @@ class DenseLayerCreator(LayerCreator):
         self.name = name
 
     def __call__(self, delay_build=False):
-        layer = tf.keras.layers.Dense(
+        layer = keras.layers.Dense(
             self.kernel.shape[-1], activation=None, name=self.name
         )
         if not delay_build:
@@ -101,47 +101,49 @@ class SequentialModelCreator:
         self.layer_creators = layer_creators
 
     def __call__(self):
-        model = tf.keras.Sequential()
+        model = keras.Sequential()
         for layer_creator in self.layer_creators:
             model.add(layer_creator(delay_build=True))
-        input_shape = tf.TensorShape((None, self.layer_creators[0].kernel.shape[-2]))
+        input_shape = tensorflow.TensorShape(
+            (None, self.layer_creators[0].kernel.shape[-2])
+        )
         model.build(input_shape=input_shape)
         return model
 
 
 def model_01():
-    inputs = tf.keras.Input(shape=(5))
-    x = tf.keras.layers.Dense(10, name="dense_01")(inputs)
-    outputs = tf.keras.layers.Dense(10, name="dense_02")(x)
-    model = Model(inputs=inputs, outputs=outputs)
+    inputs = keras.Input(shape=(5))
+    x = keras.layers.Dense(10, name="dense_01")(inputs)
+    outputs = keras.layers.Dense(10, name="dense_02")(x)
+    model = keras.Model(inputs=inputs, outputs=outputs)
     return model
 
 
 def mnist_model():
-    inputs = tf.keras.Input(shape=(28, 28, 1), name="inputs")
+    inputs = tensorflow.keras.Input(shape=(28, 28, 1), name="inputs")
 
     # Block 1
-    x = tf.keras.layers.Conv2D(16, 5, strides=1)(inputs)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.ReLU()(x)
+    x = tensorflow.keras.layers.Conv2D(16, 5, strides=1)(inputs)
+    x = tensorflow.keras.layers.BatchNormalization()(x)
+    x = tensorflow.keras.layers.ReLU()(x)
 
     # Block 2
-    x = tf.keras.layers.Conv2D(32, 5, strides=2)(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.ReLU()(x)
+    x = tensorflow.keras.layers.Conv2D(32, 5, strides=2)(x)
+    x = tensorflow.keras.layers.BatchNormalization()(x)
+    x = tensorflow.keras.layers.ReLU()(x)
 
     # Block 3
-    x = tf.keras.layers.Conv2D(64, 5, strides=1)(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.ReLU()(x)
+    x = tensorflow.keras.layers.Conv2D(64, 5, strides=1)(x)
+    x = tensorflow.keras.layers.BatchNormalization()(x)
+    x = tensorflow.keras.layers.ReLU()(x)
 
     # Block 4
-    x = tf.keras.layers.Conv2D(128, 5, strides=2)(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.ReLU()(x)
+    x = tensorflow.keras.layers.Conv2D(128, 5, strides=2)(x)
+    x = tensorflow.keras.layers.BatchNormalization()(x)
+    x = tensorflow.keras.layers.ReLU()(x)
 
-    x = tf.keras.layers.AveragePooling2D(pool_size=1)(x)
-    x = tf.keras.layers.Flatten()(x)
-    outputs = tf.keras.layers.Dense(10, activation="softmax", name="outputs")(x)
+    x = tensorflow.keras.layers.AveragePooling2D(pool_size=1)(x)
+    x = tensorflow.keras.layers.Flatten()(x)
+    outputs = tensorflow.keras.layers.Dense(10, activation="softmax", name="outputs")(x)
 
-    return tf.keras.Model(inputs=inputs, outputs=outputs)
+    return tensorflow.keras.Model(inputs=inputs, outputs=outputs)
