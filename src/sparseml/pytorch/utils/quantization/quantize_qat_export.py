@@ -281,6 +281,27 @@ def _delete_multi_qat_blocks(model: ModelProto):
             delete_quant_node(model, dequant_node_1)
 
 
+def _delete_multi_qat_blocks(model: ModelProto):
+    # removes repeated qat quant/dequant blocks with the same parameters
+    # (Quant -> Dequant ->->-> Quant) -> (->->-> Quant)
+    quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
+    for quant_node_1 in quant_nodes:
+        quant_input = quant_node_1.input[0]
+        dequant_node_1 = _get_single_node_child(model, quant_node_1)
+        if not dequant_node_1 or dequant_node_1.op_type != "DequantizeLinear":
+            continue
+        if any(
+            q_node == "QuantizeLinear"
+            for q_node in get_node_output_nodes(model, dequant_node_1)
+        ):
+            for q_node in get_node_output_nodes(model, dequant_node_1):
+                # forward first qat block input to that of the second
+                q_node.input[0] = quant_node_1.input[0]
+            # delete repeated qunat/dequant block
+            delete_quant_node(model, quant_node_1)
+            delete_quant_node(model, dequant_node_1)
+
+
 def _attribute_to_kwarg(attribute: onnx.AttributeProto):
     # Adapted from ORT quantize.py
     if attribute.type == 0:
@@ -731,6 +752,14 @@ def _convert_quantizable_ops(model: ModelProto):
             )
 
 
+def _convert_quantizable_matmul_ops(model: ModelProto):
+    quantizable_nodes = [n for n in model.graph.node if n.op_type in ["MatMul"]]
+    for quantizable_node in quantizable_nodes:
+        _convert_quantizable_matmul_and_add(
+            model, quantizable_node,
+        )
+
+
 def _replace_input_id_model(model: ModelProto, old_id: str, new_id: str):
     for node in model.graph.node:
         for idx, inp in enumerate(node.input):
@@ -843,8 +872,7 @@ def _skip_input_quantize(model: ModelProto) -> Optional[str]:
 
 
 def skip_onnx_input_quantize(
-    model: Union[ModelProto, str],
-    output_file_path: Union[str, None] = None,
+    model: Union[ModelProto, str], output_file_path: Union[str, None] = None,
 ):
     """
     If the given model has a single FP32 input that feeds into a QuantizeLinear
