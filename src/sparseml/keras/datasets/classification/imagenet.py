@@ -17,8 +17,8 @@ Imagenet dataset implementations for the image classification field in computer 
 More info for the dataset can be found `here <http://www.image-net.org/>`__.
 """
 
-import os
 import random
+from typing import Tuple, Union
 
 import tensorflow as tf
 
@@ -27,7 +27,9 @@ from sparseml.keras.datasets.classification import (
     SplitsTransforms,
     imagenet_normalizer,
 )
+from sparseml.keras.datasets.helpers import random_scaling_crop
 from sparseml.keras.datasets.registry import DatasetRegistry
+from sparseml.keras.utils import keras
 from sparseml.utils import clean_path
 from sparseml.utils.datasets import (
     IMAGENET_RGB_MEANS,
@@ -44,6 +46,37 @@ def torch_imagenet_normalizer():
         return imagenet_normalizer(image, "torch")
 
     return normalizer
+
+
+def imagenet_pre_resize_processor():
+    def processor(image: tf.Tensor):
+        image_batch = tf.expand_dims(image, axis=0)
+
+        # Resize the image the following way to match torchvision's Resize
+        # transform used by Pytorch code path for Imagenet:
+        #   torchvision.transforms.Resize(256)
+        # which resize the smaller side of images to 256 and the other one based
+        # on the aspect ratio
+        shape = tf.shape(image)
+        h, w = shape[0], shape[1]
+        if h > w:
+            new_h, new_w = tf.cast(256 * h / w, dtype=tf.uint16), tf.constant(
+                256, dtype=tf.uint16
+            )
+        else:
+            new_h, new_w = tf.constant(256, dtype=tf.uint16), tf.cast(
+                256 * w / h, dtype=tf.uint16
+            )
+        resizer = keras.layers.experimental.preprocessing.Resizing(new_h, new_w)
+        image_batch = tf.cast(resizer(image_batch), dtype=tf.uint8)
+
+        # Center crop
+        center_cropper = keras.layers.experimental.preprocessing.CenterCrop(224, 224)
+        image_batch = tf.cast(center_cropper(image_batch), dtype=tf.uint8)
+
+        return image_batch[0, :]
+
+    return processor
 
 
 @DatasetRegistry.register(
@@ -71,13 +104,26 @@ class ImageNetDataset(ImageFolderDataset):
         root: str = default_dataset_path("imagenet"),
         train: bool = True,
         rand_trans: bool = False,
-        image_size: int = 224,
+        image_size: Union[None, int, Tuple[int, int]] = 224,
+        pre_resize_transforms=SplitsTransforms(
+            train=(
+                random_scaling_crop(),
+                tf.image.random_flip_left_right,
+            ),
+            val=(imagenet_pre_resize_processor(),),
+        ),
+        post_resize_transforms=SplitsTransforms(
+            train=(torch_imagenet_normalizer(),), val=(torch_imagenet_normalizer(),)
+        ),
     ):
         root = clean_path(root)
-        post_resize_transforms = SplitsTransforms(
-            train=(torch_imagenet_normalizer(),), val=(torch_imagenet_normalizer(),)
+        super().__init__(
+            root,
+            train,
+            image_size=image_size,
+            pre_resize_transforms=pre_resize_transforms,
+            post_resize_transforms=post_resize_transforms,
         )
-        super().__init__(root, train, post_resize_transforms=post_resize_transforms)
 
         if train:
             # make sure we don't preserve the folder structure class order

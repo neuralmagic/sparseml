@@ -1,32 +1,76 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Script to convert Pytorch models to Keras
+
+Example run (replace specific paths with yours):
+python utils/pytorch2keras.py \
+    --imagenet-dir /hdd/datasets/ILSVRC \
+    --save-dir /hdd/src/sparseml/pytorch2keras_models/ \
+    --test-image-file-path /hdd/datasets/ILSVRC/val/n02481823/ILSVRC2012_val_00024600.JPEG
+"""
+import argparse
 import re
 import os
 from typing import Dict
 
 import numpy as np
 import torch
-import torchvision
 import torchvision.transforms as transforms
 from PIL import Image
-from tensorflow import keras
 
-from sparseml.keras.datasets import ImageNetDataset
+import tensorflow
+
+from sparseml.keras.datasets import ImageNetDataset, SplitsTransforms
+
 from sparseml.keras.models import ModelRegistry as KRModelRegistry
-from sparseml.keras.utils import ModelExporter
+from sparseml.keras.utils import ModelExporter, keras
 from sparseml.pytorch.models import ModelRegistry as PTModelRegistry
 from sparseml.utils.datasets import IMAGENET_RGB_MEANS, IMAGENET_RGB_STDS
 
-OUTPUT_DIR = "/hdd/src/sparseml/pytorch2keras_models/"
-
-IMAGENET_DIR = "/hdd/datasets/ILSVRC"
-
-IMAGE_FILE_PATH = "/hdd/datasets/ILSVRC/val/n02481823/ILSVRC2012_val_00024600.JPEG"
 
 BN_MOMENTUM = 0.9
 BN_EPSILON = 1e-5
 
 
-def load_the_image():
-    image = Image.open(IMAGE_FILE_PATH)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Convert Pytorch models to Keras")
+    parser.add_argument(
+        "--imagenet-dir",
+        type=str,
+        required=True,
+        help="The root path to where the Imagenet dataset is stored",
+    )
+    parser.add_argument(
+        "--test-image-file-path",
+        type=str,
+        required=True,
+        help="Path to an image used for comparing inference results between "
+        "Pytorch and Keras",
+    )
+    parser.add_argument(
+        "--save-dir",
+        type=str,
+        required=True,
+        help="The path to the directory for saving results",
+    )
+    return parser.parse_args()
+
+
+def load_the_image(test_image_file_path):
+    image = Image.open(test_image_file_path)
     image.load()
 
     init_trans = [
@@ -74,7 +118,6 @@ def convert_conv_layer(kr_layer, pt_layer_name, pt_model_state_dict):
 
 def convert_bn_layer(kr_layer, pt_layer_name, pt_model_state_dict):
     print("Converting Batch Norm layer {}...".format(kr_layer.name))
-    kr_weights = kr_layer.get_weights()
 
     pt_gamma = pt_model_state_dict["{}.weight".format(pt_layer_name)]
     pt_beta = pt_model_state_dict["{}.bias".format(pt_layer_name)]
@@ -117,26 +160,56 @@ def get_pytorch_name(kr_name, layer_mapping):
     return None
 
 
-def verify_keras_model(kr_model):
+def verify_keras_model(kr_model, imagenet_dir):
     batch_size = 128
-    val_dataset = ImageNetDataset(IMAGENET_DIR, train=False)
+    val_dataset = ImageNetDataset(imagenet_dir, train=False)
     val_dataset = val_dataset.build(
-        batch_size=128, num_parallel_calls=8, repeat_count=1
+        batch_size=batch_size, num_parallel_calls=8, repeat_count=1
     )
     result = kr_model.evaluate(val_dataset)
     print(dict(zip(kr_model.metrics_names, result)))
 
 
+def verify_keras_model_with_pytorch(kr_model, imagenet_dir):
+    """
+    Verify the converted models using ImageNet's data pipeline in Pytorch
+    Assumption: the validation pipeline is enhanced with the following permutation
+    class my_permuter:
+        def __call__(self, img):
+            return img.permute(1, 2, 0)
+    to fit into the default data format "channels_last" by Keras
+    """
+    from torch.utils.data import DataLoader
+    from sparseml.pytorch.datasets import ImageNetDataset as PTImageNetDataset
+
+    batch_size = 128
+    val_dataset = PTImageNetDataset(imagenet_dir, train=False)
+
+    val_loader = DataLoader(
+        val_dataset, batch_size, shuffle=False, pin_memory=True, num_workers=8
+    )
+    val_acc_metric = keras.metrics.CategoricalAccuracy()
+    for x_batch_val, y_batch_val in val_loader:
+        val_logits = kr_model(x_batch_val, training=False)
+        # Update val metrics
+        val_acc_metric.update_state(
+            torch.nn.functional.one_hot(y_batch_val, num_classes=1000), val_logits
+        )
+    val_acc = val_acc_metric.result()
+    val_acc_metric.reset_states()
+    print("Validation acc: %.4f" % (float(val_acc),))
+
+
 def get_kr_layer(kr_model, kr_layer_name):
     kr_layer = None
-    for l in kr_model.layers:
-        if l.name == kr_layer_name:
-            kr_layer = l
+    for layer in kr_model.layers:
+        if layer.name == kr_layer_name:
+            kr_layer = layer
             break
     return kr_layer
 
 
-def compare_model_outputs(pt_model, kr_model):
+def compare_model_outputs(pt_model, kr_model, test_image_file_path):
     pt_layer_outputs = {}
 
     def get_pt_layer_outputs(name):
@@ -162,7 +235,7 @@ def compare_model_outputs(pt_model, kr_model):
     pt_model.eval()
     pt_layer.register_forward_hook(get_pt_layer_outputs("pt_layer_output"))
 
-    image = load_the_image()  # [1, 3, 224, 224]
+    image = load_the_image(test_image_file_path)  # [1, 3, 224, 224]
     image_batch = torch.from_numpy(image)
     pt_model(image_batch)
 
@@ -197,6 +270,7 @@ def _convert_model(
     model_type: str,
     class_type: str,
     layer_mapping: Dict[str, str],
+    test_image_file_path: str,
 ):
     print("Loading PyTorch model {}, {}".format(arch_key, model_type))
     pt_model = PTModelRegistry.create(
@@ -233,7 +307,7 @@ def _convert_model(
         elif isinstance(layer, keras.layers.Dense):
             convert_dense_layer(layer, pt_layer_name, pt_model_state_dict)
 
-    compare_model_outputs(pt_model, kr_model)
+    compare_model_outputs(pt_model, kr_model, test_image_file_path)
     return kr_model
 
 
@@ -244,6 +318,7 @@ def convert_pytorch_to_keras(
     layer_mapping: Dict[str, str],
     output_dir: str,
     imagenet_dir: str,
+    test_image_file_path: str,
 ):
     model_dir = os.path.join(output_dir, "{}-{}".format(arch_key, type_))
     if not os.path.exists(model_dir):
@@ -251,27 +326,60 @@ def convert_pytorch_to_keras(
     model_file_path = os.path.join(model_dir, "model.h5")
 
     # Convert and save
-    kr_model = _convert_model(arch_key, type_, class_type, layer_mapping)
+    kr_model = _convert_model(
+        arch_key, type_, class_type, layer_mapping, test_image_file_path
+    )
     kr_model.save(model_file_path)
+
+    # verify_keras_model(kr_model, imagenet_dir)
+    # verify_keras_model_with_pytorch(kr_model, imagenet_dir)
 
     # Export to ONNX
     exporter = ModelExporter(kr_model, model_dir)
     exporter.export_onnx(name="model.onnx", debug_mode=False)
 
     # Samples
+    n_samples = 20
     samples_dir = os.path.join(model_dir, "samples")
     if not os.path.exists(samples_dir):
         os.makedirs(samples_dir)
-    val_dataset = ImageNetDataset(IMAGENET_DIR, train=False)
-    val_dataset = val_dataset.build(batch_size=100, repeat_count=1)
+    val_dataset = ImageNetDataset(imagenet_dir, train=False)
+    val_dataset = val_dataset.build(
+        batch_size=n_samples, shuffle_buffer_size=None, repeat_count=1
+    )
     for img_batch, label_batch in val_dataset.take(1):
         output_batch = kr_model(img_batch)
         np.save(os.path.join(samples_dir, "inputs.npy"), img_batch)
         np.save(os.path.join(samples_dir, "outputs.npy"), output_batch)
         np.save(os.path.join(samples_dir, "labels.npy"), label_batch)
 
+    def zero_padding_image():
+        def _zero_padding_image(image):
+            max_image_size = 1024
+            return tensorflow.image.pad_to_bounding_box(
+                image, 1, 1, max_image_size, max_image_size
+            )
 
-def convert_resnets_for_keras(output_dir: str):
+        return _zero_padding_image
+
+    pad_val_dataset = ImageNetDataset(
+        imagenet_dir,
+        image_size=None,
+        train=False,
+        pre_resize_transforms=SplitsTransforms(train=None, val=(zero_padding_image(),)),
+        post_resize_transforms=SplitsTransforms(train=None, val=None),
+    )
+    pad_val_dataset = pad_val_dataset.build(
+        batch_size=n_samples, shuffle_buffer_size=None, repeat_count=1
+    )
+    for padded_img_batch, _ in pad_val_dataset.take(1):
+        np.save(os.path.join(samples_dir, "originals.npy"), padded_img_batch)
+
+
+def convert_resnets_for_keras(args):
+    output_dir = args.save_dir
+    imagenet_dir = args.imagenet_dir
+    test_image_file_path = args.test_image_file_path
     resnet_mapping = {
         "input.conv": "input.conv",
         "input.bn": "input.bn",
@@ -287,7 +395,8 @@ def convert_resnets_for_keras(output_dir: str):
         "single",
         resnet_mapping,
         output_dir,
-        IMAGENET_DIR,
+        imagenet_dir,
+        test_image_file_path,
     )
     convert_pytorch_to_keras(
         "resnet50",
@@ -295,7 +404,8 @@ def convert_resnets_for_keras(output_dir: str):
         "single",
         resnet_mapping,
         output_dir,
-        IMAGENET_DIR,
+        imagenet_dir,
+        test_image_file_path,
     )
     convert_pytorch_to_keras(
         "resnet50",
@@ -303,7 +413,8 @@ def convert_resnets_for_keras(output_dir: str):
         "single",
         resnet_mapping,
         output_dir,
-        IMAGENET_DIR,
+        imagenet_dir,
+        test_image_file_path,
     )
     convert_pytorch_to_keras(
         "resnet101",
@@ -311,7 +422,8 @@ def convert_resnets_for_keras(output_dir: str):
         "single",
         resnet_mapping,
         output_dir,
-        IMAGENET_DIR,
+        imagenet_dir,
+        test_image_file_path,
     )
     convert_pytorch_to_keras(
         "resnet101",
@@ -319,7 +431,8 @@ def convert_resnets_for_keras(output_dir: str):
         "single",
         resnet_mapping,
         output_dir,
-        IMAGENET_DIR,
+        imagenet_dir,
+        test_image_file_path,
     )
     convert_pytorch_to_keras(
         "resnet152",
@@ -327,7 +440,8 @@ def convert_resnets_for_keras(output_dir: str):
         "single",
         resnet_mapping,
         output_dir,
-        IMAGENET_DIR,
+        imagenet_dir,
+        test_image_file_path,
     )
     convert_pytorch_to_keras(
         "resnet152",
@@ -335,13 +449,15 @@ def convert_resnets_for_keras(output_dir: str):
         "single",
         resnet_mapping,
         output_dir,
-        IMAGENET_DIR,
+        imagenet_dir,
+        test_image_file_path,
     )
 
 
-def main():
-    convert_resnets_for_keras(OUTPUT_DIR)
+def main(args):
+    convert_resnets_for_keras(args)
 
 
 if __name__ == "__main__":
-    main()
+    args_ = parse_args()
+    main(args_)

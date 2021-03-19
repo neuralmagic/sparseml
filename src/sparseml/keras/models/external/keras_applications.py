@@ -23,7 +23,7 @@ from inspect import getmembers, isfunction
 from typing import Union
 
 from sparseml import get_main_logger
-from sparseml.keras.models import ModelRegistry
+from sparseml.keras.models.registry import ModelRegistry
 from sparseml.keras.utils import keras
 
 __all__ = []

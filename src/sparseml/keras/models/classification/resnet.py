@@ -21,21 +21,15 @@ Further info on ResNet can be found in the paper
 from typing import List, Union
 
 import tensorflow
-
-from tensorflow import keras
-
 from tensorflow.keras import backend as K
 from tensorflow.keras import layers
 from tensorflow.keras.models import Model
 
 from sparseml.keras.models.registry import ModelRegistry
+from sparseml.keras.utils import keras
 
 
-__all__ = [
-    "ResNetSection",
-    "resnet_const",
-    "resnet50",
-]
+__all__ = ["ResNetSection", "resnet_const", "resnet50", "resnet101", "resnet152"]
 
 
 BN_MOMENTUM = 0.9
