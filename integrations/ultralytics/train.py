@@ -50,9 +50,6 @@ from utils.loss import ComputeLoss
 from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
 from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first
 
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.utils import ModuleExporter, PythonLogger, TensorBoardLogger
-from sparsezoo import Zoo
 
 logger = logging.getLogger(__name__)
 
@@ -270,6 +267,13 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     ####################################################################################
     # Start SparseML Integration
     ####################################################################################
+    from sparseml.pytorch.nn import replace_activations
+    from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+    from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
+
+    if not opt.no_leaky_relu_override:  # use LeakyReLU activations
+        model = replace_activations(model, "lrelu", inplace=True)
+
     manager = ScheduledModifierManager.from_yaml(opt.sparseml_recipe)
     optimizer = ScheduledOptimizer(
         optimizer,
@@ -516,6 +520,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         #################################################################################
         # Start SparseML ONNX Export
         #################################################################################
+            from sparseml.pytorch.utils import ModuleExporter
+
             logger.info(
                 f"training complete, exporting ONNX to {save_dir}/model.onnx"
             )
@@ -567,6 +573,11 @@ if __name__ == '__main__':
         help="set flag to enable Automatic Mixed Precision (AMP). disabled by default "
         "in SparseML integration"
     )
+    parser.add_argument(
+        "--no-leaky-relu-override",
+        action="store_true",
+        help="set flag to not replace default (SiLU) activation functions with LeakyRelu"
+    )
     ####################################################################################
     # End SparseML arguments
     ####################################################################################
@@ -612,6 +623,8 @@ if __name__ == '__main__':
     ####################################################################################
     # Start - SparseML optional load weights from SparseZoo
     ####################################################################################
+    from sparsezoo import Zoo
+
     if opt.weights == "zoo":
         # Load checkpoint from base weights associated with given SparseZoo recipe
         if opt.sparseml_recipe.startswith("zoo:"):
