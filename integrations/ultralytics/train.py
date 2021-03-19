@@ -519,6 +519,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             logger.info(
                 f"training complete, exporting ONNX to {save_dir}/model.onnx"
             )
+            model.model[-1].export = True  # do not export grid post-procesing
             exporter = ModuleExporter(model, save_dir)
             exporter.export_onnx(torch.randn((1, 3, *imgsz)))
         #################################################################################
