@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 ####################################################################################
 def _load_checkpoint_model_state_dict(checkpoint):  # -> Dict
     def _strip_module_prefix(param_name):
-        return param_name if not name.startswith("module.") else param_name[7:]
+        return param_name if not param_name.startswith("module.") else param_name[7:]
     model = checkpoint["model"]
     return (
         {_strip_module_prefix(name): param for name, param in model.items()}

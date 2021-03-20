@@ -19,12 +19,13 @@ using the DeepSparse Engine as the inference backend
 ##########
 Command help:
 usage: server.py [-h] [-b BATCH_SIZE] [-c NUM_CORES] [-a ADDRESS] [-p PORT]
-                 onnx-filepath
+                 [-q]
+                 onnx_filepath
 
 Host a Yolo ONNX model as a server, using the DeepSparse Engine and Flask
 
 positional arguments:
-  onnx-filepath         The full filepath of the ONNX model file or SparseZoo
+  onnx_filepath         The full filepath of the ONNX model file or SparseZoo
                         stub to the model
 
 optional arguments:
@@ -37,6 +38,9 @@ optional arguments:
   -a ADDRESS, --address ADDRESS
                         The IP address of the hosted model
   -p PORT, --port PORT  The port that the model is hosted on
+  -q, --quantized-inputs
+                        Set flag to execute inferences with int8 inputs
+                        instead of float32
 
 ##########
 Example command for running:
@@ -47,16 +51,13 @@ python server.py \
 import argparse
 import time
 
+import numpy
+
 import flask
 from deepsparse import compile_model
 from deepsparse.utils import arrays_to_bytes, bytes_to_arrays
+from deepsparse_utils import postprocess_nms, pre_nms_postprocess
 from flask_cors import CORS
-
-from deepsparse_utils import (
-    preprocess_images,
-    pre_nms_postprocess,
-    postprocess_nms,
-)
 
 
 def parse_args():
@@ -103,12 +104,18 @@ def parse_args():
         default="5543",
         help="The port that the model is hosted on",
     )
+    parser.add_argument(
+        "-q",
+        "--quantized-inputs",
+        help=("Set flag to execute inferences with int8 inputs instead of float32"),
+        action="store_true",
+    )
 
     return parser.parse_args()
 
 
 def create_and_run_model_server(
-    model_path: str, batch_size: int, num_cores: int, address: str, port: str
+    args, model_path: str, batch_size: int, num_cores: int, address: str, port: str
 ) -> flask.Flask:
     print(f"Compiling model at {model_path}")
     engine = compile_model(model_path, batch_size, num_cores)
@@ -121,12 +128,13 @@ def create_and_run_model_server(
     def predict():
         # load raw images
         raw_data = flask.request.get_data()
-        images_array = bytes_to_arrays(raw_data)
-        print(f"Received {len(images_array)} images from client")
+        inputs = bytes_to_arrays(raw_data)
+        print(f"Received {len(inputs)} images from client")
 
         # pre-processing
         preprocess_start_time = time.time()
-        inputs = [preprocess_images(images_array)]
+        if not args.quantized_inputs:
+            inputs = [inputs[0].astype(numpy.float32) / 255.0]
         preprocess_time = time.time() - preprocess_start_time
         print(f"Pre-processing time: {preprocess_time * 1000.0:.4f}ms")
 
@@ -165,7 +173,9 @@ def main():
     address = args.address
     port = args.port
 
-    create_and_run_model_server(onnx_filepath, batch_size, num_cores, address, port)
+    create_and_run_model_server(
+        args, onnx_filepath, batch_size, num_cores, address, port
+    )
 
 
 if __name__ == "__main__":

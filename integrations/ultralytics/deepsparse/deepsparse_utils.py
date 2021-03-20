@@ -1,3 +1,17 @@
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Utilities for Yolo V3 pre and post processing for DeepSparse pipelines
 
@@ -6,17 +20,19 @@ variables if using a different model.
 """
 
 
-import cv2
+from typing import List, Tuple, Union
+
 import numpy
 import torch
-from typing import List, Tuple
+
+import cv2
 
 # ultralytics/yolov5 imports
 from utils.general import non_max_suppression
 
 
 __all__ = [
-    "preprocess_images",
+    "load_image",
     "pre_nms_postprocess",
     "postprocess_nms",
 ]
@@ -40,35 +56,19 @@ _YOLO_V3_OUTPUT_SHAPES = [80, 40, 20]
 _YOLO_V3_GRIDS = [_get_grid(grid_size) for grid_size in _YOLO_V3_OUTPUT_SHAPES]
 
 
-def _preprocess_image(
-    img: numpy.ndarray,
-    image_size: Tuple[int] = (640, 640),
-    fp32: bool = True,
+def load_image(
+    img: Union[str, numpy.ndarray], image_size: Tuple[int] = (640, 640)
 ) -> numpy.ndarray:
-    # raw numpy image from cv2.imread -> preprocessed floats w/ shape (3, (image_size))
+    """
+    :param img: file path to image or raw image array
+    :param image_size: target shape for image
+    :return: Image loaded into numpy and reshaped to the given shape
+    """
+    img = cv2.imread(img) if isinstance(img, str) else img
     img = cv2.resize(img, image_size)
     img = img[:, :, ::-1].transpose(2, 0, 1)
 
-    return img if not fp32 else img.astype(numpy.float32) / 255.0
-
-
-def preprocess_images(
-    images: List[numpy.ndarray],
-    image_size: Tuple[int] = (640, 640),
-    fp32: bool = True,
-) -> numpy.ndarray:
-    """
-    :param images: List of raw numpy uint8 images loaded from cv2.imread
-    :param image_size: Size images should be resized to
-    :param fp32: set True to cast to float32 and divide by 255.0
-    :return: array of shape (n_images, 3, *image_size) that is the preprocessed
-        batch of images
-    """
-    # list of raw numpy images -> preprocessed batch of images
-    images = [_preprocess_image(img, image_size, fp32) for img in images]
-
-    batch = numpy.stack(images)  # shape: (batch_size, 3, (image_size))
-    return numpy.ascontiguousarray(batch)
+    return img
 
 
 def pre_nms_postprocess(outputs: List[numpy.ndarray]) -> torch.Tensor:
@@ -102,4 +102,4 @@ def postprocess_nms(outputs: torch.Tensor) -> List[numpy.ndarray]:
     """
     # run nms in PyTorch, only post-process first output
     nms_outputs = non_max_suppression(outputs)
-    return [output.numpy() for output in nms_outputs]
+    return [output.cpu().numpy() for output in nms_outputs]
