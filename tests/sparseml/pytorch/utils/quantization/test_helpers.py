@@ -18,7 +18,7 @@ import pytest
 import torch
 
 from sparseml.pytorch.models import mobilenet, resnet50
-from sparseml.pytorch.optim.quantization import (
+from sparseml.pytorch.utils.quantization import (
     add_quant_dequant,
     fuse_module_conv_bn_relus,
     get_qat_qconfig,

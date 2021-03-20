@@ -1042,6 +1042,7 @@ def _save_model_training(
     save_dir: str,
     epoch: int,
     val_res: Union[ModuleRunResults, None],
+    convert_qat: bool = False,
 ):
     LOGGER.info(
         "Saving model for epoch {} and val_loss {} to {} for {}".format(
@@ -1050,7 +1051,11 @@ def _save_model_training(
     )
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(optim, epoch, "{}.pth".format(save_name))
-    exporter.export_onnx(torch.randn(1, *input_shape), "{}.onnx".format(save_name))
+    exporter.export_onnx(
+        torch.randn(1, *input_shape),
+        "{}.onnx".format(save_name),
+        convert_qat=convert_qat,
+    )
 
     info_path = os.path.join(save_dir, "{}.txt".format(save_name))
 
@@ -1185,8 +1190,10 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
         # export the final model
         LOGGER.info("completed...")
         if args.is_main_process:
+            # only convert qat -> quantized ONNX graph for finalized model
+            # TODO: change this to all checkpoints when conversion times improve
             _save_model_training(
-                model, optim, input_shape, "model", save_dir, epoch, val_res
+                model, optim, input_shape, "model", save_dir, epoch, val_res, True
             )
 
             LOGGER.info("layer sparsities:")
@@ -1222,7 +1229,7 @@ def export(args, model, val_loader, save_dir):
         if not onnx_exported:
             # export onnx file using first sample for graph freezing
             LOGGER.info("exporting onnx in {}".format(save_dir))
-            exporter.export_onnx(data[0], opset=args.onnx_opset)
+            exporter.export_onnx(data[0], opset=args.onnx_opset, convert_qat=True)
             onnx_exported = True
 
         if args.num_samples > 0:
