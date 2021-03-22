@@ -42,7 +42,7 @@ cd yolov5
 
 # install dependencies
 pip install -r requirements.txt
-pip install deepsparse flask flask-cors
+pip install deepsparse sparseml flask flask-cors
 ```
 
 ## Execution

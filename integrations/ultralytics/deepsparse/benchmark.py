@@ -18,8 +18,9 @@ Benchmarking script for YOLOv3 ONNX models with the DeepSparse engine.
 
 ##########
 Command help:
-usage: benchmark.py [-h] [-e {deepsparse,onnxruntime,torch}] --data-path
-                    DATA_PATH [--image-shape IMAGE_SHAPE [IMAGE_SHAPE ...]]
+usage: benchmark.py [-h] [-e {deepsparse,onnxruntime,torch}]
+                    [--data-path DATA_PATH]
+                    [--image-shape IMAGE_SHAPE [IMAGE_SHAPE ...]]
                     [-b BATCH_SIZE] [-c NUM_CORES] [-i NUM_ITERATIONS]
                     [-w NUM_WARMUP_ITERATIONS] [-q] [--fp16] [--device DEVICE]
                     model_filepath
@@ -40,9 +41,11 @@ optional arguments:
                         are 'deepsparse', 'onnxruntime', and 'torch'. Default
                         is 'deepsparse'
   --data-path DATA_PATH
-                        Filepath to image examples to run the benchmark on.
-                        Can be path to directory, single image jpg file, or a
-                        glob path. All files should be in jpg format.
+                        Optional filepath to image examples to run the
+                        benchmark on. Can be path to directory, single image
+                        jpg file, or a glob path. All files should be in jpg
+                        format. If not provided, sample COCO images will be
+                        downloaded from the SparseZoo
   --image-shape IMAGE_SHAPE [IMAGE_SHAPE ...]
                         Image shape to benchmark with, must be two integers.
                         Default is 640 640
@@ -69,17 +72,23 @@ optional arguments:
 Example command for running a benchmark on a pruned quantized YOLOv3:
 python benchmark.py \
     zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_90 \
-    --data_path /PATH/TO/COCO/DATASET/val2017 \
     --batch-size 32 \
 
 ##########
 Example for benchmarking on a local YOLOv3 PyTorch model on GPU with half precision:
 python benchmark.py \
     /PATH/TO/yolov3-spp.pt \
-    --data_path /PATH/TO/COCO/DATASET/val2017 \
+    --engine torch \
     --batch-size 32 \
     --device cuda \
     --half-precision
+
+##########
+Example for benchmarking on a local YOLOv3 ONNX with onnxruntime:
+python benchmark.py \
+    /PATH/TO/yolov3-spp.onnx \
+    --engine onnxruntime \
+    --batch-size 32 \
 """
 
 
@@ -88,9 +97,10 @@ import glob
 import os
 import time
 from pathlib import Path
-from typing import Any, Iterable, List, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 import numpy
+import onnx
 import onnxruntime
 import torch
 from tqdm.auto import tqdm
@@ -99,6 +109,9 @@ import cv2
 from deepsparse import compile_model, cpu
 from deepsparse.benchmark import BenchmarkResults
 from deepsparse_utils import load_image, postprocess_nms, pre_nms_postprocess
+from sparseml.onnx.utils import override_model_batch_size
+from sparsezoo.models.detection import yolo_v3 as zoo_yolo_v3
+from sparsezoo.utils import load_numpy_list
 
 
 CORES_PER_SOCKET, AVX_TYPE, _ = cpu.cpu_details()
@@ -136,12 +149,13 @@ def parse_args():
 
     parser.add_argument(
         "--data-path",
-        type=str,
-        required=True,
+        type=Optional[str],
+        default=None,
         help=(
-            "Filepath to image examples to run the benchmark on. Can be path to "
+            "Optional filepath to image examples to run the benchmark on. Can be path to "
             "directory, single image jpg file, or a glob path. All files should be "
-            "in jpg format."
+            "in jpg format. If not provided, sample COCO images will be downloaded from "
+            "the SparseZoo"
         ),
     )
 
@@ -185,7 +199,7 @@ def parse_args():
             " benchmarking"
         ),
         type=int,
-        default=15,
+        default=25,
     )
     parser.add_argument(
         "-q",
@@ -218,20 +232,28 @@ def _parse_device(device: Union[str, int]) -> Union[str, int]:
         return device
 
 
-def _load_images(dataset_path: str, image_size: Tuple[int]) -> List[str]:
-    # from yolov5/utils/datasets.py
-    path = str(Path(dataset_path).absolute())  # os-agnostic absolute path
-    if "*" in path:
-        files = sorted(glob.glob(path, recursive=True))  # glob
+def _load_images(
+    dataset_path: Optional[str], image_size: Tuple[int]
+) -> List[numpy.ndarray]:
+    path = str(Path(dataset_path).absolute()) if dataset_path else None
+
+    if not path:  # load from SparseZoo
+        zoo_model = zoo_yolo_v3()
+        images = load_numpy_list(zoo_model.data_originals.downloaded_path())
+        # unwrap npz dict
+        key = list(images[0].keys())[0]
+        images = [image[key] for image in images]
+    elif "*" in path:  # load from local file(s) adapted from yolov5/utils/datasets.py
+        images = sorted(glob.glob(path, recursive=True))  # glob
     elif os.path.isdir(path):
-        files = sorted(glob.glob(os.path.join(path, "*.*")))  # dir
+        images = sorted(glob.glob(os.path.join(path, "*.*")))  # dir
     elif os.path.isfile(path):
-        files = [path]  # files
+        images = [path]  # files
     else:
         raise Exception(f"ERROR: {path} does not exist")
 
-    numpy.random.shuffle(files)
-    return [load_image(file, image_size) for file in files]
+    numpy.random.shuffle(images)
+    return [load_image(image, image_size) for image in images]
 
 
 def _load_model(args) -> Any:
@@ -242,9 +264,19 @@ def _load_model(args) -> Any:
         raise ValueError(f"half precision is not supported for {args.engine}")
     if args.quantized_inputs and args.engine == TORCH_ENGINE:
         raise ValueError(f"quantized inputs not supported for {args.engine}")
-    if args.num_cores != CORES_PER_SOCKET and args.engine != DEEPSPARSE_ENGINE:
+    if args.num_cores != CORES_PER_SOCKET and args.engine == TORCH_ENGINE:
         raise ValueError(
             f"overriding default num_cores not supported for {args.engine}"
+        )
+    if (
+        args.num_cores != CORES_PER_SOCKET
+        and args.engine == ORT_ENGINE
+        and onnxruntime.__version__ < "1.7"
+    ):
+        print(
+            "overriding default num_cores not supported for onnxruntime < 1.7.0. "
+            "If using an older build with OpenMP, try setting the OMP_NUM_THREADS "
+            "environment variable"
         )
 
     # load model
@@ -253,7 +285,19 @@ def _load_model(args) -> Any:
         model = compile_model(args.model_filepath, args.batch_size, args.num_cores)
     elif args.engine == ORT_ENGINE:
         print(f"loading onnxruntime model for {args.model_filepath}")
-        model = onnxruntime.InferenceSession(args.model_filepath)
+
+        sess_options = onnxruntime.SessionOptions()
+        sess_options.intra_op_num_threads = args.num_cores
+        sess_options.log_severity_level = 3
+        sess_options.graph_optimization_level = (
+            onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+        )
+
+        onnx_model = onnx.load(args.model_filepath)
+        override_model_batch_size(onnx_model, args.batch_size)
+        model = onnxruntime.InferenceSession(
+            onnx_model.SerializeToString(), sess_options=sess_options
+        )
     elif args.engine == TORCH_ENGINE:
         print(f"loading torch model for {args.model_filepath}")
         model = torch.load(args.model_filepath)
@@ -262,7 +306,10 @@ def _load_model(args) -> Any:
         model.to(args.device)
         model.eval()
         if args.fp16:
+            print("Using half precision")
             model.half()
+        else:
+            print("Using full precision")
     return model
 
 

@@ -41,10 +41,11 @@ git clone https://github.com/neuralmagic/sparseml.git
 cd yolov5
 git checkout c9bda11  # latest tested integration commit hash
 cp ../sparseml/integrations/ultralytics/*.py yolov5
+cp ../sparseml/integrations/ultralytics/deepsparse/*.py
 
 # install dependencies
 pip install -r requirements.txt
-pip install sparseml
+pip install sparseml deepsparse
 ```
 
 
@@ -130,7 +131,6 @@ To run a benchmark run:
 ```bash
 python benchmark.py
     zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_90 \
-    --data_path /PATH/TO/COCO/DATASET/val2017 \
     --batch-size 32 \
     --quantized-inputs
 ```
