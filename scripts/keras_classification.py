@@ -304,8 +304,8 @@ from sparseml.keras.optim import ScheduledModifierManager, remove_pruning_masks
 from sparseml.keras.utils import (
     LossesAndMetricsLoggingCallback,
     ModelExporter,
-    keras,
     TensorBoardLogger,
+    keras,
 )
 from sparseml.utils import create_dirs
 

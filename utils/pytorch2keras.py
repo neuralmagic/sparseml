@@ -15,26 +15,48 @@
 """
 Script to convert Pytorch models to Keras
 
-Example run (replace specific paths with yours):
+usage: pytorch2keras.py [-h] --arch-key ARCH_KEY --model-type MODEL_TYPE
+                        --imagenet-dir IMAGENET_DIR --test-image-file-path
+                        TEST_IMAGE_FILE_PATH --save-dir SAVE_DIR
+
+Convert Pytorch models to Keras
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --arch-key ARCH_KEY   Arch key of model to convert (e.g., 'resnet50')
+  --model-type MODEL_TYPE
+                        Type of model to convert (e.g., 'base-none', 'pruned-
+                        moderate')
+  --imagenet-dir IMAGENET_DIR
+                        The root path to where the Imagenet dataset is stored
+  --test-image-file-path TEST_IMAGE_FILE_PATH
+                        Path to an image used for comparing inference results
+                        between Pytorch and Keras
+  --save-dir SAVE_DIR   The path to the directory for saving results
+
+############
+EXAMPLE:
+
 python utils/pytorch2keras.py \
+    --arch-key resnet101 \
+    --model-type pruned-moderate \
     --imagenet-dir /hdd/datasets/ILSVRC \
     --save-dir /hdd/src/sparseml/pytorch2keras_models/ \
     --test-image-file-path /hdd/datasets/ILSVRC/val/n02481823/ILSVRC2012_val_00024600.JPEG
 """
 import argparse
-import re
+from collections import namedtuple
 import os
+import re
 from typing import Dict
 
 import numpy as np
+import tensorflow
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
 
-import tensorflow
-
 from sparseml.keras.datasets import ImageNetDataset, SplitsTransforms
-
 from sparseml.keras.models import ModelRegistry as KRModelRegistry
 from sparseml.keras.utils import ModelExporter, keras
 from sparseml.pytorch.models import ModelRegistry as PTModelRegistry
@@ -47,6 +69,18 @@ BN_EPSILON = 1e-5
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Convert Pytorch models to Keras")
+    parser.add_argument(
+        "--arch-key",
+        type=str,
+        required=True,
+        help="Arch key of model to convert (e.g., 'resnet50')",
+    )
+    parser.add_argument(
+        "--model-type",
+        type=str,
+        required=True,
+        help="Type of model to convert (e.g., 'base-none', 'pruned-moderate')",
+    )
     parser.add_argument(
         "--imagenet-dir",
         type=str,
@@ -180,6 +214,7 @@ def verify_keras_model_with_pytorch(kr_model, imagenet_dir):
     to fit into the default data format "channels_last" by Keras
     """
     from torch.utils.data import DataLoader
+
     from sparseml.pytorch.datasets import ImageNetDataset as PTImageNetDataset
 
     batch_size = 128
@@ -331,7 +366,7 @@ def convert_pytorch_to_keras(
     )
     kr_model.save(model_file_path)
 
-    # verify_keras_model(kr_model, imagenet_dir)
+    verify_keras_model(kr_model, imagenet_dir)
     # verify_keras_model_with_pytorch(kr_model, imagenet_dir)
 
     # Export to ONNX
@@ -389,63 +424,10 @@ def convert_resnets_for_keras(args):
         "sections.([0-9]+).([0-9]+).identity.bn": "sections.{}.{}.identity.bn",
         "classifier.fc": "classifier.fc",
     }
+
     convert_pytorch_to_keras(
-        "resnet50",
-        "base-none",
-        "single",
-        resnet_mapping,
-        output_dir,
-        imagenet_dir,
-        test_image_file_path,
-    )
-    convert_pytorch_to_keras(
-        "resnet50",
-        "pruned-conservative",
-        "single",
-        resnet_mapping,
-        output_dir,
-        imagenet_dir,
-        test_image_file_path,
-    )
-    convert_pytorch_to_keras(
-        "resnet50",
-        "pruned-moderate",
-        "single",
-        resnet_mapping,
-        output_dir,
-        imagenet_dir,
-        test_image_file_path,
-    )
-    convert_pytorch_to_keras(
-        "resnet101",
-        "base-none",
-        "single",
-        resnet_mapping,
-        output_dir,
-        imagenet_dir,
-        test_image_file_path,
-    )
-    convert_pytorch_to_keras(
-        "resnet101",
-        "pruned-moderate",
-        "single",
-        resnet_mapping,
-        output_dir,
-        imagenet_dir,
-        test_image_file_path,
-    )
-    convert_pytorch_to_keras(
-        "resnet152",
-        "base-none",
-        "single",
-        resnet_mapping,
-        output_dir,
-        imagenet_dir,
-        test_image_file_path,
-    )
-    convert_pytorch_to_keras(
-        "resnet152",
-        "pruned-moderate",
+        args.arch_key,
+        args.model_type,
         "single",
         resnet_mapping,
         output_dir,
