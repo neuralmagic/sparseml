@@ -27,6 +27,7 @@ import onnx
 from onnx import ModelProto, NodeProto, numpy_helper
 
 from sparseml.onnx.utils import (
+    ONNXGraph,
     get_batch_norm_params,
     get_init_by_name,
     get_node_attributes,
@@ -40,7 +41,12 @@ from sparseml.onnx.utils import (
 )
 
 
-__all__ = ["get_quantization_params", "QuantizationParams", "quantize_torch_qat_export"]
+__all__ = [
+    "get_quantization_params",
+    "QuantizationParams",
+    "quantize_torch_qat_export",
+    "skip_onnx_input_quantize",
+]
 
 
 """
@@ -593,3 +599,65 @@ def quantize_torch_qat_export(
         onnx.save(model, output_file_path)
 
     return model
+
+
+def _skip_input_quantize(model: ModelProto) -> bool:
+    if len(model.graph.input) != 1:
+        return False
+    if (
+        len(model.graph.input) != 1
+        or model.graph.input[0].type.tensor_type.elem_type != 1
+    ):
+        # more than 1 input or input is not FP32
+        return False
+
+    input_node = model.graph.input[0]
+    input_children = [
+        node for node in model.graph.node if input_node.name in node.input
+    ]
+    if not all(node.op_type == "QuantizeLinear" for node in input_children):
+        return False
+
+    graph = ONNXGraph(model)
+    for quantize_node in input_children:
+        quantize_children = graph.get_node_children(quantize_node)
+        quantize_node_id = quantize_node.output[0]
+        for child_node in quantize_children:
+            input_idx = [
+                idx
+                for idx, inp in enumerate(child_node.input)
+                if inp == quantize_node_id
+            ]
+            if not input_idx:
+                continue
+            input_idx = input_idx[0]
+            graph.update_node_input(child_node, input_node.name, input_idx)
+
+    graph.delete_nodes(input_children)  # only contains references to the Quantize nodes
+    graph.delete_unused_initializers()  # cleanup
+    input_node.type.tensor_type.elem_type = 2  # fp32 -> uint8
+    return True
+
+
+def skip_onnx_input_quantize(
+    model: Union[ModelProto, str],
+    output_file_path: Union[str, None] = None,
+) -> bool:
+    """
+    If the given model has a single FP32 input that feeds into a QuantizeLinear
+    node, then the input will be changed to uint8 and the QuantizeLinear node will be
+    deleted. This enables quantize graphs to take quantized inputs instead of floats.
+
+    :param model: The model to convert, or a file path to it
+    :param output_file_path: File path to save the converted model to
+    :return: True if a modification was made. False otherwise
+    """
+    if isinstance(model, str):
+        model = onnx.load(model)
+
+    mod_made = _skip_input_quantize(model)
+
+    if output_file_path:
+        onnx.save(model, output_file_path)
+
+    return mod_made
