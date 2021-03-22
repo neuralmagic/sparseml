@@ -27,43 +27,43 @@ from torch import Tensor
 from transformers import Trainer, is_datasets_available, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
 
-class DistillationTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
-        target_p = inputs["labels"]
-        outputs = model(inputs["input_ids"], attention_mask=inputs["attention_mask"])
-        logits = outputs[0]
-        loss = -torch.sum(target_p * logits.log_softmax(dim=-1), axis=-1).mean()
-        if return_outputs:
-            return loss, outputs
-        return loss
-
+from trainer_qa import QuestionAnsweringTrainer
 class HardDistillationLoss(nn.Module):
-    def __init__(self, teacher: nn.Module, criterion=None):
+    def __init__(self, teacher: nn.Module, criterion, batch_size, max_sequence_length, hardness):
         super().__init__()
         self.teacher = teacher
+        self.max_sequence_length = max_sequence_length
+        self.hardness = hardness
         if criterion == None:
             self.criterion = nn.CrossEntropyLoss()
         else:
             self.criterion = criterion #nn.MSELoss(reduction="mean"), nn.KLDivLoss(reduction="batchmean"), 
-        
-    def forward(self, inputs: Tensor, outputs: Union[Tensor, Tensor], labels: Tensor) -> Tensor:
-        # outputs contains booth predictions, one with the cls token and one with the dist token
-        outputs_cls, outputs_dist = outputs
-        base_loss = self.criterion(outputs_cls, labels)
-        with torch.no_grad():
-            teacher_outputs = self.teacher(inputs)
-        teacher_labels = torch.argmax(teacher_outputs, dim=1)
-        teacher_loss = self.criterion(outputs_dist, teacher_labels)
-        return 0.5 * base_loss + 0.5 * teacher_loss
 
-class DistillQuestionAnsweringTrainer(Trainer):
-    def __init__(self, *args, eval_examples=None, post_process_function=None, teacher=None, loss=None, **kwargs):
+    def compute_loss(self, logits, positions,):
+        onehot = torch.nn.functional.one_hot(positions.to(torch.int64), self.max_sequence_length)
+        logprob = torch.softmax(logits, dim=-1, dtype=torch.float32)
+        return -torch.mean(torch.sum(onehot * logprob))
+
+    def forward(self, inputs: Tensor, outputs: Union[Tensor, Tensor], labels: Tensor) -> Tensor:
+        base_loss = self.compute_loss(outputs["start_logits"], inputs["start_positions"])
+        base_loss += self.compute_loss(outputs["end_logits"], inputs["end_positions"])
+        base_loss /= 2
+        teacher_loss = self.compute_loss(outputs["start_logits"], inputs["teacher_start_positions"])
+        teacher_loss += self.compute_loss(outputs["end_logits"], inputs["teacher_end_positions"])
+        teacher_loss /= 2
+        return (1-self.hardness) * base_loss + (self.hardness * teacher_loss)
+
+class DistillQuestionAnsweringTrainer(QuestionAnsweringTrainer):
+    def __init__(self, *args, eval_examples=None, post_process_function=None, teacher=None, loss=None, batch_size=8, max_sequence_length=384,hardness =0.5, **kwargs):
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples
         self.post_process_function = post_process_function
-        self.teacher = teacher
         self.loss = loss
-        self.criterion = HardDistillationLoss(self.teacher, self.loss)
+        self.teacher = teacher
+        self.batch_size = batch_size
+        self.hardness = hardness
+        self.max_sequence_length = max_sequence_length
+        self.criterion = HardDistillationLoss(self.loss, self.teacher, self.batch_size, self.max_sequence_length, self.hardness)
 
     def compute_loss(self, model, inputs, return_outputs=False):
         """
@@ -74,77 +74,5 @@ class DistillQuestionAnsweringTrainer(Trainer):
         else:
             labels = None
         outputs = model(**inputs)
-        loss = self.criterion(inputs, outputs, labels)
+        loss = self.criterion(inputs, outputs, labels) # Modified for distilation
         return (loss, outputs) if return_outputs else loss
-
-    def evaluate(self, eval_dataset=None, eval_examples=None, ignore_keys=None):
-        eval_dataset = self.eval_dataset if eval_dataset is None else eval_dataset
-        eval_dataloader = self.get_eval_dataloader(eval_dataset)
-        eval_examples = self.eval_examples if eval_examples is None else eval_examples
-
-        compute_metrics = self.compute_metrics
-        self.compute_metrics = None
-        try:
-            output = self.prediction_loop(
-                eval_dataloader,
-                description="Evaluation",
-                prediction_loss_only=True if compute_metrics is None else None,
-                ignore_keys=ignore_keys,
-            )
-        finally:
-            self.compute_metrics = compute_metrics
-
-        if isinstance(eval_dataset, datasets.Dataset):
-            eval_dataset.set_format(
-                type=eval_dataset.format["type"],
-                columns=list(eval_dataset.features.keys()),
-            )
-
-        if self.post_process_function is not None and self.compute_metrics is not None:
-            eval_preds = self.post_process_function(
-                eval_examples, eval_dataset, output.predictions
-            )
-            metrics = self.compute_metrics(eval_preds)
-
-            self.log(metrics)
-        else:
-            metrics = {}
-
-        self.control = self.callback_handler.on_evaluate(
-            self.args, self.state, self.control, metrics
-        )
-        return metrics
-
-    def predict(self, test_dataset, test_examples, ignore_keys=None):
-        test_dataloader = self.get_test_dataloader(test_dataset)
-        compute_metrics = self.compute_metrics
-        self.compute_metrics = None
-        try:
-            output = self.prediction_loop(
-                test_dataloader,
-                description="Evaluation",
-                prediction_loss_only=True if compute_metrics is None else None,
-                ignore_keys=ignore_keys,
-            )
-        finally:
-            self.compute_metrics = compute_metrics
-
-        if self.post_process_function is None or self.compute_metrics is None:
-            return output
-
-        if isinstance(test_dataset, datasets.Dataset):
-            test_dataset.set_format(
-                type=test_dataset.format["type"],
-                columns=list(test_dataset.features.keys()),
-            )
-
-        eval_preds = self.post_process_function(
-            test_examples, test_dataset, output.predictions
-        )
-        metrics = self.compute_metrics(eval_preds)
-
-        return PredictionOutput(
-            predictions=eval_preds.predictions,
-            label_ids=eval_preds.label_ids,
-            metrics=metrics,
-        )

@@ -163,6 +163,7 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter
 
+from trainer_qa import QuestionAnsweringTrainer
 from distill_trainer_qa import DistillQuestionAnsweringTrainer
 from utils_qa import postprocess_qa_predictions
 
@@ -667,12 +668,12 @@ def main():
     )
 
     if data_args.layers_to_keep > 0:
-        logger.info("Dropping %s model layers", data_args.layers_to_keep)
-        model = dropLayers(student_model, data_args.layers_to_keep)
+        logger.info("Keeping %s model layers", data_args.layers_to_keep)
+        student_model = dropLayers(student_model, data_args.layers_to_keep)
     student_model_parameters = filter(lambda p: p.requires_grad, student_model.parameters())
     params = sum([np.prod(p.size()) for p in student_model_parameters])
     logger.info("Student Model has %s parameters", params) 
-    teacher_model_parameters = filter(lambda p: p.requires_grad, student_model.parameters())
+    teacher_model_parameters = filter(lambda p: p.requires_grad, teacher_model.parameters())
     params = sum([np.prod(p.size()) for p in teacher_model_parameters])
     logger.info("Teacher Model has %s parameters", params)   
     # Tokenizer check: this script requires a fast tokenizer.
@@ -693,24 +694,6 @@ def main():
 
     pad_on_right = tokenizer.padding_side == "right"  
 
-    if training_args.do_train:
-        train_dataset = datasets["train"].map(
-            prepare_train_features,
-            batched=True,
-            num_proc=data_args.preprocessing_num_workers,
-            remove_columns=column_names,
-            load_from_cache_file=not data_args.overwrite_cache,
-        )
-
-    if training_args.do_eval:
-        validation_dataset = datasets["validation"].map(
-            prepare_validation_features,
-            batched=True,
-            num_proc=data_args.preprocessing_num_workers,
-            remove_columns=column_names,
-            load_from_cache_file=not data_args.overwrite_cache,
-        )
-
     data_collator = (
         default_data_collator
         if data_args.pad_to_max_length
@@ -724,6 +707,41 @@ def main():
         else "squad"
     )
 
+    if training_args.do_eval:
+        validation_dataset = datasets["validation"].map(
+            prepare_validation_features,
+            batched=True,
+            num_proc=data_args.preprocessing_num_workers,
+            remove_columns=column_names,
+            load_from_cache_file=not data_args.overwrite_cache,
+        )
+
+    if training_args.do_train:
+        train_dataset = datasets["train"].map(
+            prepare_train_features,
+            batched=True,
+            num_proc=data_args.preprocessing_num_workers,
+            remove_columns=column_names,
+            load_from_cache_file=not data_args.overwrite_cache,
+        )
+    
+    # Teacher predictions on train dataset
+    # Initialize our Trainer
+    trainer = QuestionAnsweringTrainer(
+        model=teacher_model,
+        args=training_args,
+        train_dataset=None,
+        eval_dataset=train_dataset,
+        eval_examples=None,
+        tokenizer=tokenizer,
+        data_collator=data_collator,
+        post_process_function=post_processing_function,
+        compute_metrics=compute_metrics,
+    )
+    results = trainer.evaluate()
+
+    print(results)
+    exit(0)
     ####################################################################################
     # Start SparseML Integration
     #################################################################################### 
