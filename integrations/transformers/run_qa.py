@@ -30,7 +30,7 @@ This script will:
 - Export model to onnx.
 ##########
 Command help:
-usage: main.py [-h] \
+usage: run_qa.py [-h] \
     --model_name_or_path MODEL \
     [--dataset_name]  \
     [--num_train_epochs] \
@@ -83,7 +83,7 @@ Train, prune, and evaluate a transformer base question answering model on squad.
 
 ##########
 Example command for training a 95% sparse BERT SQUAD model for 1 epoch:
-python examples/transformers/main.py \
+python examples/transformers/run_qa.py \
     --model_name_or_path bert-base-uncased \
     --dataset_name squad \
     --num_train_epochs 1 \
@@ -124,6 +124,7 @@ from torch.nn import Linear, Module, Parameter
 from torch.optim import Adam
 from torch.utils.data import ConcatDataset, DataLoader
 from tqdm.auto import tqdm
+import wandb
 
 import datasets
 import transformers
@@ -434,6 +435,7 @@ def dropLayers(model, layers_to_keep):
 ####################################################################################
 
 def main():
+    wandb.init(project='BERT-QA-SPARSEML', entity='spacemanidol')
     ### Dataset processing classes in main due to hugging face custom dataset map
     def prepare_train_features(examples):
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results

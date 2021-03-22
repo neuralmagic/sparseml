@@ -84,11 +84,18 @@ To demostrate the effect that various pruning regimes and techniques can have we
 | bert-base-uncased 	|95       	|1                  	|yes      |yes       |0           	|10.501     |4.929      |
 | bert-base-uncased 	|95       	|2                   	|yes      |no        |0            	|24.445     |14.437     |
 | bert-base-uncased 	|95       	|10                 	|yes      |no        |8            	|72.761  	|60.407     |
+| bert-base-uncased 	|97       	|10                 	|yes      |no        |6            	|-  	|-     |
 | bert-base-uncased 	|99         |1                   	|yes      |yes       |0             |09.685     |03.614     |
 | bert-base-uncased 	|99       	|2                   	|yes      |no        |0            	|17.433     |07.871     |
 | bert-base-uncased 	|99         |10                    	|yes      |no        |8             |47.306    	|32.564     |
 
-
+### Pruning vs Layer Dropping
+To explore the effect of model pruning compared to layer dropping we prune
+| base model name       | sparsity 	| params                | prunned | layers   |pruning epochs| F1 Score 	| EM Score  |
+|-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
+| bert-base-uncased 	|0        	|108,893,186         	|no       |12        |0            	|87.00      |78.63      |
+| bert-base-uncased 	|0        	|10                  	|no       |6         |0            	|82.54      |72.71      |
+| bert-base-uncased 	|0        	|10                 	|no       |3         |0            	|78.63      |56.50      |
 
 ## Script origin and how to integrate sparseml with other Transformers projects
 This script is based on the example BERT-QA implementation in transformers found [here](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py). 
