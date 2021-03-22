@@ -19,4 +19,5 @@ Datasets related to image classification field in computer vision
 # flake8: noqa
 
 from .imagefolder import *
+from .imagenet import *
 from .imagenette import *

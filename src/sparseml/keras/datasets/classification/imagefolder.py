@@ -48,7 +48,6 @@ SplitsTransforms = NamedTuple(
 def imagenet_normalizer(img: tensorflow.Tensor, mode: str):
     """
     Normalize an image using mean and std of the imagenet dataset
-
     :param img: The input image to normalize
     :param mode: either "tf", "caffe", "torch"
     :return: The normalized image
@@ -73,7 +72,7 @@ def imagenet_normalizer(img: tensorflow.Tensor, mode: str):
 
 def default_imagenet_normalizer():
     def normalizer(img: tensorflow.Tensor):
-        # Default to the same preprocessing used by ResNet
+        # Default to the same preprocessing used by Keras Applications ResNet
         return imagenet_normalizer(img, "caffe")
 
     return normalizer
@@ -109,7 +108,7 @@ class ImageFolderDataset(Dataset):
         self,
         root: str,
         train: bool,
-        image_size: Union[int, Tuple[int, int]] = 224,
+        image_size: Union[None, int, Tuple[int, int]] = 224,
         pre_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
             train=(
                 random_scaling_crop(),
@@ -126,9 +125,14 @@ class ImageFolderDataset(Dataset):
         if not os.path.exists(self._root):
             raise ValueError("Data set folder {} must exist".format(self._root))
         self._train = train
-        self._image_size = (
-            image_size if isinstance(image_size, tuple) else (image_size, image_size)
-        )
+        if image_size is not None:
+            self._image_size = (
+                image_size
+                if isinstance(image_size, tuple)
+                else (image_size, image_size)
+            )
+        else:
+            self._image_size = None
         self._pre_resize_transforms = pre_resize_transforms
         self._post_resize_transforms = post_resize_transforms
 
@@ -199,7 +203,6 @@ class ImageFolderDataset(Dataset):
         """
         img = tensorflow.io.read_file(file_path)
         img = tensorflow.image.decode_jpeg(img, channels=3)
-
         if self.pre_resize_transforms:
             transforms = (
                 self.pre_resize_transforms.train
@@ -209,7 +212,7 @@ class ImageFolderDataset(Dataset):
             if transforms:
                 for trans in transforms:
                     img = trans(img)
-        if self._image_size:
+        if self._image_size is not None:
             img = tensorflow.image.resize(img, self.image_size)
 
         if self.post_resize_transforms:
@@ -221,7 +224,6 @@ class ImageFolderDataset(Dataset):
             if transforms:
                 for trans in transforms:
                     img = trans(img)
-
         return img, label
 
     def creator(self):

@@ -33,7 +33,6 @@ def random_scaling_crop(
     """
     Random crop implementation which also randomly scales the crop taken
     as well as the aspect ratio of the crop.
-
     :param scale_range: the (min, max) of the crop scales to take from the orig image
     :param ratio_range: the (min, max) of the aspect ratios to take from the orig image
     :return: the callable function for random scaling crop op,
