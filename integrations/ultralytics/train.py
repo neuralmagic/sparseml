@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 ####################################################################################
 def _load_checkpoint_model_state_dict(checkpoint):  # -> Dict
     def _strip_module_prefix(param_name):
-        return param_name if not name.startswith("module.") else param_name[7:]
+        return param_name if not param_name.startswith("module.") else param_name[7:]
     model = checkpoint["model"]
     return (
         {_strip_module_prefix(name): param for name, param in model.items()}
@@ -435,7 +435,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                                                  plots=plots and final_epoch,
                                                  log_imgs=opt.log_imgs if wandb else 0,
                                                  compute_loss=compute_loss,
-                                                 half=opt.use_amp)  # SparseML integration
+                                                 half_precision=opt.use_amp)  # SparseML integration
 
             # Write
             with open(results_file, 'a') as f:
@@ -483,7 +483,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         # Strip optimizers
         final = best if best.exists() else last  # final model
         for f in [last, best]:
-            if f.exists():
+            if f.exists() and not qat:  # SparseML integration - qat state dict incompatible
                 strip_optimizer(f)  # strip optimizers
         if opt.bucket:
             os.system(f'gsutil cp {final} gs://{opt.bucket}/weights')  # upload
