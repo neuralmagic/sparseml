@@ -68,3 +68,31 @@ def test_skip_onnx_input_quantize():
     assert model.graph.node[0].op_type == "QLinearConv"
 
     assert model.graph.node[0].input[0] == model.graph.input[0].name
+
+
+def test_skip_onnx_input_quantize_expected_exception():
+    # test that a graph with already quantized inputs fails for this optimization
+
+    int_input = onnx.helper.make_tensor_value_info(
+        "input", TensorProto.UINT8, [1, 3, None, None]
+    )
+    qconv_node = onnx.helper.make_node(
+        "QLinearConv",
+        ["input", "scale", "zp", "w", "w_scale", "w_zp", "y_scale", "y_zp"],
+        ["qconv_output"],
+    )
+
+    qconv_output = onnx.helper.make_tensor_value_info(
+        "qconv_output", TensorProto.UINT8, [1, 1, None, None]
+    )
+
+    graph = onnx.helper.make_graph(
+        [qconv_node],
+        "test_graph",
+        [int_input],
+        [qconv_output],
+        [],
+    )
+    model = onnx.helper.make_model(graph)
+    with pytest.raises(RuntimeError) as err:
+        skip_onnx_input_quantize(model)
