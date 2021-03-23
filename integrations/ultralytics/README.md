@@ -40,8 +40,8 @@ git clone https://github.com/neuralmagic/sparseml.git
 # copy script
 cd yolov5
 git checkout c9bda11  # latest tested integration commit hash
-cp ../sparseml/integrations/ultralytics/*.py yolov5
-cp ../sparseml/integrations/ultralytics/deepsparse/*.py
+cp ../sparseml/integrations/ultralytics/*.py .
+cp ../sparseml/integrations/ultralytics/deepsparse/*.py .
 
 # install dependencies
 pip install -r requirements.txt
