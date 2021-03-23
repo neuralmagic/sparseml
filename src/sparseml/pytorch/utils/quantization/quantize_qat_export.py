@@ -20,7 +20,7 @@ quantization aware training.
 
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, NamedTuple, Union
+from typing import Any, NamedTuple, Optional, Union
 
 import numpy
 import onnx
@@ -601,22 +601,26 @@ def quantize_torch_qat_export(
     return model
 
 
-def _skip_input_quantize(model: ModelProto) -> bool:
-    if len(model.graph.input) != 1:
-        return False
+def _skip_input_quantize(model: ModelProto) -> Optional[str]:
     if (
         len(model.graph.input) != 1
         or model.graph.input[0].type.tensor_type.elem_type != 1
     ):
         # more than 1 input or input is not FP32
-        return False
+        return (
+            "Not modifying ONNX graph inputs - either graph has more than one "
+            "input or input type is not FP32"
+        )
 
     input_node = model.graph.input[0]
     input_children = [
         node for node in model.graph.node if input_node.name in node.input
     ]
     if not all(node.op_type == "QuantizeLinear" for node in input_children):
-        return False
+        return (
+            "Not modifying ONNX graph inputs - only QuantizeLinear nodes may follow the "
+            "FP32 input tensor in original graph, prior to converting to uint8"
+        )
 
     graph = ONNXGraph(model)
     for quantize_node in input_children:
@@ -636,28 +640,30 @@ def _skip_input_quantize(model: ModelProto) -> bool:
     graph.delete_nodes(input_children)  # only contains references to the Quantize nodes
     graph.delete_unused_initializers()  # cleanup
     input_node.type.tensor_type.elem_type = 2  # fp32 -> uint8
-    return True
+    return None
 
 
 def skip_onnx_input_quantize(
     model: Union[ModelProto, str],
     output_file_path: Union[str, None] = None,
-) -> bool:
+):
     """
     If the given model has a single FP32 input that feeds into a QuantizeLinear
     node, then the input will be changed to uint8 and the QuantizeLinear node will be
     deleted. This enables quantize graphs to take quantized inputs instead of floats.
 
+    If no optimization is made, a RuntimeError will be raised.
+
     :param model: The model to convert, or a file path to it
     :param output_file_path: File path to save the converted model to
-    :return: True if a modification was made. False otherwise
     """
     if isinstance(model, str):
         model = onnx.load(model)
 
-    mod_made = _skip_input_quantize(model)
+    optim_error_message = _skip_input_quantize(model)
+
+    if optim_error_message:
+        raise RuntimeError(optim_error_message)
 
     if output_file_path:
         onnx.save(model, output_file_path)
-
-    return mod_made
