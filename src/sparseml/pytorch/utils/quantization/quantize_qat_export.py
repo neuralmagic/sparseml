@@ -18,6 +18,7 @@ quantization aware training.
 """
 
 
+import logging
 from collections import defaultdict
 from copy import deepcopy
 from typing import Any, NamedTuple, Optional, Union
@@ -47,6 +48,9 @@ __all__ = [
     "quantize_torch_qat_export",
     "skip_onnx_input_quantize",
 ]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 """
@@ -636,10 +640,20 @@ def _skip_input_quantize(model: ModelProto) -> Optional[str]:
                 continue
             input_idx = input_idx[0]
             graph.update_node_input(child_node, input_node.name, input_idx)
+            _LOGGER.debug(
+                f"set node with output id {child_node.output[0]} as initial node in "
+                "graph"
+            )
 
+    _LOGGER.debug(
+        f"deleting QuantizeLinear node(s) with output id(s): "
+        f"{[n.output for n in input_children]}"
+    )
     graph.delete_nodes(input_children)  # only contains references to the Quantize nodes
     graph.delete_unused_initializers()  # cleanup
     input_node.type.tensor_type.elem_type = 2  # fp32 -> uint8
+    _LOGGER.info("Model initial QuantizeLinear node(s) deleted and inputs set to uint8")
+
     return None
 
 
