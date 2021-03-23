@@ -392,7 +392,7 @@ def benchmark_yolo(args):
     progress_bar = tqdm(total=args.num_iterations)
 
     for iteration, batch in enumerate(data_loader):
-        if args.device != "cpu":
+        if args.device not in ["cpu", None]:
             torch.cuda.synchronize()
         iter_start = time.time()
 
@@ -409,7 +409,7 @@ def benchmark_yolo(args):
         # NMS
         outputs = postprocess_nms(outputs)
 
-        if args.device != "cpu":
+        if args.device not in ["cpu", None]:
             torch.cuda.synchronize()
         iter_end = time.time()
 
