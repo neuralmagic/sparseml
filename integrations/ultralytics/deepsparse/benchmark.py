@@ -231,6 +231,8 @@ def parse_args():
     if args.engine == TORCH_ENGINE and args.device is None:
         args.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
+    return args
+
 
 def _parse_device(device: Union[str, int]) -> Union[str, int]:
     try:
