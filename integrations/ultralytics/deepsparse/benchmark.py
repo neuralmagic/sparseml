@@ -64,9 +64,11 @@ optional arguments:
                         of float32
   --fp16                Set flag to execute torch benchmark in half precision
                         (fp16)
-  --device DEVICE       Device to benchmark the model with. Default is cpu.
-                        Non cpu benchmarking only supported for torch
-                        benchmarking. Default is 'cpu'
+  --device DEVICE       Torch device id to benchmark the model with. Default
+                        is cpu. Non cpu benchmarking only supported for torch
+                        benchmarking. Default is 'cpu' unless running a torch
+                        benchmark and cuda is available, then cuda on device
+                        0. i.e. 'cuda', 'cpu', 0, 'cuda:1'
 
 ##########
 Example command for running a benchmark on a pruned quantized YOLOv3:
@@ -80,7 +82,7 @@ python benchmark.py \
     /PATH/TO/yolov3-spp.pt \
     --engine torch \
     --batch-size 32 \
-    --device cuda \
+    --device cuda:0 \
     --half-precision
 
 ##########
@@ -99,13 +101,13 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Tuple, Union
 
+import cv2
 import numpy
 import onnx
 import onnxruntime
 import torch
 from tqdm.auto import tqdm
 
-import cv2
 from deepsparse import compile_model, cpu
 from deepsparse.benchmark import BenchmarkResults
 from deepsparse_utils import load_image, postprocess_nms, pre_nms_postprocess
@@ -215,14 +217,19 @@ def parse_args():
     parser.add_argument(
         "--device",
         type=_parse_device,
-        default="cpu",
+        default=None,
         help=(
-            "Device to benchmark the model with. Default is cpu. Non cpu benchmarking "
-            "only supported for torch benchmarking. Default is 'cpu'"
+            "Torch device id to benchmark the model with. Default is cpu. Non cpu "
+            "benchmarking only supported for torch benchmarking. Default is 'cpu' "
+            "unless running a torch benchmark and cuda is available, then cuda on "
+            "device 0. i.e. 'cuda', 'cpu', 0, 'cuda:1'"
         ),
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.engine == TORCH_ENGINE and args.device is None:
+        args.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
 def _parse_device(device: Union[str, int]) -> Union[str, int]:
@@ -258,7 +265,7 @@ def _load_images(
 
 def _load_model(args) -> Any:
     # validation
-    if args.device != "cpu" and args.engine != TORCH_ENGINE:
+    if args.device not in [None, "cpu"] and args.engine != TORCH_ENGINE:
         raise ValueError(f"device {args.device} is not supported for {args.engine}")
     if args.fp16 and args.engine != TORCH_ENGINE:
         raise ValueError(f"half precision is not supported for {args.engine}")

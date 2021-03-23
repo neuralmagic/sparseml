@@ -22,10 +22,9 @@ variables if using a different model.
 
 from typing import List, Tuple, Union
 
+import cv2
 import numpy
 import torch
-
-import cv2
 
 # ultralytics/yolov5 imports
 from utils.general import non_max_suppression
