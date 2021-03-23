@@ -18,15 +18,17 @@ quantization aware training.
 """
 
 
+import logging
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, NamedTuple, Union
+from typing import Any, NamedTuple, Optional, Union
 
 import numpy
 import onnx
 from onnx import ModelProto, NodeProto, numpy_helper
 
 from sparseml.onnx.utils import (
+    ONNXGraph,
     get_batch_norm_params,
     get_init_by_name,
     get_node_attributes,
@@ -40,7 +42,15 @@ from sparseml.onnx.utils import (
 )
 
 
-__all__ = ["get_quantization_params", "QuantizationParams", "quantize_torch_qat_export"]
+__all__ = [
+    "get_quantization_params",
+    "QuantizationParams",
+    "quantize_torch_qat_export",
+    "skip_onnx_input_quantize",
+]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 """
@@ -593,3 +603,81 @@ def quantize_torch_qat_export(
         onnx.save(model, output_file_path)
 
     return model
+
+
+def _skip_input_quantize(model: ModelProto) -> Optional[str]:
+    if (
+        len(model.graph.input) != 1
+        or model.graph.input[0].type.tensor_type.elem_type != 1
+    ):
+        # more than 1 input or input is not FP32
+        return (
+            "Not modifying ONNX graph inputs - either graph has more than one "
+            "input or input type is not FP32"
+        )
+
+    input_node = model.graph.input[0]
+    input_children = [
+        node for node in model.graph.node if input_node.name in node.input
+    ]
+    if not all(node.op_type == "QuantizeLinear" for node in input_children):
+        return (
+            "Not modifying ONNX graph inputs - only QuantizeLinear nodes may follow the "
+            "FP32 input tensor in original graph, prior to converting to uint8"
+        )
+
+    graph = ONNXGraph(model)
+    for quantize_node in input_children:
+        quantize_children = graph.get_node_children(quantize_node)
+        quantize_node_id = quantize_node.output[0]
+        for child_node in quantize_children:
+            input_idx = [
+                idx
+                for idx, inp in enumerate(child_node.input)
+                if inp == quantize_node_id
+            ]
+            if not input_idx:
+                continue
+            input_idx = input_idx[0]
+            graph.update_node_input(child_node, input_node.name, input_idx)
+            _LOGGER.debug(
+                f"set node with output id {child_node.output[0]} as initial node in "
+                "graph"
+            )
+
+    _LOGGER.debug(
+        f"deleting QuantizeLinear node(s) with output id(s): "
+        f"{[n.output for n in input_children]}"
+    )
+    graph.delete_nodes(input_children)  # only contains references to the Quantize nodes
+    graph.delete_unused_initializers()  # cleanup
+    input_node.type.tensor_type.elem_type = 2  # fp32 -> uint8
+    _LOGGER.info("Model initial QuantizeLinear node(s) deleted and inputs set to uint8")
+
+    return None
+
+
+def skip_onnx_input_quantize(
+    model: Union[ModelProto, str],
+    output_file_path: Union[str, None] = None,
+):
+    """
+    If the given model has a single FP32 input that feeds into a QuantizeLinear
+    node, then the input will be changed to uint8 and the QuantizeLinear node will be
+    deleted. This enables quantize graphs to take quantized inputs instead of floats.
+
+    If no optimization is made, a RuntimeError will be raised.
+
+    :param model: The model to convert, or a file path to it
+    :param output_file_path: File path to save the converted model to
+    """
+    if isinstance(model, str):
+        model = onnx.load(model)
+
+    optim_error_message = _skip_input_quantize(model)
+
+    if optim_error_message:
+        raise RuntimeError(optim_error_message)
+
+    if output_file_path:
+        onnx.save(model, output_file_path)

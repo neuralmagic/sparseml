@@ -136,11 +136,77 @@ class ONNXGraph(object):
             node.input.append(input_id)
         self._input_id_to_nodes[input_id].append(node)
 
+    def delete_node(self, node: NodeProto):
+        """
+        deletes the given node from the graph
+
+        :param node: node to delete
+        """
+        self._model.graph.node.remove(node)
+        self._delete_node_edges(node)
+
+    def delete_nodes(self, nodes: List[NodeProto]):
+        """
+        deletes the given nodes from the graph
+        :param nodes: list of nodes to delete
+        """
+        node_ouptut_ids_to_delete = {node.output[0] for node in nodes}
+        nodes_to_keep = []
+        for node in self._model.graph.node:
+            if node.output[0] in node_ouptut_ids_to_delete:
+                self._delete_node_edges(node)
+            else:
+                nodes_to_keep.append(node)
+        self._model.graph.ClearField("node")
+        self._model.graph.node.extend(nodes_to_keep)
+
+    def delete_initializers(self, initializers: List[Union[str, TensorProto]]):
+        """
+        deletes the given initializers from the model
+
+        :param initializers: list of initializers or initializer names to delete
+        """
+        inits_to_delete = {
+            init if isinstance(init, str) else init.name for init in initializers
+        }
+        inits_to_keep = []
+        for init in self._model.graph.initializer:
+            if init.name in inits_to_delete:
+                # keep edge reference if nodes in the graph still point to the
+                # initializer name
+                if not self._input_id_to_nodes[init.name]:
+                    del self._input_id_to_nodes[init.name]
+                del self._name_to_initializer[init.name]
+            else:
+                inits_to_keep.append(init)
+        self._model.graph.ClearField("initializer")
+        self._model.graph.initializer.extend(inits_to_keep)
+
+    def delete_unused_initializers(self):
+        """
+        deletes tensors in the initializer list that are not listed as inputs to any node
+        in the current graph state
+        """
+        self.delete_initializers(
+            [
+                init
+                for init in self._model.graph.initializer
+                if not self._input_id_to_nodes[init.name]
+            ]
+        )  # delete inits that have no edge
+
     def _store_node_edges(self, node: NodeProto):
         for output_id in node.output:
             self._output_id_to_node[output_id] = node
         for input_id in node.input:
             self._input_id_to_nodes[input_id].append(node)
+
+    def _delete_node_edges(self, node: NodeProto):
+        # remove node edges from cache
+        for output_id in node.output:
+            del self._output_id_to_node[output_id]
+        for input_id in node.input:
+            self._input_id_to_nodes[input_id].remove(node)
 
 
 def update_model_param(
