@@ -231,6 +231,8 @@ def parse_args():
     if args.engine == TORCH_ENGINE and args.device is None:
         args.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
+    return args
+
 
 def _parse_device(device: Union[str, int]) -> Union[str, int]:
     try:
@@ -390,7 +392,7 @@ def benchmark_yolo(args):
     progress_bar = tqdm(total=args.num_iterations)
 
     for iteration, batch in enumerate(data_loader):
-        if args.device != "cpu":
+        if args.device not in ["cpu", None]:
             torch.cuda.synchronize()
         iter_start = time.time()
 
@@ -407,7 +409,7 @@ def benchmark_yolo(args):
         # NMS
         outputs = postprocess_nms(outputs)
 
-        if args.device != "cpu":
+        if args.device not in ["cpu", None]:
             torch.cuda.synchronize()
         iter_end = time.time()
 
