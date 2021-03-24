@@ -516,7 +516,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                                           dataloader=testloader,
                                           save_dir=save_dir,
                                           save_json=save_json,
-                                          plots=False)
+                                          plots=False,
+                                          half_precision=opt.use_amp)  # SparseML integration
         #################################################################################
         # Start SparseML ONNX Export
         #################################################################################
