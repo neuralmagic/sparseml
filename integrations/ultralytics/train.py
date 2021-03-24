@@ -521,16 +521,17 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         #################################################################################
         # Start SparseML ONNX Export
         #################################################################################
-            from sparseml.pytorch.utils import ModuleExporter
+            from sparseml.pytorch.utils import ModuleExporter, is_parallel_model
             from sparseml.pytorch.utils.quantization import skip_onnx_input_quantize
 
             onnx_path = f"{save_dir}/model.onnx"
             logger.info(
                 f"training complete, exporting ONNX to {onnx_path}"
             )
-            model.model[-1].export = True  # do not export grid post-procesing
-            exporter = ModuleExporter(model, save_dir)
-            exporter.export_onnx(torch.randn((1, 3, *imgsz)), convert_qat=True)
+            export_model = model.module if is_parallel_model(model) else model
+            export_model.model[-1].export = True  # do not export grid post-procesing
+            exporter = ModuleExporter(export_model, save_dir)
+            exporter.export_onnx(torch.randn(1, 3, imgsz, imgsz), convert_qat=True)
             if qat:
                 skip_onnx_input_quantize(onnx_path, onnx_path)
         #################################################################################
