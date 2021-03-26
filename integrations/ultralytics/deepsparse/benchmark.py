@@ -18,7 +18,7 @@ Benchmarking script for YOLOv3 ONNX models with the DeepSparse engine.
 
 ##########
 Command help:
-usage: benchmark.py [-h] [-e {deepsparse,onnxruntime,torch}]
+usage: benchmark.py [-h] [-e {deepsparse,onnxruntime,openvino,torch}]
                     [--data-path DATA_PATH]
                     [--image-shape IMAGE_SHAPE [IMAGE_SHAPE ...]]
                     [-b BATCH_SIZE] [-c NUM_CORES] [-i NUM_ITERATIONS]
@@ -32,13 +32,14 @@ positional arguments:
                         stub to the model for deepsparse and onnxruntime
                         benchmarks. Path to a .pt loadable PyTorch Module for
                         torch benchmarks - the Module can be the top-level
-                        object loaded or loaded into 'model' in a state dict
+                        object loaded or loaded into 'model' in a state dict.
+                        Path to XML converted model for OpenVINO.
 
 optional arguments:
   -h, --help            show this help message and exit
-  -e {deepsparse,onnxruntime,torch}, --engine {deepsparse,onnxruntime,torch}
+  -e {deepsparse,onnxruntime,openvino,torch}, --engine {deepsparse,onnxruntime,openvino,torch}
                         Inference engine backend to run benchmark on. Choices
-                        are 'deepsparse', 'onnxruntime', and 'torch'. Default
+                        are 'deepsparse', 'onnxruntime', 'openvino' and 'torch'. Default
                         is 'deepsparse'
   --data-path DATA_PATH
                         Optional filepath to image examples to run the
@@ -101,7 +102,6 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Tuple, Union
 
-import cv2
 import numpy
 import onnx
 import onnxruntime
@@ -111,7 +111,7 @@ from tqdm.auto import tqdm
 from deepsparse import compile_model, cpu
 from deepsparse.benchmark import BenchmarkResults
 from deepsparse_utils import load_image, postprocess_nms, pre_nms_postprocess
-from sparseml.onnx.utils import override_model_batch_size
+from sparseml.onnx.utils import OpenVINOModelRunner, override_model_batch_size
 from sparsezoo.models.detection import yolo_v3 as zoo_yolo_v3
 from sparsezoo.utils import load_numpy_list
 
@@ -120,6 +120,7 @@ CORES_PER_SOCKET, AVX_TYPE, _ = cpu.cpu_details()
 
 DEEPSPARSE_ENGINE = "deepsparse"
 ORT_ENGINE = "onnxruntime"
+OPENVINO_ENGINE = "openvino"
 TORCH_ENGINE = "torch"
 
 
@@ -133,7 +134,8 @@ def parse_args():
             "The full filepath of the ONNX model file or SparseZoo stub to the model "
             "for deepsparse and onnxruntime benchmarks. Path to a .pt loadable PyTorch "
             "Module for torch benchmarks - the Module can be the top-level object "
-            "loaded or loaded into 'model' in a state dict"
+            "loaded or loaded into 'model' in a state dict. Path to XML converted "
+            "model for OpenVINO."
         ),
     )
 
@@ -142,10 +144,10 @@ def parse_args():
         "--engine",
         type=str,
         default=DEEPSPARSE_ENGINE,
-        choices=[DEEPSPARSE_ENGINE, ORT_ENGINE, TORCH_ENGINE],
+        choices=[DEEPSPARSE_ENGINE, ORT_ENGINE, OPENVINO_ENGINE, TORCH_ENGINE],
         help=(
             "Inference engine backend to run benchmark on. Choices are 'deepsparse', "
-            "'onnxruntime', and 'torch'. Default is 'deepsparse'"
+            "'onnxruntime', 'openvino' and 'torch'. Default is 'deepsparse'"
         ),
     )
 
@@ -307,6 +309,11 @@ def _load_model(args) -> Any:
         model = onnxruntime.InferenceSession(
             onnx_model.SerializeToString(), sess_options=sess_options
         )
+    elif args.engine == OPENVINO_ENGINE:
+        print(f"loading OpenVINO model for {args.model_filepath}")
+        model = OpenVINOModelRunner(
+            args.model_filepath, nthreads=args.num_cores, batch_size=args.batch_size
+        )
     elif args.engine == TORCH_ENGINE:
         print(f"loading torch model for {args.model_filepath}")
         model = torch.load(args.model_filepath)
@@ -368,6 +375,9 @@ def _run_model(
             [out.name for out in model.get_outputs()],  # outputs
             {model.get_inputs()[0].name: batch},  # inputs dict
         )
+    elif args.engine == OPENVINO_ENGINE:
+        # TODO: Retrieve name of inputs from the network for general cases
+        outputs, _ = model.batch_forward({"images": batch})
     else:  # deepsparse
         outputs = model.run([batch])
     return outputs
