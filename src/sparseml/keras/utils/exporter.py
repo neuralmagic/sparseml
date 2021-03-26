@@ -60,6 +60,7 @@ class ModelExporter(object):
         opset: int = DEFAULT_ONNX_OPSET,
         doc_string: str = "",
         debug_mode: bool = True,
+        warn_on_tf_support: bool = True,
         **kwargs,
     ):
         """
@@ -73,6 +74,16 @@ class ModelExporter(object):
         """
         if keras2onnx_import_error is not None:
             raise keras2onnx_import_error
+
+        if warn_on_tf_support:
+            import tensorflow
+            v = tensorflow.__version__
+            if v >= "2.3.0":
+                raise ValueError(
+                    "keras2onnx is known to cause errors for Tensorflow >= 2.3.0, "
+                    "and you have {}. Consider downgrade Tensorflow for model export "
+                    "to ONNX.".format(v)
+                )
 
         model_name = self._model.name or name.split(".onnx")[0]
         onnx_model = keras2onnx.convert_keras(
