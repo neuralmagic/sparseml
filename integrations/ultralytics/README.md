@@ -130,8 +130,8 @@ performance with DeepSparse.  For a full list of options run `python benchmarkin
 To run a benchmark run:
 ```bash
 python benchmark.py
-    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_90 \
-    --batch-size 32 \
+    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
+    --batch-size 1 \
     --quantized-inputs
 ```
 
