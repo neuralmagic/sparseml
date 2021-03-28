@@ -28,6 +28,7 @@ import numpy
 import onnx
 import torch
 
+from sparseml.onnx.utils import get_tensor_dim_shape, set_tensor_dim_shape
 from sparsezoo import Zoo
 
 # ultralytics/yolov5 imports
@@ -68,6 +69,9 @@ def load_image(
 class YoloPostprocessor:
     """
     Class for performing postprocessing of YOLOv3 model predictions
+
+    :param image_size: size of input image to model. used to calculate stride based on
+        output shapes
     """
 
     def __init__(self, image_size: Tuple[int]):
@@ -125,7 +129,6 @@ def modify_yolo_onnx_input_shape(
     model_path: str, image_shape: Tuple[int]
 ) -> Tuple[str, Optional[NamedTemporaryFile]]:
     """
-
     :param model_path: file path to YOLOv3 ONNX model or SparseZoo stub of the model
         to be loaded
     :param image_shape: 2-tuple of the image shape to resize this yolo model to
@@ -143,8 +146,8 @@ def modify_yolo_onnx_input_shape(
     model = onnx.load(model_path)
     model_input = model.graph.input[0]
 
-    initial_x = _get_onnx_tensor_idx_shape(model_input, 2)
-    initial_y = _get_onnx_tensor_idx_shape(model_input, 3)
+    initial_x = get_tensor_dim_shape(model_input, 2)
+    initial_y = get_tensor_dim_shape(model_input, 3)
 
     if not (isinstance(initial_x, int) and isinstance(initial_y, int)):
         return model_path, None  # model graph does not have static integer input shape
@@ -154,14 +157,14 @@ def modify_yolo_onnx_input_shape(
 
     scale_x = initial_x / image_shape[0]
     scale_y = initial_y / image_shape[1]
-    _set_onnx_tensor_idx_shape(model_input, 2, image_shape[0])
-    _set_onnx_tensor_idx_shape(model_input, 3, image_shape[1])
+    set_tensor_dim_shape(model_input, 2, image_shape[0])
+    set_tensor_dim_shape(model_input, 3, image_shape[1])
 
     for model_output in model.graph.output:
-        output_x = _get_onnx_tensor_idx_shape(model_output, 2)
-        output_y = _get_onnx_tensor_idx_shape(model_output, 3)
-        _set_onnx_tensor_idx_shape(model_output, 2, int(output_x / scale_x))
-        _set_onnx_tensor_idx_shape(model_output, 3, int(output_y / scale_y))
+        output_x = get_tensor_dim_shape(model_output, 2)
+        output_y = get_tensor_dim_shape(model_output, 3)
+        set_tensor_dim_shape(model_output, 2, int(output_x / scale_x))
+        set_tensor_dim_shape(model_output, 3, int(output_y / scale_y))
 
     tmp_file = NamedTemporaryFile()  # file will be deleted after program exit
     onnx.save(model, tmp_file.name)
@@ -173,11 +176,3 @@ def modify_yolo_onnx_input_shape(
     )
 
     return tmp_file.name, tmp_file
-
-
-def _get_onnx_tensor_idx_shape(tensor: onnx.TensorProto, idx: int) -> int:
-    return tensor.type.tensor_type.shape.dim[idx].dim_value
-
-
-def _set_onnx_tensor_idx_shape(tensor: onnx.TensorProto, idx: int, value: int):
-    tensor.type.tensor_type.shape.dim[idx].dim_value = value
