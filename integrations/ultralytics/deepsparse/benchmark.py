@@ -110,7 +110,12 @@ from tqdm.auto import tqdm
 
 from deepsparse import compile_model, cpu
 from deepsparse.benchmark import BenchmarkResults
-from deepsparse_utils import load_image, postprocess_nms, pre_nms_postprocess
+from deepsparse_utils import (
+    YoloPostprocessor,
+    load_image,
+    modify_yolo_onnx_input_shape,
+    postprocess_nms,
+)
 from sparseml.onnx.utils import override_model_batch_size
 from sparsezoo.models.detection import yolo_v3 as zoo_yolo_v3
 from sparsezoo.utils import load_numpy_list
@@ -288,6 +293,12 @@ def _load_model(args) -> Any:
             "environment variable"
         )
 
+    # scale static ONNX graph to desired image shape
+    if args.engine in [DEEPSPARSE_ENGINE, ORT_ENGINE]:
+        args.model_filepath, _ = modify_yolo_onnx_input_shape(
+            args.model_filepath, args.image_shape
+        )
+
     # load model
     if args.engine == DEEPSPARSE_ENGINE:
         print(f"Compiling deepsparse model for {args.model_filepath}")
@@ -376,7 +387,7 @@ def _run_model(
 def benchmark_yolo(args):
     model = _load_model(args)
     print("Loading dataset")
-    dataset = _load_images(args.data_path, args.image_shape)
+    dataset = _load_images(args.data_path, tuple(args.image_shape))
     total_iterations = args.num_iterations + args.num_warmup_iterations
     data_loader = _iter_batches(dataset, args.batch_size, total_iterations)
 
@@ -386,6 +397,12 @@ def benchmark_yolo(args):
             f"and {args.num_iterations} benchmarking iterations"
         ),
         flush=True,
+    )
+
+    postprocessor = (
+        YoloPostprocessor(args.image_shape)
+        if args.engine in [DEEPSPARSE_ENGINE, ORT_ENGINE]
+        else None
     )
 
     results = BenchmarkResults()
@@ -403,8 +420,8 @@ def benchmark_yolo(args):
         outputs = _run_model(args, model, batch)
 
         # post-processing
-        if args.engine != TORCH_ENGINE:
-            outputs = pre_nms_postprocess(outputs)
+        if postprocessor:
+            outputs = postprocessor.pre_nms_postprocess(outputs)
 
         # NMS
         outputs = postprocess_nms(outputs)

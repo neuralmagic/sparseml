@@ -20,11 +20,15 @@ variables if using a different model.
 """
 
 
-from typing import List, Tuple, Union
+from tempfile import NamedTemporaryFile
+from typing import List, Optional, Tuple, Union
 
 import cv2
 import numpy
+import onnx
 import torch
+
+from sparsezoo import Zoo
 
 # ultralytics/yolov5 imports
 from utils.general import non_max_suppression
@@ -37,13 +41,6 @@ __all__ = [
 ]
 
 
-def _get_grid(size: int) -> torch.Tensor:
-    # adapted from yolov5.yolo.Detect._make_grid
-    coords_y, coords_x = torch.meshgrid([torch.arange(size), torch.arange(size)])
-    grid = torch.stack((coords_x, coords_y), 2)
-    return grid.view(1, 1, size, size, 2).float()
-
-
 # Yolo V3 specific variables
 _YOLO_V3_ANCHORS = [
     torch.Tensor([[10, 13], [16, 30], [33, 23]]),
@@ -51,8 +48,6 @@ _YOLO_V3_ANCHORS = [
     torch.Tensor([[116, 90], [156, 198], [373, 326]]),
 ]
 _YOLO_V3_ANCHOR_GRIDS = [t.clone().view(1, -1, 1, 1, 2) for t in _YOLO_V3_ANCHORS]
-_YOLO_V3_OUTPUT_SHAPES = [80, 40, 20]
-_YOLO_V3_GRIDS = [_get_grid(grid_size) for grid_size in _YOLO_V3_OUTPUT_SHAPES]
 
 
 def load_image(
@@ -70,28 +65,50 @@ def load_image(
     return img
 
 
-def pre_nms_postprocess(outputs: List[numpy.ndarray]) -> torch.Tensor:
+class YoloPostprocessor:
     """
-    :param outputs: raw outputs of a YOLOv3 model before anchor grid processing
-    :return: post-processed model outputs without NMS.
+    Class for performing postprocessing of YOLOv3 model predictions
     """
-    # postprocess and transform raw outputs into single torch tensor
-    processed_outputs = []
-    for idx, pred in enumerate(outputs):
-        pred = torch.from_numpy(pred)
-        pred = pred.sigmoid()
 
-        # get grid and stride
-        grid = _YOLO_V3_GRIDS[idx]
-        anchor_grid = _YOLO_V3_ANCHOR_GRIDS[idx]
-        stride = 640 / _YOLO_V3_OUTPUT_SHAPES[idx]
+    def __init__(self, image_size: Tuple[int]):
+        self._image_size = image_size
+        self._grids = {}  # Dict[Tuple[int], torch.Tensor]
 
-        # decode xywh box values
-        pred[..., 0:2] = (pred[..., 0:2] * 2.0 - 0.5 + grid) * stride
-        pred[..., 2:4] = (pred[..., 2:4] * 2) ** 2 * anchor_grid
-        # flatten anchor and grid dimensions -> (bs, num_predictions, num_classes + 5)
-        processed_outputs.append(pred.view(pred.size(0), -1, pred.size(-1)))
-    return torch.cat(processed_outputs, 1)
+    def pre_nms_postprocess(self, outputs: List[numpy.ndarray]) -> torch.Tensor:
+        """
+        :param outputs: raw outputs of a YOLOv3 model before anchor grid processing
+        :return: post-processed model outputs without NMS.
+        """
+        # postprocess and transform raw outputs into single torch tensor
+        processed_outputs = []
+        for idx, pred in enumerate(outputs):
+            pred = torch.from_numpy(pred)
+            pred = pred.sigmoid()
+
+            # get grid and stride
+            grid_shape = pred.shape[2:4]
+            grid = self._get_grid(grid_shape)
+            anchor_grid = _YOLO_V3_ANCHOR_GRIDS[idx]
+            stride = self._image_size[0] / grid_shape[0]
+
+            # decode xywh box values
+            pred[..., 0:2] = (pred[..., 0:2] * 2.0 - 0.5 + grid) * stride
+            pred[..., 2:4] = (pred[..., 2:4] * 2) ** 2 * anchor_grid
+            # flatten anchor and grid dimensions -> (bs, num_predictions, num_classes + 5)
+            processed_outputs.append(pred.view(pred.size(0), -1, pred.size(-1)))
+        return torch.cat(processed_outputs, 1)
+
+    def _get_grid(self, grid_shape: Tuple[int]) -> torch.Tensor:
+        if grid_shape not in self._grids:
+            # adapted from yolov5.yolo.Detect._make_grid
+            coords_y, coords_x = torch.meshgrid(
+                [torch.arange(grid_shape[0]), torch.arange(grid_shape[1])]
+            )
+            grid = torch.stack((coords_x, coords_y), 2)
+            self._grids[grid_shape] = grid.view(
+                1, 1, grid_shape[0], grid_shape[1], 2
+            ).float()
+        return self._grids[grid_shape]
 
 
 def postprocess_nms(outputs: torch.Tensor) -> List[numpy.ndarray]:
@@ -102,3 +119,65 @@ def postprocess_nms(outputs: torch.Tensor) -> List[numpy.ndarray]:
     # run nms in PyTorch, only post-process first output
     nms_outputs = non_max_suppression(outputs)
     return [output.cpu().numpy() for output in nms_outputs]
+
+
+def modify_yolo_onnx_input_shape(
+    model_path: str, image_shape: Tuple[int]
+) -> Tuple[str, Optional[NamedTemporaryFile]]:
+    """
+
+    :param model_path: file path to YOLOv3 ONNX model or SparseZoo stub of the model
+        to be loaded
+    :param image_shape: 2-tuple of the image shape to resize this yolo model to
+    :return: filepath to an onnx model reshaped to the given input shape and tempfile
+        object that the modified model is written to. if the given model has the given
+        input shape, then the path to the original model will be returned with no
+        tempfile. tempfile returned so caller can control when the tempfile is destroyed
+    """
+    original_model_path = model_path
+    if model_path.startswith("zoo:"):
+        # load SparseZoo Model from stub
+        model = Zoo.load_model_from_stub(model_path)
+        model_path = model.onnx_file.downloaded_path()
+
+    model = onnx.load(model_path)
+    model_input = model.graph.input[0]
+
+    initial_x = _get_onnx_tensor_idx_shape(model_input, 2)
+    initial_y = _get_onnx_tensor_idx_shape(model_input, 3)
+
+    if not (isinstance(initial_x, int) and isinstance(initial_y, int)):
+        return model_path, None  # model graph does not have static integer input shape
+
+    if (initial_x, initial_y) == tuple(image_shape):
+        return model_path, None  # no shape modification needed
+
+    scale_x = initial_x / image_shape[0]
+    scale_y = initial_y / image_shape[1]
+    _set_onnx_tensor_idx_shape(model_input, 2, image_shape[0])
+    _set_onnx_tensor_idx_shape(model_input, 3, image_shape[1])
+
+    for model_output in model.graph.output:
+        output_x = _get_onnx_tensor_idx_shape(model_output, 2)
+        output_y = _get_onnx_tensor_idx_shape(model_output, 3)
+        _set_onnx_tensor_idx_shape(model_output, 2, int(output_x / scale_x))
+        _set_onnx_tensor_idx_shape(model_output, 3, int(output_y / scale_y))
+
+    tmp_file = NamedTemporaryFile()  # file will be deleted after program exit
+    onnx.save(model, tmp_file.name)
+
+    print(
+        f"Overwriting original model shape {(initial_x, initial_y)} to {image_shape}\n"
+        f"Original model path: {original_model_path}, new temporary model saved to "
+        f"{tmp_file.name}"
+    )
+
+    return tmp_file.name, tmp_file
+
+
+def _get_onnx_tensor_idx_shape(tensor: onnx.TensorProto, idx: int) -> int:
+    return tensor.type.tensor_type.shape.dim[idx].dim_value
+
+
+def _set_onnx_tensor_idx_shape(tensor: onnx.TensorProto, idx: int, value: int):
+    tensor.type.tensor_type.shape.dim[idx].dim_value = value
