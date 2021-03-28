@@ -220,7 +220,7 @@ class CrossEntropyLossWrapper(LossWrapper):
 
 class InceptionCrossEntropyLossWrapper(LossWrapper):
     """
-    Loss wrapper for training an inception model that as an aux output
+    Loss wrapper for training an inception model that has an aux output
     with cross entropy.
 
     Defines the loss in the following way:
