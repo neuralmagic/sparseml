@@ -80,9 +80,9 @@ class ModelExporter(object):
             v = tensorflow.__version__
             if v >= "2.3.0":
                 raise ValueError(
-                    "Tensorflow version {} is greater than the currently supported "
+                    f"Tensorflow version {v} is greater than the currently supported "
                     "version for keras2onnx. Please downgrade the Tensorflow <2.3.0 "
-                    "or set raise_on_tf_support to False to continue.".format(v)
+                    "or set raise_on_tf_support to False to continue."
                 )
 
         model_name = self._model.name or name.split(".onnx")[0]
