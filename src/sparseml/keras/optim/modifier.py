@@ -38,6 +38,7 @@ __all__ = [
     "ModifierProp",
     "KerasModifierYAML",
     "Modifier",
+    "ModifierProp",
     "ScheduledModifier",
     "ScheduledUpdateModifier",
 ]
@@ -161,14 +162,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
             end_comparator=end_comparator,
             **kwargs,
         )
-
-    @property
-    def start_epoch(self):
-        return self._start_epoch
-
-    @property
-    def end_epoch(self):
-        return self._end_epoch
 
     def start_end_steps(self, steps_per_epoch, after_optim: bool) -> Tuple[int, int]:
         """
