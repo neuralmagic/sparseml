@@ -129,19 +129,23 @@ def modify_yolo_onnx_input_shape(
     model_path: str, image_shape: Tuple[int]
 ) -> Tuple[str, Optional[NamedTemporaryFile]]:
     """
+    Creates a new YOLOv3 ONNX model from the given path that accepts the given input
+    shape. If the given model already has the given input shape no modifications are
+    made. Uses a tempfile to store the modified model file.
+
     :param model_path: file path to YOLOv3 ONNX model or SparseZoo stub of the model
         to be loaded
     :param image_shape: 2-tuple of the image shape to resize this yolo model to
-    :return: filepath to an onnx model reshaped to the given input shape and tempfile
-        object that the modified model is written to. if the given model has the given
-        input shape, then the path to the original model will be returned with no
-        tempfile. tempfile returned so caller can control when the tempfile is destroyed
+    :return: filepath to an onnx model reshaped to the given input shape will be the
+        original path if the shape is the same.  Additionally returns the
+        NamedTemporaryFile for managing the scope of the object for file deletion
     """
     original_model_path = model_path
     if model_path.startswith("zoo:"):
         # load SparseZoo Model from stub
         model = Zoo.load_model_from_stub(model_path)
         model_path = model.onnx_file.downloaded_path()
+        print(f"Downloaded {original_model_path} to {model_path}")
 
     model = onnx.load(model_path)
     model_input = model.graph.input[0]

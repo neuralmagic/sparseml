@@ -21,8 +21,9 @@ Command help:
 usage: benchmark.py [-h] [-e {deepsparse,onnxruntime,torch}]
                     [--data-path DATA_PATH]
                     [--image-shape IMAGE_SHAPE [IMAGE_SHAPE ...]]
-                    [-b BATCH_SIZE] [-c NUM_CORES] [-i NUM_ITERATIONS]
-                    [-w NUM_WARMUP_ITERATIONS] [-q] [--fp16] [--device DEVICE]
+                    [-b BATCH_SIZE] [-c NUM_CORES] [-s NUM_SOCKETS]
+                    [-i NUM_ITERATIONS] [-w NUM_WARMUP_ITERATIONS] [-q]
+                    [--fp16] [--device DEVICE]
                     model_filepath
 
 Benchmark sparsified YOLOv3 models
@@ -53,7 +54,13 @@ optional arguments:
                         The batch size to run the benchmark for
   -c NUM_CORES, --num-cores NUM_CORES
                         The number of physical cores to run the benchmark on,
-                        defaults to all physical cores available on the system
+                        defaults to None where it uses all physical cores
+                        available on the system. For DeepSparse benchmarks,
+                        this value is the number of cores per socket
+  -s NUM_SOCKETS, --num-sockets NUM_SOCKETS
+                        For DeepSparse benchmarks only. The number of physical
+                        cores to run the benchmark on. Defaults to None where
+                        is uses all sockets available on the system
   -i NUM_ITERATIONS, --num-iterations NUM_ITERATIONS
                         The number of iterations the benchmark will be run for
   -w NUM_WARMUP_ITERATIONS, --num-warmup-iterations NUM_WARMUP_ITERATIONS
@@ -121,8 +128,6 @@ from sparsezoo.models.detection import yolo_v3 as zoo_yolo_v3
 from sparsezoo.utils import load_numpy_list
 
 
-CORES_PER_SOCKET, AVX_TYPE, _ = cpu.cpu_details()
-
 DEEPSPARSE_ENGINE = "deepsparse"
 ORT_ENGINE = "onnxruntime"
 TORCH_ENGINE = "torch"
@@ -185,10 +190,22 @@ def parse_args():
         "-c",
         "--num-cores",
         type=int,
-        default=CORES_PER_SOCKET,
+        default=None,
         help=(
             "The number of physical cores to run the benchmark on, "
-            "defaults to all physical cores available on the system"
+            "defaults to None where it uses all physical cores available on the system. "
+            "For DeepSparse benchmarks, this value is the number of cores per socket"
+        ),
+    )
+    parser.add_argument(
+        "-s",
+        "--num-sockets",
+        type=int,
+        default=None,
+        help=(
+            "For DeepSparse benchmarks only. The number of physical cores to run the "
+            "benchmark on. Defaults to None where is uses all sockets available on the "
+            "system"
         ),
     )
     parser.add_argument(
@@ -232,7 +249,6 @@ def parse_args():
     )
 
     args = parser.parse_args()
-
     if args.engine == TORCH_ENGINE and args.device is None:
         args.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
@@ -278,20 +294,22 @@ def _load_model(args) -> Any:
         raise ValueError(f"half precision is not supported for {args.engine}")
     if args.quantized_inputs and args.engine == TORCH_ENGINE:
         raise ValueError(f"quantized inputs not supported for {args.engine}")
-    if args.num_cores != CORES_PER_SOCKET and args.engine == TORCH_ENGINE:
+    if args.num_cores is not None and args.engine == TORCH_ENGINE:
         raise ValueError(
             f"overriding default num_cores not supported for {args.engine}"
         )
     if (
-        args.num_cores != CORES_PER_SOCKET
+        args.num_cores is not None
         and args.engine == ORT_ENGINE
         and onnxruntime.__version__ < "1.7"
     ):
-        print(
+        raise ValueError(
             "overriding default num_cores not supported for onnxruntime < 1.7.0. "
             "If using an older build with OpenMP, try setting the OMP_NUM_THREADS "
             "environment variable"
         )
+    if args.num_sockets is not None and args.engine != DEEPSPARSE_ENGINE:
+        raise ValueError(f"Overriding num_sockets is not supported for {args.engine}")
 
     # scale static ONNX graph to desired image shape
     if args.engine in [DEEPSPARSE_ENGINE, ORT_ENGINE]:
@@ -302,12 +320,20 @@ def _load_model(args) -> Any:
     # load model
     if args.engine == DEEPSPARSE_ENGINE:
         print(f"Compiling deepsparse model for {args.model_filepath}")
-        model = compile_model(args.model_filepath, args.batch_size, args.num_cores)
+        model = compile_model(
+            args.model_filepath, args.batch_size, args.num_cores, args.num_sockets
+        )
+        if args.quantized_inputs and not model.cpu_vnni:
+            print(
+                "WARNING: VNNI instructions not detected, "
+                "quantization speedup not well supported"
+            )
     elif args.engine == ORT_ENGINE:
         print(f"loading onnxruntime model for {args.model_filepath}")
 
         sess_options = onnxruntime.SessionOptions()
-        sess_options.intra_op_num_threads = args.num_cores
+        if args.num_cores is not None:
+            sess_options.intra_op_num_threads = args.num_cores
         sess_options.log_severity_level = 3
         sess_options.graph_optimization_level = (
             onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
