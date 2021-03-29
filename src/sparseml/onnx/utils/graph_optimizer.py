@@ -149,7 +149,10 @@ def quantize_resnet_identity_add_inputs(quantized_model: onnx.ModelProto) -> boo
     add_nodes = [node for node in quantized_model.graph.node if node.op_type == "Add"]
     optimization_made = False
     for add_node in add_nodes:
-        add_inputs = get_node_input_nodes(quantized_model, add_node)
+        graph = ONNXGraph(quantized_model)
+        add_inputs = [
+            i for i in graph.get_node_parents(add_node) if isinstance(i, onnx.NodeProto)
+        ]
         if len(add_inputs) != 2:
             continue
         # extract dequantize input and relu/add input

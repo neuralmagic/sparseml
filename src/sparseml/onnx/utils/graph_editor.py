@@ -83,15 +83,17 @@ class ONNXGraph(object):
         return self._name_to_initializer.get(name)
 
     def get_node_parents(
-        self, node: NodeProto
+        self, node: NodeProto, index: Union[int, None] = None
     ) -> List[Union[NodeProto, TensorProto, None]]:
         """
         :param node: node to get the input objects for
-        :return: input nodes or tensors of this node in order. if an input doesn't
-            exist, None will be returned in its place
+        :param index: choose which input to search, or all if None
+        :return: input nodes or tensors of this node in order. if an input doesn't exist,
+            None will be returned in its place
         """
+        input_ids = [node.input[index]] if index else node.input
         inputs = []
-        for input_id in node.input:
+        for input_id in input_ids:
             inp = None
             if input_id in self._output_id_to_node:
                 inp = self._output_id_to_node[input_id]
@@ -99,6 +101,17 @@ class ONNXGraph(object):
                 inp = self._name_to_initializer[input_id]
             inputs.append(inp)
         return inputs
+
+    def get_node_single_parent(
+        self, node: NodeProto, index: Union[int, None] = None
+    ) -> Union[NodeProto, TensorProto, None]:
+        """
+        :param node: the node to get the parent node of
+        :param index: choose which input to search, or all if None
+        :return: parent of node if it only has one parent, otherwise None
+        """
+        parents = self.get_node_parents(node, index)
+        return parents[0] if len(parents) == 1 else None
 
     def get_node_children(self, node: NodeProto) -> List[NodeProto]:
         """
@@ -109,6 +122,14 @@ class ONNXGraph(object):
         for output_id in node.output:
             children.extend(self._input_id_to_nodes[output_id])
         return children
+
+    def get_node_single_child(self, node: NodeProto) -> Union[NodeProto, None]:
+        """
+        :param node: the node to get the child node of
+        :return: child of node if it only has one child, otherwise None
+        """
+        children = self.get_node_children(node)
+        return children[0] if len(children) == 1 else None
 
     def add_node(self, node: NodeProto):
         """
@@ -209,11 +230,7 @@ class ONNXGraph(object):
             self._input_id_to_nodes[input_id].remove(node)
 
 
-def update_model_param(
-    model: ModelProto,
-    param_name: str,
-    val: numpy.ndarray,
-) -> None:
+def update_model_param(model: ModelProto, param_name: str, val: numpy.ndarray,) -> None:
     """
     Removes the parameter with name param_name from the model
     Creates a new parameter using val
@@ -245,9 +262,7 @@ def swap_node_output(node: onnx.NodeProto, output: str) -> None:
 
 
 def remove_node_and_params_from_graph(
-    model: ModelProto,
-    node: onnx.NodeProto,
-    keep_params: Iterable[str] = None,
+    model: ModelProto, node: onnx.NodeProto, keep_params: Iterable[str] = None,
 ) -> None:
     """
     Deletes a node from the mdoel graph as well as its parameters listed in node.input
