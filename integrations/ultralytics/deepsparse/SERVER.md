@@ -54,7 +54,9 @@ also supported.
 
 Example command:
 ```bash
-python server.py zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94
+python server.py \
+    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
+    --quantized-inputs
 ```
 
 You can leave that running as a detached process or in a spare terminal.
