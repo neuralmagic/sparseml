@@ -119,8 +119,11 @@ cp sparseml/integrations/ultralytics/deepsparse/*.py yolov5
 cd yolov5
 
 # install deepsparse and server dependencies
-pip install deepsparse flask flask-cors
+pip install deepsparse sparseml flask flask-cors
 ```
+
+Note: on new Ubuntu systems, to install `cv2` running `sudo apt-get update && apt-get install -y python3-opencv`
+may be necessary.
 
 
 ### Benchmarking
@@ -130,8 +133,8 @@ performance with DeepSparse.  For a full list of options run `python benchmarkin
 To run a benchmark run:
 ```bash
 python benchmark.py
-    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_90 \
-    --batch-size 32 \
+    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
+    --batch-size 1 \
     --quantized-inputs
 ```
 

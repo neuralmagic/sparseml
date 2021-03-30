@@ -104,7 +104,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     assert len(names) == nc, '%g names found for nc=%g dataset in %s' % (len(names), nc, opt.data)  # check
 
     # Model
-    pretrained = weights.endswith('.pt')
+    pretrained = weights.endswith('.pt') or weights.endswith('.pth')  # SparseML integration
     if pretrained:
         with torch_distributed_zero_first(rank):
             attempt_download(weights)  # download if not found locally
@@ -269,7 +269,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     ####################################################################################
     from sparseml.pytorch.nn import replace_activations
     from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-    from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
+    from sparseml.pytorch.utils import is_parallel_model, PythonLogger, TensorBoardLogger
 
     if not opt.no_leaky_relu_override:  # use LeakyReLU activations
         model = replace_activations(model, "lrelu", inplace=True)
@@ -277,7 +277,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     manager = ScheduledModifierManager.from_yaml(opt.sparseml_recipe)
     optimizer = ScheduledOptimizer(
         optimizer,
-        model,
+        model if not is_parallel_model(model) else model.module,
         manager,
         steps_per_epoch=len(dataloader),
         loggers=[PythonLogger(), TensorBoardLogger(writer=tb_writer)]
@@ -516,7 +516,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                                           dataloader=testloader,
                                           save_dir=save_dir,
                                           save_json=save_json,
-                                          plots=False)
+                                          plots=False,
+                                          half_precision=opt.use_amp)  # SparseML integration
         #################################################################################
         # Start SparseML ONNX Export
         #################################################################################
@@ -527,9 +528,10 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
             logger.info(
                 f"training complete, exporting ONNX to {onnx_path}"
             )
-            model.model[-1].export = True  # do not export grid post-procesing
-            exporter = ModuleExporter(model, save_dir)
-            exporter.export_onnx(torch.randn((1, 3, *imgsz)), convert_qat=True)
+            export_model = model.module if is_parallel_model(model) else model
+            export_model.model[-1].export = True  # do not export grid post-procesing
+            exporter = ModuleExporter(export_model, save_dir)
+            exporter.export_onnx(torch.randn(1, 3, imgsz, imgsz), convert_qat=True)
             if qat:
                 skip_onnx_input_quantize(onnx_path, onnx_path)
         #################################################################################
@@ -621,7 +623,7 @@ if __name__ == '__main__':
     opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
     set_logging(opt.global_rank)
     if opt.global_rank in [-1, 0]:
-        check_git_status()
+        # check_git_status()  SparseML integration, will be out of sync with master
         check_requirements()
 
     ####################################################################################
@@ -641,14 +643,14 @@ if __name__ == '__main__':
                 "Attempting to load weights from SparseZoo recipe, but not given a "
                 "SparseZoo recipe stub.  When --weights is set to 'zoo'. "
                 "sparseml-recipe must start with 'zoo:' and be a SparseZoo model "
-                f"stub. sparseml-recipe was set to {args.sparseml_recipe}"
+                f"stub. sparseml-recipe was set to {opt.sparseml_recipe}"
             )
     elif opt.weights.startswith("zoo:"):
         # Load weights from a SparseZoo model stub
         zoo_model = Zoo.load_model_from_stub(opt.weights)
-        args.initial_checkpoint = zoo_model.download_framework_files(
+        opt.weights = zoo_model.download_framework_files(
             extensions=[".pt", ".pth"]
-        )
+        )[0]
     ####################################################################################
     # End - SparseML optional load weights from SparseZoo
     ####################################################################################
