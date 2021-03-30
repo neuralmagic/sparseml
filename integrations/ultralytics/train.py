@@ -104,7 +104,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     assert len(names) == nc, '%g names found for nc=%g dataset in %s' % (len(names), nc, opt.data)  # check
 
     # Model
-    pretrained = weights.endswith('.pt')
+    pretrained = weights.endswith('.pt') or weights.endswith('.pth')  # SparseML integration
     if pretrained:
         with torch_distributed_zero_first(rank):
             attempt_download(weights)  # download if not found locally
@@ -623,7 +623,7 @@ if __name__ == '__main__':
     opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
     set_logging(opt.global_rank)
     if opt.global_rank in [-1, 0]:
-        check_git_status()
+        # check_git_status()  SparseML integration, will be out of sync with master
         check_requirements()
 
     ####################################################################################
@@ -643,14 +643,14 @@ if __name__ == '__main__':
                 "Attempting to load weights from SparseZoo recipe, but not given a "
                 "SparseZoo recipe stub.  When --weights is set to 'zoo'. "
                 "sparseml-recipe must start with 'zoo:' and be a SparseZoo model "
-                f"stub. sparseml-recipe was set to {args.sparseml_recipe}"
+                f"stub. sparseml-recipe was set to {opt.sparseml_recipe}"
             )
     elif opt.weights.startswith("zoo:"):
         # Load weights from a SparseZoo model stub
         zoo_model = Zoo.load_model_from_stub(opt.weights)
-        args.initial_checkpoint = zoo_model.download_framework_files(
+        opt.weights = zoo_model.download_framework_files(
             extensions=[".pt", ".pth"]
-        )
+        )[0]
     ####################################################################################
     # End - SparseML optional load weights from SparseZoo
     ####################################################################################
