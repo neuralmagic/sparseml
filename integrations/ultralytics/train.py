@@ -269,7 +269,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     ####################################################################################
     from sparseml.pytorch.nn import replace_activations
     from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-    from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
+    from sparseml.pytorch.utils import is_parallel_model, PythonLogger, TensorBoardLogger
 
     if not opt.no_leaky_relu_override:  # use LeakyReLU activations
         model = replace_activations(model, "lrelu", inplace=True)
@@ -277,7 +277,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     manager = ScheduledModifierManager.from_yaml(opt.sparseml_recipe)
     optimizer = ScheduledOptimizer(
         optimizer,
-        model,
+        model if not is_parallel_model(model) else model.module,
         manager,
         steps_per_epoch=len(dataloader),
         loggers=[PythonLogger(), TensorBoardLogger(writer=tb_writer)]
@@ -521,7 +521,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         #################################################################################
         # Start SparseML ONNX Export
         #################################################################################
-            from sparseml.pytorch.utils import ModuleExporter, is_parallel_model
+            from sparseml.pytorch.utils import ModuleExporter
             from sparseml.pytorch.utils.quantization import skip_onnx_input_quantize
 
             onnx_path = f"{save_dir}/model.onnx"

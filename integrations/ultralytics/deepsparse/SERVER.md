@@ -49,11 +49,12 @@ pip install deepsparse sparseml flask flask-cors
 
 ### Server
 
-First, start up the host `server.py` with your model of choice.
+First, start up the host `server.py` with your model of choice, SparseZoo stubs are
+also supported.
 
 Example command:
 ```bash
-python server.py ~/models/yolov3-pruned_quant.onnx
+python server.py zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94
 ```
 
 You can leave that running as a detached process or in a spare terminal.
