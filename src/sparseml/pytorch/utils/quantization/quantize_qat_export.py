@@ -65,6 +65,8 @@ QuantizationParams = NamedTuple(
 
 _QUANTIZE_OP_NAMES = ["QuantizeLinear", "DequantizeLinear"]
 
+_QLINEAR_OP_NAMES = ["QLinearConv", "QLinearMatMul", "QLinearAdd"]
+
 
 def get_quantization_params(
     model: ModelProto, node: NodeProto, include_target: bool = False
@@ -258,69 +260,6 @@ def _delete_repeated_qat_blocks(model: ModelProto):
 
     for n in nodes_to_delete:
         delete_quant_node(model, n)
-
-
-def _delete_multi_qat_blocks(model: ModelProto):
-    # removes repeated qat quant/dequant blocks with the same parameters
-    # (Quant -> Dequant ->->-> Quant) -> (->->-> Quant)
-    quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
-    for quant_node_1 in quant_nodes:
-        quant_input = quant_node_1.input[0]
-        dequant_node_1 = _get_single_node_child(model, quant_node_1)
-        if not dequant_node_1 or dequant_node_1.op_type != "DequantizeLinear":
-            continue
-        if any(
-            q_node == "QuantizeLinear"
-            for q_node in get_node_output_nodes(model, dequant_node_1)
-        ):
-            for q_node in get_node_output_nodes(model, dequant_node_1):
-                # forward first qat block input to that of the second
-                q_node.input[0] = quant_node_1.input[0]
-            # delete repeated qunat/dequant block
-            delete_quant_node(model, quant_node_1)
-            delete_quant_node(model, dequant_node_1)
-
-
-def _delete_multi_qat_blocks(model: ModelProto):
-    # removes repeated qat quant/dequant blocks with the same parameters
-    # (Quant -> Dequant ->->-> Quant) -> (->->-> Quant)
-    quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
-    for quant_node_1 in quant_nodes:
-        quant_input = quant_node_1.input[0]
-        dequant_node_1 = _get_single_node_child(model, quant_node_1)
-        if not dequant_node_1 or dequant_node_1.op_type != "DequantizeLinear":
-            continue
-        if any(
-            q_node == "QuantizeLinear"
-            for q_node in get_node_output_nodes(model, dequant_node_1)
-        ):
-            for q_node in get_node_output_nodes(model, dequant_node_1):
-                # forward first qat block input to that of the second
-                q_node.input[0] = quant_node_1.input[0]
-            # delete repeated qunat/dequant block
-            delete_quant_node(model, quant_node_1)
-            delete_quant_node(model, dequant_node_1)
-
-
-def _delete_multi_qat_blocks(model: ModelProto):
-    # removes repeated qat quant/dequant blocks with the same parameters
-    # (Quant -> Dequant ->->-> Quant) -> (->->-> Quant)
-    quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
-    for quant_node_1 in quant_nodes:
-        quant_input = quant_node_1.input[0]
-        dequant_node_1 = _get_single_node_child(model, quant_node_1)
-        if not dequant_node_1 or dequant_node_1.op_type != "DequantizeLinear":
-            continue
-        if any(
-            q_node == "QuantizeLinear"
-            for q_node in get_node_output_nodes(model, dequant_node_1)
-        ):
-            for q_node in get_node_output_nodes(model, dequant_node_1):
-                # forward first qat block input to that of the second
-                q_node.input[0] = quant_node_1.input[0]
-            # delete repeated qunat/dequant block
-            delete_quant_node(model, quant_node_1)
-            delete_quant_node(model, dequant_node_1)
 
 
 def _attribute_to_kwarg(attribute: onnx.AttributeProto):
@@ -804,6 +743,36 @@ def _remove_duplicate_quantize__ops(model: ModelProto):
             remove_node_and_params_from_graph(model, remove_node)
 
 
+def _cleanup_unused_quants(model: ModelProto):
+    graph = ONNXGraph(model)
+    nodes_to_delete = []
+    quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
+    for quant_node in quant_nodes:
+        dequant_node = graph.get_node_single_child(quant_node)
+        if not dequant_node or dequant_node.op_type != "DequantizeLinear":
+            continue
+
+        should_remove = True
+        dequant_children = graph.get_node_children(dequant_node)
+        for child in dequant_children:
+            if isinstance(child, onnx.NodeProto) and child.op_type in _QLINEAR_OP_NAMES:
+                should_remove = False
+
+        if not should_remove:
+            continue
+
+        # forward quant input to dequant's children
+        for child in dequant_children:
+            _replace_input_id_model(model, dequant_node.output[0], quant_node.input[0])
+
+        # remove quant/dequant block
+        nodes_to_delete.append(quant_node)
+        nodes_to_delete.append(dequant_node)
+
+    for n in nodes_to_delete:
+        delete_quant_node(model, n)
+
+
 def quantize_torch_qat_export(
     model: Union[ModelProto, str],
     output_file_path: Union[str, None] = None,
@@ -833,6 +802,7 @@ def quantize_torch_qat_export(
     quantize_resnet_identity_add_inputs(model)
     quantized_residual_add_optim(model)
     _remove_duplicate_quantize__ops(model)
+    _cleanup_unused_quants(model)
 
     if output_file_path:
         onnx.save(model, output_file_path)
