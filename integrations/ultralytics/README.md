@@ -119,8 +119,11 @@ cp sparseml/integrations/ultralytics/deepsparse/*.py yolov5
 cd yolov5
 
 # install deepsparse and server dependencies
-pip install deepsparse flask flask-cors
+pip install deepsparse sparseml flask flask-cors
 ```
+
+Note: on new Ubuntu systems, to install `cv2` running `sudo apt-get update && apt-get install -y python3-opencv`
+may be necessary.
 
 
 ### Benchmarking
