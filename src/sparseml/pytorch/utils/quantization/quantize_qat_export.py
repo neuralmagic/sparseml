@@ -515,8 +515,8 @@ def _convert_quantizable_gemm(
 
 
 def _convert_quantizable_matmul_and_add(model: ModelProto):
-    quantizable_nodes = [n for n in model.graph.node if n.op_type in ["MatMul"]]
-    for gemm_node in quantizable_nodes:
+    matmul_nodes = [n for n in model.graph.node if n.op_type in ["MatMul"]]
+    for gemm_node in matmul_nodes:
         graph = ONNXGraph(model)
         #############
         # Matching
@@ -710,14 +710,6 @@ def _convert_quantizable_ops(model: ModelProto):
                 weight_quant,
                 output_quant,
             )
-
-
-def _convert_quantizable_matmul_ops(model: ModelProto):
-    quantizable_nodes = [n for n in model.graph.node if n.op_type in ["MatMul"]]
-    for quantizable_node in quantizable_nodes:
-        _convert_quantizable_matmul_and_add(
-            model, quantizable_node,
-        )
 
 
 def _replace_input_id_model(model: ModelProto, old_id: str, new_id: str):

@@ -87,7 +87,6 @@ class ONNXGraph(object):
     ) -> List[Union[NodeProto, TensorProto, None]]:
         """
         :param node: node to get the input objects for
-        :param index: choose which input to search, or all if None
         :return: input nodes or tensors of this node in order. if an input doesn't exist,
             None will be returned in its place
         """
@@ -106,7 +105,7 @@ class ONNXGraph(object):
     ) -> Union[NodeProto, None]:
         """
         :param node: the node to get the parent node of
-        :param index: choose which input to search, or all if None
+        :param index: choose which input to search
         :return: parent of node if it only has one parent, otherwise None
         """
         input_id = node.input[index]
