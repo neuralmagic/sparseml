@@ -83,7 +83,7 @@ class ONNXGraph(object):
         return self._name_to_initializer.get(name)
 
     def get_node_parents(
-        self, node: NodeProto, index: Union[int, None] = None
+        self, node: NodeProto
     ) -> List[Union[NodeProto, TensorProto, None]]:
         """
         :param node: node to get the input objects for
@@ -91,9 +91,8 @@ class ONNXGraph(object):
         :return: input nodes or tensors of this node in order. if an input doesn't exist,
             None will be returned in its place
         """
-        input_ids = [node.input[index]] if index else node.input
         inputs = []
-        for input_id in input_ids:
+        for input_id in node.input:
             inp = None
             if input_id in self._output_id_to_node:
                 inp = self._output_id_to_node[input_id]
@@ -103,15 +102,17 @@ class ONNXGraph(object):
         return inputs
 
     def get_node_single_parent(
-        self, node: NodeProto, index: Union[int, None] = None
-    ) -> Union[NodeProto, TensorProto, None]:
+        self, node: NodeProto, index: int
+    ) -> Union[NodeProto, None]:
         """
         :param node: the node to get the parent node of
         :param index: choose which input to search, or all if None
         :return: parent of node if it only has one parent, otherwise None
         """
-        parents = self.get_node_parents(node, index)
-        return parents[0] if len(parents) == 1 else None
+        input_id = node.input[index]
+        if input_id not in self._output_id_to_node:
+            return None
+        return self._output_id_to_node[input_id]
 
     def get_node_children(self, node: NodeProto) -> List[NodeProto]:
         """
