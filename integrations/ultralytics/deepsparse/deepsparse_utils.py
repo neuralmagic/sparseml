@@ -74,7 +74,7 @@ class YoloPostprocessor:
         output shapes
     """
 
-    def __init__(self, image_size: Tuple[int]):
+    def __init__(self, image_size: Tuple[int] = (640, 640)):
         self._image_size = image_size
         self._grids = {}  # Dict[Tuple[int], torch.Tensor]
 
