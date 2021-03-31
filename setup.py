@@ -55,8 +55,8 @@ _nm_deps = [
 _deepsparse_deps = [
     f"{'deepsparse-nightly' if _NIGHTLY else 'deepsparse'}~={_VERSION_MAJOR_MINOR}"
 ]
-_pytorch_deps = ["torch>=1.1.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0"]
+_pytorch_deps = ["torch>=1.1.0,<1.8", "tensorboard>=1.0", "tensorboardX>=1.0"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.9"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",

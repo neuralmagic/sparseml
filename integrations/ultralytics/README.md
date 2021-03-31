@@ -44,8 +44,8 @@ cp ../sparseml/integrations/ultralytics/*.py .
 cp ../sparseml/integrations/ultralytics/deepsparse/*.py .
 
 # install dependencies
+pip install sparseml[torchvision] deepsparse
 pip install -r requirements.txt
-pip install sparseml deepsparse
 ```
 
 
@@ -119,7 +119,7 @@ cp sparseml/integrations/ultralytics/deepsparse/*.py yolov5
 cd yolov5
 
 # install deepsparse and server dependencies
-pip install deepsparse sparseml flask flask-cors
+pip install deepsparse sparseml[torchvision] flask flask-cors
 ```
 
 Note: on new Ubuntu systems, to install `cv2` running `sudo apt-get update && apt-get install -y python3-opencv`
