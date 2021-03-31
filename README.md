@@ -312,7 +312,7 @@ clone the repository and install any additional dependencies as required.
 
 The currently supported framework versions are:
 
-- PyTorch supported versions: `>= 1.1.0, < 1.7.0`
+- PyTorch supported versions: `>= 1.1.0, < 1.8.0`
 - Keras supported versions: `2.3.0-tf` (through the TensorFlow `2.2` package; as of Feb 1st, 2021, `keras2onnx` has
 not been tested for TensorFlow >= `2.3`). 
 - TensorFlow V1 supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
