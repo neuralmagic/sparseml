@@ -56,7 +56,7 @@ import numpy
 import flask
 from deepsparse import compile_model
 from deepsparse.utils import arrays_to_bytes, bytes_to_arrays
-from deepsparse_utils import postprocess_nms, pre_nms_postprocess
+from deepsparse_utils import YoloPostprocessor, postprocess_nms
 from flask_cors import CORS
 
 
@@ -121,6 +121,8 @@ def create_and_run_model_server(
     engine = compile_model(model_path, batch_size, num_cores)
     print(engine)
 
+    postprocessor = YoloPostprocessor()
+
     app = flask.Flask(__name__)
     CORS(app)
 
@@ -145,7 +147,7 @@ def create_and_run_model_server(
 
         # post-processing
         postprocess_start_time = time.time()
-        outputs = pre_nms_postprocess(outputs)
+        outputs = postprocessor.pre_nms_postprocess(outputs)
         postprocess_time = time.time() - postprocess_start_time
         print(f"Post-processing, pre-nms time: {postprocess_time * 1000.0:.4f}ms")
 
