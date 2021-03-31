@@ -65,7 +65,29 @@ def download_model_and_recipe(root_dir: str):
     Download pretrained model and a pruning recipe
     """
     model_dir = os.path.join(root_dir, "resnet20_v1")
-    zoo_model = Zoo.load_model(
+
+    # Load base model to prune
+    base_zoo_model = Zoo.load_model(
+        domain="cv",
+        sub_domain="classification",
+        architecture="resnet_v1",
+        sub_architecture=20,
+        framework="keras",
+        repo="sparseml",
+        dataset="cifar_10",
+        training_scheme=None,
+        optim_name="base",
+        optim_category=None,
+        optim_target=None,
+        override_parent_path=model_dir,
+    )
+    base_zoo_model.download()
+    model_file_path = base_zoo_model.framework_files[0].downloaded_path()
+    if not os.path.exists(model_file_path) or not model_file_path.endswith(".h5"):
+        raise RuntimeError("Model file not found: {}".format(model_file_path))
+
+    # Load recipe to use
+    pruned_zoo_model = Zoo.load_model(
         domain="cv",
         sub_domain="classification",
         architecture="resnet_v1",
@@ -79,11 +101,8 @@ def download_model_and_recipe(root_dir: str):
         optim_target=None,
         override_parent_path=model_dir,
     )
-    zoo_model.download()
-    model_file_path = zoo_model.framework_files[0].downloaded_path()
-    if not os.path.exists(model_file_path) or not model_file_path.endswith(".h5"):
-        raise RuntimeError("Model file not found: {}".format(model_file_path))
-    recipe_file_path = zoo_model.recipes[0].downloaded_path()
+    pruned_zoo_model.download()
+    recipe_file_path = pruned_zoo_model.recipes[0].downloaded_path()
     if not os.path.exists(recipe_file_path):
         raise RuntimeError("Recipe file not found: {}".format(recipe_file_path))
     return model_file_path, recipe_file_path
