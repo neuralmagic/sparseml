@@ -86,24 +86,11 @@ def download_model_and_recipe(root_dir: str):
     if not os.path.exists(model_file_path) or not model_file_path.endswith(".h5"):
         raise RuntimeError("Model file not found: {}".format(model_file_path))
 
-    # Load recipe to use
-    pruned_recipe = Zoo.search_recipes(
-        domain="cv",
-        sub_domain="classification",
-        architecture="resnet_v1",
-        sub_architecture=20,
-        framework="keras",
-        repo="sparseml",
-        dataset="cifar_10",
-        training_scheme=None,
-        optim_name="pruned",
-        optim_category="conservative",
-        optim_target=None,
-        override_parent_path=model_dir,
+    # Simply use the recipe stub
+    recipe_file_path = (
+        "zoo:cv/classification/resnet_v1-20/keras/sparseml/cifar_10/pruned-conservative"
     )
-    recipe_file_path = pruned_recipe[0].downloaded_path()
-    if not os.path.exists(recipe_file_path):
-        raise RuntimeError("Recipe file not found: {}".format(recipe_file_path))
+
     return model_file_path, recipe_file_path
 
 
@@ -150,6 +137,7 @@ def main():
     (X_train, y_train), (X_test, y_test) = load_and_normalize_cifar10()
 
     model_file_path, recipe_file_path = download_model_and_recipe(root_dir)
+
     print("Load pretrained model")
     base_model = tf.keras.models.load_model(model_file_path)
     base_model.summary()
