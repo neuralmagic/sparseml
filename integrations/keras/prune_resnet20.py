@@ -87,7 +87,7 @@ def download_model_and_recipe(root_dir: str):
         raise RuntimeError("Model file not found: {}".format(model_file_path))
 
     # Load recipe to use
-    pruned_zoo_model = Zoo.load_model(
+    pruned_recipe = Zoo.search_recipes(
         domain="cv",
         sub_domain="classification",
         architecture="resnet_v1",
@@ -101,8 +101,7 @@ def download_model_and_recipe(root_dir: str):
         optim_target=None,
         override_parent_path=model_dir,
     )
-    pruned_zoo_model.download()
-    recipe_file_path = pruned_zoo_model.recipes[0].downloaded_path()
+    recipe_file_path = pruned_recipe[0].downloaded_path()
     if not os.path.exists(recipe_file_path):
         raise RuntimeError("Recipe file not found: {}".format(recipe_file_path))
     return model_file_path, recipe_file_path
