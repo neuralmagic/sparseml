@@ -77,7 +77,7 @@ def download_model_and_recipe(root_dir: str):
         dataset="cifar_10",
         training_scheme=None,
         optim_name="base",
-        optim_category=None,
+        optim_category="none",
         optim_target=None,
         override_parent_path=model_dir,
     )
