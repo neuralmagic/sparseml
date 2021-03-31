@@ -38,6 +38,7 @@ if _NIGHTLY:
 _deps = [
     "jupyter>=1.0.0",
     "ipywidgets>=7.0.0",
+    "pydantic>=1.0.0",
     "pyyaml>=5.0.0",
     "progressbar2>=3.0.0",
     "numpy>=1.0.0",
@@ -80,10 +81,11 @@ _dev_deps = [
     "sphinx-copybutton>=0.3.0",
     "sphinx-markdown-tables>=0.0.15",
     "sphinx-multiversion==0.2.4",
+    "sphinx-pydantic>=0.1.0",
+    "sphinx-rtd-theme>=0.5.0",
     "wheel>=0.36.2",
     "pytest>=6.0.0",
     "flaky>=3.0.0",
-    "sphinx-rtd-theme",
 ]
 
 

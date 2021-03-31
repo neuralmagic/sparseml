@@ -52,6 +52,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_markdown_tables",
     "sphinx_multiversion",
+    "sphinx-pydantic",
     "sphinx_rtd_theme",
     "recommonmark",
 ]
@@ -111,8 +112,8 @@ html_theme = "sphinx_rtd_theme"
 html_logo = "source/icon-sparseml.png"
 
 html_theme_options = {
-    'analytics_id': 'UA-128364174-1',  #  Provided by Google in your dashboard
-    'analytics_anonymize_ip': False,
+    "analytics_id": "UA-128364174-1",  #  Provided by Google in your dashboard
+    "analytics_anonymize_ip": False,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
