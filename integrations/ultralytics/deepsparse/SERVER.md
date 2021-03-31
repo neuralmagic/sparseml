@@ -41,8 +41,8 @@ cp sparseml/integrations/ultralytics/deepsparse/*.py yolov5
 cd yolov5
 
 # install dependencies
+pip install deepsparse sparseml[torchvision] flask flask-cors
 pip install -r requirements.txt
-pip install deepsparse sparseml flask flask-cors
 ```
 
 ## Execution
