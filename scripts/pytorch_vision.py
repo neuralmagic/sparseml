@@ -1077,7 +1077,7 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
     # loss setup
     val_loss = _get_loss_wrapper(args, training=True)
     LOGGER.info("created loss for validation: {}".format(val_loss))
-    train_loss = _get_loss_wrapper(args)
+    train_loss = _get_loss_wrapper(args, training=True)
     LOGGER.info("created loss for training: {}".format(train_loss))
 
     # training setup
