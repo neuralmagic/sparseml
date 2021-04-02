@@ -13,6 +13,8 @@
 import os
 import sys
 
+from sparseml import __version__
+
 sys.path.insert(0, os.path.abspath("../.."))
 
 
@@ -26,8 +28,9 @@ copyright = (
 author = "Neural Magic"
 
 # The full version, including alpha/beta/rc tags
-version = "0.1"
-release = "0.1.0"
+ver_major, ver_minor, ver_bug = __version__.split(".")
+version = f"{ver_major}.{ver_minor}"
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------

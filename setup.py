@@ -15,12 +15,13 @@
 import sys
 from datetime import date
 from typing import Dict, List, Tuple
-
 from setuptools import find_packages, setup
+
+from sparseml import __version__
 
 
 _PACKAGE_NAME = "sparseml"
-_VERSION = "0.2.0"
+_VERSION = __version__
 _VERSION_MAJOR, _VERSION_MINOR, _VERSION_BUG = _VERSION.split(".")
 _VERSION_MAJOR_MINOR = f"{_VERSION_MAJOR}.{_VERSION_MINOR}"
 _NIGHTLY = "nightly" in sys.argv
