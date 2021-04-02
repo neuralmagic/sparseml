@@ -13,13 +13,13 @@
 # limitations under the License.
 
 """
-Functions and classes for detecting and working with functionality
-for models within ML frameworks.
+Functionality related to integrating with, detecting, and getting information for
+support and sparsification in ML frameworks.
 """
 
 import logging
 from collections import OrderedDict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -91,12 +91,12 @@ class FrameworkInfo(BaseModel):
     framework: Framework = Field(
         title="framework", description="The framework the system info is for."
     )
-    package_versions: Dict[str, str] = Field(
+    package_versions: Dict[str, Optional[str]] = Field(
         title="package_versions",
         description=(
             "A mapping of the package and supporting packages for a given framework "
             "to the detected versions on the system currently. "
-            "If the package is not detected, will be set to 'not detected'."
+            "If the package is not detected, will be set to None."
         ),
     )
     sparsification: SparsificationInfo = Field(
@@ -114,6 +114,11 @@ class FrameworkInfo(BaseModel):
         ),
     )
 
+    properties: Dict[str, Any] = Field(
+        default={},
+        title="properties",
+        description="Any additional properties for the framework.",
+    )
     training_available: bool = Field(
         default=False,
         title="training_available",

@@ -13,19 +13,18 @@
 # limitations under the License.
 
 """
-Functionality related to detecting and getting information for
-support and sparsification in the DeepSparse framework.
+Functionality related to integrating with, detecting, and getting information for
+support and sparsification in the Keras framework.
 """
 
 import logging
 from typing import Any
 
 from sparseml.base import Framework, get_version
-from sparseml.deepsparse.base import check_deepsparse_install
-from sparseml.deepsparse.sparsification import sparsification_info
 from sparseml.framework import FrameworkInferenceProviderInfo, FrameworkInfo
+from sparseml.keras.base import check_keras_install, is_native_keras, keras, tensorflow
+from sparseml.keras.sparsification import sparsification_info
 from sparseml.sparsification import SparsificationInfo
-from sparsezoo import File, Model
 
 
 __all__ = ["is_supported", "detect_framework", "framework_info"]
@@ -39,18 +38,18 @@ def is_supported(item: Any) -> bool:
 
     :param item: The item to detect the support for
     :type item: Any
-    :return: True if the item is supported by deepsparse, False otherwise
+    :return: True if the item is supported by keras, False otherwise
     :rtype: bool
     """
     framework = detect_framework(item)
 
-    return framework == Framework.deepsparse
+    return framework == Framework.keras
 
 
 def detect_framework(item: Any) -> Framework:
     """
     Detect the supported ML framework for a given item specifically for the
-    deepsparse package.
+    keras package.
     Supported input types are the following:
 
     - A Framework enum
@@ -75,84 +74,78 @@ def detect_framework(item: Any) -> Framework:
     elif isinstance(item, str) and item.lower().strip() in Framework.__members__:
         _LOGGER.debug("framework detected from Framework string instance")
         framework = Framework[item.lower().strip()]
-    elif (
-        isinstance(item, str)
-        and "deepsparse" in item.lower().strip()
-        or "deep sparse" in item.lower().strip()
+    elif isinstance(item, str) and "keras" in item.lower().strip():
+        _LOGGER.debug("framework detected from keras text")
+        # string, check if it's a string saying keras first
+        framework = Framework.keras
+    elif isinstance(item, str) and (
+        ".h5" in item.lower().strip() or ".pb" in item.lower().strip()
     ):
-        _LOGGER.debug("framework detected from deepsparse text")
-        # string, check if it's a string saying deepsparse first
-        framework = Framework.deepsparse
-    elif isinstance(item, str) and ".onnx" in item.lower().strip():
-        _LOGGER.debug("framework detected from .onnx")
-        # string, check if it's a file url or path that ends with onnx extension
-        framework = Framework.deepsparse
-    elif isinstance(item, Model) or isinstance(item, File):
-        _LOGGER.debug("framework detected from SparseZoo instance")
-        # sparsezoo model/file, deepsparse supports these natively
-        framework = Framework.deepsparse
+        _LOGGER.debug("framework detected from .h5 or .pb")
+        # string, check if it's a file url or path that ends with h5 extension
+        framework = Framework.keras
+    elif check_keras_install(raise_on_error=False):
+        if isinstance(item, keras.Model):
+            _LOGGER.debug("framework detected from Keras instance")
+            # keras native support
+            framework = Framework.keras
 
     return framework
 
 
 def framework_info() -> FrameworkInfo:
     """
-    Detect the information for the deepsparse framework such as package versions,
+    Detect the information for the keras framework such as package versions,
     availability for core actions such as training and inference,
     sparsification support, and inference provider support.
 
-    :return: The framework info for deepsparse
+    :return: The framework info for keras
     :rtype: FrameworkInfo
     """
-    arch = {}
-
-    if check_deepsparse_install(raise_on_error=False):
-        from deepsparse.cpu import cpu_architecture
-
-        arch = cpu_architecture()
-
-    cpu_warnings = []
-    if arch and arch.isa != "avx512":
-        cpu_warnings.append(
-            "AVX512 instruction set not detected, inference performance will be limited"
-        )
-    if arch and arch.isa != "avx512" and arch.isa != "avx2":
-        cpu_warnings.append(
-            "AVX2 and AVX512 instruction sets not detected, "
-            "inference performance will be severely limited"
-        )
-    if arch and not arch.vni:
-        cpu_warnings.append(
-            "VNNI instruction set not detected, "
-            "quantized inference performance will be limited"
-        )
-
     cpu_provider = FrameworkInferenceProviderInfo(
         name="cpu",
-        description=(
-            "Performant CPU provider within DeepSparse specializing in speedup of "
-            "sparsified models using AVX and VNNI instruction sets"
-        ),
+        description="Base CPU provider within Keras",
         device="cpu",
         supported_sparsification=SparsificationInfo(),  # TODO: fill in when available
-        available=check_deepsparse_install(raise_on_error=False),
-        properties={
-            "cpu_architecture": arch,
-        },
-        warnings=cpu_warnings,
+        available=check_keras_install(raise_on_error=False),
+        properties={},
+        warnings=[],
+    )
+    gpu_provider = FrameworkInferenceProviderInfo(
+        name="cuda",
+        description="Base GPU CUDA provider within Keras",
+        device="gpu",
+        supported_sparsification=SparsificationInfo(),  # TODO: fill in when available
+        available=(
+            check_keras_install(raise_on_error=False)
+            and tensorflow.test.is_gpu_available()
+        ),
+        properties={},
+        warnings=[],
     )
 
     return FrameworkInfo(
-        framework=Framework.deepsparse,
+        framework=Framework.keras,
         package_versions={
-            "deepsparse": get_version(package_name="deepsparse", raise_on_error=False),
+            "keras": (
+                get_version(package_name="keras", raise_on_error=False)
+                if is_native_keras
+                else get_version(package_name="tensorflow", raise_on_error=False)
+            ),
+            "tensorflow": get_version(package_name="tensorflow", raise_on_error=False),
+            "onnx": get_version(package_name="onnx", raise_on_error=False),
+            "keras2onnx": get_version(package_name="keras2onnx", raise_on_error=False),
+            "tf2onnx": get_version(package_name="tf2onnx", raise_on_error=False),
             "sparsezoo": get_version(package_name="sparsezoo", raise_on_error=False),
             "sparseml": get_version(package_name="sparseml", raise_on_error=False),
         },
         sparsification=sparsification_info(),
-        inference_providers=[cpu_provider],
-        training_available=False,
-        sparsification_available=False,
-        exporting_onnx_available=False,
+        inference_providers=[cpu_provider, gpu_provider],
+        properties={
+            "is_native_keras": is_native_keras,
+        },
+        training_available=True,
+        sparsification_available=True,
+        exporting_onnx_available=True,
         inference_available=True,
     )

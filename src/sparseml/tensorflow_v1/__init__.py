@@ -13,26 +13,30 @@
 # limitations under the License.
 
 """
-Code for working with the tensorflow_v1 framework for creating /
-editing models for performance in the Neural Magic System
+Functionality for working with and sparsifying Models in the TensorFlow 1.x framework
 """
 
 # flake8: noqa
 
 import os as _os
 
+from .base import (
+    check_tensorflow_install,
+    check_tf2onnx_install,
+    require_tensorflow,
+    require_tf2onnx,
+    tensorflow,
+    tensorflow_err,
+    tf2onnx,
+    tf2onnx_err,
+    tf_compat,
+)
 
-try:
-    import tensorflow
 
-    if not _os.getenv("SPARSEML_IGNORE_TFV1", False):
-        # special use case so docs can be generated without having
-        # conflicting TF versions for V1 and Keras
-        version = [int(v) for v in tensorflow.__version__.split(".")]
-        if version[0] != 1 or version[1] < 8:
-            raise Exception
-except:
-    raise RuntimeError(
-        "Unable to import tensorflow. tensorflow>=1.8,<2.0 is required"
-        " to use sparseml.tensorflow_v1."
-    )
+if not _os.getenv("SPARSEML_IGNORE_TFV1", False):
+    # TODO: remove once files within package load without installs
+    check_tensorflow_install()
+
+
+from .framework import detect_framework, framework_info, is_supported
+from .sparsification import sparsification_info

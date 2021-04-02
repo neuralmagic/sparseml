@@ -1,3 +1,5 @@
+# flake8: noqa
+
 # Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,8 +15,8 @@
 # limitations under the License.
 
 """
-Functionality related to integrating with, detecting, and getting information for
-support and sparsification in ML frameworks.
+Functionality related to applying, describing, and supporting sparsification
+algorithms to models within in the ONNX/ONNXRuntime framework.
 """
 
 # flake8: noqa

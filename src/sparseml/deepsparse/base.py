@@ -37,8 +37,8 @@ __all__ = [
 
 
 def check_deepsparse_install(
-    min_version: Optional[int] = None,
-    max_version: Optional[int] = None,
+    min_version: Optional[str] = None,
+    max_version: Optional[str] = None,
     raise_on_error: bool = True,
 ) -> bool:
     """

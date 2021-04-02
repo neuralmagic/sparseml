@@ -14,18 +14,17 @@
 
 """
 Functionality related to detecting and getting information for
-support and sparsification in the DeepSparse framework.
+support and sparsification in the PyTorch framework.
 """
 
 import logging
 from typing import Any
 
 from sparseml.base import Framework, get_version
-from sparseml.deepsparse.base import check_deepsparse_install
-from sparseml.deepsparse.sparsification import sparsification_info
 from sparseml.framework import FrameworkInferenceProviderInfo, FrameworkInfo
+from sparseml.pytorch.base import check_torch_install, torch
+from sparseml.pytorch.sparsification import sparsification_info
 from sparseml.sparsification import SparsificationInfo
-from sparsezoo import File, Model
 
 
 __all__ = ["is_supported", "detect_framework", "framework_info"]
@@ -39,18 +38,18 @@ def is_supported(item: Any) -> bool:
 
     :param item: The item to detect the support for
     :type item: Any
-    :return: True if the item is supported by deepsparse, False otherwise
+    :return: True if the item is supported by pytorch, False otherwise
     :rtype: bool
     """
     framework = detect_framework(item)
 
-    return framework == Framework.deepsparse
+    return framework == Framework.pytorch
 
 
 def detect_framework(item: Any) -> Framework:
     """
     Detect the supported ML framework for a given item specifically for the
-    deepsparse package.
+    pytorch package.
     Supported input types are the following:
 
     - A Framework enum
@@ -75,84 +74,71 @@ def detect_framework(item: Any) -> Framework:
     elif isinstance(item, str) and item.lower().strip() in Framework.__members__:
         _LOGGER.debug("framework detected from Framework string instance")
         framework = Framework[item.lower().strip()]
-    elif (
-        isinstance(item, str)
-        and "deepsparse" in item.lower().strip()
-        or "deep sparse" in item.lower().strip()
-    ):
-        _LOGGER.debug("framework detected from deepsparse text")
-        # string, check if it's a string saying deepsparse first
-        framework = Framework.deepsparse
-    elif isinstance(item, str) and ".onnx" in item.lower().strip():
-        _LOGGER.debug("framework detected from .onnx")
+    elif isinstance(item, str) and "torch" in item.lower().strip():
+        _LOGGER.debug("framework detected from torch text")
+        # string, check if it's a string saying onnx first
+        framework = Framework.pytorch
+    elif isinstance(item, str) and ".pt" in item.lower().strip():
+        _LOGGER.debug("framework detected from .pt")
         # string, check if it's a file url or path that ends with onnx extension
-        framework = Framework.deepsparse
-    elif isinstance(item, Model) or isinstance(item, File):
-        _LOGGER.debug("framework detected from SparseZoo instance")
-        # sparsezoo model/file, deepsparse supports these natively
-        framework = Framework.deepsparse
+        framework = Framework.pytorch
+    elif check_torch_install(raise_on_error=False):
+        from torch import Module
+
+        if isinstance(item, Module):
+            _LOGGER.debug("framework detected from pytorch instance")
+            # pytorch native support
+            framework = Framework.pytorch
 
     return framework
 
 
 def framework_info() -> FrameworkInfo:
     """
-    Detect the information for the deepsparse framework such as package versions,
+    Detect the information for the onnx/onnxruntime framework such as package versions,
     availability for core actions such as training and inference,
     sparsification support, and inference provider support.
 
-    :return: The framework info for deepsparse
+    :return: The framework info for onnx/onnxruntime
     :rtype: FrameworkInfo
     """
-    arch = {}
-
-    if check_deepsparse_install(raise_on_error=False):
-        from deepsparse.cpu import cpu_architecture
-
-        arch = cpu_architecture()
-
-    cpu_warnings = []
-    if arch and arch.isa != "avx512":
-        cpu_warnings.append(
-            "AVX512 instruction set not detected, inference performance will be limited"
-        )
-    if arch and arch.isa != "avx512" and arch.isa != "avx2":
-        cpu_warnings.append(
-            "AVX2 and AVX512 instruction sets not detected, "
-            "inference performance will be severely limited"
-        )
-    if arch and not arch.vni:
-        cpu_warnings.append(
-            "VNNI instruction set not detected, "
-            "quantized inference performance will be limited"
-        )
-
     cpu_provider = FrameworkInferenceProviderInfo(
         name="cpu",
-        description=(
-            "Performant CPU provider within DeepSparse specializing in speedup of "
-            "sparsified models using AVX and VNNI instruction sets"
-        ),
+        description="Base CPU provider within PyTorch",
         device="cpu",
         supported_sparsification=SparsificationInfo(),  # TODO: fill in when available
-        available=check_deepsparse_install(raise_on_error=False),
-        properties={
-            "cpu_architecture": arch,
-        },
-        warnings=cpu_warnings,
+        available=check_torch_install(raise_on_error=False),
+        properties={},
+        warnings=[],
+    )
+    gpu_provider = FrameworkInferenceProviderInfo(
+        name="cuda",
+        description="Base GPU CUDA provider within PyTorch",
+        device="gpu",
+        supported_sparsification=SparsificationInfo(),  # TODO: fill in when available
+        available=(
+            check_torch_install(raise_on_error=False) and torch.cuda.is_available()
+        ),
+        properties={},
+        warnings=[],
     )
 
     return FrameworkInfo(
-        framework=Framework.deepsparse,
+        framework=Framework.pytorch,
         package_versions={
-            "deepsparse": get_version(package_name="deepsparse", raise_on_error=False),
+            "torch": get_version(package_name="torch", raise_on_error=False),
+            "torchvision": (
+                get_version(package_name="torchvision", raise_on_error=False)
+            ),
+            "onnx": (get_version(package_name="onnx", raise_on_error=False),),
             "sparsezoo": get_version(package_name="sparsezoo", raise_on_error=False),
             "sparseml": get_version(package_name="sparseml", raise_on_error=False),
         },
         sparsification=sparsification_info(),
-        inference_providers=[cpu_provider],
-        training_available=False,
-        sparsification_available=False,
-        exporting_onnx_available=False,
+        inference_providers=[cpu_provider, gpu_provider],
+        properties={},
+        training_available=True,
+        sparsification_available=True,
+        exporting_onnx_available=True,
         inference_available=True,
     )

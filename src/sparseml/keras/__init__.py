@@ -13,33 +13,24 @@
 # limitations under the License.
 
 """
-Code for working with the keras framework for creating /
-editing models for performance in the Neural Magic System
+Functionality for working with and sparsifying Models in the Keras framework
 """
 
 # flake8: noqa
 
-try:
-    import tensorflow
+from .base import (
+    check_keras_install,
+    is_native_keras,
+    keras,
+    keras_err,
+    require_keras,
+    tensorflow,
+    tensorflow_err,
+)
 
-    if tensorflow.__version__ < "2.1.0":
-        raise RuntimeError("TensorFlow >= 2.1.0 is required, found {}".format(version))
-except:
-    raise RuntimeError(
-        "Unable to import tensorflow. TensorFlow>=2.1.0 is required"
-        " to use sparseml.keras."
-    )
+
+check_keras_install()  # TODO: remove once files within package load without installs
 
 
-try:
-    import keras
-
-    v = keras.__version__
-    if v < "2.4.3":
-        raise RuntimeError(
-            "Native keras is found and will be used, but required >= 2.4.3, found {}".format(
-                v
-            )
-        )
-except:
-    pass
+from .framework import detect_framework, framework_info, is_supported
+from .sparsification import sparsification_info

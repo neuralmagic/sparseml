@@ -14,7 +14,7 @@
 
 """
 Functionality related to describing availability and information of sparsification
-algorithms to models within in the DeepSparse framework.
+algorithms to models within in the Keras framework.
 """
 
 import logging
@@ -30,13 +30,13 @@ _LOGGER = logging.getLogger(__name__)
 
 def sparsification_info() -> SparsificationInfo:
     """
-    Load the available setup for sparsifying model within deepsparse.
+    Load the available setup for sparsifying model within keras.
 
-    :return: The sparsification info for the deepsparse framework
+    :return: The sparsification info for the keras framework
     :rtype: SparsificationInfo
     """
-    _LOGGER.debug("getting sparsification info for deepsparse")
-    info = SparsificationInfo(modifiers=[])
-    _LOGGER.info("retrieved sparsification info for deepsparse: %s", info)
+    _LOGGER.debug("getting sparsification info for keras")
+    info = SparsificationInfo(modifiers=[])  # TODO: fill in once available
+    _LOGGER.info("retrieved sparsification info for keras: %s", info)
 
     return info

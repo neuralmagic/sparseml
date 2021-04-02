@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Functionality related to applying, describing, and supporting sparsification
+algorithms to models within in ML frameworks.
+"""
+
 # flake8: noqa
 
 from .info import *

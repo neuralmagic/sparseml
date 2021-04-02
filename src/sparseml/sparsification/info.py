@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Functionality related to describing availability and information of sparsification
+algorithms to models within in the ML frameworks.
+"""
+
 import logging
 from enum import Enum
 from typing import Any, List, Optional

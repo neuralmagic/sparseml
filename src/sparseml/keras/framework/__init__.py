@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# flake8: noqa
+
 """
-Functionality related to integrating with, detecting, and getting information for
-support and sparsification in ML frameworks.
+Functionality related to detecting and getting information for
+support and sparsification in the Keras framework.
 """
 
 # flake8: noqa
