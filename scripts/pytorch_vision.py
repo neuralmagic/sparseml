@@ -84,9 +84,9 @@ optional arguments:
                         provide 'zoo' to load the base weights associated with
                         that recipe
   --model-kwargs MODEL_KWARGS
-                        kew word arguments to be passed to model constructor,
+                        Keyword arguments to be passed to model constructor,
                         should be given as a json object
---dataset DATASET     The dataset to use for training, ex: imagenet,
+  --dataset DATASET     The dataset to use for training, ex: imagenet,
                         imagenette, cifar10, etc. Set to imagefolder for a
                         generic dataset setup with an image folder structure
                         setup like imagenet or loadable by a dataset in
@@ -94,7 +94,7 @@ optional arguments:
   --dataset-path DATASET_PATH
                         The root path to where the dataset is stored
   --dataset-kwargs DATASET_KWARGS
-                        kew word arguments to be passed to dataset
+                        Keyword arguments to be passed to dataset
                         constructor, should be given as a json object
   --model-tag MODEL_TAG
                         A tag to use for the model for saving results under
@@ -180,7 +180,7 @@ optional arguments:
                         and resume the state for. If provided, pretrained will
                         be ignored
   --model-kwargs MODEL_KWARGS
-                        kew word arguments to be passed to model constructor,
+                        Keyword arguments to be passed to model constructor,
                         should be given as a json object
   --dataset DATASET     The dataset to use for training, ex: imagenet,
                         imagenette, cifar10, etc. Set to imagefolder for a
@@ -190,7 +190,7 @@ optional arguments:
   --dataset-path DATASET_PATH
                         The root path to where the dataset is stored
   --dataset-kwargs DATASET_KWARGS
-                        kew word arguments to be passed to dataset
+                        Keyword arguments to be passed to dataset
                         constructor, should be given as a json object
   --model-tag MODEL_TAG
                         A tag to use for the model for saving results under
@@ -247,7 +247,7 @@ optional arguments:
                         and resume the state for. If provided, pretrained will
                         be ignored
   --model-kwargs MODEL_KWARGS
-                        kew word arguments to be passed to model constructor,
+                        Keyword arguments to be passed to model constructor,
                         should be given as a json object
   --dataset DATASET     The dataset to use for training, ex: imagenet,
                         imagenette, cifar10, etc. Set to imagefolder for a
@@ -257,9 +257,9 @@ optional arguments:
   --dataset-path DATASET_PATH
                         The root path to where the dataset is stored
   --dataset-kwargs DATASET_KWARGS
-                        kew word arguments to be passed to dataset
+                        Keyword arguments to be passed to dataset
                         constructor, should be given as a json object
---model-tag MODEL_TAG
+  --model-tag MODEL_TAG
                         A tag to use for the model for saving results under
                         save-dir, defaults to the model arch and dataset used
   --save-dir SAVE_DIR   The path to the directory for saving results
@@ -319,7 +319,7 @@ optional arguments:
                         and resume the state for. If provided, pretrained will
                         be ignored
   --model-kwargs MODEL_KWARGS
-                        kew word arguments to be passed to model constructor,
+                        Keyword arguments to be passed to model constructor,
                         should be given as a json object
   --dataset DATASET     The dataset to use for training, ex: imagenet,
                         imagenette, cifar10, etc. Set to imagefolder for a
@@ -329,7 +329,7 @@ optional arguments:
   --dataset-path DATASET_PATH
                         The root path to where the dataset is stored
   --dataset-kwargs DATASET_KWARGS
-                        kew word arguments to be passed to dataset
+                        Keyword arguments to be passed to dataset
  --model-tag MODEL_TAG
                         A tag to use for the model for saving results under
                         save-dir, defaults to the model arch and dataset used
@@ -562,7 +562,7 @@ def parse_args():
             "--model-kwargs",
             type=json.loads,
             default={},
-            help="kew word arguments to be passed to model constructor, should be "
+            help="Keyword arguments to be passed to model constructor, should be "
             " given as a json object",
         )
 
@@ -587,7 +587,7 @@ def parse_args():
             "--dataset-kwargs",
             type=json.loads,
             default={},
-            help="kew word arguments to be passed to dataset constructor, should be "
+            help="Keyword arguments to be passed to dataset constructor, should be "
             " given as a json object",
         )
 
@@ -1376,7 +1376,7 @@ def main(args):
         )
     LOGGER.info("created model: {}".format(model))
 
-    # RUN COMMAND SPECIFIC TASTS
+    # RUN COMMAND SPECIFIC TASKS
     if args.command == TRAIN_COMMAND:
         train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
     if args.command == EXPORT_COMMAND:
