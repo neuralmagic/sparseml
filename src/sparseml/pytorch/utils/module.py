@@ -974,8 +974,7 @@ class ModuleTrainer(ModuleRunner):
 
             # loss calculation
             losses = self._loss(data, pred)
-            # scale loss by world size
-            losses[DEFAULT_LOSS_KEY] *= self.device_context.world_size
+
             self._run_hooks.invoke_batch_loss(
                 counter, batch, batch_size, data, pred, losses
             )
