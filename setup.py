@@ -15,7 +15,6 @@
 import sys
 from datetime import date
 from typing import Dict, List, Tuple
-
 from setuptools import find_packages, setup
 
 from sparseml import __version__
