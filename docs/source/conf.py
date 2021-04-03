@@ -13,8 +13,6 @@
 import os
 import sys
 
-from sparseml import __version__
-
 sys.path.insert(0, os.path.abspath("../.."))
 
 
@@ -28,9 +26,13 @@ copyright = (
 author = "Neural Magic"
 
 # The full version, including alpha/beta/rc tags
-ver_major, ver_minor, ver_bug = __version__.split(".")
-version = f"{ver_major}.{ver_minor}"
-release = __version__
+version = "unknown"
+version_major_minor = version
+# load and overwrite version info from sparseml package
+exec(open(os.path.join(os.pardir, os.pardir, "src", "sparseml", "version.py")).read())
+release = version
+version = version_major_minor
+print(f"loaded versions from src/sparseml/version.py and set to {release}, {version}")
 
 
 # -- General configuration ---------------------------------------------------

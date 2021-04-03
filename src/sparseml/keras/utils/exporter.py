@@ -77,6 +77,7 @@ class ModelExporter(object):
 
         if raise_on_tf_support:
             import tensorflow
+
             v = tensorflow.__version__
             if v >= "2.3.0":
                 raise ValueError(

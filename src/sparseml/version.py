@@ -13,14 +13,12 @@
 # limitations under the License.
 
 """
-Tooling to help train, test, and optimize models for better performance
+Functionality for storing and setting the version info for SparseML
 """
 
-# flake8: noqa
-# isort: skip_file
+__all__ = ["__version__"]
+__version__ = "0.2.0"
 
-from .version import *
-
-# be sure to import all logging first and at the root
-# this keeps other loggers in nested files creating from the root logger setups
-from .log import *
+version = __version__
+version_major, version_minor, version_bug = version.split(".")
+version_major_minor = f"{version_major}.{version_minor}"
