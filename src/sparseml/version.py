@@ -16,7 +16,14 @@
 Functionality for storing and setting the version info for SparseML
 """
 
-__all__ = ["__version__"]
+__all__ = [
+    "__version__",
+    "version",
+    "version_major",
+    "version_minor",
+    "version_bug",
+    "version_major_minor",
+]
 __version__ = "0.2.0"
 
 version = __version__
