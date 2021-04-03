@@ -34,15 +34,17 @@ def _test_sparsity_mask_creator(tensor_shapes, mask_creator, sparsity_val, devic
         assert abs(tensor_sparsity(update_mask) - sparsity_val) < 1e-2
 
     if isinstance(mask_creator, GroupedPruningMaskCreator):
-        # Check that every value in the mask_creator grouping
-        # is the same within the mask.  Assumes grouping applies
-        # an absolte mean to each grouping
-        for mask in initial_masks + update_masks:
-            grouped_mask = mask_creator.group_tensor(mask)
-            mask_vals_are_grouped = torch.all(
-                (grouped_mask == 0.0) | (grouped_mask == 1.0)
-            )
-            assert mask_vals_are_grouped
+        _test_grouped_masks(initial_masks + update_masks, mask_creator)
+
+
+def _test_grouped_masks(masks, mask_creator):
+    # Check that every value in the mask_creator grouping
+    # is the same within the mask.  Assumes grouping applies
+    # an absolte mean to each grouping
+    for mask in masks:
+        grouped_mask = mask_creator.group_tensor(mask)
+        mask_vals_are_grouped = torch.all((grouped_mask == 0.0) | (grouped_mask == 1.0))
+        assert mask_vals_are_grouped
 
 
 @pytest.mark.parametrize(
@@ -76,6 +78,44 @@ def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
 def test_sparsity_mask_creator_cuda(tensor_shape, mask_creator, sparsity_val):
     _test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val, "cuda")
+
+
+@pytest.mark.parametrize(
+    ("tensors,mask_creator"),
+    [
+        (
+            [torch.randn(128, 128, 3, 3), 3 * torch.randn(64, 64)],
+            UnstructuredPruningMaskCreator(),
+        ),
+        (
+            [i * torch.randn(64, 64, 3, 3) for i in range(1, 6)],
+            UnstructuredPruningMaskCreator(),
+        ),
+        (
+            [torch.randn(128, 128, 3, 3), 3 * torch.randn(64, 512)],
+            BlockPruningMaskCreator([1, 4]),
+        ),
+        (
+            [i * torch.randn(64, 64, 3, 3) for i in range(1, 6)],
+            BlockPruningMaskCreator([1, 4]),
+        ),
+    ],
+)
+@pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])
+def test_global_sparsity_mask_creator(tensors, mask_creator, sparsity_val):
+    masks = mask_creator.create_sparsity_masks(
+        tensors, sparsity_val, global_sparsity=True
+    )
+    mask_sparsities = [tensor_sparsity(mask) for mask in masks]
+    global_sparsity = tensor_sparsity(torch.cat([mask.reshape(-1) for mask in masks]))
+    assert abs(global_sparsity - sparsity_val) < 1e-2
+
+    if sparsity_val not in [0.0, 1.0]:
+        # check that individual sparsity masks are reasonably dissimilar
+        assert len(set(mask_sparsities)) > 1
+
+    if isinstance(mask_creator, GroupedPruningMaskCreator):
+        _test_grouped_masks(masks, mask_creator)
 
 
 @pytest.mark.parametrize(
