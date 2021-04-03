@@ -40,34 +40,37 @@ class PruningMaskCreator(ABC):
     Subclasses should define all methods for creating masks
     """
 
-    def create_sparsity_mask_from_tensor(self, tensor: Tensor) -> Tensor:
+    def create_sparsity_masks_from_tensor(self, tensors: List[Tensor]) -> List[Tensor]:
         """
-        :param tensor: the tensor to calculate a mask based on its values
-        :return: a mask derived from the values of tensor
+        :param tensors: list of tensors to calculate a masks based on their values
+        :return: list of masks derived from each of the given tensors
         """
-        return torch.ne(tensor, 0.0).type(tensor.type())
+        return [torch.ne(tensor, 0.0).type(tensor.type()) for tensor in tensors]
 
     @abstractmethod
-    def create_sparsity_mask_from_abs_threshold(
-        self, tensor: Tensor, threshold: Union[float, Tensor]
-    ) -> Tensor:
+    def create_sparsity_masks_from_abs_threshold(
+        self, tensors: List[Tensor], threshold: Union[float, Tensor]
+    ) -> List[Tensor]:
         """
-        :param tensor: the tensor to calculate a mask from based on the contained
+        :param tensors: list of tensors to calculate a masks based on their contained
             values
         :param threshold: a threshold to determine cutoff for sparsification
-        :return: a mask derived from the tensor and the threshold
+        :return: list of masks derived from each of the given tensors and the threshold
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def create_sparsity_mask(self, tensor: Tensor, sparsity: float) -> Tensor:
+    def create_sparsity_masks(
+        self, tensors: List[Tensor], sparsity: float
+    ) -> List[Tensor]:
         """
-        :param tensor: the tensor to calculate a mask from based on the contained values
+        :param tensors: list of tensors to calculate a masks based on their contained
+            values
         :param sparsity: the desired sparsity to reach within the mask
             (decimal fraction of zeros)
-        :return: a mask (0.0 for values that are masked, 1.0 for values that are
-            unmasked) calculated from the tens such that the desired number of zeros
-            matches the sparsity.
+        :return: list of masks (0.0 for values that are masked, 1.0 for values that are
+            unmasked) calculated from the tensors such that the desired number of zeros
+            in each Tensor matches the sparsity.
         """
         raise NotImplementedError()
 
@@ -76,54 +79,67 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
     """
     Class for creating unstructured sparsity masks.
     Masks will be created using unstructured sparsity by pruning weights ranked
-    by their magnitude.
+    by their magnitude.  Each mask will correspond to the given tensor.
     """
 
-    def create_sparsity_mask_from_abs_threshold(
-        self, tensor: Tensor, threshold: Union[float, Tensor]
-    ) -> Tensor:
+    def create_sparsity_masks_from_abs_threshold(
+        self, tensors: List[Tensor], threshold: Union[float, Tensor]
+    ) -> List[Tensor]:
         """
-        :param tensor: the tensor to calculate a mask from based on the contained values
+        :param tensors: list of tensors to calculate a masks based on their contained
+            values
         :param threshold: a threshold at which to mask abs(values) if they are
             less than it or equal
-        :return: a mask (0.0 for values that are masked, 1.0 for values that are
-            unmasked) calculated from the tens abs(values) <= threshold are masked,
+        :return: list of masks (0.0 for values that are masked, 1.0 for values that are
+            unmasked) calculated from the tensors abs(values) <= threshold are masked,
             all others are unmasked
         """
-        return (torch.abs(tensor) > threshold).type(tensor.type())
+        return [
+            (torch.abs(tensor) > threshold).type(tensor.type()) for tensor in tensors
+        ]
 
-    def create_sparsity_mask(self, tensor: Tensor, sparsity: float) -> Tensor:
+    def create_sparsity_masks(
+        self, tensors: List[Tensor], sparsity: float
+    ) -> List[Tensor]:
         """
-        :param tensor: the tensor to calculate a mask from based on the contained values
+        :param tensors: list of tensors to calculate a mask from based on their contained values
         :param sparsity: the desired sparsity to reach within the mask
             (decimal fraction of zeros)
-        :return: a mask (0.0 for values that are masked, 1.0 for values that are
-            unmasked) calculated from the tens such that the desired number of zeros
-            matches the sparsity. removes the abs lowest values if there are more zeros
-            in the tens than desired sparsity, then will randomly choose the zeros
+        :return: list of masks (0.0 for values that are masked, 1.0 for values that are
+            unmasked) calculated from the tensors such that the desired number of zeros
+            matches the sparsity in each mask. In each mask, removes the abs lowest
+            values if there are more zeros in the tens than desired sparsity, then will
+            randomly choose the zeros
         """
-        threshold = self._abs_threshold_from_sparsity(tensor, sparsity)
+        masks = []
 
-        if threshold.numel() < 1:
-            return tensor.new_ones(tensor.shape)
+        for tensor in tensors:
+            threshold = self._abs_threshold_from_sparsity(tensor, sparsity)
 
-        if threshold.item() > 0.0:
-            return (torch.abs(tensor) > threshold).type(tensor.type())
+            if threshold.numel() < 1:
+                masks.append(tensor.new_ones(tensor.shape))
+                continue
 
-        # too many zeros so will go over the already given sparsity
-        # and choose which zeros to not keep in mask at random
-        zero_indices = (tensor == 0.0).nonzero()
-        rand_indices = list(range(zero_indices.shape[0]))
-        random.shuffle(rand_indices)
-        num_elem = tensor.numel()
-        num_mask = int(num_elem * sparsity)
-        rand_indices = rand_indices[:num_mask]
-        rand_indices = tensor.new_tensor(rand_indices, dtype=torch.int64)
-        zero_indices = zero_indices[rand_indices, :]
-        mask = tensor.new_ones(tensor.shape).type(tensor.type())
-        mask[zero_indices.split(1, dim=1)] = 0
+            if threshold.item() > 0.0:
+                masks.append((torch.abs(tensor) > threshold).type(tensor.type()))
+                continue
 
-        return mask.type(tensor.type())
+            # too many zeros so will go over the already given sparsity
+            # and choose which zeros to not keep in mask at random
+            zero_indices = (tensor == 0.0).nonzero()
+            rand_indices = list(range(zero_indices.shape[0]))
+            random.shuffle(rand_indices)
+            num_elem = tensor.numel()
+            num_mask = int(num_elem * sparsity)
+            rand_indices = rand_indices[:num_mask]
+            rand_indices = tensor.new_tensor(rand_indices, dtype=torch.int64)
+            zero_indices = zero_indices[rand_indices, :]
+            mask = tensor.new_ones(tensor.shape).type(tensor.type())
+            mask[zero_indices.split(1, dim=1)] = 0
+
+            masks.append(mask.type(tensor.type()))
+
+        return masks
 
     def _abs_threshold_from_sparsity(self, tensor: Tensor, sparsity: float) -> Tensor:
         """
@@ -213,44 +229,59 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         """
         raise NotImplementedError()
 
-    def create_sparsity_mask_from_tensor(self, tensor: Tensor) -> Tensor:
+    def create_sparsity_masks_from_tensor(self, tensors: List[Tensor]) -> List[Tensor]:
         """
-        :param tensor: the tensor to calculate a mask based on its values
-        :return: a mask derived from the values of tensor grouped by the group_tensor
+        :param tensors: list of tensors to calculate masks based on their values
+        :return: list of masks derived from the values of the tensors grouped by
+            the group_tensor function.
         """
-        grouped_tensor = self.group_tensor(tensor)
-        grouped_mask = super().create_sparsity_mask_from_tensor(grouped_tensor)
-        return self._map_mask_to_tensor(grouped_mask, tensor.shape)
+        masks = []
+        for tensor in tensors:
+            grouped_tensor = self.group_tensor(tensor)
+            grouped_mask = super().create_sparsity_masks_from_tensor([grouped_tensor])[
+                0
+            ]
+            masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape))
+        return masks
 
-    def create_sparsity_mask_from_abs_threshold(
-        self, tensor: Tensor, threshold: Union[float, Tensor]
-    ) -> Tensor:
+    def create_sparsity_masks_from_abs_threshold(
+        self, tensors: List[Tensor], threshold: Union[float, Tensor]
+    ) -> List[Tensor]:
         """
-        :param tensor: the tensor to calculate a mask from based on the contained
+        :param tensors: list of tensors to calculate masks from based on their contained
             values
         :param threshold: a threshold of group_tensor values to determine cutoff
             for sparsification
-        :return: a mask derived from the tensor and the grouped threshold
+        :return: list of masks derived from the tensors and the grouped threshold
         """
-        grouped_tensor = self.group_tensor(tensor)
-        grouped_mask = super().create_sparsity_mask_from_abs_threshold(
-            grouped_tensor, threshold
-        )
-        return self._map_mask_to_tensor(grouped_mask, tensor.shape)
+        masks = []
+        for tensor in tensors:
+            grouped_tensor = self.group_tensor(tensor)
+            grouped_mask = super().create_sparsity_masks_from_abs_threshold(
+                [grouped_tensor], threshold
+            )[0]
+            masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape))
+        return masks
 
-    def create_sparsity_mask(self, tensor: Tensor, sparsity: float) -> Tensor:
+    def create_sparsity_masks(
+        self, tensors: List[Tensor], sparsity: float
+    ) -> List[Tensor]:
         """
-        :param tensor: the tensor to calculate a mask from based on the contained values
+        :param tensors: list of tensors to calculate masks from based on their contained
+            values
         :param sparsity: the desired sparsity to reach within the mask
             (decimal fraction of zeros)
-        :return: a mask (0.0 for values that are masked, 1.0 for values that are
-            unmasked) calculated from the tens such that the desired number of zeros
-            matches the sparsity and all values mapped to the same group have the
-            same value.
+        :return: list of masks (0.0 for values that are masked, 1.0 for values that are
+            unmasked) calculated from the tensors such that the desired number of zeros
+            matches the sparsity in each mask and all values mapped to the same group
+            have the same value.
         """
-        grouped_tensor = self.group_tensor(tensor)
-        grouped_mask = super().create_sparsity_mask(grouped_tensor, sparsity)
-        return self._map_mask_to_tensor(grouped_mask, tensor.shape)
+        masks = []
+        for tensor in tensors:
+            grouped_tensor = self.group_tensor(tensor)
+            grouped_mask = super().create_sparsity_masks([grouped_tensor], sparsity)[0]
+            masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape))
+        return masks
 
 
 class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):

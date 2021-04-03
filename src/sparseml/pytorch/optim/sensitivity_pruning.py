@@ -153,7 +153,7 @@ def _sensitivity_callback(
             prunable_layers
         ):
             # increment sparsity level for current layer
-            current_mask.set_param_mask_from_sparsity(sparsity_levels[sparsity_index])
+            current_mask.set_param_masks_from_sparsity(sparsity_levels[sparsity_index])
         else:
             # go to next layer
             sparsity_index = 0
@@ -167,14 +167,14 @@ def _sensitivity_callback(
 
             if layer_index < len(prunable_layers):
                 current_mask = ModuleParamPruningMask(
-                    prunable_layers[layer_index][1],
+                    [prunable_layers[layer_index][1]],
                     store_init=True,
                     mask_creator=UnstructuredPruningMaskCreator(),
                 )
                 current_mask.enabled = True
 
                 if sparsity_levels[sparsity_index] > 0.0:
-                    current_mask.set_param_mask_from_sparsity(
+                    current_mask.set_param_masks_from_sparsity(
                         sparsity_levels[sparsity_index]
                     )
 

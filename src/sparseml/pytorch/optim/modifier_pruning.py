@@ -17,6 +17,7 @@ Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
 """
 import math
+from collections import OrderedDict
 from typing import Dict, List, Union
 
 from torch import Tensor
@@ -133,25 +134,21 @@ class ConstantPruningModifier(ScheduledModifier):
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)
         )
-        self._module_masks = []  # type: List[ModuleParamPruningMask]
+        self._module_masks = None  # type: ModuleParamPruningMask
         self._analyzers = None
         self._last_logged_epoch = None
 
     def __del__(self):
-        for mask in self._module_masks:
-            del mask
-
-        self._module_masks.clear()
+        del self._module_masks
 
     def state_dict(self) -> Dict[str, Tensor]:
         """
         :return: Dictionary to store the masks currently created by this object. The
             mapping is param_name -> mask
         """
-        return {
-            module_mask.name: module_mask.param_mask
-            for module_mask in self._module_masks
-        }
+        return OrderedDict(
+            zip(self._module_masks.names, self._module_masks.param_masks)
+        )
 
     def load_state_dict(self, state_dict: Dict[str, Tensor]):
         """
@@ -164,25 +161,27 @@ class ConstantPruningModifier(ScheduledModifier):
         """
         if not self.initialized:
             raise RuntimeError("Cannot load state dict for an uninitialized modifier")
-        module_masks = {  # map module masks by name
-            module_mask.name: module_mask for module_mask in self._module_masks
-        }
-        for param_name, mask_tensor in state_dict.items():
-            if param_name not in module_masks:
+
+        mask_names = self._module_masks.names
+        for key in state_dict:
+            if key not in mask_names:
                 raise RuntimeError(
-                    f"Unexpected parameter name when loading state dict for "
-                    f"ConstantPruningModifier Manager has parameters "
-                    f"{list(module_masks.keys())}, given {param_name}"
+                    f"State dict key {key} not found in ConstantPruningModifier params"
                 )
-            mask_disabled = False
-            if not module_masks[param_name].enabled:
-                # enable mask object so the loaded mask will apply
-                module_masks[param_name].enabled = True
-                mask_disabled = True
-            module_masks[param_name].set_param_mask(mask_tensor)
-            if mask_disabled:
-                # set mask object back to disabled
-                module_masks[param_name].enabled = False
+        for name in mask_names:
+            if name not in state_dict:
+                raise RuntimeError(
+                    f"Mask parameter name {name} not found in state dict"
+                )
+
+        masks_disabled = False
+        if not masks_disabled:
+            # enable mask object so that the laoded mask will apply
+            masks_disabled = True
+        self._module_masks.set_param_masks([state_dict[name] for name in mask_names])
+        if masks_disabled:
+            # set mask object back to disabled
+            self._module_masks.enabled = True
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
@@ -229,11 +228,23 @@ class ConstantPruningModifier(ScheduledModifier):
             params_strict=True,
         )
 
+        layers = [
+            named_layer_param.layer for named_layer_param in named_layers_and_params
+        ]
+        param_names = [
+            named_layer_param.param_name
+            for named_layer_param in named_layers_and_params
+        ]
+        layer_names = [
+            named_layer_param.layer_name
+            for named_layer_param in named_layers_and_params
+        ]
+        self._module_masks = ModuleParamPruningMask(
+            layers, param_names, layer_names=layer_names
+        )
+
         self._analyzers = []
         for layer_name, layer, param_name, _ in named_layers_and_params:
-            self._module_masks.append(
-                ModuleParamPruningMask(layer, param_name, layer_name=layer_name)
-            )
             self._analyzers.append(ModulePruningAnalyzer(layer, layer_name, param_name))
 
     def update(
@@ -251,14 +262,12 @@ class ConstantPruningModifier(ScheduledModifier):
         super().update(module, optimizer, epoch, steps_per_epoch)
 
         if self.start_pending(epoch, steps_per_epoch):
-            for mask in self._module_masks:
-                mask.set_param_mask_from_weights()
-                mask.enabled = True
+            self._module_masks.set_param_masks_from_weights()
+            self._module_masks.enabled = True
 
         if self.end_pending(epoch, steps_per_epoch):
-            for mask in self._module_masks:
-                mask.set_param_mask_from_weights()
-                mask.enabled = False
+            self._module_masks.set_param_masks_from_weights()
+            self._module_masks.enabled = False
 
     def log_update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -295,8 +304,7 @@ class ConstantPruningModifier(ScheduledModifier):
 
         # be sure to apply mask again after optimizer update because
         # weights may have changed (optimizer with momentum, not masking gradient)
-        for mask in self._module_masks:
-            mask.apply()
+        self._module_masks.apply()
 
 
 @PyTorchModifierYAML()
@@ -376,7 +384,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         self._mask_creator = mask_type
         if not isinstance(mask_type, PruningMaskCreator):
             self._mask_creator = load_mask_creator(mask_type)
-        self._module_masks = []  # type: List[ModuleParamPruningMask]
+        self._module_masks = None  # type: ModuleParamPruningMask
         self._applied_sparsity = None
         self._last_logged_sparsity = None
         self._last_logged_epoch = None
@@ -385,20 +393,16 @@ class GMPruningModifier(ScheduledUpdateModifier):
         self.validate()
 
     def __del__(self):
-        for mask in self._module_masks:
-            del mask
-
-        self._module_masks.clear()
+        del self._module_masks
 
     def state_dict(self) -> Dict[str, Tensor]:
         """
         :return: Dictionary to store the masks currently created by this object. The
             mapping is param_name -> mask
         """
-        return {
-            module_mask.name: module_mask.param_mask
-            for module_mask in self._module_masks
-        }
+        return OrderedDict(
+            zip(self._module_masks.names, self._module_masks.param_masks)
+        )
 
     def load_state_dict(self, state_dict: Dict[str, Tensor]):
         """
@@ -411,25 +415,27 @@ class GMPruningModifier(ScheduledUpdateModifier):
         """
         if not self.initialized:
             raise RuntimeError("Cannot load state dict for an uninitialized modifier")
-        module_masks = {  # map module masks by name
-            module_mask.name: module_mask for module_mask in self._module_masks
-        }
-        for param_name, mask_tensor in state_dict.items():
-            if param_name not in module_masks:
+
+        mask_names = self._module_masks.names
+        for key in state_dict:
+            if key not in mask_names:
                 raise RuntimeError(
-                    f"Unexpected parameter name when loading state dict for "
-                    f"GMPruningModifier Manager has parameters "
-                    f"{list(module_masks.keys())}, given {param_name}"
+                    f"State dict key {key} not found in ConstantPruningModifier params"
                 )
-            mask_disabled = False
-            if not module_masks[param_name].enabled:
-                # enable mask object so the loaded mask will apply
-                module_masks[param_name].enabled = True
-                mask_disabled = True
-            module_masks[param_name].set_param_mask(mask_tensor)
-            if mask_disabled:
-                # set mask object back to disabled
-                module_masks[param_name].enabled = False
+        for name in mask_names:
+            if name not in state_dict:
+                raise RuntimeError(
+                    f"Mask parameter name {name} not found in state dict"
+                )
+
+        masks_disabled = False
+        if not masks_disabled:
+            # enable mask object so that the laoded mask will apply
+            masks_disabled = True
+        self._module_masks.set_param_masks([state_dict[name] for name in mask_names])
+        if masks_disabled:
+            # set mask object back to disabled
+            self._module_masks.enabled = True
 
     @ModifierProp()
     def init_sparsity(self) -> float:
@@ -566,16 +572,23 @@ class GMPruningModifier(ScheduledUpdateModifier):
             params_strict=True,
         )
 
+        layers = [
+            named_layer_param.layer for named_layer_param in named_layers_and_params
+        ]
+        param_names = [
+            named_layer_param.param_name
+            for named_layer_param in named_layers_and_params
+        ]
+        layer_names = [
+            named_layer_param.layer_name
+            for named_layer_param in named_layers_and_params
+        ]
+        self._module_masks = ModuleParamPruningMask(
+            layers, param_names, layer_names=layer_names
+        )
+
         self._analyzers = []
         for layer_name, layer, param_name, _ in named_layers_and_params:
-            self._module_masks.append(
-                ModuleParamPruningMask(
-                    layer,
-                    param_name,
-                    mask_creator=self._mask_creator,
-                    layer_name=layer_name,
-                )
-            )
             self._analyzers.append(ModulePruningAnalyzer(layer, layer_name, param_name))
 
         if len(self._analyzers) == 0:
@@ -602,12 +615,10 @@ class GMPruningModifier(ScheduledUpdateModifier):
         super().update(module, optimizer, epoch, steps_per_epoch)
 
         if self.start_pending(epoch, steps_per_epoch):
-            for mask in self._module_masks:
-                mask.enabled = True
+            self._module_masks.enabled = True
 
         if self.end_pending(epoch, steps_per_epoch) and not self._leave_enabled:
-            for mask in self._module_masks:
-                mask.enabled = False
+            self._module_masks.enabled = False
 
         # set the mask tensors according to the new sparsity
         self._applied_sparsity = interpolate(
@@ -619,8 +630,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
             self._inter_func,
         )
 
-        for mask in self._module_masks:
-            mask.set_param_mask_from_sparsity(self._applied_sparsity)
+        self._module_masks.set_param_masks_from_sparsity(self._applied_sparsity)
 
     def log_update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -661,8 +671,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
 
         # be sure to apply mask again after optimizer update because weights may
         # have changed (optimizer with momentum, not masking gradient)
-        for mask in self._module_masks:
-            mask.apply()
+        self._module_masks.apply()
 
     def validate(self):
         """
