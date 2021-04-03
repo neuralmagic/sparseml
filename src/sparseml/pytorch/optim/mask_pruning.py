@@ -36,6 +36,26 @@ __all__ = ["ModuleParamPruningMask"]
 class ModuleParamPruningMask(object):
     """
     Mask to apply kernel sparsity (model pruning) to a specific parameter in a layer
+
+    :param layers: the layers containing the parameters to mask
+    :param param_names: the names of the parameter to mask in each layer. If only
+        one name is given, that name will be applied to all layers that this object
+        masks. default is weight
+    :param store_init: store the init weights in a separate variable that can be
+        used and referenced later
+    :param store_unmasked: store the unmasked weights in a separate variable that
+        can be used and referenced later
+    :param track_grad_mom: store the gradient updates to the parameter with a
+        momentum variable must be in the range [0.0, 1.0), if set to 0.0 then will
+        only keep most recent
+    :param mask_creator: object to define sparisty mask creation,
+        default is unstructured mask
+    :param layer_names: the name of the layers the parameters to mask are located in
+    :param global_sparsity: set True to enable global pruning. if True, when creating
+        sparsity masks for a target sparsity sparsity masks will be created such that
+        the average sparsity across all given layers is the target sparsity with the
+        lowest global values masked. If False, each layer will be masked to the target
+        sparsity ranking values within each individual tensor. Default is False
     """
 
     def __init__(
@@ -47,23 +67,8 @@ class ModuleParamPruningMask(object):
         track_grad_mom: float = -1.0,
         mask_creator: PruningMaskCreator = UnstructuredPruningMaskCreator(),
         layer_names: Optional[List[str]] = None,
+        global_sparsity: bool = False,
     ):
-        """
-        :param layers: the layers containing the parameters to mask
-        :param param_names: the names of the parameter to mask in each layer. If only
-            one name is given, that name will be applied to all layers that this object
-            masks. default is weight
-        :param store_init: store the init weights in a separate variable that can be
-            used and referenced later
-        :param store_unmasked: store the unmasked weights in a separate variable that
-            can be used and referenced later
-        :param track_grad_mom: store the gradient updates to the parameter with a
-            momentum variable must be in the range [0.0, 1.0), if set to 0.0 then will
-            only keep most recent
-        :param mask_creator: object to define sparisty mask creation,
-            default is unstructured mask
-        :param layer_names: the name of the layers the parameters to mask are located in
-        """
         self._layers = layers
         self._param_names = (
             param_names
@@ -75,6 +80,7 @@ class ModuleParamPruningMask(object):
         self._store_unmasked = store_unmasked
         self._track_grad_mom = track_grad_mom
         self._mask_creator = mask_creator
+        self._global_sparsity = global_sparsity
 
         self._enabled = False
         self._forward_hooks = [None] * len(self._layers)
@@ -169,6 +175,13 @@ class ModuleParamPruningMask(object):
         :return: SparsityMaskCreator object used to generate masks
         """
         return self._mask_creator
+
+    @property
+    def global_sparsity(self) -> bool:
+        """
+        :return: True if global pruning is enabled, False otherwise
+        """
+        return self._global_sparsity
 
     @property
     def enabled(self) -> bool:
@@ -335,7 +348,9 @@ class ModuleParamPruningMask(object):
         :param sparsity: the decimal sparsity to set the param mask to
         """
         masks = self._mask_creator.create_sparsity_masks(
-            [param.data for param in self._params], sparsity
+            [param.data for param in self._params],
+            sparsity,
+            global_sparsity=self._global_sparsity,
         )
 
         return self.set_param_masks(masks)

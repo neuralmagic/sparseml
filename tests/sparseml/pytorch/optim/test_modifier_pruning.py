@@ -158,14 +158,12 @@ def test_constant_pruning_yaml():
     start_epoch = 5.0
     end_epoch = 15.0
     params = ["re:.*weight"]
-    yaml_str = """
+    yaml_str = f"""
     !ConstantPruningModifier
         start_epoch: {start_epoch}
         end_epoch: {end_epoch}
         params: {params}
-    """.format(
-        start_epoch=start_epoch, end_epoch=end_epoch, params=params
-    )
+    """
     yaml_modifier = ConstantPruningModifier.load_obj(
         yaml_str
     )  # type: ConstantPruningModifier
@@ -214,6 +212,7 @@ def test_constant_pruning_yaml():
             end_epoch=25.0,
             update_frequency=1.0,
             inter_func="cubic",
+            global_sparsity=True,
         ),
         lambda: GMPruningModifier(
             params=["seq.fc1.weight", "seq.fc2.weight"],
@@ -305,7 +304,8 @@ def test_gm_pruning_yaml():
     params = ["re:.*weight"]
     inter_func = "cubic"
     mask_type = "filter"
-    yaml_str = """
+    global_sparsity = False
+    yaml_str = f"""
     !GMPruningModifier
         init_sparsity: {init_sparsity}
         final_sparsity: {final_sparsity}
@@ -315,16 +315,8 @@ def test_gm_pruning_yaml():
         params: {params}
         inter_func: {inter_func}
         mask_type: {mask_type}
-    """.format(
-        init_sparsity=init_sparsity,
-        final_sparsity=final_sparsity,
-        start_epoch=start_epoch,
-        end_epoch=end_epoch,
-        update_frequency=update_frequency,
-        params=params,
-        inter_func=inter_func,
-        mask_type=mask_type,
-    )
+        global_sparsity: {global_sparsity}
+    """
     yaml_modifier = GMPruningModifier.load_obj(yaml_str)  # type: GMPruningModifier
     serialized_modifier = GMPruningModifier.load_obj(
         str(yaml_modifier)
@@ -338,6 +330,7 @@ def test_gm_pruning_yaml():
         params=params,
         inter_func=inter_func,
         mask_type=mask_type,
+        global_sparsity=global_sparsity,
     )
 
     assert isinstance(yaml_modifier, GMPruningModifier)
@@ -376,4 +369,9 @@ def test_gm_pruning_yaml():
         str(yaml_modifier.mask_type)
         == str(serialized_modifier.mask_type)
         == str(obj_modifier.mask_type)
+    )
+    assert (
+        str(yaml_modifier.global_sparsity)
+        == str(serialized_modifier.global_sparsity)
+        == str(obj_modifier.global_sparsity)
     )

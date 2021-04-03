@@ -36,6 +36,7 @@ def _test_constructor(layer, param_name, mask_creator):
     assert not mask.store_init
     assert not mask.store_unmasked
     assert mask.track_grad_mom == -1.0
+    assert not mask.global_sparsity
     assert not mask.enabled
     assert mask_creator == mask.mask_creator
 

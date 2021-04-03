@@ -328,6 +328,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     |       inter_func: cubic
     |       log_types: __ALL__
     |       mask_type: unstructured
+    |       global_sparsity: False
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
@@ -350,6 +351,8 @@ class GMPruningModifier(ScheduledUpdateModifier):
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameters in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
+    :param global_sparsity: set True to enable global pruning. if False, pruning will
+        be layer-wise. Default is False
     """
 
     def __init__(
@@ -364,6 +367,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+        global_sparsity: bool = False,
     ):
         super().__init__(
             log_types=log_types,
@@ -384,6 +388,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         self._mask_creator = mask_type
         if not isinstance(mask_type, PruningMaskCreator):
             self._mask_creator = load_mask_creator(mask_type)
+        self._global_sparsity = global_sparsity
         self._module_masks = None  # type: ModuleParamPruningMask
         self._applied_sparsity = None
         self._last_logged_sparsity = None
@@ -541,6 +546,13 @@ class GMPruningModifier(ScheduledUpdateModifier):
         if not isinstance(value, PruningMaskCreator):
             self._mask_creator = load_mask_creator(value)
 
+    @ModifierProp()
+    def global_sparsity(self) -> bool:
+        """
+        :return: True if global pruning is enabled, False otherwise
+        """
+        return self._global_sparsity
+
     @ModifierProp(serializable=False)
     def applied_sparsity(self) -> float:
         """
@@ -584,7 +596,10 @@ class GMPruningModifier(ScheduledUpdateModifier):
             for named_layer_param in named_layers_and_params
         ]
         self._module_masks = ModuleParamPruningMask(
-            layers, param_names, layer_names=layer_names
+            layers,
+            param_names,
+            layer_names=layer_names,
+            global_sparsity=self._global_sparsity,
         )
 
         self._analyzers = []
