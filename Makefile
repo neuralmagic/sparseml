@@ -60,7 +60,7 @@ test:
 # create docs
 docs:
 	@echo "Running docs creation";
-	python utils/docs_builder.py --src $(DOCDIR) --dest $(DOCDIR)/build/html;
+	export SPARSEML_IGNORE_TFV1="True"; python utils/docs_builder.py --src $(DOCDIR) --dest $(DOCDIR)/build/html;
 
 docsupdate:
 	@echo "Runnning update to api docs";
