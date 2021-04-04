@@ -21,7 +21,6 @@ from distutils.dir_util import copy_tree
 from typing import List
 
 from bs4 import BeautifulSoup
-
 from packaging import version
 
 
