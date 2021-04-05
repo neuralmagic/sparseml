@@ -28,51 +28,58 @@ from transformers import Trainer, is_datasets_available, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
 
 from trainer_qa import QuestionAnsweringTrainer
-class HardDistillationLoss(nn.Module):
-    def __init__(self, teacher: nn.Module, criterion, batch_size, max_sequence_length, hardness):
-        super().__init__()
-        self.teacher = teacher
-        self.max_sequence_length = max_sequence_length
-        self.hardness = hardness
-        if criterion == None:
-            self.criterion = nn.CrossEntropyLoss()
-        else:
-            self.criterion = criterion #nn.MSELoss(reduction="mean"), nn.KLDivLoss(reduction="batchmean"), 
-
-    def compute_loss(self, logits, positions,):
-        onehot = torch.nn.functional.one_hot(positions.to(torch.int64), self.max_sequence_length)
-        logprob = torch.softmax(logits, dim=-1, dtype=torch.float32)
-        return -torch.mean(torch.sum(onehot * logprob))
-
-    def forward(self, inputs: Tensor, outputs: Union[Tensor, Tensor], labels: Tensor) -> Tensor:
-        base_loss = self.compute_loss(outputs["start_logits"], inputs["start_positions"])
-        base_loss += self.compute_loss(outputs["end_logits"], inputs["end_positions"])
-        base_loss /= 2
-        teacher_loss = self.compute_loss(outputs["start_logits"], inputs["teacher_start_positions"])
-        teacher_loss += self.compute_loss(outputs["end_logits"], inputs["teacher_end_positions"])
-        teacher_loss /= 2
-        return (1-self.hardness) * base_loss + (self.hardness * teacher_loss)
 
 class DistillQuestionAnsweringTrainer(QuestionAnsweringTrainer):
-    def __init__(self, *args, eval_examples=None, post_process_function=None, teacher=None, loss=None, batch_size=8, max_sequence_length=384,hardness =0.5, **kwargs):
+    def __init__(self, *args, eval_examples=None, post_process_function=None, teacher=None, loss=None, batch_size=8, max_sequence_length=384,distill_hardness =0.5, temperature=2.0, **kwargs):
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples
         self.post_process_function = post_process_function
         self.loss = loss
         self.teacher = teacher
         self.batch_size = batch_size
-        self.hardness = hardness
+        self.temperature = temperature
+        self.distill_hardness = distill_hardness
+        self.criterion = nn.CrossEntropyLoss() #nn.MSELoss(reduction="mean"), nn.KLDivLoss(reduction="batchmean")
         self.max_sequence_length = max_sequence_length
-        self.criterion = HardDistillationLoss(self.loss, self.teacher, self.batch_size, self.max_sequence_length, self.hardness)
 
     def compute_loss(self, model, inputs, return_outputs=False):
         """
-        How the loss is computed by Trainer. Modified for distilation
+        How the loss is computed by Trainer modified for distilation. 
         """
-        if self.label_smoother is not None and "labels" in inputs:
-            labels = inputs.pop("labels")
-        else:
-            labels = None
+        input_device = inputs["input_ids"].device
         outputs = model(**inputs)
-        loss = self.criterion(inputs, outputs, labels) # Modified for distilation
-        return (loss, outputs) if return_outputs else loss
+        start_logits_student = outputs["start_logits"]
+        end_logits_student = outputs["end_logits"]
+        start_logits_label = inputs["start_positions"]
+        end_logits_label = inputs["start_positions"]
+        self.teacher = self.teacher.to(input_device)
+        with torch.no_grad():
+            teacher_output = self.teacher(
+                            input_ids=inputs["input_ids"],
+                            token_type_ids=inputs["token_type_ids"],
+                            attention_mask=inputs["attention_mask"],
+                        )
+        start_logits_teacher = teacher_output["start_logits"]
+        end_logits_teacher = teacher_output["end_logits"]
+        loss_start = (
+            F.kl_div(
+                input=F.log_softmax(start_logits_student / self.temperature, dim=-1),
+                target=F.softmax(start_logits_teacher / self.temperature, dim=-1),
+                reduction="batchmean",
+            )
+            * (self.temperature ** 2)
+        )
+        loss_end = (
+            F.kl_div(
+                input=F.log_softmax(end_logits_student / self.temperature, dim=-1),
+                target=F.softmax(end_logits_teacher / self.temperature, dim=-1),
+                reduction="batchmean",
+            )
+            * (self.temperature ** 2)
+        )
+        teacher_loss = (loss_start + loss_end) / 2.0
+        loss_start = self.criterion(start_logits_student, start_logits_label)
+        loss_end = self.criterion(end_logits_student, end_logits_label)
+        label_loss = (loss_start + loss_end) / 2.0
+        loss = ((1-self.distill_hardness) * label_loss) + (self.distill_hardness * teacher_loss)
+        return loss

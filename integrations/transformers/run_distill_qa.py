@@ -178,11 +178,14 @@ class ModelArguments:
     teacher_model_name_or_path: Optional[str] = field(
         default="bert-base-uncased-qa-0sparse-2epochs", metadata={"help": "Teacher model"}
     )
-    temperature: Optional[float] = field(
-        default=1.0, metadata={"help": "Temperature applied to teacher softmax for distillation."}
-    )
     student_model_name_or_path: Optional[str] = field(
         default="bert-base-uncased", metadata={"help": "Teacher model"}
+    )
+    temperature: Optional[float] = field(
+        default=2.0, metadata={"help": "Temperature applied to teacher softmax for distillation."}
+    )
+    distill_hardness: Optional[float] = field(
+        default=0.5, metadata={"help": "percent of loss coming from teacher model."}
     )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
@@ -670,6 +673,7 @@ def main():
     if data_args.layers_to_keep > 0:
         logger.info("Keeping %s model layers", data_args.layers_to_keep)
         student_model = dropLayers(student_model, data_args.layers_to_keep)
+
     student_model_parameters = filter(lambda p: p.requires_grad, student_model.parameters())
     params = sum([np.prod(p.size()) for p in student_model_parameters])
     logger.info("Student Model has %s parameters", params) 
@@ -725,23 +729,6 @@ def main():
             load_from_cache_file=not data_args.overwrite_cache,
         )
     
-    # Teacher predictions on train dataset
-    # Initialize our Trainer
-    trainer = QuestionAnsweringTrainer(
-        model=teacher_model,
-        args=training_args,
-        train_dataset=None,
-        eval_dataset=train_dataset,
-        eval_examples=None,
-        tokenizer=tokenizer,
-        data_collator=data_collator,
-        post_process_function=post_processing_function,
-        compute_metrics=compute_metrics,
-    )
-    results = trainer.evaluate()
-
-    print(results)
-    exit(0)
     ####################################################################################
     # Start SparseML Integration
     #################################################################################### 
@@ -765,6 +752,8 @@ def main():
         compute_metrics=compute_metrics,
         optimizers=(optim, None),
         teacher=teacher_model,
+        distill_hardness = model_args.distill_hardness,
+        temperature = model_args.temperature,
     )
 
     # Training

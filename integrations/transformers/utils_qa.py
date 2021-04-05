@@ -73,7 +73,7 @@ def postprocess_qa_predictions(
     """
     assert len(predictions) == 2, "`predictions` should be a tuple with two elements (start_logits, end_logits)."
     all_start_logits, all_end_logits = predictions
-
+    print(predictions)
     assert len(predictions[0]) == len(features), f"Got {len(predictions[0])} predictions and {len(features)} features."
 
     # Build a map example to its corresponding features.

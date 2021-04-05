@@ -585,6 +585,7 @@ def main():
             ]
 
         return tokenized_examples
+
     transformers.utils.logging.set_verbosity_info()   
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
@@ -653,7 +654,7 @@ def main():
     )
 
     if data_args.layers_to_keep > 0:
-        logger.info("Dropping %s model layers", data_args.layers_to_keep)
+        logger.info("Keeping %s model layers", data_args.layers_to_keep)
         model = dropLayers(model, data_args.layers_to_keep)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
