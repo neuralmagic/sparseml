@@ -45,9 +45,9 @@ python utils/pytorch2keras.py \
     --test-image-file-path /hdd/datasets/ILSVRC/val/n02481823/ILSVRC2012_val_00024600.JPEG
 """
 import argparse
-from collections import namedtuple
 import os
 import re
+from collections import namedtuple
 from typing import Dict
 
 import numpy as np
