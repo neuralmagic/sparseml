@@ -23,7 +23,7 @@ Example script for integrating spaseml with the transformers library to perform 
 This script is addopted from hugging face's implementation for Question Answering on the SQUAD Dataset. 
 Hugging Face's original implementation is regularly updated and can be found at https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py
 This script will:
-- Load transformer based modesl
+- Load transformer based models
 - Load a sparseml training and pruning optimizer
 - Train on SQUAD
 - Evaluate on SQUAD
@@ -31,9 +31,10 @@ This script will:
 ##########
 Command help:
 usage: run_distill_qa.py [-h] \
-    --teacher_model_name_or_path TEACHER_MODEL \
-    --student_model_name_or_path STUDENT_MODEL \
-    
+    [--teacher_model_name_or_path] \
+    [--student_model_name_or_path] \
+    [--temperature] \
+    [--distill_hardness] \
     [--dataset_name]  \
     [--num_train_epochs] \
     [--do_train] \
@@ -48,13 +49,19 @@ usage: run_distill_qa.py [-h] \
     [--cache_dir]\
     [--preprocessing_num_workers] \
     [--seed] 42 \
-    [--nm_prune_config]
-    [--do_onnx_export]
-    [--onnx_export_path]
+    [--nm_prune_config] \
+    [--do_onnx_export] \
+    [--onnx_export_path] \
+    [--layers_to_keep] \
 
 Train, prune, and evaluate a transformer base question answering model on squad. 
     -h, --help            show this help message and exit
-    --model_name_or_path MODEL      The path to the transformers model you wish to train
+    --teacher_model_name_or_path    The name or path of model which will be used for distilation.
+                                    Note, this model needs to be trained for QA task already.
+    --student_model_name_or_path    The name or path of the model wich will be trained using distilation.
+    --temperature                   Hyperparameter which controls model distilation 
+    --distill_hardness              Hyperparameter which controls how much of the loss comes from teacher vs training labels
+    --model_name_or_path            The path to the transformers model you wish to train
                                     or the name of the pretrained language model you wish
                                     to use. ex: bert-base-uncased.
     --dataset_name                  The name of which dataset you want to use to train or
@@ -82,11 +89,13 @@ Train, prune, and evaluate a transformer base question answering model on squad.
                                     be found in prune_config_files but are customized for bert-base-uncased. 
     --do_onnx_export                Boolean denoting if the model should be exported to onnx
     --onnx_export_path              Path where onnx model path will be exported. ex: onnx-export
+    --layers_to_keep                Number of layers to keep from original model. Layers are dropped before training
 
 ##########
-Example command for training a 95% sparse BERT SQUAD model for 1 epoch:
-python examples/transformers/run_qa.py \
-    --model_name_or_path bert-base-uncased \
+Example command for training a 95% sparse BERT SQUAD model for 1 epoch with a unpruned teacher:
+python examples/transformers/run_distill_qa.py \
+    --teacher_model_name_or_path spacemanidol/neuralmagic-bert-squad-12layer-0sparse
+    --student_model_name_or_path bert-base-uncased \
     --dataset_name squad \
     --num_train_epochs 1 \
     --do_train \
@@ -103,7 +112,10 @@ python examples/transformers/run_qa.py \
     --seed 42 \
     --nm_prune_config prune_config_files/95sparsity1epoch.yaml \
     --do_onnx_export \
-    --onnx_export_path 95sparsity1epoch/ 
+    --onnx_export_path 95sparsity1epoch/ \
+    --distill_hardness 0.5 \
+    --temperature 2.0 \
+    --layers_to_keep 12 \
 """
 import collections
 import json
@@ -163,7 +175,6 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter
 
-from trainer_qa import QuestionAnsweringTrainer
 from distill_trainer_qa import DistillQuestionAnsweringTrainer
 from utils_qa import postprocess_qa_predictions
 
@@ -176,16 +187,22 @@ class ModelArguments:
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
     """
     teacher_model_name_or_path: Optional[str] = field(
-        default="bert-base-uncased-qa-0sparse-2epochs", metadata={"help": "Teacher model"}
+        default="spacemanidol/neuralmagic-bert-squad-12layer-0sparse", metadata={"help": "Teacher model which needs to be a trained QA model"}
     )
     student_model_name_or_path: Optional[str] = field(
-        default="bert-base-uncased", metadata={"help": "Teacher model"}
+        default="bert-base-uncased", metadata={"help": "Student model"}
     )
     temperature: Optional[float] = field(
         default=2.0, metadata={"help": "Temperature applied to teacher softmax for distillation."}
     )
     distill_hardness: Optional[float] = field(
-        default=0.5, metadata={"help": "percent of loss coming from teacher model."}
+        default=0.5, metadata={"help": "Proportion of loss coming from teacher model."}
+    )
+    model_save_path: Optinal[str] = field(
+        default='model_hub_ready_export', metadata={"help": "Name and path to save the Huggingface model hub ready model"}
+    )
+    do_model_save: bool = field(
+        default=False, metadata={"help": "Model to be saved in form ready for uploading to huggingface model hub"}
     )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
@@ -216,10 +233,7 @@ class DataTrainingArguments:
         default='onnx-export', metadata={"help": "The filename and path which will be where onnx model is outputed"}
     )
     layers_to_keep: int = field(
-        default=0,
-        metadata={
-            "help":"How many layers to drop from the model"
-        }
+        default=12, metadata={"help":"How many layers to keep for the model"}
     )
     ####################################################################################
     # End SparseML Integration
@@ -432,7 +446,7 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
     return cur_span_index == best_span_index
 
 
-def dropLayers(model, layers_to_keep):
+def drop_layers(model, layers_to_keep):
     encoder_layers = model.bert.encoder.layer # change based on model name
     assert layers_to_keep <= len(encoder_layers)
     trimmed_encoder_layers = nn.ModuleList()
@@ -447,7 +461,6 @@ def dropLayers(model, layers_to_keep):
 ####################################################################################
 
 def main():
-    wandb.init(project='BERT-QA-SPARSEML', entity='spacemanidol') # REMOVE before pushing code
     ### Dataset processing classes in main due to hugging face custom dataset map
     def prepare_train_features(examples):
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
@@ -670,9 +683,9 @@ def main():
         cache_dir=model_args.cache_dir,
     )
 
-    if data_args.layers_to_keep > 0:
+    if data_args.layers_to_keep < len(student_model.bert.encoder.layer):
         logger.info("Keeping %s model layers", data_args.layers_to_keep)
-        student_model = dropLayers(student_model, data_args.layers_to_keep)
+        student_model = drop_layers(student_model, data_args.layers_to_keep)
 
     student_model_parameters = filter(lambda p: p.requires_grad, student_model.parameters())
     params = sum([np.prod(p.size()) for p in student_model_parameters])
@@ -739,6 +752,7 @@ def main():
     ####################################################################################
     # End SparseML Integration
     ####################################################################################
+    
     # Initialize our Trainer
     trainer = DistillQuestionAnsweringTrainer(
         model=student_model,
@@ -784,7 +798,6 @@ def main():
     ####################################################################################
     if data_args.do_onnx_export:
         logger.info("*** Export to ONNX ***")
-        print("Exporting onnx model") 
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         exporter = ModuleExporter(
             student_model, output_dir='onnx-export'

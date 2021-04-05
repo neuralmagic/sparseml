@@ -24,13 +24,13 @@ pip install sparseml[torch] torch transformers datasets
 ## Usage
 To custom prune a model first go to the prune-config.yaml file and modify the parameters to your needs. We have provided a range of pruning configurations in the prune_config_files folder. 
 !EpochRangeModifier controls how long the model trains for and Each !GMPruningModifier modifies controls how each portion is pruned. You can modify end_epoch to control how long the pruning regime lasts and final_sparsity and init_sparsity define the speed which the module is pruned and the final sparsity.
-### Training 
+#### Training 
 ```bash
 python run_qa.py  \
  --model_name_or_path bert-base-uncased \
  --dataset_name squad \
  --do_train \
- --per_device_train_batch_size 12 \
+ --per_device_train_batch_size 16 \
  --learning_rate 3e-5 \
  --max_seq_length 384 \
  --doc_stride 128 \
@@ -41,6 +41,7 @@ python run_qa.py  \
  --seed 42 \
  --num_train_epochs 2 \
  --nm_prune_config recipes/90sparsity1shot.yaml
+ --fp16
 ```
 
 #### Evaluation
@@ -49,7 +50,7 @@ python run_qa.py  \
  --model_name_or_path bert-base-uncased-99sparsity-10total8gmp/ \
  --dataset_name squad \
  --do_eval \
- --per_device_eval_batch_size 12 \
+ --per_device_eval_batch_size 16 \
  --output_dir bert-base-uncased-99sparsity-10total8gmp/ \
  --overwrite_output_dir \
  --cache_dir cache \
@@ -67,7 +68,7 @@ python run_qa.py  \
  --preprocessing_num_workers 4 \
 ```
 
-## Model Performance 
+### Model Performance 
 To demostrate the effect that various pruning regimes and techniques can have we prune the same bert-base-uncased model to 5 different sparsities(0,80,90,95,99) using 3 pruning methodologies: oneshot(prune to desired weights before fine tune then fine tune for 1 epoch), GMP 1 epoch(prune to desired sparsity over an epoch then stabilize over another epoch), and GMP 8 epochs (prune to desired sparsity over 8 epochs then stabilize over another 2 epochs). Its worth noting that we are pruning all layers uniformly and we believe further gains can be have by targeted pruning of individual layers.
 
 | base model name       | sparsity 	| total train epochs    | prunned | one shot |pruning epochs| F1 Score 	| EM Score  |
@@ -89,13 +90,72 @@ To demostrate the effect that various pruning regimes and techniques can have we
 | bert-base-uncased 	|99       	|2                   	|yes      |no        |0            	|17.433     |07.871     |
 | bert-base-uncased 	|99         |10                    	|yes      |no        |8             |47.306    	|32.564     |
 
-### Pruning vs Layer Dropping
-To explore the effect of model pruning compared to layer dropping we prune
-| base model name       | sparsity 	| params                | prunned | layers   |pruning epochs| F1 Score 	| EM Score  |
+## Training With Distilation
+In addition to a simple QA model we provide implementation which can leverage teacher-student distilation. The usage of the distilation code is virually identical to the non distilled model but commands are as follow. 
+
+#### Training 
+```bash
+python run_distill_qa.py  \
+ --teacher_model_name_or_path spacemanidol/neuralmagic-bert-squad-12layer-0sparse\
+ --student_model_name_or_path bert-base-uncased \
+ --dataset_name squad \
+ --do_train \
+ --per_device_train_batch_size 16 \
+ --learning_rate 3e-5 \
+ --max_seq_length 384 \
+ --doc_stride 128 \
+ --output_dir bert-base-uncased-90-1shot/ \
+ --overwrite_output_dir \
+ --cache_dir cache \
+ --preprocessing_num_workers 4 \
+ --seed 42 \
+ --num_train_epochs 2 \
+ --nm_prune_config recipes/90sparsity1shot.yaml
+ --fp16
+```
+
+#### Evaluation
+```bash
+python run_qa.py  \
+ --model_name_or_path bert-base-uncased-99sparsity-10total8gmp/ \
+ --dataset_name squad \
+ --do_eval \
+ --per_device_eval_batch_size 16 \
+ --output_dir bert-base-uncased-99sparsity-10total8gmp/ \
+ --overwrite_output_dir \
+ --cache_dir cache \
+ --preprocessing_num_workers 4 \
+```
+#### ONNX Export
+```bash
+python run_qa.py  \
+ --model_name_or_path bert-base-uncased-99sparsity-10total8gmp/
+ --do_eval  \
+ --dataset_name squad \
+ --do_onnx_export \
+ --onnx_export_path bert-base-uncased-99sparsity-10total8gmp/ \
+ --cache_dir cache \
+ --preprocessing_num_workers 4 \
+```
+
+### Model Results
+To demostrate the effect that distilation has on pruning we prune to 3 (0,90, 97) sparsities and compare performance with and without distilation sparsities. All models are distilled with a bert-based-uncase SQUAD model which was trained for two epochs and hasa F1 o 88.002 and an EM of 80.634.
+
+| student model name    | sparsity 	| total train epochs    | prunned | distilled|pruning epochs| F1 Score 	| EM Score  |
 |-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
-| bert-base-uncased 	|0        	|108,893,186         	|no       |12        |0            	|87.00      |78.63      |
-| bert-base-uncased 	|0        	|10                  	|no       |6         |0            	|82.54      |72.71      |
-| bert-base-uncased 	|0        	|10                 	|no       |3         |0            	|78.63      |56.50      |
+| bert-base-uncased 	|0        	|2                  	|no       |no        |0            	|88.002     |80.634     |
+| bert-base-uncased 	|0        	|2                  	|no       |yes       |0            	|    |     |
+
+## Pruning vs Layer Dropping
+To explore the effect of model pruning compared to layer dropping we prune
+| base model name       | sparsity 	| params                |Distilled| prunned | layers   |pruning epochs| F1 Score 	| EM Score  |
+|-----------------------|----------	|-----------------------|---------|---------|----------|--------------|----------	|-----------|
+| bert-base-uncased 	|0        	|108,893,186         	|no       |no       |12        |0            	|      |      |
+| bert-base-uncased 	|0        	|10                  	|no       |no       |6         |0            	|      |      |
+| bert-base-uncased 	|0        	|10                 	|no       |no       |3         |0            	|      |      |
+| bert-base-uncased 	|0        	|108,893,186         	|yes       |no       |12        |0            	|      |      |
+| bert-base-uncased 	|0        	|10                  	|yes       |no       |6         |0            	|      |      |
+| bert-base-uncased 	|0        	|10                 	|yes       |no       |3         |0            	|      |      |
 
 ## Script origin and how to integrate sparseml with other Transformers projects
 This script is based on the example BERT-QA implementation in transformers found [here](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py). 

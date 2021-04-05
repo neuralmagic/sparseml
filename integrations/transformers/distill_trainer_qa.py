@@ -39,12 +39,12 @@ class DistillQuestionAnsweringTrainer(QuestionAnsweringTrainer):
         self.batch_size = batch_size
         self.temperature = temperature
         self.distill_hardness = distill_hardness
-        self.criterion = nn.CrossEntropyLoss() #nn.MSELoss(reduction="mean"), nn.KLDivLoss(reduction="batchmean")
+        self.criterion = nn.CrossEntropyLoss()
         self.max_sequence_length = max_sequence_length
 
     def compute_loss(self, model, inputs, return_outputs=False):
         """
-        How the loss is computed by Trainer modified for distilation. 
+        How the loss is computed by Trainer. Modified for Distilation using student teacher framework modified for distilation. 
         """
         input_device = inputs["input_ids"].device
         outputs = model(**inputs)
