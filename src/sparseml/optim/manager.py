@@ -56,7 +56,42 @@ class BaseManager(BaseObject):
 
     @ModifierProp(serializable=False)
     def modifiers(self) -> List[BaseScheduled]:
+        """
+        :return: list of all SparseML modifiers in the managed recipe
+        """
         return self._modifiers
+
+    @ModifierProp(serializable=False)
+    def epoch_modifiers(self) -> List[BaseScheduled]:
+        """
+        :return: list of all SparseML modifiers in the managed recipe that modify the
+            epoch range
+        """
+        return [mod for mod in self._modifiers if "Epoch" in str(type(mod))]
+
+    @ModifierProp(serializable=False)
+    def learning_rate_modifiers(self) -> List[BaseScheduled]:
+        """
+        :return: list of all SparseML modifiers in the managed recipe that modify the
+            LearningRate schedule
+        """
+        return [mod for mod in self._modifiers if "LearningRate" in str(type(mod))]
+
+    @ModifierProp(serializable=False)
+    def pruning_modifiers(self) -> List[BaseScheduled]:
+        """
+        :return: list of all SparseML modifiers in the managed recipe that manage
+            model sparsity
+        """
+        return [mod for mod in self._modifiers if "Pruning" in str(type(mod))]
+
+    @ModifierProp(serializable=False)
+    def quantization_modifiers(self) -> List[BaseScheduled]:
+        """
+        :return: list of all SparseML modifiers in the managed recipe that manage
+            model quantization
+        """
+        return [mod for mod in self._modifiers if "Quantization" in str(type(mod))]
 
     @ModifierProp(serializable=False)
     def min_epochs(self) -> int:
