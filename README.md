@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# ![icon for SparseMl](https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png) SparseML
+# ![icon for SparseMl](https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/icon-sparseml.png) SparseML
 
 ### Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models
 
@@ -66,7 +66,7 @@ Recipes encode the directions for how to sparsify a model into a simple, easily 
 
 **Full Deep Sparse product flow:**  
 
-<img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-overview.svg" width="960px">
+<img src="https://docs.neuralmagic.com/docs/sparsification/flow-overview.svg" width="960px">
 
 ## Quick Tour
 
@@ -103,7 +103,7 @@ modifiers:
         params: ['sections.0.0.conv1.weight', 'sections.0.0.conv2.weight', 'sections.0.0.conv3.weight']
 ```
 
-More information on the available recipes, formats, and arguments can be found [here](https://github.com/neuralmagic/sparseml/blob/main/docs/source/recipes.md). Additionally, all code implementations of the modifiers under the `optim` packages for the frameworks are documented with example YAML formats.
+More information on the available recipes, formats, and arguments can be found [here](https://github.com/neuralmagic/sparseml/blob/main/docs/recipes.md). Additionally, all code implementations of the modifiers under the `optim` packages for the frameworks are documented with example YAML formats.
 
 Pre-configured recipes and the resulting models can be explored and downloaded from the [SparseZoo](https://github.com/neuralmagic/sparsezoo). Also, [Sparsify](https://github.com/neuralmagic/sparsify) enables autoML style creation of optimization recipes for use with SparseML.
 

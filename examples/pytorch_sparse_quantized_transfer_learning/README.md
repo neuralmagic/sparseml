@@ -17,7 +17,7 @@ limitations under the License.
 # PyTorch Sparse-Quantized Transfer Learning with SparseML
 
 <figure class="image">
-  <img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-sparsification-model_recipe_sparsezoo-sparseml_transfer_learning.svg" width="960px">
+  <img src="https://docs.neuralmagic.com/docs/sparsification/flow-sparsification-model_recipe_sparsezoo-sparseml_transfer_learning.svg" width="960px">
 </figure>
 
 ## Overview
