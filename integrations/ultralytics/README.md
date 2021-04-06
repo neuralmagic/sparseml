@@ -49,13 +49,27 @@ pip install -r requirements.txt
 ```
 
 
+## SparseZoo Stubs
+Pre-trained, pre-sparsified models and recipes can be accessed through the
+[SparseZoo](https://github.com/neuralmagic/sparsezoo).  The following stubs
+can be used to directly download these models and recipes for their optimizations through
+the integration scripts, exmaples, or directly through the SparseZoo API.
+
+| Model | Description | SparseZoo Stub |
+| ----------- | ----------- | ----------- |
+| YOLOv3-base | baseline YOLOv3-SPP model with LeakyReLU activations | "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none" |
+| YOLOv3-pruned | 88% sparse YOLOv3 model | "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive-97" |
+| YOLOv3-pruned_quant | 83% sparse YOLOv3 model with INT8 quantization | "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive-94" |
+
+
+
 ## Script
 `integrations/ultralytics/train.py` modifies
 [`train.py`](https://github.com/ultralytics/yolov5/blob/master/train.py)
 from `yolov5` to include a `sparseml-recipe` argument
 to run SparseML optimizations with.  This can be a file path to a local
 SparseML recipe or a SparseZoo model stub prefixed by `zoo:` such as
-`zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive`.
+`zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive-97`.
 
 To load the base weights for a SparseZoo recipe as the initial checkpoint, set
 `--initial-checkpoint` to `zoo`.  To use the weights of a SparseZoo model as the

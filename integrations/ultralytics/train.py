@@ -557,7 +557,7 @@ if __name__ == '__main__':
         type=str,
         help="path to a SparseML recipe file or a SparseZoo model stub for a recipe to load. "
              "SparseZoo stubs should be preceded by 'zoo:'. i.e. '/path/to/local/recipe.yaml', "
-             "'zoo:zoo/model/stub'"
+             "'zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive-94'"
     )
     parser.add_argument(
         "--weights",
