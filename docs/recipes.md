@@ -234,8 +234,8 @@ Provided schedules to choose from are the following:
    To use this one, `lr_kwargs` should be set to a dictionary containing `gamma`.
    For example: `{'gamma': 0.9}`
 - `StepLR`: Multiplies the learning rate by a `gamma` value after a certain epoch period defined by `step`.
-   To use this one, `lr_kwargs` must be set to a dictionary containing `gamma` and `step`.
-   For example: `{'gamma': 0.9, step: 2.0}`
+   To use this one, `lr_kwargs` must be set to a dictionary containing `gamma` and `step_size`.
+   For example: `{'gamma': 0.9, 'step_size': 2.0}`
 - `MultiStepLR`: Multiplies the learning rate by a `gamma` value at specific epoch points defined by `milestones`.
    To use this one, `lr_kwargs` must be set to a dictionary containing `gamma` and `milestones`.
    For example: `{'gamma': 0.9, 'milestones': [2.0, 5.5, 10.0]}`
