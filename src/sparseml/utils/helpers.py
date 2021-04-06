@@ -36,6 +36,7 @@ from sparsezoo.utils import load_numpy_list
 
 __all__ = [
     "ALL_TOKEN",
+    "ALL_PRUNABLE_TOKEN",
     "flatten_iterable",
     "convert_to_bool",
     "validate_str_iterable",
@@ -64,6 +65,7 @@ __all__ = [
 
 
 ALL_TOKEN = "__ALL__"
+ALL_PRUNABLE_TOKEN = "__ALL_PRUNABLE__"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -110,13 +112,14 @@ def validate_str_iterable(
 ) -> Union[str, Iterable[str]]:
     """
     :param val: the value to validate, check that it is a list (and flattens it),
-        otherwise checks that it's an ALL string, otherwise raises a ValueError
+        otherwise checks that it's an __ALL__ or __ALL_PRUNABLE__ string,
+        otherwise raises a ValueError
     :param error_desc: the description to raise an error with in the event that
         the val wasn't valid
     :return: the validated version of the param
     """
     if isinstance(val, str):
-        if val.upper() != ALL_TOKEN:
+        if val.upper() != ALL_TOKEN and val.upper() != ALL_PRUNABLE_TOKEN:
             raise ValueError(
                 "unsupported string ({}) given in {}".format(val, error_desc)
             )
