@@ -80,7 +80,7 @@ optional arguments:
 ##########
 Example command for running a benchmark on a pruned quantized YOLOv3:
 python benchmark.py \
-    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_90 \
+    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
     --batch-size 32 \
 
 ##########
@@ -98,6 +98,13 @@ python benchmark.py \
     /PATH/TO/yolov3-spp.onnx \
     --engine onnxruntime \
     --batch-size 32 \
+
+#########
+Full list of SparseZoo stubs for benchmarking
+* Baseline dense YOLOv3 - "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none"
+* Pruned YOLOv3 (87% sparse) - "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive-97"
+* Pruned-Quantized YOLOv3 (83% sparse, CPU must support VNNI) -
+ "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive-94"
 """
 
 
