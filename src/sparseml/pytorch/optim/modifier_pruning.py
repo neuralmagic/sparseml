@@ -43,6 +43,7 @@ from sparseml.pytorch.utils import (
 from sparseml.pytorch.utils.logger import PyTorchLogger
 from sparseml.utils import (
     ALL_TOKEN,
+    ALL_PRUNABLE_TOKEN,
     INTERPOLATION_FUNCS,
     convert_to_bool,
     interpolate,
@@ -213,11 +214,15 @@ class ConstantPruningModifier(ScheduledModifier):
         """
         super().initialize(module, optimizer)
 
-        param_names = (
-            self._params
-            if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
-            else ["re:.*"]
-        )
+        if self._params == ALL_TOKEN or ALL_TOKEN in self._params:
+            param_names = ["re:.*"]
+        elif self._params == ALL_PRUNABLE_TOKEN or ALL_PRUNABLE_TOKEN in self._params:
+            param_names = [
+                name + ".weight" for (name, _) in get_prunable_layers(module)
+            ]
+        else:
+            param_names = self._params
+
         named_layers_and_params = get_named_layers_and_params_by_regex(
             module,
             param_names,
@@ -325,7 +330,8 @@ class GMPruningModifier(ScheduledUpdateModifier):
         between start and end
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers' weights.
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -460,7 +466,8 @@ class GMPruningModifier(ScheduledUpdateModifier):
         """
         :return: A list of full parameter names or regex patterns of names to apply
             pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-            will match to all parameters.
+            will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+            and Linear layers' weights.
         """
         return self._params
 
@@ -469,7 +476,8 @@ class GMPruningModifier(ScheduledUpdateModifier):
         """
         :param value: A list of full parameter names or regex patterns of names to apply
             pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-            will match to all parameters.
+            will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+            and Linear layers' weights.
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -543,11 +551,15 @@ class GMPruningModifier(ScheduledUpdateModifier):
         """
         super().initialize(module, optimizer)
 
-        param_names = (
-            self._params
-            if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
-            else ["re:.*"]
-        )
+        if self._params == ALL_TOKEN or ALL_TOKEN in self._params:
+            param_names = ["re:.*"]
+        elif self._params == ALL_PRUNABLE_TOKEN or ALL_PRUNABLE_TOKEN in self._params:
+            param_names = [
+                name + ".weight" for (name, _) in get_prunable_layers(module)
+            ]
+        else:
+            param_names = self._params
+
         named_layers_and_params = get_named_layers_and_params_by_regex(
             module,
             param_names,
