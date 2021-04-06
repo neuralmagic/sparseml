@@ -73,7 +73,7 @@ Recipes encode the directions for how to sparsify a model into a simple, easily 
 
 .. raw:: html
 
-    <img src="https://docs.neuralmagic.com/docs/sparsification/flow-overview.svg" width="960px">
+    <img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-overview.svg" width="960px">
 
 Resources and Learning More
 ===========================
@@ -99,9 +99,9 @@ Additionally, more information can be found via
     :maxdepth: 3
     :caption: General
 
-    quicktour
-    installation
-    recipes
+    source/quicktour
+    source/installation
+    source/recipes
 
 .. toctree::
     :maxdepth: 2
