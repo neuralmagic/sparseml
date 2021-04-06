@@ -99,9 +99,9 @@ Additionally, more information can be found via
     :maxdepth: 3
     :caption: General
 
-    quicktour
-    installation
-    recipes
+    source/quicktour
+    source/installation
+    source/recipes
 
 .. toctree::
     :maxdepth: 2
