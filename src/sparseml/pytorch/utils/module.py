@@ -685,7 +685,7 @@ class ModuleRunner(ABC):
         data_iter = (
             enumerate(data_loader)
             if not show_progress
-            else auto.tqdm(enumerate(data_loader), desc=desc, total=progress_steps)
+            else enumerate(auto.tqdm(data_loader, desc=desc, total=progress_steps))
         )
         results = ModuleRunResults() if track_results else None
         previous_steps = (counter if counter > -1 else 0) * counter_len
