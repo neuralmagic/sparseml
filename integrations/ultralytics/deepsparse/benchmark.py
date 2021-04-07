@@ -82,6 +82,7 @@ Example command for running a benchmark on a pruned quantized YOLOv3:
 python benchmark.py \
     zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
     --batch-size 32 \
+    --quantized-inputs
 
 ##########
 Example for benchmarking on a local YOLOv3 PyTorch model on GPU with half precision:
