@@ -58,8 +58,8 @@ the integration scripts, exmaples, or directly through the SparseZoo API.
 | Model | Description | SparseZoo Stub |
 | ----------- | ----------- | ----------- |
 | YOLOv3-base | baseline YOLOv3-SPP model with LeakyReLU activations | "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none" |
-| YOLOv3-pruned | 88% sparse YOLOv3 model | "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive-97" |
-| YOLOv3-pruned_quant | 83% sparse YOLOv3 model with INT8 quantization | "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive-94" |
+| YOLOv3-pruned | 88% sparse YOLOv3 model | "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive_97" |
+| YOLOv3-pruned_quant | 83% sparse YOLOv3 model with INT8 quantization | "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94" |
 
 
 
