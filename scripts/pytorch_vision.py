@@ -1193,7 +1193,7 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
             # only convert qat -> quantized ONNX graph for finalized model
             # TODO: change this to all checkpoints when conversion times improve
             _save_model_training(
-                model, optim, input_shape, "model", save_dir, epoch, val_res, True
+                model, optim, input_shape, "model", save_dir, epoch - 1, val_res, True
             )
 
             LOGGER.info("layer sparsities:")
