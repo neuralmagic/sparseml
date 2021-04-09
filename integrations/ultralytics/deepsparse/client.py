@@ -44,8 +44,8 @@ class YoloDetectionClient:
         """
         :param images: list of or singular file paths or numpy arrays of images to
             run the detection model on. Number of images should equal model batch size
-        :return: list of post-processed object detection results for each image including
-            class label, likelihood, and bounding box coordinates
+        :return: list of post-processed object detection results for each image
+            including class label, likelihood, and bounding box coordinates
         """
         if not isinstance(images, List):
             images = [images]

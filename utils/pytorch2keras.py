@@ -42,12 +42,12 @@ python utils/pytorch2keras.py \
     --model-type pruned-moderate \
     --imagenet-dir /hdd/datasets/ILSVRC \
     --save-dir /hdd/src/sparseml/pytorch2keras_models/ \
-    --test-image-file-path /hdd/datasets/ILSVRC/val/n02481823/ILSVRC2012_val_00024600.JPEG
+    --test-image-file-path \
+        /hdd/datasets/ILSVRC/val/n02481823/ILSVRC2012_val_00024600.JPEG
 """
 import argparse
 import os
 import re
-from collections import namedtuple
 from typing import Dict
 
 import numpy as np

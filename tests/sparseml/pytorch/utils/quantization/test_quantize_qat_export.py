@@ -94,5 +94,5 @@ def test_skip_onnx_input_quantize_expected_exception():
         [],
     )
     model = onnx.helper.make_model(graph)
-    with pytest.raises(RuntimeError) as err:
+    with pytest.raises(RuntimeError):
         skip_onnx_input_quantize(model)

@@ -87,8 +87,8 @@ class ONNXGraph(object):
     ) -> List[Union[NodeProto, TensorProto, None]]:
         """
         :param node: node to get the input objects for
-        :return: input nodes or tensors of this node in order. if an input doesn't exist,
-            None will be returned in its place
+        :return: input nodes or tensors of this node in order. if an input doesn't
+            exist, None will be returned in its place
         """
         inputs = []
         for input_id in node.input:
@@ -184,8 +184,8 @@ class ONNXGraph(object):
 
     def delete_unused_initializers(self):
         """
-        deletes tensors in the initializer list that are not listed as inputs to any node
-        in the current graph state
+        deletes tensors in the initializer list that are not listed as inputs to any
+        node in the current graph state
         """
         self.delete_initializers(
             [

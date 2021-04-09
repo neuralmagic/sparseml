@@ -16,7 +16,7 @@
 Code related to the Keras model registry for easily creating models.
 """
 
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Union
 
 from merge_args import merge_args
 from sparseml import get_main_logger
@@ -292,8 +292,6 @@ class ModelRegistry(object):
                 (ex: imagenet, mnist, etc).
                 If not supplied will default to the one preconfigured for the model.
             """
-            attributes = ModelRegistry._ATTRIBUTES[key]
-
             if isinstance(pretrained, str):
                 if pretrained.lower() == "true":
                     pretrained = True

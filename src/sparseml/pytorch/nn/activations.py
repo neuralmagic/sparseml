@@ -27,7 +27,7 @@ from torch.nn import ReLU6 as TReLU6
 
 try:
     from torch.nn import SiLU
-except:
+except ImportError:
     SiLU = None
 
 

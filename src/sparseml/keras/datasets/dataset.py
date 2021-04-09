@@ -79,7 +79,9 @@ class Dataset(metaclass=ABCMeta):
     @abstractmethod
     def creator(self) -> tensorflow.data.Dataset:
         """
-        Implemented by sub classes to create a tensorflow.data dataset for the given impl.
+        Implemented by sub classes to create a tensorflow.data dataset for the given
+        impl.
+
         :return: a created tensorflow.data dataset
         """
         raise NotImplementedError()

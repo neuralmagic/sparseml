@@ -265,7 +265,8 @@ python scripts/keras_classification.py train \
      --dataset imagenette \
      --dataset-path <DATASET_DIR> \
      --train-batch-size 64 \
-     --recipe-path zoo:cv/classification/resnet_v1-50/keras/keras.applications/imagenette/pruned-moderate?recipe_type=original
+     --recipe-path zoo:cv/classification/resnet_v1-50/keras/\
+        keras.applications/imagenette/pruned-moderate?recipe_type=original
 ############
 Example command for loading a ResNet50 model from a checkpoint, then
 evaluate it on the validation of the Imagenette dataset.
