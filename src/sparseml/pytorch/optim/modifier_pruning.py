@@ -17,6 +17,7 @@ Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
 """
 import math
+from collections import OrderedDict
 from typing import Dict, List, Union
 
 from torch import Tensor
@@ -51,7 +52,12 @@ from sparseml.utils import (
 )
 
 
-__all__ = ["ConstantPruningModifier", "GMPruningModifier"]
+__all__ = [
+    "ConstantPruningModifier",
+    "GMPruningModifier",
+    "MagnitudePruningModifier",
+    "GlobalMagnitudePruningModifier",
+]
 
 
 def _log_sparsity(
@@ -88,7 +94,8 @@ class ConstantPruningModifier(ScheduledModifier):
     :param end_epoch: The epoch to end the modifier at
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters.
+        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers' weights
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     """
@@ -133,25 +140,21 @@ class ConstantPruningModifier(ScheduledModifier):
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)
         )
-        self._module_masks = []  # type: List[ModuleParamPruningMask]
+        self._module_masks = None  # type: ModuleParamPruningMask
         self._analyzers = None
         self._last_logged_epoch = None
 
     def __del__(self):
-        for mask in self._module_masks:
-            del mask
-
-        self._module_masks.clear()
+        del self._module_masks
 
     def state_dict(self) -> Dict[str, Tensor]:
         """
         :return: Dictionary to store the masks currently created by this object. The
             mapping is param_name -> mask
         """
-        return {
-            module_mask.name: module_mask.param_mask
-            for module_mask in self._module_masks
-        }
+        return OrderedDict(
+            zip(self._module_masks.names, self._module_masks.param_masks)
+        )
 
     def load_state_dict(self, state_dict: Dict[str, Tensor]):
         """
@@ -164,32 +167,35 @@ class ConstantPruningModifier(ScheduledModifier):
         """
         if not self.initialized:
             raise RuntimeError("Cannot load state dict for an uninitialized modifier")
-        module_masks = {  # map module masks by name
-            module_mask.name: module_mask for module_mask in self._module_masks
-        }
-        for param_name, mask_tensor in state_dict.items():
-            if param_name not in module_masks:
+
+        mask_names = self._module_masks.names
+        for key in state_dict:
+            if key not in mask_names:
                 raise RuntimeError(
-                    f"Unexpected parameter name when loading state dict for "
-                    f"ConstantPruningModifier Manager has parameters "
-                    f"{list(module_masks.keys())}, given {param_name}"
+                    f"State dict key {key} not found in ConstantPruningModifier params"
                 )
-            mask_disabled = False
-            if not module_masks[param_name].enabled:
-                # enable mask object so the loaded mask will apply
-                module_masks[param_name].enabled = True
-                mask_disabled = True
-            module_masks[param_name].set_param_mask(mask_tensor)
-            if mask_disabled:
-                # set mask object back to disabled
-                module_masks[param_name].enabled = False
+        for name in mask_names:
+            if name not in state_dict:
+                raise RuntimeError(
+                    f"Mask parameter name {name} not found in state dict"
+                )
+
+        masks_disabled = False
+        if not masks_disabled:
+            # enable mask object so that the laoded mask will apply
+            masks_disabled = True
+        self._module_masks.set_param_masks([state_dict[name] for name in mask_names])
+        if masks_disabled:
+            # set mask object back to disabled
+            self._module_masks.enabled = True
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
         """
         :return: A list of full parameter names or regex patterns of names to apply
             pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-            will match to all parameters.
+            will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+            and Linear layers' weights
         """
         return self._params
 
@@ -199,7 +205,8 @@ class ConstantPruningModifier(ScheduledModifier):
         :params value: A list of full parameter names or regex patterns of names to
             apply pruning to.
             Regex patterns must be specified with the prefix 're:'. __ALL__
-            will match to all parameters.
+            will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+            and Linear layers' weights
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -229,11 +236,23 @@ class ConstantPruningModifier(ScheduledModifier):
             params_strict=True,
         )
 
+        layers = [
+            named_layer_param.layer for named_layer_param in named_layers_and_params
+        ]
+        param_names = [
+            named_layer_param.param_name
+            for named_layer_param in named_layers_and_params
+        ]
+        layer_names = [
+            named_layer_param.layer_name
+            for named_layer_param in named_layers_and_params
+        ]
+        self._module_masks = ModuleParamPruningMask(
+            layers, param_names, layer_names=layer_names
+        )
+
         self._analyzers = []
         for layer_name, layer, param_name, _ in named_layers_and_params:
-            self._module_masks.append(
-                ModuleParamPruningMask(layer, param_name, layer_name=layer_name)
-            )
             self._analyzers.append(ModulePruningAnalyzer(layer, layer_name, param_name))
 
     def update(
@@ -251,14 +270,12 @@ class ConstantPruningModifier(ScheduledModifier):
         super().update(module, optimizer, epoch, steps_per_epoch)
 
         if self.start_pending(epoch, steps_per_epoch):
-            for mask in self._module_masks:
-                mask.set_param_mask_from_weights()
-                mask.enabled = True
+            self._module_masks.set_param_masks_from_weights()
+            self._module_masks.enabled = True
 
         if self.end_pending(epoch, steps_per_epoch):
-            for mask in self._module_masks:
-                mask.set_param_mask_from_weights()
-                mask.enabled = False
+            self._module_masks.set_param_masks_from_weights()
+            self._module_masks.enabled = False
 
     def log_update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -295,8 +312,7 @@ class ConstantPruningModifier(ScheduledModifier):
 
         # be sure to apply mask again after optimizer update because
         # weights may have changed (optimizer with momentum, not masking gradient)
-        for mask in self._module_masks:
-            mask.apply()
+        self._module_masks.apply()
 
 
 @PyTorchModifierYAML()
@@ -320,6 +336,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     |       inter_func: cubic
     |       log_types: __ALL__
     |       mask_type: unstructured
+    |       global_sparsity: False
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
@@ -331,7 +348,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-        and Linear layers' weights.
+        and Linear layers' weights
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -342,6 +359,8 @@ class GMPruningModifier(ScheduledUpdateModifier):
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameters in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
+    :param global_sparsity: set True to enable global pruning. if False, pruning will
+        be layer-wise. Default is False
     """
 
     def __init__(
@@ -356,6 +375,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+        global_sparsity: bool = False,
     ):
         super().__init__(
             log_types=log_types,
@@ -376,29 +396,28 @@ class GMPruningModifier(ScheduledUpdateModifier):
         self._mask_creator = mask_type
         if not isinstance(mask_type, PruningMaskCreator):
             self._mask_creator = load_mask_creator(mask_type)
-        self._module_masks = []  # type: List[ModuleParamPruningMask]
+        self._global_sparsity = global_sparsity
+        self._module_masks = None  # type: ModuleParamPruningMask
         self._applied_sparsity = None
         self._last_logged_sparsity = None
         self._last_logged_epoch = None
         self._analyzers = None
 
+        self._non_serializable_props = {}
+
         self.validate()
 
     def __del__(self):
-        for mask in self._module_masks:
-            del mask
-
-        self._module_masks.clear()
+        del self._module_masks
 
     def state_dict(self) -> Dict[str, Tensor]:
         """
         :return: Dictionary to store the masks currently created by this object. The
             mapping is param_name -> mask
         """
-        return {
-            module_mask.name: module_mask.param_mask
-            for module_mask in self._module_masks
-        }
+        return OrderedDict(
+            zip(self._module_masks.names, self._module_masks.param_masks)
+        )
 
     def load_state_dict(self, state_dict: Dict[str, Tensor]):
         """
@@ -411,25 +430,27 @@ class GMPruningModifier(ScheduledUpdateModifier):
         """
         if not self.initialized:
             raise RuntimeError("Cannot load state dict for an uninitialized modifier")
-        module_masks = {  # map module masks by name
-            module_mask.name: module_mask for module_mask in self._module_masks
-        }
-        for param_name, mask_tensor in state_dict.items():
-            if param_name not in module_masks:
+
+        mask_names = self._module_masks.names
+        for key in state_dict:
+            if key not in mask_names:
                 raise RuntimeError(
-                    f"Unexpected parameter name when loading state dict for "
-                    f"GMPruningModifier Manager has parameters "
-                    f"{list(module_masks.keys())}, given {param_name}"
+                    f"State dict key {key} not found in ConstantPruningModifier params"
                 )
-            mask_disabled = False
-            if not module_masks[param_name].enabled:
-                # enable mask object so the loaded mask will apply
-                module_masks[param_name].enabled = True
-                mask_disabled = True
-            module_masks[param_name].set_param_mask(mask_tensor)
-            if mask_disabled:
-                # set mask object back to disabled
-                module_masks[param_name].enabled = False
+        for name in mask_names:
+            if name not in state_dict:
+                raise RuntimeError(
+                    f"Mask parameter name {name} not found in state dict"
+                )
+
+        masks_disabled = False
+        if not masks_disabled:
+            # enable mask object so that the laoded mask will apply
+            masks_disabled = True
+        self._module_masks.set_param_masks([state_dict[name] for name in mask_names])
+        if masks_disabled:
+            # set mask object back to disabled
+            self._module_masks.enabled = True
 
     @ModifierProp()
     def init_sparsity(self) -> float:
@@ -467,7 +488,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         :return: A list of full parameter names or regex patterns of names to apply
             pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
             will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-            and Linear layers' weights.
+            and Linear layers' weights
         """
         return self._params
 
@@ -477,7 +498,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         :param value: A list of full parameter names or regex patterns of names to apply
             pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
             will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-            and Linear layers' weights.
+            and Linear layers' weights
         """
         self._params = validate_str_iterable(
             value, "{} for params".format(self.__class__.__name__)
@@ -535,6 +556,12 @@ class GMPruningModifier(ScheduledUpdateModifier):
         if not isinstance(value, PruningMaskCreator):
             self._mask_creator = load_mask_creator(value)
 
+    def global_sparsity(self) -> bool:
+        """
+        :return: True if global pruning is enabled, False otherwise
+        """
+        return self._global_sparsity
+
     @ModifierProp(serializable=False)
     def applied_sparsity(self) -> float:
         """
@@ -566,16 +593,26 @@ class GMPruningModifier(ScheduledUpdateModifier):
             params_strict=True,
         )
 
+        layers = [
+            named_layer_param.layer for named_layer_param in named_layers_and_params
+        ]
+        param_names = [
+            named_layer_param.param_name
+            for named_layer_param in named_layers_and_params
+        ]
+        layer_names = [
+            named_layer_param.layer_name
+            for named_layer_param in named_layers_and_params
+        ]
+        self._module_masks = ModuleParamPruningMask(
+            layers,
+            param_names,
+            layer_names=layer_names,
+            global_sparsity=self._global_sparsity,
+        )
+
         self._analyzers = []
         for layer_name, layer, param_name, _ in named_layers_and_params:
-            self._module_masks.append(
-                ModuleParamPruningMask(
-                    layer,
-                    param_name,
-                    mask_creator=self._mask_creator,
-                    layer_name=layer_name,
-                )
-            )
             self._analyzers.append(ModulePruningAnalyzer(layer, layer_name, param_name))
 
         if len(self._analyzers) == 0:
@@ -602,12 +639,10 @@ class GMPruningModifier(ScheduledUpdateModifier):
         super().update(module, optimizer, epoch, steps_per_epoch)
 
         if self.start_pending(epoch, steps_per_epoch):
-            for mask in self._module_masks:
-                mask.enabled = True
+            self._module_masks.enabled = True
 
         if self.end_pending(epoch, steps_per_epoch) and not self._leave_enabled:
-            for mask in self._module_masks:
-                mask.enabled = False
+            self._module_masks.enabled = False
 
         # set the mask tensors according to the new sparsity
         self._applied_sparsity = interpolate(
@@ -619,8 +654,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
             self._inter_func,
         )
 
-        for mask in self._module_masks:
-            mask.set_param_mask_from_sparsity(self._applied_sparsity)
+        self._module_masks.set_param_masks_from_sparsity(self._applied_sparsity)
 
     def log_update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -661,8 +695,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
 
         # be sure to apply mask again after optimizer update because weights may
         # have changed (optimizer with momentum, not masking gradient)
-        for mask in self._module_masks:
-            mask.apply()
+        self._module_masks.apply()
 
     def validate(self):
         """
@@ -706,3 +739,166 @@ class GMPruningModifier(ScheduledUpdateModifier):
                     " available are {} for {}"
                 ).format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__)
             )
+
+
+@PyTorchModifierYAML()
+class MagnitudePruningModifier(GMPruningModifier):
+    """
+    Gradually applies kernel sparsity to a given parameter or parameters from
+    init_sparsity until final_sparsity is reached over a given amount of time
+    and applied with an interpolated function for each step taken.
+
+    Uses magnitude pruning to gradually mask parameter values. Pruning is
+    unstructured by default, structure can be specified by mask_type.
+
+    | Sample yaml:
+    |   !MagnitudePruningModifier
+    |       init_sparsity: 0.05
+    |       final_sparsity: 0.8
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       update_frequency: 1.0
+    |       params: ["re:.*weight"]
+    |       leave_enabled: True
+    |       inter_func: cubic
+    |       log_types: __ALL__
+    |       mask_type: unstructured
+
+    :param init_sparsity: the initial sparsity for the param to start with at
+        start_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The number of epochs or fraction of epochs to update at
+        between start and end
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers' weights
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param inter_func: the type of interpolation function to use:
+        [linear, cubic, inverse_cubic]
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'channel', 'filter']), List to define block shape of a parameters in and out
+        channels, or a SparsityMaskCreator object. default is 'unstructured'
+    """
+
+    def __init__(
+        self,
+        init_sparsity: float,
+        final_sparsity: float,
+        start_epoch: float,
+        end_epoch: float,
+        update_frequency: float,
+        params: Union[str, List[str]],
+        leave_enabled: bool = True,
+        inter_func: str = "cubic",
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+    ):
+        super().__init__(
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            params=params,
+            leave_enabled=leave_enabled,
+            inter_func=inter_func,
+            log_types=log_types,
+            mask_type=mask_type,
+            global_sparsity=False,
+        )
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True if global pruning is enabled, False otherwise
+        """
+        return self._global_sparsity
+
+
+@PyTorchModifierYAML()
+class GlobalMagnitudePruningModifier(GMPruningModifier):
+    """
+    Gradually applies kernel sparsity to a given parameter or parameters from
+    init_sparsity until final_sparsity is reached over a given amount of time
+    and applied with an interpolated function for each step taken.
+
+    Uses magnitude pruning over the global scope of all given parameters
+    to gradually mask parameter values. Pruning is unstructured by default,
+    structure can be specified by mask_type.
+
+    | Sample yaml:
+    |   !MagnitudePruningModifier
+    |       init_sparsity: 0.05
+    |       final_sparsity: 0.8
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       update_frequency: 1.0
+    |       params: __ALL_PRUNABLE__
+    |       leave_enabled: True
+    |       inter_func: cubic
+    |       log_types: __ALL__
+    |       mask_type: unstructured
+
+    :param init_sparsity: the initial sparsity for the param to start with at
+        start_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The number of epochs or fraction of epochs to update at
+        between start and end
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers' weights. Defualt is __ALL_PRUNABLE__
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param inter_func: the type of interpolation function to use:
+        [linear, cubic, inverse_cubic]
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'channel', 'filter']), List to define block shape of a parameters in and out
+        channels, or a SparsityMaskCreator object. default is 'unstructured'
+    """
+
+    def __init__(
+        self,
+        init_sparsity: float,
+        final_sparsity: float,
+        start_epoch: float,
+        end_epoch: float,
+        update_frequency: float,
+        params: Union[str, List[str]] = ALL_PRUNABLE_TOKEN,
+        leave_enabled: bool = True,
+        inter_func: str = "cubic",
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+    ):
+        super().__init__(
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            params=params,
+            leave_enabled=leave_enabled,
+            inter_func=inter_func,
+            log_types=log_types,
+            mask_type=mask_type,
+            global_sparsity=True,
+        )
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True if global pruning is enabled, False otherwise
+        """
+        return self._global_sparsity
