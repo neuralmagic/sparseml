@@ -249,18 +249,6 @@ class ResNetSection(object):
                     beta_initializer=beta_initializer,
                     gamma_initializer=gamma_initializer,
                 )
-            else:
-                out = _basic_block(
-                    name=block_name,
-                    x_tens=out,
-                    training=training,
-                    out_channels=self.out_channels,
-                    stride=stride,
-                    kernel_initializer=kernel_initializer,
-                    bias_initializer=bias_initializer,
-                    beta_initializer=beta_initializer,
-                    gamma_initializer=gamma_initializer,
-                )
 
             stride = 1
 
