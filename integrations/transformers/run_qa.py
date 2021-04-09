@@ -204,10 +204,7 @@ class DataTrainingArguments:
         default='onnx-export', metadata={"help": "The filename and path which will be where onnx model is outputed"}
     )
     layers_to_keep: int = field(
-        default=0,
-        metadata={
-            "help":"How many layers to drop from the model"
-        }
+        default=12, metadata={"help":"How many layers to keep for the model"}
     )
     ####################################################################################
     # End SparseML Integration
@@ -425,7 +422,8 @@ def drop_layers(model, layers_to_keep):
         1:[0],
         3:[0,5,11],
         6:[0,2,4,6,8,11],
-        9:[0,2,3,4,5,7,8,9,11]
+        9:[0,2,3,4,5,7,8,9,11],
+        12:[0,1,2,3,4,5,6,7,8,9,10,11],
     }
     encoder_layers = model.bert.encoder.layer # change based on model name
     assert layers_to_keep <= len(encoder_layers)
@@ -443,6 +441,7 @@ def drop_layers(model, layers_to_keep):
 
 def main():
     ### Dataset processing classes in main due to hugging face custom dataset map
+    wandb.init(project='BERT-QA-SPARSEML', entity='spacemanidol') # REMOVE before pushing code
     def prepare_train_features(examples):
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
         # in one example possible giving several features when a context is long, each of those features having a
@@ -661,7 +660,8 @@ def main():
 
     if data_args.layers_to_keep > 0:
         logger.info("Keeping %s model layers", data_args.layers_to_keep)
-        model = dropLayers(model, data_args.layers_to_keep)
+        model = drop_layers(model, data_args.layers_to_keep)
+
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     logger.info("Model has %s parameters", params)    
