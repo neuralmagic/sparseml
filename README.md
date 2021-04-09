@@ -19,14 +19,6 @@ limitations under the License.
 ### Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models
 
 <p>
-    <a href="https://docs.neuralmagic.com/sparseml/">
-        <img alt="Documentation" src="https://img.shields.io/website/http/docs.neuralmagic.com/sparseml/index.html.svg?down_color=red&down_message=offline&up_message=online&style=for-the-badge" height=25>
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/actions/workflows/quality-check.yaml">
-        <img alt="Quality Check" src="https://img.shields.io/github/workflow/status/neuralmagic/sparseml/Quality%20Checks/main?label=Quality%20Checks&style=for-the-badge" height=25>
-    </a>
-</p>
-<p>
     <a href="https://github.com/neuralmagic/sparseml/blob/main/LICENSE">
         <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/sparseml.svg?color=purple&style=for-the-badge" height=25>
     </a>
@@ -45,7 +37,15 @@ limitations under the License.
     <a href="https://twitter.com/neuralmagic">
         <img src="https://img.shields.io/twitter/follow/neuralmagic?color=darkgreen&label=Follow&style=social" height=25>
     </a>
- </p>
+</p>
+<p>
+    <a href="https://docs.neuralmagic.com/sparseml/">
+        <img alt="Documentation" src="https://img.shields.io/website/http/docs.neuralmagic.com/sparseml/index.html.svg?down_color=red&down_message=offline&up_message=online&style=for-the-badge" height=25>
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/actions/workflows/quality-check.yaml">
+        <img alt="Quality Check" src="https://img.shields.io/github/workflow/status/neuralmagic/sparseml/Quality%20Checks/main?label=Quality%20Checks&style=for-the-badge" height=25>
+    </a>
+</p>
 
 ## Overview
 
