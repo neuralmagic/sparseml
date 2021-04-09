@@ -384,7 +384,7 @@ class ModuleParamPruningMask(object):
 
     def _check_regen_value(self, val: Tensor, param_idx: int) -> Tensor:
         if self._params[param_idx].data.device != val.device:
-            val = _detach_tens(
+            val = ModuleParamPruningMask._detach_tens(
                 torch.empty_like(self._params[param_idx].data).copy_(val)
             )
 

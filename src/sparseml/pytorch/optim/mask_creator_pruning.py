@@ -110,7 +110,8 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         global_sparsity: bool = False,
     ) -> List[Tensor]:
         """
-        :param tensors: list of tensors to calculate a mask from based on their contained values
+        :param tensors: list of tensors to calculate a mask from based on their
+            contained values
         :param sparsity: the desired sparsity to reach within the mask
             (decimal fraction of zeros)
         :param global_sparsity: if True, sparsity masks will be created such that the
@@ -401,14 +402,15 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
             values
         :param sparsity: the desired sparsity to reach within the mask
             (decimal fraction of zeros)
-        :param global_sparsity: do not set True, unsupported for DimensionSparsityMaskCreator
+        :param global_sparsity: do not set True, unsupported for
+            DimensionSparsityMaskCreator
         :return: list of masks (0.0 for values that are masked, 1.0 for values that are
             unmasked) calculated from the tensors such that the desired number of zeros
             matches the sparsity and all values mapped to the same group have the same
             value
         """
         if global_sparsity:
-            # global sparsity unsupported because channel dimensions may vary across layers
+            # global sparsity unsupported because channel dims may vary across layers
             raise ValueError(
                 "global_sparsity not supported for DimensionSparsityMaskCreator"
             )
