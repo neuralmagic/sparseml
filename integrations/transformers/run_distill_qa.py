@@ -441,7 +441,7 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
 
 def drop_layers(model, layers_to_keep):
     layer_drop_matching = {
-        1:[0]
+        1:[0],
         3:[0,5,11],
         6:[0,2,4,6,8,11],
         9:[0,2,3,4,5,7,8,9,11]
