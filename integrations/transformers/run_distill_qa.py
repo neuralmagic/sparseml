@@ -439,12 +439,18 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
             best_span_index = span_index
     return cur_span_index == best_span_index
 
-
 def drop_layers(model, layers_to_keep):
+    layer_drop_matching = {
+        1:[0]
+        3:[0,5,11],
+        6:[0,2,4,6,8,11],
+        9:[0,2,3,4,5,7,8,9,11]
+    }
     encoder_layers = model.bert.encoder.layer # change based on model name
     assert layers_to_keep <= len(encoder_layers)
+    assert layers_to_keep in layer_drop_matching.keys()
     trimmed_encoder_layers = nn.ModuleList()
-    for i in range(layers_to_keep):
+    for i in layer_drop_matching[layers_to_keep]:
         trimmed_encoder_layers.append(encoder_layers[i])
     trimmed_model = copy.deepcopy(model)
     trimmed_model.bert.encoder.layer = trimmed_encoder_layers
