@@ -391,10 +391,6 @@ def test_gm_pruning_yaml():
     )
 
 
-@pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
-)
 def test_magnitude_pruning_yaml():
     init_sparsity = 0.05
     final_sparsity = 0.8
@@ -471,10 +467,6 @@ def test_magnitude_pruning_yaml():
     )
 
 
-@pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
-)
 def test_global_magnitude_pruning_yaml():
     init_sparsity = 0.05
     final_sparsity = 0.8
