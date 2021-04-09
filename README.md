@@ -16,17 +16,19 @@ limitations under the License.
 
 # ![icon for SparseMl](https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png) SparseML
 
-
-[![quality-check Actions Status](https://github.com/neuralmagic/sparseml/actions/workflows/quality-check.yaml/badge.svg)](https://github.com/neuralmagic/sparseml/actions)
-
 ### Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models
 
 <p>
-    <a href="https://github.com/neuralmagic/sparseml/blob/main/LICENSE">
-        <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/sparseml.svg?color=purple&style=for-the-badge" height=25>
-    </a>
     <a href="https://docs.neuralmagic.com/sparseml/">
         <img alt="Documentation" src="https://img.shields.io/website/http/docs.neuralmagic.com/sparseml/index.html.svg?down_color=red&down_message=offline&up_message=online&style=for-the-badge" height=25>
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/actions/workflows/quality-check.yaml">
+        <img alt="Quality Check" src="https://img.shields.io/github/workflow/status/neuralmagic/sparseml/Quality%20Checks/main?label=Quality%20Checks&style=for-the-badge" height=25>
+    </a>
+</p>
+<p>
+    <a href="https://github.com/neuralmagic/sparseml/blob/main/LICENSE">
+        <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/sparseml.svg?color=purple&style=for-the-badge" height=25>
     </a>
     <a href="https://github.com/neuralmagic/sparseml/releases">
         <img alt="GitHub release" src="https://img.shields.io/github/release/neuralmagic/sparseml.svg?style=for-the-badge" height=25>
