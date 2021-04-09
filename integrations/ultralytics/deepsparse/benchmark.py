@@ -102,8 +102,10 @@ python benchmark.py \
 
 #########
 Full list of SparseZoo stubs for benchmarking
-* Baseline dense YOLOv3 - "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none"
-* Pruned YOLOv3 (87% sparse) - "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive-97"
+* Baseline dense YOLOv3 -
+    "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none"
+* Pruned YOLOv3 (87% sparse) -
+    "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive-97"
 * Pruned-Quantized YOLOv3 (83% sparse, CPU must support VNNI) -
  "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive-94"
 """
@@ -116,14 +118,13 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Tuple, Union
 
-import cv2
 import numpy
 import onnx
 import onnxruntime
 import torch
 from tqdm.auto import tqdm
 
-from deepsparse import compile_model, cpu
+from deepsparse import compile_model
 from deepsparse.benchmark import BenchmarkResults
 from deepsparse_utils import (
     YoloPostprocessor,
@@ -172,10 +173,10 @@ def parse_args():
         type=Optional[str],
         default=None,
         help=(
-            "Optional filepath to image examples to run the benchmark on. Can be path to "
-            "directory, single image jpg file, or a glob path. All files should be "
-            "in jpg format. If not provided, sample COCO images will be downloaded from "
-            "the SparseZoo"
+            "Optional filepath to image examples to run the benchmark on. Can be path "
+            "to directory, single image jpg file, or a glob path. All files should be "
+            "in jpg format. If not provided, sample COCO images will be downloaded "
+            "from the SparseZoo"
         ),
     )
 
@@ -201,8 +202,8 @@ def parse_args():
         default=None,
         help=(
             "The number of physical cores to run the benchmark on, "
-            "defaults to None where it uses all physical cores available on the system. "
-            "For DeepSparse benchmarks, this value is the number of cores per socket"
+            "defaults to None where it uses all physical cores available on the system."
+            " For DeepSparse benchmarks, this value is the number of cores per socket"
         ),
     )
     parser.add_argument(
@@ -266,7 +267,7 @@ def parse_args():
 def _parse_device(device: Union[str, int]) -> Union[str, int]:
     try:
         return int(device)
-    except:
+    except Exception:
         return device
 
 

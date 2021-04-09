@@ -16,6 +16,9 @@ limitations under the License.
 
 # ![icon for SparseMl](https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png) SparseML
 
+
+[![quality-check Actions Status](https://github.com/neuralmagic/sparseml/actions/workflows/quality-check.yaml/badge.svg)](https://github.com/neuralmagic/sparseml/actions)
+
 ### Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models
 
 <p>

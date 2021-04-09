@@ -622,8 +622,8 @@ def _skip_input_quantize(model: ModelProto) -> Optional[str]:
     ]
     if not all(node.op_type == "QuantizeLinear" for node in input_children):
         return (
-            "Not modifying ONNX graph inputs - only QuantizeLinear nodes may follow the "
-            "FP32 input tensor in original graph, prior to converting to uint8"
+            "Not modifying ONNX graph inputs - only QuantizeLinear nodes may follow"
+            "the FP32 input tensor in original graph, prior to converting to uint8"
         )
 
     graph = ONNXGraph(model)

@@ -42,8 +42,8 @@ from sparseml.pytorch.utils import (
 )
 from sparseml.pytorch.utils.logger import PyTorchLogger
 from sparseml.utils import (
-    ALL_TOKEN,
     ALL_PRUNABLE_TOKEN,
+    ALL_TOKEN,
     INTERPOLATION_FUNCS,
     convert_to_bool,
     interpolate,

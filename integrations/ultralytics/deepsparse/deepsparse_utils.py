@@ -37,7 +37,7 @@ from utils.general import non_max_suppression
 
 __all__ = [
     "load_image",
-    "pre_nms_postprocess",
+    "YoloPostprocessor",
     "postprocess_nms",
 ]
 
@@ -98,7 +98,8 @@ class YoloPostprocessor:
             # decode xywh box values
             pred[..., 0:2] = (pred[..., 0:2] * 2.0 - 0.5 + grid) * stride
             pred[..., 2:4] = (pred[..., 2:4] * 2) ** 2 * anchor_grid
-            # flatten anchor and grid dimensions -> (bs, num_predictions, num_classes + 5)
+            # flatten anchor and grid dimensions ->
+            #       (bs, num_predictions, num_classes + 5)
             processed_outputs.append(pred.view(pred.size(0), -1, pred.size(-1)))
         return torch.cat(processed_outputs, 1)
 
