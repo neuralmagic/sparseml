@@ -14,6 +14,9 @@
 # limitations under the License.
 
 # neuralmagic: no copyright
+# isort: skip_file
+# flake8: noqa
+# fmt: off
 
 """
 A subclass of `Trainer` specific to Question-Answering tasks
@@ -27,9 +30,8 @@ if is_datasets_available():
     import datasets
 
 if is_torch_tpu_available():
-    import torch_xla.core.xla_model as xm  # noqa: F401
-    import torch_xla.debug.metrics as met  # noqa: F401
-
+    import torch_xla.core.xla_model as xm
+    import torch_xla.debug.metrics as met
 
 class QuestionAnsweringTrainer(Trainer):
     def __init__(self, *args, eval_examples=None, post_process_function=None, **kwargs):
