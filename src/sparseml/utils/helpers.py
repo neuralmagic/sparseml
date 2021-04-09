@@ -780,9 +780,10 @@ def load_recipe_yaml_str(file_path: Union[str, OptimizationRecipe]) -> str:
     :param file_path: file path to recipe YAML file or markdown recipe card or
         stub to a SparseZoo model whose recipe will be downloaded and loaded.
         SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
-        '?recipe_type=<type>' parameter. Can also be a SparseZoo OptimizationRecipe
-        object. i.e. '/path/to/local/recipe.yaml', 'zoo:model/stub/path',
-        'zoo:model/stub/path?recipe_type=transfer'
+        '?recipe_type=<type>' parameter or include a `/<type>` subpath. Can also
+        be a SparseZoo OptimizationRecipe object. i.e. '/path/to/local/recipe.yaml',
+        'zoo:model/stub/path', 'zoo:model/stub/path?recipe_type=transfer_learn',
+        'zoo:model/stub/path/transfer_learn'
     :return: the recipe YAML configuration loaded as a string
     """
     if isinstance(file_path, OptimizationRecipe):
@@ -790,7 +791,8 @@ def load_recipe_yaml_str(file_path: Union[str, OptimizationRecipe]) -> str:
         file_path = file_path.downloaded_path()
     elif file_path.startswith("zoo:"):
         # download from zoo stub
-        file_path = Zoo.download_recipe_from_stub(file_path)
+        recipe = Zoo.download_recipe_from_stub(file_path)
+        file_path = recipe.downloaded_path()
 
     extension = file_path.lower().split(".")[-1]
     if extension not in ["md", "yaml"]:
