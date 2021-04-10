@@ -12,23 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Tooling to help train, test, and optimize models for better performance
-"""
-
-# flake8: noqa
-# isort: skip_file
-
-# be sure to import all logging first and at the root
-# this keeps other loggers in nested files creating from the root logger setups
-from .log import *
-from .version import *
-
-from .base import (
-    Framework,
-    check_version,
-    detect_framework,
-    execute_in_sparseml_framework,
+from sparseml.version import (
+    __version__,
+    version,
+    version_bug,
+    version_major,
+    version_major_minor,
+    version_minor,
 )
-from .framework import FrameworkInferenceProviderInfo, FrameworkInfo, framework_info
-from .sparsification import SparsificationInfo, sparsification_info
+
+
+def test_version():
+    assert __version__
+    assert version
+    assert version_major == version.split(".")[0]
+    assert version_minor == version.split(".")[1]
+    assert version_bug == version.split(".")[2]
+    assert version_major_minor == f"{version_major}.{version_minor}"

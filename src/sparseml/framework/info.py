@@ -15,9 +15,37 @@
 """
 Functionality related to integrating with, detecting, and getting information for
 support and sparsification in ML frameworks.
+
+The file is executable and will get the framework info for a given framework:
+
+##########
+Command help:
+usage: info.py [-h] [--path PATH] framework
+
+Compile the available setup and information for a given framework.
+
+positional arguments:
+  framework    the ML framework or path to a framework file to load the
+               framework info for
+
+optional arguments:
+  -h, --help   show this help message and exit
+  --path PATH  A full file path to save the framework info to. If not
+               supplied, will print out the framework info to the
+               console.
+
+#########
+EXAMPLES
+#########
+
+##########
+Example command for getting the framework info for pytorch.
+python src/sparseml/framework/info.py pytorch
 """
 
+import argparse
 import logging
+import os
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
@@ -25,12 +53,15 @@ from pydantic import BaseModel, Field
 
 from sparseml.base import Framework, execute_in_sparseml_framework
 from sparseml.sparsification.info import SparsificationInfo
+from sparseml.utils import clean_path, create_parent_dirs
 
 
 __all__ = [
     "FrameworkInferenceProviderInfo",
     "FrameworkInfo",
     "framework_info",
+    "save_framework_info",
+    "load_framework_info",
 ]
 
 
@@ -53,14 +84,14 @@ class FrameworkInferenceProviderInfo(BaseModel):
     device: str = Field(
         title="device", description="The device the provider is for such as cpu or gpu."
     )
-    supported_sparsification: SparsificationInfo = Field(
+    supported_sparsification: Optional[SparsificationInfo] = Field(
+        default=None,
         title="supported_sparsification",
         description=(
             "The supported sparsification information for support "
             "for inference speedup in the provider."
         ),
     )
-
     available: bool = Field(
         default=False,
         title="available",
@@ -97,7 +128,8 @@ class FrameworkInfo(BaseModel):
             "If the package is not detected, will be set to None."
         ),
     )
-    sparsification: SparsificationInfo = Field(
+    sparsification: Optional[SparsificationInfo] = Field(
+        default=None,
         title="sparsification",
         description=(
             "True if inference for a model is available on the system "
@@ -105,13 +137,13 @@ class FrameworkInfo(BaseModel):
         ),
     )
     inference_providers: List[FrameworkInferenceProviderInfo] = Field(
+        default=[],
         title="inference_providers",
         description=(
             "True if inference for a model is available on the system "
             "for the given framework, False otherwise."
         ),
     )
-
     properties: Dict[str, Any] = Field(
         default={},
         title="properties",
@@ -156,6 +188,7 @@ def framework_info(framework: Any) -> FrameworkInfo:
     Detect the information for the given ML framework such as package versions,
     availability for core actions such as training and inference,
     sparsification support, and inference provider support.
+
     :param framework: The item to detect the ML framework for.
         See :func:`detect_framework` for more information.
     :type framework: Any
@@ -167,3 +200,100 @@ def framework_info(framework: Any) -> FrameworkInfo:
     _LOGGER.info("retrieved system info for framework %s: %s", framework, info)
 
     return info
+
+
+def save_framework_info(framework: Any, path: Optional[str] = None):
+    """
+    Save the framework info for a given framework.
+    If path is provided, will save to a json file at that path.
+    If path is not provided, will print out the info.
+
+    :param framework: The item to detect the ML framework for.
+        See :func:`detect_framework` for more information.
+    :type framework: Any
+    :param path: The path, if any, to save the info to in json format.
+        If not provided will print out the info.
+    :type path: Optional[str]
+    """
+    _LOGGER.debug(
+        "saving framework info for framework %s to %s",
+        framework,
+        path if path else "sys.out",
+    )
+    info = (
+        framework_info(framework)
+        if not isinstance(framework, FrameworkInfo)
+        else framework
+    )
+
+    if path:
+        path = clean_path(path)
+        create_parent_dirs(path)
+
+        with open(path, "w") as file:
+            file.write(info.json())
+
+        _LOGGER.info(
+            "saved framework info for framework %s in file at %s", framework, path
+        ),
+    else:
+        print(info.json())
+        _LOGGER.info("printed out framework info for framework %s", framework)
+
+
+def load_framework_info(load: str) -> FrameworkInfo:
+    """
+    Load the framework info from a file or raw json.
+    If load exists as a path, will read from the file and use that.
+    Otherwise will try to parse the input as a raw json str.
+
+    :param load: Either a file path to a json file or a raw json string.
+    :type load: str
+    :return: The loaded framework info.
+    :rtype: FrameworkInfo
+    """
+    loaded_path = clean_path(load)
+
+    if os.path.exists(loaded_path):
+        with open(loaded_path, "r") as file:
+            load = file.read()
+
+    info = FrameworkInfo.parse_raw(load)
+
+    return info
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Compile the available setup and information for a given framework."
+        )
+    )
+    parser.add_argument(
+        "framework",
+        type=str,
+        help=(
+            "the ML framework or path to a framework file to load the "
+            "framework info for"
+        ),
+    )
+    parser.add_argument(
+        "--path",
+        type=str,
+        default=None,
+        help=(
+            "A full file path to save the framework info to. "
+            "If not supplied, will print out the framework info to the console."
+        ),
+    )
+
+    return parser.parse_args()
+
+
+def _main():
+    args = _parse_args()
+    save_framework_info(args.framework, args.path)
+
+
+if __name__ == "__main__":
+    _main()

@@ -15,13 +15,40 @@
 """
 Functionality related to describing availability and information of sparsification
 algorithms to models within in the ML frameworks.
+
+The file is executable and will get the sparsification info for a given framework:
+
+##########
+Command help:
+usage: info.py [-h] [--path PATH] framework
+
+Compile the available setup and information for the sparsification of a model
+in a given framework.
+
+positional arguments:
+  framework    the ML framework or path to a framework file to load the
+               sparsification info for
+
+optional arguments:
+  -h, --help   show this help message and exit
+  --path PATH  A full file path to save the sparsification info to. If not
+               supplied, will print out the sparsification info to the
+               console.
+
+#########
+EXAMPLES
+#########
+
+##########
+Example command for getting the sparsification info for pytorch.
+python src/sparseml/sparsification/info.py pytorch
 """
 
-import os
+import argparse
 import logging
+import os
 from enum import Enum
 from typing import Any, List, Optional
-import argparse
 
 from pydantic import BaseModel, Field
 
@@ -35,6 +62,8 @@ __all__ = [
     "ModifierInfo",
     "SparsificationInfo",
     "sparsification_info",
+    "save_sparsification_info",
+    "load_sparsification_info",
 ]
 
 
@@ -160,7 +189,7 @@ class SparsificationInfo(BaseModel):
 
 def sparsification_info(framework: Any) -> SparsificationInfo:
     """
-    Load the available setup for sparsifying model in the given framework.
+    Get the available setup for sparsifying model in the given framework.
 
     :param framework: The item to detect the ML framework for.
         See :func:`detect_framework` for more information.
@@ -178,8 +207,28 @@ def sparsification_info(framework: Any) -> SparsificationInfo:
 
 
 def save_sparsification_info(framework: Any, path: Optional[str] = None):
-    _LOGGER.debug("saving sparsification info for framework %s to %s", framework, path if path else "sys.out")
-    info = sparsification_info(framework)
+    """
+    Save the sparsification info for a given framework.
+    If path is provided, will save to a json file at that path.
+    If path is not provided, will print out the info.
+
+    :param framework: The item to detect the ML framework for.
+        See :func:`detect_framework` for more information.
+    :type framework: Any
+    :param path: The path, if any, to save the info to in json format.
+        If not provided will print out the info.
+    :type path: Optional[str]
+    """
+    _LOGGER.debug(
+        "saving sparsification info for framework %s to %s",
+        framework,
+        path if path else "sys.out",
+    )
+    info = (
+        sparsification_info(framework)
+        if not isinstance(framework, SparsificationInfo)
+        else framework
+    )
 
     if path:
         path = clean_path(path)
@@ -187,15 +236,30 @@ def save_sparsification_info(framework: Any, path: Optional[str] = None):
 
         with open(path, "w") as file:
             file.write(info.json())
+
+        _LOGGER.info(
+            "saved sparsification info for framework %s in file at %s", framework, path
+        ),
     else:
         print(info.json())
+        _LOGGER.info("printed out sparsification info for framework %s", framework)
 
 
 def load_sparsification_info(load: str) -> SparsificationInfo:
-    load = clean_path(load)
+    """
+    Load the sparsification info from a file or raw json.
+    If load exists as a path, will read from the file and use that.
+    Otherwise will try to parse the input as a raw json str.
 
-    if os.path.exists(load):
-        with open(load, "r") as file:
+    :param load: Either a file path to a json file or a raw json string.
+    :type load: str
+    :return: The loaded sparsification info.
+    :rtype: SparsificationInfo
+    """
+    load_path = clean_path(load)
+
+    if os.path.exists(load_path):
+        with open(load_path, "r") as file:
             load = file.read()
 
     info = SparsificationInfo.parse_raw(load)
@@ -213,13 +277,20 @@ def _parse_args():
     parser.add_argument(
         "framework",
         type=str,
-        required=True,
         help=(
             "the ML framework or path to a framework file to load the "
             "sparsification info for"
-        )
+        ),
     )
-    parser.add_argument()
+    parser.add_argument(
+        "--path",
+        type=str,
+        default=None,
+        help=(
+            "A full file path to save the sparsification info to. "
+            "If not supplied, will print out the sparsification info to the console."
+        ),
+    )
 
     return parser.parse_args()
 
@@ -231,4 +302,3 @@ def _main():
 
 if __name__ == "__main__":
     _main()
-
