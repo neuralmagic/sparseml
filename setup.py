@@ -118,7 +118,12 @@ def _setup_extras() -> Dict:
 
 
 def _setup_entry_points() -> Dict:
-    return {}
+    return {
+        "console_scripts": [
+            "sparseml.framework=sparseml.framework.info:_main",
+            "sparseml.sparsification=sparseml.sparsification.info:_main",
+        ]
+    }
 
 
 def _setup_long_description() -> Tuple[str, str]:

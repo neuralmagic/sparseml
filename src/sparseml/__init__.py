@@ -30,5 +30,16 @@ from .base import (
     detect_framework,
     execute_in_sparseml_framework,
 )
-from .framework import FrameworkInferenceProviderInfo, FrameworkInfo, framework_info
-from .sparsification import SparsificationInfo, sparsification_info
+from .framework import (
+    FrameworkInferenceProviderInfo,
+    FrameworkInfo,
+    framework_info,
+    save_framework_info,
+    load_framework_info,
+)
+from .sparsification import (
+    SparsificationInfo,
+    sparsification_info,
+    save_sparsification_info,
+    load_sparsification_info,
+)

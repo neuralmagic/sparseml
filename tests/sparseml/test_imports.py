@@ -14,11 +14,7 @@
 
 
 def test_imports():
-    # logging imports
-    # sparsification imports
-    # framework imports
-    # base imports
-    # version imports
+    # flake8: noqa
     from sparseml import (
         Framework,
         FrameworkInferenceProviderInfo,
