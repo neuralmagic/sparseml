@@ -13,22 +13,10 @@
 # limitations under the License.
 
 """
-Tooling to help train, test, and optimize models for better performance
+Functionality related to applying, describing, and supporting sparsification
+algorithms to models within in ML frameworks.
 """
 
 # flake8: noqa
-# isort: skip_file
 
-# be sure to import all logging first and at the root
-# this keeps other loggers in nested files creating from the root logger setups
-from .log import *
-from .version import *
-
-from .base import (
-    Framework,
-    check_version,
-    detect_framework,
-    execute_in_sparseml_framework,
-)
-from .framework import FrameworkInferenceProviderInfo, FrameworkInfo, framework_info
-from .sparsification import sparsification_info
+from .info import *
