@@ -8,8 +8,11 @@ MDCHECKGLOBS := 'docs/**/*.md' 'docs/**/*.rst' 'examples/**/*.md' 'integrations/
 MDCHECKFILES := CODE_OF_CONDUCT.md CONTRIBUTING.md DEVELOPING.md README.md
 
 BUILD_ARGS :=  # set nightly to build nightly release
-TARGETS := ""  # targets for running pytests: keras,onnx,pytorch,pytorch_models,pytorch_datasets,tensorflow_v1,tensorflow_v1_models,tensorflow_v1_datasets
+TARGETS := ""  # targets for running pytests: deepsparse,keras,onnx,pytorch,pytorch_models,pytorch_datasets,tensorflow_v1,tensorflow_v1_models,tensorflow_v1_datasets
 PYTEST_ARGS := ""
+ifneq ($(findstring deepsparse,$(TARGETS)),deepsparse)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/deepsparse
+endif
 ifneq ($(findstring keras,$(TARGETS)),keras)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/keras
 endif
