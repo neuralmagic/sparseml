@@ -12,16 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# flake8: noqa
+
 """
-Code for creating and loading datasets in Keras
+Functionality related to detecting and getting information for
+support and sparsification in the Keras framework.
 """
 
 # flake8: noqa
 
-from ..base import check_keras_install as _check_keras_install
-from .classification import *
-from .external import *
-from .registry import *
-
-
-_check_keras_install()  # TODO: remove once files within package load without installs
+from .info import *

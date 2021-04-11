@@ -18,7 +18,11 @@ Code for creating and loading datasets in Keras
 
 # flake8: noqa
 
+from ..base import check_keras_install as _check_keras_install
 from .classification import *
 from .dataset import *
 from .helpers import *
 from .registry import *
+
+
+_check_keras_install()  # TODO: remove once files within package load without installs

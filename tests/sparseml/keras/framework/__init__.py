@@ -11,17 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""
-Code for creating and loading datasets in Keras
-"""
-
-# flake8: noqa
-
-from ..base import check_keras_install as _check_keras_install
-from .classification import *
-from .external import *
-from .registry import *
-
-
-_check_keras_install()  # TODO: remove once files within package load without installs
