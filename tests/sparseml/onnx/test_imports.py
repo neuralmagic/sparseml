@@ -12,12 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Functionality for working with and sparsifying Models in the ONNX/ONNXRuntime framework
-"""
 
-# flake8: noqa
-
-from .base import *
-from .framework import detect_framework, framework_info, is_supported
-from .sparsification import sparsification_info
+def test_imports():
+    # flake8: noqa
+    from sparseml.onnx import (
+        check_onnx_install,
+        check_onnxruntime_install,
+        detect_framework,
+        framework_info,
+        is_supported,
+        onnx,
+        onnx_err,
+        onnxruntime,
+        onnxruntime_err,
+        require_onnx,
+        require_onnxruntime,
+        sparsification_info,
+    )
