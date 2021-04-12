@@ -18,8 +18,12 @@ Code for creating and loading models in PyTorch
 
 # flake8: noqa
 
+from ..base import check_torch_install as _check_torch_install
 from .classification import *
 from .detection import *
 from .external import *
 from .recommendation import *
 from .registry import *
+
+
+_check_torch_install()  # TODO: remove once files within package load without installs
