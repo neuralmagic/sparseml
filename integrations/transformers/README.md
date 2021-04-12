@@ -73,7 +73,7 @@ To demostrate the effect that various pruning regimes and techniques can have we
 
 | base model name       | sparsity 	| total train epochs    | prunned | one shot |pruning epochs| F1 Score 	| EM Score  |
 |-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
-| bert-base-uncased 	|0        	|1                  	|no       |no        |0            	|09.685     |3.614      |
+| bert-base-uncased 	|0        	|1                  	|no       |no        |0            	|09.685     |03.614      |
 | bert-base-uncased 	|0        	|2                  	|no       |no        |0            	|88.002     |80.634     |
 | bert-base-uncased 	|0        	|10                 	|no       |no        |0            	|87.603     |79.130     |
 | bert-base-uncased 	|80       	|1                  	|yes      |yes       |0          	|25.141     |15.998     |
@@ -82,16 +82,16 @@ To demostrate the effect that various pruning regimes and techniques can have we
 | bert-base-uncased 	|90       	|1                  	|yes      |yes       |0           	|16.064     |07.786     |
 | bert-base-uncased 	|90       	|2                   	|yes      |no        |0            	|64.185     |50.946     |
 | bert-base-uncased 	|90       	|10                 	|yes      |no        |8            	|79.091     |68.184     |
-| bert-base-uncased 	|95       	|1                  	|yes      |yes       |0           	|10.501     |4.929      |
+| bert-base-uncased 	|95       	|1                  	|yes      |yes       |0           	|10.501     |04.929     |
 | bert-base-uncased 	|95       	|2                   	|yes      |no        |0            	|24.445     |14.437     |
 | bert-base-uncased 	|95       	|10                 	|yes      |no        |8            	|72.761  	|60.407     |
-| bert-base-uncased 	|97       	|10                 	|yes      |no        |6            	|-  	|-     |
+| bert-base-uncased 	|97       	|10                 	|yes      |no        |6            	|70.260  	|57.021     |
 | bert-base-uncased 	|99         |1                   	|yes      |yes       |0             |09.685     |03.614     |
 | bert-base-uncased 	|99       	|2                   	|yes      |no        |0            	|17.433     |07.871     |
 | bert-base-uncased 	|99         |10                    	|yes      |no        |8             |47.306    	|32.564     |
 
-## Training With Distilation
-In addition to a simple QA model we provide implementation which can leverage teacher-student distilation. The usage of the distilation code is virually identical to the non distilled model but commands are as follow. 
+## Training With distillation
+In addition to a simple QA model we provide implementation which can leverage teacher-student distillation. The usage of the distillation code is virually identical to the non distilled model but commands are as follow. 
 
 #### Training 
 ```bash
@@ -104,13 +104,13 @@ python run_distill_qa.py  \
  --learning_rate 3e-5 \
  --max_seq_length 384 \
  --doc_stride 128 \
- --output_dir bert-base-uncased-90-1shot/ \
+ --output_dir distill_2epoch/ \
  --overwrite_output_dir \
  --cache_dir cache \
  --preprocessing_num_workers 4 \
  --seed 42 \
  --num_train_epochs 2 \
- --nm_prune_config recipes/90sparsity1shot.yaml
+ --nm_prune_config recipes/noprune2epoch.yaml
  --fp16
 ```
 
@@ -137,25 +137,49 @@ python run_qa.py  \
  --cache_dir cache \
  --preprocessing_num_workers 4 \
 ```
+### Distilation Results
+Sparsity 80, 90, 97
+| base model name       | sparsity 	|Distilled| prunned |train epochs|pruning epochs| F1 Score | EM Score  |
+|-----------------------|----------	|---------|---------|------------|--------------|----------|-----------|
+| bert-base-uncased 	|0        	|no       |no       |2           |0             |88.32442  |81.10690   |
+| bert-base-uncased 	|80        	|no       |no       |30          |18            |  |  |
+| bert-base-uncased 	|90        	|no       |no       |30          |18            |  |  |
+| bert-base-uncased 	|97       	|no       |no       |30          |18            |  |  |
+| bert-base-uncased 	|0        	|yes      |no       |2           |0             |  |  |
+| bert-base-uncased 	|80        	|yes      |yes      |30          |18            |  |  |
+| bert-base-uncased 	|90        	|yes      |yes      |30          |18            |  |  |
+| bert-base-uncased 	|97       	|yes      |yes      |30          |18            |  |  |
 
-### Model Results
-To demostrate the effect that distilation has on pruning we prune to 3 (0,90, 97) sparsities and compare performance with and without distilation sparsities. All models are distilled with a bert-based-uncase SQUAD model which was trained for two epochs and hasa F1 o 88.002 and an EM of 80.634.
+### Distillation, Pruning, Layer Dropping
+To explore the effect of model pruning compared to layer dropping we train models to sparsity to match the amount of parameters in models with layers droppend. Results feature both with and without distillation. For distillation we use hard distillation and a a trained teacher model which is trained on SQUAD for 2 epochs and achieves an 88.32442/81.10690 F1/EM. A 9 layer model is roughly equivalent to 20% sparsity, 6 layer to 40%, 3 layer to 60%, 1 layer to 72%. 
 
-| student model name    | sparsity 	| total train epochs    | prunned | distilled|pruning epochs| F1 Score 	| EM Score  |
-|-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
-| bert-base-uncased 	|0        	|2                  	|no       |no        |0            	|88.002     |80.634     |
-| bert-base-uncased 	|0        	|2                  	|no       |yes       |0            	|    |     |
+| base model name       | sparsity 	| params                |Distilled| prunned | layers   |pruning epochs| F1 Score | EM Score  |
+|-----------------------|----------	|-----------------------|---------|---------|----------|--------------|----------|-----------|
+| bert-base-uncased 	|0        	|108,893,186         	|no       |no       |12        |0             |88.32442  |81.10690   |
+| bert-base-uncased 	|0        	|87,629,570         	|no       |no       |9         |0             |86.70732  |78.81740   |
+| bert-base-uncased 	|0        	|66,365,954             |no       |no       |6         |0             |81.63629  |72.66793   |
+| bert-base-uncased 	|0        	|45,102,338            	|no       |no       |3         |0             |51.75267  |39.11069   |
+| bert-base-uncased 	|0        	|30,926,594            	|no       |no       |1         |0             |26.22600  |17.32261   |
+| bert-base-uncased 	|20        	|108,893,186         	|no       |yes      |12        |8             |  |     |
+| bert-base-uncased 	|40       	|108,893,186         	|no       |yes      |12        |8             |  |     |
+| bert-base-uncased 	|60        	|108,893,186         	|no       |yes      |12        |8             |  |     |
+| bert-base-uncased 	|72        	|108,893,186         	|no       |yes      |12        |8             |  |     |
+| bert-base-uncased 	|80        	|66,365,954         	|no       |yes      |6         |8             |  |     |
+| bert-base-uncased 	|90        	|66,365,954         	|no       |yes      |6         |8             |  |     |
+| bert-base-uncased 	|97        	|66,365,954         	|no       |yes      |6         |8             |  |     |
+| bert-base-uncased 	|0        	|108,893,186         	|yes      |no       |12        |0             |  |     |
+| bert-base-uncased 	|0        	|87,629,570         	|yes      |no       |9         |0             |87.94176  |80.46358      |
+| bert-base-uncased 	|0        	|66,365,954             |yes      |no       |6         |0             |83.4553      |75.03311      |
+| bert-base-uncased 	|0        	|45,102,338            	|yes      |no       |3         |0             |43.82823      |33.05581|
+| bert-base-uncased 	|0        	|30926594           	|yes      |no       |1         |0             |28.10105      |18.5052      |
+| bert-base-uncased 	|20        	|108,893,186         	|yes      |yes      |12        |18            |  |     |
+| bert-base-uncased 	|40       	|108,893,186         	|yes      |yes      |12        |18            |  |     |
+| bert-base-uncased 	|60        	|108,893,186         	|yes      |yes      |12        |18            |  |     |
+| bert-base-uncased 	|72        	|108,893,186         	|yes      |yes      |12        |18            |  |     |
+| bert-base-uncased 	|80        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
+| bert-base-uncased 	|90        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
+| bert-base-uncased 	|97        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
 
-## Pruning vs Layer Dropping
-To explore the effect of model pruning compared to layer dropping we prune
-| base model name       | sparsity 	| params                |Distilled| prunned | layers   |pruning epochs| F1 Score 	| EM Score  |
-|-----------------------|----------	|-----------------------|---------|---------|----------|--------------|----------	|-----------|
-| bert-base-uncased 	|0        	|108,893,186         	|no       |no       |12        |0            	|      |      |
-| bert-base-uncased 	|0        	|10                  	|no       |no       |6         |0            	|      |      |
-| bert-base-uncased 	|0        	|10                 	|no       |no       |3         |0            	|      |      |
-| bert-base-uncased 	|0        	|108,893,186         	|yes       |no       |12        |0            	|      |      |
-| bert-base-uncased 	|0        	|10                  	|yes       |no       |6         |0            	|      |      |
-| bert-base-uncased 	|0        	|10                 	|yes       |no       |3         |0            	|      |      |
 
 ## Script origin and how to integrate sparseml with other Transformers projects
 This script is based on the example BERT-QA implementation in transformers found [here](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py). 
