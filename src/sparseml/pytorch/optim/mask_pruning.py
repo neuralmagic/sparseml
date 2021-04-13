@@ -17,6 +17,7 @@ Code related to applying a mask onto a parameter to impose kernel sparsity,
 aka model pruning
 """
 
+from functools import partial
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -435,12 +436,12 @@ class ModuleParamPruningMask(object):
         for idx, (param, layer) in enumerate(zip(self._params, self._layers)):
             if self._forward_hooks[idx] is None:
                 self._forward_hooks[idx] = layer.register_forward_pre_hook(
-                    self._get_param_mask_forward_hook(idx)
+                    partial(self._hook_mask_forward, param_idx=idx)
                 )
 
             if self._gradient_hooks[idx] is None:
                 self._gradient_hooks[idx] = param.register_hook(
-                    self._get_param_mask_gradient_hook(idx)
+                    partial(self._hook_mask_gradient, param_idx=idx)
                 )
 
     def _delete_hooks(self):
@@ -453,22 +454,18 @@ class ModuleParamPruningMask(object):
                 self._gradient_hooks[idx].remove()
                 self._gradient_hooks[idx] = None
 
-    def _get_param_mask_forward_hook(self, param_idx):
-        def hook_mask_forward(mod: Module, inp: Union[Tensor, Tuple[Tensor]]):
-            self.apply(param_idx)
+    def _hook_mask_forward(
+        self, param_idx: int, mod: Module, inp: Union[Tensor, Tuple[Tensor]]
+    ):
+        self.apply(param_idx)
 
-        return hook_mask_forward
+    def _hook_mask_gradient(self, param_idx, grad):
+        if 0.0 <= self._track_grad_mom < 1.0:
+            self._params_grad[param_idx].mul_(self._track_grad_mom).add_(
+                (1.0 - self._track_grad_mom) * grad
+            )
 
-    def _get_param_mask_gradient_hook(self, param_idx):
-        def hook_mask_gradient(grad):
-            if 0.0 <= self._track_grad_mom < 1.0:
-                self._params_grad[param_idx].mul_(self._track_grad_mom).add_(
-                    (1.0 - self._track_grad_mom) * grad
-                )
-
-            return grad.mul_(self._param_masks[param_idx])
-
-        return hook_mask_gradient
+        return grad.mul_(self._param_masks[param_idx])
 
     def _setup_params_init(self):
         for idx, param in enumerate(self._params):
