@@ -436,12 +436,12 @@ class ModuleParamPruningMask(object):
         for idx, (param, layer) in enumerate(zip(self._params, self._layers)):
             if self._forward_hooks[idx] is None:
                 self._forward_hooks[idx] = layer.register_forward_pre_hook(
-                    partial(self._hook_mask_forward, param_idx=idx)
+                    partial(self._hook_mask_forward, idx)
                 )
 
             if self._gradient_hooks[idx] is None:
                 self._gradient_hooks[idx] = param.register_hook(
-                    partial(self._hook_mask_gradient, param_idx=idx)
+                    partial(self._hook_mask_gradient, idx)
                 )
 
     def _delete_hooks(self):
