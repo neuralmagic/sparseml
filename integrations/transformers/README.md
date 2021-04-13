@@ -145,7 +145,7 @@ Sparsity 80, 90, 97
 | bert-base-uncased 	|80        	|no       |no       |30          |18            |  |  |
 | bert-base-uncased 	|90        	|no       |no       |30          |18            |  |  |
 | bert-base-uncased 	|97       	|no       |no       |30          |18            |  |  |
-| bert-base-uncased 	|0        	|yes      |no       |2           |0             |  |  |
+| bert-base-uncased 	|0        	|yes      |no       |2           |0             |89.02277  |82.03406  |
 | bert-base-uncased 	|80        	|yes      |yes      |30          |18            |  |  |
 | bert-base-uncased 	|90        	|yes      |yes      |30          |18            |  |  |
 | bert-base-uncased 	|97       	|yes      |yes      |30          |18            |  |  |
@@ -167,7 +167,7 @@ To explore the effect of model pruning compared to layer dropping we train model
 | bert-base-uncased 	|80        	|66,365,954         	|no       |yes      |6         |8             |  |     |
 | bert-base-uncased 	|90        	|66,365,954         	|no       |yes      |6         |8             |  |     |
 | bert-base-uncased 	|97        	|66,365,954         	|no       |yes      |6         |8             |  |     |
-| bert-base-uncased 	|0        	|108,893,186         	|yes      |no       |12        |0             |  |     |
+| bert-base-uncased 	|0        	|108,893,186         	|yes      |no       |12        |0             |89.02277  |82.03406  |
 | bert-base-uncased 	|0        	|87,629,570         	|yes      |no       |9         |0             |87.94176  |80.46358      |
 | bert-base-uncased 	|0        	|66,365,954             |yes      |no       |6         |0             |83.4553      |75.03311      |
 | bert-base-uncased 	|0        	|45,102,338            	|yes      |no       |3         |0             |43.82823      |33.05581|
