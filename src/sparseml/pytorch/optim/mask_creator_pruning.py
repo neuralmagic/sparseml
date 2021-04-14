@@ -48,7 +48,7 @@ class PruningMaskCreator(ABC):
         return [torch.ne(tensor, 0.0).type(tensor.type()) for tensor in tensors]
 
     @abstractmethod
-    def create_sparsity_masks_from_abs_threshold(
+    def create_sparsity_masks_from_threshold(
         self, tensors: List[Tensor], threshold: Union[float, Tensor]
     ) -> List[Tensor]:
         """
@@ -87,20 +87,20 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
     by their magnitude.  Each mask will correspond to the given tensor.
     """
 
-    def create_sparsity_masks_from_abs_threshold(
+    def create_sparsity_masks_from_threshold(
         self, tensors: List[Tensor], threshold: Union[float, Tensor]
     ) -> List[Tensor]:
         """
         :param tensors: list of tensors to calculate a masks based on their contained
             values
-        :param threshold: a threshold at which to mask abs(values) if they are
+        :param threshold: a threshold at which to mask values if they are
             less than it or equal
         :return: list of masks (0.0 for values that are masked, 1.0 for values that are
-            unmasked) calculated from the tensors abs(values) <= threshold are masked,
+            unmasked) calculated from the tensors values <= threshold are masked,
             all others are unmasked
         """
         return [
-            (torch.abs(tensor) > threshold).type(tensor.type()) for tensor in tensors
+            (tensor > threshold).type(tensor.type()) for tensor in tensors
         ]
 
     def create_sparsity_masks(
@@ -134,19 +134,20 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         masks = []
 
         for tensor in tensors:
-            threshold = self._abs_threshold_from_sparsity(tensor, sparsity)
+            threshold = self._threshold_from_sparsity(tensor, sparsity)
 
             if threshold.numel() < 1:
                 masks.append(tensor.new_ones(tensor.shape))
                 continue
 
-            if threshold.item() > 0.0:
-                masks.append((torch.abs(tensor) > threshold).type(tensor.type()))
+            min_val = tensor.min().item()
+            if threshold.item() > min_val:
+                masks.append((tensor > threshold).type(tensor.type()))
                 continue
 
             # too many zeros so will go over the already given sparsity
             # and choose which zeros to not keep in mask at random
-            zero_indices = (tensor == 0.0).nonzero()
+            zero_indices = (tensor == min_val).nonzero()
             rand_indices = list(range(zero_indices.shape[0]))
             random.shuffle(rand_indices)
             num_elem = tensor.numel()
@@ -167,10 +168,10 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
 
         return masks
 
-    def _abs_threshold_from_sparsity(self, tensor: Tensor, sparsity: float) -> Tensor:
+    def _threshold_from_sparsity(self, tensor: Tensor, sparsity: float) -> Tensor:
         """
         :param tensor: the tensor to find a value in for which setting
-            abs(all values) < that value will give desired sparsity
+            all values < that value will give desired sparsity
         :param sparsity: the desired sparsity to apply
         :return: the threshold to get to the desired sparsity or an empty tensor
             if it was not possible given the inputs
@@ -178,7 +179,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         if tensor.numel() < 1 or sparsity <= 0.0 or sparsity > 1.0:
             return tensor.new_tensor([])
 
-        sorted_vals, _ = torch.sort(tensor.abs().view(-1))
+        sorted_vals, _ = torch.sort(tensor.view(-1))
         lookup_index = round(sparsity * (tensor.numel() - 1))
 
         if lookup_index < 0:
@@ -306,7 +307,7 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
             masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape))
         return masks
 
-    def create_sparsity_masks_from_abs_threshold(
+    def create_sparsity_masks_from_threshold(
         self, tensors: List[Tensor], threshold: Union[float, Tensor]
     ) -> List[Tensor]:
         """
@@ -319,7 +320,7 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         masks = []
         for tensor in tensors:
             grouped_tensor = self.group_tensor(tensor)
-            grouped_mask = super().create_sparsity_masks_from_abs_threshold(
+            grouped_mask = super().create_sparsity_masks_from_threshold(
                 [grouped_tensor], threshold
             )[0]
             masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape))
@@ -419,8 +420,7 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
     def group_tensor(self, tensor: Tensor) -> Tensor:
         """
         :param tensor: The tensor to transform
-        :return: The absolute mean values of the tensor grouped by the
-            dimension(s) in self._dim
+        :return: The mean values of the tensor grouped by the dimension(s) in self._dim
         """
         n_dims = len(tensor.shape)
         if n_dims < 3 and self._dim_name == "channel":
@@ -430,7 +430,7 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
             )
         reduced_dims = [idx for idx in range(n_dims) if idx not in self._dim]
         reduced_tensor = GroupedPruningMaskCreator.reduce_tensor(
-            torch.abs(tensor), reduced_dims, self._grouping_fn_name
+            tensor, reduced_dims, self._grouping_fn_name
         )
         return reduced_tensor.type(tensor.type())
 
@@ -487,13 +487,13 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
     def group_tensor(self, tensor: Tensor) -> Tensor:
         """
         :param tensor: The tensor to transform
-        :return: The absolute mean values of the tensor grouped by blocks of
-            shape self._block_shape
+        :return: The mean values of the tensor grouped by blocks of shape
+            self._block_shape
         """
         blocked_tens_shape = self._get_blocked_tens_shape_and_validate(tensor.shape)
         blocked_tensor = tensor.reshape(blocked_tens_shape)
         reduced_blocks = GroupedPruningMaskCreator.reduce_tensor(
-            torch.abs(blocked_tensor), 1, self._grouping_fn_name
+            blocked_tensor, 1, self._grouping_fn_name
         )
         return reduced_blocks.type(tensor.type())
 

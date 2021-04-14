@@ -29,7 +29,7 @@ from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
     load_mask_creator,
 )
-from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask
+from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask, PruningScoreTypes
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
@@ -337,6 +337,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
     |       log_types: __ALL__
     |       mask_type: unstructured
     |       global_sparsity: False
+    |       score_type: magnitude
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
@@ -361,6 +362,8 @@ class GMPruningModifier(ScheduledUpdateModifier):
         channels, or a SparsityMaskCreator object. default is 'unstructured'
     :param global_sparsity: set True to enable global pruning. if False, pruning will
         be layer-wise. Default is False
+    :param score_type: Method used to score parameters for masking, i.e.
+        'magnitude', 'movement'. Default is 'magnitude'
     """
 
     def __init__(
@@ -376,6 +379,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         global_sparsity: bool = False,
+        score_type: PruningScoreTypes = PruningScoreTypes.MAGNITUDE,
     ):
         super().__init__(
             log_types=log_types,
@@ -397,6 +401,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         if not isinstance(mask_type, PruningMaskCreator):
             self._mask_creator = load_mask_creator(mask_type)
         self._global_sparsity = global_sparsity
+        self._score_type = score_type
         self._module_masks = None  # type: ModuleParamPruningMask
         self._applied_sparsity = None
         self._last_logged_sparsity = None
@@ -556,11 +561,19 @@ class GMPruningModifier(ScheduledUpdateModifier):
         if not isinstance(value, PruningMaskCreator):
             self._mask_creator = load_mask_creator(value)
 
+    @ModifierProp()
     def global_sparsity(self) -> bool:
         """
         :return: True if global pruning is enabled, False otherwise
         """
         return self._global_sparsity
+
+    @ModifierProp()
+    def score_type(self) -> PruningScoreTypes:
+        """
+        :return: the the scoring method used for pruning
+        """
+        return self._score_type
 
     @ModifierProp(serializable=False)
     def applied_sparsity(self) -> float:
@@ -609,6 +622,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
             param_names,
             layer_names=layer_names,
             global_sparsity=self._global_sparsity,
+            score_type=self._score_type,
         )
 
         self._analyzers = []
