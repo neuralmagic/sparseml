@@ -237,7 +237,7 @@ def save_framework_info(framework: Any, path: Optional[str] = None):
             "saved framework info for framework %s in file at %s", framework, path
         ),
     else:
-        print(info.json())
+        print(info.json(indent=4))
         _LOGGER.info("printed out framework info for framework %s", framework)
 
 
