@@ -155,7 +155,7 @@ python benchmark.py \
 Note for quantized performance, your CPU must support VNNI instructions.
 
 ### Notebook
-`deepsparse.ipynb` is a Jupyter Notebook that walks through running a sample infer3ence
+`deepsparse.ipynb` is a Jupyter Notebook that walks through running a sample inference
 with the DeepSparse engine and running the same benchmark provided in the above script.
 
 Run the notebook by installing the examples as demonstrated above and running
