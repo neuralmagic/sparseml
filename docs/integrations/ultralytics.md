@@ -39,7 +39,7 @@ their associated recipes
 When a recipe is passed in to `--sparseml-recipe`, a `ScheduledModifierManager`
 and `ScheduledOptimizer` will be created to modify the normal training flow for
 sparsification. For best results with SparseML the following arguments may also
-have to be set.  In generall, all should be set when running with SparseML
+have to be set.  In general, all should be set when running with SparseML
 (with the exception of `--disable-amp` if not using quantization).
 
 * `--export-onnx` - Exports the final model to ONNX after training completes. Required
