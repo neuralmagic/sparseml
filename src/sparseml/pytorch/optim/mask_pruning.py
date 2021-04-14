@@ -17,6 +17,7 @@ Code related to applying a mask onto a parameter to impose kernel sparsity,
 aka model pruning
 """
 
+from enum import Enum
 from functools import partial
 from typing import List, Optional, Tuple, Union
 
@@ -31,7 +32,26 @@ from sparseml.pytorch.optim.mask_creator_pruning import (
 from sparseml.pytorch.utils import mask_difference
 
 
-__all__ = ["ModuleParamPruningMask"]
+__all__ = [
+    "PruningScoreTypes",
+    "ModuleParamPruningMask",
+]
+
+
+class PruningScoreTypes(str, Enum):
+    """
+    Methods for scoring parameters for pruning
+    """
+
+    MAGNITUDE = "magnitude"  # https://neuralmagic.com/blog/pruning-gmp/
+    MOVEMENT = "movement"  # https://arxiv.org/abs/2005.07683
+
+    @staticmethod
+    def values() -> List[str]:
+        """
+        :return: List of string values this Enum can take
+        """
+        return [score_type.value for score_type in PruningScoreTypes]
 
 
 class ModuleParamPruningMask(object):
@@ -57,6 +77,8 @@ class ModuleParamPruningMask(object):
         the average sparsity across all given layers is the target sparsity with the
         lowest global values masked. If False, each layer will be masked to the target
         sparsity ranking values within each individual tensor. Default is False
+    :param score_type: the method used to score parameters for masking, i.e.
+        'magnitude', 'movement'. Default is 'magnitude'
     """
 
     def __init__(
@@ -69,6 +91,7 @@ class ModuleParamPruningMask(object):
         mask_creator: PruningMaskCreator = UnstructuredPruningMaskCreator(),
         layer_names: Optional[List[str]] = None,
         global_sparsity: bool = False,
+        score_type: PruningScoreTypes = PruningScoreTypes.MAGNITUDE,
     ):
         self._layers = layers
         self._param_names = (
@@ -85,6 +108,7 @@ class ModuleParamPruningMask(object):
 
         self._enabled = False
         self._forward_hooks = [None] * len(self._layers)
+        self._undo_mask_hooks = [None] * len(self._layers)
         self._gradient_hooks = [None] * len(self._layers)
 
         self._params = []  # type: List[Parameter]
@@ -102,10 +126,23 @@ class ModuleParamPruningMask(object):
         self._params_init = [None] * len(self._layers)  # type: List[Tensor]
         self._params_unmasked = [None] * len(self._layers)  # type: List[Tensor]
         self._params_grad = [None] * len(self._layers)  # type: List[Tensor]
+        self._params_movement = [None] * len(self._layers)  # type: List[Tensor]
+
+        # validate score type
+        if score_type not in PruningScoreTypes.values():
+            raise ValueError(
+                f"Invalid score_type: {score_type}. "
+                f"Valid values: {PruningScoreTypes.values()}"
+            )
+        self._score_type = score_type
 
         self._setup_params_init()
         self._setup_params_unmasked()
         self._setup_params_grad()
+        self._setup_param_movement()
+
+        if score_type == PruningScoreTypes.MOVEMENT:
+            self.enabled = True
 
     def __len__(self):
         return len(self._layers)
@@ -183,6 +220,13 @@ class ModuleParamPruningMask(object):
         :return: True if global pruning is enabled, False otherwise
         """
         return self._global_sparsity
+
+    @property
+    def params_movement(self) -> Union[None, List[Tensor]]:
+        """
+        :return: The current movement scores for each parameter
+        """
+        return self._params_movement
 
     @property
     def enabled(self) -> bool:
@@ -294,17 +338,6 @@ class ModuleParamPruningMask(object):
             self._check_regen_param_vals(idx)
             mask_diff = mask_difference(self._param_masks[idx], value)
 
-            if self._params_unmasked[idx] is not None:
-                # store our unmasked values if they should be tracked
-                # we only want to update our param_masked tensor with the ones
-                # that are newly masked
-                self._params_unmasked[idx] = (mask_diff == -1.0).type(
-                    self._params[idx].data.type()
-                ) * self._params[idx].data + (mask_diff != -1.0).type(
-                    self._params[idx].data.type()
-                ) * self._params_unmasked[
-                    idx
-                ]
             self._param_masks[idx] = value
             self.apply(idx)
 
@@ -334,8 +367,9 @@ class ModuleParamPruningMask(object):
 
         :param threshold: the threshold at which all values will be masked to 0
         """
-        masks = self._mask_creator.create_sparsity_masks_from_abs_threshold(
-            [param.data for param in self._params], threshold
+        score_tensors = self._score_parameters()
+        masks = self._mask_creator.create_sparsity_masks_from_threshold(
+            score_tensors, threshold
         )
 
         return self.set_param_masks(masks)
@@ -348,10 +382,9 @@ class ModuleParamPruningMask(object):
 
         :param sparsity: the decimal sparsity to set the param mask to
         """
+        score_tensors = self._score_parameters()
         masks = self._mask_creator.create_sparsity_masks(
-            [param.data for param in self._params],
-            sparsity,
-            global_sparsity=self._global_sparsity,
+            score_tensors, sparsity, global_sparsity=self._global_sparsity
         )
 
         return self.set_param_masks(masks)
@@ -372,6 +405,10 @@ class ModuleParamPruningMask(object):
             self._check_regen_param_vals(idx)
 
             with torch.no_grad():
+                if self._store_unmasked:
+                    self._params_unmasked[idx] = self._params[idx].data.mul(
+                        1 - self._param_masks[idx]  # inverted mask
+                    )
                 self._params[idx].data.mul_(self._param_masks[idx])
 
     def reset(self):
@@ -382,6 +419,14 @@ class ModuleParamPruningMask(object):
         self._check_regen_param_vals()
         for idx, param in enumerate(self._params):
             param.data.copy_(self._params_init[idx])
+
+    def _score_parameters(self):
+        if self._score_type == PruningScoreTypes.MAGNITUDE:
+            # S = |W|
+            return [torch.abs(param.data) for param in self._params]
+        if self._score_type == PruningScoreTypes.MOVEMENT:
+            # S = -dL/dW * W
+            return self._params_movement
 
     def _check_regen_value(self, val: Tensor, param_idx: int) -> Tensor:
         if self._params[param_idx].data.device != val.device:
@@ -432,11 +477,29 @@ class ModuleParamPruningMask(object):
                     )
                 )
 
+            if (
+                self._params_movement[idx] is not None
+                and self._params[idx].data.device != self._params_movement[idx].device
+            ):
+                self._params_movement[idx] = ModuleParamPruningMask._detach_tens(
+                    torch.empty_like(self._params[idx].data).copy_(
+                        self._params_movement[idx]
+                    )
+                )
+
     def _create_hooks(self):
         for idx, (param, layer) in enumerate(zip(self._params, self._layers)):
             if self._forward_hooks[idx] is None:
                 self._forward_hooks[idx] = layer.register_forward_pre_hook(
                     partial(self._hook_mask_forward, idx)
+                )
+
+            if (
+                self._score_type == PruningScoreTypes.MOVEMENT
+                and self._undo_mask_hooks[idx] is None
+            ):
+                self._undo_mask_hooks[idx] = layer.register_forward_hook(
+                    partial(self._hook_undo_mask, idx)
                 )
 
             if self._gradient_hooks[idx] is None:
@@ -459,13 +522,23 @@ class ModuleParamPruningMask(object):
     ):
         self.apply(param_idx)
 
+    def _hook_undo_mask(self, param_idx, module, inp, out):
+        self._params[param_idx].data.add_(self._params_unmasked[param_idx])
+
     def _hook_mask_gradient(self, param_idx, grad):
         if 0.0 <= self._track_grad_mom < 1.0:
             self._params_grad[param_idx].mul_(self._track_grad_mom).add_(
                 (1.0 - self._track_grad_mom) * grad
             )
 
-        return grad.mul_(self._param_masks[param_idx])
+        if self._score_type == PruningScoreTypes.MOVEMENT:
+            # movement = -sum(grad * weight)
+            self._params_movement[param_idx].add_(
+                0.01 * -1.0 * grad * self._params[param_idx].data
+            )
+
+        # return grad.mul_(self._param_masks[param_idx])
+        return grad
 
     def _setup_params_init(self):
         for idx, param in enumerate(self._params):
@@ -477,12 +550,15 @@ class ModuleParamPruningMask(object):
                 self._params_init[idx] = None
 
     def _setup_params_unmasked(self, param_idx: int = None):
+        if self._score_type == PruningScoreTypes.MOVEMENT:
+            self._store_unmasked = True
+
         indices = range(len(self._params)) if param_idx is None else [param_idx]
 
         for idx in indices:
             if self._store_unmasked and self._params_unmasked[idx] is None:
                 self._params_unmasked[idx] = ModuleParamPruningMask._detach_tens(
-                    self._params[idx].data.clone()
+                        self._params[idx].data.clone()
                 )
             elif not self._store_unmasked and self._params_unmasked[idx] is not None:
                 self._params_unmasked[idx] = None
@@ -495,6 +571,13 @@ class ModuleParamPruningMask(object):
                 )
             elif self._track_grad_mom < 0.0 and self._params_grad[idx] is not None:
                 self._params_grad[idx] = None
+
+    def _setup_param_movement(self):
+        if self._score_type == PruningScoreTypes.MOVEMENT:
+            for idx, param in enumerate(self._params):
+                self._params_movement[idx] = ModuleParamPruningMask._detach_tens(
+                    param.data.new_zeros(param.data.shape)
+                )
 
     @staticmethod
     def _detach_tens(tens) -> Tensor:
