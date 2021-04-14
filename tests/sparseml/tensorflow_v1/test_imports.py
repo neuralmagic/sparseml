@@ -12,16 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Code for creating and loading datasets in TensorFlow
-"""
 
-# flake8: noqa
-
-from ..base import check_tensorflow_install as _check_tensorflow_install
-from .classification import *
-from .dataset import *
-from .registry import *
-
-
-_check_tensorflow_install()  # TODO: remove once files load without installs
+def test_imports():
+    # flake8: noqa
+    from sparseml.tensorflow_v1 import (
+        check_tensorflow_install,
+        check_tf2onnx_install,
+        detect_framework,
+        framework_info,
+        is_supported,
+        require_tensorflow,
+        require_tf2onnx,
+        sparsification_info,
+        tensorflow,
+        tensorflow_err,
+        tf2onnx,
+        tf2onnx_err,
+        tf_compat,
+    )

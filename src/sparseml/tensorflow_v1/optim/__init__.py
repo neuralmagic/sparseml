@@ -19,6 +19,7 @@ Handles things like model pruning and increasing activation sparsity.
 
 # flake8: noqa
 
+from ..base import check_tensorflow_install as _check_tensorflow_install
 from .analyzer_module import *
 from .manager import *
 from .mask_creator_pruning import *
@@ -30,3 +31,6 @@ from .modifier_params import *
 from .modifier_pruning import *
 from .schedule_lr import *
 from .sensitivity_pruning import *
+
+
+_check_tensorflow_install()  # TODO: remove once files load without installs

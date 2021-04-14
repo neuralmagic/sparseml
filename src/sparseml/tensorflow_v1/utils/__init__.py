@@ -18,8 +18,12 @@ Generic code used as utilities and helpers for TensorFlow
 
 # flake8: noqa
 
+from ..base import check_tensorflow_install as _check_tensorflow_install
 from .exporter import *
 from .helpers import *
 from .loss import *
 from .summary import *
 from .variable import *
+
+
+_check_tensorflow_install()  # TODO: remove once files load without installs
