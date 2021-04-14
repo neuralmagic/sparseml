@@ -241,7 +241,7 @@ def save_sparsification_info(framework: Any, path: Optional[str] = None):
             "saved sparsification info for framework %s in file at %s", framework, path
         ),
     else:
-        print(info.json())
+        print(info.json(indent=4))
         _LOGGER.info("printed out sparsification info for framework %s", framework)
 
 
