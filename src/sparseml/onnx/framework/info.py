@@ -105,7 +105,7 @@ def framework_info() -> FrameworkInfo:
         from onnxruntime import get_all_providers, get_available_providers
 
         available_providers = get_available_providers()
-        all_providers = get_all_providers
+        all_providers = get_all_providers()
 
     cpu_provider = FrameworkInferenceProviderInfo(
         name="cpu",
