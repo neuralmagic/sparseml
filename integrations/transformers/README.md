@@ -142,13 +142,16 @@ Sparsity 80, 90, 97
 | base model name       | sparsity 	|Distilled| prunned |train epochs|pruning epochs| F1 Score | EM Score  |
 |-----------------------|----------	|---------|---------|------------|--------------|----------|-----------|
 | bert-base-uncased 	|0        	|no       |no       |2           |0             |88.32442  |81.10690   |
-| bert-base-uncased 	|80        	|no       |no       |30          |18            |  |  |
-| bert-base-uncased 	|90        	|no       |no       |30          |18            |  |  |
-| bert-base-uncased 	|97       	|no       |no       |30          |18            |  |  |
+| bert-base-uncased 	|80        	|no       |no       |30          |18            |84.06276  |74.63576  |
+| bert-base-uncased 	|90        	|no       |no       |30          |18            |79.64549  |68.50520  |
+| bert-base-uncased 	|97       	|no       |no       |30          |18            |70.42570  |57.29423  |
 | bert-base-uncased 	|0        	|yes      |no       |2           |0             |89.02277  |82.03406  |
-| bert-base-uncased 	|80        	|yes      |yes      |30          |18            |  |  |
+| bert-base-uncased 	|80        	|yes      |yes      |30          |18            |88.03192  |80.81362  |
 | bert-base-uncased 	|90        	|yes      |yes      |30          |18            |  |  |
 | bert-base-uncased 	|97       	|yes      |yes      |30          |18            |  |  |
+
+76.6/84.9 for 90
+72.7/82.3 for 97
 
 ### Distillation, Pruning, Layer Dropping
 To explore the effect of model pruning compared to layer dropping we train models to sparsity to match the amount of parameters in models with layers droppend. Results feature both with and without distillation. For distillation we use hard distillation and a a trained teacher model which is trained on SQUAD for 2 epochs and achieves an 88.32442/81.10690 F1/EM. A 9 layer model is roughly equivalent to 20% sparsity, 6 layer to 40%, 3 layer to 60%, 1 layer to 72%. 
@@ -160,18 +163,18 @@ To explore the effect of model pruning compared to layer dropping we train model
 | bert-base-uncased 	|0        	|66,365,954             |no       |no       |6         |0             |81.63629  |72.66793   |
 | bert-base-uncased 	|0        	|45,102,338            	|no       |no       |3         |0             |51.75267  |39.11069   |
 | bert-base-uncased 	|0        	|30,926,594            	|no       |no       |1         |0             |26.22600  |17.32261   |
-| bert-base-uncased 	|20        	|108,893,186         	|no       |yes      |12        |8             |  |     |
+| bert-base-uncased 	|20        	|108,893,186         	|no       |yes      |12        |8             |87.19622  |79.16746   |
 | bert-base-uncased 	|40       	|108,893,186         	|no       |yes      |12        |8             |  |     |
 | bert-base-uncased 	|60        	|108,893,186         	|no       |yes      |12        |8             |  |     |
-| bert-base-uncased 	|72        	|108,893,186         	|no       |yes      |12        |8             |  |     |
+| bert-base-uncased 	|72        	|108,893,186         	|no       |yes      |12        |8             |85.49873  |76.43330   |
 | bert-base-uncased 	|80        	|66,365,954         	|no       |yes      |6         |8             |  |     |
 | bert-base-uncased 	|90        	|66,365,954         	|no       |yes      |6         |8             |  |     |
 | bert-base-uncased 	|97        	|66,365,954         	|no       |yes      |6         |8             |  |     |
-| bert-base-uncased 	|0        	|108,893,186         	|yes      |no       |12        |0             |89.02277  |82.03406  |
-| bert-base-uncased 	|0        	|87,629,570         	|yes      |no       |9         |0             |87.94176  |80.46358      |
-| bert-base-uncased 	|0        	|66,365,954             |yes      |no       |6         |0             |83.4553      |75.03311      |
-| bert-base-uncased 	|0        	|45,102,338            	|yes      |no       |3         |0             |43.82823      |33.05581|
-| bert-base-uncased 	|0        	|30926594           	|yes      |no       |1         |0             |28.10105      |18.5052      |
+| bert-base-uncased 	|0        	|108,893,186         	|yes      |no       |12        |0             |89.02277  |82.03406   |
+| bert-base-uncased 	|0        	|87,629,570         	|yes      |no       |9         |0             |87.94176  |80.46358   |
+| bert-base-uncased 	|0        	|66,365,954             |yes      |no       |6         |0             |83.4553   |75.03311   |
+| bert-base-uncased 	|0        	|45,102,338            	|yes      |no       |3         |0             |43.82823  |33.05581   |
+| bert-base-uncased 	|0        	|30,926,594           	|yes      |no       |1         |0             |28.10105  |18.5052    |
 | bert-base-uncased 	|20        	|108,893,186         	|yes      |yes      |12        |18            |  |     |
 | bert-base-uncased 	|40       	|108,893,186         	|yes      |yes      |12        |18            |  |     |
 | bert-base-uncased 	|60        	|108,893,186         	|yes      |yes      |12        |18            |  |     |
@@ -179,7 +182,6 @@ To explore the effect of model pruning compared to layer dropping we train model
 | bert-base-uncased 	|80        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
 | bert-base-uncased 	|90        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
 | bert-base-uncased 	|97        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
-
 
 ## Script origin and how to integrate sparseml with other Transformers projects
 This script is based on the example BERT-QA implementation in transformers found [here](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py). 
