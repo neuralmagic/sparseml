@@ -15,10 +15,12 @@
 from typing import List
 
 import numpy
+import onnx
 import pytest
 from onnx import load_model
 
 from sparseml.onnx.utils import (
+    ONNXGraph,
     get_node_params,
     prune_model_one_shot,
     prune_unstructured,
@@ -108,3 +110,31 @@ def test_prune_model_one_shot_sparsity_list(
         weight, _ = get_node_params(model, node)
         weight_val = weight.val
         _test_correct_sparsity(weight_val, sparsity, 5.5e-3)
+
+
+def test_sort_nodes_topologically(
+    onnx_repo_models: OnnxRepoModelFixture,  # noqa: F811
+):
+    model_path = onnx_repo_models.model_path
+    model = load_model(model_path)
+    onnx.checker.check_model(model)  # assert that starting model is valid
+
+    # create invalid model by changing node ordering
+    nodes = list(model.graph.node)
+    checker_failed = False
+    for _ in range(10):
+        try:
+            numpy.random.shuffle(nodes)
+            model.graph.ClearField("node")
+            model.graph.node.extend(nodes)
+            onnx.checker.check_model(model)
+        except Exception:
+            # checker failed due to node topo ordering
+            checker_failed = True
+            break
+    assert checker_failed, "unable to induce invalid model by shuffling node order"
+
+    graph = ONNXGraph(model)
+    graph.sort_nodes_topologically()
+    # check that sorted model is valid
+    onnx.checker.check_model(model)
