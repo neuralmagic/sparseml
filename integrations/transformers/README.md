@@ -147,14 +147,14 @@ Sparsity 80, 90, 97
 | bert-base-uncased 	|97       	|no       |no       |30          |18            |70.42570  |57.29423  |
 | bert-base-uncased 	|0        	|yes      |no       |2           |0             |89.02277  |82.03406  |
 | bert-base-uncased 	|80        	|yes      |yes      |30          |18            |88.03192  |80.81362  |
-| bert-base-uncased 	|90        	|yes      |yes      |30          |18            |  |  |
+| bert-base-uncased 	|90        	|yes      |yes      |30          |18            |85.63751  |77.41721  |
 | bert-base-uncased 	|97       	|yes      |yes      |30          |18            |  |  |
 
-76.6/84.9 for 90
 72.7/82.3 for 97
 
 ### Distillation, Pruning, Layer Dropping
 To explore the effect of model pruning compared to layer dropping we train models to sparsity to match the amount of parameters in models with layers droppend. Results feature both with and without distillation. For distillation we use hard distillation and a a trained teacher model which is trained on SQUAD for 2 epochs and achieves an 88.32442/81.10690 F1/EM. A 9 layer model is roughly equivalent to 20% sparsity, 6 layer to 40%, 3 layer to 60%, 1 layer to 72%. 
+
 
 | base model name       | sparsity 	| params                |Distilled| prunned | layers   |pruning epochs| F1 Score | EM Score  |
 |-----------------------|----------	|-----------------------|---------|---------|----------|--------------|----------|-----------|
@@ -164,8 +164,8 @@ To explore the effect of model pruning compared to layer dropping we train model
 | bert-base-uncased 	|0        	|45,102,338            	|no       |no       |3         |0             |51.75267  |39.11069   |
 | bert-base-uncased 	|0        	|30,926,594            	|no       |no       |1         |0             |26.22600  |17.32261   |
 | bert-base-uncased 	|20        	|108,893,186         	|no       |yes      |12        |8             |87.19622  |79.16746   |
-| bert-base-uncased 	|40       	|108,893,186         	|no       |yes      |12        |8             |  |     |
-| bert-base-uncased 	|60        	|108,893,186         	|no       |yes      |12        |8             |  |     |
+| bert-base-uncased 	|40       	|108,893,186         	|no       |yes      |12        |8             |86.27294  |78.07947   |
+| bert-base-uncased 	|60        	|108,893,186         	|no       |yes      |12        |8             |86.4412   |77.94702   |
 | bert-base-uncased 	|72        	|108,893,186         	|no       |yes      |12        |8             |85.49873  |76.43330   |
 | bert-base-uncased 	|80        	|66,365,954         	|no       |yes      |6         |8             |  |     |
 | bert-base-uncased 	|90        	|66,365,954         	|no       |yes      |6         |8             |  |     |

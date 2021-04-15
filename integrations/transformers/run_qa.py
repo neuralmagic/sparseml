@@ -680,7 +680,6 @@ def main():
     question_column_name = "question" if "question" in column_names else column_names[0]
     context_column_name = "context" if "context" in column_names else column_names[1]
     answer_column_name = "answers" if "answers" in column_names else column_names[2]
-
     pad_on_right = tokenizer.padding_side == "right"  
 
     if training_args.do_train:
@@ -720,6 +719,10 @@ def main():
     optim = load_optimizer(model, TrainingArguments)
     steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.per_device_train_batch_size*training_args._n_gpu))
     manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
+    print(training_args.num_train_epochs)
+    training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
+    print(training_args.num_train_epochs)
+    exit(0)
     optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
     ####################################################################################
     # End SparseML Integration
