@@ -722,7 +722,6 @@ def main():
     print(training_args.num_train_epochs)
     training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
     print(training_args.num_train_epochs)
-    exit(0)
     optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
     ####################################################################################
     # End SparseML Integration
