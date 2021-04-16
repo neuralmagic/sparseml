@@ -33,7 +33,6 @@ from sparseml.onnx.utils.helpers import (
     NodeParam,
     conv_node_params,
     get_batch_norm_params,
-    get_node_input_nodes,
     get_quantize_parent_for_dequantize_node,
 )
 

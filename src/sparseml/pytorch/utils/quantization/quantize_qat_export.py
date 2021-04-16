@@ -40,7 +40,6 @@ from sparseml.onnx.utils import (
     swap_node_output,
     update_model_param,
 )
-from sparseml.onnx.utils.graph_editor import ONNXGraph
 
 
 __all__ = [
@@ -621,7 +620,7 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         )
         model.graph.initializer.append(quantized_weight_initializer)
 
-        ### QLinearMatMul
+        """ QLinearMatMul """
         # get qmatmul inputs and outputs
         qmatmul_input = input_quantize_node.input[0]
         qmatmul_inputs = [
@@ -646,7 +645,7 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         )
         model.graph.node.append(qmatmul_node)
 
-        ### QLinearAdd
+        """ QLinearAdd """
         # quantize bias
         bias_initializer = get_init_by_name(model, bias_add_node.input[1])
         if bias_initializer is None:
@@ -699,7 +698,7 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         )
         model.graph.node.append(qadd_node)
 
-        ### Cleanup
+        """ Cleanup """
         # delete folded quantization ops
         delete_quant_node(model, weight_dequantize_node, keep_params=False)
         delete_quant_node(model, weight_quantize_node, keep_params=True)
