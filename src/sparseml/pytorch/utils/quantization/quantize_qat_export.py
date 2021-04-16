@@ -458,7 +458,10 @@ def _convert_quantizable_gemm(
 
     # create qmatmul node and add it to graph
     qmatmul_node = onnx.helper.make_node(
-        "QLinearMatMul", qmatmul_inputs, [qmatmul_output], qmatmul_name,
+        "QLinearMatMul",
+        qmatmul_inputs,
+        [qmatmul_output],
+        qmatmul_name,
     )
     model.graph.node.append(qmatmul_node)
 
@@ -515,6 +518,39 @@ def _convert_quantizable_gemm(
 
 
 def _convert_quantizable_matmul_and_add(model: ModelProto):
+    """
+    A pass for converting a MatMul with kernel and bias into a quantized representation
+
+    Starting with:
+             INPUT         QuantizeLinear (with constant kernel)
+               |               |
+        QuantizeLinear     DequantizeLinear
+               |               |
+        DequantizeLinear   Transpose
+                     |      |
+                      MatMul
+                        |
+                       Add (with constant bias)
+                        |
+                  QuantizeLinear
+                        |
+                 DequantizeLinear
+                        |
+                     OUTPUT
+
+    We end up converting to:
+          INPUT
+            |
+        QuantizeLinear
+            |
+        QLinearMatMul (with constant kernel)
+            |
+        QLinearAdd (with constant bias)
+            |
+        DequantizeLinear
+            |
+          OUTPUT
+    """
     matmul_nodes = [n for n in model.graph.node if n.op_type in ["MatMul"]]
     for gemm_node in matmul_nodes:
         graph = ONNXGraph(model)
@@ -603,7 +639,10 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
 
         # create qmatmul node and add it to graph
         qmatmul_node = onnx.helper.make_node(
-            "QLinearMatMul", qmatmul_inputs, [qmatmul_output], qmatmul_name,
+            "QLinearMatMul",
+            qmatmul_inputs,
+            [qmatmul_output],
+            qmatmul_name,
         )
         model.graph.node.append(qmatmul_node)
 
@@ -637,7 +676,6 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
 
         # get qadd inputs and outputs
         qadd_input = qmatmul_output
-        # TODO: need to get different scales/zero points here
         qadd_inputs = [
             qadd_input,  # x
             output_quantize_node.input[1],  # x_scale
@@ -653,7 +691,11 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         kwargs = {"domain": "com.microsoft"}
         # create qlinearadd node and add it to graph
         qadd_node = onnx.helper.make_node(
-            "QLinearAdd", qadd_inputs, [qadd_output], qadd_name, **kwargs,
+            "QLinearAdd",
+            qadd_inputs,
+            [qadd_output],
+            qadd_name,
+            **kwargs,
         )
         model.graph.node.append(qadd_node)
 
@@ -719,7 +761,7 @@ def _replace_input_id_model(model: ModelProto, old_id: str, new_id: str):
                 node.input[idx] = new_id
 
 
-def _remove_duplicate_quantize__ops(model: ModelProto):
+def _remove_duplicate_quantize_ops(model: ModelProto):
     quantize_ops_by_input = defaultdict(list)
     for node in model.graph.node:
         if node.op_type == "QuantizeLinear":
@@ -736,6 +778,14 @@ def _remove_duplicate_quantize__ops(model: ModelProto):
 
 
 def _cleanup_unused_quants(model: ModelProto):
+    """
+    A pass for removing unused Quantize->Dequantize blocks.
+    This should be called at the end of conversion, once all of the conversions
+    to quantized operators has been tried.
+    Example:
+    op -> QuantizeLinear -> DequantizeLinear -> non-quantized op
+    => op -> non-quantized operator
+    """
     graph = ONNXGraph(model)
     nodes_to_delete = []
     quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
@@ -744,20 +794,19 @@ def _cleanup_unused_quants(model: ModelProto):
         if not dequant_node or dequant_node.op_type != "DequantizeLinear":
             continue
 
-        should_remove = True
+        removable = True
         dequant_children = graph.get_node_children(dequant_node)
         for child in dequant_children:
             if isinstance(child, onnx.NodeProto) and child.op_type in _QLINEAR_OP_NAMES:
-                should_remove = False
-
-        if not should_remove:
+                removable = False
+        if not removable:
             continue
 
-        # forward quant input to dequant's children
+        # Forward QuantizeLinear input to DequantizeLinear output
         for child in dequant_children:
             _replace_input_id_model(model, dequant_node.output[0], quant_node.input[0])
 
-        # remove quant/dequant block
+        # Remove QuantizeLinear->DequantizeLinear block
         nodes_to_delete.append(quant_node)
         nodes_to_delete.append(dequant_node)
 
@@ -793,7 +842,7 @@ def quantize_torch_qat_export(
     _convert_quantizable_ops(model)
     quantize_resnet_identity_add_inputs(model)
     quantized_residual_add_optim(model)
-    _remove_duplicate_quantize__ops(model)
+    _remove_duplicate_quantize_ops(model)
     _cleanup_unused_quants(model)
 
     if output_file_path:
@@ -855,7 +904,8 @@ def _skip_input_quantize(model: ModelProto) -> Optional[str]:
 
 
 def skip_onnx_input_quantize(
-    model: Union[ModelProto, str], output_file_path: Union[str, None] = None,
+    model: Union[ModelProto, str],
+    output_file_path: Union[str, None] = None,
 ):
     """
     If the given model has a single FP32 input that feeds into a QuantizeLinear
