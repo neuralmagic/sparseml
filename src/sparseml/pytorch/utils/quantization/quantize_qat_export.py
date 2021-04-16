@@ -843,6 +843,7 @@ def quantize_torch_qat_export(
     quantized_residual_add_optim(model)
     _remove_duplicate_quantize_ops(model)
     _cleanup_unused_quants(model)
+    ONNXGraph(model).sort_nodes_topologically()
 
     if output_file_path:
         onnx.save(model, output_file_path)
