@@ -27,7 +27,6 @@ import numpy
 import onnx
 from onnx import ModelProto, NodeProto, numpy_helper
 
-from sparseml.onnx.utils.graph_editor import ONNXGraph
 from sparseml.onnx.utils import (
     ONNXGraph,
     get_batch_norm_params,
@@ -41,6 +40,7 @@ from sparseml.onnx.utils import (
     swap_node_output,
     update_model_param,
 )
+from sparseml.onnx.utils.graph_editor import ONNXGraph
 
 
 __all__ = [
