@@ -18,6 +18,8 @@ limitations under the License.
 This directory demonstrates how to integrate SparseML optimizations with the [torchvision](https://pytorch.org/docs/stable/torchvision/index.html)
 library and provides an ease-of-use script for doing so.
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/neuralmagic/sparseml/blob/main/integrations/pytorch-torchvision/pruning.ipynb)
+
 Some of the tasks you can perform using this integration include, but are not limited to:
 * model pruning
 * sparse quantization-aware-training
