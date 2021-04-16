@@ -272,6 +272,11 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
         assert modifier.applied_sparsity == modifier.init_sparsity
         last_sparsity = modifier.init_sparsity
 
+        # check forward pass
+        input_shape = model_lambda.layer_descs()[0].input_size
+        test_batch = torch.randn(10, *input_shape)
+        _ = model(test_batch)
+
         while epoch < modifier.end_epoch - modifier.update_frequency:
             epoch += modifier.update_frequency
             assert modifier.update_ready(epoch, test_steps_per_epoch)
@@ -279,6 +284,7 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
             assert modifier.applied_sparsity > last_sparsity
             last_sparsity = modifier.applied_sparsity
 
+        _ = model(test_batch)  # check forward pass
         epoch = int(modifier.end_epoch)
         assert modifier.update_ready(epoch, test_steps_per_epoch)
         modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
