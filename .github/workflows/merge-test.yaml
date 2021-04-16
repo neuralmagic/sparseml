@@ -1,0 +1,104 @@
+name: Merge Tests
+on: 
+  push:
+    branches:
+      - main
+      - 'release/*'
+
+jobs:
+  base-tests:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev]
+      - name: "🔬 Running base tests"
+        run: make test
+  deepsparse-tests:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,deepsparse]
+      - name: "🔬 Running deepsparse tests"
+        run: make test TARGETS=deepsparse
+  keras-tests:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,tf_keras]
+      - name: "🔬 Running keras tests"
+        run: make test TARGETS=keras
+  onnx-tests:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,torchvision]
+      - name: "🔬 Running onnx tests"
+        run: make test TARGETS=onnx
+  pytorch-tests:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,torchvision]
+      - name: "🔬 Running pytorch tests"
+        run: make test TARGETS=pytorch
+  tensorflow-v1-tests:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,tf_v1]
+      - name: "🔬 Running tensorflow_v1 tests"
+        run: make test TARGETS=tensorflow_v1
