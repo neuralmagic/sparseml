@@ -16,7 +16,6 @@
 Post training quantization tools for quantizing and calibrating onnx models.
 """
 
-# TODO delete me
 # flake8: noqa
 
 from .calibration import *

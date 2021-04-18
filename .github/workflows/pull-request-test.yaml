@@ -55,7 +55,6 @@ jobs:
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev]
-      - run: pip3 freeze
       - name: "🔬 Running base tests"
         run: make test
   deepsparse-tests:
