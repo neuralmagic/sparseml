@@ -22,6 +22,7 @@ from typing import Iterable, List, Optional, Union
 import numpy
 import onnx
 from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
+from toposort import toposort_flatten
 
 from sparseml.onnx.utils.helpers import get_node_params
 
@@ -215,6 +216,35 @@ class ONNXGraph(object):
                 if not self._input_id_to_nodes[init.name]
             ]
         )  # delete inits that have no edge
+
+    def sort_nodes_topologically(self):
+        """
+        Sorts the order of the graph Node repeated field in place in topological
+        order as per the ONNX Model proto specifications
+        """
+        # build toposort DAG input and sort
+        model_dag = defaultdict(set)  # node_id -> dependencies
+        for parent_node_id, child_nodes in self._input_id_to_nodes.items():
+            if parent_node_id not in self._output_id_to_node:
+                continue  # parent is an initializer, not node
+            for child_node in child_nodes:
+                model_dag[child_node.output[0]].add(parent_node_id)
+        sorted_node_ids = toposort_flatten(model_dag)
+
+        # deduplicate any nodes from the sorted list
+        updated_node_list = []
+        seen_ids = set()
+        for node_id in sorted_node_ids:
+            if node_id in seen_ids:
+                continue  # a node could have multiple ids, all ids will be updated
+            node = self._output_id_to_node[node_id]
+            updated_node_list.append(node)
+            seen_ids.update(node.output)
+
+        # update model node list with topo sorted list
+        assert len(updated_node_list) == len(self._model.graph.node)
+        self._model.graph.ClearField("node")
+        self._model.graph.node.extend(updated_node_list)
 
     def _store_node_edges(self, node: NodeProto):
         for output_id in node.output:
