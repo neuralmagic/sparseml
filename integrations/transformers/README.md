@@ -137,11 +137,11 @@ python run_qa.py  \
  --cache_dir cache \
  --preprocessing_num_workers 4 \
 ```
-### Distilation Results
+### Distillation Results
 Sparsity 80, 90, 97
-| base model name       | sparsity 	|Distilled| prunned |train epochs|pruning epochs| F1 Score | EM Score  |
-|-----------------------|----------	|---------|---------|------------|--------------|----------|-----------|
-| bert-base-uncased 	|0        	|no       |no       |2           |0             |88.32442  |81.10690   |
+| base model name       | sparsity 	|Distilled| prunned |train epochs|pruning epochs| F1 Score | EM Score |
+|-----------------------|----------	|---------|---------|------------|--------------|----------|----------|
+| bert-base-uncased 	|0        	|no       |no       |2           |0             |88.32442  |81.10690  |
 | bert-base-uncased 	|80        	|no       |no       |30          |18            |84.06276  |74.63576  |
 | bert-base-uncased 	|90        	|no       |no       |30          |18            |79.64549  |68.50520  |
 | bert-base-uncased 	|97       	|no       |no       |30          |18            |70.42570  |57.29423  |
@@ -150,11 +150,8 @@ Sparsity 80, 90, 97
 | bert-base-uncased 	|90        	|yes      |yes      |30          |18            |85.63751  |77.41721  |
 | bert-base-uncased 	|97       	|yes      |yes      |30          |18            |  |  |
 
-72.7/82.3 for 97
-
 ### Distillation, Pruning, Layer Dropping
 To explore the effect of model pruning compared to layer dropping we train models to sparsity to match the amount of parameters in models with layers droppend. Results feature both with and without distillation. For distillation we use hard distillation and a a trained teacher model which is trained on SQUAD for 2 epochs and achieves an 88.32442/81.10690 F1/EM. A 9 layer model is roughly equivalent to 20% sparsity, 6 layer to 40%, 3 layer to 60%, 1 layer to 72%. 
-
 
 | base model name       | sparsity 	| params                |Distilled| prunned | layers   |pruning epochs| F1 Score | EM Score  |
 |-----------------------|----------	|-----------------------|---------|---------|----------|--------------|----------|-----------|
@@ -167,9 +164,9 @@ To explore the effect of model pruning compared to layer dropping we train model
 | bert-base-uncased 	|40       	|108,893,186         	|no       |yes      |12        |8             |86.27294  |78.07947   |
 | bert-base-uncased 	|60        	|108,893,186         	|no       |yes      |12        |8             |86.4412   |77.94702   |
 | bert-base-uncased 	|72        	|108,893,186         	|no       |yes      |12        |8             |85.49873  |76.43330   |
-| bert-base-uncased 	|80        	|66,365,954         	|no       |yes      |6         |8             |  |     |
-| bert-base-uncased 	|90        	|66,365,954         	|no       |yes      |6         |8             |  |     |
-| bert-base-uncased 	|97        	|66,365,954         	|no       |yes      |6         |8             |  |     |
+| bert-base-uncased 	|80        	|66,365,954         	|no       |yes      |6         |8             |77.86777  |67.07663   |
+| bert-base-uncased 	|90        	|66,365,954         	|no       |yes      |6         |8             |73.51963  |61.22044   |
+| bert-base-uncased 	|97        	|66,365,954         	|no       |yes      |6         |8             |67.27468  |53.85998   |
 | bert-base-uncased 	|0        	|108,893,186         	|yes      |no       |12        |0             |89.02277  |82.03406   |
 | bert-base-uncased 	|0        	|87,629,570         	|yes      |no       |9         |0             |87.94176  |80.46358   |
 | bert-base-uncased 	|0        	|66,365,954             |yes      |no       |6         |0             |83.4553   |75.03311   |
