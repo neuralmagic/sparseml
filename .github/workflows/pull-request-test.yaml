@@ -15,27 +15,33 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - id: base-check
+      - name: "Checking if sparseml was changed"
+        id: base-check
         run: >
           (git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml|setup.py")
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
-      - id: deepsparse-check
+      - name: "Checking if sparseml.deepsaprse was changed"
+        id: deepsparse-check
         run: >
           (git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/deepsparse|setup.py")
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
-      - id: keras-check
+      - name: "Checking if sparseml.keras was changed"
+        id: keras-check
         run: >
           (git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/keras|setup.py")
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
-      - id: onnx-check
+      - name: "Checking if sparseml.onnx was changed"
+        id: onnx-check
         run: >
           (git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/onnx|setup.py")
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
-      - id: pytorch-check
+      - name: "Checking if sparseml.pytorch was changed"
+        id: pytorch-check
         run: >
           (git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/pytorch|setup.py")
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
-      - id: tensorflow_v1-check
+      - name: "Checking if sparseml.tensorflow_v1 was changed"
+        id: tensorflow_v1-check
         run: >
           (git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/tensorflow_v1|setup.py")
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
