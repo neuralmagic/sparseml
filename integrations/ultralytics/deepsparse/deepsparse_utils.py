@@ -53,17 +53,18 @@ _YOLO_V3_ANCHOR_GRIDS = [t.clone().view(1, -1, 1, 1, 2) for t in _YOLO_V3_ANCHOR
 
 def load_image(
     img: Union[str, numpy.ndarray], image_size: Tuple[int] = (640, 640)
-) -> numpy.ndarray:
+) -> Tuple[numpy.ndarray, numpy.ndarray]:
     """
     :param img: file path to image or raw image array
     :param image_size: target shape for image
-    :return: Image loaded into numpy and reshaped to the given shape
+    :return: Image loaded into numpy and reshaped to the given shape and the original
+        image
     """
     img = cv2.imread(img) if isinstance(img, str) else img
-    img = cv2.resize(img, image_size)
-    img = img[:, :, ::-1].transpose(2, 0, 1)
+    img_resized = cv2.resize(img, image_size)
+    img_transposed = img_resized[:, :, ::-1].transpose(2, 0, 1)
 
-    return img
+    return img_transposed, img
 
 
 class YoloPostprocessor:
@@ -181,3 +182,142 @@ def modify_yolo_onnx_input_shape(
     )
 
     return tmp_file.name, tmp_file
+
+
+_YOLO_CLASSES = [
+    "person",
+    "bicycle",
+    "car",
+    "motorcycle",
+    "airplane",
+    "bus",
+    "train",
+    "truck",
+    "boat",
+    "traffic light",
+    "fire hydrant",
+    "stop sign",
+    "parking meter",
+    "bench",
+    "bird",
+    "cat",
+    "dog",
+    "horse",
+    "sheep",
+    "cow",
+    "elephant",
+    "bear",
+    "zebra",
+    "giraffe",
+    "backpack",
+    "umbrella",
+    "handbag",
+    "tie",
+    "suitcase",
+    "frisbee",
+    "skis",
+    "snowboard",
+    "sports ball",
+    "kite",
+    "baseball bat",
+    "baseball glove",
+    "skateboard",
+    "surfboard",
+    "tennis racket",
+    "bottle",
+    "wine glass",
+    "cup",
+    "fork",
+    "knife",
+    "spoon",
+    "bowl",
+    "banana",
+    "apple",
+    "sandwich",
+    "orange",
+    "broccoli",
+    "carrot",
+    "hot dog",
+    "pizza",
+    "donut",
+    "cake",
+    "chair",
+    "couch",
+    "potted plant",
+    "bed",
+    "dining table",
+    "toilet",
+    "tv",
+    "laptop",
+    "mouse",
+    "remote",
+    "keyboard",
+    "cell phone",
+    "microwave",
+    "oven",
+    "toaster",
+    "sink",
+    "refrigerator",
+    "book",
+    "clock",
+    "vase",
+    "scissors",
+    "teddy bear",
+    "hair drier",
+    "toothbrush",
+]
+
+
+def annotate_image(
+    img: numpy.ndarray,
+    outputs: numpy.ndarray,
+    score_threshold: float = 0.35,
+) -> numpy.ndarray:
+    """
+    Draws bounding boxes on predictions of a detection model
+
+    :param img: Original image to annotate (no pre-processing needed)
+    :param outputs: numpy array of nms outputs for the image from postprocess_nms
+    :param score_threshold: minimum score a detection should have to be annotated
+        on the image. Default is 0.35
+    :return: the original image annotated with the given bounding boxes
+    """
+    img_res = numpy.copy(img)
+
+    boxes = outputs[:, 0:4]
+    scores = outputs[:, 4]
+    labels = outputs[:, 5].astype(int)
+
+    for idx in range(boxes.shape[0]):
+        label = labels[idx].item()
+        if scores[idx] > score_threshold:
+            annotation_text = (
+                f"{_YOLO_CLASSES[label]}: {scores[idx]:.0%}"
+                if 0 <= label < len(_YOLO_CLASSES)
+                else f"{scores[idx]:.0%}"
+            )
+
+            # bounding box points
+            left = boxes[idx][0]
+            top = boxes[idx][1]
+            right = boxes[idx][2]
+            bottom = boxes[idx][3]
+
+            cv2.putText(
+                img_res,
+                annotation_text,
+                (int(left), int(top) - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.9,  # font scale
+                (255, 0, 0),  # color
+                2,  # thickness
+                cv2.LINE_AA,
+            )
+            cv2.rectangle(
+                img_res,
+                (int(left), int(top)),
+                (int(right), int(bottom)),
+                (125, 255, 51),
+                thickness=2,
+            )
+    return img_res
