@@ -41,7 +41,7 @@ git clone https://github.com/neuralmagic/sparseml.git
 cd yolov5
 git checkout c9bda11  # latest tested integration commit hash
 cp ../sparseml/integrations/ultralytics/*.py .
-cp ../sparseml/integrations/ultralytics/deepsparse/*.py .
+cp ../sparseml/integrations/ultralytics/deepsparse/* .
 
 # install dependencies
 pip install sparseml[torchvision] deepsparse
@@ -129,7 +129,7 @@ to the `yolov5` directory and install DeepSparse.
 
 ```bash
 # copy DeepSparse python files
-cp sparseml/integrations/ultralytics/deepsparse/*.py yolov5
+cp sparseml/integrations/ultralytics/deepsparse/* yolov5
 cd yolov5
 
 # install deepsparse and server dependencies
@@ -146,13 +146,20 @@ performance with DeepSparse.  For a full list of options run `python benchmarkin
 
 To run a benchmark run:
 ```bash
-python benchmark.py
+python benchmark.py \
     zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
     --batch-size 1 \
     --quantized-inputs
 ```
 
 Note for quantized performance, your CPU must support VNNI instructions.
+
+### Notebook
+`deepsparse.ipynb` is a Jupyter Notebook that walks through running a sample inference
+with the DeepSparse engine and running the same benchmark provided in the above script.
+
+Run the notebook by installing the examples as demonstrated above and running
+`jupyter notebook` from the command line.
 
 ### Server
 `sparseml/integrations/ultralytics/deepsparse/SERVER.md` contains relevant
