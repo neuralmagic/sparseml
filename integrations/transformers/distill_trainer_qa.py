@@ -82,3 +82,4 @@ class DistillQuestionAnsweringTrainer(QuestionAnsweringTrainer):
         loss_end = self.criterion(end_logits_student, end_logits_label)
         label_loss = (loss_start + loss_end) / 2.0
         loss = ((1-self.distill_hardness) * label_loss) + (self.distill_hardness * teacher_loss)
+        return loss

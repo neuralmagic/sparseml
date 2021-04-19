@@ -743,7 +743,6 @@ def main():
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
-    
     ####################################################################################
     # Start SparseML Integration
     #################################################################################### 
@@ -754,8 +753,7 @@ def main():
     optim = ScheduledOptimizer(optim, student_model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
     ####################################################################################
     # End SparseML Integration
-    ####################################################################################
-    
+    ####################################################################################    
     # Initialize our Trainer
     trainer = DistillQuestionAnsweringTrainer(
         model=student_model,
