@@ -713,7 +713,8 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         conversion_count += 1
 
     _LOGGER.info(
-        f"Converted {conversion_count} quantizable MatMul ops with weight and bias to QLinearMatMul and QLinearAdd"
+        f"Converted {conversion_count} quantizable MatMul ops with weight and bias "
+        "to QLinearMatMul and QLinearAdd"
     )
 
 
