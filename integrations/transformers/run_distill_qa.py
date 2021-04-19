@@ -463,7 +463,6 @@ def drop_layers(model, layers_to_keep):
 
 def main():
     ### Dataset processing classes in main due to hugging face custom dataset map
-    wandb.init(project='BERT-QA-SPARSEML', entity='spacemanidol') # REMOVE before pushing code
     def prepare_train_features(examples):
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
         # in one example possible giving several features when a context is long, each of those features having a
