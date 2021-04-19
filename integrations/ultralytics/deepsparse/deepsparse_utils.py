@@ -20,9 +20,9 @@ variables if using a different model.
 """
 
 
+import glob
 import os
 import time
-import warnings
 from tempfile import NamedTemporaryFile
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
@@ -116,8 +116,8 @@ class YoloImageLoader:
 
 class YoloVideoLoader:
     """
-    Class for pre-processing and iterating over video frames to be used as input for YOLO
-    models
+    Class for pre-processing and iterating over video frames to be used as input for
+    YOLO models
 
     :param path: Filepath to single video file
     :param image_size: size of input images to model

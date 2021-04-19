@@ -21,7 +21,7 @@ import argparse
 import logging
 import os
 import time
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from typing import Any, List, Union
 
 import numpy
 import onnx
@@ -36,6 +36,7 @@ from deepsparse_utils import (
     modify_yolo_onnx_input_shape,
     postprocess_nms,
 )
+from sparseml.onnx.utils import override_model_batch_size
 
 
 DEEPSPARSE_ENGINE = "deepsparse"
