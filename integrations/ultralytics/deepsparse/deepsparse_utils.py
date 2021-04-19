@@ -20,8 +20,11 @@ variables if using a different model.
 """
 
 
+import os
+import time
+import warnings
 from tempfile import NamedTemporaryFile
-from typing import List, Optional, Tuple, Union
+from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
 import cv2
 import numpy
@@ -29,6 +32,7 @@ import onnx
 import torch
 
 from sparseml.onnx.utils import get_tensor_dim_shape, set_tensor_dim_shape
+from sparseml.utils import create_dirs
 from sparsezoo import Zoo
 
 # ultralytics/yolov5 imports
@@ -36,9 +40,12 @@ from utils.general import non_max_suppression
 
 
 __all__ = [
+    "get_yolo_loader_and_saver",
     "load_image",
     "YoloPostprocessor",
     "postprocess_nms",
+    "modify_yolo_onnx_input_shape",
+    "annotate_image",
 ]
 
 
@@ -49,6 +56,208 @@ _YOLO_V3_ANCHORS = [
     torch.Tensor([[116, 90], [156, 198], [373, 326]]),
 ]
 _YOLO_V3_ANCHOR_GRIDS = [t.clone().view(1, -1, 1, 1, 2) for t in _YOLO_V3_ANCHORS]
+
+
+def get_yolo_loader_and_saver(
+    path: str, save_dir: str, image_size: Tuple[int] = (640, 640)
+) -> Union[Iterable, Any]:
+    """
+
+    :param path: file path to image or directory of .jpg files, a .mp4 video,
+        or an integer (i.e. 0) for web-cam
+    :param save_dir: path of directory to save to
+    :param image_size: size of input images to model
+    :return: image loader iterable and result saver objects
+        images, video, or web-cam based on path given
+    """
+    if path.endswith(".mp4"):
+        loader = YoloVideoLoader(path, image_size)
+        saver = VideoSaver(
+            save_dir,
+            loader.original_fps,
+            loader.original_frame_size,
+            loader.total_frames,
+        )
+        return loader, saver
+
+    return YoloImageLoader(path, image_size), ImagesSaver(save_dir)
+
+
+class YoloImageLoader:
+    """
+    Class for pre-processing and iterating over images to be used as input for YOLO
+    models
+
+    :param path: Filepath to single image file or directory of image files to load,
+        glob paths also valid
+    :param image_size: size of input images to model
+    """
+
+    def __init__(self, path: str, image_size: Tuple[int] = (640, 640)):
+        self._path = path
+        self._image_size = image_size
+
+        if os.path.isdir(path):
+            self._image_file_paths = [
+                os.path.join(path, file_name) for file_name in os.listdir(path)
+            ]
+        elif "*" in path:
+            self._image_file_paths = glob.glob(path)
+        elif os.path.isfile(path):
+            # single file
+            self._image_file_paths = [path]
+        else:
+            raise ValueError(f"{path} is not a file, glob, or directory")
+
+    def __iter__(self) -> Iterator[Tuple[numpy.ndarray, numpy.ndarray]]:
+        for image_path in self._image_file_paths:
+            yield load_image(image_path, image_size=self._image_size)
+
+
+class YoloVideoLoader:
+    """
+    Class for pre-processing and iterating over video frames to be used as input for YOLO
+    models
+
+    :param path: Filepath to single video file
+    :param image_size: size of input images to model
+    """
+
+    def __init__(self, path: str, image_size: Tuple[int] = (640, 640)):
+        self._path = path
+        self._image_size = image_size
+        self._vid = cv2.VideoCapture(self._path)
+        self._total_frames = self._vid.get(cv2.CAP_PROP_FRAME_COUNT)
+        self._fps = int(self._vid.get(cv2.CAP_PROP_FPS))
+        self._ms_per_frame = 1000 / float(self._fps)
+
+    def __iter__(self) -> Iterator[Tuple[numpy.ndarray, numpy.ndarray]]:
+        frame_idx = 0
+        elapsed_time = None
+        while frame_idx < self._total_frames:
+            loaded, frame = self._vid.read()
+
+            while elapsed_time is not None and elapsed_time > self._ms_per_frame:
+                # skip frames that would have been shown during elapsed_time
+                loaded, frame = self._vid.read()
+                elapsed_time -= self._ms_per_frame
+            if not loaded:
+                break  # final frame reached
+
+            time_yielded = time.time()
+            yield load_image(frame, image_size=self._image_size)
+            elapsed_time = 1000 * (time.time() - time_yielded)
+
+    @property
+    def original_fps(self) -> int:
+        """
+        :return: the frames per second of the video this object reads
+        """
+        return self._fps
+
+    @property
+    def original_frame_size(self) -> Tuple[int, int]:
+        """
+        :return: the original size of frames in the video this object reads
+        """
+        return (
+            int(self._vid.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(self._vid.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+        )
+
+    @property
+    def total_frames(self) -> int:
+        """
+        :return: the total number of frames this object may laod from the video
+        """
+        return self._total_frames
+
+
+class ImagesSaver:
+    """
+    Base class for saving YOLO model outputs. Saves each image as an individual file in
+    the given directory
+
+    :param save_dir: path to directory to write to
+    """
+
+    def __init__(self, save_dir: str):
+        self._save_dir = save_dir
+        self._idx = 0
+
+        create_dirs(save_dir)
+
+    def save_frame(self, image: numpy.ndarray):
+        """
+        :param image: numpy array of image to save
+        """
+        output_path = os.path.join(self._save_dir, f"result-{self._idx}.jpg")
+        cv2.imwrite(output_path, image)
+        self._idx += 1
+
+    def close(self):
+        """
+        perform any clean-up tasks
+        """
+        pass
+
+
+class VideoSaver(ImagesSaver):
+    """
+    Class for saving YOLO model outputs as a VideoFile
+
+    :param save_dir: path to directory to write to
+    :param fps: frames per second to save video with
+    :param output_frame_size: size of frames to write
+    :param total_frames: total number of frames that should be written. If writer is
+        closed with fewer than total_frames written, the final frame will be written
+        so the total frames match. Default is None
+    """
+
+    def __init__(
+        self,
+        save_dir: str,
+        fps: int,
+        output_frame_size: Tuple[int, int],
+        total_frames: Optional[int] = None,
+    ):
+        super().__init__(save_dir)
+        self._total_frames = total_frames
+        self._ms_per_frame = 1000 / float(fps)
+
+        self._last_saved_time = None
+        self._last_saved_frame = None
+
+        save_path = os.path.join(self._save_dir, "results.mp4")
+        self._writer = cv2.VideoWriter(
+            save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, output_frame_size
+        )
+
+    def save_frame(self, image: numpy.ndarray):
+        """
+        :param image: numpy array of image to save
+        """
+        if self._last_saved_time is not None and self._last_saved_frame is not None:
+            elapsed_time = 1000 * (time.time() - self._last_saved_time)
+            while elapsed_time > self._ms_per_frame:
+                # repeat last frame until elapsed time filled
+                self._write(self._last_saved_frame)
+                elapsed_time -= self._ms_per_frame
+
+        self._write(image)
+        self._last_saved_frame = image
+        self._last_saved_time = time.time()
+
+    def _write(self, image: numpy.ndarray):
+        if self._idx < self._total_frames:
+            self._writer.write(image)
+            self._idx += 1
+
+    def close(self):
+        """
+        perform any clean-up tasks
+        """
+        self._writer.release()
 
 
 def load_image(
@@ -272,6 +481,7 @@ def annotate_image(
     img: numpy.ndarray,
     outputs: numpy.ndarray,
     score_threshold: float = 0.35,
+    model_input_size: Tuple[int, int] = None,
 ) -> numpy.ndarray:
     """
     Draws bounding boxes on predictions of a detection model
@@ -280,6 +490,9 @@ def annotate_image(
     :param outputs: numpy array of nms outputs for the image from postprocess_nms
     :param score_threshold: minimum score a detection should have to be annotated
         on the image. Default is 0.35
+    :param model_input_size: 2-tuple of expected input size for the given model to
+        be used for bounding box scaling with original image. Scaling will not
+        be applied if model_input_size is None. Default is None
     :return: the original image annotated with the given bounding boxes
     """
     img_res = numpy.copy(img)
@@ -287,6 +500,9 @@ def annotate_image(
     boxes = outputs[:, 0:4]
     scores = outputs[:, 4]
     labels = outputs[:, 5].astype(int)
+
+    scale_y = img.shape[0] / (1.0 * model_input_size[0]) if model_input_size else 1.0
+    scale_x = img.shape[1] / (1.0 * model_input_size[1]) if model_input_size else 1.0
 
     for idx in range(boxes.shape[0]):
         label = labels[idx].item()
@@ -298,10 +514,10 @@ def annotate_image(
             )
 
             # bounding box points
-            left = boxes[idx][0]
-            top = boxes[idx][1]
-            right = boxes[idx][2]
-            bottom = boxes[idx][3]
+            left = boxes[idx][0] * scale_x
+            top = boxes[idx][1] * scale_y
+            right = boxes[idx][2] * scale_x
+            bottom = boxes[idx][3] * scale_y
 
             cv2.putText(
                 img_res,
