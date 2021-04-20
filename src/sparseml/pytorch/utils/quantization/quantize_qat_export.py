@@ -712,10 +712,11 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
 
         conversion_count += 1
 
-    _LOGGER.info(
-        f"Converted {conversion_count} quantizable MatMul ops with weight and bias "
-        "to QLinearMatMul and QLinearAdd"
-    )
+    if matmul_nodes:
+        _LOGGER.info(
+            f"Converted {conversion_count} quantizable MatMul ops with weight and bias "
+            "to QLinearMatMul and QLinearAdd"
+        )
 
 
 def _convert_quantizable_ops(model: ModelProto):
@@ -734,7 +735,7 @@ def _convert_quantizable_ops(model: ModelProto):
         if not input_quant or input_quant.op_type not in _QUANTIZE_OP_NAMES:
             continue
 
-        output_quant = graph.get_node_single_child(model, quantizable_node)
+        output_quant = graph.get_node_single_child(quantizable_node)
         if not output_quant or output_quant.op_type not in _QUANTIZE_OP_NAMES:
             continue
 
