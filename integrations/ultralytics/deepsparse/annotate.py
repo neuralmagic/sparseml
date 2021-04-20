@@ -172,6 +172,7 @@ def _get_save_dir(args) -> str:
     idx = 2
     while os.path.exists(save_dir):
         save_dir = os.path.join(args.save_dir, f"{name}-{idx}")
+        idx += 1
     _LOGGER.info(f"Results will be saved to {save_dir}")
     return save_dir
 
@@ -282,7 +283,9 @@ def _run_model(
 def annotate(args):
     save_dir = _get_save_dir(args)
     model = _load_model(args)
-    loader, saver = get_yolo_loader_and_saver(args.source, save_dir, args.image_shape)
+    loader, saver, is_video = get_yolo_loader_and_saver(
+        args.source, save_dir, args.image_shape
+    )
 
     postprocessor = (
         YoloPostprocessor(args.image_shape)
@@ -308,16 +311,20 @@ def annotate(args):
         # NMS
         outputs = postprocess_nms(outputs)[0]
 
+        if args.device not in ["cpu", None]:
+            torch.cuda.synchronize()
+
         # annotate
         annotated_img = annotate_image(
-            source_img, outputs, model_input_size=args.image_shape
+            source_img,
+            outputs,
+            model_input_size=args.image_shape,
+            images_per_sec=(1.0 / (time.time() - iter_start)) if is_video else None,
         )
 
         # save
         saver.save_frame(annotated_img)
 
-        if args.device not in ["cpu", None]:
-            torch.cuda.synchronize()
         iter_end = time.time()
         elapsed_time = 1000 * (iter_end - iter_start)
         _LOGGER.info(f"Inference {iteration} processed in {elapsed_time} ms")

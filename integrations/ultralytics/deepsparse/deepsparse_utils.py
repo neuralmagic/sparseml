@@ -61,15 +61,16 @@ _YOLO_V3_ANCHOR_GRIDS = [t.clone().view(1, -1, 1, 1, 2) for t in _YOLO_V3_ANCHOR
 
 def get_yolo_loader_and_saver(
     path: str, save_dir: str, image_size: Tuple[int] = (640, 640)
-) -> Union[Iterable, Any]:
+) -> Union[Iterable, Any, bool]:
     """
 
     :param path: file path to image or directory of .jpg files, a .mp4 video,
         or an integer (i.e. 0) for web-cam
     :param save_dir: path of directory to save to
     :param image_size: size of input images to model
-    :return: image loader iterable and result saver objects
-        images, video, or web-cam based on path given
+    :return: image loader iterable, result saver objects
+        images, video, or web-cam based on path given, and a boolean value
+        that is True is the returned objects load videos
     """
     if path.endswith(".mp4"):
         loader = YoloVideoLoader(path, image_size)
@@ -79,9 +80,9 @@ def get_yolo_loader_and_saver(
             loader.original_frame_size,
             loader.total_frames,
         )
-        return loader, saver
+        return loader, saver, True
 
-    return YoloImageLoader(path, image_size), ImagesSaver(save_dir)
+    return YoloImageLoader(path, image_size), ImagesSaver(save_dir), False
 
 
 class YoloImageLoader:
@@ -492,6 +493,7 @@ def annotate_image(
     outputs: numpy.ndarray,
     score_threshold: float = 0.35,
     model_input_size: Tuple[int, int] = None,
+    images_per_sec: Optional[float] = None,
 ) -> numpy.ndarray:
     """
     Draws bounding boxes on predictions of a detection model
@@ -503,6 +505,8 @@ def annotate_image(
     :param model_input_size: 2-tuple of expected input size for the given model to
         be used for bounding box scaling with original image. Scaling will not
         be applied if model_input_size is None. Default is None
+    :param images_per_sec: optional images per second to annotate the left corner
+        of the image with
     :return: the original image annotated with the given bounding boxes
     """
     img_res = numpy.copy(img)
@@ -546,4 +550,15 @@ def annotate_image(
                 (125, 255, 51),
                 thickness=2,
             )
+            if images_per_sec is not None:
+                cv2.putText(
+                    img_res,
+                    f"images_per_sec: {images_per_sec:.2}",
+                    (35, 35),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.9,  # font scale
+                    (0, 0, 255),  # color
+                    2,  # thickness
+                    cv2.LINE_AA,
+                )
     return img_res
