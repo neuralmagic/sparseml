@@ -22,6 +22,7 @@ variables if using a different model.
 
 import glob
 import os
+import shutil
 import time
 from tempfile import NamedTemporaryFile
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
@@ -128,7 +129,7 @@ class YoloVideoLoader:
         self._image_size = image_size
         self._vid = cv2.VideoCapture(self._path)
         self._total_frames = self._vid.get(cv2.CAP_PROP_FRAME_COUNT)
-        self._fps = int(self._vid.get(cv2.CAP_PROP_FPS))
+        self._fps = self._vid.get(cv2.CAP_PROP_FPS)
         self._ms_per_frame = 1000 / float(self._fps)
 
     def __iter__(self) -> Iterator[Tuple[numpy.ndarray, numpy.ndarray]]:
@@ -147,9 +148,10 @@ class YoloVideoLoader:
             time_yielded = time.time()
             yield load_image(frame, image_size=self._image_size)
             elapsed_time = 1000 * (time.time() - time_yielded)
+        self._vid.release()
 
     @property
-    def original_fps(self) -> int:
+    def original_fps(self) -> float:
         """
         :return: the frames per second of the video this object reads
         """
@@ -217,15 +219,19 @@ class VideoSaver(ImagesSaver):
     def __init__(
         self,
         save_dir: str,
-        fps: int,
+        fps: float,
         output_frame_size: Tuple[int, int],
         total_frames: Optional[int] = None,
     ):
         super().__init__(save_dir)
 
-        save_path = os.path.join(self._save_dir, "results.mp4")
+        self._output_frame_size = output_frame_size
+        self._file_path = os.path.join(self._save_dir, "results.mp4")
         self._writer = cv2.VideoWriter(
-            save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, output_frame_size
+            self._file_path,
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            fps,
+            self._output_frame_size,
         )
 
         self._target_duration_sec = total_frames / float(fps)
@@ -242,9 +248,26 @@ class VideoSaver(ImagesSaver):
         """
         perform any clean-up tasks
         """
-        target_fps = self._n_frames / self._target_duration_sec
-        self._writer.set(cv2.CAP_PROP_FPS, target_fps)
         self._writer.release()
+        self._finalize_fps()
+
+    def _finalize_fps(self):
+        # overwrite saved video with FPS that matches the original video duration
+        target_fps = self._n_frames / self._target_duration_sec
+        with NamedTemporaryFile() as temp_video:
+            fps_writer = cv2.VideoWriter(
+                temp_video.name,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                target_fps,
+                self._output_frame_size,
+            )
+            saved_vid = cv2.VideoCapture(self._file_path)
+            for _ in range(self._n_frames):
+                _, frame = saved_vid.read()
+                fps_writer.write(frame)
+            saved_vid.release()
+            fps_writer.release()
+            shutil.copyfile(temp_video.name, self._file_path)
 
 
 def load_image(
