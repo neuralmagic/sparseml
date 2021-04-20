@@ -31,6 +31,12 @@ from torch.nn.modules.conv import _ConvNd
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
+
+try:
+    from torch.quantization import QuantWrapper
+except Exception:
+    QuantWrapper = None
+
 from sparseml.utils import create_dirs, save_numpy
 
 
@@ -723,6 +729,7 @@ def get_named_layers_and_params_by_regex(
         module match one of the given regex patterns or parameter names
     """
     named_layers_and_params = []
+    found_param_names = []
     for layer_name, layer in module.named_modules():
         for param_name, param in layer.named_parameters():
             if "." in param_name:  # skip parameters of nested layers
@@ -732,8 +739,25 @@ def get_named_layers_and_params_by_regex(
                 named_layers_and_params.append(
                     NamedLayerParam(layer_name, layer, param_name, param)
                 )
+                found_param_names.append(full_param_name)
+            elif layer_name.endswith(".module"):
+                # unwrap layers wrapped with a QuantWrapper and check if they match
+                parent_layer_name = ".".join(layer_name.split(".")[:-1])
+                parent_layer = get_layer(parent_layer_name, module)
+                skip_wrapper_name = "{}.{}".format(parent_layer_name, param_name)
+                if (
+                    QuantWrapper is not None
+                    and isinstance(parent_layer, QuantWrapper)
+                    and any_str_or_regex_matches_param_name(
+                        skip_wrapper_name, param_names
+                    )
+                ):
+                    named_layers_and_params.append(
+                        NamedLayerParam(layer_name, layer, param_name, param)
+                    )
+                    found_param_names.append(skip_wrapper_name)
     if params_strict:
-        validate_all_params_found(param_names, named_layers_and_params)
+        validate_all_params_found(param_names, found_param_names)
 
     return named_layers_and_params
 
@@ -761,31 +785,27 @@ def any_str_or_regex_matches_param_name(
 
 def validate_all_params_found(
     name_or_regex_patterns: List[str],
-    named_layers_and_params: List[NamedLayerParam],
+    found_param_names: List[str],
 ):
     """
     :param name_or_regex_patterns: List of full param names or regex patterns of them
-        to check for matches in named_layers_and_params names
-    :param named_layers_and_params: List of NamedLayerParam objects to check for matches
+        to check for matches in found_param_names names
+    :param found_param_names: List of NamedLayerParam objects to check for matches
     :raise RuntimeError: If there is a name or regex pattern that does not have a
-        match in named_layers_and_params
+        match in found_param_names
     """
-    full_parameter_names = [
-        "{}.{}".format(named_layer_param.layer_name, named_layer_param.param_name)
-        for named_layer_param in named_layers_and_params
-    ]
     for name_or_regex in name_or_regex_patterns:
-        if "re:" != name_or_regex[:3] and name_or_regex in full_parameter_names:
+        if "re:" != name_or_regex[:3] and name_or_regex in found_param_names:
             continue  # name found in list of full parameter names
         if "re:" == name_or_regex[:3] and any(
-            re.match(name_or_regex[3:], name) for name in full_parameter_names
+            re.match(name_or_regex[3:], name) for name in found_param_names
         ):
             continue  # regex pattern matches at least one full parameter name
 
         raise RuntimeError(
             "All supplied parameter names or regex patterns not found."
             "No match for {} in found parameters {}.  Supplied {}".format(
-                name_or_regex, full_parameter_names, name_or_regex_patterns
+                name_or_regex, found_param_names, name_or_regex_patterns
             )
         )
 
