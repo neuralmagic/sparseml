@@ -223,43 +223,27 @@ class VideoSaver(ImagesSaver):
     ):
         super().__init__(save_dir)
 
-        self._fps = max(60, fps)  # encode with maximum of original FPS or 60
-        self._total_frames = int(total_frames * (self._fps / fps))
-        self._ms_per_frame = 1000 / float(self._fps)
-
-        self._last_saved_time = None
-        self._last_saved_frame = None
-
         save_path = os.path.join(self._save_dir, "results.mp4")
         self._writer = cv2.VideoWriter(
-            save_path, cv2.VideoWriter_fourcc(*"mp4v"), self._fps, output_frame_size
+            save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, output_frame_size
         )
-        self._extra_time = 0
+
+        self._target_duration_sec = total_frames / float(fps)
+        self._n_frames = 0
 
     def save_frame(self, image: numpy.ndarray):
         """
         :param image: numpy array of image to save
         """
-        if self._last_saved_time is not None and self._last_saved_frame is not None:
-            self._extra_time += 1000 * (time.time() - self._last_saved_time)
-            while self._extra_time > self._ms_per_frame:
-                # repeat last frame until extra elapsed time filled
-                self._write(self._last_saved_frame)
-                self._extra_time -= self._ms_per_frame
-
-        self._write(image)
-        self._last_saved_frame = image
-        self._last_saved_time = time.time()
-
-    def _write(self, image: numpy.ndarray):
-        if self._idx < self._total_frames:
-            self._writer.write(image)
-            self._idx += 1
+        self._writer.write(image)
+        self._n_frames += 1
 
     def close(self):
         """
         perform any clean-up tasks
         """
+        target_fps = int(self._n_frames / self._target_duration_sec)
+        self._writer.set(cv2.CAP_PROP_FPS, target_fps)
         self._writer.release()
 
 
