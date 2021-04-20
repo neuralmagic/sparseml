@@ -729,7 +729,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
                 (
                     "final_sparsity value must be in the range [0.0, 1.0],"
                     " given {} for {}"
-                ).format(self._init_sparsity, self.__class__.__name__)
+                ).format(self._final_sparsity, self.__class__.__name__)
             )
 
         if self._inter_func not in INTERPOLATION_FUNCS:
