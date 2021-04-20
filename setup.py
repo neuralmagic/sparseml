@@ -14,7 +14,6 @@
 
 import os
 import sys
-from datetime import date
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
@@ -31,7 +30,6 @@ _NIGHTLY = "nightly" in sys.argv
 
 if _NIGHTLY:
     _PACKAGE_NAME += "-nightly"
-    version += "." + date.today().strftime("%Y%m%d")
     # remove nightly param so it does not break bdist_wheel
     sys.argv.remove("nightly")
 

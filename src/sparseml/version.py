@@ -16,16 +16,34 @@
 Functionality for storing and setting the version info for SparseML
 """
 
+from datetime import date
+
+
+_BASE_VERSION = "0.2.0"
+_NIGHTLY = True  # change to False to turn off the build version for releases
+
+
+def _generate_version():
+    gen_version = _BASE_VERSION
+    if _NIGHTLY:
+        gen_version += "." + date.today().strftime("%Y%m%d")
+
+    return gen_version
+
+
 __all__ = [
     "__version__",
     "version",
     "version_major",
     "version_minor",
     "version_bug",
+    "version_build",
     "version_major_minor",
 ]
-__version__ = "0.2.0"
+__version__ = _generate_version()
 
 version = __version__
-version_major, version_minor, version_bug = version.split(".")
+version_major, version_minor, version_bug, version_build = version.split(".") + (
+    [None] if len(version.split(".")) < 4 else []
+)  # handle conditional for version being 3 parts or 4 (4 containing build date)
 version_major_minor = f"{version_major}.{version_minor}"
