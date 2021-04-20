@@ -18,10 +18,12 @@ from typing import Dict, List, Tuple
 from setuptools import find_packages, setup
 
 
-is_release = False
+# default variables to be overwritten by the version.py file
+is_release = None
 version = "unknown"
 version_major_minor = version
-# load and overwrite version info from sparseml package
+
+# load and overwrite version and release info from sparseml package
 exec(open(os.path.join("src", "sparseml", "version.py")).read())
 print(f"loaded version {version} from src/sparseml/version.py")
 
