@@ -49,7 +49,7 @@ class YoloDetectionClient:
         """
         if not isinstance(images, List):
             images = [images]
-        images = numpy.stack([load_image(image) for image in images])
+        images = numpy.stack([load_image(image)[0] for image in images])
 
         print(f"Sending batch of {len(images)} images for detection to {self._url}")
 
