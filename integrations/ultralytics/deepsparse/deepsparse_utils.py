@@ -242,7 +242,7 @@ class VideoSaver(ImagesSaver):
         """
         perform any clean-up tasks
         """
-        target_fps = int(self._n_frames / self._target_duration_sec)
+        target_fps = self._n_frames / self._target_duration_sec
         self._writer.set(cv2.CAP_PROP_FPS, target_fps)
         self._writer.release()
 
