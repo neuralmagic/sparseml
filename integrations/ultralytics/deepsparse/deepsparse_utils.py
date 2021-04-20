@@ -254,20 +254,20 @@ class VideoSaver(ImagesSaver):
     def _finalize_fps(self):
         # overwrite saved video with FPS that matches the original video duration
         target_fps = self._n_frames / self._target_duration_sec
-        with NamedTemporaryFile() as temp_video:
-            fps_writer = cv2.VideoWriter(
-                temp_video.name,
-                cv2.VideoWriter_fourcc(*"mp4v"),
-                target_fps,
-                self._output_frame_size,
-            )
-            saved_vid = cv2.VideoCapture(self._file_path)
-            for _ in range(self._n_frames):
-                _, frame = saved_vid.read()
-                fps_writer.write(frame)
-            saved_vid.release()
-            fps_writer.release()
-            shutil.copyfile(temp_video.name, self._file_path)
+        temp_video_path = os.path.join(self._save_dir, "_tmp.mp4")
+        fps_writer = cv2.VideoWriter(
+            temp_video_path,
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            target_fps,
+            self._output_frame_size,
+        )
+        saved_vid = cv2.VideoCapture(self._file_path)
+        for _ in range(self._n_frames):
+            _, frame = saved_vid.read()
+            fps_writer.write(frame)
+        saved_vid.release()
+        fps_writer.release()
+        shutil.move(temp_video_path, self._file_path)
 
 
 def load_image(
