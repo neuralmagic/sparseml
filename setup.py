@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import sys
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
