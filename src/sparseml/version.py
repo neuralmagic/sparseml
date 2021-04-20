@@ -19,20 +19,22 @@ Functionality for storing and setting the version info for SparseML
 from datetime import date
 
 
-_BASE_VERSION = "0.2.0"
-_NIGHTLY = True  # change to False to turn off the build version for releases
+version_base = "0.2.0"
+is_release = False  # change to True to set the generated version as a release version
 
 
 def _generate_version():
-    gen_version = _BASE_VERSION
-    if _NIGHTLY:
-        gen_version += "." + date.today().strftime("%Y%m%d")
-
-    return gen_version
+    return (
+        version_base
+        if not is_release
+        else f"{version_base}.{date.today().strftime('%Y%m%d')}"
+    )
 
 
 __all__ = [
     "__version__",
+    "version_base",
+    "is_release",
     "version",
     "version_major",
     "version_minor",

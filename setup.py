@@ -19,19 +19,14 @@ from typing import Dict, List, Tuple
 from setuptools import find_packages, setup
 
 
+is_release = False
 version = "unknown"
 version_major_minor = version
 # load and overwrite version info from sparseml package
 exec(open(os.path.join("src", "sparseml", "version.py")).read())
 print(f"loaded version {version} from src/sparseml/version.py")
 
-_PACKAGE_NAME = "sparseml"
-_NIGHTLY = "nightly" in sys.argv
-
-if _NIGHTLY:
-    _PACKAGE_NAME += "-nightly"
-    # remove nightly param so it does not break bdist_wheel
-    sys.argv.remove("nightly")
+_PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
 
 _deps = [
     "jupyter>=1.0.0",
@@ -54,10 +49,10 @@ _deps = [
     "toposort>=1.0",
 ]
 _nm_deps = [
-    f"{'sparsezoo-nightly' if _NIGHTLY else 'sparsezoo'}~={version_major_minor}"
+    f"{'sparsezoo-nightly' if not is_release else 'sparsezoo'}~={version_major_minor}"
 ]
 _deepsparse_deps = [
-    f"{'deepsparse-nightly' if _NIGHTLY else 'deepsparse'}~={version_major_minor}"
+    f"{'deepsparse-nightly' if not is_release else 'deepsparse'}~={version_major_minor}"
 ]
 _pytorch_deps = ["torch>=1.1.0,<1.8", "tensorboard>=1.0", "tensorboardX>=1.0"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.9"]
