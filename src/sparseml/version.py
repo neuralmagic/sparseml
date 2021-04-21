@@ -26,7 +26,7 @@ is_release = False  # change to True to set the generated version as a release v
 def _generate_version():
     return (
         version_base
-        if not is_release
+        if is_release
         else f"{version_base}.{date.today().strftime('%Y%m%d')}"
     )
 

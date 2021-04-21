@@ -50,10 +50,10 @@ _deps = [
     "toposort>=1.0",
 ]
 _nm_deps = [
-    f"{'sparsezoo-nightly' if not is_release else 'sparsezoo'}~={version_major_minor}"
+    f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_major_minor}"
 ]
 _deepsparse_deps = [
-    f"{'deepsparse-nightly' if not is_release else 'deepsparse'}~={version_major_minor}"
+    f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_major_minor}"
 ]
 _pytorch_deps = ["torch>=1.1.0,<1.8", "tensorboard>=1.0", "tensorboardX>=1.0"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.9"]
