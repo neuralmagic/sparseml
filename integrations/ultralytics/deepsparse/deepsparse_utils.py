@@ -550,15 +550,15 @@ def annotate_image(
                 (125, 255, 51),
                 thickness=2,
             )
-            if images_per_sec is not None:
-                cv2.putText(
-                    img_res,
-                    f"images_per_sec: {images_per_sec:.2}",
-                    (35, 35),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.9,  # font scale
-                    (0, 0, 255),  # color
-                    2,  # thickness
-                    cv2.LINE_AA,
-                )
+    if images_per_sec is not None:
+        cv2.putText(
+            img_res,
+            f"images_per_sec: {images_per_sec:.2f}",
+            (50, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,  # font scale
+            (0, 0, 255),  # color
+            2,  # thickness
+            cv2.LINE_AA,
+        )
     return img_res
