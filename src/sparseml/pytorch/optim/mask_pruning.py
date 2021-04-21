@@ -315,7 +315,7 @@ class ModuleParamPruningMask(object):
         self._params[param_idx].data.copy_(value)
         self._params_unmasked[param_idx] = None
         self._setup_params_unmasked(param_idx)
-        self.apply(param_idx)
+        # self.apply(param_idx)
 
     def set_param_masks(self, masks: List[Tensor]):
         """
@@ -339,7 +339,7 @@ class ModuleParamPruningMask(object):
             mask_diff = mask_difference(self._param_masks[idx], value)
 
             self._param_masks[idx] = value
-            self.apply(idx)
+            # self.apply(idx)
 
             mask_diffs.append(mask_diff)
 
@@ -512,6 +512,10 @@ class ModuleParamPruningMask(object):
             if self._forward_hooks[idx] is not None:
                 self._forward_hooks[idx].remove()
                 self._forward_hooks[idx] = None
+
+            if self._undo_mask_hooks[idx] is not None:
+                self._undo_mask_hooks[idx].remove()
+                self._undo_mask_hooks[idx] = None
 
             if self._gradient_hooks[idx] is not None:
                 self._gradient_hooks[idx].remove()

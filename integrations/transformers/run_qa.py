@@ -745,6 +745,8 @@ def main():
             if os.path.isdir(model_args.model_name_or_path)
             else None
         )
+        for pruning_mod in manager.pruning_modifiers:
+            pruning_mod.apply()
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
     # Evaluation

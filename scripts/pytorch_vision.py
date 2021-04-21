@@ -1192,6 +1192,8 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
         if args.is_main_process:
             # only convert qat -> quantized ONNX graph for finalized model
             # TODO: change this to all checkpoints when conversion times improve
+            for pruning_mod in manager.pruning_modifiers:
+                pruning_mod.apply()
             _save_model_training(
                 model, optim, input_shape, "model", save_dir, epoch - 1, val_res, True
             )

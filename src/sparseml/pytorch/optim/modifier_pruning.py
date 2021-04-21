@@ -709,6 +709,9 @@ class GMPruningModifier(ScheduledUpdateModifier):
 
         # be sure to apply mask again after optimizer update because weights may
         # have changed (optimizer with momentum, not masking gradient)
+        # self._module_masks.apply()
+
+    def apply(self):
         self._module_masks.apply()
 
     def validate(self):
