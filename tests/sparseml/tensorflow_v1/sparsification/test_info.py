@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Code for creating and loading datasets in TensorFlow
-"""
-
-# flake8: noqa
-
-from ..base import check_tensorflow_install as _check_tensorflow_install
-from .classification import *
-from .dataset import *
-from .registry import *
+from sparseml.base import Framework
+from sparseml.sparsification import sparsification_info as base_sparsification_info
+from sparseml.tensorflow_v1.sparsification import sparsification_info
 
 
-_check_tensorflow_install()  # TODO: remove once files load without installs
+def test_sparsification_info():
+    base_info = base_sparsification_info(Framework.tensorflow_v1)
+    info = sparsification_info()
+    assert base_info == info
+
+    assert len(info.modifiers) == 0  # TODO: update once this is available
