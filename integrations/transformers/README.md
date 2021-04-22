@@ -1,21 +1,24 @@
 <!--
 Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
    http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing,
 software distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
-lim itations under the License.
+limitations under the License.
 -->
 # Transformers-SparseML Integration
 This folder contains an example on how to use sparseml with transformers. 
 We focus on Question answering and use a modified implementation from the BERT SQuAD in transformers. 
-Using various pruning configuration files we demostrate the effect unstructured pruning can have on SQuAD. The example code is absed on the transformers SQUAD implementation focused on BERT on the SQuAD1.0 dataset. It runs in 120 min (with BERT-base) a single tesla V100 16GB.
+Using various pruning configuration files we demostrate the effect unstructured pruning can have on SQuAD. The example code is based on the transformers SQUAD implementation focused on BERT on the SQuAD1.0 dataset. It runs in 120 min (with BERT-base) on a single Tesla V100 16GB.
 ## Installation and Requirements
-These example scripts require sparseml, transformers, torch, datasets and associated to libraries. To install run the following command
+These example scripts require sparseml, transformers, torch, datasets and associated libraries. To install run the following command
 
 ```bash
 pip install sparseml[torch] torch transformers datasets
@@ -23,8 +26,8 @@ pip install sparseml[torch] torch transformers datasets
 
 ## Usage
 To custom prune a model first go to the prune-config.yaml file and modify the parameters to your needs. We have provided a range of pruning configurations in the prune_config_files folder. 
-!EpochRangeModifier controls how long the model trains for and Each !GMPruningModifier modifies controls how each portion is pruned. You can modify end_epoch to control how long the pruning regime lasts and final_sparsity and init_sparsity define the speed which the module is pruned and the final sparsity.
-#### Training 
+!EpochRangeModifier controls how long the model trains for and each !GMPruningModifier modifies controls how each portion is pruned. You can modify end_epoch to control how long the pruning regime lasts and final_sparsity and init_sparsity define the speed at which the module is pruned and the final sparsity.
+### Training 
 ```bash
 python run_qa.py  \
  --model_name_or_path bert-base-uncased \
@@ -68,8 +71,8 @@ python run_qa.py  \
  --preprocessing_num_workers 4 \
 ```
 
-### Model Performance 
-To demostrate the effect that various pruning regimes and techniques can have we prune the same bert-base-uncased model to 5 different sparsities(0,80,90,95,99) using 3 pruning methodologies: oneshot(prune to desired weights before fine tune then fine tune for 1 epoch), GMP 1 epoch(prune to desired sparsity over an epoch then stabilize over another epoch), and GMP 8 epochs (prune to desired sparsity over 8 epochs then stabilize over another 2 epochs). Its worth noting that we are pruning all layers uniformly and we believe further gains can be have by targeted pruning of individual layers.
+## Model Performance 
+To demostrate the effect that various pruning regimes and techniques can have we prune the same bert-base-uncased model to 5 different sparsities(0,80,90,95,99) using 3 pruning methodologies: oneshot(prune to desired weights before fine tune then fine tune for 1 epoch), GMP 1 epoch(prune to desired sparsity over an epoch then stabilize over another epoch), and GMP 8 epochs (prune to desired sparsity over 8 epochs then stabilize over another 2 epochs). Its worth noting that we are pruning all layers uniformly and we believe further gains can be achieved by targeted pruning of individual layers.
 
 | base model name       | sparsity 	| total train epochs    | prunned | one shot |pruning epochs| F1 Score 	| EM Score  |
 |-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|

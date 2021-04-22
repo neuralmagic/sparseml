@@ -18,5 +18,6 @@ Code for creating and loading datasets in Keras
 
 # flake8: noqa
 
+from .classification import *
 from .external import *
 from .registry import *

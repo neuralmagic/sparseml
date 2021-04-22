@@ -16,7 +16,7 @@
 Code related to the Keras model registry for easily creating models.
 """
 
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Union
 
 from merge_args import merge_args
 from sparseml import get_main_logger
@@ -170,8 +170,6 @@ class ModelRegistry(object):
         default_dataset: str,
         default_desc: str,
         repo_source: str = "sparseml",
-        def_ignore_error_tensors: List[str] = None,
-        desc_args: Dict[str, Tuple[str, Any]] = None,
     ):
         """
         Register a model with the registry. Should be used as a decorator
@@ -190,9 +188,6 @@ class ModelRegistry(object):
         :param default_desc: the description to use by default for loading
             pretrained if not supplied
         :param repo_source: the source repo for the model, default is sparseml
-        :param def_ignore_error_tensors: tensors to ignore if there are
-            errors in loading
-        :param desc_args: args that should be changed based on the description
         :return: the decorator
         """
         if not isinstance(key, List):
@@ -212,8 +207,6 @@ class ModelRegistry(object):
                 default_dataset,
                 default_desc,
                 repo_source,
-                def_ignore_error_tensors,
-                desc_args,
             )
             return wrapped_constructor
 
@@ -299,11 +292,6 @@ class ModelRegistry(object):
                 (ex: imagenet, mnist, etc).
                 If not supplied will default to the one preconfigured for the model.
             """
-            attributes = ModelRegistry._ATTRIBUTES[key]
-
-            if attributes.args and pretrained in attributes.args:
-                kwargs[attributes.args[pretrained][0]] = attributes.args[pretrained][1]
-
             if isinstance(pretrained, str):
                 if pretrained.lower() == "true":
                     pretrained = True

@@ -42,6 +42,9 @@ QUANTIZATION_MODIFIERS = [
         freeze_bn_stats_epoch=3.0,
     ),
     lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq"]),
+    lambda: QuantizationModifier(
+        start_epoch=2.0, submodules=["seq"], enable_on_initialize=True
+    ),
 ]
 
 
@@ -59,6 +62,23 @@ def _is_quantiable_module(module):
         or isinstance(module, Conv2d)
         or isinstance(module, Linear)
     )
+
+
+def _test_qat_applied(modifier, model):
+    # test quantization mods are applied
+    if not modifier.submodules or modifier.submodules == [""]:
+        assert hasattr(model, "qconfig") and model.qconfig is not None
+        submodules = [""]
+        for module in model.modules():
+            if _is_quantiable_module(module):
+                assert hasattr(module, "qconfig") and module.qconfig == model.qconfig
+    else:
+        assert not hasattr(model, "qconfig") or model.qconfig is None
+        submodules = modifier.submodules
+    # check qconfig propagation
+    for name, module in model.named_modules():
+        if _is_valid_submodule(name, submodules) and _is_quantiable_module(module):
+            assert hasattr(module, "qconfig") and module.qconfig is not None
 
 
 @pytest.mark.skipif(
@@ -105,8 +125,13 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
         assert modifier.update_ready(modifier.start_epoch + 0.1, test_steps_per_epoch)
 
         # test QAT setup
-        for module in model.modules():
-            assert not hasattr(module, "qconfig") or module.qconfig is None
+        if not modifier.enable_on_initialize:
+            for module in model.modules():
+                assert not hasattr(module, "qconfig") or module.qconfig is None
+        else:
+            # QAT should be applied
+            _test_qat_applied(modifier, model)
+
         modifier.scheduled_update(
             model, optimizer, modifier.start_epoch, test_steps_per_epoch
         )
@@ -122,22 +147,7 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
                 epoch = modifier.start_epoch + 0.1 * epoch_interval
                 assert not modifier.update_ready(epoch, test_steps_per_epoch)
 
-        # test quantization mods are applied
-        if not modifier.submodules or modifier.submodules == [""]:
-            assert hasattr(model, "qconfig") and model.qconfig is not None
-            submodules = [""]
-            for module in model.modules():
-                if _is_quantiable_module(module):
-                    assert (
-                        hasattr(module, "qconfig") and module.qconfig == model.qconfig
-                    )
-        else:
-            assert not hasattr(model, "qconfig") or model.qconfig is None
-            submodules = modifier.submodules
-        # check qconfig propagation
-        for name, module in model.named_modules():
-            if _is_valid_submodule(name, submodules) and _is_quantiable_module(module):
-                assert hasattr(module, "qconfig") and module.qconfig is not None
+        _test_qat_applied(modifier, model)
 
 
 @pytest.mark.skipif(

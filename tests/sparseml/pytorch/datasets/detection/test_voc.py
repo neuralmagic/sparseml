@@ -16,9 +16,9 @@ import os
 
 import pytest
 import torch
+from packaging import version
 from torch.utils.data import Dataset
 
-from packaging import version
 from sparseml.pytorch.datasets import DatasetRegistry, VOCDetectionDataset
 
 

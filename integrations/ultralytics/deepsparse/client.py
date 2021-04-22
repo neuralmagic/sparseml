@@ -23,8 +23,8 @@ from typing import List, Union
 import numpy
 import requests
 
-import cv2
 from deepsparse.utils import arrays_to_bytes, bytes_to_arrays
+from deepsparse_utils import load_image
 
 
 class YoloDetectionClient:
@@ -43,21 +43,19 @@ class YoloDetectionClient:
     ) -> List[numpy.ndarray]:
         """
         :param images: list of or singular file paths or numpy arrays of images to
-            run the detection model on
-        :return: list of post-processed object detection results for each image including
-            class label, likelihood, and bounding box coordinates
+            run the detection model on. Number of images should equal model batch size
+        :return: list of post-processed object detection results for each image
+            including class label, likelihood, and bounding box coordinates
         """
         if not isinstance(images, List):
             images = [images]
-        images = [
-            cv2.imread(image) if isinstance(image, str) else image for image in images
-        ]
+        images = numpy.stack([load_image(image)[0] for image in images])
 
         print(f"Sending batch of {len(images)} images for detection to {self._url}")
 
         start = time.time()
         # Encode inputs
-        data = arrays_to_bytes(images)
+        data = arrays_to_bytes([images])
         # Send data to server for inference
         response = requests.post(self._url, data=data)
         # Decode outputs

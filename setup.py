@@ -12,24 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
-from datetime import date
+import os
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
 
 
-_PACKAGE_NAME = "sparseml"
-_VERSION = "0.1.1"
-_VERSION_MAJOR, _VERSION_MINOR, _VERSION_BUG = _VERSION.split(".")
-_VERSION_MAJOR_MINOR = f"{_VERSION_MAJOR}.{_VERSION_MINOR}"
-_NIGHTLY = "nightly" in sys.argv
+# default variables to be overwritten by the version.py file
+is_release = None
+version = "unknown"
+version_major_minor = version
 
-if _NIGHTLY:
-    _PACKAGE_NAME += "-nightly"
-    _VERSION += "." + date.today().strftime("%Y%m%d")
-    # remove nightly param so it does not break bdist_wheel
-    sys.argv.remove("nightly")
+# load and overwrite version and release info from sparseml package
+exec(open(os.path.join("src", "sparseml", "version.py")).read())
+print(f"loaded version {version} from src/sparseml/version.py")
+
+_PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
 
 _deps = [
     "jupyter>=1.0.0",
@@ -41,8 +39,10 @@ _deps = [
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<1.8.0",
     "onnxruntime>=1.0.0",
-    "pandas<1.0.0",
+    "pandas>=0.25.0",
+    "packaging>=20.0",
     "psutil>=5.0.0",
+    "pydantic>=1.0.0",
     "requests>=2.0.0",
     "scikit-image>=0.15.0",
     "scipy>=1.0.0",
@@ -50,13 +50,13 @@ _deps = [
     "toposort>=1.0",
 ]
 _nm_deps = [
-    f"{'sparsezoo-nightly' if _NIGHTLY else 'sparsezoo'}~={_VERSION_MAJOR_MINOR}"
+    f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_major_minor}"
 ]
 _deepsparse_deps = [
-    f"{'deepsparse-nightly' if _NIGHTLY else 'deepsparse'}~={_VERSION_MAJOR_MINOR}"
+    f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_major_minor}"
 ]
-_pytorch_deps = ["torch>=1.1.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0"]
+_pytorch_deps = ["torch>=1.1.0,<1.8", "tensorboard>=1.0", "tensorboardX>=1.0"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.9"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
@@ -66,6 +66,7 @@ _tensorflow_v1_gpu_deps = [
 _keras_deps = ["tensorflow~=2.2.0", "keras2onnx>=1.0.0"]
 
 _dev_deps = [
+    "beautifulsoup4==4.9.3",
     "black>=20.8b1",
     "flake8>=3.8.3",
     "isort>=5.7.0",
@@ -74,6 +75,9 @@ _dev_deps = [
     "sphinx>=3.4.0",
     "sphinx-copybutton>=0.3.0",
     "sphinx-markdown-tables>=0.0.15",
+    "sphinx-multiversion==0.2.4",
+    "sphinx-pydantic>=0.1.0",
+    "sphinx-rtd-theme>=0.5.0",
     "wheel>=0.36.2",
     "pytest>=6.0.0",
     "flaky>=3.0.0",
@@ -108,7 +112,12 @@ def _setup_extras() -> Dict:
 
 
 def _setup_entry_points() -> Dict:
-    return {}
+    return {
+        "console_scripts": [
+            "sparseml.framework=sparseml.framework.info:_main",
+            "sparseml.sparsification=sparseml.sparsification.info:_main",
+        ]
+    }
 
 
 def _setup_long_description() -> Tuple[str, str]:
@@ -117,7 +126,7 @@ def _setup_long_description() -> Tuple[str, str]:
 
 setup(
     name=_PACKAGE_NAME,
-    version=_VERSION,
+    version=version,
     author="Neuralmagic, Inc.",
     author_email="support@neuralmagic.com",
     description=(

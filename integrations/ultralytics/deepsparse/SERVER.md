@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Example Yolo Model Server and Client Using DeepSparse Flask
+# Example YOLO Model Server and Client Using DeepSparse Flask
 
-To illustrate how the DeepSparse engine can be used for Yolo model deployments, this directory
+To illustrate how the DeepSparse engine can be used for YOLO model deployments, this directory
 contains a sample model server and client. 
 
 The server uses Flask to create an app with the DeepSparse Engine hosting a
-compiled Yolo model.
+compiled YOLOv3 model.
 The client can make requests into the server returning object detection results for given images.
 
 
@@ -36,24 +36,27 @@ If both repositories are already cloned, you may skip that step.
 git clone https://github.com/ultralytics/yolov5.git
 git clone https://github.com/neuralmagic/sparseml.git
 
-# copy script
-cp sparseml/integrations/ultralytics/server/*.py yolov5
+# copy DeepSparse python files
+cp sparseml/integrations/ultralytics/deepsparse/*.py yolov5
 cd yolov5
 
 # install dependencies
+pip install deepsparse sparseml[torchvision] flask flask-cors
 pip install -r requirements.txt
-pip install deepsparse flask flask-cors
 ```
 
 ## Execution
 
 ### Server
 
-First, start up the host `server.py` with your model of choice.
+First, start up the host `server.py` with your model of choice, SparseZoo stubs are
+also supported.
 
 Example command:
 ```bash
-python server.py ~/models/yolov3-pruned_quant.onnx
+python server.py \
+    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
+    --quantized-inputs
 ```
 
 You can leave that running as a detached process or in a spare terminal.

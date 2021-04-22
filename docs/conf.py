@@ -26,8 +26,13 @@ copyright = (
 author = "Neural Magic"
 
 # The full version, including alpha/beta/rc tags
-version = "0.1"
-release = "0.1.0"
+version = "unknown"
+version_major_minor = version
+# load and overwrite version info from sparseml package
+exec(open(os.path.join(os.pardir, "src", "sparseml", "version.py")).read())
+release = version
+version = version_major_minor
+print(f"loaded versions from src/sparseml/version.py and set to {release}, {version}")
 
 
 # -- General configuration ---------------------------------------------------
@@ -46,12 +51,32 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx_copybutton",
     "sphinx_markdown_tables",
+    "sphinx_multiversion",
+    "sphinx-pydantic",
     "sphinx_rtd_theme",
     "recommonmark",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
+
+# Whitelist pattern for tags (set to None to ignore all tags)
+smv_tag_whitelist = r"^v.*$"
+
+# Whitelist pattern for branches (set to None to ignore all branches)
+smv_branch_whitelist = r"^main$"
+
+# Whitelist pattern for remotes (set to None to use local branches only)
+smv_remote_whitelist = r"^.*$"
+
+# Pattern for released versions
+smv_released_pattern = r"^tags/v.*$"
+
+# Format for versioned output directories inside the build directory
+smv_outputdir_format = "{ref.name}"
+
+# Determines whether remote or local git branches/tags are preferred if their output dirs conflict
+smv_prefer_remote_refs = False
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -84,17 +109,19 @@ pygments_style = "sphinx"
 # a list of builtin themes.
 #
 html_theme = "sphinx_rtd_theme"
-html_logo = "icon-sparseml.png"
+html_logo = "source/icon-sparseml.png"
 
 html_theme_options = {
-    'analytics_id': 'UA-128364174-1',  #  Provided by Google in your dashboard
-    'analytics_anonymize_ip': False,
+    "analytics_id": "UA-128364174-1",  #  Provided by Google in your dashboard
+    "analytics_anonymize_ip": False,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+html_css_files = ["css/nm-theme-adjustment.css"]
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -127,7 +154,13 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "sparseml.tex", "SparseML Documentation", [author], "manual",),
+    (
+        master_doc,
+        "sparseml.tex",
+        "SparseML Documentation",
+        [author],
+        "manual",
+    ),
 ]
 
 # -- Options for manual page output ------------------------------------------

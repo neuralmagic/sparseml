@@ -46,7 +46,6 @@ class Dataset(metaclass=ABCMeta):
     ) -> tensorflow.data.Dataset:
         """
         Create the dataset in the current graph using tensorflow.data APIs
-
         :param batch_size: the batch size to create the dataset for
         :param repeat_count: the number of times to repeat the dataset,
             if unset or None, will repeat indefinitely
@@ -80,7 +79,9 @@ class Dataset(metaclass=ABCMeta):
     @abstractmethod
     def creator(self) -> tensorflow.data.Dataset:
         """
-        Implemented by sub classes to create a tensorflow.data dataset for the given impl.
+        Implemented by sub classes to create a tensorflow.data dataset for the given
+        impl.
+
         :return: a created tensorflow.data dataset
         """
         raise NotImplementedError()

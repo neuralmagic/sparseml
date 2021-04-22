@@ -6,6 +6,7 @@ CHECKGLOBS := 'examples/**/*.py' 'integrations/**/*.py' 'scripts/**/*.py' 'src/*
 DOCDIR := docs
 MDCHECKGLOBS := 'docs/**/*.md' 'docs/**/*.rst' 'examples/**/*.md' 'integrations/**/*.md' 'notebooks/**/*.md' 'scripts/**/*.md'
 MDCHECKFILES := CODE_OF_CONDUCT.md CONTRIBUTING.md DEVELOPING.md README.md
+SPARSEZOO_TEST_MODE := "true"
 
 BUILD_ARGS :=  # set nightly to build nightly release
 TARGETS := ""  # targets for running pytests: keras,onnx,pytorch,pytorch_models,pytorch_datasets,tensorflow_v1,tensorflow_v1_models,tensorflow_v1_datasets
@@ -59,8 +60,13 @@ test:
 
 # create docs
 docs:
-	export SPARSEML_IGNORE_TFV1="True"; sphinx-apidoc -o "$(DOCDIR)/source/api/" src/sparseml;
-	export SPARSEML_IGNORE_TFV1="True"; cd $(DOCDIR) && $(MAKE) html;
+	@echo "Running docs creation";
+	export SPARSEML_IGNORE_TFV1="True"; python utils/docs_builder.py --src $(DOCDIR) --dest $(DOCDIR)/build/html;
+
+docsupdate:
+	@echo "Runnning update to api docs";
+	find $(DOCDIR)/api | grep .rst | xargs rm -rf;
+	export SPARSEML_IGNORE_TFV1="True"; sphinx-apidoc -o "$(DOCDIR)/api" src/sparseml;
 
 # creates wheel file
 build:
@@ -71,4 +77,3 @@ clean:
 	rm -fr .pytest_cache;
 	rm -fr docs/_build docs/build;
 	find $(CHECKDIRS) | grep -E "(__pycache__|\.pyc|\.pyo)" | xargs rm -fr;
-	find $(DOCDIR)/source/api | grep .rst | xargs rm -rf;

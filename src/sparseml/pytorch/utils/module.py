@@ -685,7 +685,7 @@ class ModuleRunner(ABC):
         data_iter = (
             enumerate(data_loader)
             if not show_progress
-            else auto.tqdm(enumerate(data_loader), desc=desc, total=progress_steps)
+            else enumerate(auto.tqdm(data_loader, desc=desc, total=progress_steps))
         )
         results = ModuleRunResults() if track_results else None
         previous_steps = (counter if counter > -1 else 0) * counter_len
@@ -974,8 +974,7 @@ class ModuleTrainer(ModuleRunner):
 
             # loss calculation
             losses = self._loss(data, pred)
-            # scale loss by world size
-            losses[DEFAULT_LOSS_KEY] *= self.device_context.world_size
+
             self._run_hooks.invoke_batch_loss(
                 counter, batch, batch_size, data, pred, losses
             )
@@ -1106,8 +1105,7 @@ class ModuleTester(ModuleRunner):
 
                 # loss steps
                 losses = self._loss(data, pred)
-                # scale loss by world size
-                losses[DEFAULT_LOSS_KEY] *= self.device_context.world_size
+
                 self._run_hooks.invoke_batch_loss(
                     counter, batch, batch_size, data, pred, losses
                 )

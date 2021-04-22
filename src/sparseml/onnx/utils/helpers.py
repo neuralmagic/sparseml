@@ -70,6 +70,8 @@ __all__ = [
     "get_kernel_shape",
     "calculate_flops",
     "get_quantize_parent_for_dequantize_node",
+    "get_tensor_dim_shape",
+    "set_tensor_dim_shape",
 ]
 
 
@@ -1189,3 +1191,23 @@ def get_quantize_parent_for_dequantize_node(
         input_nodes = get_node_input_nodes(quantized_model, curr_node)
         curr_node = input_nodes[0] if input_nodes else None
     return curr_node
+
+
+def get_tensor_dim_shape(tensor: onnx.TensorProto, dim: int) -> int:
+    """
+    :param tensor: ONNX tensor to get the shape of a dimension of
+    :param dim: dimension index of the tensor to get the shape of
+    :return: shape of the tensor at the given dimension
+    """
+    return tensor.type.tensor_type.shape.dim[dim].dim_value
+
+
+def set_tensor_dim_shape(tensor: onnx.TensorProto, dim: int, value: int):
+    """
+    Sets the shape of the tensor at the given dimension to the given value
+
+    :param tensor: ONNX tensor to modify the shape of
+    :param dim: dimension index of the tensor to modify the shape of
+    :param value: new shape for the given dimension
+    """
+    tensor.type.tensor_type.shape.dim[dim].dim_value = value
