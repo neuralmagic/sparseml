@@ -19,6 +19,7 @@ Handles things like model pruning and increasing activation sparsity.
 
 # flake8: noqa
 
+from ..base import check_torch_install as _check_torch_install
 from .analyzer_as import *
 from .analyzer_module import *
 from .analyzer_pruning import *
@@ -37,3 +38,6 @@ from .optimizer import *
 from .sensitivity_as import *
 from .sensitivity_lr import *
 from .sensitivity_pruning import *
+
+
+_check_torch_install()  # TODO: remove once files within package load without installs

@@ -12,19 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Code for creating and loading datasets in PyTorch
-"""
 
-# flake8: noqa
-
-from ..base import check_torch_install as _check_torch_install
-from .classification import *
-from .detection import *
-from .generic import *
-from .recommendation import *
-from .registry import *
-from .video import *
-
-
-_check_torch_install()  # TODO: remove once files within package load without installs
+def test_imports():
+    # flake8: noqa
+    from sparseml.pytorch import (
+        check_torch_install,
+        check_torchvision_install,
+        detect_framework,
+        framework_info,
+        is_supported,
+        require_torch,
+        require_torchvision,
+        sparsification_info,
+        torch,
+        torch_err,
+        torchvision,
+        torchvision_err,
+    )
