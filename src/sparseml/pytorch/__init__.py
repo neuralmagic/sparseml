@@ -13,18 +13,11 @@
 # limitations under the License.
 
 """
-Code for working with the pytorch framework for creating /
-editing models for performance in the Neural Magic System
+Functionality for working with and sparsifying Models in the PyTorch framework
 """
 
 # flake8: noqa
 
-try:
-    import torch
-
-    if torch.__version__[0] != "1":
-        raise Exception
-except:
-    raise RuntimeError(
-        "Unable to import torch. torch>=1.0.0 is required to use sparseml.pytorch"
-    )
+from .base import *
+from .framework import detect_framework, framework_info, is_supported
+from .sparsification import sparsification_info
