@@ -65,7 +65,7 @@ base_model = yolo_v3()
 print(f"downloaded path: {base_model.framework_files[0].downloaded_path()}")
 ```
 
-After downloading, the weights can be moved to a file locatin of your choice:
+After downloading, the weights can be moved to a file location of your choice:
 ```bash
 cp <DOWNLOADED-PATH> <YOUR-LOCAL-PATH>
 ```
