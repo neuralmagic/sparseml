@@ -16,7 +16,7 @@
 import importlib
 import logging
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from packaging import version
 
@@ -140,28 +140,43 @@ def execute_in_sparseml_framework(
     return function(*args, **kwargs)
 
 
-def get_version(package_name: str, raise_on_error: bool) -> Optional[str]:
+def get_version(
+    package_name: str,
+    raise_on_error: bool,
+    alternate_package_names: Optional[List[str]] = None,
+) -> Optional[str]:
     """
     :param package_name: The name of the full package, as it would be imported,
         to get the version for
     :type package_name: str
     :param raise_on_error: True to raise an error if package is not installed
         or couldn't be imported, False to return None
+    :type raise_on_error: bool
+    :param alternate_package_names: List of alternate names to look for the package
+        under if package_name is not found. Useful for nightly builds.
+    :type alternate_package_names: Optional[List[str]]
     :return: the version of the desired package if detected, otherwise raises an error
     :rtype: str
     """
+    current_version: Optional[str] = None
+    version_err = None
 
     try:
-        current_version: str = pkg_resources.get_distribution(package_name).version
+        current_version = pkg_resources.get_distribution(package_name).version
     except Exception as err:
-        if raise_on_error:
-            raise ImportError(
-                f"error while getting current version for {package_name}: {err}"
-            )
+        version_err = err
 
-        return None
+    if version_err and alternate_package_names:
+        next_package = alternate_package_names.pop()
 
-    return current_version
+        return get_version(next_package, raise_on_error, alternate_package_names)
+
+    if version_err and raise_on_error:
+        raise ImportError(
+            f"error while getting current version for {package_name}: {version_err}"
+        )
+
+    return current_version if not version_err else None
 
 
 def check_version(
@@ -169,6 +184,7 @@ def check_version(
     min_version: Optional[str] = None,
     max_version: Optional[str] = None,
     raise_on_error: bool = True,
+    alternate_package_names: Optional[List[str]] = None,
 ) -> bool:
     """
     :param package_name: the name of the package to check the version of
@@ -182,11 +198,14 @@ def check_version(
     :param raise_on_error: True to raise any issues such as not installed,
         minimum version, or maximum version as ImportError. False to return the result.
     :type raise_on_error: bool
+    :param alternate_package_names: List of alternate names to look for the package
+        under if package_name is not found. Useful for nightly builds.
+    :type alternate_package_names: Optional[List[str]]
     :return: If raise_on_error, will return False if the package is not installed
         or the version is outside the accepted bounds and True if everything is correct.
     :rtype: bool
     """
-    current_version = get_version(package_name, raise_on_error)
+    current_version = get_version(package_name, raise_on_error, alternate_package_names)
 
     if not current_version:
         return False

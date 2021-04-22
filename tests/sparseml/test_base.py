@@ -69,7 +69,9 @@ def test_execute_in_sparseml_framework():
 
 
 def test_get_version():
-    version = get_version("sparseml", raise_on_error=True)
+    version = get_version(
+        "sparseml", raise_on_error=True, alternate_package_names=["sparseml-nightly"]
+    )
     assert version == __version__
 
     with pytest.raises(ImportError):
@@ -79,15 +81,33 @@ def test_get_version():
 
 
 def test_check_version():
-    assert check_version("sparseml")
+    assert check_version("sparseml", alternate_package_names=["sparseml-nightly"])
 
-    assert not check_version("sparseml", min_version="10.0.0", raise_on_error=False)
+    assert not check_version(
+        "sparseml",
+        min_version="10.0.0",
+        raise_on_error=False,
+        alternate_package_names=["sparseml-nightly"],
+    )
     with pytest.raises(ImportError):
-        check_version("sparseml", min_version="10.0.0")
+        check_version(
+            "sparseml",
+            min_version="10.0.0",
+            alternate_package_names=["sparseml-nightly"],
+        )
 
-    assert not check_version("sparseml", max_version="0.0.1", raise_on_error=False)
+    assert not check_version(
+        "sparseml",
+        max_version="0.0.1",
+        raise_on_error=False,
+        alternate_package_names=["sparseml-nightly"],
+    )
     with pytest.raises(ImportError):
-        check_version("sparseml", max_version="0.0.1")
+        check_version(
+            "sparseml",
+            max_version="0.0.1",
+            alternate_package_names=["sparseml-nightly"],
+        )
 
     assert not check_version("unknown", raise_on_error=False)
     with pytest.raises(ImportError):

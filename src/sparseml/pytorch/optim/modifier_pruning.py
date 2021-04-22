@@ -712,7 +712,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
         if self._init_sparsity < 0.0 or self._init_sparsity > 1.0:
             raise ValueError(
                 (
-                    "final_sparsity value must be in the range [0.0, 1.0],"
+                    "init_sparsity value must be in the range [0.0, 1.0],"
                     " given {} for {}"
                 ).format(self._init_sparsity, self.__class__.__name__)
             )
@@ -727,9 +727,9 @@ class GMPruningModifier(ScheduledUpdateModifier):
         if self._final_sparsity < 0.0 or self._final_sparsity > 1.0:
             raise ValueError(
                 (
-                    "init_sparsity value must be in the range [0.0, 1.0],"
+                    "final_sparsity value must be in the range [0.0, 1.0],"
                     " given {} for {}"
-                ).format(self._init_sparsity, self.__class__.__name__)
+                ).format(self._final_sparsity, self.__class__.__name__)
             )
 
         if self._inter_func not in INTERPOLATION_FUNCS:
