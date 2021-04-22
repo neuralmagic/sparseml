@@ -35,7 +35,7 @@ their associated recipes
 | YOLOv3-pruned_quant | 83% sparse YOLOv3-SPP model with INT8 quantization | "zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94" |
 
 
-### Other arguments
+### Other Arguments
 When a recipe is passed in to `--sparseml-recipe`, a `ScheduledModifierManager`
 and `ScheduledOptimizer` will be created to modify the normal training flow for
 sparsification. For best results with SparseML the following arguments may also
