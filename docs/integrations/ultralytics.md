@@ -70,7 +70,7 @@ After downloading, the weights can be moved to a file location of your choice:
 cp <DOWNLOADED-PATH> <YOUR-LOCAL-PATH>
 ```
 
-### Example command
+### Example Command
 ```bash
 python train.py \
   --sparseml-recipe zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
