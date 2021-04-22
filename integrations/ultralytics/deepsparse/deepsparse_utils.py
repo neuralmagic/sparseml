@@ -129,26 +129,15 @@ class YoloVideoLoader:
         self._path = path
         self._image_size = image_size
         self._vid = cv2.VideoCapture(self._path)
-        self._total_frames = self._vid.get(cv2.CAP_PROP_FRAME_COUNT)
+        self._total_frames = int(self._vid.get(cv2.CAP_PROP_FRAME_COUNT))
         self._fps = self._vid.get(cv2.CAP_PROP_FPS)
-        self._ms_per_frame = 1000 / float(self._fps)
 
     def __iter__(self) -> Iterator[Tuple[numpy.ndarray, numpy.ndarray]]:
-        frame_idx = 0
-        elapsed_time = None
-        while frame_idx < self._total_frames:
+        for _ in range(self._total_frames):
             loaded, frame = self._vid.read()
-
-            while elapsed_time is not None and elapsed_time > self._ms_per_frame:
-                # skip frames that would have been shown during elapsed_time
-                loaded, frame = self._vid.read()
-                elapsed_time -= self._ms_per_frame
             if not loaded:
-                break  # final frame reached
-
-            time_yielded = time.time()
+                break
             yield load_image(frame, image_size=self._image_size)
-            elapsed_time = 1000 * (time.time() - time_yielded)
         self._vid.release()
 
     @property
@@ -550,6 +539,7 @@ def annotate_image(
                 (125, 255, 51),
                 thickness=2,
             )
+
     if images_per_sec is not None:
         cv2.putText(
             img_res,
