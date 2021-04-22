@@ -142,7 +142,7 @@ ORT_ENGINE = "onnxruntime"
 TORCH_ENGINE = "torch"
 
 
-def parse_args():
+def parse_args(arguments=None):
     parser = argparse.ArgumentParser(description="Benchmark sparsified YOLOv3 models")
 
     parser.add_argument(
@@ -257,7 +257,7 @@ def parse_args():
         ),
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(args=arguments)
     if args.engine == TORCH_ENGINE and args.device is None:
         args.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
@@ -271,9 +271,16 @@ def _parse_device(device: Union[str, int]) -> Union[str, int]:
         return device
 
 
-def _load_images(
+def load_images(
     dataset_path: Optional[str], image_size: Tuple[int]
-) -> List[numpy.ndarray]:
+) -> Tuple[List[numpy.ndarray], List[numpy.ndarray]]:
+    """
+    :param dataset_path: optional path to image files to load, if None, images
+        are loaded from the SparseZoo
+    :param image_size: size to resize images to
+    :return: List of loaded images resized and transposed to given size and list
+        of non resized images
+    """
     path = str(Path(dataset_path).absolute()) if dataset_path else None
 
     if not path:  # load from SparseZoo
@@ -292,7 +299,13 @@ def _load_images(
         raise Exception(f"ERROR: {path} does not exist")
 
     numpy.random.shuffle(images)
-    return [load_image(image, image_size) for image in images]
+    model_images = []
+    original_images = []
+    for image in images:
+        model_image, original_image = load_image(image, image_size)
+        model_images.append(model_image)
+        original_images.append(original_image)
+    return model_images, original_images
 
 
 def _load_model(args) -> Any:
@@ -422,7 +435,7 @@ def _run_model(
 def benchmark_yolo(args):
     model = _load_model(args)
     print("Loading dataset")
-    dataset = _load_images(args.data_path, tuple(args.image_shape))
+    dataset, _ = load_images(args.data_path, tuple(args.image_shape))
     total_iterations = args.num_iterations + args.num_warmup_iterations
     data_loader = _iter_batches(dataset, args.batch_size, total_iterations)
 

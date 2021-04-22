@@ -13,27 +13,21 @@
 # limitations under the License.
 
 import os
-import sys
-from datetime import date
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
 
 
+# default variables to be overwritten by the version.py file
+is_release = None
 version = "unknown"
 version_major_minor = version
-# load and overwrite version info from sparseml package
+
+# load and overwrite version and release info from sparseml package
 exec(open(os.path.join("src", "sparseml", "version.py")).read())
 print(f"loaded version {version} from src/sparseml/version.py")
 
-_PACKAGE_NAME = "sparseml"
-_NIGHTLY = "nightly" in sys.argv
-
-if _NIGHTLY:
-    _PACKAGE_NAME += "-nightly"
-    version += "." + date.today().strftime("%Y%m%d")
-    # remove nightly param so it does not break bdist_wheel
-    sys.argv.remove("nightly")
+_PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
 
 _deps = [
     "jupyter>=1.0.0",
@@ -45,7 +39,7 @@ _deps = [
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<1.8.0",
     "onnxruntime>=1.0.0",
-    "pandas<1.0.0",
+    "pandas>=0.25.0",
     "packaging>=20.0",
     "psutil>=5.0.0",
     "pydantic>=1.0.0",
@@ -56,10 +50,10 @@ _deps = [
     "toposort>=1.0",
 ]
 _nm_deps = [
-    f"{'sparsezoo-nightly' if _NIGHTLY else 'sparsezoo'}~={version_major_minor}"
+    f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_major_minor}"
 ]
 _deepsparse_deps = [
-    f"{'deepsparse-nightly' if _NIGHTLY else 'deepsparse'}~={version_major_minor}"
+    f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_major_minor}"
 ]
 _pytorch_deps = ["torch>=1.1.0,<1.8", "tensorboard>=1.0", "tensorboardX>=1.0"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.9"]
