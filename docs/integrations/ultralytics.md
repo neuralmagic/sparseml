@@ -43,7 +43,7 @@ have to be set.  In general, all should be set when running with SparseML
 (with the exception of `--disable-amp` if not using quantization).
 
 * `--export-onnx` - Exports the final model to ONNX after training completes. Required
-    for inference with the [DeepSparse](https://github.com/neuralmagic/deepsparse)
+    for inference with the [DeepSparse Engine](https://github.com/neuralmagic/deepsparse)
     engine
 * `--use-leaky-relu` - LeakyReLU runs best on the DeepSparse Engine. Setting this flag
     overrides the default SiLU activations with LeakyReLU. If using pre-trained weights
