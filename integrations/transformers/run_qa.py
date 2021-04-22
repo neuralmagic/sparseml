@@ -30,7 +30,7 @@ This script will:
 - Export model to onnx.
 ##########
 Command help:
-usage: main.py [-h] \
+usage: run_qa.py [-h] \
     --model_name_or_path MODEL \
     [--dataset_name]  \
     [--num_train_epochs] \
@@ -83,7 +83,7 @@ Train, prune, and evaluate a transformer base question answering model on squad.
 
 ##########
 Example command for training a 95% sparse BERT SQUAD model for 1 epoch:
-python examples/transformers/main.py \
+python examples/transformers/run_qa.py \
     --model_name_or_path bert-base-uncased \
     --dataset_name squad \
     --num_train_epochs 1 \
@@ -124,6 +124,7 @@ from torch.nn import Linear, Module, Parameter
 from torch.optim import Adam
 from torch.utils.data import ConcatDataset, DataLoader
 from tqdm.auto import tqdm
+import wandb
 
 import datasets
 import transformers
@@ -203,10 +204,7 @@ class DataTrainingArguments:
         default='onnx-export', metadata={"help": "The filename and path which will be where onnx model is outputed"}
     )
     layers_to_keep: int = field(
-        default=0,
-        metadata={
-            "help":"How many layers to drop from the model"
-        }
+        default=12, metadata={"help":"How many layers to keep for the model"}
     )
     ####################################################################################
     # End SparseML Integration
@@ -419,11 +417,19 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
     return cur_span_index == best_span_index
 
 
-def dropLayers(model, layers_to_keep):
+def drop_layers(model, layers_to_keep):
+    layer_drop_matching = {
+        1:[0],
+        3:[0,5,11],
+        6:[0,2,4,6,8,11],
+        9:[0,2,3,4,5,7,8,9,11],
+        12:[0,1,2,3,4,5,6,7,8,9,10,11],
+    }
     encoder_layers = model.bert.encoder.layer # change based on model name
     assert layers_to_keep <= len(encoder_layers)
+    assert layers_to_keep in layer_drop_matching.keys()
     trimmed_encoder_layers = nn.ModuleList()
-    for i in range(layers_to_keep):
+    for i in layer_drop_matching[layers_to_keep]:
         trimmed_encoder_layers.append(encoder_layers[i])
     trimmed_model = copy.deepcopy(model)
     trimmed_model.bert.encoder.layer = trimmed_encoder_layers
@@ -583,6 +589,7 @@ def main():
             ]
 
         return tokenized_examples
+
     transformers.utils.logging.set_verbosity_info()   
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
@@ -651,8 +658,9 @@ def main():
     )
 
     if data_args.layers_to_keep > 0:
-        logger.info("Dropping %s model layers", data_args.layers_to_keep)
-        model = dropLayers(model, data_args.layers_to_keep)
+        logger.info("Keeping %s model layers", data_args.layers_to_keep)
+        model = drop_layers(model, data_args.layers_to_keep)
+
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     logger.info("Model has %s parameters", params)    
@@ -671,7 +679,6 @@ def main():
     question_column_name = "question" if "question" in column_names else column_names[0]
     context_column_name = "context" if "context" in column_names else column_names[1]
     answer_column_name = "answers" if "answers" in column_names else column_names[2]
-
     pad_on_right = tokenizer.padding_side == "right"  
 
     if training_args.do_train:
@@ -711,6 +718,7 @@ def main():
     optim = load_optimizer(model, TrainingArguments)
     steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.per_device_train_batch_size*training_args._n_gpu))
     manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
+    training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
     optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
     ####################################################################################
     # End SparseML Integration
