@@ -45,7 +45,7 @@ have to be set.  In general, all should be set when running with SparseML
 * `--export-onnx` - Exports the final model to ONNX after training completes. Required
     for inference with the [DeepSparse](https://github.com/neuralmagic/deepsparse)
     engine
-* `--use-leaky-relu` - LeakyReLU runs best on the DeepSparse engine. Setting this flag
+* `--use-leaky-relu` - LeakyReLU runs best on the DeepSparse Engine. Setting this flag
     overrides the default SiLU activations with LeakyReLU. If using pre-trained weights
     be sure that the pre-trained model also used LeakyReLU activations
 * `--disable-ema` - Exponential moving average (EMA) is not currently supported when
