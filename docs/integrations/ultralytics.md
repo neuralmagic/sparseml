@@ -89,7 +89,7 @@ python train.py \
 
 ### Benchmarking and Examples
 For examples of benchmarking and deploying sparsified YOLO models with the DeepSparse
-engine, take a look at the `deepsparse/` examples
+Engine, take a look at the `deepsparse/` examples
 [here](https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics).
 
 ### Issues
