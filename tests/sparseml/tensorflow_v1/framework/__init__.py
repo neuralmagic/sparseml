@@ -11,17 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""
-Code for creating and loading datasets in TensorFlow
-"""
-
-# flake8: noqa
-
-from ..base import check_tensorflow_install as _check_tensorflow_install
-from .classification import *
-from .dataset import *
-from .registry import *
-
-
-_check_tensorflow_install()  # TODO: remove once files load without installs

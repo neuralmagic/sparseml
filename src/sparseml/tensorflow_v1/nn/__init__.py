@@ -18,4 +18,8 @@ Neural Network layers and ops for TensorFlow V1
 
 # flake8: noqa
 
+from ..base import check_tensorflow_install as _check_tensorflow_install
 from .layers import *
+
+
+_check_tensorflow_install()  # TODO: remove once files load without installs
