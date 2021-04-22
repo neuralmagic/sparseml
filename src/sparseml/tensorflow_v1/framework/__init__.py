@@ -13,15 +13,10 @@
 # limitations under the License.
 
 """
-Code for creating and loading datasets in TensorFlow
+Functionality related to integrating with, detecting, and getting information for
+support and sparsification in the TensorFLow 1.x framework.
 """
 
 # flake8: noqa
 
-from ..base import check_tensorflow_install as _check_tensorflow_install
-from .classification import *
-from .dataset import *
-from .registry import *
-
-
-_check_tensorflow_install()  # TODO: remove once files load without installs
+from .info import *
