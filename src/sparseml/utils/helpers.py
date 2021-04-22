@@ -30,7 +30,7 @@ from urllib.parse import urlparse
 import numpy
 
 from sparsezoo import Zoo
-from sparsezoo.objects import OptimizationRecipe
+from sparsezoo.objects import Recipe
 from sparsezoo.utils import load_numpy_list
 
 
@@ -768,11 +768,11 @@ def _tensors_export_batch(
     )
 
 
-def load_recipe_yaml_str(file_path: Union[str, OptimizationRecipe]) -> str:
+def load_recipe_yaml_str(file_path: Union[str, Recipe]) -> str:
     """
     Loads a YAML recipe file to a string or
     extracts recipe from YAML front matter in a sparsezoo markdown recipe card.
-    Recipes can also be provided as SparseZoo model stubs or OptimizationRecipe
+    Recipes can also be provided as SparseZoo model stubs or Recipe
     objects.
 
     YAML front matter: https://jekyllrb.com/docs/front-matter/
@@ -781,13 +781,13 @@ def load_recipe_yaml_str(file_path: Union[str, OptimizationRecipe]) -> str:
         stub to a SparseZoo model whose recipe will be downloaded and loaded.
         SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
         '?recipe_type=<type>' parameter or include a `/<type>` subpath. Can also
-        be a SparseZoo OptimizationRecipe object. i.e. '/path/to/local/recipe.yaml',
+        be a SparseZoo Recipe object. i.e. '/path/to/local/recipe.yaml',
         'zoo:model/stub/path', 'zoo:model/stub/path?recipe_type=transfer_learn',
         'zoo:model/stub/path/transfer_learn'
     :return: the recipe YAML configuration loaded as a string
     """
-    if isinstance(file_path, OptimizationRecipe):
-        # download and unwrap OptimizationRecipe object
+    if isinstance(file_path, Recipe):
+        # download and unwrap Recipe object
         file_path = file_path.downloaded_path()
     elif file_path.startswith("zoo:"):
         # download from zoo stub
