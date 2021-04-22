@@ -12,19 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# flake8: noqa
+
 """
-Code for creating and loading datasets in PyTorch
+Functionality related to integrating with, detecting, and getting information for
+support and sparsification in the PyTorch framework.
 """
 
 # flake8: noqa
 
-from ..base import check_torch_install as _check_torch_install
-from .classification import *
-from .detection import *
-from .generic import *
-from .recommendation import *
-from .registry import *
-from .video import *
-
-
-_check_torch_install()  # TODO: remove once files within package load without installs
+from .info import *

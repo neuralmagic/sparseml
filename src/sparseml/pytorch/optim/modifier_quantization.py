@@ -77,6 +77,9 @@ class QuantizationModifier(ScheduledModifier):
         exception. For compatibility with YAML serialization only.
     :param model_fuse_fn_kwargs: dictionary of keyword argument values to be passed
         to the model fusing function
+    :param enable_on_initialize: if True, QAT will be enabled in the given module
+        when this modifier is initialized. This means that QAT will begin from modifier
+        initialization regardless of the start_epoch value. Default is False
     """
 
     def __init__(
@@ -88,6 +91,7 @@ class QuantizationModifier(ScheduledModifier):
         freeze_bn_stats_epoch: Union[float, None] = None,
         end_epoch: float = -1,
         model_fuse_fn_kwargs: Dict[str, Any] = None,
+        enable_on_initialize: bool = False,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -109,8 +113,10 @@ class QuantizationModifier(ScheduledModifier):
         self._model_fuse_fn_kwargs = model_fuse_fn_kwargs or {}
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
+        self._enable_on_initialize = enable_on_initialize
 
         self._modules_to_quantize = None
+        self._qat_enabled = False
         self._quantization_observer_disabled = False
         self._bn_stats_frozen = False
 
@@ -204,6 +210,14 @@ class QuantizationModifier(ScheduledModifier):
         self._freeze_bn_stats_epoch = value
         self._validate_params()
 
+    @ModifierProp()
+    def enable_on_initialize(self) -> bool:
+        """
+        :return: True if QAT should be enabled when this modifier is initialized,
+            False otherwise. If true, start_epoch will not be respected
+        """
+        return self._enable_on_initialize
+
     def initialize(self, module: Module, optimizer: Optimizer):
         """
         Grab the module / submodule to perform QAT on
@@ -229,6 +243,9 @@ class QuantizationModifier(ScheduledModifier):
         else:
             self._modules_to_quantize.append(module)
 
+        if self._enable_on_initialize:
+            self._enable_module_qat(module)
+
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -245,33 +262,8 @@ class QuantizationModifier(ScheduledModifier):
             (calculate batch number using this and epoch)
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
-        if self.start_pending(epoch, steps_per_epoch):
-            if (
-                self._model_fuse_fn_name is not None
-                and self._model_fuse_fn_name != "no_fuse"
-            ):  # module class fn
-                module_fuse_fn = getattr(module, self._model_fuse_fn_name, None)
-                if module_fuse_fn is None or not callable(module_fuse_fn):
-                    raise ValueError(
-                        "Invalid model_fuse_fn_name. "
-                        "Module has no callable function {}".format(
-                            self._model_fuse_fn_name
-                        )
-                    )
-                module_fuse_fn(**self._model_fuse_fn_kwargs)
-            elif self._model_fuse_fn_name is None:  # default auto fn
-                self._model_fuse_fn_kwargs["inplace"] = True
-                fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
-            # prepare each module / submodule for quantization
-            qconfig = get_qat_qconfig()
-            for quant_module in self._modules_to_quantize:
-                # set quantization config (asymmetric activations, symmetric weights)
-                quant_module.qconfig = qconfig
-                # wrap all conv / linear blocks in with quantization observers
-                torch_quantization.propagate_qconfig_(quant_module)
-                add_quant_dequant(quant_module)
-                # set model to QAT mode
-                torch_quantization.prepare_qat(quant_module, inplace=True)
+        if self.start_pending(epoch, steps_per_epoch) and not self._qat_enabled:
+            self._enable_module_qat(module)
 
         if self._disable_quantization_observer_update_ready(epoch):
             for quant_module in self._modules_to_quantize:
@@ -282,6 +274,37 @@ class QuantizationModifier(ScheduledModifier):
             for quant_module in self._modules_to_quantize:
                 quant_module.apply(torch_intrinsic.qat.freeze_bn_stats)
             self._bn_stats_frozen = True
+
+    def _enable_module_qat(self, module: Module):
+        # fuse module Conv-BNs
+        if (
+            self._model_fuse_fn_name is not None
+            and self._model_fuse_fn_name != "no_fuse"
+        ):  # module class fn
+            module_fuse_fn = getattr(module, self._model_fuse_fn_name, None)
+            if module_fuse_fn is None or not callable(module_fuse_fn):
+                raise ValueError(
+                    "Invalid model_fuse_fn_name. "
+                    "Module has no callable function {}".format(
+                        self._model_fuse_fn_name
+                    )
+                )
+            module_fuse_fn(**self._model_fuse_fn_kwargs)
+        elif self._model_fuse_fn_name is None:  # default auto fn
+            self._model_fuse_fn_kwargs["inplace"] = True
+            fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
+
+        # prepare each module / submodule for quantization
+        qconfig = get_qat_qconfig()
+        for quant_module in self._modules_to_quantize:
+            # set quantization config (asymmetric activations, symmetric weights)
+            quant_module.qconfig = qconfig
+            # wrap all conv / linear blocks in with quantization observers
+            torch_quantization.propagate_qconfig_(quant_module)
+            add_quant_dequant(quant_module)
+            # set model to QAT mode
+            torch_quantization.prepare_qat(quant_module, inplace=True)
+        self._qat_enabled = True
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
         return (
