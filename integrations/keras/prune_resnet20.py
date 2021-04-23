@@ -76,9 +76,9 @@ def download_model_and_recipe(root_dir: str):
         repo="sparseml",
         dataset="cifar_10",
         training_scheme=None,
-        optim_name="base",
-        optim_category="none",
-        optim_target=None,
+        sparse_name="base",
+        sparse_category="none",
+        sparse_target=None,
         override_parent_path=model_dir,
     )
     base_zoo_model.download()

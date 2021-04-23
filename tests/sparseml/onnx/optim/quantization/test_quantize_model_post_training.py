@@ -138,9 +138,9 @@ def test_quantize_model_post_training_resnet50_imagenette():
         repo="sparseml",
         dataset="imagenette",
         training_scheme=None,
-        optim_name="base",
-        optim_category="none",
-        optim_target=None,
+        sparse_name="base",
+        sparse_category="none",
+        sparse_target=None,
     ).onnx_file.downloaded_path()
     quant_model_path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
 
