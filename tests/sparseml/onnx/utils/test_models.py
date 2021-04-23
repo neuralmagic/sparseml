@@ -53,9 +53,9 @@ OnnxModelDataFixture = NamedTuple(
                 "repo": "sparseml",
                 "dataset": "imagenet",
                 "training_scheme": None,
-                "optim_name": "base",
-                "optim_category": "none",
-                "optim_target": None,
+                "sparse_name": "base",
+                "sparse_category": "none",
+                "sparse_target": None,
             }
         ),
         (
@@ -68,9 +68,9 @@ OnnxModelDataFixture = NamedTuple(
                 "repo": "sparseml",
                 "dataset": "imagenet",
                 "training_scheme": None,
-                "optim_name": "base",
-                "optim_category": "none",
-                "optim_target": None,
+                "sparse_name": "base",
+                "sparse_category": "none",
+                "sparse_target": None,
             }
         ),
     ]
