@@ -714,6 +714,9 @@ class GMPruningModifier(ScheduledUpdateModifier):
     def apply(self):
         self._module_masks.apply()
 
+    def score(self):
+        self._module_masks.update_movement_scores()
+
     def validate(self):
         """
         Validate the values of the params for the current instance are valid

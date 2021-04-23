@@ -535,14 +535,20 @@ class ModuleParamPruningMask(object):
                 (1.0 - self._track_grad_mom) * grad
             )
 
-        if self._score_type == PruningScoreTypes.MOVEMENT:
-            # movement = -sum(grad * weight)
-            self._params_movement[param_idx].add_(
-                0.01 * -1.0 * grad * self._params[param_idx].data
-            )
+        # if self._score_type == PruningScoreTypes.MOVEMENT:
+        #     # movement = -sum(grad * weight)
+        #     self._params_movement[param_idx].add_(
+        #         0.01 * -1.0 * grad * self._params[param_idx].data
+        #     )
 
         # return grad.mul_(self._param_masks[param_idx])
         return grad
+
+    def update_movement_scores(self):
+        for idx, param in enumerate(self._params):
+            self._params_movement[idx].add_(
+                0.01 * -1.0 * param.grad * param.data
+            )
 
     def _setup_params_init(self):
         for idx, param in enumerate(self._params):
