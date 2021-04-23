@@ -18,6 +18,10 @@ Layers / operators for PyTorch models
 
 # flake8: noqa
 
+from ..base import check_torch_install as _check_torch_install
 from .activations import *
 from .fatrelu import *
 from .se import *
+
+
+_check_torch_install()  # TODO: remove once files within package load without installs

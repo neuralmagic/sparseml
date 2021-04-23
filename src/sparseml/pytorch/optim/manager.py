@@ -29,7 +29,7 @@ from sparseml.optim import BaseManager
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import PyTorchLogger
 from sparseml.utils import load_recipe_yaml_str
-from sparsezoo.objects import OptimizationRecipe
+from sparsezoo.objects import Recipe
 
 
 __all__ = ["ScheduledModifierManager", "load_manager"]
@@ -58,7 +58,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
     @staticmethod
     def from_yaml(
-        file_path: Union[str, OptimizationRecipe],
+        file_path: Union[str, Recipe],
         add_modifiers: List[Modifier] = None,
     ):
         """
@@ -68,7 +68,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param file_path: the path to the recipe file to load the modifier from, or
             a SparseZoo model stub to load a recipe for a model stored in SparseZoo.
             SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
-            '?recipe_type=<type>' parameter. Can also be a SparseZoo OptimizationRecipe
+            '?recipe_type=<type>' parameter. Can also be a SparseZoo Recipe
             object. i.e. '/path/to/local/recipe.yaml', 'zoo:model/stub/path',
             'zoo:model/stub/path?recipe_type=transfer'
         :param add_modifiers: additional modifiers that should be added to the

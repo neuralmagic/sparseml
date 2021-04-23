@@ -13,18 +13,10 @@
 # limitations under the License.
 
 """
-Code for creating and loading datasets in PyTorch
+Functionality related to applying, describing, and supporting sparsification
+algorithms to models within in the TensorFlow 1.x framework.
 """
 
 # flake8: noqa
 
-from ..base import check_torch_install as _check_torch_install
-from .classification import *
-from .detection import *
-from .generic import *
-from .recommendation import *
-from .registry import *
-from .video import *
-
-
-_check_torch_install()  # TODO: remove once files within package load without installs
+from .info import *
