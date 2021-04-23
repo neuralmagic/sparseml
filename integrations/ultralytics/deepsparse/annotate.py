@@ -23,6 +23,7 @@ import os
 import time
 from typing import Any, List, Union
 
+import cv2
 import numpy
 import onnx
 import onnxruntime
@@ -297,6 +298,7 @@ def annotate(args):
     loader, saver, is_video = get_yolo_loader_and_saver(
         args.source, save_dir, args.image_shape, args
     )
+    is_webcam = args.source.isnumeric()
 
     postprocessor = (
         YoloPostprocessor(args.image_shape)
@@ -333,14 +335,21 @@ def annotate(args):
             images_per_sec=(1.0 / (time.time() - iter_start)) if is_video else None,
         )
 
+        # display
+        if is_webcam:
+            cv2.imshow("annotations", annotated_img)
+            cv2.waitKey(1)
+
         # save
-        saver.save_frame(annotated_img)
+        if saver:
+            saver.save_frame(annotated_img)
 
         iter_end = time.time()
         elapsed_time = 1000 * (iter_end - iter_start)
         _LOGGER.info(f"Inference {iteration} processed in {elapsed_time} ms")
 
-    saver.close()
+    if saver:
+        saver.close()
     _LOGGER.info(f"Results saved to {save_dir}")
 
 

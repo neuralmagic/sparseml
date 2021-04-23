@@ -73,6 +73,7 @@ def get_yolo_loader_and_saver(
         images, video, or web-cam based on path given, and a boolean value
         that is True is the returned objects load videos
     """
+    # video
     if path.endswith(".mp4"):
         loader = YoloVideoLoader(path, image_size)
         saver = VideoSaver(
@@ -82,7 +83,16 @@ def get_yolo_loader_and_saver(
             args.target_fps if args else None,
         )
         return loader, saver, True
-
+    # webcam
+    if path.isnumeric():
+        loader = YoloWebcamLoader(int(path), image_size)
+        saver = (
+            VideoSaver(save_dir, 30, loader.original_frame_size, None)
+            if not args.no_save
+            else None
+        )
+        return loader, saver, True
+    # image file(s)
     return YoloImageLoader(path, image_size), ImagesSaver(save_dir), False
 
 
@@ -164,6 +174,45 @@ class YoloVideoLoader:
         :return: the total number of frames this object may laod from the video
         """
         return self._total_frames
+
+
+class YoloWebcamLoader:
+    """
+    Class for pre-processing and iterating over webcam frames to be used as input for
+    YOLO models.
+
+    Adapted from: https://github.com/ultralytics/yolov5/blob/master/utils/datasets.py
+
+    :param camera: Webcam index
+    :param image_size: size of input images to model
+    """
+
+    def __init__(self, camera: int, image_size: Tuple[int] = (640, 640)):
+
+        self._camera = camera
+        self._image_size = image_size
+        self._stream = cv2.VideoCapture(self._camera)
+        self._stream.set(cv2.CAP_PROP_BUFFERSIZE, 3)
+
+    def __iter__(self) -> Iterator[Tuple[numpy.ndarray, numpy.ndarray]]:
+        while True:
+            if cv2.waitKey(1) == ord("q"):  # q to quit
+                self._stream.release()
+                cv2.destroyAllWindows()
+                break
+            _, frame = self._stream.read()
+            frame = cv2.flip(frame, 1)  # flip left-right
+            yield load_image(frame, image_size=self._image_size)
+
+    @property
+    def original_frame_size(self) -> Tuple[int, int]:
+        """
+        :return: the original size of frames in the stream this object reads
+        """
+        return (
+            int(self._stream.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(self._stream.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+        )
 
 
 class ImagesSaver:
