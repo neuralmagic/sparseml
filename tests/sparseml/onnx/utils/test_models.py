@@ -47,21 +47,6 @@ OnnxModelDataFixture = NamedTuple(
             {
                 "domain": "cv",
                 "sub_domain": "classification",
-                "architecture": "resnet_v1",
-                "sub_architecture": "50",
-                "framework": "pytorch",
-                "repo": "sparseml",
-                "dataset": "imagenet",
-                "training_scheme": None,
-                "sparse_name": "base",
-                "sparse_category": "none",
-                "sparse_target": None,
-            }
-        ),
-        (
-            {
-                "domain": "cv",
-                "sub_domain": "classification",
                 "architecture": "mobilenet_v1",
                 "sub_architecture": "1.0",
                 "framework": "pytorch",
