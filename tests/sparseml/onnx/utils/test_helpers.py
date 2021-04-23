@@ -363,8 +363,8 @@ def test_onnx_node_sparsities():
         architecture="mobilenet_v1",
         dataset="imagenet",
         framework="pytorch",
-        optim_name="pruned",
-        optim_category="moderate",
+        sparse_name="pruned",
+        sparse_category="moderate",
         repo="sparseml",
     )
     assert len(models) > 0
