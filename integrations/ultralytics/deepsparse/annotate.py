@@ -152,8 +152,9 @@ def parse_args(arguments=None):
         default=None,
         help=(
             "target FPS when writing video files. Frames will be dropped to "
-            "closely match target FPS. --source must be a video file and target-fps "
-            "may not be greater than the source video fps. Defualt is None"
+            "closely match target FPS. --source must be a video file and if target-fps "
+            "is greater than the source video fps then it will be ignored. Defualt is "
+            "None"
         ),
     )
     parser.add_argument(

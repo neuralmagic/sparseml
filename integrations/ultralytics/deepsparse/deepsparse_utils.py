@@ -219,10 +219,10 @@ class VideoSaver(ImagesSaver):
         self._output_frame_size = output_frame_size
         self._original_fps = original_fps
 
-        if target_fps is not None and target_fps <= original_fps:
-            raise ValueError(
-                f"target_fps {target_fps} cannot be greater "
-                f"than soruce video fps {original_fps}"
+        if target_fps is not None and target_fps >= original_fps:
+            print(
+                f"target_fps {target_fps} is greater than source_fps "
+                f"{original_fps}. additional target fps file will not be produced"
             )
         self._target_fps = target_fps
 
