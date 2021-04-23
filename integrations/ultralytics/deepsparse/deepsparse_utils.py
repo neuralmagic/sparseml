@@ -555,7 +555,7 @@ def annotate_image(
                 (int(left), int(top) - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.9,  # font scale
-                (6, 46, 245),  # color
+                (245, 46, 6),  # color
                 2,  # thickness
                 cv2.LINE_AA,
             )
@@ -574,7 +574,7 @@ def annotate_image(
             (50, 50),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.9,  # font scale
-            (6, 46, 245),  # color
+            (245, 46, 6),  # color
             2,  # thickness
             cv2.LINE_AA,
         )

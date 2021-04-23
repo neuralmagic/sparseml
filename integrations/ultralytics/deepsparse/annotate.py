@@ -341,6 +341,7 @@ def annotate(args):
         _LOGGER.info(f"Inference {iteration} processed in {elapsed_time} ms")
 
     saver.close()
+    _LOGGER.info(f"Results saved to {save_dir}")
 
 
 def main():
