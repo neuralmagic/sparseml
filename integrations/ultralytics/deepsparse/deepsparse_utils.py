@@ -250,7 +250,7 @@ class VideoSaver(ImagesSaver):
         if self._target_fps is not None:
             self._write_target_fps_video()
 
-    def _finalize_fps(self):
+    def _write_target_fps_video(self):
         assert self._target_fps is not None
         num_frames_to_keep = int(
             self._n_frames * (self._target_fps / self._original_fps)
