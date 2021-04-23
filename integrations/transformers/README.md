@@ -14,19 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 # Transformers-SparseML Integration
-This folder contains an example on how to use sparseml with transformers. 
-We focus on Question answering and use a modified implementation from the BERT SQuAD in transformers. 
-Using various pruning configuration files we demostrate the effect unstructured pruning can have on SQuAD. The example code is based on the transformers SQUAD implementation focused on BERT on the SQuAD1.0 dataset. It runs in 120 min (with BERT-base) on a single Tesla V100 16GB.
+This folder contains an example on how to use SparseML with transformers. 
+We focus on Question Answering and use a modified implementation from the BERT Stanford Question Answering Dataset (SQuAD) in transformers. 
+Using various pruning configuration files we demonstrate the effect unstructured pruning can have on SQuAD. The example code is based on the transformers SQuAD implementation focused on BERT on the SQuAD1.0 dataset. It runs in 120 min (with BERT-base) on a single Tesla V100 16GB.
+
 ## Installation and Requirements
-These example scripts require sparseml, transformers, torch, datasets and associated libraries. To install run the following command
+These example scripts require SparseML, transformers, torch, datasets and associated libraries. To install run the following command
 
 ```bash
 pip install sparseml[torch] torch transformers datasets
 ```
 
 ## Usage
-To custom prune a model first go to the prune-config.yaml file and modify the parameters to your needs. We have provided a range of pruning configurations in the prune_config_files folder. 
-!EpochRangeModifier controls how long the model trains for and each !GMPruningModifier modifies controls how each portion is pruned. You can modify end_epoch to control how long the pruning regime lasts and final_sparsity and init_sparsity define the speed at which the module is pruned and the final sparsity.
+To custom-prune a model first go to the `prune-config.yaml` file and modify the parameters to your needs. We have provided a range of pruning configurations in the `prune_config_files` folder. 
+`!EpochRangeModifier` controls how long the model trains for and each `!GMPruningModifier` modifies controls how each portion is pruned. You can modify `end_epoch` to control how long the pruning regime lasts and `final_sparsity` and `init_sparsity` define the speed at which the module is pruned and the final sparsity.
 ### Training 
 ```bash
 python run_qa.py  \
@@ -72,7 +73,12 @@ python run_qa.py  \
 ```
 
 ## Model Performance 
-To demostrate the effect that various pruning regimes and techniques can have we prune the same bert-base-uncased model to 5 different sparsities(0,80,90,95,99) using 3 pruning methodologies: oneshot(prune to desired weights before fine tune then fine tune for 1 epoch), GMP 1 epoch(prune to desired sparsity over an epoch then stabilize over another epoch), and GMP 8 epochs (prune to desired sparsity over 8 epochs then stabilize over another 2 epochs). Its worth noting that we are pruning all layers uniformly and we believe further gains can be achieved by targeted pruning of individual layers.
+To demonstrate the effect that various pruning regimes and techniques can have, we prune the same bert-base-uncased model to five different sparsities (0,80,90,95,99) using three pruning methodologies: 
+- one shot (prune to desired weights before fine tune then fine tune for 1 epoch),
+- GMP 1 epoch (prune to desired sparsity over an epoch then stabilize over another epoch), and
+- GMP 8 epochs (prune to desired sparsity over 8 epochs then stabilize over another 2 epochs). 
+
+It is worth noting that we are pruning all layers uniformly and we believe further gains can be achieved by targeted pruning of individual layers.
 
 | base model name       | sparsity 	| total train epochs    | prunned | one shot |pruning epochs| F1 Score 	| EM Score  |
 |-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
@@ -93,8 +99,8 @@ To demostrate the effect that various pruning regimes and techniques can have we
 | bert-base-uncased 	|99       	|2                   	|yes      |no        |0            	|17.433     |07.871     |
 | bert-base-uncased 	|99         |10                    	|yes      |no        |8             |47.306    	|32.564     |
 
-## Training With distillation
-In addition to a simple QA model we provide implementation which can leverage teacher-student distillation. The usage of the distillation code is virually identical to the non distilled model but commands are as follow. 
+## Training with Distillation
+In addition to a simple QA model we provide an implementation which can leverage teacher-student distillation. The usage of the distillation code is virually identical to the non-distilled model but the commands are as follows: 
 
 #### Training 
 ```bash
@@ -154,7 +160,7 @@ Sparsity 80, 90, 97
 | bert-base-uncased 	|97       	|yes      |yes      |30          |18            |  |  |
 
 ### Distillation, Pruning, Layer Dropping
-To explore the effect of model pruning compared to layer dropping we train models to sparsity to match the amount of parameters in models with layers droppend. Results feature both with and without distillation. For distillation we use hard distillation and a a trained teacher model which is trained on SQUAD for 2 epochs and achieves an 88.32442/81.10690 F1/EM. A 9 layer model is roughly equivalent to 20% sparsity, 6 layer to 40%, 3 layer to 60%, 1 layer to 72%. 
+To explore the effect of model pruning compared to layer dropping, we train models to sparsity to match the amount of parameters in models with layers dropped. Results feature both with and without distillation. For distillation we use hard distillation and a a trained teacher model which is trained on SQuAD for 2 epochs and achieves an 88.32442/81.10690 F1/EM. A 9-layer model is roughly equivalent to 20% sparsity, 6-layer to 40%, 3-layer to 60%, 1-layer to 72%. 
 
 | base model name       | sparsity 	| params                |Distilled| prunned | layers   |pruning epochs| F1 Score | EM Score  |
 |-----------------------|----------	|-----------------------|---------|---------|----------|--------------|----------|-----------|
@@ -183,12 +189,12 @@ To explore the effect of model pruning compared to layer dropping we train model
 | bert-base-uncased 	|90        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
 | bert-base-uncased 	|97        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
 
-## Script origin and how to integrate sparseml with other Transformers projects
+## Script Origin and How to Integrate SparseML with Other Transformers Projects
 This script is based on the example BERT-QA implementation in transformers found [here](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py). 
 
-For any other projects combining huggingface transformer's there are essentially four components to modify: imports and needed function, loading sparseml, modifying training script, and onnx export. 
+For any other projects combining Hugging Face transformers there are essentially four components to modify: imports and needed function, loading SparseML, modifying training script, and ONNX export. 
 
-First take your existing project and add the following imports and functions
+First, take your existing project and add the following imports and functions:
 ```python
 from transformers.optimization import (
     Adafactor,
@@ -331,7 +337,7 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
             best_span_index = span_index
     return cur_span_index == best_span_index
 ```
-We add some sparseml arguments
+We add some SparseML arguments:
 ```python
 @dataclass
 class DataTrainingArguments:
@@ -354,7 +360,7 @@ class DataTrainingArguments:
     # End SparseML Integration
     ####################################################################################
 ```
-Use the code below to load sparseml optimizers
+Use the code below to load SparseML optimizers:
 ```python
 ## Neural Magic Integration here. 
 optim = load_optimizer(model, TrainingArguments)
@@ -362,7 +368,7 @@ steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.per_device_t
 manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
 optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
 ```
-Modify the hugging face trainer to take the sparseml optimzier as shown below
+Modify the Hugging Face trainer to take the SparseML optimzier as shown below:
 ```python
 # Initialize our Trainer and continue to use your regular transformers trainer
 trainer = QuestionAnsweringTrainer(
@@ -378,7 +384,7 @@ trainer = QuestionAnsweringTrainer(
     optimizers=(optim, None), # This is what is new.
 )
 ```
-Finally, export the model. Its worth noting that you will have to create a sample batch which will be task dependent. The code shown below is specific for SQuAD style question answering
+Finally, export the model. It is worth noting that you will have to create a sample batch which will be task-dependent. The code shown below is specific for SQuAD-style Question Answering:
 ```python
 exporter = ModuleExporter(
     model, output_dir='onnx-export'
