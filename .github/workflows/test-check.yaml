@@ -1,31 +1,83 @@
-name: Merge Tests
+name: Test Check
 on: 
   push:
     branches:
       - main
       - 'release/*'
+  pull_request:
+    branches:
+      - main
+      - 'release/*'
 
 jobs:
-  get-branch:
+  test-setup:
     runs-on: ubuntu-18.04
     outputs:
       branch: ${{ steps.get-branch.outputs.branch }}
+      base: ${{ steps.base-check.outputs.output }}
+      deepsparse: ${{ steps.deepsparse-check.outputs.output }}
+      keras: ${{ steps.keras-check.outputs.output }}
+      onnx: ${{ steps.onnx-check.outputs.output }}
+      pytorch: ${{ steps.pytorch-check.outputs.output }}
+      tensorflow_v1: ${{ steps.tensorflow_v1-check.outputs.output }}
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - run: git branch --show-current
       - name: Get current branch
         id: get-branch
-        run: echo "::set-output name=branch::$(git branch --show-current)"
+        run: >
+          (git branch --show-current | grep -E "release/")
+          && echo "::set-output name=branch::$(git branch --show-current)"
+          || echo "::set-output name=branch::main"
+      - name: "Checking if sparseml was changed"
+        id: base-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::1" || echo "::set-output name=output::0"
+      - name: "Checking if sparseml.deepsaprse was changed"
+        id: deepsparse-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/deepsparse|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::1" || echo "::set-output name=output::0"
+      - name: "Checking if sparseml.keras was changed"
+        id: keras-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/keras|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::1" || echo "::set-output name=output::0"
+      - name: "Checking if sparseml.onnx was changed"
+        id: onnx-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/onnx|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::1" || echo "::set-output name=output::0"
+      - name: "Checking if sparseml.pytorch was changed"
+        id: pytorch-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/pytorch|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::1" || echo "::set-output name=output::0"
+      - name: "Checking if sparseml.tensorflow_v1 was changed"
+        id: tensorflow_v1-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/tensorflow_v1|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::1" || echo "::set-output name=output::0"
   base-tests:
     runs-on: ubuntu-18.04
-    needs: get-branch
+    needs: test-setup
+    if: ${{needs.diff-check.outputs.base == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
           repository: "neuralmagic/sparsezoo"
           path: "sparsezoo"
-          ref: ${{needs.get-branch.outputs.branch}}
+          ref: ${{needs.test-setup.outputs.branch}}
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
@@ -36,14 +88,15 @@ jobs:
         run: make test
   deepsparse-tests:
     runs-on: ubuntu-18.04
-    needs: get-branch
+    needs: test-setup
+    if: ${{needs.diff-check.outputs.deepsparse == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
           repository: "neuralmagic/sparsezoo"
           path: "sparsezoo"
-          ref: ${{needs.get-branch.outputs.branch}}
+          ref: ${{needs.test-setup.outputs.branch}}
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
@@ -54,14 +107,15 @@ jobs:
         run: make test TARGETS=deepsparse
   keras-tests:
     runs-on: ubuntu-18.04
-    needs: get-branch
+    needs: test-setup
+    if:  ${{needs.diff-check.outputs.keras == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
           repository: "neuralmagic/sparsezoo"
           path: "sparsezoo"
-          ref: ${{needs.get-branch.outputs.branch}}
+          ref: ${{needs.test-setup.outputs.branch}}
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
@@ -72,14 +126,15 @@ jobs:
         run: make test TARGETS=keras
   onnx-tests:
     runs-on: ubuntu-18.04
-    needs: get-branch
+    needs: test-setup
+    if: ${{needs.diff-check.outputs.onnx == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
           repository: "neuralmagic/sparsezoo"
           path: "sparsezoo"
-          ref: ${{needs.get-branch.outputs.branch}}
+          ref: ${{needs.test-setup.outputs.branch}}
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
@@ -90,14 +145,15 @@ jobs:
         run: make test TARGETS=onnx
   pytorch-tests:
     runs-on: ubuntu-18.04
-    needs: get-branch
+    needs: test-setup
+    if: ${{needs.diff-check.outputs.pytorch == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
           repository: "neuralmagic/sparsezoo"
           path: "sparsezoo"
-          ref: ${{needs.get-branch.outputs.branch}}
+          ref: ${{needs.test-setup.outputs.branch}}
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
@@ -108,14 +164,15 @@ jobs:
         run: make test TARGETS=pytorch
   tensorflow-v1-tests:
     runs-on: ubuntu-18.04
-    needs: get-branch
+    needs: test-setup
+    if:  ${{needs.diff-check.outputs.tensorflow_v1 == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
         with:
           repository: "neuralmagic/sparsezoo"
           path: "sparsezoo"
-          ref: ${{needs.get-branch.outputs.branch}}
+          ref: ${{needs.test-setup.outputs.branch}}
       - name: "⚙️ Install sparsezoo dependencies"
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
