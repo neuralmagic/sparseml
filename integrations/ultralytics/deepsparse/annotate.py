@@ -13,7 +13,93 @@
 # limitations under the License.
 
 """
-Annotation script for running YOLO models using DeepSparse and other inference engines
+Annotation script for running YOLO models using DeepSparse and other inference engines.
+Supports .jpg images, .mp4 movies, and webcam streaming.
+
+##########
+Command help:
+usage: annotate.py [-h] --source SOURCE [-e {deepsparse,onnxruntime,torch}]
+                   [--image-shape IMAGE_SHAPE [IMAGE_SHAPE ...]]
+                   [-c NUM_CORES] [-s NUM_SOCKETS] [-q] [--fp16]
+                   [--device DEVICE] [--save-dir SAVE_DIR] [--name NAME]
+                   [--target-fps TARGET_FPS] [--no-save]
+                   model_filepath
+
+Annotate images, videos, and streams with sparsified YOLOv3 models
+
+positional arguments:
+  model_filepath        The full filepath of the ONNX model file or SparseZoo
+                        stub to the model for deepsparse and onnxruntime
+                        engines. Path to a .pt loadable PyTorch Module for
+                        torch - the Module can be the top-level object loaded
+                        or loaded into 'model' in a state dict
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --source SOURCE       File path to image or directory of .jpg files, a .mp4
+                        video, or an integer (i.e. 0) for web-cam
+  -e {deepsparse,onnxruntime,torch}, --engine {deepsparse,onnxruntime,torch}
+                        Inference engine backend to run on. Choices are
+                        'deepsparse', 'onnxruntime', and 'torch'. Default is
+                        'deepsparse'
+  --image-shape IMAGE_SHAPE [IMAGE_SHAPE ...]
+                        Image shape to run model with, must be two integers.
+                        Default is 640 640
+  -c NUM_CORES, --num-cores NUM_CORES
+                        The number of physical cores to run the annotations
+                        with, defaults to None where it uses all physical
+                        cores available on the system. For DeepSparse
+                        benchmarks, this value is the number of cores per
+                        socket
+  -s NUM_SOCKETS, --num-sockets NUM_SOCKETS
+                        For DeepSparse engine only. The number of physical
+                        cores to run the annotations. Defaults to None where
+                        it uses all sockets available on the system
+  -q, --quantized-inputs
+                        Set flag to execute with int8 inputs instead of
+                        float32
+  --fp16                Set flag to execute with torch in half precision
+                        (fp16)
+  --device DEVICE       Torch device id to run the model with. Default is cpu.
+                        Non cpu only supported for torch benchmarking. Default
+                        is 'cpu' unless running with torch and cuda is
+                        available, then cuda on device 0. i.e. 'cuda', 'cpu',
+                        0, 'cuda:1'
+  --save-dir SAVE_DIR   directory to save all results to. defaults to
+                        'annotation_results'
+  --name NAME           name of directory in save-dir to write results to.
+                        defaults to {engine}-annotations-{run_number}
+  --target-fps TARGET_FPS
+                        target FPS when writing video files. Frames will be
+                        dropped to closely match target FPS. --source must be
+                        a video file and if target-fps is greater than the
+                        source video fps then it will be ignored. Defualt is
+                        None
+  --no-save             set flag when source is from webcam to not save
+                        results. not supported for non webcam sources
+
+##########
+Example command for running webcam annotations with pruned quantized YOLOv3:
+python annotate.py \
+    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
+    --source 0 \
+    --quantized-inputs \
+    --image-shape 416 416
+
+##########
+Example command for running video annotations with pruned quantized YOLOv3:
+python annotate.py \
+    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive_97 \
+    --source my_video.mp4 \
+    --image-shape 416 416
+
+##########
+Example command for running image annotations with using PyTorch CPU YOLOv3:
+python annotate.py \
+    path/to/yolo-v3.pt \
+    --source path/to/my/jpg/images \
+    --device cpu \
+    --image-shape 416 416
 """
 
 
@@ -65,9 +151,10 @@ def parse_args(arguments=None):
     parser.add_argument(
         "--source",
         type=str,
+        required=True,
         help=(
             "File path to image or directory of .jpg files, a .mp4 video, "
-            "or an integer (i.e. 0) for web-cam"
+            "or an integer (i.e. 0) for webcam"
         ),
     )
     parser.add_argument(
