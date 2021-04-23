@@ -147,6 +147,16 @@ def parse_args(arguments=None):
         ),
     )
     parser.add_argument(
+        "--target-fps",
+        type=float,
+        default=None,
+        help=(
+            "target FPS when writing video files. Frames will be dropped to "
+            "closely match target FPS. --source must be a video file and target-fps "
+            "may not be greater than the source video fps. Defualt is None"
+        ),
+    )
+    parser.add_argument(
         "--no-save",
         action="store_true",
         help="set flag when source is from web-cam to not save results",
@@ -284,7 +294,7 @@ def annotate(args):
     save_dir = _get_save_dir(args)
     model = _load_model(args)
     loader, saver, is_video = get_yolo_loader_and_saver(
-        args.source, save_dir, args.image_shape
+        args.source, save_dir, args.image_shape, args
     )
 
     postprocessor = (

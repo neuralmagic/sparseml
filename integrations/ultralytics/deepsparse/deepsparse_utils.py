@@ -60,7 +60,7 @@ _YOLO_V3_ANCHOR_GRIDS = [t.clone().view(1, -1, 1, 1, 2) for t in _YOLO_V3_ANCHOR
 
 
 def get_yolo_loader_and_saver(
-    path: str, save_dir: str, image_size: Tuple[int] = (640, 640)
+    path: str, save_dir: str, image_size: Tuple[int] = (640, 640), args: Any = None
 ) -> Union[Iterable, Any, bool]:
     """
 
@@ -68,6 +68,7 @@ def get_yolo_loader_and_saver(
         or an integer (i.e. 0) for web-cam
     :param save_dir: path of directory to save to
     :param image_size: size of input images to model
+    :param args: optional arguments from annotate script ArgParser
     :return: image loader iterable, result saver objects
         images, video, or web-cam based on path given, and a boolean value
         that is True is the returned objects load videos
@@ -78,7 +79,7 @@ def get_yolo_loader_and_saver(
             save_dir,
             loader.original_fps,
             loader.original_frame_size,
-            loader.total_frames,
+            args.target_fps if args else None,
         )
         return loader, saver, True
 
@@ -199,32 +200,39 @@ class VideoSaver(ImagesSaver):
     Class for saving YOLO model outputs as a VideoFile
 
     :param save_dir: path to directory to write to
-    :param fps: frames per second to save video with
+    :param original_fps: frames per second to save video with
     :param output_frame_size: size of frames to write
-    :param total_frames: total number of frames that should be written. If writer is
-        closed with fewer than total_frames written, the final frame will be written
-        so the total frames match. Default is None
+    :param target_fps: fps target for output video. if present, an
+        additional video will be written with a certain number of the
+        original frames evenly dropped to match the target FPS.
     """
 
     def __init__(
         self,
         save_dir: str,
-        fps: float,
+        original_fps: float,
         output_frame_size: Tuple[int, int],
-        total_frames: Optional[int] = None,
+        target_fps: Optional[float] = None,
     ):
         super().__init__(save_dir)
 
         self._output_frame_size = output_frame_size
-        self._file_path = os.path.join(self._save_dir, "results.mp4")
+        self._original_fps = original_fps
+
+        if target_fps is not None and target_fps <= original_fps:
+            raise ValueError(
+                f"target_fps {target_fps} cannot be greater "
+                f"than soruce video fps {original_fps}"
+            )
+        self._target_fps = target_fps
+
+        self._file_path = os.path.join(self._save_dir, "results-base.mp4")
         self._writer = cv2.VideoWriter(
             self._file_path,
             cv2.VideoWriter_fourcc(*"mp4v"),
-            fps,
+            original_fps,
             self._output_frame_size,
         )
-
-        self._target_duration_sec = total_frames / float(fps)
         self._n_frames = 0
 
     def save_frame(self, image: numpy.ndarray):
@@ -239,25 +247,44 @@ class VideoSaver(ImagesSaver):
         perform any clean-up tasks
         """
         self._writer.release()
-        self._finalize_fps()
+        if self._target_fps is not None:
+            self._write_target_fps_video()
 
     def _finalize_fps(self):
-        # overwrite saved video with FPS that matches the original video duration
-        target_fps = self._n_frames / self._target_duration_sec
-        temp_video_path = os.path.join(self._save_dir, "_tmp.mp4")
+        assert self._target_fps is not None
+        num_frames_to_keep = int(
+            self._n_frames * (self._target_fps / self._original_fps)
+        )
+        # adjust target fps so we can keep the same video duration
+        adjusted_target_fps = num_frames_to_keep * (self._original_fps / self._n_frames)
+
+        # select num_frames_to_keep evenly spaced frame idxs
+        frame_idxs_to_keep = set(
+            numpy.round(numpy.linspace(0, self._n_frames, num_frames_to_keep))
+            .astype(int)
+            .tolist()
+        )
+
+        # create new video writer for adjusted video
+        vid_path = os.path.join(
+            self._save_dir, f"results-{adjusted_target_fps:.2f}fps.mp4"
+        )
         fps_writer = cv2.VideoWriter(
-            temp_video_path,
+            vid_path,
             cv2.VideoWriter_fourcc(*"mp4v"),
-            target_fps,
+            adjusted_target_fps,
             self._output_frame_size,
         )
+
+        # read from original video and write to FPS adjusted video
         saved_vid = cv2.VideoCapture(self._file_path)
-        for _ in range(self._n_frames):
+        for idx in range(self._n_frames):
             _, frame = saved_vid.read()
-            fps_writer.write(frame)
+            if idx in frame_idxs_to_keep:
+                fps_writer.write(frame)
+
         saved_vid.release()
         fps_writer.release()
-        shutil.move(temp_video_path, self._file_path)
 
 
 def load_image(
