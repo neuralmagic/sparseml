@@ -22,6 +22,7 @@ variables if using a different model.
 
 import glob
 import os
+import shutil
 from tempfile import NamedTemporaryFile
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
@@ -249,9 +250,9 @@ class VideoSaver(ImagesSaver):
     :param save_dir: path to directory to write to
     :param original_fps: frames per second to save video with
     :param output_frame_size: size of frames to write
-    :param target_fps: fps target for output video. if present, an
-        additional video will be written with a certain number of the
-        original frames evenly dropped to match the target FPS.
+    :param target_fps: fps target for output video. if present, video
+        will be written with a certain number of the original frames
+        evenly dropped to match the target FPS.
     """
 
     def __init__(
@@ -273,7 +274,7 @@ class VideoSaver(ImagesSaver):
             )
         self._target_fps = target_fps
 
-        self._file_path = os.path.join(self._save_dir, "results-base.mp4")
+        self._file_path = os.path.join(self._save_dir, "results.mp4")
         self._writer = cv2.VideoWriter(
             self._file_path,
             cv2.VideoWriter_fourcc(*"mp4v"),
@@ -314,7 +315,7 @@ class VideoSaver(ImagesSaver):
 
         # create new video writer for adjusted video
         vid_path = os.path.join(
-            self._save_dir, f"results-{adjusted_target_fps:.2f}fps.mp4"
+            self._save_dir, f"_results-{adjusted_target_fps:.2f}fps.mp4"
         )
         fps_writer = cv2.VideoWriter(
             vid_path,
@@ -332,6 +333,7 @@ class VideoSaver(ImagesSaver):
 
         saved_vid.release()
         fps_writer.release()
+        shutil.move(vid_path, self._file_path)  # overwrite original file
 
 
 def load_image(

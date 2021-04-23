@@ -161,7 +161,10 @@ def parse_args(arguments=None):
     parser.add_argument(
         "--no-save",
         action="store_true",
-        help="set flag when source is from web-cam to not save results",
+        help=(
+            "set flag when source is from webcam to not save results. not supported "
+            "for non webcam sources"
+        ),
     )
 
     args = parser.parse_args(args=arguments)
@@ -328,11 +331,14 @@ def annotate(args):
             torch.cuda.synchronize()
 
         # annotate
+        measured_fps = (
+            args.target_fps or (1.0 / (time.time() - iter_start)) if is_video else None
+        )
         annotated_img = annotate_image(
             source_img,
             outputs,
             model_input_size=args.image_shape,
-            images_per_sec=(1.0 / (time.time() - iter_start)) if is_video else None,
+            images_per_sec=measured_fps,
         )
 
         # display
