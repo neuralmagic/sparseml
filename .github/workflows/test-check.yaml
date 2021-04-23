@@ -70,7 +70,7 @@ jobs:
   base-tests:
     runs-on: ubuntu-18.04
     needs: test-setup
-    if: ${{needs.diff-check.outputs.base == 1}}
+    if: ${{needs.test-setup.outputs.base == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
@@ -89,7 +89,7 @@ jobs:
   deepsparse-tests:
     runs-on: ubuntu-18.04
     needs: test-setup
-    if: ${{needs.diff-check.outputs.deepsparse == 1}}
+    if: ${{needs.test-setup.outputs.deepsparse == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
@@ -108,7 +108,7 @@ jobs:
   keras-tests:
     runs-on: ubuntu-18.04
     needs: test-setup
-    if:  ${{needs.diff-check.outputs.keras == 1}}
+    if:  ${{needs.test-setup.outputs.keras == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
@@ -127,7 +127,7 @@ jobs:
   onnx-tests:
     runs-on: ubuntu-18.04
     needs: test-setup
-    if: ${{needs.diff-check.outputs.onnx == 1}}
+    if: ${{needs.test-setup.outputs.onnx == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
@@ -146,7 +146,7 @@ jobs:
   pytorch-tests:
     runs-on: ubuntu-18.04
     needs: test-setup
-    if: ${{needs.diff-check.outputs.pytorch == 1}}
+    if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
@@ -165,7 +165,7 @@ jobs:
   tensorflow-v1-tests:
     runs-on: ubuntu-18.04
     needs: test-setup
-    if:  ${{needs.diff-check.outputs.tensorflow_v1 == 1}}
+    if:  ${{needs.test-setup.outputs.tensorflow_v1 == 1}}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/checkout@v2
