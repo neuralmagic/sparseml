@@ -124,7 +124,7 @@ class ModelRegistry(object):
 
         attributes = ModelRegistry._ATTRIBUTES[key]
 
-        optim_name, optim_category, optim_target = parse_optimization_str(
+        sparse_name, sparse_category, sparse_target = parse_optimization_str(
             pretrained if isinstance(pretrained, str) else attributes.default_desc
         )
 
@@ -139,9 +139,9 @@ class ModelRegistry(object):
             if pretrained_dataset is None
             else pretrained_dataset,
             None,
-            optim_name,
-            optim_category,
-            optim_target,
+            sparse_name,
+            sparse_category,
+            sparse_target,
         )
 
     @staticmethod
