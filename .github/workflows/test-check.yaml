@@ -1,4 +1,4 @@
-name: Test Check
+name: Test Checks
 on: 
   push:
     branches:
