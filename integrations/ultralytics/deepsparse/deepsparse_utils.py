@@ -22,8 +22,6 @@ variables if using a different model.
 
 import glob
 import os
-import shutil
-import time
 from tempfile import NamedTemporaryFile
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
