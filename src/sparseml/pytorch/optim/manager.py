@@ -32,7 +32,6 @@ from sparseml.utils import load_recipe_yaml_str
 from sparsezoo.objects import Recipe
 
 
-
 __all__ = ["ScheduledModifierManager", "load_manager"]
 
 
