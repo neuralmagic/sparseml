@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Code for creating and loading datasets in Keras
-"""
-
-# flake8: noqa
-
-from ..base import check_keras_install as _check_keras_install
-from .classification import *
-from .external import *
-from .registry import *
+from sparseml.base import Framework
+from sparseml.keras.sparsification import sparsification_info
+from sparseml.sparsification import sparsification_info as base_sparsification_info
 
 
-_check_keras_install()  # TODO: remove once files within package load without installs
+def test_sparsification_info():
+    base_info = base_sparsification_info(Framework.keras)
+    info = sparsification_info()
+    assert base_info == info
+
+    assert len(info.modifiers) == 0  # TODO: fix once modifiers are added
