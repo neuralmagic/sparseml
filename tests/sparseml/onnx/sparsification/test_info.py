@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Functionality for working with and sparsifying Models in the ONNX/ONNXRuntime framework
-"""
+from sparseml.base import Framework
+from sparseml.onnx.sparsification import sparsification_info
+from sparseml.sparsification import sparsification_info as base_sparsification_info
 
-# flake8: noqa
 
-from .base import *
-from .framework import detect_framework, framework_info, is_supported
-from .sparsification import sparsification_info
+def test_sparsification_info():
+    base_info = base_sparsification_info(Framework.onnx)
+    info = sparsification_info()
+    assert base_info == info
+
+    assert len(info.modifiers) == 0  # TODO: update once available
