@@ -12,16 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Code for creating and loading datasets in Keras
-"""
 
-# flake8: noqa
-
-from ..base import check_keras_install as _check_keras_install
-from .classification import *
-from .external import *
-from .registry import *
-
-
-_check_keras_install()  # TODO: remove once files within package load without installs
+def test_imports():
+    # flake8: noqa
+    from sparseml.keras import (
+        check_keras2onnx_install,
+        check_keras_install,
+        detect_framework,
+        framework_info,
+        is_native_keras,
+        is_supported,
+        keras,
+        keras2onnx,
+        keras2onnx_err,
+        keras_err,
+        require_keras,
+        require_keras2onnx,
+        sparsification_info,
+        tensorflow,
+        tensorflow_err,
+    )
