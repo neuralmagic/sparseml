@@ -619,10 +619,10 @@ def annotate_image(
     if images_per_sec is not None:
         cv2.putText(
             img_res,
-            f"images_per_sec: {images_per_sec:.2f}",
+            f"images_per_sec: {int(images_per_sec)}",
             (50, 50),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.9,  # font scale
+            2.0,  # font scale
             (245, 46, 6),  # color
             2,  # thickness
             cv2.LINE_AA,
