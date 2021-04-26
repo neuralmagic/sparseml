@@ -19,6 +19,7 @@ Handles things like model pruning and increasing activation sparsity.
 
 # flake8: noqa
 
+from ..base import check_keras_install as _check_keras_install
 from .manager import *
 from .mask_pruning import *
 from .mask_pruning_creator import *
@@ -28,3 +29,6 @@ from .modifier_lr import *
 from .modifier_params import *
 from .modifier_pruning import *
 from .utils import *
+
+
+_check_keras_install()  # TODO: remove once files within package load without installs
