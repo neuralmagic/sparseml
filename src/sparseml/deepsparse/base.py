@@ -66,7 +66,13 @@ def check_deepsparse_install(
             raise deepsparse_err
         return False
 
-    return check_version("deepsparse", min_version, max_version, raise_on_error)
+    return check_version(
+        "deepsparse",
+        min_version,
+        max_version,
+        raise_on_error,
+        alternate_package_names=["deepsparse-nightly"],
+    )
 
 
 def require_deepsparse(
