@@ -18,8 +18,12 @@ Generic code used as utilities and helpers for Keras
 
 # flake8: noqa
 
+from ..base import check_keras_install as _check_keras_install
 from .callbacks import *
 from .compat import *
 from .exporter import *
 from .logger import *
 from .model import *
+
+
+_check_keras_install()  # TODO: remove once files within package load without installs
