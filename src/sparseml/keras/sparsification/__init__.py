@@ -1,3 +1,5 @@
+# flake8: noqa
+
 # Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,15 +15,10 @@
 # limitations under the License.
 
 """
-Code for creating and loading datasets in Keras
+Functionality related to applying, describing, and supporting sparsification
+algorithms to models within in the Keras framework.
 """
 
 # flake8: noqa
 
-from ..base import check_keras_install as _check_keras_install
-from .classification import *
-from .external import *
-from .registry import *
-
-
-_check_keras_install()  # TODO: remove once files within package load without installs
+from .info import *
