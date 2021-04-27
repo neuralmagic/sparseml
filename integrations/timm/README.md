@@ -44,11 +44,11 @@ pip install sparseml[torchvision]
 from pytorch-image-models to include a `sparseml-recipe` argument
 to run SparseML optimizations with.  This can be a file path to a local
 SparseML recipe or a SparseZoo model stub prefixed by `zoo:` such as
-`zoo:cv-classification/resnet_v1-50/pytorch-rwightman/imagenet-augmented/pruned_quant-aggressive`.
+`zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet-augmented/pruned_quant-aggressive`.
 
 Additionally, to run sparse transfer learning with a SparseZoo model that has
 a transfer learning recipe, add `?recipe_type=transfer_learn` as part of the model stub.
-i.e. `zoo:cv-classification/resnet_v1-50/pytorch-rwightman/imagenet-augmented/pruned_quant-aggressive?recipe_type=transfer_learn`.
+i.e. `zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet-augmented/pruned_quant-aggressive?recipe_type=transfer_learn`.
 This will run a recipe that holds the optimized sparsity structure the same while allowing
 non-zero weights to be updated during training, so pre-learned optimizations can be applied
 to different datasets.
