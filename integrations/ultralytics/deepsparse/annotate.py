@@ -52,7 +52,7 @@ optional arguments:
                         benchmarks, this value is the number of cores per
                         socket
   -s NUM_SOCKETS, --num-sockets NUM_SOCKETS
-                        For DeepSparse engine only. The number of physical
+                        For DeepSparse Engine only. The number of physical
                         cores to run the annotations. Defaults to None where
                         it uses all sockets available on the system
   -q, --quantized-inputs
@@ -73,10 +73,10 @@ optional arguments:
                         target FPS when writing video files. Frames will be
                         dropped to closely match target FPS. --source must be
                         a video file and if target-fps is greater than the
-                        source video fps then it will be ignored. Defualt is
+                        source video fps then it will be ignored. Default is
                         None
   --no-save             set flag when source is from webcam to not save
-                        results. not supported for non webcam sources
+                        results. not supported for non-webcam sources
 
 ##########
 Example command for running webcam annotations with pruned quantized YOLOv3:
@@ -142,8 +142,8 @@ def parse_args(arguments=None):
         "model_filepath",
         type=str,
         help=(
-            "The full filepath of the ONNX model file or SparseZoo stub to the model "
-            "for deepsparse and onnxruntime engines. Path to a .pt loadable PyTorch "
+            "The full file path of the ONNX model file or SparseZoo stub to the model "
+            "for DeepSparse and ONNX Runtime Engines. Path to a .pt loadable PyTorch "
             "Module for torch - the Module can be the top-level object "
             "loaded or loaded into 'model' in a state dict"
         ),
@@ -192,7 +192,7 @@ def parse_args(arguments=None):
         type=int,
         default=None,
         help=(
-            "For DeepSparse engine only. The number of physical cores to run the "
+            "For DeepSparse Engine only. The number of physical cores to run the "
             "annotations. Defaults to None where it uses all sockets available on the "
             "system"
         ),
@@ -213,9 +213,9 @@ def parse_args(arguments=None):
         type=_parse_device,
         default=None,
         help=(
-            "Torch device id to run the model with. Default is cpu. Non cpu "
+            "Torch device id to run the model with. Default is cpu. Non-cpu "
             " only supported for torch benchmarking. Default is 'cpu' "
-            "unless running with torch and cuda is available, then cuda on "
+            "unless running with Torch and CUDA is available, then CUDA on "
             "device 0. i.e. 'cuda', 'cpu', 0, 'cuda:1'"
         ),
     )
@@ -241,7 +241,7 @@ def parse_args(arguments=None):
         help=(
             "target FPS when writing video files. Frames will be dropped to "
             "closely match target FPS. --source must be a video file and if target-fps "
-            "is greater than the source video fps then it will be ignored. Defualt is "
+            "is greater than the source video fps then it will be ignored. Default is "
             "None"
         ),
     )
@@ -250,7 +250,7 @@ def parse_args(arguments=None):
         action="store_true",
         help=(
             "set flag when source is from webcam to not save results. not supported "
-            "for non webcam sources"
+            "for non-webcam sources"
         ),
     )
 
