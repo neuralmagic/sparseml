@@ -15,7 +15,7 @@
 import os
 import tempfile
 
-import numpy as np
+import numpy
 import onnx
 import pytest
 
@@ -27,7 +27,7 @@ from sparseml.onnx.utils import (
     ORTModelRunner,
     quantize_resnet_identity_add_inputs,
 )
-from sparseml.pytorch.datasets import ImagenetteDataset, ImagenetteSize, MNISTDataset
+from sparseml.pytorch.datasets import ImagenetteDataset, ImagenetteSize
 from sparsezoo import Zoo
 
 
@@ -66,7 +66,7 @@ def _test_quant_model_output(
         quant_outputs = list(quant_outputs.values())
         # Check that the predicted values of outputs are the same
         for idx in test_output_idxs:
-            if np.argmax(base_outputs[idx]) == np.argmax(quant_outputs[idx]):
+            if numpy.argmax(base_outputs[idx]) == numpy.argmax(quant_outputs[idx]):
                 n_matches += 1
     # check that at least 98% match, should be higher in practice
     assert n_matches >= 98 * len(test_output_idxs)
@@ -80,47 +80,6 @@ def _test_resnet_identity_quant(model_path, has_resnet_block, save_optimized):
     assert not quantize_resnet_identity_add_inputs(quant_model)
     if save_optimized:
         onnx.save(quant_model, model_path)
-
-
-@pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_QUANTIZATION_TESTS", False),
-    reason="Skipping quantization tests",
-)
-def test_quantize_model_post_training_mnist():
-    # Prepare model paths
-    mnist_model_path = Zoo.search_models(
-        domain="cv",
-        sub_domain="classification",
-        architecture="mnistnet",
-        framework="pytorch",
-    )[0].onnx_file.downloaded_path()
-    quant_model_path = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False).name
-
-    # Prepare sample validation dataset
-    batch_size = 1
-    val_dataset = MNISTDataset(train=False)
-    input_dict = [{"input": img.numpy()} for (img, _) in val_dataset]
-    data_loader = DataLoader(input_dict, None, batch_size)
-
-    # Run calibration and quantization
-    quantize_model_post_training(
-        mnist_model_path, data_loader, quant_model_path, show_progress=False
-    )
-
-    # Verify that ResNet identity has no affect
-    _test_resnet_identity_quant(quant_model_path, False, False)
-
-    # Verify Convs and MatMuls are quantized
-    _test_model_is_quantized(mnist_model_path, quant_model_path)
-
-    # Verify quant model accuracy
-    test_data_loader = DataLoader(input_dict, None, 1)  # initialize a new generator
-    _test_quant_model_output(
-        mnist_model_path, quant_model_path, test_data_loader, [0], batch_size
-    )
-
-    # Clean up
-    os.remove(quant_model_path)
 
 
 @pytest.mark.skipif(
