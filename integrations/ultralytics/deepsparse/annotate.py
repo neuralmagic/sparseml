@@ -28,16 +28,16 @@ usage: annotate.py [-h] --source SOURCE [-e {deepsparse,onnxruntime,torch}]
 Annotate images, videos, and streams with sparsified YOLOv3 models
 
 positional arguments:
-  model_filepath        The full filepath of the ONNX model file or SparseZoo
-                        stub to the model for deepsparse and onnxruntime
-                        engines. Path to a .pt loadable PyTorch Module for
+  model_filepath        The full file path of the ONNX model file or SparseZoo
+                        stub to the model for DeepSparse and ONNX Runtime
+                        Engines. Path to a .pt loadable PyTorch Module for
                         torch - the Module can be the top-level object loaded
                         or loaded into 'model' in a state dict
 
 optional arguments:
   -h, --help            show this help message and exit
   --source SOURCE       File path to image or directory of .jpg files, a .mp4
-                        video, or an integer (i.e. 0) for web-cam
+                        video, or an integer (i.e. 0) for webcam
   -e {deepsparse,onnxruntime,torch}, --engine {deepsparse,onnxruntime,torch}
                         Inference engine backend to run on. Choices are
                         'deepsparse', 'onnxruntime', and 'torch'. Default is
@@ -61,8 +61,8 @@ optional arguments:
   --fp16                Set flag to execute with torch in half precision
                         (fp16)
   --device DEVICE       Torch device id to run the model with. Default is cpu.
-                        Non cpu only supported for torch benchmarking. Default
-                        is 'cpu' unless running with torch and cuda is
+                        Non-cpu only supported for Torch benchmarking. Default
+                        is 'cpu' unless running with Torch and CUDA is
                         available, then cuda on device 0. i.e. 'cuda', 'cpu',
                         0, 'cuda:1'
   --save-dir SAVE_DIR   directory to save all results to. defaults to
@@ -214,7 +214,7 @@ def parse_args(arguments=None):
         default=None,
         help=(
             "Torch device id to run the model with. Default is cpu. Non-cpu "
-            " only supported for torch benchmarking. Default is 'cpu' "
+            " only supported for Torch benchmarking. Default is 'cpu' "
             "unless running with Torch and CUDA is available, then CUDA on "
             "device 0. i.e. 'cuda', 'cpu', 0, 'cuda:1'"
         ),
