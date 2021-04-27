@@ -21,7 +21,7 @@ import os
 import time
 from abc import ABC, abstractmethod
 from logging import Logger
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 from numpy import ndarray
 from torch import Tensor
@@ -37,10 +37,18 @@ except Exception as tensorboard_err:
     SummaryWriter = None
     tensorboard_import_error = tensorboard_err
 
+
+try:
+    import wandb
+    wandb_error = None
+except Exception as wandb_err:
+    wandb = None
+    wandb_err = wandb_err
+
 from sparseml.utils import create_dirs
 
 
-__all__ = ["PyTorchLogger", "PythonLogger", "TensorBoardLogger"]
+__all__ = ["PyTorchLogger", "PythonLogger", "TensorBoardLogger", "WAndBLogger"]
 
 
 class PyTorchLogger(ABC):
@@ -428,3 +436,116 @@ class TensorBoardLogger(PyTorchLogger):
             step,
             wall_time,
         )
+
+
+class WAndBLogger(PyTorchLogger):
+    """
+    Modifier logger that handles outputting values to Weights and Biases.
+
+    :param init_kwargs: the args to call into wandb.init with;
+        ex: wandb.init(**init_kwargs). If not supplied, then init will not be called
+    :param name: name given to the logger, used for identification;
+        defaults to wandb
+    """
+
+    def __init__(
+        self,
+        init_kwargs: Optional[Dict] = None,
+        name: str = "wandb",
+    ):
+        super().__init__(name)
+
+        if wandb_err:
+            raise wandb_err
+
+        if init_kwargs:
+            wandb.init(**init_kwargs)
+
+    def log_hyperparams(self, params: Dict):
+        """
+        :param params: Each key-value pair in the dictionary is the name of the
+            hyper parameter and it's corresponding value.
+        """
+        wandb.log(params)
+
+    def log_scalar(
+        self,
+        tag: str,
+        value: float,
+        step: Union[None, int] = None,
+        wall_time: Union[None, float] = None,
+    ):
+        """
+        :param tag: identifying tag to log the value with
+        :param value: value to save
+        :param step: global step for when the value was taken
+        :param wall_time: global wall time for when the value was taken,
+            defaults to time.time()
+        """
+        wandb.log({tag: value}, step=step)
+
+    def log_scalars(
+        self,
+        tag: str,
+        values: Dict[str, float],
+        step: Union[None, int] = None,
+        wall_time: Union[None, float] = None,
+    ):
+        """
+        :param tag: identifying tag to log the values with
+        :param values: values to save
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
+        """
+        wandb.log({tag: values}, step=step)
+
+    def log_histogram(
+        self,
+        tag: str,
+        values: Union[Tensor, ndarray],
+        bins: str = "tensorflow",
+        max_bins: Union[int, None] = None,
+        step: Union[None, int] = None,
+        wall_time: Union[None, float] = None,
+    ):
+        """
+        :param tag: identifying tag to log the histogram with
+        :param values: values to log as a histogram
+        :param bins: the type of bins to use for grouping the values,
+            follows tensorboard terminology
+        :param max_bins: maximum number of bins to use (default None)
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
+        """
+        raise RuntimeError(f"{self.name} cannot log raw histograms")
+
+    def log_histogram_raw(
+        self,
+        tag: str,
+        min_val: Union[float, int],
+        max_val: Union[float, int],
+        num_vals: int,
+        sum_vals: Union[float, int],
+        sum_squares: Union[float, int],
+        bucket_limits: Union[Tensor, ndarray],
+        bucket_counts: Union[Tensor, ndarray],
+        step: Union[None, int] = None,
+        wall_time: Union[None, float] = None,
+    ):
+        """
+        :param tag: identifying tag to log the histogram with
+        :param min_val: min value
+        :param max_val: max value
+        :param num_vals: number of values
+        :param sum_vals: sum of all the values
+        :param sum_squares: sum of the squares of all the values
+        :param bucket_limits: upper value per bucket
+        :param bucket_counts: number of values per bucket
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
+        """
+        raise RuntimeError(f"{self.name} cannot log raw histograms")
+
