@@ -218,6 +218,14 @@ class QuantizationModifier(ScheduledModifier):
         """
         return self._enable_on_initialize
 
+    @enable_on_initialize.setter
+    def enable_on_initialize(self, value: bool):
+        """
+        :params value: Epoch to stop the tracking of batch norm stats. Set
+        None to not stop tracking batch norm stats during QAT
+        """
+        self._enable_on_initialize = value
+
     def initialize(self, module: Module, optimizer: Optimizer):
         """
         Grab the module / submodule to perform QAT on
