@@ -19,7 +19,7 @@ Contains code for loggers that help visualize the information from each modifier
 import logging
 import os
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from logging import Logger
 from typing import Callable, Dict, List, Optional, Union
 
@@ -52,7 +52,7 @@ __all__ = [
     "PythonLogger",
     "TensorBoardLogger",
     "WANDBLogger",
-    "SparsificationLoggers",
+    "SparsificationGroupLogger",
 ]
 
 
@@ -426,7 +426,7 @@ class WANDBLogger(LambdaLogger):
         return True
 
 
-class SparsificationLoggers(BaseLogger):
+class SparsificationGroupLogger(BaseLogger):
     """
     Modifier logger that handles outputting values to other supported systems.
     Supported ones include:

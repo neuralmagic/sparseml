@@ -24,7 +24,7 @@ import torch
 from sparseml.pytorch.utils import (
     LambdaLogger,
     PythonLogger,
-    SparsificationLoggers,
+    SparsificationGroupLogger,
     TensorBoardLogger,
     WANDBLogger,
 )
@@ -46,7 +46,7 @@ from sparseml.pytorch.utils import (
             or True
         ),
         *([WANDBLogger] if WANDBLogger.available() else []),
-        SparsificationLoggers(
+        SparsificationGroupLogger(
             lambda_func=lambda tag, value, values, step, wall_time: logging.info(
                 f"{tag}, {value}, {values}, {step}, {wall_time}"
             )
