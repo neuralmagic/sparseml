@@ -1,21 +1,122 @@
+# neuralmagic: no copyright
+# flake8: noqa
+# fmt: off
+# isort: skip_file
 #!/usr/bin/env python
 # coding=utf-8
-# Copyright 2020 The HuggingFace Inc. team. All rights reserved.
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Finetuning the library models for sequence classification on GLUE."""
-# You can also adapt this script on your own text classification task. Pointers for this are left as comments.
 
+"""
+Example script for integrating spaseml with the transformers library to perform model distillation. 
+This script is addopted from hugging face's implementation for Question Answering on the SQUAD Dataset. 
+Hugging Face's original implementation is regularly updated and can be found at https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py
+This script will:
+- Load transformer based models
+- Load a sparseml training and pruning optimizer
+- Train on Target GLUE Task
+- Evaluate on GLUE
+- Export model to onnx.
+##########
+Command help:
+usage: run_distill_qa.py [-h] \
+    [--teacher_model_name_or_path] \
+    [--student_model_name_or_path] \
+    [--temperature] \
+    [--distill_hardness] \
+    [--dataset_name]  \
+    [--num_train_epochs] \
+    [--do_train] \
+    [--do_eval] \
+    [--per_device_train_batch_size] \
+    [--per_device_eval_batch_size] \
+    [--learning_rate]\
+    [--max_seq_length]\
+    [--doc_stride]\
+    [--output_dir] \
+    [--overwrite_output_dir] \
+    [--cache_dir]\
+    [--preprocessing_num_workers] \
+    [--seed] 42 \
+    [--nm_prune_config] \
+    [--do_onnx_export] \
+    [--onnx_export_path] \
+    [--layers_to_keep] \
+
+Train, prune, and evaluate a transformer base question answering model on squad. 
+    -h, --help            show this help message and exit
+    --teacher_model_name_or_path    The name or path of model which will be used for distilation.
+                                    Note, this model needs to be trained for QA task already.
+    --student_model_name_or_path    The name or path of the model wich will be trained using distilation.
+    --temperature                   Hyperparameter which controls model distilation 
+    --distill_hardness              Hyperparameter which controls how much of the loss comes from teacher vs training labels
+    --model_name_or_path            The path to the transformers model you wish to train
+                                    or the name of the pretrained language model you wish
+                                    to use. ex: bert-base-uncased.
+    --dataset_name                  The name of which dataset you want to use to train or
+                                    your model. ex: squad for using SQuAD.
+    --num_train_epochs              Paramater to control how many training epochs you wish
+                                    your model to train.
+    --do_train                      Boolean denoting if the model should be trained
+                                    or not. Default is false.
+    --do_eval                       Boolean denoting if the model should be evaluated
+                                    or not. Default is false.
+    --per_device_train_batch_size   Size of each training batch based on samples per GPU. 
+                                    12 will fit in a 11gb GPU, 16 in a 16gb.
+    --per_device_eval_batch_size    Size of each training batch based on samples per GPU. 
+                                    12 will fit in a 11gb GPU, 16 in a 16gb.
+    --learning_rate                 Learning rate initial float value. ex: 3e-5.
+    --max_seq_length                Int for the max sequence length to be parsed as a context 
+                                    window. ex: 384 tokens.
+    --output_dir                    Path which model checkpoints and paths should be saved.
+    --overwrite_output_dir          Boolean to define if the 
+    --cache_dir                     Directiory which cached transformer files(datasets, models
+                                    , tokenizers) are saved for fast loading. 
+    --preprocessing_num_workers     The amount of cpu workers which are used to process datasets
+    --seed                          Int which determines what random seed is for training/shuffling
+    --nm_prune_config               Path to the neural magic prune configuration file. examples can
+                                    be found in prune_config_files but are customized for bert-base-uncased. 
+    --do_onnx_export                Boolean denoting if the model should be exported to onnx
+    --onnx_export_path              Path where onnx model path will be exported. ex: onnx-export
+    --layers_to_keep                Number of layers to keep from original model. Layers are dropped before training
+
+##########
+Example command for training a 95% sparse BERT SQUAD model for 1 epoch with a unpruned teacher:
+python examples/transformers/run_gluye.py \
+    --teacher_model_name_or_path spacemanidol/neuralmagic-bert-squad-12layer-0sparse
+    --student_model_name_or_path bert-base-uncased \
+    --dataset_name squad \
+    --num_train_epochs 1 \
+    --do_train \
+    --do_eval \
+    --per_device_train_batch_size 12 \
+    --per_device_eval_batch_size 12 \
+    --learning_rate 3e-5 \
+    --max_seq_length 384 \
+    --doc_stride 128 \
+    --output_dir 95sparsity1epoch/ \
+    --overwrite_output_dir \
+    --cache_dir cache \
+    --preprocessing_num_workers 8 \
+    --seed 42 \
+    --nm_prune_config prune_config_files/95sparsity1epoch.yaml \
+    --do_onnx_export \
+    --onnx_export_path 95sparsity1epoch/ \
+    --distill_hardness 0.5 \
+    --temperature 2.0 \
+    --layers_to_keep 12 \
+"""
 import logging
 import os
 import random
