@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import time
 from abc import ABC
@@ -20,14 +21,31 @@ import numpy
 import pytest
 import torch
 
-from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
+from sparseml.pytorch.utils import (
+    LambdaLogger,
+    PythonLogger,
+    TensorBoardLogger,
+    WAndBLogger,
+)
 
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-@pytest.mark.parametrize("logger", [PythonLogger(), TensorBoardLogger()])
+@pytest.mark.parametrize(
+    "logger",
+    [
+        PythonLogger(),
+        TensorBoardLogger(),
+        LambdaLogger(
+            lambda_func=lambda tag, value, values, step, wall_time: logging.info(
+                f"{tag}, {value}, {values}, {step}, {wall_time}"
+            )
+        ),
+        *([WAndBLogger] if WAndBLogger.available() else []),
+    ],
+)
 class TestModifierLogger(ABC):
     def test_name(self, logger):
         assert logger.name is not None
