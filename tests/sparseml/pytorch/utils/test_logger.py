@@ -24,8 +24,9 @@ import torch
 from sparseml.pytorch.utils import (
     LambdaLogger,
     PythonLogger,
+    SparsificationLoggers,
     TensorBoardLogger,
-    WAndBLogger,
+    WANDBLogger,
 )
 
 
@@ -42,8 +43,18 @@ from sparseml.pytorch.utils import (
             lambda_func=lambda tag, value, values, step, wall_time: logging.info(
                 f"{tag}, {value}, {values}, {step}, {wall_time}"
             )
+            or True
         ),
-        *([WAndBLogger] if WAndBLogger.available() else []),
+        *([WANDBLogger] if WANDBLogger.available() else []),
+        SparsificationLoggers(
+            lambda_func=lambda tag, value, values, step, wall_time: logging.info(
+                f"{tag}, {value}, {values}, {step}, {wall_time}"
+            )
+            or True,
+            python=True,
+            tensorboard=True,
+            wandb_=True,
+        ),
     ],
 )
 class TestModifierLogger(ABC):

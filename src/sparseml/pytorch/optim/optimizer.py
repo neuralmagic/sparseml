@@ -24,7 +24,7 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import (
-    PyTorchLogger,
+    BaseLogger,
     get_optim_learning_rate,
     set_optim_learning_rate,
 )
@@ -73,7 +73,7 @@ class ScheduledOptimizer(Optimizer):
         module: Module,
         manager: ScheduledModifierManager,
         steps_per_epoch: int,
-        loggers: Union[List[PyTorchLogger], None] = None,
+        loggers: Union[List[BaseLogger], None] = None,
     ):
         # do not call into super since this instance is not passing all calls to
         # the nested optimizer
