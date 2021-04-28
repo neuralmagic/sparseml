@@ -200,9 +200,9 @@ class YoloWebcamLoader:
                 cv2.destroyAllWindows()
                 break
             loaded, frame = self._stream.read()
-            
+
             assert loaded, f"Could not load image from webcam {self._camera}"
-            
+
             frame = cv2.flip(frame, 1)  # flip left-right
             yield load_image(frame, image_size=self._image_size)
 
