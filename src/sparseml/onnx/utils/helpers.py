@@ -201,12 +201,12 @@ def extract_shape(proto: Any) -> Union[None, Tuple[Union[int, None], ...]]:
 
 def get_numpy_dtype(tensor: onnx.TensorProto) -> Union[None, numpy.dtype]:
     """
-    Extract the NumPY dtype of an ONNX tensor.
+    Extract the NumPy dtype of an ONNX tensor.
     Returns None if there is not a direct mapping from the ONNX data type
-    to a NumPY dtype.
+    to a NumPy dtype.
 
     :param tensor: the tensor to get the dtype of
-    :return: a NumPY dtype for the tensor if available otherwise None
+    :return: a NumPy dtype for the tensor if available otherwise None
     """
     data_type_enum = tensor.type.tensor_type.elem_type  # type: int
     data_type = onnx.TensorProto.DataType.Name(data_type_enum).lower()  # type: str
@@ -485,7 +485,7 @@ def conv_node_params(
 
     :param model: the model proto loaded from the ONNX file
     :param node: the conv node to get the params for
-    :param include_values: True to include the param values as NumPY arrays
+    :param include_values: True to include the param values as NumPy arrays
         in the returned NodeParam objects.
         False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
@@ -564,7 +564,7 @@ def gemm_node_params(
 
     :param model: the model proto loaded from the ONNX file
     :param node: the conv node to get the params for
-    :param include_values: True to include the param values as NumPY arrays
+    :param include_values: True to include the param values as NumPy arrays
         in the returned NodeParam objects.
         False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
@@ -596,7 +596,7 @@ def matmul_node_params(
 
     :param model: the model proto loaded from the ONNX file
     :param node: the conv node to get the params for
-    :param include_values: True to include the param values as NumPY arrays
+    :param include_values: True to include the param values as NumPy arrays
         in the returned NodeParam objects.
         False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
@@ -622,7 +622,7 @@ def get_node_params(
 
     :param model: the model proto loaded from the ONNX file
     :param node: the conv node to get the params for
-    :param include_values: True to include the param values as NumPY arrays
+    :param include_values: True to include the param values as NumPy arrays
         in the returned NodeParam objects.
         False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
@@ -1109,7 +1109,7 @@ def _calculate_flops_matmul(
     If input shape only contains 1 input, in otherwords the value of the
     first index is 1, then the matrix operation is treated as a Gemm operation.
 
-    Otherwise the operation is treated like a NumPY operation.
+    Otherwise the operation is treated like a NumPy operation.
 
     Will return none if any required value is set to None
 
