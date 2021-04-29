@@ -77,7 +77,7 @@ __all__ = [
 
 def validate_onnx_file(path: str):
     """
-    Validate that a file at a given path is a valid onnx model
+    Validate that a file at a given path is a valid ONNX model
 
     :param path: the path of the file to validate
     :raise ValueError: if not a valid ONNX model
@@ -96,8 +96,8 @@ def check_load_model(model: Union[str, ModelProto]) -> ModelProto:
     Load an ONNX model from a given file path if supplied.
     If already a model proto, then returns.
 
-    :param model: the model proto or path to the model onnx file to check for loading
-    :return: the loaded onnx ModelProto
+    :param model: the model proto or path to the model ONNX file to check for loading
+    :return: the loaded ONNX ModelProto
     """
     if isinstance(model, ModelProto):
         return model
@@ -110,9 +110,9 @@ def check_load_model(model: Union[str, ModelProto]) -> ModelProto:
 
 def extract_node_id(node: NodeProto) -> str:
     """
-    Get the node id for a given node from an onnx model.
+    Get the node id for a given node from an ONNX model.
     Grabs the first ouput id as the node id.
-    This is because is guaranteed to be unique for this node by the onnx spec.
+    This is because is guaranteed to be unique for this node by the ONNX spec.
 
     :param node: the node to grab an id for
     :return: the id for the node
@@ -126,7 +126,7 @@ def get_node_by_id(model: ModelProto, node_id: str) -> Union[NodeProto, None]:
     """
     Get a node from a model by the node_id generated from extract_node_id
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :param node_id: id of the node to get from the model
     :return: the retrieved node or None if no node found
     """
@@ -141,7 +141,7 @@ def get_nodes_by_input_id(model: ModelProto, input_id: str) -> List[NodeProto]:
     """
     Get all the nodes in a model that have a given id as one of the inputs
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :param input_id: id of the input to get nodes by
     :return: the retrieved nodes
     """
@@ -160,7 +160,7 @@ def get_nodes_by_output_id(model: ModelProto, output_id: str) -> List[NodeProto]
     """
     Get all the nodes in a model that have a given id as one of the outputs
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :param output_id: id of the output to get nodes by
     :return: the retrieved nodes
     """
@@ -201,12 +201,12 @@ def extract_shape(proto: Any) -> Union[None, Tuple[Union[int, None], ...]]:
 
 def get_numpy_dtype(tensor: onnx.TensorProto) -> Union[None, numpy.dtype]:
     """
-    Extract the numpy dtype of an ONNX tensor.
+    Extract the NumPY dtype of an ONNX tensor.
     Returns None if there is not a direct mapping from the ONNX data type
-    to a numpy dtype.
+    to a NumPY dtype.
 
     :param tensor: the tensor to get the dtype of
-    :return: a numpy dtype for the tensor if available otherwise None
+    :return: a NumPY dtype for the tensor if available otherwise None
     """
     data_type_enum = tensor.type.tensor_type.elem_type  # type: int
     data_type = onnx.TensorProto.DataType.Name(data_type_enum).lower()  # type: str
@@ -234,10 +234,10 @@ NodeShape = NamedTuple(
 
 def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
     """
-    Creates a modified model to expose intermediate outputs and runs an onnxruntime
+    Creates a modified model to expose intermediate outputs and runs an ONNX Runtime
     InferenceSession to obtain the output shape of each node.
 
-    :param model: an onnx model
+    :param model: an ONNX model
     :return: a list of NodeArg with their shape exposed
     """
     model_copy = make_model(model.graph)
@@ -264,17 +264,17 @@ def extract_nodes_shapes_shape_inference(
     model: ModelProto,
 ) -> Dict[str, List[Union[None, List[int]]]]:
     """
-    Creates a modified model to expose intermediate outputs and runs an onnx shape
+    Creates a modified model to expose intermediate outputs and runs an ONNX shape
     inference to obtain the output shape of each node.
 
-    NOTE: The Onnx docs on shape inference have the following
+    NOTE: The ONNX docs on shape inference have the following
     disclaimer on shape inference:
     Shape inference is not guaranteed to be complete.
     In particular, some dynamic behaviors block the flow of shape inference,
     for example a Reshape to a dynamically-provide shape.
     Also, all operators are not required to have a shape inference implementation.
 
-    :param model: an onnx model
+    :param model: an ONNX model
     :return: a list of NodeProto with their shape exposed
     """
     model_copy = make_model(model.graph)
@@ -327,7 +327,7 @@ def extract_node_shapes(model: ModelProto) -> Dict[str, NodeShape]:
         output_shapes = extract_nodes_shapes_ort(model)
     except Exception as err:
         _LOGGER.warning(
-            "Extracting shapes using onnx runtime session failed: {}".format(err)
+            "Extracting shapes using ONNX Runtime session failed: {}".format(err)
         )
 
     if output_shapes is None:
@@ -335,7 +335,7 @@ def extract_node_shapes(model: ModelProto) -> Dict[str, NodeShape]:
             output_shapes = extract_nodes_shapes_shape_inference(model)
         except Exception as err:
             _LOGGER.warning(
-                "Extracting shapes using onnx shape_inference failed: {}".format(err)
+                "Extracting shapes using ONNX shape_inference failed: {}".format(err)
             )
 
     # Obtains the input shapes for each node
@@ -394,9 +394,9 @@ def extract_node_shapes(model: ModelProto) -> Dict[str, NodeShape]:
 
 def get_init_by_name(model: ModelProto, init_name: str) -> Union[Any, None]:
     """
-    Get an initializer by name from the onnx model proto graph
+    Get an initializer by name from the ONNX model proto graph
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :param init_name: the name of the initializer to retrieve
     :return: the initializer retrieved by name from the model
     """
@@ -409,7 +409,7 @@ def get_init_by_name(model: ModelProto, init_name: str) -> Union[Any, None]:
 
     if len(matching_inits) > 1:
         raise ValueError(
-            "found duplicate inits in the onnx graph for name {} in {}".format(
+            "found duplicate inits in the ONNX graph for name {} in {}".format(
                 init_name, model
             )
         )
@@ -481,11 +481,11 @@ def conv_node_params(
     model: ModelProto, node: NodeProto, include_values: bool = True
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     """
-    Get the params (weight and bias) for a conv node in an onnx ModelProto
+    Get the params (weight and bias) for a conv node in an ONNX ModelProto
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :param node: the conv node to get the params for
-    :param include_values: True to include the param values as numpy arrays
+    :param include_values: True to include the param values as NumPY arrays
         in the returned NodeParam objects.
         False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
@@ -560,11 +560,11 @@ def gemm_node_params(
     model: ModelProto, node: NodeProto, include_values: bool = True
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     """
-    Get the params (weight and bias) for a gemm node in an onnx ModelProto
+    Get the params (weight and bias) for a gemm node in an ONNX ModelProto
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :param node: the conv node to get the params for
-    :param include_values: True to include the param values as numpy arrays
+    :param include_values: True to include the param values as NumPY arrays
         in the returned NodeParam objects.
         False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
@@ -591,12 +591,12 @@ def matmul_node_params(
     model: ModelProto, node: NodeProto, include_values: bool = True
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     """
-    Get the params (weight) for a matmul node in an onnx ModelProto.
+    Get the params (weight) for a matmul node in an ONNX ModelProto.
     In the future will retrieve a following bias addition as the bias for the matmul.
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :param node: the conv node to get the params for
-    :param include_values: True to include the param values as numpy arrays
+    :param include_values: True to include the param values as NumPY arrays
         in the returned NodeParam objects.
         False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
@@ -617,12 +617,12 @@ def get_node_params(
     model: ModelProto, node: NodeProto, include_values: bool = True
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     """
-    Get the params (weight and bias) for a node in an onnx ModelProto.
+    Get the params (weight and bias) for a node in an ONNX ModelProto.
     Must be an op type of one of [conv, gemm, matmul]
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :param node: the conv node to get the params for
-    :param include_values: True to include the param values as numpy arrays
+    :param include_values: True to include the param values as NumPY arrays
         in the returned NodeParam objects.
         False to not load the values -- in this event NodeParam.val will be None
     :return: a tuple containing the weight, bias (if it is present)
@@ -667,10 +667,10 @@ def get_batch_norm_params(
 ) -> BatchNormParams:
     """
     Get the params and relevant attributes of a batch normalization operator.
-    Following the onnx operators spec, will default epsilon and momentum to
+    Following the ONNX operators spec, will default epsilon and momentum to
     1e-5 and 0.9 respectively when not defined.
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :param bn_node: the batch normalization node to get the params for
     :return: a BatchNormParams named tuple
     """
@@ -787,7 +787,7 @@ def get_node_output_nodes(model: ModelProto, node: NodeProto) -> List[NodeProto]
 def is_prunable_node(model: ModelProto, node: NodeProto) -> bool:
     """
     :param model: the model the node is from
-    :param node: an onnx node or op_type string
+    :param node: an ONNX node or op_type string
     :return: True if the given node is prunable, False otherwise
     """
     prunable_types = ["conv", "gemm", "matmul"]
@@ -807,12 +807,12 @@ def is_prunable_node(model: ModelProto, node: NodeProto) -> bool:
 
 def is_foldable_node(node: Union[str, NodeProto]) -> bool:
     """
-    Foldable nodes as defined by ONNXRuntime and what it supports layerwise folding
-    in the ONNX graphs. More info can be fined in their docs:
-    https://github.com/microsoft/onnxruntime/blob/master/docs/ONNX_Runtime_Graph_Optimizations.md
+    Foldable nodes as defined by ONNX Runtime and what it supports layerwise folding
+    in the ONNX graphs. More info can be found in their docs:
+    https://www.onnxruntime.ai/docs/resources/graph-optimizations.html
 
     :param node: the node or node type to check if it is foldable or not
-        according to the ONNXRuntime specs
+        according to the ONNX Runtime specs
     :return: True if the node is foldable and therefore can be combined with other
         nodes, False otherwise
     """
@@ -883,10 +883,10 @@ def get_prunable_node_from_foldable(
 
 def get_prunable_nodes(model: Union[str, ModelProto]) -> List[Any]:
     """
-    Get the prunable nodes in an onnx model proto.
+    Get the prunable nodes in an ONNX model proto.
     Prunable nodes are defined as any conv, gemm, or matmul
 
-    :param model: the model proto loaded from the onnx file
+    :param model: the model proto loaded from the ONNX file
     :return: a list of nodes from the model proto
     """
     model = check_load_model(model)
@@ -900,7 +900,7 @@ def get_prunable_nodes(model: Union[str, ModelProto]) -> List[Any]:
 
 
 """
-A measurement of the sparsity for a given onnx node or model
+A measurement of the sparsity for a given ONNX node or model
 """
 SparsityMeasurement = NamedTuple(
     "SparsityMeasurement",
@@ -918,10 +918,10 @@ def onnx_nodes_sparsities(
     model: Union[str, ModelProto],
 ) -> Tuple[SparsityMeasurement, Dict[str, SparsityMeasurement]]:
     """
-    Retrieve the sparsities for each Conv or Gemm op in an onnx graph
+    Retrieve the sparsities for each Conv or Gemm op in an ONNX graph
     for the associated weight inputs.
 
-    :param model: onnx model to use
+    :param model: ONNX model to use
     :return: a tuple containing the overall sparsity measurement for the model,
         each conv or gemm node found in the model
     """
@@ -961,7 +961,7 @@ def model_inputs(model: Union[str, ModelProto]) -> List:
     """
     Get the input to the model from an ONNX model
 
-    :param model: the loaded model or a file path to the onnx model
+    :param model: the loaded model or a file path to the ONNX model
         to get the model inputs for
     :return: the input to the model
     """
@@ -979,7 +979,7 @@ def model_outputs(model: Union[str, ModelProto]) -> List:
     """
     Get the output from an ONNX model
 
-    :param model: the loaded model or a file path to the onnx model
+    :param model: the loaded model or a file path to the ONNX model
         to get the model outputs for
     :return: the output from the model
     """
@@ -1104,12 +1104,12 @@ def _calculate_flops_matmul(
     weight_shape: Union[List, None] = None,
 ) -> Union[float, None]:
     """
-    Calculates flops in a onnx MatMul operation.
+    Calculates flops in an ONNX MatMul operation.
 
     If input shape only contains 1 input, in otherwords the value of the
     first index is 1, then the matrix operation is treated as a Gemm operation.
 
-    Otherwise the operation is treated like a numpy operation.
+    Otherwise the operation is treated like a NumPY operation.
 
     Will return none if any required value is set to None
 
