@@ -218,6 +218,14 @@ class QuantizationModifier(ScheduledModifier):
         """
         return self._enable_on_initialize
 
+    @enable_on_initialize.setter
+    def enable_on_initialize(self, value: bool):
+        """
+        :params value: True if QAT should be enabled when this modifier is initialized,
+            False otherwise. If true, start_epoch will not be respected
+        """
+        self._enable_on_initialize = value
+
     def initialize(self, module: Module, optimizer: Optimizer):
         """
         Grab the module / submodule to perform QAT on
