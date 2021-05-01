@@ -116,7 +116,7 @@ def framework_info() -> FrameworkInfo:
             "AVX2 and AVX512 instruction sets not detected, "
             "inference performance will be severely limited"
         )
-    if arch and not hasattr(arch, "vni") or not arch.vni:
+    if arch and not (hasattr(arch, "vni") and arch.vni):
         cpu_warnings.append(
             "VNNI instruction set not detected, "
             "quantized inference performance will be limited"
