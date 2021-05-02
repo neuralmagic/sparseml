@@ -185,10 +185,9 @@ To explore the effect of model pruning compared to layer dropping, we train mode
 | bert-base-uncased 	|40       	|108,893,186         	|yes      |yes      |12        |18            |89.76856  |83.05581   |
 | bert-base-uncased 	|60        	|108,893,186         	|yes      |yes      |12        |18            |89.38194  |82.28950   |
 | bert-base-uncased 	|72        	|108,893,186         	|yes      |yes      |12        |18            |89.10581  |83.03690   |
-| bert-base-uncased 	|80        	|66,365,954         	|yes      |yes      |6         |18            |  |     |
-| bert-base-uncased 	|90        	|66,365,954         	|yes      |yes      |6         |18            |  |     |
-| bert-base-uncased 	|97        	|66,365,954         	|yes      |yes      |6         |18            |  |     |
-
+| bert-base-uncased 	|80        	|66,365,954         	|yes      |yes      |6         |18            |84.69427  |76.56575   |
+| bert-base-uncased 	|90        	|66,365,954         	|yes      |yes      |6         |18            |80.53862  |71.00284   |
+| bert-base-uncased 	|97        	|66,365,954         	|yes      |yes      |6         |18            |72.36219  |60.82308   |
 
 export TASK_NAME=mrpc
 
