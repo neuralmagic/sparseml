@@ -194,7 +194,7 @@ def test_constant_pruning_yaml():
     assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
 
 
-@flaky(max_runs=5, min_passes=3)
+@flaky(max_runs=3, min_passes=2)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
