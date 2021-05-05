@@ -676,12 +676,17 @@ def main():
         config=config,
         cache_dir=model_args.cache_dir,
     )
-    teacher_model = AutoModelForQuestionAnswering.from_pretrained(
-        model_args.teacher_model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.teacher_model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-    )
+    teacher_model = None
+    if model_args.teacher_model_name_or_path != None:
+        teacher_model = AutoModelForQuestionAnswering.from_pretrained(
+            model_args.teacher_model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.teacher_model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+        )
+        teacher_model_parameters = filter(lambda p: p.requires_grad, teacher_model.parameters())
+        params = sum([np.prod(p.size()) for p in teacher_model_parameters])
+        logger.info("Teacher Model has %s parameters", params)   
 
     if data_args.layers_to_keep < len(student_model.bert.encoder.layer):
         logger.info("Keeping %s model layers", data_args.layers_to_keep)
@@ -690,9 +695,7 @@ def main():
     student_model_parameters = filter(lambda p: p.requires_grad, student_model.parameters())
     params = sum([np.prod(p.size()) for p in student_model_parameters])
     logger.info("Student Model has %s parameters", params) 
-    teacher_model_parameters = filter(lambda p: p.requires_grad, teacher_model.parameters())
-    params = sum([np.prod(p.size()) for p in teacher_model_parameters])
-    logger.info("Teacher Model has %s parameters", params)   
+
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
         raise ValueError(

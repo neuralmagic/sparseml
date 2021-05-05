@@ -48,10 +48,10 @@ class DistillQuestionAnsweringTrainer(QuestionAnsweringTrainer):
         """
         How the loss is computed by Trainer. Modified for Distilation using student teacher framework modified for distilation. 
         """
-        input_device = inputs["input_ids"].device
         outputs = model(**inputs)
         loss = outputs['loss']
         if self.teacher is not None:
+            input_device = inputs["input_ids"].device
             self.teacher = self.teacher.to(input_device)
             start_logits_student = outputs["start_logits"]
             end_logits_student = outputs["end_logits"]

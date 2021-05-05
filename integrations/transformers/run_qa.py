@@ -68,8 +68,14 @@ Train, prune, and evaluate a transformer base question answering model on squad.
     --per_device_eval_batch_size    Size of each training batch based on samples per GPU. 
                                     12 will fit in a 11gb GPU, 16 in a 16gb.
     --learning_rate                 Learning rate initial float value. ex: 3e-5.
-    --max_seq_length                Int for the max sequence length to be parsed as a context 
-                                    window. ex: 384 tokens.
+    tokens = []
+segment_ids = []
+tokens.append("[CLS]")
+segment_ids.append(0)
+sent_leng = int(max_seq_length/2)
+for t in tokenizer.tokenize(example[sentence1_key])[:sent_leng]:
+    tokens.append(t)
+    segment_ids.append(0)
     --output_dir                    Path which model checkpoints and paths should be saved.
     --overwrite_output_dir          Boolean to define if the 
     --cache_dir                     Directiory which cached transformer files(datasets, models

@@ -72,7 +72,7 @@ python run_qa.py  \
  --preprocessing_num_workers 4 \
 ```
 
-## Model Performance 
+## SQUAD Performance 
 To demonstrate the effect that various pruning regimes and techniques can have, we prune the same bert-base-uncased model to five different sparsities (0,80,90,95,99) using three pruning methodologies: 
 - one shot (prune to desired weights before fine tune then fine tune for 1 epoch),
 - GMP 1 epoch (prune to desired sparsity over an epoch then stabilize over another epoch), and
@@ -80,14 +80,18 @@ To demonstrate the effect that various pruning regimes and techniques can have, 
 
 It is worth noting that we are pruning all layers uniformly and we believe further gains can be achieved by targeted pruning of individual layers.
 
+train/exact_match 76.04541
+wandb:                         train/f1 84.5742
+
+
 | base model name       | sparsity 	| total train epochs    | prunned | one shot |pruning epochs| F1 Score 	| EM Score  |
 |-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
-| bert-base-uncased 	|0        	|1                  	|no       |no        |0            	|09.685     |03.614      |
-| bert-base-uncased 	|0        	|2                  	|no       |no        |0            	|88.002     |80.634     |
-| bert-base-uncased 	|0        	|10                 	|no       |no        |0            	|87.603     |79.130     |
-| bert-base-uncased 	|80       	|1                  	|yes      |yes       |0          	|25.141     |15.998     |
-| bert-base-uncased 	|80       	|2                   	|yes      |no        |0            	|06.068    	|00.312     |
-| bert-base-uncased 	|80       	|10                  	|yes      |no        |8          	|83.951     |74.409     |
+| bert-base-uncased 	|0        	|1                  	|no       |no        |0            	|84.574     |76.045     | verified
+| bert-base-uncased 	|0        	|2                  	|no       |no        |0            	|88.002     |80.634     | verified
+| bert-base-uncased 	|0        	|10                 	|no       |no        |0            	|87.603     |79.130     | verified
+| bert-base-uncased 	|80       	|1                  	|yes      |yes       |0          	|25.141     |15.998     | 6.0549/12.285, 8.68496/16.47797
+| bert-base-uncased 	|80       	|2                   	|yes      |no        |0            	|66.964     |53.879     | Verified
+| bert-base-uncased 	|80       	|10                  	|yes      |no        |8          	|83.951     |74.409     | 73.12204 82.65843
 | bert-base-uncased 	|90       	|1                  	|yes      |yes       |0           	|16.064     |07.786     |
 | bert-base-uncased 	|90       	|2                   	|yes      |no        |0            	|64.185     |50.946     |
 | bert-base-uncased 	|90       	|10                 	|yes      |no        |8            	|79.091     |68.184     |
