@@ -58,12 +58,11 @@ Train, prune, and evaluate a transformer base question answering model on squad.
     -h, --help            show this help message and exit
     --teacher_model_name_or_path    The name or path of model which will be used for distilation.
                                     Note, this model needs to be trained for QA task already.
-    --student_model_name_or_path    The name or path of the model wich will be trained using distilation.
-    --temperature                   Hyperparameter which controls model distilation 
-    --distill_hardness              Hyperparameter which controls how much of the loss comes from teacher vs training labels
-    --model_name_or_path            The path to the transformers model you wish to train
+    --student_model_name_or_path    The path to the transformers model you wish to train
                                     or the name of the pretrained language model you wish
                                     to use. ex: bert-base-uncased.
+    --temperature                   Hyperparameter which controls model distilation 
+    --distill_hardness              Hyperparameter which controls how much of the loss comes from teacher vs training labels
     --dataset_name                  The name of which dataset you want to use to train or
                                     your model. ex: squad for using SQuAD.
     --num_train_epochs              Paramater to control how many training epochs you wish
@@ -196,7 +195,7 @@ class ModelArguments:
         default=2.0, metadata={"help": "Temperature applied to teacher softmax for distillation."}
     )
     distill_hardness: Optional[float] = field(
-        default=0.5, metadata={"help": "Proportion of loss coming from teacher model."}
+        default=1.0, metadata={"help": "Proportion of loss coming from teacher model."}
     )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}

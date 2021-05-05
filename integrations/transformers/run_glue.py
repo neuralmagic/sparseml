@@ -19,9 +19,9 @@
 # limitations under the License.
 
 """
-Example script for integrating spaseml with the transformers library to perform model distillation. 
-This script is addopted from hugging face's implementation for Question Answering on the SQUAD Dataset. 
-Hugging Face's original implementation is regularly updated and can be found at https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py
+Example script for integrating spaseml with the transformers library to perform model distillation and pruning on GLUE tasks. 
+This script is addopted from hugging face's implementation for the GLUEDataset. 
+Hugging Face's original implementation is regularly updated and can be found at https://github.com/huggingface/transformers/blob/master/examples/pytorch/text-classification/run_glue.py
 This script will:
 - Load transformer based models
 - Load a sparseml training and pruning optimizer
@@ -30,9 +30,10 @@ This script will:
 - Export model to onnx.
 ##########
 Command help:
-usage: run_distill_qa.py [-h] \
+usage: run_glue.py [-h] \
     [--teacher_model_name_or_path] \
     [--student_model_name_or_path] \
+    [--task_name] \
     [--temperature] \
     [--distill_hardness] \
     [--dataset_name]  \
@@ -42,13 +43,11 @@ usage: run_distill_qa.py [-h] \
     [--per_device_train_batch_size] \
     [--per_device_eval_batch_size] \
     [--learning_rate]\
-    [--max_seq_length]\
-    [--doc_stride]\
     [--output_dir] \
     [--overwrite_output_dir] \
     [--cache_dir]\
     [--preprocessing_num_workers] \
-    [--seed] 42 \
+    [--seed] \
     [--nm_prune_config] \
     [--do_onnx_export] \
     [--onnx_export_path] \
@@ -58,12 +57,12 @@ Train, prune, and evaluate a transformer base question answering model on squad.
     -h, --help            show this help message and exit
     --teacher_model_name_or_path    The name or path of model which will be used for distilation.
                                     Note, this model needs to be trained for QA task already.
-    --student_model_name_or_path    The name or path of the model wich will be trained using distilation.
-    --temperature                   Hyperparameter which controls model distilation 
-    --distill_hardness              Hyperparameter which controls how much of the loss comes from teacher vs training labels
-    --model_name_or_path            The path to the transformers model you wish to train
+    --student_model_name_or_path    The path to the transformers model you wish to train
                                     or the name of the pretrained language model you wish
                                     to use. ex: bert-base-uncased.
+    --task_name                     The name of the GLUE task which the model with train and evalute on. 
+    --temperature                   Hyperparameter which controls model distilation 
+    --distill_hardness              Hyperparameter which controls how much of the loss comes from teacher vs training labels
     --dataset_name                  The name of which dataset you want to use to train or
                                     your model. ex: squad for using SQuAD.
     --num_train_epochs              Paramater to control how many training epochs you wish
@@ -73,12 +72,10 @@ Train, prune, and evaluate a transformer base question answering model on squad.
     --do_eval                       Boolean denoting if the model should be evaluated
                                     or not. Default is false.
     --per_device_train_batch_size   Size of each training batch based on samples per GPU. 
-                                    12 will fit in a 11gb GPU, 16 in a 16gb.
+                                    24 will fit in a 11gb GPU, 32 in a 16gb.
     --per_device_eval_batch_size    Size of each training batch based on samples per GPU. 
-                                    12 will fit in a 11gb GPU, 16 in a 16gb.
+                                    24 will fit in a 11gb GPU, 32 in a 16gb.
     --learning_rate                 Learning rate initial float value. ex: 3e-5.
-    --max_seq_length                Int for the max sequence length to be parsed as a context 
-                                    window. ex: 384 tokens.
     --output_dir                    Path which model checkpoints and paths should be saved.
     --overwrite_output_dir          Boolean to define if the 
     --cache_dir                     Directiory which cached transformer files(datasets, models
@@ -90,12 +87,14 @@ Train, prune, and evaluate a transformer base question answering model on squad.
     --do_onnx_export                Boolean denoting if the model should be exported to onnx
     --onnx_export_path              Path where onnx model path will be exported. ex: onnx-export
     --layers_to_keep                Number of layers to keep from original model. Layers are dropped before training
+    --max_seq_length                Int for the max sequence length to be parsed for glue tasks ex: 128 tokens.
 
 ##########
-Example command for training a 95% sparse BERT SQUAD model for 1 epoch with a unpruned teacher:
-python examples/transformers/run_gluye.py \
-    --teacher_model_name_or_path spacemanidol/neuralmagic-bert-squad-12layer-0sparse
+Example command for training a 95% sparse BERT SQUAD model for 1 epoch without distilation on the Quora Duplicate Question Task:
+python examples/transformers/run_glue.py \
+    --teacher_model_name_or_path NONE
     --student_model_name_or_path bert-base-uncased \
+    --task_name QQP
     --dataset_name squad \
     --num_train_epochs 1 \
     --do_train \
@@ -103,7 +102,7 @@ python examples/transformers/run_gluye.py \
     --per_device_train_batch_size 12 \
     --per_device_eval_batch_size 12 \
     --learning_rate 3e-5 \
-    --max_seq_length 384 \
+    --max_seq_length 128 \
     --doc_stride 128 \
     --output_dir 95sparsity1epoch/ \
     --overwrite_output_dir \
@@ -113,7 +112,7 @@ python examples/transformers/run_gluye.py \
     --nm_prune_config prune_config_files/95sparsity1epoch.yaml \
     --do_onnx_export \
     --onnx_export_path 95sparsity1epoch/ \
-    --distill_hardness 0.5 \
+    --distill_hardness 1.0 \
     --temperature 2.0 \
     --layers_to_keep 12 \
 """
@@ -426,25 +425,7 @@ def convert_example_to_features(example, tokenizer, max_seq_length, doc_stride, 
         torch.from_numpy(np.array([np.array(input_ids, dtype=np.int64)])),
         torch.from_numpy(np.array([np.array(input_mask, dtype=np.int64)])),
         torch.from_numpy(np.array([np.array(segment_ids, dtype=np.int64)])),
-    )
-
-
-def _check_is_max_context(doc_spans, cur_span_index, position):
-    best_score = None
-    best_span_index = None
-    for (span_index, doc_span) in enumerate(doc_spans):
-        end = doc_span.start + doc_span.length - 1
-        if position < doc_span.start:
-            continue
-        if position > end:
-            continue
-        num_left_context = position - doc_span.start
-        num_right_context = end - position
-        score = min(num_left_context, num_right_context) + 0.01 * doc_span.length
-        if best_score is None or score > best_score:
-            best_score = score
-            best_span_index = span_index
-    return cur_span_index == best_span_index
+    ) 
 
 def drop_layers(model, layers_to_keep):
     layer_drop_matching = {
@@ -468,9 +449,29 @@ def drop_layers(model, layers_to_keep):
 # End SparseML Integration
 ####################################################################################
 def main():
-    # See all possible arguments in src/transformers/training_args.py
-    # or by passing the --help flag to this script.
-    # We now keep distinct sets of args, for a cleaner separation of concerns.
+    def compute_metrics(p: EvalPrediction):
+        preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
+        preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
+        if data_args.task_name is not None:
+            result = metric.compute(predictions=preds, references=p.label_ids)
+            if len(result) > 1:
+                result["combined_score"] = np.mean(list(result.values())).item()
+            return result
+        elif is_regression:
+            return {"mse": ((preds - p.label_ids) ** 2).mean().item()}
+        else:
+            return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
+    
+    def preprocess_function(examples):
+        # Tokenize the texts
+        args = (
+            (examples[sentence1_key],) if sentence2_key is None else (examples[sentence1_key], examples[sentence2_key])
+        )
+        result = tokenizer(*args, padding=padding, max_length=max_seq_length, truncation=True)
+        # Map labels to IDs (not necessary for GLUE tasks)
+        if label_to_id is not None and "label" in examples:
+            result["label"] = [(label_to_id[l] if l != -1 else -1) for l in examples["label"]]
+        return result
 
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
@@ -518,18 +519,6 @@ def main():
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    # Get the datasets: you can either provide your own CSV/JSON training and evaluation files (see below)
-    # or specify a GLUE benchmark task (the dataset will be downloaded automatically from the datasets Hub).
-    #
-    # For CSV/JSON files, this script will use as labels the column called 'label' and as pair of sentences the
-    # sentences in columns called 'sentence1' and 'sentence2' if such column exists or the first two columns not named
-    # label if at least two columns are provided.
-    #
-    # If the CSVs/JSONs contain only one non-label column, the script does single sentence classification on this
-    # single column. You can easily tweak this behavior (see below)
-    #
-    # In distributed training, the load_dataset function guarantee that only one local process can concurrently
-    # download the dataset.
     if data_args.task_name is not None:
         # Downloading and loading a dataset from the hub.
         datasets = load_dataset("glue", data_args.task_name, cache_dir=model_args.cache_dir)
@@ -560,8 +549,6 @@ def main():
         else:
             # Loading a dataset from local json files
             datasets = load_dataset("json", data_files=data_files, cache_dir=model_args.cache_dir)
-    # See more about loading any type of standard or custom dataset at
-    # https://huggingface.co/docs/datasets/loading_datasets.html.
 
     # Labels
     if data_args.task_name is not None:
@@ -679,18 +666,6 @@ def main():
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
-    def preprocess_function(examples):
-        # Tokenize the texts
-        args = (
-            (examples[sentence1_key],) if sentence2_key is None else (examples[sentence1_key], examples[sentence2_key])
-        )
-        result = tokenizer(*args, padding=padding, max_length=max_seq_length, truncation=True)
-
-        # Map labels to IDs (not necessary for GLUE tasks)
-        if label_to_id is not None and "label" in examples:
-            result["label"] = [(label_to_id[l] if l != -1 else -1) for l in examples["label"]]
-        return result
-
     datasets = datasets.map(preprocess_function, batched=True, load_from_cache_file=not data_args.overwrite_cache)
     if training_args.do_train:
         if "train" not in datasets:
@@ -721,23 +696,6 @@ def main():
     # Get the metric function
     if data_args.task_name is not None:
         metric = load_metric("glue", data_args.task_name)
-    # TODO: When datasets metrics include regular accuracy, make an else here and remove special branch from
-    # compute_metrics
-
-    # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
-    # predictions and label_ids field) and has to return a dictionary string to float.
-    def compute_metrics(p: EvalPrediction):
-        preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
-        preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
-        if data_args.task_name is not None:
-            result = metric.compute(predictions=preds, references=p.label_ids)
-            if len(result) > 1:
-                result["combined_score"] = np.mean(list(result.values())).item()
-            return result
-        elif is_regression:
-            return {"mse": ((preds - p.label_ids) ** 2).mean().item()}
-        else:
-            return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
 
     # Data collator will default to DataCollatorWithPadding, so we change it if we already did the padding.
     if data_args.pad_to_max_length:
@@ -747,7 +705,6 @@ def main():
     else:
         data_collator = None
 
-
     ####################################################################################
     # Start SparseML Integration
     #################################################################################### 
@@ -756,10 +713,6 @@ def main():
     manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
     training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
     optim = ScheduledOptimizer(optim, student_model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
-    ####################################################################################
-    # End SparseML Integration
-    ####################################################################################
-    # Initialize our Trainer
     trainer = DistillGlueTrainer(
         model=student_model,
         teacher=teacher_model,
@@ -771,7 +724,10 @@ def main():
         compute_metrics=compute_metrics,
         optimizers=(optim, None),
     )
-
+    ####################################################################################
+    # End SparseML Integration
+    ####################################################################################
+    
     # Training
     if training_args.do_train:
         checkpoint = None
@@ -789,9 +745,7 @@ def main():
             data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
         )
         metrics["train_samples"] = min(max_train_samples, len(train_dataset))
-
         trainer.save_model()  # Saves the tokenizer too for easy upload
-
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
         trainer.save_state()
@@ -799,41 +753,34 @@ def main():
     # Evaluation
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
-
         # Loop to handle MNLI double evaluation (matched, mis-matched)
         tasks = [data_args.task_name]
         eval_datasets = [eval_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
             eval_datasets.append(datasets["validation_mismatched"])
-
         for eval_dataset, task in zip(eval_datasets, tasks):
             metrics = trainer.evaluate(eval_dataset=eval_dataset)
-
             max_eval_samples = (
                 data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
             )
             metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
             trainer.log_metrics("eval", metrics)
             trainer.save_metrics("eval", metrics)
 
     if training_args.do_predict:
         logger.info("*** Predict ***")
-
         # Loop to handle MNLI double evaluation (matched, mis-matched)
         tasks = [data_args.task_name]
         predict_datasets = [predict_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
             predict_datasets.append(datasets["test_mismatched"])
-
         for predict_dataset, task in zip(predict_datasets, tasks):
             # Removing the `label` columns because it contains -1 and Trainer won't like that.
             predict_dataset.remove_columns_("label")
             predictions = trainer.predict(predict_dataset, metric_key_prefix="predict").predictions
             predictions = np.squeeze(predictions) if is_regression else np.argmax(predictions, axis=1)
-
             output_predict_file = os.path.join(training_args.output_dir, f"predict_results_{task}.txt")
             if trainer.is_world_process_zero():
                 with open(output_predict_file, "w") as writer:
@@ -849,11 +796,30 @@ def main():
     if training_args.push_to_hub:
         trainer.push_to_hub()
 
+    ####################################################################################
+    # Start SparseML Integration
+    ####################################################################################
+    if data_args.do_onnx_export:
+        logger.info("*** Export to ONNX ***")
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+        exporter = ModuleExporter(
+            student_model, output_dir='onnx-export'
+        )
+        sample_batch = convert_example_to_features(
+            datasets["validation"][0],
+            tokenizer,
+            data_args.max_seq_length,
+            data_args.doc_stride,
+            data_args.max_query_length,
+        )
+        exporter.export_onnx(sample_batch=sample_batch)
+    ####################################################################################
+    # End SparseML Integration
+    ####################################################################################
 
 def _mp_fn(index):
     # For xla_spawn (TPUs)
     main()
-
 
 if __name__ == "__main__":
     main()
