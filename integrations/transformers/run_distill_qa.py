@@ -745,7 +745,7 @@ def main():
     ####################################################################################
     # Start SparseML Integration
     #################################################################################### 
-    optim = load_optimizer(student_model, TrainingArguments)
+    optim = load_optimizer(student_model, training_args)
     steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.per_device_train_batch_size*training_args._n_gpu))
     manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
     training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
