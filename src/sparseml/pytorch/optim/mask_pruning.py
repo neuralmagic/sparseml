@@ -101,7 +101,9 @@ class ModuleParamPruningMask(object):
         )
         self._layer_names = layer_names
         self._store_init = store_init
-        self._store_unmasked = store_unmasked
+        self._store_unmasked = (
+            store_unmasked or score_type == PruningScoreTypes.MOVEMENT
+        )
         self._track_grad_mom = track_grad_mom
         self._mask_creator = mask_creator
         self._global_sparsity = global_sparsity
@@ -295,6 +297,13 @@ class ModuleParamPruningMask(object):
         """
         return self._params_grad
 
+    @property
+    def score_type(self) -> PruningScoreTypes:
+        """
+        :return: the scoring method used to create masks (i.e. magnitude, movement)
+        """
+        return self._score_type
+
     def set_param_data(self, value: Tensor, param_idx: int):
         """
         :param value: the value to set as the current tensor for the parameter,
@@ -315,7 +324,9 @@ class ModuleParamPruningMask(object):
         self._params[param_idx].data.copy_(value)
         self._params_unmasked[param_idx] = None
         self._setup_params_unmasked(param_idx)
-        # self.apply(param_idx)
+
+        if self._score_type != PruningScoreTypes.MOVEMENT:
+            self.apply(param_idx)
 
     def set_param_masks(self, masks: List[Tensor]):
         """
@@ -339,7 +350,9 @@ class ModuleParamPruningMask(object):
             mask_diff = mask_difference(self._param_masks[idx], value)
 
             self._param_masks[idx] = value
-            # self.apply(idx)
+
+            if self._score_type != PruningScoreTypes.MOVEMENT:
+                self.apply()
 
             mask_diffs.append(mask_diff)
 
@@ -419,6 +432,14 @@ class ModuleParamPruningMask(object):
         self._check_regen_param_vals()
         for idx, param in enumerate(self._params):
             param.data.copy_(self._params_init[idx])
+
+    def update_movement_scores(self):
+        """
+        updates the movement pruning scores based on the current parameter gradients
+        this method must be called in order for movement scores to be updated
+        """
+        for idx, param in enumerate(self._params):
+            self._params_movement[idx].add_(-0.01 * param.grad * param.data)
 
     def _score_parameters(self):
         if self._score_type == PruningScoreTypes.MAGNITUDE:
@@ -535,20 +556,11 @@ class ModuleParamPruningMask(object):
                 (1.0 - self._track_grad_mom) * grad
             )
 
-        # if self._score_type == PruningScoreTypes.MOVEMENT:
-        #     # movement = -sum(grad * weight)
-        #     self._params_movement[param_idx].add_(
-        #         0.01 * -1.0 * grad * self._params[param_idx].data
-        #     )
-
-        # return grad.mul_(self._param_masks[param_idx])
-        return grad
-
-    def update_movement_scores(self):
-        for idx, param in enumerate(self._params):
-            self._params_movement[idx].add_(
-                0.01 * -1.0 * param.grad * param.data
-            )
+        return (
+            grad.mul_(self._param_masks[param_idx])
+            if self._score_type != PruningScoreTypes.MOVEMENT
+            else grad  # do not mask gradient for movement pruning
+        )
 
     def _setup_params_init(self):
         for idx, param in enumerate(self._params):
@@ -560,15 +572,12 @@ class ModuleParamPruningMask(object):
                 self._params_init[idx] = None
 
     def _setup_params_unmasked(self, param_idx: int = None):
-        if self._score_type == PruningScoreTypes.MOVEMENT:
-            self._store_unmasked = True
-
         indices = range(len(self._params)) if param_idx is None else [param_idx]
 
         for idx in indices:
             if self._store_unmasked and self._params_unmasked[idx] is None:
                 self._params_unmasked[idx] = ModuleParamPruningMask._detach_tens(
-                        self._params[idx].data.clone()
+                    self._params[idx].data.clone()
                 )
             elif not self._store_unmasked and self._params_unmasked[idx] is not None:
                 self._params_unmasked[idx] = None

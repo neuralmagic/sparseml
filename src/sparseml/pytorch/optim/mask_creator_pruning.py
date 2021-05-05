@@ -99,9 +99,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             unmasked) calculated from the tensors values <= threshold are masked,
             all others are unmasked
         """
-        return [
-            (tensor > threshold).type(tensor.type()) for tensor in tensors
-        ]
+        return [(tensor > threshold).type(tensor.type()) for tensor in tensors]
 
     def create_sparsity_masks(
         self,
