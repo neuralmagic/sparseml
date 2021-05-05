@@ -27,7 +27,7 @@ from torch import Tensor
 from transformers import Trainer, is_datasets_available, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
 
-class DistillGlue(Trainer):
+class DistillGlueTrainer(Trainer):
     def __init__(self, *args, eval_examples=None, post_process_function=None, teacher=None, loss=None, batch_size=8, max_sequence_length=384,distill_hardness=1.0, temperature=2.0, **kwargs):
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples
@@ -56,7 +56,7 @@ class DistillGlue(Trainer):
             student_logit_neg = F.softmax(outputs['logits'][:, :1]/ self.temperature, dim=-1)
             student_logit_pos = F.softmax(outputs['logits'][:, 1:2]/ self.temperature, dim=-1)
             with torch.no_grad():
-                teacher_output = self.teacher(**inputs)
+                teacher_outputs = self.teacher(**inputs)
                 teacher_logit_neg = F.softmax(teacher_outputs['logits'][:, :1]/ self.temperature, dim=-1)
                 teacher_logit_pos = F.softmax(teacher_outputs['logits'][:, 1:2]/ self.temperature, dim=-1)
             loss_pos = (

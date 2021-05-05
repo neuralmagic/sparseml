@@ -123,27 +123,30 @@ import random
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
+import math
 
 import numpy as np
-from datasets import load_dataset, load_metric
+import wandb
 
+import datasets
 import transformers
+from datasets import load_dataset, load_metric
 from transformers import (
     AutoConfig,
     AutoModelForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
+    PretrainedConfig,
     EvalPrediction,
     HfArgumentParser,
-    PretrainedConfig,
+    PreTrainedTokenizerFast,
     Trainer,
     TrainingArguments,
     default_data_collator,
+    is_datasets_available,
+    is_torch_tpu_available,
     set_seed,
 )
-from transformers.trainer_utils import get_last_checkpoint, is_main_process
-from transformers.utils import check_min_version
-
 
 from transformers.optimization import (
     Adafactor,
@@ -161,9 +164,7 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter
 
-
-# Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.6.0.dev0")
+from distill_trainer_glue import DistillGlueTrainer
 
 task_to_keys = {
     "cola": ("sentence", None),
@@ -288,7 +289,7 @@ class ModelArguments:
         default=2.0, metadata={"help": "Temperature applied to teacher softmax for distillation."}
     )
     distill_hardness: Optional[float] = field(
-        default=0.5, metadata={"help": "Proportion of loss coming from teacher model."}
+        default=1.0, metadata={"help": "Proportion of loss coming from teacher model."}
     )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
@@ -587,7 +588,7 @@ def main():
     # In distributed training, the .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
     config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+        model_args.config_name if model_args.config_name else model_args.student_model_name_or_path,
         num_labels=num_labels,
         finetuning_task=data_args.task_name,
         cache_dir=model_args.cache_dir,
@@ -595,13 +596,13 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
+        model_args.tokenizer_name if model_args.tokenizer_name else model_args.student_model_name_or_path,
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
+    student_model = AutoModelForSequenceClassification.from_pretrained(
         model_args.student_model_name_or_path,
         from_tf=bool(".ckpt" in model_args.student_model_name_or_path),
         config=config,
@@ -609,8 +610,9 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+    teacher_model=None
     if model_args.teacher_model_name_or_path != None:
-        model = AutoModelForSequenceClassification.from_pretrained(
+        teacher_model = AutoModelForSequenceClassification.from_pretrained(
             model_args.teacher_model_name_or_path,
             from_tf=bool(".ckpt" in model_args.teacher_model_name_or_path),
             config=config,
@@ -653,12 +655,12 @@ def main():
     # Some models have set the order of the labels to use, so let's make sure we do use it.
     label_to_id = None
     if (
-        model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
+        student_model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
         and data_args.task_name is not None
         and not is_regression
     ):
         # Some have all caps in their config, some don't.
-        label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
+        label_name_to_id = {k.lower(): v for k, v in student_model.config.label2id.items()}
         if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
             label_to_id = {i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)}
         else:
@@ -745,15 +747,29 @@ def main():
     else:
         data_collator = None
 
+
+    ####################################################################################
+    # Start SparseML Integration
+    #################################################################################### 
+    optim = load_optimizer(student_model, training_args)
+    steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.per_device_train_batch_size*training_args._n_gpu))
+    manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
+    training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
+    optim = ScheduledOptimizer(optim, student_model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
+    ####################################################################################
+    # End SparseML Integration
+    ####################################################################################
     # Initialize our Trainer
-    trainer = Trainer(
-        model=model,
+    trainer = DistillGlueTrainer(
+        model=student_model,
+        teacher=teacher_model,
         args=training_args,
-        train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
-        compute_metrics=compute_metrics,
+        train_dataset=datasets["train"] if training_args.do_train else None,
+        eval_dataset=datasets["validation"] if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
+        compute_metrics=compute_metrics,
+        optimizers=(optim, None),
     )
 
     # Training
@@ -761,11 +777,11 @@ def main():
         checkpoint = None
         if last_checkpoint is not None:
             checkpoint = last_checkpoint
-        elif os.path.isdir(model_args.model_name_or_path):
+        elif os.path.isdir(model_args.student_model_name_or_path):
             # Check the config from that potential checkpoint has the right number of labels before using it as a
             # checkpoint.
-            if AutoConfig.from_pretrained(model_args.model_name_or_path).num_labels == num_labels:
-                checkpoint = model_args.model_name_or_path
+            if AutoConfig.from_pretrained(model_args.student_model_name_or_path).num_labels == num_labels:
+                checkpoint = model_args.student_model_name_or_path
 
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         metrics = train_result.metrics
