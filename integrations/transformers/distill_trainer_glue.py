@@ -46,10 +46,10 @@ class DistillGlueTrainer(Trainer):
         """
         How the loss is computed by Trainer. Modified for Distilation using student teacher framework modified for distilation. 
         """
-        input_device = inputs["input_ids"].device
         outputs = model(**inputs)
         loss = outputs['loss']
         if self.teacher is not None:
+            input_device = inputs["input_ids"].device
             self.teacher = self.teacher.to(input_device)
             student_logit_neg = F.softmax(outputs['logits'][:, :1]/ self.temperature, dim=-1)
             student_logit_pos = F.softmax(outputs['logits'][:, 1:2]/ self.temperature, dim=-1)
@@ -75,4 +75,4 @@ class DistillGlueTrainer(Trainer):
             )
             teacher_loss = (loss_pos + loss_neg) / 2.0
             loss = ((1-self.distill_hardness) * loss) + (self.distill_hardness * teacher_loss)
-        return loss    
+        return (loss, outputs) if return_outputs else loss   

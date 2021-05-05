@@ -347,85 +347,33 @@ def load_optimizer(model, args):
     optimizer_kwargs["lr"] = args.learning_rate
     return optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs)
 
-def convert_example_to_features(example, tokenizer, max_seq_length, doc_stride, max_query_length):
-    Feature = collections.namedtuple(
-        "Feature",
-        [
-            "unique_id",
-            "tokens",
-            "example_index",
-            "token_to_orig_map",
-            "token_is_max_context",
-        ],
-    )
-    extra = []
-    unique_id = 0
-    query_tokens = tokenizer.tokenize(example["question"])[0:max_query_length]
-    tok_to_orig_index = []
-    orig_to_tok_index = []
-    all_doc_tokens = []
-    for (i, token) in enumerate(example["context"]):
-        orig_to_tok_index.append(len(all_doc_tokens))
-        sub_tokens = tokenizer.tokenize(token)
-        for sub_token in sub_tokens:
-            tok_to_orig_index.append(i)
-            all_doc_tokens.append(sub_token)
-    max_tokens_for_doc = max_seq_length - len(query_tokens) - 3
-    _DocSpan = collections.namedtuple("DocSpan", ["start", "length"])
-    doc_spans = []
-    start_offset = 0
-    while start_offset < len(all_doc_tokens):
-        length = len(all_doc_tokens) - start_offset
-        if length > max_tokens_for_doc:
-            length = max_tokens_for_doc
-        doc_spans.append(_DocSpan(start=start_offset, length=length))
-        if start_offset + length == len(all_doc_tokens):
-            break
-        start_offset += min(length, doc_stride)
-    for (doc_span_index, doc_span) in enumerate(doc_spans):
-        tokens = []
-        token_to_orig_map = {}
-        token_is_max_context = {}
-        segment_ids = []
-        tokens.append("[CLS]")
+def convert_example_to_features(example, tokenizer, max_seq_length, sentence1_key, sentence2_key):
+    tokens = []
+    segment_ids = []
+    tokens.append("[CLS]")
+    segment_ids.append(0)
+    for t in tokenizer.tokenize(example[sentence1_key])[:int(max_seq_length/2)]:
+        tokens.append(t)
         segment_ids.append(0)
-        for token in query_tokens:
-            tokens.append(token)
+    tokens.append("[SEP]")
+    segment_ids.append(0)
+    if sentence1_key != None:
+        for t in tokenizer.tokenize(example[sentence2_key])[:int(max_seq_length/2)]:
+            tokens.append(t)
             segment_ids.append(0)
-        tokens.append("[SEP]")
-        segment_ids.append(0)
-        for i in range(doc_span.length):
-            split_token_index = doc_span.start + i
-            token_to_orig_map[len(tokens)] = tok_to_orig_index[split_token_index]
-            is_max_context = _check_is_max_context(
-                doc_spans, doc_span_index, split_token_index
-            )
-            token_is_max_context[len(tokens)] = is_max_context
-            tokens.append(all_doc_tokens[split_token_index])
-            segment_ids.append(1)
         tokens.append("[SEP]")
         segment_ids.append(1)
-        input_ids = tokenizer.convert_tokens_to_ids(tokens)
-        input_mask = [1] * len(input_ids)
-        while len(input_ids) < max_seq_length:
-            input_ids.append(0)
-            input_mask.append(0)
-            segment_ids.append(0)
-        feature = Feature(
-            unique_id=unique_id,
-            tokens=tokens,
-            example_index=0,
-            token_to_orig_map=token_to_orig_map,
-            token_is_max_context=token_is_max_context,
-        )
-        extra.append(feature)
-        unique_id += 1
-        # extra is used as additional data but sparseml doesn't support it
+    input_ids = tokenizer.convert_tokens_to_ids(tokens)
+    input_mask = [1] * len(input_ids)
+    while len(input_ids) < max_seq_length:
+        input_ids.append(0)
+        input_mask.append(0)
+        segment_ids.append(0)
     return (
-        torch.from_numpy(np.array([np.array(input_ids, dtype=np.int64)])),
-        torch.from_numpy(np.array([np.array(input_mask, dtype=np.int64)])),
-        torch.from_numpy(np.array([np.array(segment_ids, dtype=np.int64)])),
-    ) 
+            torch.from_numpy(np.array([np.array(input_ids, dtype=np.int64)])),
+            torch.from_numpy(np.array([np.array(input_mask, dtype=np.int64)])),
+            torch.from_numpy(np.array([np.array(segment_ids, dtype=np.int64)])),
+        ) 
 
 def drop_layers(model, layers_to_keep):
     layer_drop_matching = {
@@ -806,11 +754,11 @@ def main():
             student_model, output_dir='onnx-export'
         )
         sample_batch = convert_example_to_features(
-            datasets["validation"][0],
+            datasets["train"][0],
             tokenizer,
             data_args.max_seq_length,
-            data_args.doc_stride,
-            data_args.max_query_length,
+            sentence1_key, 
+            sentence2_key,
         )
         exporter.export_onnx(sample_batch=sample_batch)
     ####################################################################################
