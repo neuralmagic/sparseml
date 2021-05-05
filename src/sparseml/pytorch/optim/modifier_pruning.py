@@ -702,9 +702,9 @@ class GMPruningModifier(ScheduledUpdateModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Update mask movement scores with gradients right before optimzer step is applied.
-        Called here in case gradients are changed between the backwards pass and step
-        such as in grad norm clipping
+        Update mask movement scores with gradients right before optimizer step is
+        applied. Called here in case gradients are changed between the backwards
+        pass and step such as in grad norm clipping
 
         :param module: module to modify
         :param optimizer: optimizer to modify
