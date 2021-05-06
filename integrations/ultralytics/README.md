@@ -140,6 +140,26 @@ Note: on new Ubuntu systems, to install `cv2` running `sudo apt-get update && ap
 may be necessary.
 
 
+### Annotation Example
+`annotate.py` is a script for using YOLOv3 sparsified (and not sparsified) YOLOv3 models
+to run inferences on images, videos, or webcam streams. For a full list of options
+`python annotate.py -h`.
+
+To run pruned-quantized YOLOv3 on a local webcam run:
+```bash
+python annotate.py \
+    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
+    --source 0 \
+    --quantized-inputs \
+    --image-shape 416 416 \
+    --no-save  # webcam only
+```
+
+In addition to webcam `--source` can take a path to a `.jpg` file, directory or glog pat
+of `.jpg` files, or path to a `.mp4` video file.  If source is an integer and no
+corresponding webcam is available, an exception will be raised.
+
+
 ### Benchmarking
 `benchmarking.py` is a script for benchmarking sparsified and quantized YOLOv3
 performance with DeepSparse.  For a full list of options run `python benchmarking.py -h`.

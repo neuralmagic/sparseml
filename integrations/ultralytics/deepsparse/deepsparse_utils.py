@@ -20,8 +20,11 @@ variables if using a different model.
 """
 
 
+import glob
+import os
+import shutil
 from tempfile import NamedTemporaryFile
-from typing import List, Optional, Tuple, Union
+from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
 import cv2
 import numpy
@@ -29,6 +32,7 @@ import onnx
 import torch
 
 from sparseml.onnx.utils import get_tensor_dim_shape, set_tensor_dim_shape
+from sparseml.utils import create_dirs
 from sparsezoo import Zoo
 
 # ultralytics/yolov5 imports
@@ -36,9 +40,12 @@ from utils.general import non_max_suppression
 
 
 __all__ = [
+    "get_yolo_loader_and_saver",
     "load_image",
     "YoloPostprocessor",
     "postprocess_nms",
+    "modify_yolo_onnx_input_shape",
+    "annotate_image",
 ]
 
 
@@ -49,6 +56,287 @@ _YOLO_V3_ANCHORS = [
     torch.Tensor([[116, 90], [156, 198], [373, 326]]),
 ]
 _YOLO_V3_ANCHOR_GRIDS = [t.clone().view(1, -1, 1, 1, 2) for t in _YOLO_V3_ANCHORS]
+
+
+def get_yolo_loader_and_saver(
+    path: str, save_dir: str, image_size: Tuple[int] = (640, 640), args: Any = None
+) -> Union[Iterable, Any, bool]:
+    """
+
+    :param path: file path to image or directory of .jpg files, a .mp4 video,
+        or an integer (i.e. 0) for web-cam
+    :param save_dir: path of directory to save to
+    :param image_size: size of input images to model
+    :param args: optional arguments from annotate script ArgParser
+    :return: image loader iterable, result saver objects
+        images, video, or web-cam based on path given, and a boolean value
+        that is True is the returned objects load videos
+    """
+    # video
+    if path.endswith(".mp4"):
+        loader = YoloVideoLoader(path, image_size)
+        saver = VideoSaver(
+            save_dir,
+            loader.original_fps,
+            loader.original_frame_size,
+            args.target_fps if args else None,
+        )
+        return loader, saver, True
+    # webcam
+    if path.isnumeric():
+        loader = YoloWebcamLoader(int(path), image_size)
+        saver = (
+            VideoSaver(save_dir, 30, loader.original_frame_size, None)
+            if not args.no_save
+            else None
+        )
+        return loader, saver, True
+    # image file(s)
+    return YoloImageLoader(path, image_size), ImagesSaver(save_dir), False
+
+
+class YoloImageLoader:
+    """
+    Class for pre-processing and iterating over images to be used as input for YOLO
+    models
+
+    :param path: Filepath to single image file or directory of image files to load,
+        glob paths also valid
+    :param image_size: size of input images to model
+    """
+
+    def __init__(self, path: str, image_size: Tuple[int] = (640, 640)):
+        self._path = path
+        self._image_size = image_size
+
+        if os.path.isdir(path):
+            self._image_file_paths = [
+                os.path.join(path, file_name) for file_name in os.listdir(path)
+            ]
+        elif "*" in path:
+            self._image_file_paths = glob.glob(path)
+        elif os.path.isfile(path):
+            # single file
+            self._image_file_paths = [path]
+        else:
+            raise ValueError(f"{path} is not a file, glob, or directory")
+
+    def __iter__(self) -> Iterator[Tuple[numpy.ndarray, numpy.ndarray]]:
+        for image_path in self._image_file_paths:
+            yield load_image(image_path, image_size=self._image_size)
+
+
+class YoloVideoLoader:
+    """
+    Class for pre-processing and iterating over video frames to be used as input for
+    YOLO models
+
+    :param path: Filepath to single video file
+    :param image_size: size of input images to model
+    """
+
+    def __init__(self, path: str, image_size: Tuple[int] = (640, 640)):
+        self._path = path
+        self._image_size = image_size
+        self._vid = cv2.VideoCapture(self._path)
+        self._total_frames = int(self._vid.get(cv2.CAP_PROP_FRAME_COUNT))
+        self._fps = self._vid.get(cv2.CAP_PROP_FPS)
+
+    def __iter__(self) -> Iterator[Tuple[numpy.ndarray, numpy.ndarray]]:
+        for _ in range(self._total_frames):
+            loaded, frame = self._vid.read()
+            if not loaded:
+                break
+            yield load_image(frame, image_size=self._image_size)
+        self._vid.release()
+
+    @property
+    def original_fps(self) -> float:
+        """
+        :return: the frames per second of the video this object reads
+        """
+        return self._fps
+
+    @property
+    def original_frame_size(self) -> Tuple[int, int]:
+        """
+        :return: the original size of frames in the video this object reads
+        """
+        return (
+            int(self._vid.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(self._vid.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+        )
+
+    @property
+    def total_frames(self) -> int:
+        """
+        :return: the total number of frames this object may laod from the video
+        """
+        return self._total_frames
+
+
+class YoloWebcamLoader:
+    """
+    Class for pre-processing and iterating over webcam frames to be used as input for
+    YOLO models.
+
+    Adapted from: https://github.com/ultralytics/yolov5/blob/master/utils/datasets.py
+
+    :param camera: Webcam index
+    :param image_size: size of input images to model
+    """
+
+    def __init__(self, camera: int, image_size: Tuple[int] = (640, 640)):
+
+        self._camera = camera
+        self._image_size = image_size
+        self._stream = cv2.VideoCapture(self._camera)
+        self._stream.set(cv2.CAP_PROP_BUFFERSIZE, 3)
+
+    def __iter__(self) -> Iterator[Tuple[numpy.ndarray, numpy.ndarray]]:
+        while True:
+            if cv2.waitKey(1) == ord("q"):  # q to quit
+                self._stream.release()
+                cv2.destroyAllWindows()
+                break
+            loaded, frame = self._stream.read()
+
+            assert loaded, f"Could not load image from webcam {self._camera}"
+
+            frame = cv2.flip(frame, 1)  # flip left-right
+            yield load_image(frame, image_size=self._image_size)
+
+    @property
+    def original_frame_size(self) -> Tuple[int, int]:
+        """
+        :return: the original size of frames in the stream this object reads
+        """
+        return (
+            int(self._stream.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(self._stream.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+        )
+
+
+class ImagesSaver:
+    """
+    Base class for saving YOLO model outputs. Saves each image as an individual file in
+    the given directory
+
+    :param save_dir: path to directory to write to
+    """
+
+    def __init__(self, save_dir: str):
+        self._save_dir = save_dir
+        self._idx = 0
+
+        create_dirs(save_dir)
+
+    def save_frame(self, image: numpy.ndarray):
+        """
+        :param image: numpy array of image to save
+        """
+        output_path = os.path.join(self._save_dir, f"result-{self._idx}.jpg")
+        cv2.imwrite(output_path, image)
+        self._idx += 1
+
+    def close(self):
+        """
+        perform any clean-up tasks
+        """
+        pass
+
+
+class VideoSaver(ImagesSaver):
+    """
+    Class for saving YOLO model outputs as a VideoFile
+
+    :param save_dir: path to directory to write to
+    :param original_fps: frames per second to save video with
+    :param output_frame_size: size of frames to write
+    :param target_fps: fps target for output video. if present, video
+        will be written with a certain number of the original frames
+        evenly dropped to match the target FPS.
+    """
+
+    def __init__(
+        self,
+        save_dir: str,
+        original_fps: float,
+        output_frame_size: Tuple[int, int],
+        target_fps: Optional[float] = None,
+    ):
+        super().__init__(save_dir)
+
+        self._output_frame_size = output_frame_size
+        self._original_fps = original_fps
+
+        if target_fps is not None and target_fps >= original_fps:
+            print(
+                f"target_fps {target_fps} is greater than source_fps "
+                f"{original_fps}. additional target fps file will not be produced"
+            )
+        self._target_fps = target_fps
+
+        self._file_path = os.path.join(self._save_dir, "results.mp4")
+        self._writer = cv2.VideoWriter(
+            self._file_path,
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            original_fps,
+            self._output_frame_size,
+        )
+        self._n_frames = 0
+
+    def save_frame(self, image: numpy.ndarray):
+        """
+        :param image: numpy array of image to save
+        """
+        self._writer.write(image)
+        self._n_frames += 1
+
+    def close(self):
+        """
+        perform any clean-up tasks
+        """
+        self._writer.release()
+        if self._target_fps is not None:
+            self._write_target_fps_video()
+
+    def _write_target_fps_video(self):
+        assert self._target_fps is not None
+        num_frames_to_keep = int(
+            self._n_frames * (self._target_fps / self._original_fps)
+        )
+        # adjust target fps so we can keep the same video duration
+        adjusted_target_fps = num_frames_to_keep * (self._original_fps / self._n_frames)
+
+        # select num_frames_to_keep evenly spaced frame idxs
+        frame_idxs_to_keep = set(
+            numpy.round(numpy.linspace(0, self._n_frames, num_frames_to_keep))
+            .astype(int)
+            .tolist()
+        )
+
+        # create new video writer for adjusted video
+        vid_path = os.path.join(
+            self._save_dir, f"_results-{adjusted_target_fps:.2f}fps.mp4"
+        )
+        fps_writer = cv2.VideoWriter(
+            vid_path,
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            adjusted_target_fps,
+            self._output_frame_size,
+        )
+
+        # read from original video and write to FPS adjusted video
+        saved_vid = cv2.VideoCapture(self._file_path)
+        for idx in range(self._n_frames):
+            _, frame = saved_vid.read()
+            if idx in frame_idxs_to_keep:
+                fps_writer.write(frame)
+
+        saved_vid.release()
+        fps_writer.release()
+        shutil.move(vid_path, self._file_path)  # overwrite original file
 
 
 def load_image(
@@ -272,6 +560,8 @@ def annotate_image(
     img: numpy.ndarray,
     outputs: numpy.ndarray,
     score_threshold: float = 0.35,
+    model_input_size: Tuple[int, int] = None,
+    images_per_sec: Optional[float] = None,
 ) -> numpy.ndarray:
     """
     Draws bounding boxes on predictions of a detection model
@@ -280,6 +570,11 @@ def annotate_image(
     :param outputs: numpy array of nms outputs for the image from postprocess_nms
     :param score_threshold: minimum score a detection should have to be annotated
         on the image. Default is 0.35
+    :param model_input_size: 2-tuple of expected input size for the given model to
+        be used for bounding box scaling with original image. Scaling will not
+        be applied if model_input_size is None. Default is None
+    :param images_per_sec: optional images per second to annotate the left corner
+        of the image with
     :return: the original image annotated with the given bounding boxes
     """
     img_res = numpy.copy(img)
@@ -287,6 +582,9 @@ def annotate_image(
     boxes = outputs[:, 0:4]
     scores = outputs[:, 4]
     labels = outputs[:, 5].astype(int)
+
+    scale_y = img.shape[0] / (1.0 * model_input_size[0]) if model_input_size else 1.0
+    scale_x = img.shape[1] / (1.0 * model_input_size[1]) if model_input_size else 1.0
 
     for idx in range(boxes.shape[0]):
         label = labels[idx].item()
@@ -298,10 +596,10 @@ def annotate_image(
             )
 
             # bounding box points
-            left = boxes[idx][0]
-            top = boxes[idx][1]
-            right = boxes[idx][2]
-            bottom = boxes[idx][3]
+            left = boxes[idx][0] * scale_x
+            top = boxes[idx][1] * scale_y
+            right = boxes[idx][2] * scale_x
+            bottom = boxes[idx][3] * scale_y
 
             cv2.putText(
                 img_res,
@@ -309,7 +607,7 @@ def annotate_image(
                 (int(left), int(top) - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.9,  # font scale
-                (255, 0, 0),  # color
+                (245, 46, 6),  # color
                 2,  # thickness
                 cv2.LINE_AA,
             )
@@ -317,7 +615,19 @@ def annotate_image(
                 img_res,
                 (int(left), int(top)),
                 (int(right), int(bottom)),
-                (125, 255, 51),
+                (245, 46, 6),
                 thickness=2,
             )
+
+    if images_per_sec is not None:
+        cv2.putText(
+            img_res,
+            f"images_per_sec: {int(images_per_sec)}",
+            (50, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            2.0,  # font scale
+            (245, 46, 6),  # color
+            2,  # thickness
+            cv2.LINE_AA,
+        )
     return img_res

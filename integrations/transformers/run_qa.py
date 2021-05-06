@@ -19,8 +19,8 @@
 # limitations under the License.
 
 """
-Example script for integrating spaseml with the transformers library. 
-This script is addopted from hugging face's implementation for Question Answering on the SQUAD Dataset. 
+Example script for integrating spaseml with the transformers library.
+This script is addopted from hugging face's implementation for Question Answering on the SQUAD Dataset.
 Hugging Face's original implementation is regularly updated and can be found at https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py
 This script will:
 - Load transformer based modesl
@@ -50,7 +50,7 @@ usage: run_qa.py [-h] \
     [--do_onnx_export]
     [--onnx_export_path]
 
-Train, prune, and evaluate a transformer base question answering model on squad. 
+Train, prune, and evaluate a transformer base question answering model on squad.
     -h, --help            show this help message and exit
     --model_name_or_path MODEL      The path to the transformers model you wish to train
                                     or the name of the pretrained language model you wish
@@ -63,27 +63,21 @@ Train, prune, and evaluate a transformer base question answering model on squad.
                                     or not. Default is false.
     --do_eval                       Boolean denoting if the model should be evaluated
                                     or not. Default is false.
-    --per_device_train_batch_size   Size of each training batch based on samples per GPU. 
+    --per_device_train_batch_size   Size of each training batch based on samples per GPU.
                                     12 will fit in a 11gb GPU, 16 in a 16gb.
-    --per_device_eval_batch_size    Size of each training batch based on samples per GPU. 
+    --per_device_eval_batch_size    Size of each training batch based on samples per GPU.
                                     12 will fit in a 11gb GPU, 16 in a 16gb.
     --learning_rate                 Learning rate initial float value. ex: 3e-5.
-    tokens = []
-segment_ids = []
-tokens.append("[CLS]")
-segment_ids.append(0)
-sent_leng = int(max_seq_length/2)
-for t in tokenizer.tokenize(example[sentence1_key])[:sent_leng]:
-    tokens.append(t)
-    segment_ids.append(0)
+    --max_seq_length                Int for the max sequence length to be parsed as a context
+                                    window. ex: 384 tokens.
     --output_dir                    Path which model checkpoints and paths should be saved.
-    --overwrite_output_dir          Boolean to define if the 
+    --overwrite_output_dir          Boolean to define if the
     --cache_dir                     Directiory which cached transformer files(datasets, models
-                                    , tokenizers) are saved for fast loading. 
+                                    , tokenizers) are saved for fast loading.
     --preprocessing_num_workers     The amount of cpu workers which are used to process datasets
     --seed                          Int which determines what random seed is for training/shuffling
     --nm_prune_config               Path to the neural magic prune configuration file. examples can
-                                    be found in prune_config_files but are customized for bert-base-uncased. 
+                                    be found in prune_config_files but are customized for bert-base-uncased.
     --do_onnx_export                Boolean denoting if the model should be exported to onnx
     --onnx_export_path              Path where onnx model path will be exported. ex: onnx-export
 
@@ -107,7 +101,7 @@ python examples/transformers/run_qa.py \
     --seed 42 \
     --nm_prune_config prune_config_files/95sparsity1epoch.yaml \
     --do_onnx_export \
-    --onnx_export_path 95sparsity1epoch/ 
+    --onnx_export_path 95sparsity1epoch/
 """
 import collections
 import json
@@ -596,7 +590,7 @@ def main():
 
         return tokenized_examples
 
-    transformers.utils.logging.set_verbosity_info()   
+    transformers.utils.logging.set_verbosity_info()
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -624,7 +618,7 @@ def main():
     )
 
     logger.warning(
-        f"Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}"
+        f"Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}, "
         + f"distributed training: {bool(training_args.local_rank != -1)}, 16-bits training: {training_args.fp16}"
     )
 
@@ -669,7 +663,7 @@ def main():
 
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
-    logger.info("Model has %s parameters", params)    
+    logger.info("Model has %s parameters", params)
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
         raise ValueError(
@@ -685,7 +679,7 @@ def main():
     question_column_name = "question" if "question" in column_names else column_names[0]
     context_column_name = "context" if "context" in column_names else column_names[1]
     answer_column_name = "answers" if "answers" in column_names else column_names[2]
-    pad_on_right = tokenizer.padding_side == "right"  
+    pad_on_right = tokenizer.padding_side == "right"
 
     if training_args.do_train:
         train_dataset = datasets["train"].map(
@@ -720,12 +714,13 @@ def main():
 
     ####################################################################################
     # Start SparseML Integration
-    #################################################################################### 
-    optim = load_optimizer(model, training_args)
-    steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.per_device_train_batch_size*training_args._n_gpu))
-    manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
-    training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
-    optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
+    ####################################################################################
+    if training_args.do_train:
+        optim = load_optimizer(model, training_args)
+        steps_per_epoch = math.ceil(len(train_dataset) / (training_args.per_device_train_batch_size * training_args._n_gpu))
+        manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
+        training_args.num_train_epochs = float(manager.max_epochs)
+        optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
     ####################################################################################
     # End SparseML Integration
     ####################################################################################
@@ -740,7 +735,7 @@ def main():
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
-        optimizers=(optim, None),
+        optimizers=(optim, None) if training_args.do_train else (None, None),
     )
 
     # Training
@@ -771,7 +766,7 @@ def main():
     ####################################################################################
     if data_args.do_onnx_export:
         logger.info("*** Export to ONNX ***")
-        print("Exporting onnx model") 
+        print("Exporting onnx model")
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         exporter = ModuleExporter(
             model, output_dir='onnx-export'
