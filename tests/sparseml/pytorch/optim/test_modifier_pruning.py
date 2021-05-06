@@ -22,6 +22,7 @@ from sparseml.pytorch.optim import (
     GlobalMagnitudePruningModifier,
     GMPruningModifier,
     MagnitudePruningModifier,
+    load_mask_creator,
 )
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
@@ -260,6 +261,10 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
         optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model, optimizer)
         assert modifier.applied_sparsity is None
+        assert type(load_mask_creator(modifier._mask_type)) == type(  # noqa: E721
+            modifier._mask_creator
+        )
+        assert modifier._mask_creator == modifier._module_masks._mask_creator
 
         # check sparsity is not set before
         for epoch in range(int(modifier.start_epoch)):

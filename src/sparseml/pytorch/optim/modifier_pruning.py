@@ -608,6 +608,7 @@ class GMPruningModifier(ScheduledUpdateModifier):
             layers,
             param_names,
             layer_names=layer_names,
+            mask_creator=self._mask_creator,
             global_sparsity=self._global_sparsity,
         )
 
