@@ -59,6 +59,6 @@ class DistillGlueTrainer(Trainer):
                 teacher_logit_pos = teacher_outputs['logits'][:, 1:2]
             loss_pos = F.kl_div( input=student_logit_pos, target=teacher_logit_pos, reduction="batchmean",) * (self.temperature ** 2)
             loss_neg = F.kl_div( input=student_logit_neg, target=teacher_logit_neg, reduction="batchmean",) * (self.temperature ** 2)
-            teacher_loss = (loss_pos + loss_neg) / 2.0
+            teacher_loss = torch.stack([loss_pos,loss_neg])
             loss = ((1-self.distill_hardness) * loss) + (self.distill_hardness * teacher_loss)
         return (loss, outputs) if return_outputs else loss   
