@@ -17,6 +17,7 @@ from typing import Any, Dict, List, NamedTuple, Union
 
 import pytest
 
+from flaky import flaky
 from sparseml.onnx.optim.sensitivity_pruning import (
     PruningLossSensitivityAnalysis,
     pruning_loss_sens_magnitude,
@@ -169,6 +170,7 @@ def _test_analysis_comparison(
             )
 
 
+@flaky(max_runs=2, min_passes=1)
 def test_approx_ks_loss_sensitivity(
     onnx_models_with_analysis: OnnxModelAnalysisFixture,
 ):
@@ -184,6 +186,7 @@ def test_approx_ks_loss_sensitivity(
     _test_analysis_comparison(expected_layers, actual_layers)
 
 
+@flaky(max_runs=2, min_passes=1)
 def test_one_shot_ks_loss_sensitivity(
     onnx_models_with_analysis: OnnxModelAnalysisFixture,
 ):

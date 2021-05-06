@@ -25,6 +25,7 @@ from torch.nn import Linear, Module, ReLU, Sequential
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 
+from flaky import flaky
 from sparseml.pytorch.datasets import RandNDataset
 from sparseml.pytorch.utils import (
     default_device,
@@ -625,6 +626,7 @@ def test_tensors_export(tensors, name):
         assert numpy.sum(exported.shape) > 1
 
 
+@flaky(max_runs=2, min_passes=1)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -663,6 +665,7 @@ def test_tensor_sparsity(tensor, dim, expected_sparsity):
     assert torch.sum((sparsity - expected_sparsity).abs()) < 0.001
 
 
+@flaky(max_runs=2, min_passes=1)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -694,6 +697,7 @@ def test_tensor_sparsity_cuda(tensor, dim, expected_sparsity):
     assert torch.sum((sparsity.detach().cpu() - expected_sparsity).abs()) < 0.001
 
 
+@flaky(max_runs=2, min_passes=1)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -732,6 +736,7 @@ def test_tensor_density(tensor, dim, expected_density):
     assert torch.sum((density - expected_density).abs()) < 0.001
 
 
+@flaky(max_runs=2, min_passes=1)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
