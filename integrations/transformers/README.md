@@ -72,7 +72,7 @@ python run_qa.py  \
  --preprocessing_num_workers 4 \
 ```
 
-## Model Performance 
+## SQUAD Performance 
 To demonstrate the effect that various pruning regimes and techniques can have, we prune the same bert-base-uncased model to five different sparsities (0,80,90,95,99) using three pruning methodologies: 
 - one shot (prune to desired weights before fine tune then fine tune for 1 epoch),
 - GMP 1 epoch (prune to desired sparsity over an epoch then stabilize over another epoch), and
@@ -80,14 +80,18 @@ To demonstrate the effect that various pruning regimes and techniques can have, 
 
 It is worth noting that we are pruning all layers uniformly and we believe further gains can be achieved by targeted pruning of individual layers.
 
+train/exact_match 76.04541
+wandb:                         train/f1 84.5742
+
+
 | base model name       | sparsity 	| total train epochs    | prunned | one shot |pruning epochs| F1 Score 	| EM Score  |
 |-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
-| bert-base-uncased 	|0        	|1                  	|no       |no        |0            	|09.685     |03.614      |
-| bert-base-uncased 	|0        	|2                  	|no       |no        |0            	|88.002     |80.634     |
-| bert-base-uncased 	|0        	|10                 	|no       |no        |0            	|87.603     |79.130     |
-| bert-base-uncased 	|80       	|1                  	|yes      |yes       |0          	|25.141     |15.998     |
-| bert-base-uncased 	|80       	|2                   	|yes      |no        |0            	|06.068    	|00.312     |
-| bert-base-uncased 	|80       	|10                  	|yes      |no        |8          	|83.951     |74.409     |
+| bert-base-uncased 	|0        	|1                  	|no       |no        |0            	|84.574     |76.045     | verified
+| bert-base-uncased 	|0        	|2                  	|no       |no        |0            	|88.002     |80.634     | verified
+| bert-base-uncased 	|0        	|10                 	|no       |no        |0            	|87.603     |79.130     | verified
+| bert-base-uncased 	|80       	|1                  	|yes      |yes       |0          	|25.141     |15.998     | 6.0549/12.285, 8.68496/16.47797
+| bert-base-uncased 	|80       	|2                   	|yes      |no        |0            	|66.964     |53.879     | Verified
+| bert-base-uncased 	|80       	|10                  	|yes      |no        |8          	|83.951     |74.409     | 73.12204 82.65843
 | bert-base-uncased 	|90       	|1                  	|yes      |yes       |0           	|16.064     |07.786     |
 | bert-base-uncased 	|90       	|2                   	|yes      |no        |0            	|64.185     |50.946     |
 | bert-base-uncased 	|90       	|10                 	|yes      |no        |8            	|79.091     |68.184     |
@@ -157,7 +161,7 @@ Sparsity 80, 90, 97
 | bert-base-uncased 	|0        	|yes      |no       |2           |0             |89.02277  |82.03406  |
 | bert-base-uncased 	|80        	|yes      |yes      |30          |18            |88.03192  |80.81362  |
 | bert-base-uncased 	|90        	|yes      |yes      |30          |18            |85.63751  |77.41721  |
-| bert-base-uncased 	|97       	|yes      |yes      |30          |18            |  |  |
+| bert-base-uncased 	|97       	|yes      |yes      |30          |18            |75.01276  |63.94513  |
 
 ### Distillation, Pruning, Layer Dropping
 To explore the effect of model pruning compared to layer dropping, we train models to sparsity to match the amount of parameters in models with layers dropped. Results feature both with and without distillation. For distillation we use hard distillation and a a trained teacher model which is trained on SQuAD for 2 epochs and achieves an 88.32442/81.10690 F1/EM. A 9-layer model is roughly equivalent to 20% sparsity, 6-layer to 40%, 3-layer to 60%, 1-layer to 72%. 
@@ -169,26 +173,49 @@ To explore the effect of model pruning compared to layer dropping, we train mode
 | bert-base-uncased 	|0        	|66,365,954             |no       |no       |6         |0             |81.63629  |72.66793   |
 | bert-base-uncased 	|0        	|45,102,338            	|no       |no       |3         |0             |51.75267  |39.11069   |
 | bert-base-uncased 	|0        	|30,926,594            	|no       |no       |1         |0             |26.22600  |17.32261   |
-| bert-base-uncased 	|20        	|108,893,186         	|no       |yes      |12        |8             |87.19622  |79.16746   |
-| bert-base-uncased 	|40       	|108,893,186         	|no       |yes      |12        |8             |86.27294  |78.07947   |
-| bert-base-uncased 	|60        	|108,893,186         	|no       |yes      |12        |8             |86.4412   |77.94702   |
-| bert-base-uncased 	|72        	|108,893,186         	|no       |yes      |12        |8             |85.49873  |76.43330   |
-| bert-base-uncased 	|80        	|66,365,954         	|no       |yes      |6         |8             |77.86777  |67.07663   |
-| bert-base-uncased 	|90        	|66,365,954         	|no       |yes      |6         |8             |73.51963  |61.22044   |
-| bert-base-uncased 	|97        	|66,365,954         	|no       |yes      |6         |8             |67.27468  |53.85998   |
+| bert-base-uncased 	|20        	|108,893,186         	|no       |yes      |12        |18            |87.19622  |79.16746   |
+| bert-base-uncased 	|40       	|108,893,186         	|no       |yes      |12        |18            |86.27294  |78.07947   |
+| bert-base-uncased 	|60        	|108,893,186         	|no       |yes      |12        |18            |86.44120  |77.94702   |
+| bert-base-uncased 	|72        	|108,893,186         	|no       |yes      |12        |18            |85.49873  |76.43330   |
+| bert-base-uncased 	|80        	|66,365,954         	|no       |yes      |6         |18            |77.86777  |67.07663   |
+| bert-base-uncased 	|90        	|66,365,954         	|no       |yes      |6         |18            |73.51963  |61.22044   |
+| bert-base-uncased 	|97        	|66,365,954         	|no       |yes      |6         |18            |67.27468  |53.85998   |
 | bert-base-uncased 	|0        	|108,893,186         	|yes      |no       |12        |0             |89.02277  |82.03406   |
 | bert-base-uncased 	|0        	|87,629,570         	|yes      |no       |9         |0             |87.94176  |80.46358   |
-| bert-base-uncased 	|0        	|66,365,954             |yes      |no       |6         |0             |83.4553   |75.03311   |
+| bert-base-uncased 	|0        	|66,365,954             |yes      |no       |6         |0             |83.45530  |75.03311   |
 | bert-base-uncased 	|0        	|45,102,338            	|yes      |no       |3         |0             |43.82823  |33.05581   |
-| bert-base-uncased 	|0        	|30,926,594           	|yes      |no       |1         |0             |28.10105  |18.5052    |
-| bert-base-uncased 	|20        	|108,893,186         	|yes      |yes      |12        |18            |  |     |
-| bert-base-uncased 	|40       	|108,893,186         	|yes      |yes      |12        |18            |  |     |
-| bert-base-uncased 	|60        	|108,893,186         	|yes      |yes      |12        |18            |  |     |
-| bert-base-uncased 	|72        	|108,893,186         	|yes      |yes      |12        |18            |  |     |
-| bert-base-uncased 	|80        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
-| bert-base-uncased 	|90        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
-| bert-base-uncased 	|97        	|66,365,954         	|yes      |yes      |6         |8             |  |     |
+| bert-base-uncased 	|0        	|30,926,594           	|yes      |no       |1         |0             |28.10105  |18.50520   |
+| bert-base-uncased 	|20        	|108,893,186         	|yes      |yes      |12        |18            |89.55543  |82.74361   |
+| bert-base-uncased 	|40       	|108,893,186         	|yes      |yes      |12        |18            |89.76856  |83.05581   |
+| bert-base-uncased 	|60        	|108,893,186         	|yes      |yes      |12        |18            |89.38194  |82.28950   |
+| bert-base-uncased 	|72        	|108,893,186         	|yes      |yes      |12        |18            |89.10581  |83.03690   |
+| bert-base-uncased 	|80        	|66,365,954         	|yes      |yes      |6         |18            |84.69427  |76.56575   |
+| bert-base-uncased 	|90        	|66,365,954         	|yes      |yes      |6         |18            |80.53862  |71.00284   |
+| bert-base-uncased 	|97        	|66,365,954         	|yes      |yes      |6         |18            |72.36219  |60.82308   |
 
+export TASK_NAME=mrpc
+
+python run_glue.py \
+  --model_name_or_path bert-base-cased \
+  --task_name $TASK_NAME \
+  --do_train \
+  --do_eval \
+  --max_seq_length 128 \
+  --per_device_train_batch_size 32 \
+  --learning_rate 2e-5 \
+  --num_train_epochs 3 \
+  --output_dir /tmp/$TASK_NAME/
+where task name can be one of cola, sst2, mrpc, stsb, qqp, mnli, qnli, rte, wnli.
+
+We get the following results on the dev set of the benchmark with the previous commands (with an exception for MRPC and WNLI which are tiny and where we used 5 epochs isntead of 3). Trainings are seeded so you should obtain the same results with PyTorch 1.6.0 (and close results with different versions), training times are given for information (a single Titan RTX was used):
+
+Task	Metric	Result	Training time
+CoLA	Matthew's corr	56.53	3:17
+SST-2	Accuracy	92.32	26:06
+MRPC	F1/Accuracy	88.85/84.07	2:21
+STS-B	Person/Spearman corr.	88.64/88.48	2:13
+QQP	Accuracy/F1	90.71/87.49	2:22:26
+MNLI	Matched acc./Mismatched acc.	83.91/84.10	2:35:23
 ## Script Origin and How to Integrate SparseML with Other Transformers Projects
 This script is based on the example BERT-QA implementation in transformers found [here](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py). 
 
