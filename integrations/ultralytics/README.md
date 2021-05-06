@@ -151,8 +151,13 @@ python annotate.py \
     zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
     --source 0 \
     --quantized-inputs \
-    --image-shape 416 416
+    --image-shape 416 416 \
+    --no-save  # webcam only
 ```
+
+In addition to webcam `--source` can take a path to a `.jpg` file, directory or glog pat
+of `.jpg` files, or path to a `.mp4` video file.  If source is an integer and no
+corresponding webcam is available, an exception will be raised.
 
 
 ### Benchmarking
