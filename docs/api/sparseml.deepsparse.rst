@@ -13,8 +13,8 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 
-sparseml.keras package
-======================
+sparseml.deepsparse package
+===========================
 
 Subpackages
 -----------
@@ -22,20 +22,16 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   sparseml.keras.datasets
-   sparseml.keras.framework
-   sparseml.keras.models
-   sparseml.keras.optim
-   sparseml.keras.sparsification
-   sparseml.keras.utils
+   sparseml.deepsparse.framework
+   sparseml.deepsparse.sparsification
 
 Submodules
 ----------
 
-sparseml.keras.base module
---------------------------
+sparseml.deepsparse.base module
+-------------------------------
 
-.. automodule:: sparseml.keras.base
+.. automodule:: sparseml.deepsparse.base
    :members:
    :undoc-members:
    :show-inheritance:
@@ -43,7 +39,7 @@ sparseml.keras.base module
 Module contents
 ---------------
 
-.. automodule:: sparseml.keras
+.. automodule:: sparseml.deepsparse
    :members:
    :undoc-members:
    :show-inheritance:

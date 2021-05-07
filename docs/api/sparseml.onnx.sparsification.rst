@@ -13,29 +13,16 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 
-sparseml.keras package
-======================
-
-Subpackages
------------
-
-.. toctree::
-   :maxdepth: 4
-
-   sparseml.keras.datasets
-   sparseml.keras.framework
-   sparseml.keras.models
-   sparseml.keras.optim
-   sparseml.keras.sparsification
-   sparseml.keras.utils
+sparseml.onnx.sparsification package
+====================================
 
 Submodules
 ----------
 
-sparseml.keras.base module
---------------------------
+sparseml.onnx.sparsification.info module
+----------------------------------------
 
-.. automodule:: sparseml.keras.base
+.. automodule:: sparseml.onnx.sparsification.info
    :members:
    :undoc-members:
    :show-inheritance:
@@ -43,7 +30,7 @@ sparseml.keras.base module
 Module contents
 ---------------
 
-.. automodule:: sparseml.keras
+.. automodule:: sparseml.onnx.sparsification
    :members:
    :undoc-members:
    :show-inheritance:
