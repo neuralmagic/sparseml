@@ -69,6 +69,8 @@ jobs:
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
   base-tests:
     runs-on: ubuntu-18.04
+    env:
+      SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.base == 1}}
     steps:
@@ -88,6 +90,8 @@ jobs:
         run: make test
   deepsparse-tests:
     runs-on: ubuntu-18.04
+    env:
+      SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.deepsparse == 1}}
     steps:
@@ -107,6 +111,8 @@ jobs:
         run: make test TARGETS=deepsparse
   keras-tests:
     runs-on: ubuntu-18.04
+    env:
+      SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if:  ${{needs.test-setup.outputs.keras == 1}}
     steps:
@@ -126,6 +132,8 @@ jobs:
         run: make test TARGETS=keras
   onnx-tests:
     runs-on: ubuntu-18.04
+    env:
+      SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.onnx == 1}}
     steps:
@@ -145,6 +153,8 @@ jobs:
         run: make test TARGETS=onnx
   pytorch-tests:
     runs-on: ubuntu-18.04
+    env:
+      SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
@@ -164,6 +174,8 @@ jobs:
         run: make test TARGETS=pytorch
   tensorflow-v1-tests:
     runs-on: ubuntu-18.04
+    env:
+      SPARSEZOO_TEST_MODE: "true"
     needs: test-setup
     if:  ${{needs.test-setup.outputs.tensorflow_v1 == 1}}
     steps:
