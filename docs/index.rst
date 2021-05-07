@@ -110,6 +110,12 @@ Additionally, more information can be found via
     api/sparseml
 
 .. toctree::
+    :maxdepth: 2
+    :caption: Integrations
+
+    integrations/ultralytics
+
+.. toctree::
     :maxdepth: 3
     :caption: Help
 
