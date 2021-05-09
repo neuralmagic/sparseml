@@ -789,34 +789,52 @@ def load_recipe_yaml_str(file_path: Union[str, Recipe]) -> str:
     if isinstance(file_path, Recipe):
         # download and unwrap Recipe object
         file_path = file_path.downloaded_path()
-    elif file_path.startswith("zoo:"):
+
+    if not isinstance(file_path, str):
+        raise ValueError(
+            f"file_path must be a str, given {type(file_path)}"
+        )
+
+    if file_path.startswith("zoo:"):
         # download from zoo stub
         recipe = Zoo.download_recipe_from_stub(file_path)
         file_path = recipe.downloaded_path()
 
-    extension = file_path.lower().split(".")[-1]
-    if extension not in ["md", "yaml"]:
-        raise ValueError(
-            "Unsupported file extension for recipe. Excepted '.md' or '.yaml'. "
-            "Received {}".format(file_path)
-        )
-    with open(file_path, "r") as yaml_file:
-        yaml_str = yaml_file.read()
-        if extension == "md":
-            # extract YAML front matter from markdown recipe card
-            # adapted from
-            # https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
-            yaml_delim = r"(?:---|\+\+\+)"
-            yaml = r"(.*?)"
-            re_pattern = r"^\s*" + yaml_delim + yaml + yaml_delim
-            regex = re.compile(re_pattern, re.S | re.M)
-            result = regex.search(yaml_str)
-            if not result:
-                raise RuntimeError(
-                    "Could not extract YAML front matter from recipe card:"
-                    " {}".format(file_path)
-                )
+    # load the yaml string
+    if "\n" in file_path or "\r" in file_path:
+        # treat as raw yaml passed in
+        yaml_str = file_path
+        extension = "unknown"
+    else:
+        # load yaml from file_path
+        extension = file_path.lower().split(".")[-1]
+        if extension not in ["md", "yaml"]:
+            raise ValueError(
+                "Unsupported file extension for recipe. Excepted '.md' or '.yaml'. "
+                "Received {}".format(file_path)
+            )
+        with open(file_path, "r") as yaml_file:
+            yaml_str = yaml_file.read()
+
+    if extension == "md" or extension == "unknown":
+        # extract YAML front matter from markdown recipe card
+        # adapted from
+        # https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
+        yaml_delim = r"(?:---|\+\+\+)"
+        yaml = r"(.*?)"
+        re_pattern = r"^\s*" + yaml_delim + yaml + yaml_delim
+        regex = re.compile(re_pattern, re.S | re.M)
+        result = regex.search(yaml_str)
+
+        if result:
             yaml_str = result.group(1)
+        elif extension == "md":
+            # fail if we know whe should have extracted front matter out
+            raise RuntimeError(
+                "Could not extract YAML front matter from recipe card:"
+                " {}".format(file_path)
+            )
+
     return yaml_str
 
 
