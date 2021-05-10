@@ -92,7 +92,10 @@ class ScheduledOptimizer(Optimizer):
         self._manager.initialize_loggers(loggers)
 
     def __del__(self):
-        del self._manager
+        try:
+            del self._manager
+        except Exception:
+            pass
 
     def __getstate__(self):
         return self._optimizer.__getstate__()
