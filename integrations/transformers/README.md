@@ -86,22 +86,22 @@ wandb:                         train/f1 84.5742
 
 | base model name       | sparsity 	| total train epochs    | prunned | one shot |pruning epochs| F1 Score 	| EM Score  |
 |-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
-| bert-base-uncased 	|0        	|1                  	|no       |no        |0            	|84.574     |76.045     | verified
-| bert-base-uncased 	|0        	|2                  	|no       |no        |0            	|88.002     |80.634     | verified
-| bert-base-uncased 	|0        	|10                 	|no       |no        |0            	|87.603     |79.130     | verified
-| bert-base-uncased 	|80       	|1                  	|yes      |yes       |0          	|25.141     |15.998     | 6.0549/12.285, 8.68496/16.47797
-| bert-base-uncased 	|80       	|2                   	|yes      |no        |0            	|66.964     |53.879     | Verified
-| bert-base-uncased 	|80       	|10                  	|yes      |no        |8          	|83.951     |74.409     | 73.12204 82.65843
-| bert-base-uncased 	|90       	|1                  	|yes      |yes       |0           	|16.064     |07.786     |
-| bert-base-uncased 	|90       	|2                   	|yes      |no        |0            	|64.185     |50.946     |
-| bert-base-uncased 	|90       	|10                 	|yes      |no        |8            	|79.091     |68.184     |
-| bert-base-uncased 	|95       	|1                  	|yes      |yes       |0           	|10.501     |04.929     |
-| bert-base-uncased 	|95       	|2                   	|yes      |no        |0            	|24.445     |14.437     |
-| bert-base-uncased 	|95       	|10                 	|yes      |no        |8            	|72.761  	|60.407     |
-| bert-base-uncased 	|97       	|10                 	|yes      |no        |6            	|70.260  	|57.021     |
-| bert-base-uncased 	|99         |1                   	|yes      |yes       |0             |09.685     |03.614     |
-| bert-base-uncased 	|99       	|2                   	|yes      |no        |0            	|17.433     |07.871     |
-| bert-base-uncased 	|99         |10                    	|yes      |no        |8             |47.306    	|32.564     |
+| bert-base-uncased 	|0        	|1                  	|no       |no        |0             |84.574     |76.045     |
+| bert-base-uncased 	|0        	|2                  	|no       |no        |0             |88.002     |80.634     |
+| bert-base-uncased 	|0        	|10                 	|no       |no        |0             |87.603     |79.130     |
+| bert-base-uncased 	|80       	|1                  	|yes      |yes       |0             |25.141     |15.998     |
+| bert-base-uncased 	|80       	|2                   	|yes      |no        |0             |66.964     |53.879     |
+| bert-base-uncased 	|80       	|10                  	|yes      |no        |8             |83.951     |74.409     |
+| bert-base-uncased 	|90       	|1                  	|yes      |yes       |0             |16.064     |07.786     |
+| bert-base-uncased 	|90       	|2                   	|yes      |no        |0             |64.185     |50.946     |
+| bert-base-uncased 	|90       	|10                 	|yes      |no        |8             |79.091     |68.184     |
+| bert-base-uncased 	|95       	|1                  	|yes      |yes       |0             |10.501     |04.929     |
+| bert-base-uncased 	|95       	|2                   	|yes      |no        |0             |24.445     |14.437     |
+| bert-base-uncased 	|95       	|10                 	|yes      |no        |8             |72.761  	|60.407     |
+| bert-base-uncased 	|97       	|10                 	|yes      |no        |6             |70.260  	|57.021     |
+| bert-base-uncased 	|99             |1                   	|yes      |yes       |0             |09.685     |03.614     |
+| bert-base-uncased 	|99       	|2                   	|yes      |no        |0             |17.433     |07.871     |
+| bert-base-uncased 	|99             |10                    	|yes      |no        |8             |47.306    	|32.564     |
 
 ## Training with Distillation
 In addition to a simple QA model we provide an implementation which can leverage teacher-student distillation. The usage of the distillation code is virually identical to the non-distilled model but the commands are as follows: 
@@ -193,33 +193,37 @@ To explore the effect of model pruning compared to layer dropping, we train mode
 | bert-base-uncased 	|90        	|66,365,954         	|yes      |yes      |6         |18            |80.53862  |71.00284   |
 | bert-base-uncased 	|97        	|66,365,954         	|yes      |yes      |6         |18            |72.36219  |60.82308   |
 
-export TASK_NAME=mrpc
+## QQP, MNLI, GLUE Tasks
+Similar to our modifications to SQUAD, we can prune models for GLUE tasks with minimal changes. Building on the [run_glue.py](https://github.com/huggingface/transformers/blob/master/examples/pytorch/text-classification/run_glue.py) transformers implementation we update the scripts to prune with sparseml and add a distillation trainer. 
+To replicate our experiments you can use the following commonds:
 
+Training without distillation for MNLI where model is pruned to 80% sparsity. To add distillation just include the command ```sh --teacher_model_name_or_path <your teacher model>```
+```sh
 python run_glue.py \
-  --model_name_or_path bert-base-cased \
-  --task_name $TASK_NAME \
+  --student_model_name_or_path bert-base-cased \
+  --task_name MNLI \
   --do_train \
-  --do_eval \
   --max_seq_length 128 \
   --per_device_train_batch_size 32 \
   --learning_rate 2e-5 \
-  --num_train_epochs 3 \
-  --output_dir /tmp/$TASK_NAME/
-where task name can be one of cola, sst2, mrpc, stsb, qqp, mnli, qnli, rte, wnli.
+  --nm_prune_config recipes/80sparselong.yaml
+  --output_dir /80sparseMNLI
+```
+### Results
+We see similair results for QQP and MNLI as in SQUAD but the effect of model distillation is more muted.
+| base model name       | sparsity      |Distilled| prunned |train epochs|pruning epochs| QQP Accuracy | QQP F1   | MNLI Accuracy |
+|-----------------------|----------     |---------|---------|------------|--------------|--------------|----------|---------------|
+| bert-base-uncased     |0              |no       |no       |3           |0             |91.47         |88.49     |84.42          |
+| bert-base-uncased     |80             |no       |no       |30          |18            |              |          |81.34          |
+| bert-base-uncased     |90             |no       |no       |30          |18            |              |          |78.76          |
+| bert-base-uncased     |97             |no       |no       |30          |18            |              |          |73.42          |
+| bert-base-uncased     |0              |yes      |no       |2           |0             |              |          |               |
+| bert-base-uncased     |80             |yes      |yes      |30          |18            |              |          |               |
+| bert-base-uncased     |90             |yes      |yes      |30          |18            |              |          |               |
+| bert-base-uncased     |97             |yes      |yes      |30          |18            |              |          |               |
 
-We get the following results on the dev set of the benchmark with the previous commands (with an exception for MRPC and WNLI which are tiny and where we used 5 epochs isntead of 3). Trainings are seeded so you should obtain the same results with PyTorch 1.6.0 (and close results with different versions), training times are given for information (a single Titan RTX was used):
-
-Task	Metric	Result	Training time
-CoLA	Matthew's corr	56.53	3:17
-SST-2	Accuracy	92.32	26:06
-MRPC	F1/Accuracy	88.85/84.07	2:21
-STS-B	Person/Spearman corr.	88.64/88.48	2:13
-QQP	Accuracy/F1	90.71/87.49	2:22:26
-MNLI	Matched acc./Mismatched acc.	83.91/84.10	2:35:23
-## Script Origin and How to Integrate SparseML with Other Transformers Projects
-This script is based on the example BERT-QA implementation in transformers found [here](https://github.com/huggingface/transformers/blob/master/examples/question-answering/run_qa.py). 
-
-For any other projects combining Hugging Face transformers there are essentially four components to modify: imports and needed function, loading SparseML, modifying training script, and ONNX export. 
+## How to Integrate SparseML with Other Transformers Projects
+For any other projects using Hugging Face's transformers there are essentially four components to modify: imports and needed function, loading SparseML, modifying training script, and ONNX export. 
 
 First, take your existing project and add the following imports and functions:
 ```python
