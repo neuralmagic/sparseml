@@ -17,9 +17,7 @@ import os
 import time
 from abc import ABC
 
-import numpy
 import pytest
-import torch
 
 from sparseml.pytorch.utils import (
     LambdaLogger,
