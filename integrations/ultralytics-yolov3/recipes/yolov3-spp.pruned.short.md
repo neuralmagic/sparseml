@@ -1,99 +1,42 @@
+<!--
+Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
 ---
-# parameter groups
-prune_none: &prune_none
-  - model.16.conv.weight
-  - model.19.cv1.conv.weight
-  - model.26.cv2.conv.weight
-
-prune_low: &prune_low
-  - model.12.cv1.conv.weight
-  - model.14.conv.weight
-  - model.2.cv1.conv.weight
-  - model.20.cv2.conv.weight
-  - model.22.conv.weight
-  - model.26.cv1.conv.weight
-  - model.27.1.cv1.conv.weight
-  - model.28.m.0.weight
-  - model.28.m.2.weight
-  - model.4.0.cv1.conv.weight
-  - model.6.1.cv1.conv.weight
-  - model.6.2.cv1.conv.weight
-  - model.6.3.cv1.conv.weight
-  - model.6.4.cv1.conv.weight
-  - model.6.5.cv1.conv.weight
-  - model.6.6.cv1.conv.weight
-  - model.6.7.cv1.conv.weight
-  - model.8.0.cv1.conv.weight
-  - model.8.1.cv1.conv.weight
-  - model.8.2.cv1.conv.weight
-  - model.8.3.cv1.conv.weight
-  - model.8.4.cv1.conv.weight
-  - model.8.5.cv1.conv.weight
-  - model.8.6.cv1.conv.weight
-  - model.8.7.cv1.conv.weight
-
-prune_mid: &prune_mid
-  - model.1.conv.weight
-  - model.10.0.cv1.conv.weight
-  - model.10.1.cv1.conv.weight
-  - model.10.2.cv1.conv.weight
-  - model.10.3.cv1.conv.weight
-  - model.11.cv1.conv.weight
-  - model.12.cv2.conv.weight
-  - model.19.cv2.conv.weight
-  - model.2.cv2.conv.weight
-  - model.27.0.cv1.conv.weight
-  - model.27.0.cv2.conv.weight
-  - model.27.1.cv2.conv.weight
-  - model.28.m.1.weight
-  - model.3.conv.weight
-  - model.4.0.cv2.conv.weight
-  - model.4.1.cv1.conv.weight
-  - model.4.1.cv2.conv.weight
-  - model.5.conv.weight
-  - model.6.0.cv1.conv.weight
-  - model.6.0.cv2.conv.weight
-  - model.6.1.cv2.conv.weight
-  - model.6.2.cv2.conv.weight
-  - model.6.3.cv2.conv.weight
-
-prune_high: &prune_high
-  - model.10.0.cv2.conv.weight
-  - model.10.1.cv2.conv.weight
-  - model.10.2.cv2.conv.weight
-  - model.10.3.cv2.conv.weight
-  - model.11.cv2.conv.weight
-  - model.13.conv.weight
-  - model.15.conv.weight
-  - model.20.cv1.conv.weight
-  - model.21.conv.weight
-  - model.23.conv.weight
-  - model.6.4.cv2.conv.weight
-  - model.6.5.cv2.conv.weight
-  - model.6.6.cv2.conv.weight
-  - model.6.7.cv2.conv.weight
-  - model.7.conv.weight
-  - model.8.0.cv2.conv.weight
-  - model.8.1.cv2.conv.weight
-  - model.8.2.cv2.conv.weight
-  - model.8.3.cv2.conv.weight
-  - model.8.4.cv2.conv.weight
-  - model.8.5.cv2.conv.weight
-  - model.8.6.cv2.conv.weight
-  - model.8.7.cv2.conv.weight
-  - model.9.conv.weight
+# General Epoch/LR variables
+num_epochs: &num_epochs 75.0
 
 # pruning hyperparameters
 init_sparsity: &init_sparsity 0.05
 pruning_start_epoch: &pruning_start_epoch 0.0
-pruning_end_epoch: &pruning_end_epoch 80.0
+pruning_end_epoch: &pruning_end_epoch 35.0
 update_frequency: &pruning_update_frequency 0.5
 
 
 # modifiers
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: *num_epochs
+
 pruning_modifiers:
   - !GMPruningModifier
-    params: *prune_none
+    params:
+      - model.16.conv.weight
+      - model.19.cv1.conv.weight
+      - model.26.cv2.conv.weight
     init_sparsity: *init_sparsity
     final_sparsity: 0.6
     start_epoch: *pruning_start_epoch
@@ -101,7 +44,32 @@ pruning_modifiers:
     update_frequency: *pruning_update_frequency
 
   - !GMPruningModifier
-    params: *prune_low
+    params:
+      - model.12.cv1.conv.weight
+      - model.14.conv.weight
+      - model.2.cv1.conv.weight
+      - model.20.cv2.conv.weight
+      - model.22.conv.weight
+      - model.26.cv1.conv.weight
+      - model.27.1.cv1.conv.weight
+      - model.28.m.0.weight
+      - model.28.m.2.weight
+      - model.4.0.cv1.conv.weight
+      - model.6.1.cv1.conv.weight
+      - model.6.2.cv1.conv.weight
+      - model.6.3.cv1.conv.weight
+      - model.6.4.cv1.conv.weight
+      - model.6.5.cv1.conv.weight
+      - model.6.6.cv1.conv.weight
+      - model.6.7.cv1.conv.weight
+      - model.8.0.cv1.conv.weight
+      - model.8.1.cv1.conv.weight
+      - model.8.2.cv1.conv.weight
+      - model.8.3.cv1.conv.weight
+      - model.8.4.cv1.conv.weight
+      - model.8.5.cv1.conv.weight
+      - model.8.6.cv1.conv.weight
+      - model.8.7.cv1.conv.weight
     init_sparsity: *init_sparsity
     final_sparsity: 0.75
     start_epoch: *pruning_start_epoch
@@ -109,7 +77,30 @@ pruning_modifiers:
     update_frequency: *pruning_update_frequency
 
   - !GMPruningModifier
-    params: *prune_mid
+    params:
+      - model.1.conv.weight
+      - model.10.0.cv1.conv.weight
+      - model.10.1.cv1.conv.weight
+      - model.10.2.cv1.conv.weight
+      - model.10.3.cv1.conv.weight
+      - model.11.cv1.conv.weight
+      - model.12.cv2.conv.weight
+      - model.19.cv2.conv.weight
+      - model.2.cv2.conv.weight
+      - model.27.0.cv1.conv.weight
+      - model.27.0.cv2.conv.weight
+      - model.27.1.cv2.conv.weight
+      - model.28.m.1.weight
+      - model.3.conv.weight
+      - model.4.0.cv2.conv.weight
+      - model.4.1.cv1.conv.weight
+      - model.4.1.cv2.conv.weight
+      - model.5.conv.weight
+      - model.6.0.cv1.conv.weight
+      - model.6.0.cv2.conv.weight
+      - model.6.1.cv2.conv.weight
+      - model.6.2.cv2.conv.weight
+      - model.6.3.cv2.conv.weight
     init_sparsity: *init_sparsity
     final_sparsity: 0.8
     start_epoch: *pruning_start_epoch
@@ -117,7 +108,31 @@ pruning_modifiers:
     update_frequency: *pruning_update_frequency
 
   - !GMPruningModifier
-    params: *prune_high
+    params:
+      - model.10.0.cv2.conv.weight
+      - model.10.1.cv2.conv.weight
+      - model.10.2.cv2.conv.weight
+      - model.10.3.cv2.conv.weight
+      - model.11.cv2.conv.weight
+      - model.13.conv.weight
+      - model.15.conv.weight
+      - model.20.cv1.conv.weight
+      - model.21.conv.weight
+      - model.23.conv.weight
+      - model.6.4.cv2.conv.weight
+      - model.6.5.cv2.conv.weight
+      - model.6.6.cv2.conv.weight
+      - model.6.7.cv2.conv.weight
+      - model.7.conv.weight
+      - model.8.0.cv2.conv.weight
+      - model.8.1.cv2.conv.weight
+      - model.8.2.cv2.conv.weight
+      - model.8.3.cv2.conv.weight
+      - model.8.4.cv2.conv.weight
+      - model.8.5.cv2.conv.weight
+      - model.8.6.cv2.conv.weight
+      - model.8.7.cv2.conv.weight
+      - model.9.conv.weight
     init_sparsity: *init_sparsity
     final_sparsity: 0.92
     start_epoch: *pruning_start_epoch
@@ -146,15 +161,13 @@ Adjust the script command for your GPU device setup. Ultralytics supports both D
 
 ```
 python train.py \
-  --sparseml-recipe zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive_97?recipe_type=original \
-  --use-amp \
-  --weights zoo \
-  --cfg ./models/hub/yolov3-spp.yaml \
+  --recipe ../recipes/yolov3-spp.pruned.short.md \
+  --weights PRETRAINED_WEIGHTS \
+  --cfg ../models/yolov3-spp.lrelu.yaml \
   --data coco.yaml \
-  --hyp data/hyp.prune.yaml \
-  --epochs 300 \
+  --hyp ../data/hyp.pruned.yaml \
   --batch-size 256 \
-  --name yolov3-spp-leaky_relu-pruned
+  --name yolov3-spp-lrelu-pruned-short
 ```
 
 hyp.prune.yaml:

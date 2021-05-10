@@ -791,9 +791,7 @@ def load_recipe_yaml_str(file_path: Union[str, Recipe]) -> str:
         file_path = file_path.downloaded_path()
 
     if not isinstance(file_path, str):
-        raise ValueError(
-            f"file_path must be a str, given {type(file_path)}"
-        )
+        raise ValueError(f"file_path must be a str, given {type(file_path)}")
 
     if file_path.startswith("zoo:"):
         # download from zoo stub
