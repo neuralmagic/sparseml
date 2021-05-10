@@ -39,9 +39,9 @@ try:
     import wandb
 
     wandb_error = None
-except Exception as wandb_err:
+except Exception as err:
     wandb = None
-    wandb_err = wandb_err
+    wandb_err = err
 
 from sparseml.utils import create_dirs
 
