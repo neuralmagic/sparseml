@@ -27,7 +27,7 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseManager
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
-from sparseml.pytorch.utils import PyTorchLogger
+from sparseml.pytorch.utils import BaseLogger
 from sparseml.utils import load_recipe_yaml_str
 from sparsezoo.objects import Recipe
 
@@ -135,7 +135,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         for idx, modifier_state_dict in state_dict.items():
             self.modifiers[int(idx)].load_state_dict(modifier_state_dict)
 
-    def initialize_loggers(self, loggers: Union[None, List[PyTorchLogger]]):
+    def initialize_loggers(self, loggers: Union[None, List[BaseLogger]]):
         """
         Handles initializing and setting up the loggers for the contained modifiers
         Called once on construction of the scheduled optimizer

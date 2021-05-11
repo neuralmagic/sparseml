@@ -32,7 +32,7 @@ from sparseml.optim import (
     ModifierProp,
     ModifierYAML,
 )
-from sparseml.pytorch.utils import PyTorchLogger
+from sparseml.pytorch.utils import BaseLogger
 from sparseml.utils import ALL_TOKEN, PYTORCH_FRAMEWORK
 
 
@@ -125,7 +125,7 @@ class Modifier(BaseModifier):
         """
         self._initialized = True
 
-    def initialize_loggers(self, loggers: Union[None, List[PyTorchLogger]]):
+    def initialize_loggers(self, loggers: Union[None, List[BaseLogger]]):
         """
         :param loggers: the loggers to setup this modifier with for logging important
             info and milestones to
