@@ -216,7 +216,7 @@ We see similair results for QQP and MNLI as in SQUAD but the effect of model dis
 | bert-base-uncased     |0              |no       |no       |3           |0             |91.47         |88.49     |84.42          |
 | bert-base-uncased     |80             |no       |no       |30          |18            |              |          |81.34          |
 | bert-base-uncased     |90             |no       |no       |30          |18            |              |          |78.76          |
-| bert-base-uncased     |97             |no       |no       |30          |18            |              |          |73.42          |
+| bert-base-uncased     |97             |no       |no       |30          |18            |87.57         |83.34     |73.42          |
 | bert-base-uncased     |0              |yes      |no       |2           |0             |              |          |               |
 | bert-base-uncased     |80             |yes      |yes      |30          |18            |              |          |               |
 | bert-base-uncased     |90             |yes      |yes      |30          |18            |              |          |               |
