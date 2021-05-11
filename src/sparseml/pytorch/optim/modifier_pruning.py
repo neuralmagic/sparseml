@@ -41,7 +41,7 @@ from sparseml.pytorch.utils import (
     get_prunable_layers,
     tensor_sparsity,
 )
-from sparseml.pytorch.utils.logger import PyTorchLogger
+from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.utils import (
     ALL_PRUNABLE_TOKEN,
     ALL_TOKEN,
@@ -62,7 +62,7 @@ __all__ = [
 
 def _log_sparsity(
     analyzers: List[ModulePruningAnalyzer],
-    loggers: List[PyTorchLogger],
+    loggers: List[BaseLogger],
     epoch: float,
     steps_per_epoch: int,
 ):
