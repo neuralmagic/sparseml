@@ -137,6 +137,7 @@ class ModuleParamPruningMask(object):
                 f"Valid values: {PruningScoreTypes.values()}"
             )
         self._score_type = score_type
+        self._allow_reintroduction = self._score_type == PruningScoreTypes.MOVEMENT
 
         self._setup_params_init()
         self._setup_params_unmasked()
@@ -441,6 +442,13 @@ class ModuleParamPruningMask(object):
         for idx, param in enumerate(self._params):
             self._params_movement[idx].add_(-0.01 * param.grad * param.data)
 
+    def disable_reintroduction(self):
+        """
+        if weight reintroduction is enabled (only during movement pruning),
+        disables further weight reintroduction
+        """
+        self._allow_reintroduction = False
+
     def _score_parameters(self):
         if self._score_type == PruningScoreTypes.MAGNITUDE:
             # S = |W|
@@ -548,7 +556,8 @@ class ModuleParamPruningMask(object):
         self.apply(param_idx)
 
     def _hook_undo_mask(self, param_idx, module, inp, out):
-        self._params[param_idx].data.add_(self._params_unmasked[param_idx])
+        if self._allow_reintroduction:
+            self._params[param_idx].data.add_(self._params_unmasked[param_idx])
 
     def _hook_mask_gradient(self, param_idx, grad):
         if 0.0 <= self._track_grad_mom < 1.0:
@@ -558,7 +567,7 @@ class ModuleParamPruningMask(object):
 
         return (
             grad.mul_(self._param_masks[param_idx])
-            if self._score_type != PruningScoreTypes.MOVEMENT
+            if not self._allow_reintroduction
             else grad  # do not mask gradient for movement pruning
         )
 
