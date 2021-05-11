@@ -31,10 +31,10 @@ from sparseml.pytorch.optim.mask_creator_pruning import UnstructuredPruningMaskC
 from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
+    BaseLogger,
     LossWrapper,
     ModuleRunFuncs,
     ModuleTester,
-    PyTorchLogger,
     get_prunable_layers,
     infinite_data_loader,
 )
@@ -216,7 +216,7 @@ def pruning_loss_sens_one_shot(
     sparsity_levels: List[int] = default_pruning_sparsities_loss(False),
     loss_key: str = DEFAULT_LOSS_KEY,
     tester_run_funcs: ModuleRunFuncs = None,
-    tester_loggers: List[PyTorchLogger] = None,
+    tester_loggers: List[BaseLogger] = None,
     show_progress: bool = True,
 ) -> PruningLossSensitivityAnalysis:
     """
