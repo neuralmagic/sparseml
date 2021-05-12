@@ -368,13 +368,13 @@ class ScheduledModifierManager(BaseManager, Modifier):
             epoch = self._initialize_epoch
 
         if not self.initialized:
-            self.intialize(module, epoch)
+            self.initialize(module, epoch)
 
         if wrap_optim is None:
             wrap_optim = optimizer
 
         return RecipeManagerStepWrapper(
-            wrap_optim, self, optimizer, module, epoch, steps_per_epoch
+            wrap_optim, optimizer, module, self, epoch, steps_per_epoch
         )
 
     def finalize(
