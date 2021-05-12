@@ -257,6 +257,7 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
             for individual modifiers.
         """
         super().finalize(module, reset_loggers, **kwargs)
+        self._module_masks.apply()
         self._module_masks.enabled = False
         self._module_masks = None
         self._analyzers = None

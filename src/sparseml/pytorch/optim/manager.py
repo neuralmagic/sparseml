@@ -31,10 +31,10 @@ from sparseml.utils import load_recipe_yaml_str
 from sparsezoo.objects import Recipe
 
 
-__all__ = ["ModifierManagerOptimWrapper", "ScheduledModifierManager"]
+__all__ = ["RecipeManagerStepWrapper", "ScheduledModifierManager"]
 
 
-class ModifierManagerOptimWrapper(object):
+class RecipeManagerStepWrapper(object):
     """
     A wrapper class to handle wrapping an optimizer or optimizer like object
     and override the step function.
@@ -344,7 +344,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         steps_per_epoch: int,
         wrap_optim: Any = None,
         epoch: float = None,
-    ) -> ModifierManagerOptimWrapper:
+    ) -> RecipeManagerStepWrapper:
         """
         Modify the given module and optimizer for training aware algorithms such as
         pruning and quantization.
@@ -364,16 +364,16 @@ class ScheduledModifierManager(BaseManager, Modifier):
             original properties for the wrapped object available so it can be
             used without any additional code changes.
         """
-        if not self.initialized:
-            raise RuntimeError("manager must be initialized first")
-
         if epoch is None:
             epoch = self._initialize_epoch
+
+        if not self.initialized:
+            self.intialize(module, epoch)
 
         if wrap_optim is None:
             wrap_optim = optimizer
 
-        return ModifierManagerOptimWrapper(
+        return RecipeManagerStepWrapper(
             wrap_optim, self, optimizer, module, epoch, steps_per_epoch
         )
 

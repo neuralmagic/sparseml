@@ -144,7 +144,10 @@ class Modifier(BaseModifier):
         :raises IndexError: If any keys in the state dict do not correspond to a valid
             index for this manager and strict=True
         """
-        pass
+        if strict and len(state_dict) > 0:
+            raise IndexError(
+                f"found extra keys in state_dict {list(state_dict.keys())}"
+            )
 
     def apply(
         self,

@@ -24,7 +24,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from sparseml.pytorch.optim.manager import (
-    ModifierManagerOptimWrapper,
+    RecipeManagerStepWrapper,
     ScheduledModifierManager,
 )
 from sparseml.pytorch.utils import (
@@ -88,7 +88,7 @@ class ScheduledOptimizer(Optimizer):
         )
 
         manager.initialize(module, epoch=0.0, loggers=loggers)
-        self._wrapper = ModifierManagerOptimWrapper(
+        self._wrapper = RecipeManagerStepWrapper(
             optimizer,
             optimizer,
             module,
