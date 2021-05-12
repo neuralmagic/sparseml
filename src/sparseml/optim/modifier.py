@@ -315,10 +315,6 @@ class BaseModifier(BaseObject):
                         f"of type {modifier_type} was found in recipe list {name}"
                     )
 
-        # sort modifiers by when they start and end so that later modifiers
-        # can overwrite in a deterministic order such as when initializing
-        modifiers.sort(key=cmp_to_key(BaseModifier.comparator))
-
         return modifiers
 
     @staticmethod
