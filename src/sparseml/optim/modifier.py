@@ -17,8 +17,10 @@ Code related to modifiers that is shared across frameworks.
 Modifiers allow modifying the training process of a model; ex to perform model pruning.
 """
 
+import hashlib
 import re
 from abc import ABC, abstractmethod
+from functools import cmp_to_key
 from typing import Any, Callable, Dict, List, Union
 
 import yaml
@@ -313,6 +315,10 @@ class BaseModifier(BaseObject):
                         f"of type {modifier_type} was found in recipe list {name}"
                     )
 
+        # sort modifiers by when they start and end so that later modifiers
+        # can overwrite in a deterministic order such as when initializing
+        modifiers.sort(key=cmp_to_key(BaseModifier.comparator))
+
         return modifiers
 
     @staticmethod
@@ -341,6 +347,99 @@ class BaseModifier(BaseObject):
             return "!{}".format(clazz.__name__)
 
         return "!{}.{}".format(framework, clazz.__name__)
+
+    @staticmethod
+    def comparator(one, two) -> int:
+        """
+        Comparator implementation for Modifiers.
+        Compares first on end_epoch, next on start_epoch, and finally on identifier.
+
+        :param one: first modifier to compare
+        :param two: second modifier to compare
+        :return: int representing where one is in relation to two
+        """
+        # compare first on end epoch
+        compare = BaseModifier.comparator_ends(one, two)
+
+        if compare == 0:
+            # if ends equal, compare next on start
+            compare = BaseModifier.comparator_starts(one, two)
+
+        if compare == 0:
+            # if still equal, compare on identifier
+            compare = BaseModifier.comparator_identifiers(one, two)
+
+        return compare
+
+    @staticmethod
+    def comparator_ends(one, two) -> int:
+        """
+        Comparator implementation for Modifiers based on end_epoch.
+        Modifiers with ends greater than another will come out higher.
+
+        :param one: first modifier to compare
+        :param two: second modifier to compare
+        :return: int representing where one is in relation to two
+        """
+        one_end = getattr(one, "end_epoch") if hasattr(one, "end_epoch") else None
+        two_end = getattr(two, "end_epoch") if hasattr(two, "end_epoch") else None
+
+        if one_end == two_end:
+            return 0
+        if one_end is None or two_end == -1:
+            # if no end for one and two has one or two never ends, return one before two
+            return -1
+        if two_end is None or one_end == -1:
+            # if no end for two and one has one or one never ends, return one after two
+            return 1
+        if one_end < two_end:
+            return -1
+        return 1
+
+    @staticmethod
+    def comparator_starts(one, two) -> int:
+        """
+        Comparator implementation for Modifiers based on start_epoch.
+        Modifiers with starts greater than another will come out higher.
+
+        :param one: first modifier to compare
+        :param two: second modifier to compare
+        :return: int representing where one is in relation to two
+        """
+        one_start = getattr(one, "start_epoch") if hasattr(one, "start_epoch") else None
+        two_start = getattr(two, "start_epoch") if hasattr(two, "start_epoch") else None
+
+        if one_start == two_start:
+            return 0
+        if one_start is None:
+            # if no start for one and two has one, return one before two
+            return -1
+        if two_start is None:
+            # if no start for two and one has one, return one after two
+            return 1
+        if one_start > two_start:
+            # if one starts after two, return after
+            return 1
+        return -1
+
+    @staticmethod
+    def comparator_identifiers(one, two) -> int:
+        """
+        Comparator implementation for Modifiers based on end_epoch.
+        Modifiers with ends greater than another will come out higher.
+
+        :param one: first modifier to compare
+        :param two: second modifier to compare
+        :return: int representing where one is in relation to two
+        """
+        one_id = one.identifier()
+        two_id = two.identifier()
+
+        if one_id < two_id:
+            return -1
+        if one_id > two_id:
+            return 1
+        return 0
 
     def __init__(self, log_types: Union[str, List[str]], **kwargs):
         super().__init__(**kwargs)
@@ -399,6 +498,19 @@ class BaseModifier(BaseObject):
         :param value: True to allow the modifier to make updates, False otherwise
         """
         self._enabled = value
+
+    def identifier(self, extra: Any = "") -> str:
+        """
+        :param extra: any extra identifier to append to the end of the string
+        :return: generate an identifier for the current modifier based on its
+            class name and params
+        """
+        props = self.props(only_serializable=True, format_str=True)
+        props_list = [f"{key}:{val}" for key, val in props.items()]
+        props_list.sort()  # convert to list and sort to make deterministic
+        hash_str = hashlib.md5(str(props_list).encode()).hexdigest()
+
+        return f"{self.__class__.__name__}-{hash_str}{f'-{extra}' if extra else ''}"
 
     def props(
         self,

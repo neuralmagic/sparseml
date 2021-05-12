@@ -19,7 +19,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 """
 
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -34,6 +34,7 @@ except Exception:
 
 from sparseml.optim import ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
+from sparseml.pytorch.utils import BaseLogger
 from sparseml.pytorch.utils.quantization import (
     add_quant_dequant,
     fuse_module_conv_bn_relus,
@@ -77,9 +78,6 @@ class QuantizationModifier(ScheduledModifier):
         exception. For compatibility with YAML serialization only.
     :param model_fuse_fn_kwargs: dictionary of keyword argument values to be passed
         to the model fusing function
-    :param enable_on_initialize: if True, QAT will be enabled in the given module
-        when this modifier is initialized. This means that QAT will begin from modifier
-        initialization regardless of the start_epoch value. Default is False
     """
 
     def __init__(
@@ -91,7 +89,6 @@ class QuantizationModifier(ScheduledModifier):
         freeze_bn_stats_epoch: Union[float, None] = None,
         end_epoch: float = -1,
         model_fuse_fn_kwargs: Dict[str, Any] = None,
-        enable_on_initialize: bool = False,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -113,7 +110,6 @@ class QuantizationModifier(ScheduledModifier):
         self._model_fuse_fn_kwargs = model_fuse_fn_kwargs or {}
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
-        self._enable_on_initialize = enable_on_initialize
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -210,30 +206,24 @@ class QuantizationModifier(ScheduledModifier):
         self._freeze_bn_stats_epoch = value
         self._validate_params()
 
-    @ModifierProp()
-    def enable_on_initialize(self) -> bool:
-        """
-        :return: True if QAT should be enabled when this modifier is initialized,
-            False otherwise. If true, start_epoch will not be respected
-        """
-        return self._enable_on_initialize
-
-    @enable_on_initialize.setter
-    def enable_on_initialize(self, value: bool):
-        """
-        :params value: True if QAT should be enabled when this modifier is initialized,
-            False otherwise. If true, start_epoch will not be respected
-        """
-        self._enable_on_initialize = value
-
-    def initialize(self, module: Module, optimizer: Optimizer):
+    def initialize(
+        self,
+        module: Module,
+        epoch: float = 0,
+        loggers: Optional[List[BaseLogger]] = None,
+        **kwargs,
+    ):
         """
         Grab the module / submodule to perform QAT on
 
-        :param module: module to modify
-        :param optimizer: optimizer to modify
+        :param module: the PyTorch model/module to modify
+        :param epoch: The epoch to initialize the modifier and module at.
+            Defaults to 0 (start of the training process)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
         """
-        super().initialize(module, optimizer)
+        super().initialize(module, epoch, loggers, **kwargs)
         self._modules_to_quantize = []
         if self._submodules is not None:
             found_submodules = []
@@ -251,8 +241,7 @@ class QuantizationModifier(ScheduledModifier):
         else:
             self._modules_to_quantize.append(module)
 
-        if self._enable_on_initialize:
-            self._enable_module_qat(module)
+        self._check_quantization_update(module, epoch, steps_per_epoch=0)
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -270,6 +259,33 @@ class QuantizationModifier(ScheduledModifier):
             (calculate batch number using this and epoch)
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
+        self._check_quantization_update(module, epoch, steps_per_epoch)
+
+    def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
+        """
+
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        :return: True if the modifier is pending an update and update() should be called
+        """
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
+
+        if not self._enabled:
+            return False
+
+        pending = (
+            self.start_pending(epoch, steps_per_epoch)
+            or self._disable_quantization_observer_update_ready(epoch)
+            or self._freeze_bn_stats_update_ready(epoch)
+        )
+
+        return pending
+
+    def _check_quantization_update(
+        self, module: Module, epoch: float, steps_per_epoch: int
+    ):
         if self.start_pending(epoch, steps_per_epoch) and not self._qat_enabled:
             self._enable_module_qat(module)
 
@@ -327,28 +343,6 @@ class QuantizationModifier(ScheduledModifier):
             and epoch >= self._freeze_bn_stats_epoch
             and not self._bn_stats_frozen
         )
-
-    def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
-        """
-
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch
-            (calculate batch number using this and epoch)
-        :return: True if the modifier is pending an update and update() should be called
-        """
-        if not self._initialized:
-            raise RuntimeError("modifier must be initialized first")
-
-        if not self._enabled:
-            return False
-
-        pending = (
-            self.start_pending(epoch, steps_per_epoch)
-            or self._disable_quantization_observer_update_ready(epoch)
-            or self._freeze_bn_stats_update_ready(epoch)
-        )
-
-        return pending
 
     def _validate_params(self):
         if (

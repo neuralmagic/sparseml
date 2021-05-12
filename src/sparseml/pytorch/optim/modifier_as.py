@@ -16,7 +16,7 @@
 Modifiers for increasing / enforcing activation sparsity on models while training.
 """
 
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import torch.nn.functional as TF
 from torch import Tensor
@@ -25,7 +25,7 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.pytorch.optim.modifier import ModifierProp, ScheduledModifier
 from sparseml.pytorch.optim.sensitivity_as import ASLayerTracker
-from sparseml.pytorch.utils import get_layer, get_terminal_layers
+from sparseml.pytorch.utils import BaseLogger, get_layer, get_terminal_layers
 from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
 
@@ -91,9 +91,6 @@ class ASRegModifier(ScheduledModifier):
         self._trackers = []  # type: List[ASLayerTracker]
 
         self.validate()
-
-    def __del__(self):
-        self._trackers.clear()
 
     @ModifierProp()
     def layers(self) -> Union[str, List[str]]:
@@ -178,14 +175,24 @@ class ASRegModifier(ScheduledModifier):
         self._reg_tens = value
         self.validate()
 
-    def initialize(self, module: Module, optimizer: Optimizer):
+    def initialize(
+        self,
+        module: Module,
+        epoch: float = 0,
+        loggers: Optional[List[BaseLogger]] = None,
+        **kwargs,
+    ):
         """
-        Grab the layer's to control activation sparsity for
+        Grabs the layers to control the activation sparsity for
 
-        :param module: module to modify
-        :param optimizer: optimizer to modify
+        :param module: the PyTorch model/module to modify
+        :param epoch: The epoch to initialize the modifier and module at.
+            Defaults to 0 (start of the training process)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
         """
-        super(ASRegModifier, self).initialize(module, optimizer)
+        super(ASRegModifier, self).initialize(module, epoch, loggers, **kwargs)
         layers = (
             get_terminal_layers(module)
             if self._layers == ALL_TOKEN
@@ -202,6 +209,22 @@ class ASRegModifier(ScheduledModifier):
                     output_func=self._regularize_tracked,
                 )
             )
+
+    def finalize(
+        self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
+    ):
+        """
+        Clean up any state for tracking activation sparsity
+
+        :param module: The model/module to finalize the modifier for.
+            Marked optional so state can still be cleaned up on delete,
+            but generally should always be passed in.
+        :param reset_loggers: True to remove any currently attached loggers (default),
+            False to keep the loggers attached.
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
+        """
+        self._trackers.clear()
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
