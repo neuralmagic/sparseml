@@ -389,7 +389,7 @@ def main():
     elif args.initial_checkpoint.startswith("zoo:"):
         # Load weights from a SparseZoo model stub
         zoo_model = Zoo.load_model_from_stub(args.initial_checkpoint)
-        args.initial_checkpoint = zoo_model.download_framework_files(extensions=[".pth"])
+        args.initial_checkpoint = zoo_model.download_framework_files(extensions=[".pth"])[0]
     ####################################################################################
     # End - SparseML optional load weights from SparseZoo
     ####################################################################################
