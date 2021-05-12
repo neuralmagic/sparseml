@@ -19,12 +19,9 @@ Contains code for loggers that help visualize the information from each modifier
 import logging
 import os
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from logging import Logger
-from typing import Dict, Union
-
-from numpy import ndarray
-from torch import Tensor
+from typing import Callable, Dict, List, Optional, Union
 
 
 try:
@@ -34,24 +31,42 @@ try:
         from tensorboardX import SummaryWriter
     tensorboard_import_error = None
 except Exception as tensorboard_err:
-    SummaryWriter = None
+    SummaryWriter = object
     tensorboard_import_error = tensorboard_err
+
+
+try:
+    import wandb
+
+    wandb_error = None
+except Exception as err:
+    wandb = None
+    wandb_err = err
 
 from sparseml.utils import create_dirs
 
 
-__all__ = ["PyTorchLogger", "PythonLogger", "TensorBoardLogger"]
+__all__ = [
+    "BaseLogger",
+    "LambdaLogger",
+    "PythonLogger",
+    "TensorBoardLogger",
+    "WANDBLogger",
+    "SparsificationGroupLogger",
+]
 
 
-class PyTorchLogger(ABC):
+class BaseLogger(ABC):
     """
     Base class that all modifier loggers must implement.
 
     :param name: name given to the logger, used for identification
+    :param enabled: True to log, False otherwise
     """
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, enabled: bool = True):
         self._name = name
+        self._enabled = enabled
 
     @property
     def name(self) -> str:
@@ -60,125 +75,121 @@ class PyTorchLogger(ABC):
         """
         return self._name
 
-    @abstractmethod
-    def log_hyperparams(self, params: Dict):
+    @property
+    def enabled(self) -> bool:
+        """
+        :return: True to log, False otherwise
+        """
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value: bool):
+        """
+        :param value: True to log, False otherwise
+        """
+        self._enabled = value
+
+    def log_hyperparams(self, params: Dict[str, float]) -> bool:
         """
         :param params: Each key-value pair in the dictionary is the name of the
             hyper parameter and it's corresponding value.
+        :return: True if logged, False otherwise.
         """
-        raise NotImplementedError()
+        return False
 
-    @abstractmethod
     def log_scalar(
         self,
         tag: str,
         value: float,
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
-    ):
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+    ) -> bool:
         """
         :param tag: identifying tag to log the value with
         :param value: value to save
         :param step: global step for when the value was taken
         :param wall_time: global wall time for when the value was taken
+        :return: True if logged, False otherwise.
         """
-        raise NotImplementedError()
+        return False
 
-    @abstractmethod
     def log_scalars(
         self,
         tag: str,
         values: Dict[str, float],
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
     ):
         """
         :param tag: identifying tag to log the values with
         :param values: values to save
         :param step: global step for when the values were taken
         :param wall_time: global wall time for when the values were taken
+        :return: True if logged, False otherwise.
         """
-        raise NotImplementedError()
-
-    @abstractmethod
-    def log_histogram(
-        self,
-        tag: str,
-        values: Union[Tensor, ndarray],
-        bins: str = "tensorflow",
-        max_bins: Union[int, None] = None,
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
-    ):
-        """
-        :param tag: identifying tag to log the histogram with
-        :param values: values to log as a histogram
-        :param bins: the type of bins to use for grouping the values,
-            follows tensorboard terminology
-        :param max_bins: maximum number of bins to use (default None)
-        :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken
-        """
-        raise NotImplementedError()
-
-    @abstractmethod
-    def log_histogram_raw(
-        self,
-        tag: str,
-        min_val: Union[float, int],
-        max_val: Union[float, int],
-        num_vals: int,
-        sum_vals: Union[float, int],
-        sum_squares: Union[float, int],
-        bucket_limits: Union[Tensor, ndarray],
-        bucket_counts: Union[Tensor, ndarray],
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
-    ):
-        """
-        :param tag: identifying tag to log the histogram with
-        :param min_val: min value
-        :param max_val: max value
-        :param num_vals: number of values
-        :param sum_vals: sum of all the values
-        :param sum_squares: sum of the squares of all the values
-        :param bucket_limits: upper value per bucket
-        :param bucket_counts: number of values per bucket
-        :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken
-        """
-        raise NotImplementedError()
+        return False
 
 
-class PythonLogger(PyTorchLogger):
+class LambdaLogger(BaseLogger):
     """
-    Modifier logger that handles printing values into a python logger instance.
+    Logger that handles calling back to a lambda function with any logs.
 
-    :param logger: a logger instance to log to, if None then will create it's own
+    :param lambda_func: the lambda function to call back into with any logs.
+        The expected call sequence is (tag, value, values, step, wall_time) -> bool
+        The return type is True if logged and False otherwise.
     :param name: name given to the logger, used for identification;
-        defaults to python
+        defaults to lambda
+    :param enabled: True to log, False otherwise
     """
 
-    def __init__(self, logger: Logger = None, name: str = "python"):
-        super().__init__(name)
+    def __init__(
+        self,
+        lambda_func: Callable[
+            [
+                Optional[str],
+                Optional[float],
+                Optional[Dict[str, float]],
+                Optional[int],
+                Optional[float],
+            ],
+            bool,
+        ],
+        name: str = "lambda",
+        enabled: bool = True,
+    ):
+        super().__init__(name, enabled)
+        self._lambda_func = lambda_func
+        assert lambda_func, "lambda_func must be set to a callable function"
 
-        if logger:
-            self._logger = logger
-        else:
-            self._logger = logging.getLogger(__name__)
+    @property
+    def lambda_func(
+        self,
+    ) -> Callable[
+        [
+            Optional[str],
+            Optional[float],
+            Optional[Dict[str, float]],
+            Optional[int],
+            Optional[float],
+        ],
+        bool,
+    ]:
+        """
+        :return: the lambda function to call back into with any logs.
+            The expected call sequence is (tag, value, values, step, wall_time)
+        """
+        return self._lambda_func
 
-    def __getattr__(self, item):
-        return getattr(self._logger, item)
-
-    def log_hyperparams(self, params: Dict):
+    def log_hyperparams(self, params: Dict) -> bool:
         """
         :param params: Each key-value pair in the dictionary is the name of the
             hyper parameter and it's corresponding value.
+        :return: True if logged, False otherwise.
         """
-        msg = "{}-HYPERPARAMS:\n".format(self.name) + "\n".join(
-            "   {}: {}".format(key, value) for key, value in params.items()
-        )
-        self._logger.info(msg)
+        if not self.enabled:
+            return False
+
+        return self._lambda_func(None, None, params, None, None)
 
     def log_scalar(
         self,
@@ -193,14 +204,15 @@ class PythonLogger(PyTorchLogger):
         :param step: global step for when the value was taken
         :param wall_time: global wall time for when the value was taken,
             defaults to time.time()
+        :return: True if logged, False otherwise.
         """
-        if wall_time is None:
+        if not self.enabled:
+            return False
+
+        if not wall_time:
             wall_time = time.time()
 
-        msg = "{}-SCALAR {} [{} - {}]: {}".format(
-            self.name, tag, step, wall_time, value
-        )
-        self._logger.info(msg)
+        return self._lambda_func(tag, value, None, step, wall_time)
 
     def log_scalars(
         self,
@@ -215,78 +227,81 @@ class PythonLogger(PyTorchLogger):
         :param step: global step for when the values were taken
         :param wall_time: global wall time for when the values were taken,
             defaults to time.time()
+        :return: True if logged, False otherwise.
         """
-        if wall_time is None:
+        if not self.enabled:
+            return False
+
+        if not wall_time:
             wall_time = time.time()
 
-        msg = "{}-SCALARS {} [{} - {}]:\n".format(
-            self.name, tag, step, wall_time
-        ) + "\n".join("{}: {}".format(key, value) for key, value in values.items())
-        self._logger.info(msg)
+        return self._lambda_func(tag, None, values, step, wall_time)
 
-    def log_histogram(
+
+class PythonLogger(LambdaLogger):
+    """
+    Modifier logger that handles printing values into a python logger instance.
+
+    :param logger: a logger instance to log to, if None then will create it's own
+    :param log_level: level to log any incoming data at on the logging.Logger instance
+    :param name: name given to the logger, used for identification;
+        defaults to python
+    :param enabled: True to log, False otherwise
+    """
+
+    def __init__(
         self,
-        tag: str,
-        values: Union[Tensor, ndarray],
-        bins: str = "tensorflow",
-        max_bins: Union[int, None] = None,
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
+        logger: Logger = None,
+        log_level: int = logging.INFO,
+        name: str = "python",
+        enabled: bool = True,
     ):
-        """
-        :param tag: identifying tag to log the histogram with
-        :param values: values to log as a histogram
-        :param bins: the type of bins to use for grouping the values,
-            follows tensorboard terminology
-        :param max_bins: maximum number of bins to use (default None)
-        :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken,
-            defaults to time.time()
-        """
-        if wall_time is None:
-            wall_time = time.time()
+        if logger:
+            self._logger = logger
+        else:
+            self._logger = logging.getLogger(__name__)
 
-        msg = "{}-HISTOGRAM {} [{} - {}]: cannot log".format(
-            self.name, tag, step, wall_time
-        )
-        self._logger.info(msg)
+        self._log_level = log_level
+        super().__init__(lambda_func=self._log_lambda, name=name, enabled=enabled)
 
-    def log_histogram_raw(
+    def __getattr__(self, item):
+        return getattr(self._logger, item)
+
+    @property
+    def logger(self) -> Logger:
+        """
+        :return: a logger instance to log to, if None then will create it's own
+        """
+        return self._logger
+
+    def _log_lambda(
         self,
-        tag: str,
-        min_val: Union[float, int],
-        max_val: Union[float, int],
-        num_vals: int,
-        sum_vals: Union[float, int],
-        sum_squares: Union[float, int],
-        bucket_limits: Union[Tensor, ndarray],
-        bucket_counts: Union[Tensor, ndarray],
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
-    ):
-        """
-        :param tag: identifying tag to log the histogram with
-        :param min_val: min value
-        :param max_val: max value
-        :param num_vals: number of values
-        :param sum_vals: sum of all the values
-        :param sum_squares: sum of the squares of all the values
-        :param bucket_limits: upper value per bucket
-        :param bucket_counts: number of values per bucket
-        :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken,
-            defaults to time.time()
-        """
-        if wall_time is None:
-            wall_time = time.time()
+        tag: Optional[str],
+        value: Optional[float],
+        values: Optional[Dict[str, float]],
+        step: Optional[int],
+        wall_time: Optional[float],
+    ) -> bool:
+        if not values:
+            values = {}
 
-        msg = "{}-HISTOGRAM {} [{} - {}]: cannot log".format(
-            self.name, tag, step, wall_time
+        if value:
+            values["__value__"] = value
+
+        self._logger.log(
+            self._log_level,
+            "%s %s [%s - %s]: %s",
+            self.name,
+            tag,
+            step,
+            wall_time,
+            values,
         )
-        self._logger.info(msg)
+
+        return True
 
 
-class TensorBoardLogger(PyTorchLogger):
+class TensorBoardLogger(LambdaLogger):
     """
     Modifier logger that handles outputting values into a TensorBoard log directory
     for viewing in TensorBoard.
@@ -298,6 +313,7 @@ class TensorBoardLogger(PyTorchLogger):
         if none is given creates a new one at the log_path
     :param name: name given to the logger, used for identification;
         defaults to tensorboard
+    :param enabled: True to log, False otherwise
     """
 
     def __init__(
@@ -305,8 +321,8 @@ class TensorBoardLogger(PyTorchLogger):
         log_path: str = None,
         writer: SummaryWriter = None,
         name: str = "tensorboard",
+        enabled: bool = True,
     ):
-        super().__init__(name)
         if tensorboard_import_error:
             raise tensorboard_import_error
 
@@ -324,25 +340,215 @@ class TensorBoardLogger(PyTorchLogger):
             create_dirs(log_path)
 
         self._writer = writer if writer is not None else SummaryWriter(log_path)
+        super().__init__(lambda_func=self._log_lambda, name=name, enabled=enabled)
+
+    @property
+    def writer(self) -> SummaryWriter:
+        """
+        :return: the writer to log results to,
+            if none is given creates a new one at the log_path
+        """
+        return self._writer
+
+    def _log_lambda(
+        self,
+        tag: Optional[str],
+        value: Optional[float],
+        values: Optional[Dict[str, float]],
+        step: Optional[int],
+        wall_time: Optional[float],
+    ) -> bool:
+        if value is not None:
+            self._writer.add_scalar(tag, value, step, wall_time)
+
+        if values and tag:
+            self._writer.add_scalars(tag, values, step, wall_time)
+        elif values:
+            for name, val in values.items():
+                # hyperparameters logging case
+                self._writer.add_scalar(name, val, step, wall_time)
+
+        return True
+
+
+class WANDBLogger(LambdaLogger):
+    """
+    Modifier logger that handles outputting values to Weights and Biases.
+
+    :param init_kwargs: the args to call into wandb.init with;
+        ex: wandb.init(**init_kwargs). If not supplied, then init will not be called
+    :param name: name given to the logger, used for identification;
+        defaults to wandb
+    :param enabled: True to log, False otherwise
+    """
+
+    @staticmethod
+    def available() -> bool:
+        """
+        :return: True if wandb is available and installed, False, otherwise
+        """
+        return not wandb_err
+
+    def __init__(
+        self,
+        init_kwargs: Optional[Dict] = None,
+        name: str = "wandb",
+        enabled: bool = True,
+    ):
+        super().__init__(lambda_func=self._log_lambda, name=name, enabled=enabled)
+
+        if wandb_err:
+            raise wandb_err
+
+        if init_kwargs:
+            wandb.init(**init_kwargs)
+
+    def _log_lambda(
+        self,
+        tag: Optional[str],
+        value: Optional[float],
+        values: Optional[Dict[str, float]],
+        step: Optional[int],
+        wall_time: Optional[float],
+    ) -> bool:
+        params = {}
+
+        if value is not None:
+            params[tag] = value
+
+        if values:
+            if tag:
+                values = {f"{tag}/{key}": val for key, val in values.items()}
+            params.update(values)
+
+        wandb.log(params, step=step)
+
+        return True
+
+
+class SparsificationGroupLogger(BaseLogger):
+    """
+    Modifier logger that handles outputting values to other supported systems.
+    Supported ones include:
+      - Python logging
+      - Tensorboard
+      - Weights and Biases
+      - Lambda callback
+
+    All are optional and can be bulk disabled and enabled by this root.
+
+    :param lambda_func: an optional lambda function to call back into with any logs.
+        The expected call sequence is (tag, value, values, step, wall_time) -> bool
+        The return type is True if logged and False otherwise.
+    :param python: an optional argument for logging to a python logger.
+        May be a logging.Logger instance to log to, True to create a logger instance,
+        or non truthy to not log anything (False, None)
+    :param python_log_level: if python,
+        the level to log any incoming data at on the logging.Logger instance
+    :param tensorboard: an optional argument for logging to a tensorboard writer.
+        May be a SummaryWriter instance to log to, a string representing the directory
+        to create a new SummaryWriter to log to, True to create a new SummaryWriter,
+        or non truthy to not log anything (False, None)
+    :param wandb_: an optional argument for logging to wandb.
+        May be a dictionary to pass to the init call for wandb,
+        True to log to wandb (will not call init),
+        or non truthy to not log anything (False, None)
+    :param name: name given to the logger, used for identification;
+        defaults to sparsification
+    :param enabled: True to log, False otherwise
+    """
+
+    def __init__(
+        self,
+        lambda_func: Optional[
+            Callable[
+                [
+                    Optional[str],
+                    Optional[float],
+                    Optional[Dict[str, float]],
+                    Optional[int],
+                    Optional[float],
+                ],
+                bool,
+            ]
+        ] = None,
+        python: Optional[Union[bool, Logger]] = None,
+        python_log_level: int = logging.INFO,
+        tensorboard: Optional[Union[bool, str, SummaryWriter]] = None,
+        wandb_: Optional[Union[bool, Dict]] = None,
+        name: str = "sparsification",
+        enabled: bool = True,
+    ):
+        super().__init__(name, enabled)
+        self._loggers: List[BaseLogger] = []
+
+        if lambda_func:
+            self._loggers.append(
+                LambdaLogger(lambda_func=lambda_func, name=name, enabled=enabled)
+            )
+
+        if python:
+            self._loggers.append(
+                PythonLogger(
+                    logger=python if isinstance(python, Logger) else None,
+                    log_level=python_log_level,
+                    name=name,
+                    enabled=enabled,
+                )
+            )
+
+        if tensorboard:
+            self._loggers.append(
+                TensorBoardLogger(
+                    log_path=tensorboard if isinstance(tensorboard, str) else None,
+                    writer=(
+                        tensorboard if isinstance(tensorboard, SummaryWriter) else None
+                    ),
+                    name=name,
+                    enabled=enabled,
+                )
+            )
+
+        if wandb_ and WANDBLogger.available():
+            self._loggers.append(
+                WANDBLogger(
+                    init_kwargs=wandb_ if isinstance(wandb_, Dict) else None,
+                    name=name,
+                    enabled=enabled,
+                )
+            )
+
+    @BaseLogger.enabled.setter
+    def enabled(self, value: bool):
+        """
+        :param value: True to log, False otherwise
+        """
+        self._enabled = value
+
+        for logger in self._loggers:
+            logger.enabled = value
+
+    @property
+    def loggers(self) -> List[BaseLogger]:
+        """
+        :return: the created logger sub instances for this logger
+        """
+        return self._loggers
 
     def log_hyperparams(self, params: Dict):
         """
         :param params: Each key-value pair in the dictionary is the name of the
             hyper parameter and it's corresponding value.
         """
-        try:
-            self._writer.add_hparams(params, {})
-        except Exception:
-            # fall back incase add_hparams isn't available, log as scalars
-            for name, val in params.items():
-                self.log_scalar(name, val)
+        for logger in self._loggers:
+            logger.log_hyperparams(params)
 
     def log_scalar(
         self,
         tag: str,
         value: float,
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
     ):
         """
         :param tag: identifying tag to log the value with
@@ -351,14 +557,15 @@ class TensorBoardLogger(PyTorchLogger):
         :param wall_time: global wall time for when the value was taken,
             defaults to time.time()
         """
-        self._writer.add_scalar(tag, value, step, wall_time)
+        for logger in self._loggers:
+            logger.log_scalar(tag, value, step, wall_time)
 
     def log_scalars(
         self,
         tag: str,
         values: Dict[str, float],
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
     ):
         """
         :param tag: identifying tag to log the values with
@@ -367,64 +574,5 @@ class TensorBoardLogger(PyTorchLogger):
         :param wall_time: global wall time for when the values were taken,
             defaults to time.time()
         """
-        self._writer.add_scalars(tag, values, step, wall_time)
-
-    def log_histogram(
-        self,
-        tag: str,
-        values: Union[Tensor, ndarray],
-        bins: str = "tensorflow",
-        max_bins: Union[int, None] = None,
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
-    ):
-        """
-        :param tag: identifying tag to log the histogram with
-        :param values: values to log as a histogram
-        :param bins: the type of bins to use for grouping the values,
-            follows tensorboard terminology
-        :param max_bins: maximum number of bins to use (default None)
-        :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken,
-            defaults to time.time()
-        """
-        self._writer.add_histogram(tag, values, step, bins, wall_time, max_bins)
-
-    def log_histogram_raw(
-        self,
-        tag: str,
-        min_val: Union[float, int],
-        max_val: Union[float, int],
-        num_vals: int,
-        sum_vals: Union[float, int],
-        sum_squares: Union[float, int],
-        bucket_limits: Union[Tensor, ndarray],
-        bucket_counts: Union[Tensor, ndarray],
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
-    ):
-        """
-        :param tag: identifying tag to log the histogram with
-        :param min_val: min value
-        :param max_val: max value
-        :param num_vals: number of values
-        :param sum_vals: sum of all the values
-        :param sum_squares: sum of the squares of all the values
-        :param bucket_limits: upper value per bucket
-        :param bucket_counts: number of values per bucket
-        :param step: global step for when the values were taken
-        :param wall_time: global wall time for when the values were taken,
-            defaults to time.time()
-        """
-        self._writer.add_histogram_raw(
-            tag,
-            min_val,
-            max_val,
-            num_vals,
-            sum_vals,
-            sum_squares,
-            bucket_limits,
-            bucket_counts,
-            step,
-            wall_time,
-        )
+        for logger in self._loggers:
+            logger.log_scalars(tag, values, step, wall_time)

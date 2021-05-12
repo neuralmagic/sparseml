@@ -37,7 +37,7 @@ from sparseml.pytorch.utils.helpers import (
     tensors_module_forward,
     tensors_to_device,
 )
-from sparseml.pytorch.utils.logger import PyTorchLogger
+from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.pytorch.utils.loss import DEFAULT_LOSS_KEY, LossWrapper
 
 
@@ -568,7 +568,7 @@ class ModuleRunner(ABC):
         module: Module,
         device: str,
         loss: Union[LossWrapper, Callable[[Any, Any], Tensor]],
-        loggers: List[PyTorchLogger],
+        loggers: List[BaseLogger],
         log_name: str,
         log_steps: int,
         log_summary: bool,
@@ -884,7 +884,7 @@ class ModuleTrainer(ModuleRunner):
         optimizer: Optimizer,
         num_accumulated_batches: int = 1,
         optim_closure: Union[None, Callable] = None,
-        loggers: List[PyTorchLogger] = None,
+        loggers: List[BaseLogger] = None,
         log_name: str = "Train",
         log_steps: int = 100,
         log_summary: bool = True,
@@ -1052,7 +1052,7 @@ class ModuleTester(ModuleRunner):
         module: Module,
         device: str,
         loss: Union[LossWrapper, Callable[[Any, Any], Tensor]],
-        loggers: List[PyTorchLogger] = None,
+        loggers: List[BaseLogger] = None,
         log_name: str = "Test",
         log_steps: int = 100,
         log_summary: bool = True,

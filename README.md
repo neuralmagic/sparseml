@@ -64,8 +64,8 @@ Techniques for sparsification are all encompassing including everything from ind
 When implemented correctly, these techniques result in significantly more performant and smaller models with limited to no effect on the baseline metrics.
 For example, pruning plus quantization can give over noticeable improvements in performance while recovering to nearly the same baseline accuracy.
 
-The Deep Sparse product suite builds on top of sparsification enabling you to easily apply the techniques to your datasets and models using recipe-driven approaches.
-Recipes encode the directions for how to sparsify a model into a simple, easily editable format.
+The Deep Sparse product suite builds on top of sparsification enabling you to easily apply the techniques to your datasets and models using recipe-driven approaches. Recipes encode the directions for how to sparsify a model into a simple, easily editable format.
+
 - Download a sparsification recipe and sparsified model from the [SparseZoo](https://github.com/neuralmagic/sparsezoo).
 - Alternatively, create a recipe for your model using [Sparsify](https://github.com/neuralmagic/sparsify).
 - Apply your recipe with only a few lines of code using [SparseML](https://github.com/neuralmagic/sparseml).
@@ -371,7 +371,7 @@ We appreciate contributions to the code, examples, integrations, and documentati
 
 ## Join the Community
 
-For user help or questions about Sparsify, use our [GitHub Discussions](https://www.github.com/neuralmagic/sparseml/discussions/). Everyone is welcome!
+For user help or questions about Sparsify, sign up or log in: **Deep Sparse Community** [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). We are growing the community member by member and happy to see you there.
 
 You can get the latest news, webinar and event invites, research papers, and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
 
@@ -383,7 +383,7 @@ The project is licensed under the [Apache License Version 2.0](https://github.co
 
 ## Release History
 
-Official builds are hosted on PyPi
+Official builds are hosted on PyPI
 
 - stable: [sparseml](https://pypi.org/project/sparseml/)
 - nightly (dev): [sparseml-nightly](https://pypi.org/project/sparseml-nightly/)
