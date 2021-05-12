@@ -52,7 +52,7 @@ def _test_state_dict_save_load(
     modifier = modifier_lambda()
     model = model_lambda()
     optimizer = optim_lambda(model)
-    test_obj.initialize_helper(modifier, model, optimizer)
+    test_obj.initialize_helper(modifier, model)
     # apply first mask
     modifier.scheduled_update(
         model, optimizer, modifier.start_epoch, test_steps_per_epoch
@@ -119,7 +119,7 @@ class TestConstantPruningModifier(ScheduledModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         # check sparsity is not set before
         if modifier.start_epoch >= 0:
@@ -261,8 +261,9 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
-        assert modifier.applied_sparsity is None
+        self.initialize_helper(modifier, model)
+        if modifier.start_epoch > 0:
+            assert modifier.applied_sparsity is None
         assert type(load_mask_creator(modifier._mask_type)) == type(  # noqa: E721
             modifier._mask_creator
         )
