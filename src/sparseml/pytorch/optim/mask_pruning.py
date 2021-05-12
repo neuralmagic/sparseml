@@ -440,7 +440,7 @@ class ModuleParamPruningMask(object):
         this method must be called in order for movement scores to be updated
         """
         for idx, param in enumerate(self._params):
-            if param.grad and param.data:
+            if param.grad is not None:
                 self._params_movement[idx].add_(-0.01 * param.grad * param.data)
 
     def disable_reintroduction(self):
