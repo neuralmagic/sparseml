@@ -219,11 +219,6 @@ class ModifierTest(BaseModifierTest):
         with pytest.raises(RuntimeError):
             modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, log_initialize=False)
-
-        with pytest.raises(RuntimeError):
-            modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
-
         self.initialize_helper(modifier, model, log_initialize=True)
 
         modifier.enabled = False
@@ -495,11 +490,6 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-
-        with pytest.raises(RuntimeError):
-            modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
-
-        self.initialize_helper(modifier, model, log_initialize=False)
 
         with pytest.raises(RuntimeError):
             modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
