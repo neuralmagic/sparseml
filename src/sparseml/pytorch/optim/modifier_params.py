@@ -17,7 +17,7 @@ Modifier for changing the state of a modules params while training according to
 certain update formulas or patterns.
 """
 
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 
 import torch
 from torch.nn import Module, Parameter
@@ -29,7 +29,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.utils import get_named_layers_and_params_by_regex
+from sparseml.pytorch.utils import BaseLogger, get_named_layers_and_params_by_regex
 from sparseml.utils import (
     ALL_TOKEN,
     INTERPOLATION_FUNCS,
@@ -148,14 +148,26 @@ class TrainableParamsModifier(ScheduledModifier):
         """
         self._params_strict = value
 
-    def initialize(self, module: Module, optimizer: Optimizer):
+    def initialize(
+        self,
+        module: Module,
+        epoch: float = 0,
+        loggers: Optional[List[BaseLogger]] = None,
+        **kwargs,
+    ):
         """
         Grab the layers params to control trainable or not for within the given module
 
-        :param module: module to modify
-        :param optimizer: optimizer to modify
+        :param module: the PyTorch model/module to modify
+        :param epoch: The epoch to initialize the modifier and module at.
+            Defaults to 0 (start of the training process)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
         """
-        super(TrainableParamsModifier, self).initialize(module, optimizer)
+        super(TrainableParamsModifier, self).initialize(
+            module, epoch, loggers, **kwargs
+        )
         param_names = (
             self._params
             if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
@@ -298,14 +310,24 @@ class SetParamModifier(ScheduledModifier):
 
         self._params_strict = value
 
-    def initialize(self, module: Module, optimizer: Optimizer):
+    def initialize(
+        self,
+        module: Module,
+        epoch: float = 0,
+        loggers: Optional[List[BaseLogger]] = None,
+        **kwargs,
+    ):
         """
         Grab the layers params to control the values for within the given module
 
-        :param module: module to modify
-        :param optimizer: optimizer to modify
+        :param module: the PyTorch model/module to modify
+        :param epoch: The epoch to initialize the modifier and module at.
+            Defaults to 0 (start of the training process)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
         """
-        super(SetParamModifier, self).initialize(module, optimizer)
+        super(SetParamModifier, self).initialize(module, epoch, loggers, **kwargs)
         param_names = (
             self._params
             if self._params != ALL_TOKEN and ALL_TOKEN not in self._params
@@ -503,14 +525,24 @@ class GradualParamModifier(ScheduledUpdateModifier):
         """
         self._params_strict = value
 
-    def initialize(self, module: Module, optimizer: Optimizer):
+    def initialize(
+        self,
+        module: Module,
+        epoch: float = 0,
+        loggers: Optional[List[BaseLogger]] = None,
+        **kwargs,
+    ):
         """
         Grab the layers params to control the values for within the given module
 
-        :param module: module to modify
-        :param optimizer: optimizer to modify
+        :param module: the PyTorch model/module to modify
+        :param epoch: The epoch to initialize the modifier and module at.
+            Defaults to 0 (start of the training process)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
         """
-        super(GradualParamModifier, self).initialize(module, optimizer)
+        super(GradualParamModifier, self).initialize(module, epoch, loggers, **kwargs)
 
         self._init_val_tens = torch.tensor(self._init_val)
         self._final_val_tens = torch.tensor(self._final_val)
