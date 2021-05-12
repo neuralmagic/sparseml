@@ -22,7 +22,12 @@ import math
 from functools import cmp_to_key
 from typing import List
 
-from sparseml.optim.modifier import BaseObject, BaseScheduled, ModifierProp
+from sparseml.optim.modifier import (
+    BaseModifier,
+    BaseObject,
+    BaseScheduled,
+    ModifierProp,
+)
 from sparseml.utils import clean_path, create_parent_dirs
 
 
