@@ -81,11 +81,11 @@ class ScheduledOptimizer(Optimizer):
     ):
         # do not call into super since this instance is not passing all calls to
         # the nested optimizer
-        warnings.warn(
-            "ScheduledOptimizer is deprecated and will be deleted in the future. "
-            "Please replace with manager.modify",
-            UserWarning,
-        )
+        # warnings.warn(
+        #     "ScheduledOptimizer is deprecated and will be deleted in the future. "
+        #     "Please replace with manager.modify",
+        #     UserWarning,
+        # )  TODO: uncomment in next release once docs are ready
 
         manager.initialize(module, epoch=0.0, loggers=loggers)
         self._wrapper = RecipeManagerStepWrapper(
@@ -107,7 +107,7 @@ class ScheduledOptimizer(Optimizer):
         if item in self.__dict__:
             return getattr(self, item)
 
-        return getattr(self._wrapped, item)
+        return getattr(self._wrapper.wrapped_optimizer, item)
 
     def __setattr__(self, key, value):
         if key in [
@@ -118,7 +118,7 @@ class ScheduledOptimizer(Optimizer):
         ]:
             super().__setattr__(key, value)
         else:
-            setattr(self._optimizer, key, value)
+            setattr(self._wrapper.wrapped_optimizer, key, value)
 
     @property
     def learning_rate(self) -> float:
@@ -126,7 +126,7 @@ class ScheduledOptimizer(Optimizer):
         :return: convenience function to get the first learning rate for any of
             the param groups in the optimizer
         """
-        return get_optim_learning_rate(self._optimizer)
+        return get_optim_learning_rate(self._wrapper.wrapped_optimizer)
 
     @learning_rate.setter
     def learning_rate(self, value: float):
@@ -134,7 +134,7 @@ class ScheduledOptimizer(Optimizer):
         :param value: the learning rate to set for the optimizer,
             will set all param groups in the optim to this value
         """
-        set_optim_learning_rate(self._optimizer, value)
+        set_optim_learning_rate(self._wrapper.wrapped_optimizer, value)
 
     @property
     def manager(self) -> ScheduledModifierManager:
@@ -144,10 +144,10 @@ class ScheduledOptimizer(Optimizer):
         return self._wrapper.wrapped_manager
 
     def manager_state_dict(self):
-        return self._manager.state_dict()
+        return self._wrapper.wrapped_manager.state_dict()
 
     def load_manager_state_dict(self, state_dict):
-        self._manager.load_state_dict(state_dict)
+        self._wrapper.wrapped_manager.load_state_dict(state_dict)
 
     def step(self, closure=None):
         """
