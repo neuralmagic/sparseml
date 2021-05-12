@@ -420,7 +420,7 @@ class BaseModifier(BaseObject):
     @staticmethod
     def comparator_identifiers(one, two) -> int:
         """
-        Comparator implementation for Modifiers based on end_epoch.
+        Comparator implementation for Modifiers based on identifier.
         Modifiers with ends greater than another will come out higher.
 
         :param one: first modifier to compare
