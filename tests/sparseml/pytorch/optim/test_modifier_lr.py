@@ -79,7 +79,7 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         assert modifier.applied_learning_rate < 0
         assert get_optim_learning_rate(optimizer) == INIT_LR
 
@@ -207,7 +207,7 @@ class TestLRModifierExponentialImpl(ScheduledUpdateModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         assert get_optim_learning_rate(optimizer) == INIT_LR
 
         for epoch in range(int(modifier.end_epoch) + 5):
@@ -355,7 +355,7 @@ class TestLRModifierStepImpl(ScheduledUpdateModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         assert get_optim_learning_rate(optimizer) == INIT_LR
 
         for epoch in range(int(modifier.end_epoch) + 5):
@@ -515,7 +515,7 @@ class TestLRModifierMultiStepImpl(ScheduledUpdateModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         assert get_optim_learning_rate(optimizer) == INIT_LR
 
         for epoch in range(int(modifier.end_epoch) + 5):
@@ -660,7 +660,7 @@ class TestLRModifierCosineAnnealingImpl(ScheduledUpdateModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         assert get_optim_learning_rate(optimizer) == INIT_LR
 
         for epoch in range(int(modifier.end_epoch) + 5):

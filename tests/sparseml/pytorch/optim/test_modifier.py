@@ -65,10 +65,10 @@ class ModifierTest(BaseModifierTest):
         self,
         modifier: Modifier,
         model: Module = None,
-        optimizer: Optimizer = None,
+        epoch: float = 0.0,
         log_initialize: bool = True,
     ):
-        modifier.initialize(model, optimizer)
+        modifier.initialize(model, epoch)
 
         if log_initialize:
             modifier.initialize_loggers([PythonLogger()])
@@ -127,11 +127,10 @@ class ModifierTest(BaseModifierTest):
         test_steps_per_epoch: float,  # noqa: F811
     ):
         model = model_lambda()
-        optimizer = optim_lambda(model)
         super().test_props(
             modifier_lambda,
             framework=PYTORCH_FRAMEWORK,
-            initialize_kwargs={"model": model, "optimizer": optimizer},
+            initialize_kwargs={"model": model, "epoch": test_epoch},
         )
 
     def test_initialize(
@@ -142,9 +141,8 @@ class ModifierTest(BaseModifierTest):
     ):
         modifier = modifier_lambda()
         model = model_lambda()
-        optimizer = optim_lambda(model)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         assert modifier.initialized
 
     def test_initialize_loggers(
@@ -188,7 +186,7 @@ class ModifierTest(BaseModifierTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -197,7 +195,7 @@ class ModifierTest(BaseModifierTest):
         with pytest.raises(RuntimeError):
             modifier.update(model, optimizer, test_epoch, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         modifier.enabled = False
         with pytest.raises(RuntimeError):
@@ -212,7 +210,7 @@ class ModifierTest(BaseModifierTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -221,12 +219,7 @@ class ModifierTest(BaseModifierTest):
         with pytest.raises(RuntimeError):
             modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer, log_initialize=False)
-
-        with pytest.raises(RuntimeError):
-            modifier.log_update(model, optimizer, test_epoch, test_steps_per_epoch)
-
-        self.initialize_helper(modifier, model, optimizer, log_initialize=True)
+        self.initialize_helper(modifier, model, log_initialize=True)
 
         modifier.enabled = False
         with pytest.raises(RuntimeError):
@@ -241,7 +234,7 @@ class ModifierTest(BaseModifierTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
         test_loss: Tensor,  # noqa: F811
     ):
         modifier = modifier_lambda()
@@ -253,7 +246,7 @@ class ModifierTest(BaseModifierTest):
                 test_loss, model, optimizer, test_epoch, test_steps_per_epoch
             )
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         new_loss = modifier.loss_update(
             test_loss, model, optimizer, test_epoch, test_steps_per_epoch
         )
@@ -266,7 +259,7 @@ class ModifierTest(BaseModifierTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -277,7 +270,7 @@ class ModifierTest(BaseModifierTest):
                 model, optimizer, test_epoch, test_steps_per_epoch
             )
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         modifier.enabled = False
         with pytest.raises(RuntimeError):
@@ -294,7 +287,7 @@ class ModifierTest(BaseModifierTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -305,7 +298,7 @@ class ModifierTest(BaseModifierTest):
                 model, optimizer, test_epoch, test_steps_per_epoch
             )
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         modifier.enabled = False
         with pytest.raises(RuntimeError):
@@ -353,16 +346,15 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
-        optimizer = optim_lambda(model)
 
         with pytest.raises(RuntimeError):
             modifier.start_pending(0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         modifier.enabled = False
         assert not modifier.start_pending(modifier.start_epoch, test_steps_per_epoch)
         modifier.enabled = True
@@ -379,7 +371,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -388,7 +380,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.end_pending(0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         self.start_helper(modifier, model, optimizer)
         modifier.enabled = False
         assert not modifier.end_pending(modifier.start_epoch, test_steps_per_epoch)
@@ -407,7 +399,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -416,7 +408,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.update_ready(0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         modifier.enabled = False
         assert not modifier.update_ready(modifier.start_epoch, test_steps_per_epoch)
         modifier.enabled = True
@@ -437,7 +429,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -446,7 +438,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.scheduled_update(model, optimizer, 0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         if modifier.start_epoch <= 0.0:
             modifier.scheduled_update(model, optimizer, 0.0, test_steps_per_epoch)
@@ -493,7 +485,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -502,12 +494,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model, optimizer, log_initialize=False)
-
-        with pytest.raises(RuntimeError):
-            modifier.scheduled_log_update(model, optimizer, 0.0, test_steps_per_epoch)
-
-        self.initialize_helper(modifier, model, optimizer, log_initialize=True)
+        self.initialize_helper(modifier, model, log_initialize=True)
 
         for epoch in range(
             int(modifier.start_epoch) if modifier.start_epoch >= 0.0 else 0,
@@ -563,7 +550,7 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         super().test_update_ready(
             modifier_lambda,
@@ -575,7 +562,7 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         self.start_helper(modifier, model, optimizer)
         min_update_freq = 1.0 / float(test_steps_per_epoch)
 
@@ -597,7 +584,7 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
-        test_steps_per_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         super().test_scheduled_update(
             modifier_lambda,
@@ -609,7 +596,7 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         self.start_helper(modifier, model, optimizer)
         min_update_freq = 1.0 / float(test_steps_per_epoch)
 

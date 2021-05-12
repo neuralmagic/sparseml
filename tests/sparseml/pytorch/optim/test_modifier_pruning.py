@@ -17,11 +17,13 @@ import os
 import pytest
 import torch
 
+from flaky import flaky
 from sparseml.pytorch.optim import (
     ConstantPruningModifier,
     GlobalMagnitudePruningModifier,
     GMPruningModifier,
     MagnitudePruningModifier,
+    load_mask_creator,
 )
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
@@ -50,7 +52,7 @@ def _test_state_dict_save_load(
     modifier = modifier_lambda()
     model = model_lambda()
     optimizer = optim_lambda(model)
-    test_obj.initialize_helper(modifier, model, optimizer)
+    test_obj.initialize_helper(modifier, model)
     # apply first mask
     modifier.scheduled_update(
         model, optimizer, modifier.start_epoch, test_steps_per_epoch
@@ -117,7 +119,7 @@ class TestConstantPruningModifier(ScheduledModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         # check sparsity is not set before
         if modifier.start_epoch >= 0:
@@ -193,6 +195,7 @@ def test_constant_pruning_yaml():
     assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
 
 
+@flaky(max_runs=3, min_passes=2)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -258,8 +261,13 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
-        assert modifier.applied_sparsity is None
+        self.initialize_helper(modifier, model)
+        if modifier.start_epoch > 0:
+            assert modifier.applied_sparsity is None
+        assert type(load_mask_creator(modifier._mask_type)) == type(  # noqa: E721
+            modifier._mask_creator
+        )
+        assert modifier._mask_creator == modifier._module_masks._mask_creator
 
         # check sparsity is not set before
         for epoch in range(int(modifier.start_epoch)):

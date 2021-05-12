@@ -16,15 +16,19 @@
 Optimizer wrapper for enforcing Modifiers on the training process of a Module.
 """
 
+import warnings
 from typing import List, Union
 
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.optim.manager import (
+    RecipeManagerStepWrapper,
+    ScheduledModifierManager,
+)
 from sparseml.pytorch.utils import (
-    PyTorchLogger,
+    BaseLogger,
     get_optim_learning_rate,
     set_optim_learning_rate,
 )
@@ -73,54 +77,48 @@ class ScheduledOptimizer(Optimizer):
         module: Module,
         manager: ScheduledModifierManager,
         steps_per_epoch: int,
-        loggers: Union[List[PyTorchLogger], None] = None,
+        loggers: Union[List[BaseLogger], None] = None,
     ):
         # do not call into super since this instance is not passing all calls to
         # the nested optimizer
+        # warnings.warn(
+        #     "ScheduledOptimizer is deprecated and will be deleted in the future. "
+        #     "Please replace with manager.modify",
+        #     UserWarning,
+        # )  TODO: uncomment in next release once docs are ready
 
-        if steps_per_epoch <= 0:
-            raise ValueError("steps_per_epoch must be >= 0")
-
-        self._optimizer = optimizer
-        self._module = module
-        self._manager = manager
-        self._steps_per_epoch = steps_per_epoch
-        self._steps = 0
-
-        self._epoch = 0.0
-        self._manager.initialize(self._module, self._optimizer)
-        self._manager.initialize_loggers(loggers)
+        manager.initialize(module, epoch=0.0, loggers=loggers)
+        self._wrapper = RecipeManagerStepWrapper(
+            optimizer,
+            optimizer,
+            module,
+            manager,
+            epoch=0.0,
+            steps_per_epoch=steps_per_epoch,
+        )
 
     def __del__(self):
-        del self._manager
-
-    def __getstate__(self):
-        return self._optimizer.__getstate__()
-
-    def __setstate__(self, state):
-        self._optimizer.__setstate__(state)
-
-    def __repr__(self):
-        self._optimizer.__repr__()
+        try:
+            del self._wrapper
+        except Exception:
+            pass
 
     def __getattr__(self, item):
-        return getattr(self._optimizer, item)
+        if item in self.__dict__:
+            return getattr(self, item)
+
+        return getattr(self._wrapper.wrapped_optimizer, item)
 
     def __setattr__(self, key, value):
         if key in [
-            "_optimizer",
-            "_module",
-            "_manager",
-            "_steps_per_epoch",
-            "_steps",
-            "_epoch",
+            "_wrapper",
             "learning_rate",
-            "param_groups",
+            "manager",
             "step",
         ]:
             super().__setattr__(key, value)
         else:
-            setattr(self._optimizer, key, value)
+            setattr(self._wrapper.wrapped_optimizer, key, value)
 
     @property
     def learning_rate(self) -> float:
@@ -128,7 +126,7 @@ class ScheduledOptimizer(Optimizer):
         :return: convenience function to get the first learning rate for any of
             the param groups in the optimizer
         """
-        return get_optim_learning_rate(self._optimizer)
+        return get_optim_learning_rate(self._wrapper.wrapped_optimizer)
 
     @learning_rate.setter
     def learning_rate(self, value: float):
@@ -136,40 +134,20 @@ class ScheduledOptimizer(Optimizer):
         :param value: the learning rate to set for the optimizer,
             will set all param groups in the optim to this value
         """
-        set_optim_learning_rate(self._optimizer, value)
+        set_optim_learning_rate(self._wrapper.wrapped_optimizer, value)
 
     @property
     def manager(self) -> ScheduledModifierManager:
         """
         :return: The ScheduledModifierManager for this optimizer
         """
-        return self._manager
-
-    @property
-    def param_groups(self):
-        return self._optimizer.param_groups
-
-    @param_groups.setter
-    def param_groups(self, value):
-        self._optimizer.param_groups = value
-
-    def state_dict(self):
-        return (self._optimizer.state_dict(),)
-
-    def load_state_dict(self, state_dict):
-        return self._optimizer.load_state_dict(state_dict)
+        return self._wrapper.wrapped_manager
 
     def manager_state_dict(self):
-        return self._manager.state_dict()
+        return self._wrapper.wrapped_manager.state_dict()
 
     def load_manager_state_dict(self, state_dict):
-        self._manager.load_state_dict(state_dict)
-
-    def add_param_group(self, param_group):
-        self._optimizer.add_param_group(param_group)
-
-    def zero_grad(self):
-        self._optimizer.zero_grad()
+        self._wrapper.wrapped_manager.load_state_dict(state_dict)
 
     def step(self, closure=None):
         """
@@ -181,19 +159,7 @@ class ScheduledOptimizer(Optimizer):
         :param closure: optional closure passed into the contained optimizer
             for the step
         """
-        self._set_epoch()
-
-        self._manager.update(
-            self._module, self._optimizer, self._epoch, self._steps_per_epoch
-        )
-        self._manager.optimizer_pre_step(
-            self._module, self._optimizer, self._epoch, self._steps_per_epoch
-        )
-        self._optimizer.step(closure)
-        self._manager.optimizer_post_step(
-            self._module, self._optimizer, self._epoch, self._steps_per_epoch
-        )
-        self._steps += 1
+        self._wrapper.step(closure)
 
     def loss_update(self, loss: Tensor) -> Tensor:
         """
@@ -204,11 +170,7 @@ class ScheduledOptimizer(Optimizer):
         :param loss: the calculated loss after running a forward pass and loss_fn
         :return: the modified loss tensor
         """
-        loss = self._manager.loss_update(
-            loss, self._module, self._optimizer, self._epoch, self._steps_per_epoch
-        )
-
-        return loss
+        return self._wrapper.loss_update(loss)
 
     def adjust_current_step(self, epoch: int, step: int):
         """
@@ -218,19 +180,9 @@ class ScheduledOptimizer(Optimizer):
         :param step: the step (batch) within the epoch to set the
             current global step to match
         """
-        self._steps = epoch * self._steps_per_epoch + step
-        self._set_epoch()
-        self._manager.update(
-            self._module,
-            self._optimizer,
-            self._epoch,
-            self._steps_per_epoch,
-            log_updates=False,
-        )
-
-    def _set_epoch(self):
-        epoch_num = self._steps // self._steps_per_epoch
-        epoch_steps = self._steps % self._steps_per_epoch
-        self._epoch = float(epoch_num) + float(epoch_steps) / float(
-            self._steps_per_epoch
+        warnings.warn(
+            "ScheduledOptimizer is deprecated and will be deleted in the future. "
+            "adjust_current_step is no longer supported. "
+            "Please replace with manager.initialize and manager.modify",
+            UserWarning,
         )

@@ -12,22 +12,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import time
 from abc import ABC
 
-import numpy
 import pytest
-import torch
 
-from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
+from sparseml.pytorch.utils import (
+    LambdaLogger,
+    PythonLogger,
+    SparsificationGroupLogger,
+    TensorBoardLogger,
+    WANDBLogger,
+)
 
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-@pytest.mark.parametrize("logger", [PythonLogger(), TensorBoardLogger()])
+@pytest.mark.parametrize(
+    "logger",
+    [
+        PythonLogger(),
+        TensorBoardLogger(),
+        LambdaLogger(
+            lambda_func=lambda tag, value, values, step, wall_time: logging.info(
+                f"{tag}, {value}, {values}, {step}, {wall_time}"
+            )
+            or True
+        ),
+        *([WANDBLogger] if WANDBLogger.available() else []),
+        SparsificationGroupLogger(
+            lambda_func=lambda tag, value, values, step, wall_time: logging.info(
+                f"{tag}, {value}, {values}, {step}, {wall_time}"
+            )
+            or True,
+            python=True,
+            tensorboard=True,
+            wandb_=True,
+        ),
+    ],
+)
 class TestModifierLogger(ABC):
     def test_name(self, logger):
         assert logger.name is not None
@@ -45,49 +72,4 @@ class TestModifierLogger(ABC):
         logger.log_scalars("test-scalars-tag", {"scalar1": 0.0, "scalar2": 1.0}, 1)
         logger.log_scalars(
             "test-scalars-tag", {"scalar1": 0.0, "scalar2": 1.0}, 2, time.time() - 1
-        )
-
-    def test_log_histogram(self, logger):
-        logger.log_histogram("test-histogram-tag", torch.randn(1000))
-        logger.log_histogram("test-histogram-tag", torch.randn(1000), 1)
-        logger.log_histogram(
-            "test-histogram-tag", torch.randn(1000), 2, time.time() - 1
-        )
-
-    def test_log_histogram_raw(self, logger):
-        vals = torch.randn(1000).tolist()
-        squared_vals = [val * val for val in vals]
-        counts, limits = numpy.histogram(vals)
-        logger.log_histogram_raw(
-            "test-histogram-tag",
-            min(vals),
-            max(vals),
-            len(vals),
-            sum(vals),
-            sum(squared_vals),
-            limits[1:].tolist(),
-            counts.tolist(),
-        )
-        logger.log_histogram_raw(
-            "test-histogram-tag",
-            min(vals),
-            max(vals),
-            len(vals),
-            sum(vals),
-            sum(squared_vals),
-            limits[1:].tolist(),
-            counts.tolist(),
-            1,
-        )
-        logger.log_histogram_raw(
-            "test-histogram-tag",
-            min(vals),
-            max(vals),
-            len(vals),
-            sum(vals),
-            sum(squared_vals),
-            limits[1:].tolist(),
-            counts.tolist(),
-            2,
-            time.time() - 1,
         )

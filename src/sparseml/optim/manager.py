@@ -19,9 +19,15 @@ ex to perform model pruning.
 """
 
 import math
+from functools import cmp_to_key
 from typing import List
 
-from sparseml.optim.modifier import BaseObject, BaseScheduled, ModifierProp
+from sparseml.optim.modifier import (
+    BaseModifier,
+    BaseObject,
+    BaseScheduled,
+    ModifierProp,
+)
 from sparseml.utils import clean_path, create_parent_dirs
 
 
@@ -38,12 +44,9 @@ class BaseManager(BaseObject):
 
     def __init__(self, modifiers: List[BaseScheduled], **kwargs):
         super().__init__(**kwargs)
-        # sort the modifiers so they are iterated in order of their start epoch
-        # if start epoch is the same, end epoch is used to break ties
-        # with ending first running first
-        self._modifiers = sorted(
-            modifiers, key=lambda m: m.start_epoch + m.end_epoch * 1e-6
-        )
+        # sort modifiers by when they start and end so that later modifiers
+        # can overwrite in a deterministic order such as when initializing
+        self._modifiers = sorted(modifiers, key=cmp_to_key(BaseModifier.comparator))
 
     def __del__(self):
         for mod in self._modifiers:

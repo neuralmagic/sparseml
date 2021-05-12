@@ -42,9 +42,7 @@ QUANTIZATION_MODIFIERS = [
         freeze_bn_stats_epoch=3.0,
     ),
     lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq"]),
-    lambda: QuantizationModifier(
-        start_epoch=2.0, submodules=["seq"], enable_on_initialize=True
-    ),
+    lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq"]),
 ]
 
 
@@ -108,7 +106,7 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         for epoch in range(int(modifier.start_epoch)):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
@@ -125,7 +123,7 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
         assert modifier.update_ready(modifier.start_epoch + 0.1, test_steps_per_epoch)
 
         # test QAT setup
-        if not modifier.enable_on_initialize:
+        if modifier.start_epoch > 0:
             for module in model.modules():
                 assert not hasattr(module, "qconfig") or module.qconfig is None
         else:
