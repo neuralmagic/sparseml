@@ -196,9 +196,7 @@ class Modifier(BaseModifier):
             for individual modifiers.
         """
         self._initialized = True
-
-        if loggers:
-            self.initialize_loggers(loggers)
+        self.initialize_loggers(loggers)
 
     def initialize_loggers(self, loggers: Union[None, List[BaseLogger]]):
         """
