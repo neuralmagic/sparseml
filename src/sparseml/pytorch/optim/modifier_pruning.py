@@ -242,6 +242,25 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
 
         self._check_mask_update(module, epoch, steps_per_epoch=1)
 
+    def finalize(
+        self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
+    ):
+        """
+        Cleans up any remaining hooks
+
+        :param module: The model/module to finalize the modifier for.
+            Marked optional so state can still be cleaned up on delete,
+            but generally should always be passed in.
+        :param reset_loggers: True to remove any currently attached loggers (default),
+            False to keep the loggers attached.
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
+        """
+        super().finalize(module, reset_loggers, **kwargs)
+        self._module_masks.enabled = False
+        self._module_masks = None
+        self._analyzers = None
+
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):

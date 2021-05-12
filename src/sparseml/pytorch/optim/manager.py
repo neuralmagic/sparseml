@@ -219,16 +219,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
     | Lifecycle:
     |   - initialize
     |   - initialize_loggers
-    |
-    |   training loop:
-    |       - update_ready
-    |           - scheduled_update
-    |               - update
-    |       - scheduled_log_update
-    |           - log_update
-    |       - loss_update
-    |       - optimizer_pre_step
-    |       - optimizer_post_step
+    |   - modify
     |   - finalize
 
     :param modifiers: the modifiers to wrap

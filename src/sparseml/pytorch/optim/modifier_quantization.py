@@ -243,6 +243,23 @@ class QuantizationModifier(ScheduledModifier):
 
         self._check_quantization_update(module, epoch, steps_per_epoch=0)
 
+    def finalize(
+        self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
+    ):
+        """
+        Cleans up any state
+
+        :param module: The model/module to finalize the modifier for.
+            Marked optional so state can still be cleaned up on delete,
+            but generally should always be passed in.
+        :param reset_loggers: True to remove any currently attached loggers (default),
+            False to keep the loggers attached.
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
+        """
+        super().finalize(module, reset_loggers, **kwargs)
+        self._modules_to_quantize = None
+
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
