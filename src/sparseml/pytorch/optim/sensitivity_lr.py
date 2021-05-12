@@ -26,11 +26,11 @@ from torch.utils.data import DataLoader
 from sparseml.optim import LRLossSensitivityAnalysis
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
+    BaseLogger,
     LossWrapper,
     ModuleRunFuncs,
     ModuleRunResults,
     ModuleTrainer,
-    PyTorchLogger,
     infinite_data_loader,
     set_optim_learning_rate,
 )
@@ -123,7 +123,7 @@ def lr_loss_sensitivity(
     check_lrs: Union[List[float], Tuple[float, ...]] = default_exponential_check_lrs(),
     loss_key: str = DEFAULT_LOSS_KEY,
     trainer_run_funcs: ModuleRunFuncs = None,
-    trainer_loggers: List[PyTorchLogger] = None,
+    trainer_loggers: List[BaseLogger] = None,
     show_progress: bool = True,
 ) -> LRLossSensitivityAnalysis:
     """

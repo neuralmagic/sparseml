@@ -90,7 +90,7 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
         for param in model.parameters():
             param.requires_grad = not modifier.trainable
 
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         for param in model.parameters():
             assert param.requires_grad != modifier.trainable
 
@@ -269,7 +269,7 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
             model, param_regex
         )
         _, _, _, param = named_layers_and_params[0]
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
         for set_val, param_val in zip(modifier.val, param.data):
             assert set_val != param_val.cpu()
 
@@ -417,7 +417,7 @@ class TestGradualParamModifierImpl(ScheduledUpdateModifierTest):
             model, param_regex
         )
         _, _, _, param = named_layers_and_params[0]
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         for set_val, param_val in zip(modifier.init_val, param.data):
             assert set_val != param_val.cpu()
