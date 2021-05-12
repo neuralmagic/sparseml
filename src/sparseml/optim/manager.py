@@ -19,6 +19,7 @@ ex to perform model pruning.
 """
 
 import math
+from functools import cmp_to_key
 from typing import List
 
 from sparseml.optim.modifier import BaseObject, BaseScheduled, ModifierProp

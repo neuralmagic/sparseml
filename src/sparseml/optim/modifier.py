@@ -20,7 +20,6 @@ Modifiers allow modifying the training process of a model; ex to perform model p
 import hashlib
 import re
 from abc import ABC, abstractmethod
-from functools import cmp_to_key
 from typing import Any, Callable, Dict, List, Union
 
 import yaml
