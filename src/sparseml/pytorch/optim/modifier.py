@@ -104,10 +104,9 @@ class Modifier(BaseModifier):
         self._loggers = None
 
     def __del__(self):
-        if not self.initialized:
-            return
-
         try:
+            if not self.initialized:
+                return
             self.finalize()
         except Exception:
             pass
