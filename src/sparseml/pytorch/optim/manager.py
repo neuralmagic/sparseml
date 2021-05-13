@@ -190,7 +190,9 @@ class RecipeManagerStepWrapper(object):
         return loss
 
     def _perform_wrapped_step(self, *args, **kwargs) -> Any:
-        skip_orig_step = kwargs["skip_orig_step"] if "skip_orig_step" in kwargs else False
+        skip_orig_step = (
+            kwargs["skip_orig_step"] if "skip_orig_step" in kwargs else False
+        )
         ret = None
 
         if self._wrapped_manager.enabled:
