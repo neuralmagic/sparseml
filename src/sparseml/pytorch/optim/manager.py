@@ -158,39 +158,17 @@ class RecipeManagerStepWrapper(object):
         :param kwargs: Any kwargs to pass to the wrapped objects step function.
         :return: The return, if any, from the wrapped objects step function
         """
-        if self._wrapped_manager.enabled:
-            self._wrapped_manager.update(
-                self._wrapped_module,
-                self._wrapped_optimizer,
-                self._wrapped_epoch,
-                self._wrapped_steps_per_epoch,
-            )
-            self._wrapped_manager.optimizer_pre_step(
-                self._wrapped_module,
-                self._wrapped_optimizer,
-                self._wrapped_epoch,
-                self._wrapped_steps_per_epoch,
-            )
+        return self._perform_wrapped_step(*args, **kwargs)
 
-        ret = self._wrapped.step(*args, **kwargs)
-
-        if self._wrapped_manager.enabled:
-            self._wrapped_manager.optimizer_post_step(
-                self._wrapped_module,
-                self._wrapped_optimizer,
-                self._wrapped_epoch,
-                self._wrapped_steps_per_epoch,
-            )
-
-        # update tracking metrics for epoch and steps
-        self._wrapped_steps += 1
-        epoch_num = self._wrapped_steps // self._wrapped_steps_per_epoch
-        epoch_steps = self._wrapped_steps % self._wrapped_steps_per_epoch
-        self._wrapped_epoch = float(epoch_num) + (
-            float(epoch_steps) / float(self._wrapped_steps_per_epoch)
-        )
-
-        return ret
+    def emulated_step(self):
+        """
+        Emulated step function to be called in place of step when the
+        number of steps_per_epoch vary across epochs.
+        The emulated function should be called to keep the steps_per_epoch thee same.
+        Does not call into the step function for the wrapped object,
+        but does call into the manager to increment the steps.
+        """
+        self._perform_wrapped_step(skip_orig_step=True)
 
     def loss_update(self, loss: Tensor) -> Tensor:
         """
@@ -210,6 +188,45 @@ class RecipeManagerStepWrapper(object):
         )
 
         return loss
+
+    def _perform_wrapped_step(self, *args, **kwargs) -> Any:
+        skip_orig_step = kwargs["skip_orig_step"] if "skip_orig_step" in kwargs else False
+        ret = None
+
+        if self._wrapped_manager.enabled:
+            self._wrapped_manager.update(
+                self._wrapped_module,
+                self._wrapped_optimizer,
+                self._wrapped_epoch,
+                self._wrapped_steps_per_epoch,
+            )
+            self._wrapped_manager.optimizer_pre_step(
+                self._wrapped_module,
+                self._wrapped_optimizer,
+                self._wrapped_epoch,
+                self._wrapped_steps_per_epoch,
+            )
+
+        if not skip_orig_step:
+            ret = self._wrapped.step(*args, **kwargs)
+
+        if self._wrapped_manager.enabled:
+            self._wrapped_manager.optimizer_post_step(
+                self._wrapped_module,
+                self._wrapped_optimizer,
+                self._wrapped_epoch,
+                self._wrapped_steps_per_epoch,
+            )
+
+        # update tracking metrics for epoch and steps
+        self._wrapped_steps += 1
+        epoch_num = self._wrapped_steps // self._wrapped_steps_per_epoch
+        epoch_steps = self._wrapped_steps % self._wrapped_steps_per_epoch
+        self._wrapped_epoch = float(epoch_num) + (
+            float(epoch_steps) / float(self._wrapped_steps_per_epoch)
+        )
+
+        return ret
 
 
 class ScheduledModifierManager(BaseManager, Modifier):
