@@ -474,13 +474,23 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         block_shape: List[int],
         grouping_fn_name: str = "mean",
     ):
-        if len(block_shape) != 2:
+        if len(block_shape) < 2:
             raise ValueError(
                 (
-                    "Invalid block_shape: {}"
-                    " ,block_shape must have length == 2 for in and out channels"
+                    "Invalid block_shape: {}, "
+                    "block_shape must have length == 2 for in and out channels"
                 ).format(block_shape)
             )
+
+        if len(block_shape) > 2 and not all([shape == 1 for shape in block_shape[2:]]):
+            # after in and out channels, only 1 can be used for other dimensions
+            raise ValueError(
+                (
+                    "Invalid block_shape: {}, "
+                    "block_shape for indices not in [0, 1] must be equal to 1"
+                ).format(block_shape)
+            )
+
         self._block_shape = block_shape
         self._grouping_fn_name = grouping_fn_name
 
