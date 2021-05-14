@@ -98,7 +98,7 @@ print(recipe)
 
 ### Structure
 
-The following table lays out the root level files and folders along with a description for each.
+The following table lays out the root-level files and folders along with a description for each.
 
 | Folder/File Name     | Description                                                                                                           |
 |----------------------|-----------------------------------------------------------------------------------------------------------------------|
