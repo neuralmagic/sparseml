@@ -107,7 +107,7 @@ The following table lays out the root-level files and folders along with a descr
 |----------------------|-----------------------------------------------------------------------------------------------------------------------|
 | data                 | The hyperparameters to use and files to use for training on data.                                   |
 | models               | Model architecture definitions along with any downloaded checkpoints from the SparseZoo.            |
-| recipes              | Folder containing typical recipes for sparsifying YOLOv3 models along with any downloaded recipes from the SparseZoo. |
+| recipes              | Typical recipes for sparsifying YOLOv3 models along with any downloaded recipes from the SparseZoo. |
 | tutorials            | Tutorial walkthroughs for how to sparsify YOLOv3 models using recipes.                              |
 | yolov3               | Integration repository folder used to train and sparsify YOLOv3 models (setup_integration.sh must run first).         |
 | README.md            | Readme file.                                                                                                          |
