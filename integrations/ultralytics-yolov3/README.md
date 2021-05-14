@@ -121,5 +121,5 @@ For example, the following command can be run from within the yolov3 repository 
 python models/export.py --weights PATH/TO/weights.pt --img-size 512 512
 ```
 
-The DeepSparse Inference Engine accepts ONNX formats and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
+The DeepSparse Engine accepts ONNX formats and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
 Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse).
