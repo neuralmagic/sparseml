@@ -38,7 +38,11 @@ The techniques include, but are not limited to:
 
 ## Installation
 
+<<<<<<< HEAD
 To begin, run the following command in the root directory of this integration (`cd integrations/ultralytics-yolov3`):
+=======
+To begin using this integration, run the following command in the root directory:
+>>>>>>> Add readme for YOLOv3 integration
 ```bash
 bash setup_integration.sh
 ```
@@ -77,8 +81,7 @@ The following popular stubs can be used to download these models and recipes thr
 | YOLOv3-SPP Pruned           | COCO    | 62.4   | 88% sparse model with LeakyReLU activations                    | zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive_97       |
 | YOLOv3-SPP                  | COCO    | 64.2   | Baseline model with LeakyReLU activations                      | zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none                  |
 
-Complete lists are available online for all [models](https://sparsezoo.neuralmagic.com/tables/models/cv/detection?repo=ultralytics) and 
-[recipes](https://sparsezoo.neuralmagic.com/tables/recipes/cv/detection?repo=ultralytics) compatible with this integration as well.
+Complete lists are available online for all [models](https://sparsezoo.neuralmagic.com/tables/models/cv/detection?repo=ultralytics) and [recipes](https://sparsezoo.neuralmagic.com/tables/recipes/cv/detection?repo=ultralytics) compatible with this integration as well.
 
 Sample code for retrieving a model from the SparseZoo:
 ```python
@@ -98,17 +101,17 @@ print(recipe)
 
 ### Structure
 
-The following table lays out the root-level files and folders along with a description for each.
+The following table lays out the root level files and folders along with a description for each.
 
 | Folder/File Name     | Description                                                                                                           |
 |----------------------|-----------------------------------------------------------------------------------------------------------------------|
-| data                 | The hyperparameters to use and files to use for training on data.                                   |
-| models               | Model architecture definitions along with any downloaded checkpoints from the SparseZoo.            |
-| recipes              | Typical recipes for sparsifying YOLOv3 models along with any downloaded recipes from the SparseZoo. |
-| tutorials            | Tutorial walkthroughs for how to sparsify YOLOv3 models using recipes.                              |
+| data                 | Folder containing the hyperparameters to use and files to use for training on data.                                   |
+| models               | Folder containing model architecture definitions along with any downloaded checkpoints from the SparseZoo.            |
+| recipes              | Folder containing typical recipes for sparsifying YOLOv3 models along with any downloaded recipes from the SparseZoo. |
+| tutorials            | Folder containing Tutorial walkthroughs for how to sparsify YOLOv3 models using recipes.                              |
 | yolov3               | Integration repository folder used to train and sparsify YOLOv3 models (setup_integration.sh must run first).         |
 | README.md            | Readme file.                                                                                                          |
-| setup_integration.sh | Setup file for the integration run from the command line.                                                |
+| setup_integration.sh | Setup file for the integration run from the command line.                                                             |
 
 ### Exporting for Inference
 
