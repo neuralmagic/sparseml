@@ -656,25 +656,29 @@ def main():
     ####################################################################################
     # Start SparseML Integration
     #################################################################################### 
-    optim = load_optimizer(student_model, training_args)
-    steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.per_device_train_batch_size*training_args._n_gpu))
-    manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
-    training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
-    optim = ScheduledOptimizer(optim, student_model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
+    if training_args.do_train:
+        optim = load_optimizer(student_model, training_args)
+        steps_per_epoch = math.ceil(len(train_dataset) / (training_args.per_device_train_batch_size*training_args._n_gpu))
+        manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
+        training_args.num_train_epochs = float(manager.max_epochs)
+        optim = ScheduledOptimizer(optim, student_model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
+    
+    ####################################################################################
+    # End SparseML Integration
+    ####################################################################################
     trainer = DistillGlueTrainer(
         model=student_model,
         teacher=teacher_model,
+        distill_hardness = model_args.distill_hardness,
+        temperature = model_args.temperature,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
-        optimizers=(optim, None),
+        optimizers=(optim, None) if training_args.do_train else (None, None),
     )
-    ####################################################################################
-    # End SparseML Integration
-    ####################################################################################
     
     # Training
     if training_args.do_train:
@@ -751,7 +755,7 @@ def main():
         logger.info("*** Export to ONNX ***")
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         exporter = ModuleExporter(
-            student_model, output_dir='onnx-export'
+            student_model, output_dir=data_args.onnx_export_path
         )
         sample_batch = convert_example_to_features(
             datasets["train"][0],

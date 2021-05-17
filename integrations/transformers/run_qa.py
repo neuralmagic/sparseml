@@ -769,7 +769,7 @@ def main():
         print("Exporting onnx model")
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         exporter = ModuleExporter(
-            model, output_dir='onnx-export'
+            model, output_dir=data_args.onnx_export_path
         )
         sample_batch = convert_example_to_features(
             datasets["validation"][0],

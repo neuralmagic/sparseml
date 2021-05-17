@@ -99,9 +99,9 @@ wandb:                         train/f1 84.5742
 | bert-base-uncased 	|95       	|2                   	|yes      |no        |0             |24.445     |14.437     |
 | bert-base-uncased 	|95       	|10                 	|yes      |no        |8             |72.761  	|60.407     |
 | bert-base-uncased 	|97       	|10                 	|yes      |no        |6             |70.260  	|57.021     |
-| bert-base-uncased 	|99             |1                   	|yes      |yes       |0             |09.685     |03.614     |
+| bert-base-uncased 	|99         |1                   	|yes      |yes       |0             |09.685     |03.614     |
 | bert-base-uncased 	|99       	|2                   	|yes      |no        |0             |17.433     |07.871     |
-| bert-base-uncased 	|99             |10                    	|yes      |no        |8             |47.306    	|32.564     |
+| bert-base-uncased 	|99         |10                    	|yes      |no        |8             |47.306    	|32.564     |
 
 ## Training with Distillation
 In addition to a simple QA model we provide an implementation which can leverage teacher-student distillation. The usage of the distillation code is virually identical to the non-distilled model but the commands are as follows: 
@@ -209,15 +209,19 @@ python run_glue.py \
   --nm_prune_config recipes/80sparselong.yaml
   --output_dir /80sparseMNLI
 ```
+
+eval/accuracy 0.90762
+wandb:                          eval/f1 0.8745
+
 ### Results
 We see similair results for QQP and MNLI as in SQUAD but the effect of model distillation is more muted.
 | base model name       | sparsity      |Distilled| prunned |train epochs|pruning epochs| QQP Accuracy | QQP F1   | MNLI Accuracy |
 |-----------------------|----------     |---------|---------|------------|--------------|--------------|----------|---------------|
 | bert-base-uncased     |0              |no       |no       |3           |0             |91.47         |88.49     |84.42          |
-| bert-base-uncased     |80             |no       |no       |30          |18            |              |          |81.34          |
-| bert-base-uncased     |90             |no       |no       |30          |18            |              |          |78.76          |
+| bert-base-uncased     |80             |no       |no       |30          |18            |90.76         |87.45     |81.34          |
+| bert-base-uncased     |90             |no       |no       |30          |18            |89.38         |85.30     |78.76          |
 | bert-base-uncased     |97             |no       |no       |30          |18            |87.57         |83.34     |73.42          |
-| bert-base-uncased     |0              |yes      |no       |2           |0             |              |          |               |
+| bert-base-uncased     |0              |yes      |no       |3           |0             |63.18         |0.00      |32.95          |
 | bert-base-uncased     |80             |yes      |yes      |30          |18            |              |          |               |
 | bert-base-uncased     |90             |yes      |yes      |30          |18            |              |          |               |
 | bert-base-uncased     |97             |yes      |yes      |30          |18            |              |          |               |

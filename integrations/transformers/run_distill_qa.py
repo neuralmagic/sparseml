@@ -751,9 +751,9 @@ def main():
     ####################################################################################
     if training_args.do_train:
         optim = load_optimizer(student_model, training_args)
-        steps_per_epoch = math.ceil(len(datasets["train"]) / (training_args.per_device_train_batch_size*training_args._n_gpu))
+        steps_per_epoch = math.ceil(len(train_dataset) / (training_args.per_device_train_batch_size*training_args._n_gpu))
         manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
-        training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
+        training_args.num_train_epochs = float(manager.max_epochs)
         optim = ScheduledOptimizer(optim, student_model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
     ####################################################################################
     # End SparseML Integration
@@ -805,7 +805,7 @@ def main():
         logger.info("*** Export to ONNX ***")
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         exporter = ModuleExporter(
-            student_model, output_dir='onnx-export'
+            student_model, output_dir=data_args.onnx_export_path
         )
         sample_batch = convert_example_to_features(
             datasets["validation"][0],
