@@ -78,12 +78,8 @@ The following popular stubs can be used to download these models and recipes thr
 | YOLOv3-SPP Pruned           | COCO    | 62.4   | 88% sparse model with LeakyReLU activations                    | zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive_97       |
 | YOLOv3-SPP                  | COCO    | 64.2   | Baseline model with LeakyReLU activations                      | zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/base-none                  |
 
-<<<<<<< HEAD
-Complete lists are available online for all [models](https://sparsezoo.neuralmagic.com/tables/models/cv/detection?repo=ultralytics) and [recipes](https://sparsezoo.neuralmagic.com/tables/recipes/cv/detection?repo=ultralytics) compatible with this integration as well.
-=======
 Complete lists are available online for all [models](https://sparsezoo.neuralmagic.com/tables/models/cv/detection?repo=ultralytics) and 
 [recipes](https://sparsezoo.neuralmagic.com/tables/recipes/cv/detection?repo=ultralytics) compatible with this integration as well.
->>>>>>> Update from review
 
 Sample code for retrieving a model from the SparseZoo:
 ```python
