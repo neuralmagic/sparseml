@@ -21,7 +21,7 @@ from setuptools import find_packages, setup
 # default variables to be overwritten by the version.py file
 is_release = None
 version = "unknown"
-version_major_minor = version
+version_major_minor_bug = version
 
 # load and overwrite version and release info from sparseml package
 exec(open(os.path.join("src", "sparseml", "version.py")).read())
@@ -50,10 +50,10 @@ _deps = [
     "toposort>=1.0",
 ]
 _nm_deps = [
-    f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_major_minor}"
+    f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_major_minor_bug}"
 ]
 _deepsparse_deps = [
-    f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_major_minor}"
+    f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_major_minor_bug}"
 ]
 _pytorch_deps = ["torch>=1.1.0,<1.8", "tensorboard>=1.0", "tensorboardX>=1.0"]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.9"]
