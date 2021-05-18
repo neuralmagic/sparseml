@@ -30,7 +30,8 @@ The techniques include, but are not limited to:
 ## Highlights
 
 - Blog: [YOLOv3 on CPUs: Sparsifying to Achieve GPU-Level Performance](https://neuralmagic.com/blog/benchmark-yolov3-on-cpus-with-deepsparse/)
-- Inference Example: [DeepSparse YOLOv3 Example](https://github.com/neuralmagic/deepsparse)
+- Example: [DeepSparse YOLOv3 Inference Example](https://github.com/neuralmagic/deepsparse)
+- Video: [DeepSparse YOLOv3 Pruned Quantized Performance](https://www.youtube.com/watch?v=h0lNmECvRSM&ab_channel=NeuralMagic)
 
 ## Tutorials
 
@@ -106,10 +107,10 @@ The following table lays out the root-level files and folders along with a descr
 
 | Folder/File Name     | Description                                                                                                           |
 |----------------------|-----------------------------------------------------------------------------------------------------------------------|
-| data                 | The hyperparameters to use and files to use for training on data.                                   |
-| models               | Model architecture definitions along with any downloaded checkpoints from the SparseZoo.            |
-| recipes              | Typical recipes for sparsifying YOLOv3 models along with any downloaded recipes from the SparseZoo. |
-| tutorials            | Tutorial walkthroughs for how to sparsify YOLOv3 models using recipes.                              |
+| data                 | The hyperparameters to use and files to use for training on data.                                                     |
+| models               | Model architecture definitions along with any downloaded checkpoints from the SparseZoo.                              |
+| recipes              | Typical recipes for sparsifying YOLOv3 models along with any downloaded recipes from the SparseZoo.                   |
+| tutorials            | Tutorial walkthroughs for how to sparsify YOLOv3 models using recipes.                                                |
 | yolov3               | Integration repository folder used to train and sparsify YOLOv3 models (setup_integration.sh must run first).         |
 | README.md            | Readme file.                                                                                                          |
 | setup_integration.sh | Setup file for the integration run from the command line.                                                             |
