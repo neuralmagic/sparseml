@@ -31,6 +31,6 @@ def test_imports():
         version,
         version_bug,
         version_major,
-        version_major_minor,
+        version_major_minor_bug,
         version_minor,
     )
