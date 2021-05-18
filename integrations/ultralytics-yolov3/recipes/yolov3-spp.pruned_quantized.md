@@ -16,11 +16,10 @@ limitations under the License.
 
 ---
 # General Epoch/LR variables
-num_epochs: &num_epochs 242.0
+num_epochs: &num_epochs 242
 init_lr: &init_lr 0.0032
 
 # Pruning Epoch/LR variables
-pruning_recovery_start_epoch: &pruning_recovery_start_epoch 100.0
 pruning_recovery_start_lr: &pruning_recovery_start_lr 0.0032
 pruning_recovery_lr_step_size: &pruning_recovery_lr_step_size 1
 pruning_recovery_lr_gamma: &pruning_recovery_lr_gamma 0.985
@@ -30,8 +29,8 @@ quantization_start_epoch: &quantization_start_epoch 240
 quantization_init_lr: &quantization_init_lr 0.0032
 
 # Block pruning management variables
-pruning_start_epoch: &pruning_start_epoch 0.0
-pruning_end_epoch: &pruning_end_epoch 100.0
+pruning_start_epoch: &pruning_start_epoch 0
+pruning_end_epoch: &pruning_end_epoch 100
 pruning_update_frequency: &pruning_update_frequency 0.5
 init_sparsity: &init_sparsity 0.05
 mask_type: &mask_type [1, 4]
@@ -63,11 +62,11 @@ training_modifiers:
         'step_size': *pruning_recovery_lr_step_size,
         'gamma': *pruning_recovery_lr_gamma
       }
-    start_epoch: *pruning_recovery_start_epoch
+    start_epoch: *pruning_end_epoch
     update_frequency: -1.0
     
   - !SetWeightDecayModifier
-    start_epoch: *pruning_recovery_start_epoch
+    start_epoch: *pruning_end_epoch
     weight_decay: 0.0
     
   # quantization aware training phase
@@ -223,38 +222,37 @@ quantization_modifiers:
 
 # YOLOv3-SPP Pruned-Quantized
 
-This recipe creates a sparse-quantized, [YOLOv3-SPP](https://arxiv.org/abs/1804.02767) model that 
-achieves 94% recovery of its baseline accuracy on the COCO detection dataset.
-Training was done using 4 GPUs using a total training batch size of 48
-using an the
-[SparseML integration with ultralytics/yolov5](https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics).
+This recipe creates a sparse-quantized, [YOLOv3-SPP](https://arxiv.org/abs/1804.02767) model that achieves 94% recovery of its baseline accuracy on the COCO detection dataset.
+Training was done using 4 GPUs at half precision using a total training batch size of 256 with the
+[SparseML integration with ultralytics/yolov3](https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3).
 
 When running, adjust hyperparameters based on training environment and dataset.
 
-Note that normally, Ultralytics saves its PyTorch checkpoints using pickling. This is not currently
-supported by PyTorch for quantization-aware-training models, so checkpoints are instead saved
-as state dicts.
+Note that half-precision, EMA, and pickling are not supported for quantization.
+Therefore, once quantization is run, all three will be disabled for the training pipeline.
+This additionally means that the checkpoints are saved using state_dicts rather than pickels of the model.
+
+## Weights and Biases
+
+- [YOLOv3-SPP LeakyReLU on VOC](https://wandb.ai/neuralmagic/yolov3-spp-lrelu-voc/runs/2dfy3rgs)
 
 ## Training
-To set up the training environment, follow the instructions on the
-[integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics/README.md).
-Using the given training script from the `yolov5` directory the following command can be used
-to launch this recipe.  The contents of the `hyp.qat.yaml` hyperparameters file is given below
-(LRs are set to 0 since they are overriden by the recipe).
 
-Adjust the script command for your GPU device setup. Ultralytics supports both DataParallel and DDP.
+To set up the training environment, follow the instructions on the [integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/README.md).
+Using the given training script from the `yolov3` directory the following command can be used to launch this recipe.  
+The contents of the `hyp.pruned_quantized.yaml` hyperparameters file is given below.
+Adjust the script command for your GPU device setup. 
+Ultralytics supports both DataParallel and DDP.
 
 *script command:*
 
 ```
 python train.py \
-  --recipe ../recipes/yolov3-spp.pruned_quantized.md \
-  --weights PRETRAINED_WEIGHTS \
-  --cfg ../models/yolov3-spp.lrelu.yaml \
-  --data coco.yaml \
-  --hyp ../data/hyp.pruned_quantized.yaml \
-  --batch-size 256 \
-  --name yolov3-spp-lrelu-pruned-quantized
+    --recipe ../recipes/yolov3-spp.pruned.md \
+    --weights PRETRAINED_WEIGHTS \
+    --data voc.yaml \
+    --hyp ../data/hyp.pruned_quantized.yaml \
+    --name yolov3-spp-lrelu-pruned-quantized
 ```
 
 hyp.prune_quantized.yaml:
