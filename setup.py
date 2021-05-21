@@ -70,6 +70,7 @@ _dev_deps = [
     "black>=20.8b1",
     "flake8>=3.8.3",
     "isort>=5.7.0",
+    "m2r2~=0.2.7",
     "rinohtype>=0.4.2",
     "recommonmark>=0.7.0",
     "sphinx>=3.4.0",
