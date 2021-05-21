@@ -810,7 +810,7 @@ def main():
             data_args.doc_stride,
             data_args.max_query_length,
         )
-        exporter.export_onnx(sample_batch=sample_batch)
+        exporter.export_onnx(sample_batch=sample_batch, convert_qat=True)
     ####################################################################################
     # End SparseML Integration
     ####################################################################################
