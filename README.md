@@ -14,32 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# ![icon for SparseMl](https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png) SparseML
+<div style="padding-top: 40px">
+    <img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" /><h1 style="display: inline; padding-left: 16px;">SparseML</h1>
+</div>
 
-### Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models
+<h3>Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models</h3>
 
 <p>
-    <a href="https://docs.neuralmagic.com/sparseml/">
-        <img alt="Documentation" src="https://img.shields.io/website/http/docs.neuralmagic.com/sparseml/index.html.svg?down_color=red&down_message=offline&up_message=online&style=for-the-badge" height=25>
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/actions/workflows/quality-check.yaml">
-        <img alt="Quality Check" src="https://img.shields.io/github/workflow/status/neuralmagic/sparseml/Quality%20Checks/main?label=Quality%20Checks&style=for-the-badge" height=25>
-    </a>
     <a href="https://github.com/neuralmagic/sparseml/actions/workflows/test-check.yaml">
-        <img alt="Main" src="https://img.shields.io/github/workflow/status/neuralmagic/sparseml/Test%20Checks/main?label=Main&style=for-the-badge" height=25>
-    </a>
-</p>
-<p>
-    <a href="https://github.com/neuralmagic/sparseml/blob/main/LICENSE">
-        <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/sparseml.svg?color=purple&style=for-the-badge" height=25>
+        <img alt="Main" src="https://img.shields.io/github/workflow/status/neuralmagic/sparseml/Test%20Checks/main?label=build&style=for-the-badge" height=25>
     </a>
     <a href="https://github.com/neuralmagic/sparseml/releases">
         <img alt="GitHub release" src="https://img.shields.io/github/release/neuralmagic/sparseml.svg?style=for-the-badge" height=25>
     </a>
+    <a href="https://github.com/neuralmagic/sparseml/blob/main/LICENSE">
+        <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/sparseml.svg?color=purple&style=for-the-badge" height=25>
+    </a>
+    <a href="https://docs.neuralmagic.com/sparseml/">
+        <img alt="Documentation" src="https://img.shields.io/website/http/docs.neuralmagic.com/sparseml/index.html.svg?label=documentation&down_color=red&down_message=offline&up_message=online&style=for-the-badge" height=25>
+    </a>
     <a href="https://github.com/neuralmagic/sparseml/blob/main/CODE_OF_CONDUCT.md">
         <img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg?color=yellow&style=for-the-badge" height=25>
     </a>
-     <a href="https://www.youtube.com/channel/UCo8dO_WMGYbWCRnj_Dxr4EA">
+    <a href="https://www.youtube.com/channel/UCo8dO_WMGYbWCRnj_Dxr4EA">
         <img src="https://img.shields.io/badge/-YouTube-red?&style=for-the-badge&logo=youtube&logoColor=white" height=25>
     </a>
      <a href="https://medium.com/limitlessai">
@@ -57,24 +54,88 @@ General, recipe-driven approaches built around these algorithms enable the simpl
 
 This repository contains integrations within the [PyTorch](https://pytorch.org/), [Keras](https://keras.io/), and [TensorFlow V1](http://tensorflow.org/) ecosystems, allowing for seamless model sparsification.
 
-## Sparsification
+<img src="https://docs.neuralmagic.com/docs/source/infographics/sparseml.png" width="960px" />
 
-Sparsification is the process of taking a trained deep learning model and removing redundant information from the overprecise and over-parameterized network resulting in a faster and smaller model.
-Techniques for sparsification are all encompassing including everything from inducing sparsity using [pruning](https://neuralmagic.com/blog/pruning-overview/) and [quantization](https://arxiv.org/abs/1609.07061) to enabling naturally occurring sparsity using [activation sparsity](http://proceedings.mlr.press/v119/kurtz20a.html) or [winograd/FFT](https://arxiv.org/abs/1509.09308). 
-When implemented correctly, these techniques result in significantly more performant and smaller models with limited to no effect on the baseline metrics.
-For example, pruning plus quantization can give over noticeable improvements in performance while recovering to nearly the same baseline accuracy.
+## Highlights
 
-The Deep Sparse product suite builds on top of sparsification enabling you to easily apply the techniques to your datasets and models using recipe-driven approaches. Recipes encode the directions for how to sparsify a model into a simple, easily editable format.
+<p>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch">
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/pytorch-torchvision.png" />
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3">
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov3.png" />
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov5">
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov5.png" />
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/huggingface-transformers">
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/huggingface-transformers.png" />
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/rwightman-timm">
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/rwightman-timm.png" />
+    </a>
+</p>
 
-- Download a sparsification recipe and sparsified model from the [SparseZoo](https://github.com/neuralmagic/sparsezoo).
-- Alternatively, create a recipe for your model using [Sparsify](https://github.com/neuralmagic/sparsify).
-- Apply your recipe with only a few lines of code using [SparseML](https://github.com/neuralmagic/sparseml).
-- Finally, for GPU-level performance on CPUs, deploy your sparse-quantized model with the [DeepSparse Engine](https://github.com/neuralmagic/deepsparse).
+## Tutorials
 
+<p>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch">
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov3.png" />
+    </a>
+</p>
 
-**Full Deep Sparse product flow:**  
+## Installation
 
-<img src="https://docs.neuralmagic.com/docs/source/sparsification/flow-overview.svg" width="960px">
+This repository is tested on Python 3.6+, and Linux/Debian systems.
+It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
+
+Install with pip using:
+
+```bash
+pip install sparseml
+```
+
+#### Supported Framework Versions
+
+The currently supported framework versions are:
+
+- PyTorch supported versions: `>= 1.1.0, < 1.8.0`
+- Keras supported versions: `2.3.0-tf` (through the TensorFlow `2.2` package; as of Feb 1st, 2021, `keras2onnx` has
+not been tested for TensorFlow >= `2.3`). 
+- TensorFlow V1 supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
+
+#### Optional Dependencies
+
+Additionally, optional dependencies can be installed based on the framework you are using.
+
+PyTorch:
+
+```bash
+pip install sparseml[torch]
+```
+
+Keras:
+
+```bash
+pip install sparseml[tf_keras]
+```
+
+TensorFlow V1:
+
+```bash
+pip install sparseml[tf_v1]
+```
+
+TensorFlow V1 with GPU operations enabled:
+
+```bash
+pip install sparseml[tf_v1_gpu]
+```
+
+Depending on your device and CUDA version, you may need to install additional dependencies for using TensorFlow V1 with GPU operations.  You can find these steps [here](https://www.tensorflow.org/install/gpu#older_versions_of_tensorflow).
+
+Note, TensorFlow V1 is no longer being built for newer operating systems such as Ubuntu 20.04. Therefore, SparseML with TensorFlow V1 is unsupported on these operating systems as well.
+
 
 ## Quick Tour
 
@@ -301,61 +362,6 @@ with tf_compat.Graph().as_default() as graph:
 
 exporter.export_onnx(inputs=input_names, outputs=output_names)
 ```
-
-### Installation
-
-This repository is tested on Python 3.6+, and Linux/Debian systems.
-It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
-
-Install with pip using:
-
-```bash
-pip install sparseml
-```
-
-Then if you would like to explore any of the [scripts](https://github.com/neuralmagic/sparseml/blob/main/scripts/), [notebooks](https://github.com/neuralmagic/sparseml/blob/main/notebooks/), or [integrations](https://github.com/neuralmagic/sparseml/blob/main/integrations/)
-clone the repository and install any additional dependencies as required.
-
-#### Supported Framework Versions
-
-The currently supported framework versions are:
-
-- PyTorch supported versions: `>= 1.1.0, < 1.8.0`
-- Keras supported versions: `2.3.0-tf` (through the TensorFlow `2.2` package; as of Feb 1st, 2021, `keras2onnx` has
-not been tested for TensorFlow >= `2.3`). 
-- TensorFlow V1 supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
-
-#### Optional Dependencies
-
-Additionally, optional dependencies can be installed based on the framework you are using.
-
-PyTorch:
-
-```bash
-pip install sparseml[torch]
-```
-
-Keras:
-
-```bash
-pip install sparseml[tf_keras]
-```
-
-TensorFlow V1:
-
-```bash
-pip install sparseml[tf_v1]
-```
-
-TensorFlow V1 with GPU operations enabled:
-
-```bash
-pip install sparseml[tf_v1_gpu]
-```
-
-Depending on your device and CUDA version, you may need to install additional dependencies for using TensorFlow V1 with GPU operations.  You can find these steps [here](https://www.tensorflow.org/install/gpu#older_versions_of_tensorflow).
-
-Note, TensorFlow V1 is no longer being built for newer operating systems such as Ubuntu 20.04. Therefore, SparseML with TensorFlow V1 is unsupported on these operating systems as well.
 
 ## Resources and Learning More
 
