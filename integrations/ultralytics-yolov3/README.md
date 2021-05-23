@@ -30,11 +30,12 @@ The techniques include, but are not limited to:
 ## Highlights
 
 - Blog: [YOLOv3 on CPUs: Sparsifying to Achieve GPU-Level Performance](https://neuralmagic.com/blog/benchmark-yolov3-on-cpus-with-deepsparse/)
-- Inference Example: [DeepSparse YOLOv3 Example](https://github.com/neuralmagic/deepsparse)
+- Example: [DeepSparse YOLOv3 Inference Example](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3)
+- Video: [DeepSparse YOLOv3 Pruned Quantized Performance](https://www.youtube.com/watch?v=h0lNmECvRSM&ab_channel=NeuralMagic)
 
 ## Tutorials
 
-- Coming soon!
+- [Sparsifying YOLOv3 Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md)
 
 ## Installation
 
@@ -102,13 +103,13 @@ The following table lays out the root-level files and folders along with a descr
 
 | Folder/File Name     | Description                                                                                                           |
 |----------------------|-----------------------------------------------------------------------------------------------------------------------|
-| data                 | The hyperparameters to use and files to use for training on data.                                   |
-| models               | Model architecture definitions along with any downloaded checkpoints from the SparseZoo.            |
-| recipes              | Typical recipes for sparsifying YOLOv3 models along with any downloaded recipes from the SparseZoo. |
-| tutorials            | Tutorial walkthroughs for how to sparsify YOLOv3 models using recipes.                              |
+| data                 | The hyperparameters to use and files to use for training on data.                                                     |
+| models               | Model architecture definitions along with any downloaded checkpoints from the SparseZoo.                              |
+| recipes              | Typical recipes for sparsifying YOLOv3 models along with any downloaded recipes from the SparseZoo.                   |
+| tutorials            | Tutorial walkthroughs for how to sparsify YOLOv3 models using recipes.                                                |
 | yolov3               | Integration repository folder used to train and sparsify YOLOv3 models (setup_integration.sh must run first).         |
 | README.md            | Readme file.                                                                                                          |
-| setup_integration.sh | Setup file for the integration run from the command line.                                                |
+| setup_integration.sh | Setup file for the integration run from the command line.                                                             |
 
 ### Exporting for Inference
 
@@ -122,4 +123,4 @@ python models/export.py --weights PATH/TO/weights.pt --img-size 512 512
 ```
 
 The DeepSparse Engine accepts ONNX formats and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
-Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse).
+Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3).

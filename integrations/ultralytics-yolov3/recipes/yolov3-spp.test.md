@@ -16,24 +16,63 @@ limitations under the License.
 
 ---
 # General Epoch/LR variables
-num_epochs: &num_epochs 80
+num_epochs: &num_epochs 5
+init_lr: &init_lr 0.0032
 
-# pruning hyperparameters
-init_sparsity: &init_sparsity 0.05
+# Pruning Epoch/LR variables
+pruning_recovery_start_lr: &pruning_recovery_start_lr 0.0032
+pruning_recovery_lr_step_size: &pruning_recovery_lr_step_size 1
+pruning_recovery_lr_gamma: &pruning_recovery_lr_gamma 0.985
+
+# Quantization Epoch/LR variables
+quantization_start_epoch: &quantization_start_epoch 4
+quantization_init_lr: &quantization_init_lr 0.0032
+
+# Block pruning management variables
 pruning_start_epoch: &pruning_start_epoch 0
-pruning_end_epoch: &pruning_end_epoch 40
-update_frequency: &pruning_update_frequency 0.5
+pruning_end_epoch: &pruning_end_epoch 2
+pruning_update_frequency: &pruning_update_frequency 0.5
+init_sparsity: &init_sparsity 0.05
+mask_type: &mask_type [1, 4]
 
 prune_none_target_sparsity: &prune_none_target_sparsity 0.4
 prune_low_target_sparsity: &prune_low_target_sparsity 0.75
 prune_mid_target_sparsity: &prune_mid_target_sparsity 0.8
 prune_high_target_sparsity: &prune_high_target_sparsity 0.85
-
-# modifiers
+  
+# Modifiers
 training_modifiers:
   - !EpochRangeModifier
     start_epoch: 0.0
     end_epoch: *num_epochs
+
+  # pruning phase
+  - !SetLearningRateModifier
+    start_epoch: 0.0
+    learning_rate: *init_lr
+
+  # pruning recovery phase
+  - !LearningRateModifier
+    constant_logging: False
+    end_epoch: *quantization_start_epoch
+    init_lr: *pruning_recovery_start_lr
+    log_types: __ALL__
+    lr_class: StepLR
+    lr_kwargs: {
+        'step_size': *pruning_recovery_lr_step_size,
+        'gamma': *pruning_recovery_lr_gamma
+      }
+    start_epoch: *pruning_end_epoch
+    update_frequency: -1.0
+    
+  - !SetWeightDecayModifier
+    start_epoch: *pruning_end_epoch
+    weight_decay: 0.0
+    
+  # quantization aware training phase
+  - !SetLearningRateModifier
+    start_epoch: *quantization_start_epoch
+    learning_rate: *quantization_init_lr
 
 pruning_modifiers:
   - !GMPruningModifier
@@ -43,6 +82,7 @@ pruning_modifiers:
       - model.26.cv2.conv.weight
     init_sparsity: *init_sparsity
     final_sparsity: *prune_none_target_sparsity
+    mask_type: *mask_type
     start_epoch: *pruning_start_epoch
     end_epoch: *pruning_end_epoch
     update_frequency: *pruning_update_frequency
@@ -76,6 +116,7 @@ pruning_modifiers:
       - model.8.7.cv1.conv.weight
     init_sparsity: *init_sparsity
     final_sparsity: *prune_low_target_sparsity
+    mask_type: *mask_type
     start_epoch: *pruning_start_epoch
     end_epoch: *pruning_end_epoch
     update_frequency: *pruning_update_frequency
@@ -107,6 +148,7 @@ pruning_modifiers:
       - model.6.3.cv2.conv.weight
     init_sparsity: *init_sparsity
     final_sparsity: *prune_mid_target_sparsity
+    mask_type: *mask_type
     start_epoch: *pruning_start_epoch
     end_epoch: *pruning_end_epoch
     update_frequency: *pruning_update_frequency
@@ -139,28 +181,65 @@ pruning_modifiers:
       - model.9.conv.weight
     init_sparsity: *init_sparsity
     final_sparsity: *prune_high_target_sparsity
+    mask_type: *mask_type
     start_epoch: *pruning_start_epoch
     end_epoch: *pruning_end_epoch
     update_frequency: *pruning_update_frequency
+
+quantization_modifiers:
+  - !QuantizationModifier
+    start_epoch: *quantization_start_epoch
+    submodules:
+      - model.0
+      - model.1 
+      - model.2
+      - model.3 
+      - model.4
+      - model.5
+      - model.6
+      - model.7
+      - model.8
+      - model.9
+      - model.10
+      - model.11
+      - model.12
+      - model.13
+      - model.14
+      - model.15
+      - model.16
+      - model.17
+      - model.18
+      - model.19
+      - model.20
+      - model.21
+      - model.22
+      - model.23
+      - model.24
+      - model.25
+      - model.26
+      - model.27
 ---
 
-# YOLOv3-SPP Pruned Short
+# YOLOv3-SPP Test Recipe
 
-This recipe creates a sparse [YOLOv3-SPP](https://arxiv.org/abs/1804.02767) model in a shortened schedule as compared to the original pruned recipe.
-It will train faster, but will recover slightly worse.
+This is a test recipe useful for quickly evaluating the time and resources needed for pruning and quantizing a model.
+In addition, it offers a quick integration tests pathway.
+This recipe creates a sparse-quantized [YOLOv3-SPP](https://arxiv.org/abs/1804.02767) model that will not be accurate.
 Use the following [SparseML integration with ultralytics/yolov3](https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3) to run.
 
-When running, adjust hyperparameters based on training environment and dataset.
+Note that half-precision, EMA, and pickling are not supported for quantization.
+Therefore, once quantization is run, all three will be disabled for the training pipeline.
+This additionally means that the checkpoints are saved using state_dicts rather than pickels of the model.
 
 ## Weights and Biases
 
-- [YOLOv3-SPP LeakyReLU on VOC](https://wandb.ai/neuralmagic/yolov3-spp-lrelu-voc/runs/jktw650n)
+- [YOLOv3-SPP LeakyReLU on VOC](https://wandb.ai/neuralmagic/yolov3-spp-lrelu-voc/runs/3bkw6c60)
 
 ## Training
 
 To set up the training environment, follow the instructions on the [integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/README.md).
 Using the given training script from the `yolov3` directory the following command can be used to launch this recipe.  
-The contents of the `hyp.pruned.yaml` hyperparameters file is given below.
+The contents of the `hyp.pruned_quantized.yaml` hyperparameters file is given below.
 Adjust the script command for your GPU device setup. 
 Ultralytics supports both DataParallel and DDP.
 
@@ -168,17 +247,17 @@ Ultralytics supports both DataParallel and DDP.
 
 ```
 python train.py \
-    --recipe ../recipes/yolov3-spp.pruned.short.md \
+    --recipe ../recipes/yolov3-spp.test.md \
     --weights PRETRAINED_WEIGHTS \
     --data voc.yaml \
-    --hyp ../data/hyp.pruned.yaml \
-    --name yolov3-spp-lrelu-pruned
+    --hyp ../data/hyp.pruned_quantized.short.yaml \
+    --name yolov3-spp-lrelu-pruned-quantized
 ```
 
-hyp.pruned.yaml:
+hyp.prune_quantized.yaml:
 ```yaml
-lr0: 0.005
-lrf: 0.1
+lr0: 0.0
+lrf: 0.0
 momentum: 0.843
 weight_decay: 0.00036
 warmup_epochs: 40.0
