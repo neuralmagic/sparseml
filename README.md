@@ -14,9 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-<div style="padding-top: 40px">
-    <img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" /><h1 style="display: inline; padding-left: 16px;">SparseML</h1>
-</div>
+<h1><img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" style="padding-left: 16px;" />SparseML</h1>
 
 <h3>Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models</h3>
 
@@ -100,17 +98,6 @@ This repository contains integrations within the [PyTorch](https://pytorch.org/)
 ### General
 
 Coming soon!
-
-## Installation
-
-This repository is tested on Python 3.6+, and Linux/Debian systems.
-It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
-
-Install with pip using:
-
-```bash
-pip install sparseml
-```
 
 ## Installation
 
