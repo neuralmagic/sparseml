@@ -23,7 +23,6 @@ SparseML |version|
     :maxdepth: 3
     :caption: General
 
-    source/quicktour
     source/installation
     source/recipes
 

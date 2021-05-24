@@ -78,11 +78,28 @@ This repository contains integrations within the [PyTorch](https://pytorch.org/)
 
 ## Tutorials
 
+### Model Sparsification
+
 <p>
-    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch">
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/classification.ipynb">
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" />
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md">
         <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov3.png" />
     </a>
 </p>
+
+### Model Sparse Transfer Learning
+
+<p>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb">
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" />
+    </a>
+</p>
+
+### General
+
+Coming soon!
 
 ## Installation
 
@@ -95,275 +112,26 @@ Install with pip using:
 pip install sparseml
 ```
 
-#### Supported Framework Versions
+## Installation
 
-The currently supported framework versions are:
+This repository is tested on Python 3.6+, and Linux/Debian systems.
+It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
+Currently supported ML Frameworks are the following: `torch>=1.1.0,<=1.8.0`, `tensorflow>=1.8.0,<=2.0.0`, `tensorflow.keras >= 2.2.0`.
 
-- PyTorch supported versions: `>= 1.1.0, < 1.8.0`
-- Keras supported versions: `2.3.0-tf` (through the TensorFlow `2.2` package; as of Feb 1st, 2021, `keras2onnx` has
-not been tested for TensorFlow >= `2.3`). 
-- TensorFlow V1 supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
-
-#### Optional Dependencies
-
-Additionally, optional dependencies can be installed based on the framework you are using.
-
-PyTorch:
+Install with pip using:
 
 ```bash
-pip install sparseml[torch]
+pip install sparseml
 ```
 
-Keras:
-
-```bash
-pip install sparseml[tf_keras]
-```
-
-TensorFlow V1:
-
-```bash
-pip install sparseml[tf_v1]
-```
-
-TensorFlow V1 with GPU operations enabled:
-
-```bash
-pip install sparseml[tf_v1_gpu]
-```
-
-Depending on your device and CUDA version, you may need to install additional dependencies for using TensorFlow V1 with GPU operations.  You can find these steps [here](https://www.tensorflow.org/install/gpu#older_versions_of_tensorflow).
-
-Note, TensorFlow V1 is no longer being built for newer operating systems such as Ubuntu 20.04. Therefore, SparseML with TensorFlow V1 is unsupported on these operating systems as well.
-
+More information on installation such as optional dependencies and requirements can be found [here](https://docs.neuralmagic.com/sparseml/source/installation.html).
 
 ## Quick Tour
 
-To enable flexibility, ease of use, and repeatability, sparsifying a model is generally done using a recipe.
-The recipes encode the instructions needed for modifying the model and/or training process as a list of modifiers.
-Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
-The files are written in [YAML](https://yaml.org/) and stored in YAML or [markdown](https://www.markdownguide.org/) files using [YAML front matter](https://assemble.io/docs/YAML-front-matter.html).
-The rest of the SparseML system is coded to parse the recipes into a native format for the desired framework and apply the modifications to the model and training pipeline.
 
-A sample recipe for pruning a model generally looks like the following:
+## Resources
 
-```yaml
-version: 0.1.0
-modifiers:
-    - !EpochRangeModifier
-        start_epoch: 0.0
-        end_epoch: 70.0
-
-    - !LearningRateModifier
-        start_epoch: 0
-        end_epoch: -1.0
-        update_frequency: -1.0
-        init_lr: 0.005
-        lr_class: MultiStepLR
-        lr_kwargs: {'milestones': [43, 60], 'gamma': 0.1}
-
-    - !GMPruningModifier
-        start_epoch: 0
-        end_epoch: 40
-        update_frequency: 1.0
-        init_sparsity: 0.05
-        final_sparsity: 0.85
-        mask_type: unstructured
-        params: ['sections.0.0.conv1.weight', 'sections.0.0.conv2.weight', 'sections.0.0.conv3.weight']
-```
-
-More information on the available recipes, formats, and arguments can be found [here](https://github.com/neuralmagic/sparseml/blob/main/docs/source/recipes.md). Additionally, all code implementations of the modifiers under the `optim` packages for the frameworks are documented with example YAML formats.
-
-Pre-configured recipes and the resulting models can be explored and downloaded from the [SparseZoo](https://github.com/neuralmagic/sparsezoo). Also, [Sparsify](https://github.com/neuralmagic/sparsify) enables autoML style creation of optimization recipes for use with SparseML.
-
-For a more in-depth read, check out [SparseML documentation](https://docs.neuralmagic.com/sparseml/).
-
-### PyTorch Sparsification
-
-The PyTorch sparsification libraries are located under the `sparseml.pytorch.optim` package.
-Inside are APIs designed to make model sparsification as easy as possible by integrating seamlessly into PyTorch training pipelines.
-
-The integration is done using the `ScheduledOptimizer` class. 
-It is intended to wrap your current optimizer and its step function. 
-The step function then calls into the `ScheduledModifierManager` class which can be created from a recipe file. 
-With this setup, the training process can then be modified as desired to sparsify the model.
-
-To enable all of this, the integration code you'll need to write is only a handful of lines:
-
-```python
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-
-model = None  # your model definition
-optimizer = None  # your optimizer definition
-num_train_batches = len(train_data) / batch_size  # your number of batches per training epoch
-
-manager = ScheduledModifierManager.from_yaml("/PATH/TO/recipe.yaml")
-optimizer = ScheduledOptimizer(optimizer, model, manager, steps_per_epoch=num_train_batches)
-
-# PyTorch training code...
-```
-
-### Keras Optimization
-
-The Keras sparsification libraries are located under the `sparseml.keras.optim` package.
-Inside are APIs designed to make model sparsification as easy as possible by integrating seamlessly into Keras training pipelines.
-
-The integration is done using the `ScheduledModifierManager` class which can be created from a recipe file.
-This class handles modifying the Keras objects for the desired algorithms using the `modify` method.
-The edited model, optimizer, and any callbacks necessary to modify the training process are returned.
-The model and optimizer can be used normally and the callbacks must be passed into the `fit` or `fit_generator` function.
-If using `train_on_batch`, the callbacks must be invoked after each call.
-After training is completed, call into the manager's `finalize` method to clean up the graph for exporting.
-
-To enable all of this, the integration code you'll need to write is only a handful of lines:
-
-```python
-from sparseml.keras.optim import ScheduledModifierManager
-
-model = None  # your model definition
-optimizer = None  # your optimizer definition
-num_train_batches = len(train_data) / batch_size  # your number of batches per training epoch
-
-manager = ScheduledModifierManager.from_yaml("/PATH/TO/recipe.yaml")
-model, optimizer, callbacks = manager.modify(
-    model, optimizer, steps_per_epoch=num_train_batches
-)
-
-# Keras compilation and training code...
-# Be sure to compile model after calling modify and pass the callbacks into the fit or fit_generator function.
-# Note, if you are using train_on_batch, then you will need to invoke the callbacks after every step.
-model.compile(...)
-model.fit(..., callbacks=callbacks)
-
-# finalize cleans up the graph for export
-save_model = manager.finalize(model)
-```
-
-### TensorFlow V1 Sparsification
-
-The TensorFlow sparsification libraries for TensorFlow version 1.X are located under the `sparseml.tensorflow_v1.optim` package. 
-Inside are APIs designed to make model sparsification as easy as possible by integrating seamlessly into TensorFlow V1 training pipelines.
-
-The integration is done using the `ScheduledModifierManager` class which can be created from a recipe file.
-This class handles modifying the TensorFlow graph for the desired algorithms.
-With this setup, the training process can then be modified as desired to sparsify the model.
-
-#### Estimator-Based pipelines
-
-Estimator-based pipelines are simpler to integrate with as compared to session-based pipelines.
-The `ScheduledModifierManager` can override the necessary callbacks in the estimator to modify the graph using the `modify_estimator` function.
-
-```python
-from sparseml.tensorflow_v1.optim import ScheduledModifierManager
-
-estimator = None  # your estimator definition
-num_train_batches = len(train_data) / batch_size  # your number of batches per training epoch
-
-manager = ScheduledModifierManager.from_yaml("/PATH/TO/config.yaml")
-manager.modify_estimator(estimator, steps_per_epoch=num_train_batches)
-
-# Normal estimator training code...
-```
-
-#### Session-Based pipelines
-
-Session-based pipelines need a little bit more as compared to estimator-based pipelines; however,
-it is still designed to require only a few lines of code for integration.
-After graph creation, the manager's `create_ops` method must be called.
-This will modify the graph as needed for the algorithms and return modifying ops and extras.
-After creating the session and training normally, call into `session.run` with the modifying ops after each step.
-Modifying extras contain objects such as tensorboard summaries of the modifiers to be used if desired.
-Finally, once completed, `complete_graph` must be called to remove the modifying ops for saving and export.
-
-```python
-from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.tensorflow_v1.optim import ScheduledModifierManager
-
-
-with tf_compat.Graph().as_default() as graph:
-    # Normal graph setup....
-    num_train_batches = len(train_data) / batch_size  # your number of batches per training epoch
-    
-    # Modifying graphs, be sure his is called after graph is created and before session is created
-    manager = ScheduledModifierManager.from_yaml("/PATH/TO/config.yaml")
-    mod_ops, mod_extras = manager.create_ops(steps_per_epoch=num_train_batches)
-    
-    with tf_compat.Session() as sess:
-        # Normal training code...
-        # Call sess.run with the mod_ops after every batch update
-        sess.run(mod_ops)
-    
-        # Call into complete_graph after training is done
-        manager.complete_graph()
-```
-
-### Exporting to ONNX
-
-[ONNX](https://onnx.ai/) is a generic representation for neural network graphs that most ML frameworks can be converted to. Some inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse) natively take in ONNX for deployment pipelines, so convenience functions for conversion and export are provided for the supported frameworks.
-
-#### Exporting PyTorch to ONNX
-
-ONNX is built into the PyTorch system natively.
-The `ModuleExporter` class under the `sparseml.pytorch.utils` package features an `export_onnx` function built on top of this native support.
-Example code:
-
-```python
-import os
-import torch
-from sparseml.pytorch.models import mnist_net
-from sparseml.pytorch.utils import ModuleExporter
-
-model = mnist_net()
-exporter = ModuleExporter(model, output_dir=os.path.join(".", "onnx-export"))
-exporter.export_onnx(sample_batch=torch.randn(1, 1, 28, 28))
-```
-
-#### Exporting Keras to ONNX
-
-ONNX is not built into the Keras system, but is supported through an ONNX official tool [keras2onnx](https://github.com/onnx/keras-onnx). The `ModelExporter` class under the `sparseml.keras.utils` package features an `export_onnx` function built on top of keras2onnx.
-Example code:
-
-```python
-import os
-from sparseml.keras.utils import ModelExporter
-
-model = None  # fill in with your model
-exporter = ModelExporter(model, output_dir=os.path.join(".", "onnx-export"))
-exporter.export_onnx()
-```
-
-#### Exporting TensorFlow V1 to ONNX
-
-ONNX is not built into the TensorFlow system, but it is supported through an ONNX official tool
-[tf2onnx](https://github.com/onnx/tensorflow-onnx).
-The `GraphExporter` class under the `sparseml.tensorflow_v1.utils` package features an
-`export_onnx` function built on top of tf2onnx.
-Note that the ONNX file is created from the protobuf graph representation, so `export_pb` must be called first.
-Example code:
-
-```python
-import os
-from sparseml.tensorflow_v1.utils import tf_compat, GraphExporter
-from sparseml.tensorflow_v1.models import mnist_net
-
-exporter = GraphExporter(output_dir=os.path.join(".", "mnist-tf-export"))
-
-with tf_compat.Graph().as_default() as graph:
-    inputs = tf_compat.placeholder(
-        tf_compat.float32, [None, 28, 28, 1], name="inputs"
-    )
-    logits = mnist_net(inputs)
-    input_names = [inputs.name]
-    output_names = [logits.name]
-
-    with tf_compat.Session() as sess:
-        sess.run(tf_compat.global_variables_initializer())
-        exporter.export_pb(outputs=[logits])
-
-exporter.export_onnx(inputs=input_names, outputs=output_names)
-```
-
-## Resources and Learning More
+### Learning More
 
 - [SparseZoo Documentation](https://docs.neuralmagic.com/sparsezoo/)
 - [SparseML Documentation](https://docs.neuralmagic.com/sparseml/)
@@ -371,23 +139,7 @@ exporter.export_onnx(inputs=input_names, outputs=output_names)
 - [DeepSparse Documentation](https://docs.neuralmagic.com/deepsparse/)
 - Neural Magic [Blog](https://www.neuralmagic.com/blog/), [Resources](https://www.neuralmagic.com/resources/), [Website](https://www.neuralmagic.com/)
 
-## Contributing
-
-We appreciate contributions to the code, examples, integrations, and documentation as well as bug reports and feature requests! [Learn how here](https://github.com/neuralmagic/sparseml/blob/main/CONTRIBUTING.md).
-
-## Join the Community
-
-For user help or questions about Sparsify, sign up or log in: **Deep Sparse Community** [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). We are growing the community member by member and happy to see you there.
-
-You can get the latest news, webinar and event invites, research papers, and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
-
-For more general questions about Neural Magic, please email us at [learnmore@neuralmagic.com](mailto:learnmore@neuralmagic.com) or fill out this [form](http://neuralmagic.com/contact/).
-
-## License
-
-The project is licensed under the [Apache License Version 2.0](https://github.com/neuralmagic/sparseml/blob/main/LICENSE).
-
-## Release History
+### Release History
 
 Official builds are hosted on PyPI
 
@@ -396,7 +148,26 @@ Official builds are hosted on PyPI
 
 Additionally, more information can be found via [GitHub Releases.](https://github.com/neuralmagic/sparseml/releases)
 
-## Citation
+### License
+
+The project is licensed under the [Apache License Version 2.0](https://github.com/neuralmagic/sparseml/blob/main/LICENSE).
+
+
+## Community
+
+### Contribute
+
+We appreciate contributions to the code, examples, integrations, and documentation as well as bug reports and feature requests! [Learn how here](https://github.com/neuralmagic/sparseml/blob/main/CONTRIBUTING.md).
+
+### Join
+
+For user help or questions about Sparsify, sign up or log in: **Deep Sparse Community** [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). We are growing the community member by member and happy to see you there.
+
+You can get the latest news, webinar and event invites, research papers, and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
+
+For more general questions about Neural Magic, please email us at [learnmore@neuralmagic.com](mailto:learnmore@neuralmagic.com) or fill out this [form](http://neuralmagic.com/contact/).
+
+### Cite
 
 Find this project useful in your research or other communications? Please consider citing:
 

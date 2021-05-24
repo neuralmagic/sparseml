@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-### Installation
+# Installation
 
 This repository is tested on Python 3.6+, and Linux/Debian systems.
 It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
+Currently supported ML Frameworks are the following: `torch>=1.1.0,<=1.8.0`, `tensorflow>=1.8.0,<=2.0.0`, `tensorflow.keras >= 2.2.0`.
 
 Install with pip using:
 
@@ -25,4 +26,45 @@ Install with pip using:
 pip install sparseml
 ```
 
-Then if you would like to explore any of the [scripts](https://github.com/neuralmagic/sparseml/tree/main/scripts), [notebooks](https://github.com/neuralmagic/sparseml/tree/main/notebooks), or [integrations](https://github.com/neuralmagic/sparseml/tree/main/integrations) clone the repository and install any additional dependencies as required.
+## Supported Framework Versions
+
+The currently supported framework versions are:
+
+- PyTorch supported versions: `>= 1.1.0, < 1.8.0`
+- Keras supported versions: `2.3.0-tf` (through the TensorFlow `2.2` package; as of Feb 1st, 2021, `keras2onnx` has
+not been tested for TensorFlow >= `2.3`). 
+- TensorFlow V1 supported versions: >= `1.8.0` (TensorFlow >= `2.X` is not currently supported)
+
+## Optional Dependencies
+
+Additionally, optional dependencies can be installed based on the framework you are using.
+
+PyTorch:
+
+```bash
+pip install sparseml[torch]
+```
+
+Keras:
+
+```bash
+pip install sparseml[tf_keras]
+```
+
+TensorFlow V1:
+
+```bash
+pip install sparseml[tf_v1]
+```
+
+TensorFlow V1 with GPU operations enabled:
+
+```bash
+pip install sparseml[tf_v1_gpu]
+```
+
+Depending on your device and CUDA version, you may need to install additional dependencies for using TensorFlow V1 with GPU operations.  
+You can find these steps [here](https://www.tensorflow.org/install/gpu#older_versions_of_tensorflow).
+
+Note, TensorFlow V1 is no longer being built for newer operating systems such as Ubuntu 20.04. 
+Therefore, SparseML with TensorFlow V1 is unsupported on these operating systems as well.
