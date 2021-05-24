@@ -14,11 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-<h1><img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" /><span style="padding-left: 16px;"></span>SparseML</h1>
+<h1><img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" /><span style="padding-left: 16px !important;">SparseML</span></h1>
 
 <h3>Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models</h3>
 
 <p>
+    <a href="https://docs.neuralmagic.com/sparseml/">
+        <img alt="Documentation" src="https://img.shields.io/badge/documentation-darkred?&style=for-the-badge&logo=read-the-docs" height=25>
+    </a>
+    <a href="https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ/">
+        <img src="https://img.shields.io/badge/slack-purple?style=for-the-badge&logo=slack" height=25>
+    </a>
+    <a href="https://discuss.neuralmagic.com/">
+        <img src="https://img.shields.io/badge/support%20forums-navy?style=for-the-badge&logo=discourse" height=25>
+    </a>
     <a href="https://github.com/neuralmagic/sparseml/actions/workflows/test-check.yaml">
         <img alt="Main" src="https://img.shields.io/github/workflow/status/neuralmagic/sparseml/Test%20Checks/main?label=build&style=for-the-badge" height=25>
     </a>
@@ -26,10 +35,7 @@ limitations under the License.
         <img alt="GitHub release" src="https://img.shields.io/github/release/neuralmagic/sparseml.svg?style=for-the-badge" height=25>
     </a>
     <a href="https://github.com/neuralmagic/sparseml/blob/main/LICENSE">
-        <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/sparseml.svg?color=purple&style=for-the-badge" height=25>
-    </a>
-    <a href="https://docs.neuralmagic.com/sparseml/">
-        <img alt="Documentation" src="https://img.shields.io/website/http/docs.neuralmagic.com/sparseml/index.html.svg?label=documentation&down_color=red&down_message=offline&up_message=online&style=for-the-badge" height=25>
+        <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/sparseml.svg?color=lightgray&style=for-the-badge" height=25>
     </a>
     <a href="https://github.com/neuralmagic/sparseml/blob/main/CODE_OF_CONDUCT.md">
         <img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg?color=yellow&style=for-the-badge" height=25>
@@ -50,11 +56,13 @@ limitations under the License.
 SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art sparsification algorithms such as pruning and quantization to any neural network. 
 General, recipe-driven approaches built around these algorithms enable the simplification of creating faster and smaller models for the ML performance community at large.
 
-This repository contains integrations within the [PyTorch](https://pytorch.org/), [Keras](https://keras.io/), and [TensorFlow V1](http://tensorflow.org/) ecosystems, allowing for seamless model sparsification.
+The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integrations within the PyTorch, Keras, and TensorFlow V1 ecosystems, allowing for seamless model sparsification.
 
 <img src="https://docs.neuralmagic.com/docs/source/infographics/sparseml.png" width="960px" />
 
 ## Highlights
+
+### Integrations
 
 <p>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch">
@@ -74,9 +82,7 @@ This repository contains integrations within the [PyTorch](https://pytorch.org/)
     </a>
 </p>
 
-## Tutorials
-
-### Model Sparsification
+### Creating Sparse Models
 
 <p>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/classification.ipynb">
@@ -87,7 +93,7 @@ This repository contains integrations within the [PyTorch](https://pytorch.org/)
     </a>
 </p>
 
-### Model Sparse Transfer Learning
+### Transfer Learning from Sparse Models
 
 <p>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb">
@@ -95,7 +101,8 @@ This repository contains integrations within the [PyTorch](https://pytorch.org/)
     </a>
 </p>
 
-### General
+
+## Tutorials
 
 Coming soon!
 
@@ -115,16 +122,18 @@ More information on installation such as optional dependencies and requirements 
 
 ## Quick Tour
 
+To enable flexibility, ease of use, and repeatability, sparsifying a model is generally done using a recipe.
+The recipes encode the instructions needed for modifying the model and/or training process as a list of modifiers.
+Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
+The files are written in [YAML](https://yaml.org/) and stored in YAML or [markdown](https://www.markdownguide.org/) files using [YAML front matter](https://assemble.io/docs/YAML-front-matter.html).
+The rest of the SparseML system is coded to parse the recipes into a native format for the desired framework and apply the modifications to the model and training pipeline.
 
 ## Resources
 
 ### Learning More
 
-- [SparseZoo Documentation](https://docs.neuralmagic.com/sparsezoo/)
-- [SparseML Documentation](https://docs.neuralmagic.com/sparseml/)
-- [Sparsify Documentation](https://docs.neuralmagic.com/sparsify/)
-- [DeepSparse Documentation](https://docs.neuralmagic.com/deepsparse/)
-- Neural Magic [Blog](https://www.neuralmagic.com/blog/), [Resources](https://www.neuralmagic.com/resources/), [Website](https://www.neuralmagic.com/)
+- Documentation: [SparseML](https://docs.neuralmagic.com/sparseml/), [SparseZoo](https://docs.neuralmagic.com/sparsezoo/), [Sparsify](https://docs.neuralmagic.com/sparsify/), [DeepSparse](https://docs.neuralmagic.com/deepsparse/)
+- Neural Magic: [Blog](https://www.neuralmagic.com/blog/), [Resources](https://www.neuralmagic.com/resources/)
 
 ### Release History
 
@@ -138,7 +147,6 @@ Additionally, more information can be found via [GitHub Releases.](https://githu
 ### License
 
 The project is licensed under the [Apache License Version 2.0](https://github.com/neuralmagic/sparseml/blob/main/LICENSE).
-
 
 ## Community
 
