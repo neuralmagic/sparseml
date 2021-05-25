@@ -1152,8 +1152,6 @@ class MFACPruningModifier(GMPruningModifier):
             global_sparsity=True,
             score_type=PruningScoreTypes.MFAC,
         )
-        if isinstance(mfac_options, List):
-            mfac_options = mfac_options[0]
         self._mfac_options = mfac_options or {}
 
     @ModifierProp(serializable=False)

@@ -515,7 +515,6 @@ class ModuleParamPruningMask(object):
             return self._params_movement
         if self._score_type == PruningScoreTypes.MFAC:
             if torch.any(torch.all(self._mfac_grad_buffer == 0.0, dim=1)):
-                # import pdb; pdb.set_trace()
                 return [torch.abs(param.data) for param in self._params]
             # S = W^2 / (2 * diag(H^-1))
 
@@ -527,7 +526,6 @@ class ModuleParamPruningMask(object):
             for idx, param in enumerate(self._params):
                 indices = self._mfac_unpruned_idxs[idx]
                 next_idx = weights_idx + indices.numel()
-                # import pdb; pdb.set_trace()
                 non_pruned_weights[weights_idx:next_idx] = param.data.view(-1)[indices]
                 weights_idx = next_idx
 
