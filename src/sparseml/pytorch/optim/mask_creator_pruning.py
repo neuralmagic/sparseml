@@ -84,7 +84,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
     """
     Class for creating unstructured sparsity masks.
     Masks will be created using unstructured sparsity by pruning weights ranked
-    by their magnitude.  Each mask will correspond to the given tensor.
+    by their value.  Each mask will correspond to the given tensor.
     """
 
     def create_sparsity_masks_from_threshold(

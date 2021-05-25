@@ -316,7 +316,6 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
 
         # be sure to apply mask again after optimizer update because
         # weights may have changed (optimizer with momentum, not masking gradient)
-        import pdb; pdb.set_trace()
         self._module_masks.apply()
 
     @abstractmethod
@@ -677,7 +676,7 @@ class GMPruningModifier(_PruningParamsModifier):
             module, optimizer, epoch, steps_per_epoch
         )
 
-        if self._module_masks.score_type != PruningScoreTypes.MOVEMENT:
+        if not self._module_masks.allow_reintroduction:
             # be sure to apply mask again after optimizer update because weights may
             # have changed (optimizer with momentum, not masking gradient)
             self._module_masks.apply()

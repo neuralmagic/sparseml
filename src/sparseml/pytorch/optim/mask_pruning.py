@@ -137,6 +137,7 @@ class ModuleParamPruningMask(object):
                 f"Valid values: {PruningScoreTypes.values()}"
             )
         self._score_type = score_type
+        # movement pruning requires weight reintroduction
         self._allow_reintroduction = self._score_type == PruningScoreTypes.MOVEMENT
 
         self._setup_params_init()
@@ -238,6 +239,13 @@ class ModuleParamPruningMask(object):
         """
         return self._enabled
 
+    @property
+    def allow_reintroduction(self) -> bool:
+        """
+        :return: True if weight reintroduction is allowed
+        """
+        return self._allow_reintroduction
+
     @enabled.setter
     def enabled(self, value: bool):
         """
@@ -326,7 +334,7 @@ class ModuleParamPruningMask(object):
         self._params_unmasked[param_idx] = None
         self._setup_params_unmasked(param_idx)
 
-        if self._score_type != PruningScoreTypes.MOVEMENT:
+        if not self._allow_reintroduction:
             self.apply(param_idx)
 
     def set_param_masks(self, masks: List[Tensor]):
@@ -352,7 +360,7 @@ class ModuleParamPruningMask(object):
 
             self._param_masks[idx] = value
 
-            if self._score_type != PruningScoreTypes.MOVEMENT:
+            if not self._allow_reintroduction:
                 self.apply()
 
             mask_diffs.append(mask_diff)

@@ -23,8 +23,8 @@ from sparseml.pytorch.optim import (
     GlobalMagnitudePruningModifier,
     GMPruningModifier,
     MagnitudePruningModifier,
-    load_mask_creator,
     MovementPruningModifier,
+    load_mask_creator,
 )
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
