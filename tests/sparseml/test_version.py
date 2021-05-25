@@ -28,4 +28,4 @@ def test_version():
     assert version_major == version.split(".")[0]
     assert version_minor == version.split(".")[1]
     assert version_bug == version.split(".")[2]
-    assert version_major_minor_bug == f"{version_major}.{version_minor}.{version_bug}"
+    assert version_major_minor == f"{version_major}.{version_minor}"
