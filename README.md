@@ -66,19 +66,19 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 
 <p>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch">
-        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/pytorch-torchvision.png" />
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/pytorch-torchvision.png" width="144px" />
     </a>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3">
-        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov3.png" />
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov3.png" width="144px" />
     </a>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov5">
-        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov5.png" />
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov5.png" width="144px" />
     </a>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/huggingface-transformers">
-        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/huggingface-transformers.png" />
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/huggingface-transformers.png" width="144px" />
     </a>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/rwightman-timm">
-        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/rwightman-timm.png" />
+        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/rwightman-timm.png" width="144px" />
     </a>
 </p>
 
@@ -86,10 +86,10 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 
 <p>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/classification.ipynb">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" />
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" width="144px" />
     </a>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov3.png" />
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov3.png" width="144px" />
     </a>
 </p>
 
@@ -97,7 +97,7 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 
 <p>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb">
-        <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" />
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" width="144px" />
     </a>
 </p>
 
