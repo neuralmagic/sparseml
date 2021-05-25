@@ -89,7 +89,7 @@ The integration is done using the `ScheduledModifierManager` class which can be 
 This class handles modifying the TensorFlow graph for the desired algorithms.
 With this setup, the training process can then be modified as desired to sparsify the model.
 
-### Estimator-Based pipelines
+### Estimator-Based Pipelines
 
 Estimator-based pipelines are simpler to integrate with as compared to session-based pipelines.
 The `ScheduledModifierManager` can override the necessary callbacks in the estimator to modify the graph using the `modify_estimator` function.
