@@ -17,7 +17,7 @@ from sparseml.version import (
     version,
     version_bug,
     version_major,
-    version_major_minor_bug,
+    version_major_minor,
     version_minor,
 )
 
