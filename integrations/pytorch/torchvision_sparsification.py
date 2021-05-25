@@ -76,7 +76,7 @@ optional arguments:
 
 ##########
 Example command for pruning resnet50 on an imagefolder dataset:
-python integrations/pytorch-torchvision/main.py \
+python integrations/pytorch/torchvision_sparsification.py \
     --recipe-path ~/sparseml_recipes/pruning_resnet50.yaml \
     --model resnet50 \
     --imagefolder-path ~/datasets/ILSVRC2012 \
