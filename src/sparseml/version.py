@@ -40,6 +40,7 @@ __all__ = [
     "version_minor",
     "version_bug",
     "version_build",
+    "version_major_minor",
 ]
 __version__ = _generate_version()
 
