@@ -25,7 +25,7 @@ The step function then calls into the `ScheduledModifierManager` class which can
 The `modify()` function wraps an optimizer or optimizer like object (contains a step function) to override the step invocation.
 With this setup, the training process can then be modified as desired to sparsify the model.
 
-To enable all of this, the integration code you'll need to write is only a handful of lines:
+To enable all of this, the integration code is accomplished by writing a handful of lines:
 
 ```python
 from sparseml.pytorch.optim import ScheduledModifierManager
