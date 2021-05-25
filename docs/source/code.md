@@ -106,7 +106,7 @@ manager.modify_estimator(estimator, steps_per_epoch=num_train_batches)
 # Normal estimator training code...
 ```
 
-### Session-Based pipelines
+### Session-Based Pipelines
 
 Session-based pipelines need a little bit more as compared to estimator-based pipelines; however,
 it is still designed to require only a few lines of code for integration.
