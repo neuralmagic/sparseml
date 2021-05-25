@@ -24,7 +24,9 @@ SparseML |version|
     :caption: General
 
     source/installation
+    source/code
     source/recipes
+    source/onnx_export
 
 .. toctree::
     :maxdepth: 2

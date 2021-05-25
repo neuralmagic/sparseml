@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-<h1><img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" /><span style="padding-left: 16px !important;">SparseML</span></h1>
+<h1><img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" />&nbsp;&nbsp;SparseML</h1>
 
 <h3>Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models</h3>
 
@@ -122,11 +122,48 @@ More information on installation such as optional dependencies and requirements 
 
 ## Quick Tour
 
-To enable flexibility, ease of use, and repeatability, sparsifying a model is generally done using a recipe.
+To enable flexibility, ease of use, and repeatability, sparsifying a model is done using a recipe.
 The recipes encode the instructions needed for modifying the model and/or training process as a list of modifiers.
 Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
 The files are written in [YAML](https://yaml.org/) and stored in YAML or [markdown](https://www.markdownguide.org/) files using [YAML front matter](https://assemble.io/docs/YAML-front-matter.html).
 The rest of the SparseML system is coded to parse the recipes into a native format for the desired framework and apply the modifications to the model and training pipeline.
+
+`ScheduledModifierManager` classes can be created from recipes in all supported ML frameworks.
+The manager classes handle overriding the training graphs to apply the modifiers as described in the desired recipe.
+Managers can apply recipes in one shot or training aware ways. 
+One shot is invoked by calling `.apply(...)` on the manager while training aware requires calls into `initialize(...)` (optional), `modify(...)`, and `finalize(...)`.
+
+For the frameworks, this means only a few lines of code need to be added to begin supporting pruning, quantization, and other modifications to most training pipelines.
+For example, the following applies a recipe in a training aware manner:
+```python
+model = Model()  # model definition
+optimizer = Optimizer()  # optimizer definition
+train_data = TrainData()  # train data definition
+batch_size = BATCH_SIZE  # training batch size
+steps_per_epoch = len(train_data) // batch_size
+
+from sparseml.pytorch.optim import ScheduledModifierManager
+manager = ScheduledModifierManager.from_yaml(PATH_TO_RECIPE)
+optimizer = manager.modify(model, optimizer, steps_per_epoch)
+
+# PyTorch training code
+
+manager.finalize(model)
+```
+
+Instead of training aware, the following example code shows how to execute a recipe in a one shot manner:
+```python
+model = Model()  # model definition
+
+from sparseml.pytorch.optim import ScheduledModifierManager
+manager = ScheduledModifierManager.from_yaml(PATH_TO_RECIPE)
+manager.apply(model)
+```
+
+More information on the codebase and contained processes can be found in the SparseML docs:
+- [Sparsification Code](https://docs.neuralmagic.com/sparseml/source/code)
+- [Sparsification Recipes](https://docs.neuralmagic.com/sparseml/source/recipes)
+- [Exporting to ONNX](https://docs.neuralmagic.com/sparseml/source/onnx_export)
 
 ## Resources
 
