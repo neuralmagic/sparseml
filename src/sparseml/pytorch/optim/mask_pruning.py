@@ -711,7 +711,7 @@ class ModuleParamPruningMask(object):
             total_nonzero = 0
             for idx, mask in enumerate(self._param_masks):
                 self._mfac_unpruned_idxs[idx] = (
-                    mask.view(-1).nonzero(astuple=False).reshape(-1)
+                    mask.view(-1).nonzero(as_tuple=False).reshape(-1)
                 )
                 total_nonzero += self._mfac_unpruned_idxs[idx].numel()
             # only track nonzero grads
