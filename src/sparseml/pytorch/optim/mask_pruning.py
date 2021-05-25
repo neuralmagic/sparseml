@@ -386,7 +386,7 @@ class ModuleParamPruningMask(object):
                 self._update_weights_mfac_obs_perturb(mask_diffs)
             self._mfac_latest_h_inv_diag = None  # clear h_inv
             self._setup_mfac_grad_buffer()  # reset grad buffer
-
+            torch.cuda.empty_cache()
         if self._score_type != PruningScoreTypes.MOVEMENT:
             self.apply()
 
@@ -553,6 +553,7 @@ class ModuleParamPruningMask(object):
 
             # save h_inv and diag for weight update later
             self._mfac_latest_h_inv_diag = (h_inv, diag)
+            torch.cuda.empty_cache()
             return parameter_scores
 
     def _check_regen_value(self, val: Tensor, param_idx: int) -> Tensor:
