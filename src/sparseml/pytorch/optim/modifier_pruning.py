@@ -30,7 +30,10 @@ from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
     load_mask_creator,
 )
-from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask
+from sparseml.pytorch.optim.mask_pruning import (
+    ModuleParamPruningMask,
+    PruningScoreTypes,
+)
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
@@ -58,6 +61,7 @@ __all__ = [
     "ConstantPruningModifier",
     "GMPruningModifier",
     "MagnitudePruningModifier",
+    "MovementPruningModifier",
     "GlobalMagnitudePruningModifier",
 ]
 
@@ -459,6 +463,7 @@ class GMPruningModifier(_PruningParamsModifier):
     |       log_types: __ALL__
     |       mask_type: unstructured
     |       global_sparsity: False
+    |       score_type: magnitude
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
@@ -483,6 +488,8 @@ class GMPruningModifier(_PruningParamsModifier):
         channels, or a SparsityMaskCreator object. default is 'unstructured'
     :param global_sparsity: set True to enable global pruning. if False, pruning will
         be layer-wise. Default is False
+    :param score_type: Method used to score parameters for masking, i.e.
+        'magnitude', 'movement'. Default is 'magnitude'
     """
 
     def __init__(
@@ -498,6 +505,7 @@ class GMPruningModifier(_PruningParamsModifier):
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         global_sparsity: bool = False,
+        score_type: PruningScoreTypes = PruningScoreTypes.MAGNITUDE,
     ):
         super().__init__(
             params=params,
@@ -518,8 +526,10 @@ class GMPruningModifier(_PruningParamsModifier):
             else load_mask_creator(mask_type)
         )
         self._global_sparsity = global_sparsity
+        self._score_type = score_type
         self._applied_sparsity = None
         self._last_logged_sparsity = None
+        self._movement_scores_updated = False
 
         self._non_serializable_props = {}
 
@@ -607,11 +617,19 @@ class GMPruningModifier(_PruningParamsModifier):
         if not isinstance(value, PruningMaskCreator):
             self._mask_creator = load_mask_creator(value)
 
+    @ModifierProp()
     def global_sparsity(self) -> bool:
         """
         :return: True if global pruning is enabled, False otherwise
         """
         return self._global_sparsity
+
+    @ModifierProp()
+    def score_type(self) -> PruningScoreTypes:
+        """
+        :return: the the scoring method used for pruning
+        """
+        return self._score_type
 
     @ModifierProp(serializable=False)
     def applied_sparsity(self) -> float:
@@ -619,6 +637,49 @@ class GMPruningModifier(_PruningParamsModifier):
         :return: the currently applied sparsity level to the contained params
         """
         return self._applied_sparsity
+
+    def optimizer_pre_step(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Update mask movement scores with gradients right before optimizer step is
+        applied. Called here in case gradients are changed between the backwards
+        pass and step such as in grad norm clipping
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
+
+        if self._module_masks.score_type == PruningScoreTypes.MOVEMENT:
+            if not self._movement_scores_updated:
+                self._module_masks.update_movement_scores()
+            self._movement_scores_updated = False
+
+    def optimizer_post_step(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Reapply the mask after the optimizer step in case the optimizer
+        has momentum that may have moved weights from 0. Not applied for
+        movement pruning to allow weight reintroduction
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        super(_PruningParamsModifier, self).optimizer_post_step(
+            module, optimizer, epoch, steps_per_epoch
+        )
+
+        if not self._module_masks.allow_reintroduction:
+            # be sure to apply mask again after optimizer update because weights may
+            # have changed (optimizer with momentum, not masking gradient)
+            self._module_masks.apply()
 
     def validate(self):
         """
@@ -678,8 +739,17 @@ class GMPruningModifier(_PruningParamsModifier):
             self._module_masks.enabled = True
             started = True
 
-        if self.end_pending(epoch, steps_per_epoch) and not self._leave_enabled:
-            self._module_masks.enabled = False
+        if self.end_pending(epoch, steps_per_epoch):
+
+            if self._score_type == PruningScoreTypes.MOVEMENT:
+                self._module_masks.apply()  # prune weights to final sparsity
+                self._module_masks.disable_reintroduction()
+            if not self._leave_enabled:
+                self._module_masks.enabled = False
+
+        if self._module_masks.score_type == PruningScoreTypes.MOVEMENT:
+            self._movement_scores_updated = True
+            self._module_masks.update_movement_scores()
 
         if started:
             # set the mask tensors according to the new sparsity
@@ -725,6 +795,7 @@ class GMPruningModifier(_PruningParamsModifier):
             layer_names=layer_names,
             mask_creator=self._mask_creator,
             global_sparsity=self._global_sparsity,
+            score_type=self._score_type,
         )
 
 
@@ -799,6 +870,7 @@ class MagnitudePruningModifier(GMPruningModifier):
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=False,
+            score_type=PruningScoreTypes.MAGNITUDE,
         )
 
     @ModifierProp(serializable=False)
@@ -807,6 +879,102 @@ class MagnitudePruningModifier(GMPruningModifier):
         :return: True if global pruning is enabled, False otherwise
         """
         return self._global_sparsity
+
+    @ModifierProp(serializable=False)
+    def score_type(self) -> PruningScoreTypes:
+        """
+        :return: the the scoring method used for pruning
+        """
+        return self._score_type
+
+
+@PyTorchModifierYAML()
+class MovementPruningModifier(GMPruningModifier):
+    """
+    Gradually applies kernel sparsity to a given parameter or parameters from
+    init_sparsity until final_sparsity is reached over a given amount of time
+    and applied with an interpolated function for each step taken.
+    Uses movement pruning to gradually mask parameter values.
+    Movement pruning introduced here: https://arxiv.org/abs/2005.07683
+    Pruning is unstructured by default, structure can be specified by mask_type.
+    | Sample yaml:
+    |   !MagnitudePruningModifier
+    |       init_sparsity: 0.05
+    |       final_sparsity: 0.8
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       update_frequency: 1.0
+    |       params: ["re:.*weight"]
+    |       leave_enabled: True
+    |       inter_func: cubic
+    |       log_types: __ALL__
+    |       mask_type: unstructured
+    |       score_type: magnitude
+
+    :param init_sparsity: the initial sparsity for the param to start with at
+        start_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The number of epochs or fraction of epochs to update at
+        between start and end
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers' weights
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param inter_func: the type of interpolation function to use:
+        [linear, cubic, inverse_cubic]
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'channel', 'filter']), List to define block shape of a parameters in and out
+        channels, or a SparsityMaskCreator object. default is 'unstructured'
+    """
+
+    def __init__(
+        self,
+        init_sparsity: float,
+        final_sparsity: float,
+        start_epoch: float,
+        end_epoch: float,
+        update_frequency: float,
+        params: Union[str, List[str]],
+        leave_enabled: bool = True,
+        inter_func: str = "cubic",
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+    ):
+        super().__init__(
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            params=params,
+            leave_enabled=leave_enabled,
+            inter_func=inter_func,
+            log_types=log_types,
+            mask_type=mask_type,
+            global_sparsity=False,
+            score_type=PruningScoreTypes.MOVEMENT,
+        )
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True if global pruning is enabled, False otherwise
+        """
+        return self._global_sparsity
+
+    @ModifierProp(serializable=False)
+    def score_type(self) -> PruningScoreTypes:
+        """
+        :return: the the scoring method used for pruning
+        """
+        return self._score_type
 
 
 @PyTorchModifierYAML()
@@ -832,6 +1000,7 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
     |       inter_func: cubic
     |       log_types: __ALL__
     |       mask_type: unstructured
+    |       score_type: magnitude
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
@@ -854,6 +1023,8 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameters in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
+    :param score_type: Method used to score parameters for masking, i.e.
+        'magnitude', 'movement'. Default is 'magnitude'
     """
 
     def __init__(
@@ -868,6 +1039,7 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+        score_type: PruningScoreTypes = PruningScoreTypes.MAGNITUDE,
     ):
         super().__init__(
             init_sparsity=init_sparsity,
@@ -881,6 +1053,7 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=True,
+            score_type=score_type,
         )
 
     @ModifierProp(serializable=False)

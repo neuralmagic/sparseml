@@ -49,9 +49,7 @@ _deps = [
     "tqdm>=4.0.0",
     "toposort>=1.0",
 ]
-_nm_deps = [
-    f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_base}"
-]
+_nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_base}"]
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_base}"
 ]
