@@ -78,14 +78,14 @@ print(recipe)
 
 The following table lays out the root-level files and folders along with a description for each.
 
-| Folder/File Name     | Description                                                                                                           |
-|----------------------|-----------------------------------------------------------------------------------------------------------------------|
-| notebooks            | Jupyter notebooks to walk through sparsifiation within standard PyTorch training flows                                |
-| recipes              | Typical recipes for sparsifying PyTorch models along with any downloaded recipes from the SparseZoo.                  |
-| tutorials            | Tutorial walkthroughs for how to sparsify PyTorch models using recipes.                                               |
-| README.md            | Readme file.                                                                                                          |
-| torchvision.py       | Example training script for sparsifying PyTorch torchvision classification models.                                    |
-| vision.py            | Utility training script for sparsifying classification and detection models in PyTorch (loads SparseML models).       |
+| Folder/File Name              | Description                                                                                                           |
+|-------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| notebooks                     | Jupyter notebooks to walk through sparsifiation within standard PyTorch training flows                                |
+| recipes                       | Typical recipes for sparsifying PyTorch models along with any downloaded recipes from the SparseZoo.                  |
+| tutorials                     | Tutorial walkthroughs for how to sparsify PyTorch models using recipes.                                               |
+| README.md                     | Readme file.                                                                                                          |
+| torchvision_sparsification.py | Example training script for sparsifying PyTorch torchvision classification models.                                    |
+| vision.py                     | Utility training script for sparsifying classification and detection models in PyTorch (loads SparseML models).       |
 
 ### Exporting for Inference
 
