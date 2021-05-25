@@ -197,7 +197,7 @@ For user help or questions about Sparsify, sign up or log in: **Deep Sparse Comm
 
 You can get the latest news, webinar and event invites, research papers, and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
 
-For more general questions about Neural Magic, please email us at [learnmore@neuralmagic.com](mailto:learnmore@neuralmagic.com) or fill out this [form](http://neuralmagic.com/contact/).
+For more general questions about Neural Magic, please fill out this [form](http://neuralmagic.com/contact/).
 
 ### Cite
 
