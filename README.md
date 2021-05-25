@@ -58,7 +58,7 @@ General, recipe-driven approaches built around these algorithms enable the simpl
 
 The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integrations within the PyTorch, Keras, and TensorFlow V1 ecosystems, allowing for seamless model sparsification.
 
-<img src="https://docs.neuralmagic.com/docs/source/infographics/sparseml.png" width="960px" />
+<img alt="SparseML Flow" src="https://docs.neuralmagic.com/docs/source/infographics/sparseml.png" width="960px" />
 
 ## Highlights
 
