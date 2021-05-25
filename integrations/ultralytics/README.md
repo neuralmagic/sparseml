@@ -41,10 +41,9 @@ git clone https://github.com/neuralmagic/sparseml.git
 cd yolov5
 git checkout c9bda11  # latest tested integration commit hash
 cp ../sparseml/integrations/ultralytics/*.py .
-cp ../sparseml/integrations/ultralytics/deepsparse/* .
 
 # install dependencies
-pip install sparseml[torchvision] deepsparse
+pip install sparseml[torchvision]
 pip install -r requirements.txt
 ```
 
@@ -120,67 +119,6 @@ python train.py \
 
 ## DeepSparse Examples
 The [DeepSparse](https://github.com/neuralmagic/deepsparse) engine can be used for effcient
-inference on sparsified YOLOv3 models.  The `deepsparse` directory contains examples of using
-DeepSparse for benchmarking performance and in an inference server environment.
-
-### Installation
-To use these examples after performing the previous installations, copy over the python files
-to the `yolov5` directory and install DeepSparse.
-
-```bash
-# copy DeepSparse python files
-cp sparseml/integrations/ultralytics/deepsparse/* yolov5
-cd yolov5
-
-# install deepsparse and server dependencies
-pip install deepsparse sparseml[torchvision] flask flask-cors
-```
-
-Note: on new Ubuntu systems, to install `cv2` running `sudo apt-get update && apt-get install -y python3-opencv`
-may be necessary.
-
-
-### Annotation Example
-`annotate.py` is a script for using YOLOv3 sparsified (and not sparsified) YOLOv3 models
-to run inferences on images, videos, or webcam streams. For a full list of options
-`python annotate.py -h`.
-
-To run pruned-quantized YOLOv3 on a local webcam run:
-```bash
-python annotate.py \
-    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
-    --source 0 \
-    --quantized-inputs \
-    --image-shape 416 416 \
-    --no-save  # webcam only
-```
-
-In addition to webcam `--source` can take a path to a `.jpg` file, directory or glog pat
-of `.jpg` files, or path to a `.mp4` video file.  If source is an integer and no
-corresponding webcam is available, an exception will be raised.
-
-
-### Benchmarking
-`benchmarking.py` is a script for benchmarking sparsified and quantized YOLOv3
-performance with DeepSparse.  For a full list of options run `python benchmarking.py -h`.
-
-To run a benchmark run:
-```bash
-python benchmark.py \
-    zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned_quant-aggressive_94 \
-    --batch-size 1 \
-    --quantized-inputs
-```
-
-Note for quantized performance, your CPU must support VNNI instructions.
-
-### Notebook
-`deepsparse.ipynb` is a Jupyter Notebook that walks through running a sample inference
-with the DeepSparse engine and running the same benchmark provided in the above script.
-
-Run the notebook by installing the examples as demonstrated above and running
-`jupyter notebook` from the command line.
-
-### Server
-`sparseml/integrations/ultralytics/deepsparse/SERVER.md` contains relevant
-documentation for running the server and client examples.
+inference on sparsified YOLOv3 models.  Examples of using the DeepSparse engine for
+running benchmarks, performing annotations, and serving inferences can be found
+[here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3).
