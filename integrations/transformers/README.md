@@ -221,10 +221,10 @@ We see similair results for QQP and MNLI as in SQUAD but the effect of model dis
 | bert-base-uncased     |80             |no       |no       |30          |18            |90.76         |87.45     |81.34          |
 | bert-base-uncased     |90             |no       |no       |30          |18            |89.38         |85.30     |78.76          |
 | bert-base-uncased     |97             |no       |no       |30          |18            |87.57         |83.34     |73.42          |
-| bert-base-uncased     |0              |yes      |no       |3           |0             |63.18         |0.00      |32.95          |
-| bert-base-uncased     |80             |yes      |yes      |30          |18            |              |          |               |
-| bert-base-uncased     |90             |yes      |yes      |30          |18            |              |          |               |
-| bert-base-uncased     |97             |yes      |yes      |30          |18            |              |          |               |
+| bert-base-uncased     |0              |yes      |no       |3           |0             |63.18         |00.00     |32.95          |
+| bert-base-uncased     |80             |yes      |yes      |30          |18            |72.12         |43.26     |32.95          |
+| bert-base-uncased     |90             |yes      |yes      |30          |18            |69.70         |34.76     |32.95          |
+| bert-base-uncased     |97             |yes      |yes      |30          |18            |63.83         |33.99     |32.95          |
 
 ## How to Integrate SparseML with Other Transformers Projects
 For any other projects using Hugging Face's transformers there are essentially four components to modify: imports and needed function, loading SparseML, modifying training script, and ONNX export. 
