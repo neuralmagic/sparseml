@@ -710,7 +710,9 @@ class ModuleParamPruningMask(object):
         if self._score_type == PruningScoreTypes.MFAC:
             total_nonzero = 0
             for idx, mask in enumerate(self._param_masks):
-                self._mfac_unpruned_idxs[idx] = mask.view(-1).nonzero().reshape(-1)
+                self._mfac_unpruned_idxs[idx] = (
+                    mask.view(-1).nonzero(astuple=False).reshape(-1)
+                )
                 total_nonzero += self._mfac_unpruned_idxs[idx].numel()
             # only track nonzero grads
             num_grads = self._mfac_options.get_num_grads_for_sparsity(
