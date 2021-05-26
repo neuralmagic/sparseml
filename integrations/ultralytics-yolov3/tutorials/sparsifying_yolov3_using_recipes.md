@@ -28,7 +28,7 @@ Additionally, the results listed in this tutorial are available publicly through
 
 <div style="width: 100%; display: flex; justify-content: center;">
     <a href="https://youtu.be/o5qIYs47MPw" target="_blank">
-        <img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/integrations/ultralytics-yolov3/tutorials/images/pruned-quantized-result.jpeg" width="560px" style="border: 2px solid #000000;" />
+        <img alt="Example YOLOv3 Inference Video" src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/integrations/ultralytics-yolov3/tutorials/images/pruned-quantized-result.jpeg" width="560px" style="border: 2px solid #000000;" />
     </a>
 </div>
 
