@@ -31,7 +31,7 @@ The techniques include, but are not limited to:
 
 - Blog: [YOLOv3 on CPUs: Sparsifying to Achieve GPU-Level Performance](https://neuralmagic.com/blog/benchmark-yolov3-on-cpus-with-deepsparse/)
 - Example: [DeepSparse YOLOv3 Inference Example](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3)
-- Video: [DeepSparse YOLOv3 Pruned Quantized Performance](https://www.youtube.com/watch?v=h0lNmECvRSM&ab_channel=NeuralMagic)
+- Video: [DeepSparse YOLOv3 Pruned Quantized Performance](https://youtu.be/o5qIYs47MPw)
 
 ## Tutorials
 

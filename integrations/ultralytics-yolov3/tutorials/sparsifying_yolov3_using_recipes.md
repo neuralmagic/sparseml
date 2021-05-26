@@ -26,7 +26,9 @@ These recipes allow anyone to plug in their data and leverage SparseML's recipe-
 The examples listed in this tutorial are all performed on the VOC dataset.
 Additionally, the results listed in this tutorial are available publicly through a [Weights and Biases project](https://wandb.ai/neuralmagic/yolov3-spp-lrelu-voc).
 
-<img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/integrations/ultralytics-yolov3/tutorials/images/pruned-quantized-result.jpeg" width="960px" style="border: 2px solid #000000;" />
+<a href="https://youtu.be/o5qIYs47MPw" taret="_blank" style="display: flex; justify-content: center;">
+    <img src="images/pruned-quantized-result.jpeg" width="512px" style="border: 2px solid #000000;" />
+</a>
 
 ## Creating a Pretrained Model
 
