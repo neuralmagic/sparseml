@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# SparseML Ultralytics YOLOv3 Integration
+# SparseML Ultralytics YOLOv5 Integration
 
 This directory combines the SparseML recipe-driven approach with the 
 [ultralytics/yolov5](https://github.com/ultralytics/yolov5) repository.
