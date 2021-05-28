@@ -358,14 +358,14 @@ EXAMPLES
 
 ##########
 Example command for pruning resnet50 on imagenet dataset:
-python scripts/pytorch_vision.py train \
+python integrations/pytorch/vision.py train \
     --recipe-path ~/sparseml_recipes/pruning_resnet50.yaml \
     --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
     --train-batch-size 256 --test-batch-size 1024
 
 ##########
 Example command for transfer learning sparse mobilenet_v1 on an image folder dataset:
-python scripts/pytorch_vision.py train \
+python integrations/pytorch/vision.py train \
     --sparse-transfer-learn \
     --recipe-path  ~/sparseml_recipes/pruning_mobilenet.yaml \
     --arch-key mobilenet_v1 --pretrained recal-perf \
@@ -378,30 +378,30 @@ DistributedDataParallel using mixed precision. Note - DDP support in this script
 only tested for torch==1.7.0.
 python -m torch.distributed.launch \
 --nproc_per_node <NUM GPUs> \
-scripts/pytorch_vision.py train \
+integrations/pytorch/vision.py train \
 --use-mixed-precision \
 <VISION.PY TRAIN ARGUMENTS>
 
 ##########
 Example command for exporting ResNet50:
-python scripts/pytorch_vision.py export \
+python integrations/pytorch/vision.py export \
     --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012
 
 ##########
 Example command for running approximated KS sensitivity analysis on mobilenet:
-python scripts/pytorch_vision.py pruning_sensitivity \
+python integrations/pytorch/vision.py pruning_sensitivity \
     --approximate --arch-key mobilenet --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012
 
 ##########
 Example command for running one shot KS sens analysis on ssd300_resnet50 for coco:
-python scripts/pytorch_vision.py pruning_sensitivity \
+python integrations/pytorch/vision.py pruning_sensitivity \
     --arch-key ssd300_resnet50 --dataset coco \
     --dataset-path ~/datasets/coco-detection
 
 ##########
 Example command for running LR sensitivity analysis on mobilenet:
-python scripts/pytorch_vision.py lr_sensitivity \
+python integrations/pytorch/vision.py lr_sensitivity \
     --arch-key mobilenet --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012 --batch-size 2
 """
