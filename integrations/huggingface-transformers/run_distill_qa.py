@@ -751,11 +751,7 @@ def main():
     ####################################################################################
     if training_args.do_train:
         optim = load_optimizer(student_model, training_args)
-<<<<<<< HEAD:integrations/transformers/run_distill_qa.py
-        steps_per_epoch = math.ceil(len(train_dataset) / (training_args.per_device_train_batch_size*training_args._n_gpu))
-=======
         steps_per_epoch = math.ceil(len(train_dataset) / (training_args.per_device_train_batch_size * training_args._n_gpu))
->>>>>>> main:integrations/huggingface-transformers/run_distill_qa.py
         manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
         training_args.num_train_epochs = float(manager.max_epochs)
         optim = ScheduledOptimizer(optim, student_model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
