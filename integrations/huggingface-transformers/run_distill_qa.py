@@ -58,12 +58,14 @@ Train, prune, and evaluate a transformer base question answering model on squad.
     -h, --help            show this help message and exit
     --teacher_model_name_or_path    The name or path of model which will be used for distilation.
                                     Note, this model needs to be trained for QA task already.
-    --student_model_name_or_path    The name or path of the model wich will be trained using distilation.
+    --student_model_name_or_path    The path to the transformers model you wish to train
+                                    or the name of the pretrained language model you wish
+                                    to use. ex: bert-base-uncased.
     --temperature                   Hyperparameter which controls model distilation
     --distill_hardness              Hyperparameter which controls how much of the loss comes from teacher vs training labels
     --model_name_or_path            The path to the transformers model you wish to train
-                                    or the name of the pretrained language model you wish
-                                    to use. ex: bert-base-uncased.
+    --temperature                   Hyperparameter which controls model distilation 
+    --distill_hardness              Hyperparameter which controls how much of the loss comes from teacher vs training labels
     --dataset_name                  The name of which dataset you want to use to train or
                                     your model. ex: squad for using SQuAD.
     --num_train_epochs              Paramater to control how many training epochs you wish
@@ -196,7 +198,7 @@ class ModelArguments:
         default=2.0, metadata={"help": "Temperature applied to teacher softmax for distillation."}
     )
     distill_hardness: Optional[float] = field(
-        default=0.5, metadata={"help": "Proportion of loss coming from teacher model."}
+        default=1.0, metadata={"help": "Proportion of loss coming from teacher model."}
     )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
@@ -677,12 +679,17 @@ def main():
         config=config,
         cache_dir=model_args.cache_dir,
     )
-    teacher_model = AutoModelForQuestionAnswering.from_pretrained(
-        model_args.teacher_model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.teacher_model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-    )
+    teacher_model = None
+    if model_args.teacher_model_name_or_path != None:
+        teacher_model = AutoModelForQuestionAnswering.from_pretrained(
+            model_args.teacher_model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.teacher_model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+        )
+        teacher_model_parameters = filter(lambda p: p.requires_grad, teacher_model.parameters())
+        params = sum([np.prod(p.size()) for p in teacher_model_parameters])
+        logger.info("Teacher Model has %s parameters", params)   
 
     if data_args.layers_to_keep < len(student_model.bert.encoder.layer):
         logger.info("Keeping %s model layers", data_args.layers_to_keep)
@@ -691,9 +698,6 @@ def main():
     student_model_parameters = filter(lambda p: p.requires_grad, student_model.parameters())
     params = sum([np.prod(p.size()) for p in student_model_parameters])
     logger.info("Student Model has %s parameters", params)
-    teacher_model_parameters = filter(lambda p: p.requires_grad, teacher_model.parameters())
-    params = sum([np.prod(p.size()) for p in teacher_model_parameters])
-    logger.info("Teacher Model has %s parameters", params)
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
         raise ValueError(
@@ -749,7 +753,7 @@ def main():
         optim = load_optimizer(student_model, training_args)
         steps_per_epoch = math.ceil(len(train_dataset) / (training_args.per_device_train_batch_size * training_args._n_gpu))
         manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
-        training_args.num_train_epochs = float(manager.modifiers[0].end_epoch)
+        training_args.num_train_epochs = float(manager.max_epochs)
         optim = ScheduledOptimizer(optim, student_model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
     ####################################################################################
     # End SparseML Integration
@@ -801,7 +805,7 @@ def main():
         logger.info("*** Export to ONNX ***")
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
         exporter = ModuleExporter(
-            student_model, output_dir='onnx-export'
+            student_model, output_dir=data_args.onnx_export_path
         )
         sample_batch = convert_example_to_features(
             datasets["validation"][0],
