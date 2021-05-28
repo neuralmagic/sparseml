@@ -64,7 +64,7 @@ class TestSetWeightDecayModifierImpl(ScheduledModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         # get expected param groups and original values
         param_group_idxs = (

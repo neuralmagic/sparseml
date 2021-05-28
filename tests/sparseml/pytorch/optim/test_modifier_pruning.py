@@ -17,11 +17,13 @@ import os
 import pytest
 import torch
 
+from flaky import flaky
 from sparseml.pytorch.optim import (
     ConstantPruningModifier,
     GlobalMagnitudePruningModifier,
     GMPruningModifier,
     MagnitudePruningModifier,
+    MovementPruningModifier,
     load_mask_creator,
 )
 from tests.sparseml.pytorch.helpers import LinearNet
@@ -51,7 +53,7 @@ def _test_state_dict_save_load(
     modifier = modifier_lambda()
     model = model_lambda()
     optimizer = optim_lambda(model)
-    test_obj.initialize_helper(modifier, model, optimizer)
+    test_obj.initialize_helper(modifier, model)
     # apply first mask
     modifier.scheduled_update(
         model, optimizer, modifier.start_epoch, test_steps_per_epoch
@@ -118,7 +120,7 @@ class TestConstantPruningModifier(ScheduledModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
+        self.initialize_helper(modifier, model)
 
         # check sparsity is not set before
         if modifier.start_epoch >= 0:
@@ -194,6 +196,7 @@ def test_constant_pruning_yaml():
     assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
 
 
+@flaky(max_runs=3, min_passes=2)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -259,8 +262,9 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model, optimizer)
-        assert modifier.applied_sparsity is None
+        self.initialize_helper(modifier, model)
+        if modifier.start_epoch > 0:
+            assert modifier.applied_sparsity is None
         assert type(load_mask_creator(modifier._mask_type)) == type(  # noqa: E721
             modifier._mask_creator
         )
@@ -440,6 +444,82 @@ def test_magnitude_pruning_yaml():
     )
 
     assert isinstance(yaml_modifier, MagnitudePruningModifier)
+    assert (
+        yaml_modifier.init_sparsity
+        == serialized_modifier.init_sparsity
+        == obj_modifier.init_sparsity
+    )
+    assert (
+        yaml_modifier.final_sparsity
+        == serialized_modifier.final_sparsity
+        == obj_modifier.final_sparsity
+    )
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
+    assert (
+        yaml_modifier.inter_func
+        == serialized_modifier.inter_func
+        == obj_modifier.inter_func
+    )
+    assert (
+        str(yaml_modifier.mask_type)
+        == str(serialized_modifier.mask_type)
+        == str(obj_modifier.mask_type)
+    )
+
+
+def test_movement_pruning_yaml():
+    init_sparsity = 0.05
+    final_sparsity = 0.8
+    start_epoch = 5.0
+    end_epoch = 15.0
+    update_frequency = 1.0
+    params = "__ALL_PRUNABLE__"
+    inter_func = "cubic"
+    mask_type = "filter"
+    yaml_str = f"""
+    !MovementPruningModifier
+        init_sparsity: {init_sparsity}
+        final_sparsity: {final_sparsity}
+        start_epoch: {start_epoch}
+        end_epoch: {end_epoch}
+        update_frequency: {update_frequency}
+        params: {params}
+        inter_func: {inter_func}
+        mask_type: {mask_type}
+    """
+    yaml_modifier = MovementPruningModifier.load_obj(
+        yaml_str
+    )  # type: MovementPruningModifier
+    serialized_modifier = MovementPruningModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: MovementPruningModifier
+    obj_modifier = MovementPruningModifier(
+        init_sparsity=init_sparsity,
+        final_sparsity=final_sparsity,
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+        update_frequency=update_frequency,
+        params=params,
+        inter_func=inter_func,
+        mask_type=mask_type,
+    )
+
+    assert isinstance(yaml_modifier, MovementPruningModifier)
     assert (
         yaml_modifier.init_sparsity
         == serialized_modifier.init_sparsity

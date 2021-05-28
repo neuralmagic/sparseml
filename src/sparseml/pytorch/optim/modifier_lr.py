@@ -38,7 +38,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import (
-    PyTorchLogger,
+    BaseLogger,
     get_optim_learning_rate,
     set_optim_learning_rate,
 )
@@ -57,7 +57,7 @@ CONSTRUCTORS = {
 
 
 def _log_lr(
-    cur_lr: float, loggers: List[PyTorchLogger], epoch: float, steps_per_epoch: int
+    cur_lr: float, loggers: List[BaseLogger], epoch: float, steps_per_epoch: int
 ):
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
 
