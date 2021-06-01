@@ -43,7 +43,7 @@ def _fake_params_random_update(params):
         ("movement", 5),
         (MFACOptions(num_grads=10), 12),
         (MFACOptions(num_grads=10, fisher_block_size=24), 10),
-        (MFACOptions(num_grads=8, num_pages=4), 8),
+        (MFACOptions(num_grads=8, num_pages=4 if torch.cuda.is_available() else 1), 8),
     ],
 )
 def test_pruning_scorer(score_type, n_updates):
