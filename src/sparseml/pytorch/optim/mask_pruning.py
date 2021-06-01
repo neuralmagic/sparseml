@@ -114,14 +114,14 @@ class ModuleParamPruningMask(object):
 
         # create scorer
         self._scorer = create_pruning_param_scorer(self._params, score_type)
+
         # movement pruning requires weight reintroduction
-        self._allow_reintroduction = self._score_type == "movement"
+        self._allow_reintroduction = self._scorer.get_name() == "movement"
         self._store_unmasked |= self._allow_reintroduction  # to support reintroduction
 
         self._setup_params_init()
         self._setup_params_unmasked()
         self._setup_params_grad()
-        self._setup_param_movement()
 
     def __len__(self):
         return len(self._layers)
@@ -279,7 +279,7 @@ class ModuleParamPruningMask(object):
         """
         :return: the scoring method used to create masks (i.e. magnitude, movement)
         """
-        return self._score_type
+        return self._scorer.get_name()
 
     def set_param_data(self, value: Tensor, param_idx: int):
         """

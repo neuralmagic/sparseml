@@ -28,6 +28,7 @@ from sparseml.pytorch.utils import MFACOptions, compute_hessian_inv
 
 
 __all__ = [
+    "AVALIABLE_SCORER_CLASSES",
     "PruningParamsScorer",
     "MagnitudePruningParamsScorer",
     "MovementPruningParamsScorer",
@@ -87,6 +88,14 @@ class PruningParamsScorer(ABC):
         """
         pass
 
+    @staticmethod
+    @abstractmethod
+    def get_name() -> str:
+        """
+        :return: name of this pruning method
+        """
+        raise NotImplementedError()
+
 
 class MagnitudePruningParamsScorer(PruningParamsScorer):
     """
@@ -101,6 +110,13 @@ class MagnitudePruningParamsScorer(PruningParamsScorer):
             each Parameter's elements are scored by their magnitude (absolute value)
         """
         return [torch.abs(param.data) for param in self._params]
+
+    @staticmethod
+    def get_name() -> str:
+        """
+        :return: name of this pruning method
+        """
+        return "magnitude"
 
 
 class MovementPruningParamsScorer(PruningParamsScorer):
@@ -149,6 +165,13 @@ class MovementPruningParamsScorer(PruningParamsScorer):
                     .detach()
                     .requires_grad_(False)
                 )
+
+    @staticmethod
+    def get_name() -> str:
+        """
+        :return: name of this pruning method
+        """
+        return "movement"
 
 
 class MFACPruningParamsScorer(PruningParamsScorer):
@@ -319,12 +342,19 @@ class MFACPruningParamsScorer(PruningParamsScorer):
         )
         self._buffer_idx = 0
 
+    @staticmethod
+    def get_name() -> str:
+        """
+        :return: name of this pruning method
+        """
+        return "MFAC"
 
-_SCORE_TYPE_TO_CONSTRUCTOR = {
-    "magnitude": MagnitudePruningParamsScorer,
-    "movement": MovementPruningParamsScorer,
-    "MFAC": MFACPruningParamsScorer,
-}
+
+AVALIABLE_SCORER_CLASSES = [
+    MagnitudePruningParamsScorer,
+    MovementPruningParamsScorer,
+    MFACPruningParamsScorer,
+]  # type: List[PruningParamsScorer]
 
 
 def create_pruning_param_scorer(
@@ -337,13 +367,18 @@ def create_pruning_param_scorer(
         'magnitude', 'movement', or 'MFAC'. For MFAC pruning, passing in an MFACOptions
         object valid and is preferred.
     """
+    scorer_name_to_constructor = {
+        scorer.get_name(): scorer for scorer in AVALIABLE_SCORER_CLASSES
+    }
+
     if isinstance(score_type, str):
-        if score_type not in _SCORE_TYPE_TO_CONSTRUCTOR:
+        if score_type not in scorer_name_to_constructor:
             raise ValueError(
                 f"Invalid score_type {score_type}. Valid score types include "
-                f"{list(_SCORE_TYPE_TO_CONSTRUCTOR.keys())}"
+                f"{list(scorer_name_to_constructor.keys())}"
             )
-        return _SCORE_TYPE_TO_CONSTRUCTOR[score_type](params)
+        return scorer_name_to_constructor[score_type](params)
+
     if isinstance(score_type, MFACOptions):
         return MFACPruningParamsScorer(params, mfac_options=score_type)
 
