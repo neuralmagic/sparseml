@@ -32,6 +32,7 @@ __all__ = [
     "PruningParamsScorer",
     "MagnitudePruningParamsScorer",
     "MovementPruningParamsScorer",
+    "MFACPruningParamsScorer",
     "MFACOptions",
     "create_pruning_param_scorer",
 ]
@@ -197,7 +198,7 @@ class MFACPruningParamsScorer(PruningParamsScorer):
     def __init__(self, params: List[Parameter], mfac_options: MFACOptions = None):
         super().__init__(params)
 
-        self._mfac_options = MFACOptions() or mfac_options
+        self._mfac_options = mfac_options or MFACOptions()
         self._unpruned_idxs = [None] * len(self._params)  # type: List[Tensor]
         self._grad_buffer = None  # type: Tensor
         self._buffer_idx = 0
