@@ -368,7 +368,7 @@ Example command for transfer learning sparse mobilenet_v1 on an image folder dat
 python integrations/pytorch/vision.py train \
     --sparse-transfer-learn \
     --recipe-path  ~/sparseml_recipes/pruning_mobilenet.yaml \
-    --arch-key mobilenet_v1 --pretrained recal-perf \
+    --arch-key mobilenet_v1 --pretrained pruned-moderate \
     --dataset imagefolder --dataset-path ~/datasets/my_imagefolder_dataset \
     --train-batch-size 256 --test-batch-size 1024
 
