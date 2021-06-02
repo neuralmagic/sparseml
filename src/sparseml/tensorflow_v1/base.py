@@ -102,7 +102,13 @@ def check_tensorflow_install(
             raise tensorflow_err
         return False
 
-    return check_version("tensorflow", min_version, max_version, raise_on_error)
+    return check_version(
+        "tensorflow",
+        min_version,
+        max_version,
+        raise_on_error,
+        alternate_package_names=["tensorflow-gpu"],
+    )
 
 
 def check_tf2onnx_install(
