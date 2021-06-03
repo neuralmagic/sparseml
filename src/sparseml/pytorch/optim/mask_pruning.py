@@ -423,6 +423,20 @@ class ModuleParamPruningMask(object):
         """
         self._scorer.pre_optim_step_update()
 
+    def pruning_end(self, leave_enabled: bool):
+        """
+        Performs any cleanup necessary for this pruning method.
+        Disables weight reintroduction if enabled and applies masks
+
+        :param leave_enabled: if False, all pruning hooks will be destroyed. Default
+            is True
+        """
+        if not leave_enabled:
+            self.enabled = False
+        self._allow_reintroduction = False
+        self.apply()  # ensure that weights are pruned to final level
+        self._scorer.on_pruning_end()
+
     def disable_reintroduction(self):
         """
         if weight reintroduction is enabled (only during movement pruning),

@@ -751,12 +751,7 @@ class GMPruningModifier(_PruningParamsModifier):
             started = True
 
         if self.end_pending(epoch, steps_per_epoch):
-            # prune weights to final sparsity if not already
-            self._module_masks.apply()
-            # disable weight reintroduction if not already
-            self._module_masks.disable_reintroduction()
-            if not self._leave_enabled:
-                self._module_masks.enabled = False
+            self._module_masks.pruning_end(self._leave_enabled)
 
         self._module_masks.pre_optim_step_update()
         self._pre_step_completed = True

@@ -18,9 +18,10 @@ Classes for tracking and scoring model parameters to generate pruning scores
 
 
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import Any, List, Union
 
 import torch
+import torch.distributed as dist
 from torch import Tensor
 from torch.nn import Parameter
 
@@ -89,6 +90,12 @@ class PruningParamsScorer(ABC):
         """
         pass
 
+    def on_pruning_end(self):
+        """
+        Perform any cleanup after pruning is complete
+        """
+        pass
+
     @staticmethod
     @abstractmethod
     def get_name() -> str:
@@ -96,6 +103,38 @@ class PruningParamsScorer(ABC):
         :return: name of this pruning method
         """
         raise NotImplementedError()
+
+
+class PruningParamsGradScorer(PruningParamsScorer, ABC):
+    """
+    Abstract class for PruningParamsScorers that use gradients to score parameters.
+    Adds extra abstraction for handling gradient sharing between parameters
+
+    :param params: list of model Parameters to track and score
+    """
+
+    def __init__(self, params: List[Parameter]):
+        super().__init__(params=params)
+
+        self._is_ddp = dist.is_initialized()
+        self._is_main_proc = not self._is_ddp or dist.get_rank() == 0
+
+        if self._is_ddp:
+            # create group to broadcast gradients across processes
+            self._gloo_handle = dist.new_group(backend="gloo")
+
+    def on_pruning_end(self):
+        """
+        Perform any cleanup after pruning is complete
+        """
+        super().on_pruning_end()
+        dist.destroy_process_group(self._gloo_handle)
+
+    def _broadcast_list_from_main(self, val: Any) -> Any:
+        if not self._is_ddp:
+            return val
+        dist.broadcast_object_list(val, src=0, group=self._gloo_handle)
+        return val
 
 
 class MagnitudePruningParamsScorer(PruningParamsScorer):
@@ -120,7 +159,7 @@ class MagnitudePruningParamsScorer(PruningParamsScorer):
         return "magnitude"
 
 
-class MovementPruningParamsScorer(PruningParamsScorer):
+class MovementPruningParamsScorer(PruningParamsGradScorer):
     """
     Scores parameters based on their movement which is defined as
     movement_score = sum(-1.0 * W * dL/dW)
@@ -144,15 +183,57 @@ class MovementPruningParamsScorer(PruningParamsScorer):
             each Parameter's elements are scored by their weight times the direction
             of their gradient.
         """
+        if not self._is_ddp:
+            return self._movement_scores
+
+        # move all movement scores to one device and combine
+        scores_flat = [score.view(-1).to("cpu") for score in self._movement_scores]
+        if self._is_main_proc:
+            gather_list = [
+                torch.zeros_like(scores_flat) for _ in range(dist.get_world_size())
+            ]
+            dist.gather(
+                scores_flat, gather_list=gather_list, group=self._gloo_handle, dst=0
+            )
+            total_scores_flat = torch.sum(torch.stack(gather_list), dim=0)
+        else:
+            dist.gather(scores_flat, group=self._gloo_handle, dst=0)
+
+        # broadcast total scores to all devices
+        total_scores_flat = self._broadcast_list_from_main(
+            [total_scores_flat if self._is_main_proc else None]
+        )[0]
+
+        # move total scores to correct device on each process
+        score_idx = 0
+        for idx, score in enumerate(self._movement_scores):
+            next_idx = score_idx + score.numel()
+            score.view(-1)[:] = total_scores_flat[score_idx:next_idx].to(score.device)
+            score_idx = next_idx
+
         return self._movement_scores
 
     def pre_optim_step_update(self):
         """
         Update movement scores based on the current Parameter weights and gradients
         """
+        self.check_regen_param_vals()
         for idx, param in enumerate(self._params):
             if param.grad is not None and not torch.any(param.grad.isnan()):
                 self._movement_scores[idx].add_(-0.01 * param.grad * param.data)
+
+    def mask_update(self, masks: List[Tensor], mask_diffs: List[Tensor]):
+        """
+        Resets non main process scores after they have been recorded in the main
+        process during the mask update
+
+        :param masks: latest masks to be applied to these parameters
+        :param mask_diffs: mask diff values returned by mask_difference for these
+            masks that describe how these masks changed since the last update
+        """
+        if not self._is_main_proc:
+            for score in self._movement_scores:
+                score *= 0.0
 
     def check_regen_param_vals(self):
         """
@@ -175,7 +256,7 @@ class MovementPruningParamsScorer(PruningParamsScorer):
         return "movement"
 
 
-class MFACPruningParamsScorer(PruningParamsScorer):
+class MFACPruningParamsScorer(PruningParamsGradScorer):
     """
     Scores parameters using the Matrix-Free Approximate Curvature (M-FAC)
     algorithm to solve for the optimal update in the Optimal Brain Surgeon (OBS)
@@ -201,8 +282,21 @@ class MFACPruningParamsScorer(PruningParamsScorer):
         self._mfac_options = mfac_options or MFACOptions()
         self._unpruned_idxs = [None] * len(self._params)  # type: List[Tensor]
         self._grad_buffer = None  # type: Tensor
+        self._grads = None  # placeholder for all grads across buffers
         self._buffer_idx = 0
         self._latest_h_inv_diag = None  # type: tuple
+
+        # scale num_grads by number of DDP processes
+        if self._is_ddp:
+            world_size = dist.get_world_size()
+            if isinstance(self._mfac_options, int):
+                self._mfac_options.num_grads = (
+                    self._mfac_options.num_grads // world_size
+                )
+            else:  # dict
+                self._mfac_options.num_grads = {
+                    k: v // world_size for k, v in self._mfac_options.num_grads.items()
+                }
 
         self._setup_grad_buffer()
 
@@ -213,50 +307,48 @@ class MFACPruningParamsScorer(PruningParamsScorer):
             given by the OBS method. For the approximated Hessian inverse matrix
             H^-1, scores will be W^2 / (2 * diag(H^-1))
         """
-        if torch.any(torch.all(self._grad_buffer == 0.0, dim=1)):
-            # if not all grads are captured, return magnitudes as scores
-            return [torch.abs(param.data) for param in self._params]
+        if self._is_ddp:
+            # move all grads to one device
+            if self._is_main_proc:
+                # initialize grads tensor to fit grad buffers from all processes
+                num_grads = self._mfac_options.num_grads
+                self._grads = self._grad_buffer.new_zeros(
+                    (self._grad_buffer.size(0) * dist.get_world_size(), self.size(1))
+                )
+                # have gather list reference grads to avoid doubling memory on concat
+                gather_list = [
+                    self._grads[proc_idx * num_grads : (proc_idx + 1) * num_grads, :]
+                    for proc_idx in range(dist.get_world_size())
+                ]
+                dist.gather(
+                    self._grad_buffer,
+                    gather_list=gather_list,
+                    group=self._gloo_handle,
+                    dst=0,
+                )
+            else:
+                dist.gather(self._grad_buffer, group=self._gloo_handle, dst=0)
+        else:
+            self._grads = self._grad_buffer
 
-        # gather non-pruned weights
-        non_pruned_weights = torch.empty(self._grad_buffer.size(1)).to(
-            self._grad_buffer.device
+        del self._grad_buffer  # free buffer from memory, all data moved to _grads
+
+        if self._is_main_proc:
+            param_scores = self._score_parameters()
+
+        # broadcast scores to all processes
+        to_broadcast = (
+            param_scores
+            if self._is_main_proc
+            else [None for _ in range(len(self._params))]
         )
-        weights_idx = 0
+        param_scores = self._broadcast_list_from_main(to_broadcast)
+
+        # put scores on correct device
         for idx, param in enumerate(self._params):
-            indices = self._unpruned_idxs[idx]
-            next_idx = weights_idx + indices.numel()
-            non_pruned_weights[weights_idx:next_idx] = param.data.view(-1)[indices]
-            weights_idx = next_idx
+            param_scores[idx] = param_scores[idx].to(param.device)
 
-        # inverse hessian approximation
-        h_inv = compute_hessian_inv(self._grad_buffer, self._mfac_options)
-        diag = h_inv.diag().to(non_pruned_weights.device)
-
-        # compute global scores for non-pruned weights
-        global_scores = (non_pruned_weights ** 2) / (2.0 * diag)
-        parameter_scores = []
-        minimum_score = global_scores.min().item() - 1
-
-        # map global scores to parameter weight shapes
-        weights_idx = 0
-        for idx, param in enumerate(self._params):
-            indices = self._unpruned_idxs[idx]
-            next_idx = weights_idx + indices.numel()
-            param_score = torch.ones_like(param.data).detach().requires_grad_(False)
-            param_score *= minimum_score  # set values to the minimal score by default
-
-            param_score.view(-1)[self._unpruned_idxs[idx]] = global_scores[
-                weights_idx:next_idx
-            ].to(param_score.device)
-            weights_idx = next_idx
-
-            parameter_scores.append(param_score)
-
-        # save h_inv and diag for weight update later
-        self._latest_h_inv_diag = (h_inv, diag)
-        torch.cuda.empty_cache()  # release GPU memory
-
-        return parameter_scores
+        return param_scores
 
     def pre_optim_step_update(self):
         """
@@ -293,10 +385,87 @@ class MFACPruningParamsScorer(PruningParamsScorer):
         :param mask_diffs: mask diff values returned by mask_difference for these
             masks that describe how these masks changed since the last update
         """
+        # calculate optimal perturbation on main process and broadcast to all
+        perturb = self._calc_params_perterb(mask_diffs) if self._is_main_proc else None
+        perturb = self._broadcast_list_from_main([perturb])[0]
+
+        # update weights by mapping to perturbation
+        weights_idx = 0
+        for idx, param in enumerate(self._params):
+            indices = self._unpruned_idxs[idx]
+            next_idx = weights_idx + indices.numel()
+
+            with torch.no_grad():
+                param.view(-1)[self._unpruned_idxs[idx]] += perturb[
+                    weights_idx:next_idx
+                ].to(param.device)
+
+            weights_idx = next_idx
+
+        self._latest_h_inv_diag = None  # clear h_inv
+        self._grads = None  # clear grads
+        self._setup_grad_buffer()  # reset grad buffer
+        torch.cuda.empty_cache()  # release GPU memory
+
+    @staticmethod
+    def get_name() -> str:
+        """
+        :return: name of this pruning method
+        """
+        return "MFAC"
+
+    def _score_parameters(self) -> List[Tensor]:
+        # score params using MFAC and the gathered grad buffers
+        if torch.any(torch.all(self._grads == 0.0, dim=1)):
+            # if not all grads are captured, return magnitudes as scores
+            return [torch.abs(param.data) for param in self._params]
+
+        # gather non-pruned weights
+        non_pruned_weights = torch.empty(self._grads.size(1)).to(self._grads.device)
+        weights_idx = 0
+        for idx, param in enumerate(self._params):
+            indices = self._unpruned_idxs[idx]
+            next_idx = weights_idx + indices.numel()
+            non_pruned_weights[weights_idx:next_idx] = param.data.view(-1)[indices]
+            weights_idx = next_idx
+
+        # inverse hessian approximation
+        h_inv = compute_hessian_inv(self._grads, self._mfac_options)
+        diag = h_inv.diag().to(non_pruned_weights.device)
+
+        # compute global scores for non-pruned weights
+        global_scores = (non_pruned_weights ** 2) / (2.0 * diag)
+        parameter_scores = []
+        minimum_score = global_scores.min().item() - 1
+
+        # map global scores to parameter weight shapes
+        weights_idx = 0
+        for idx, param in enumerate(self._params):
+            indices = self._unpruned_idxs[idx]
+            next_idx = weights_idx + indices.numel()
+            param_score = (
+                torch.ones_like(param.data, device="cpu").detach().requires_grad_(False)
+            )
+            param_score *= minimum_score  # set values to the minimal score by default
+
+            param_score.view(-1)[self._unpruned_idxs[idx]] = global_scores[
+                weights_idx:next_idx
+            ].to(param_score.device)
+            weights_idx = next_idx
+
+            parameter_scores.append(param_score)
+
+        # save h_inv and diag for weight update later
+        self._latest_h_inv_diag = (h_inv, diag)
+        torch.cuda.empty_cache()  # release GPU memory
+
+        return parameter_scores
+
+    def _calc_params_perterb(self, mask_diffs):
         # select weights that are about to be masked with 0s for unmasked weights
         weights_to_prune = torch.zeros(
-            self._grad_buffer.size(1),
-            device=self._grad_buffer.device,
+            self._grads.size(1),
+            device=self._grads.device,
         )
         weights_idx = 0
         for idx, mask_diff in enumerate(mask_diffs):
@@ -310,21 +479,7 @@ class MFACPruningParamsScorer(PruningParamsScorer):
 
         # calculate optimal perturbation = -w_i * H^-1 / H_{i,i}
         h_inv, diag = self._latest_h_inv_diag
-        perturb = h_inv.mul(-1.0 * weights_to_prune / diag)
-        weights_idx = 0
-
-        # update weights by mapping to perturbation
-        for idx, param in enumerate(self._params):
-            indices = self._unpruned_idxs[idx]
-            next_idx = weights_idx + indices.numel()
-            param.view(-1)[self._unpruned_idxs[idx]] += perturb[
-                weights_idx:next_idx
-            ].to(param.device)
-            weights_idx = next_idx
-
-        self._latest_h_inv_diag = None  # clear h_inv
-        self._setup_grad_buffer()  # reset grad buffer
-        torch.cuda.empty_cache()  # release GPU memory
+        return h_inv.mul(-1.0 * weights_to_prune / diag)
 
     def _setup_grad_buffer(self):
         total_nonzero = 0
@@ -342,13 +497,6 @@ class MFACPruningParamsScorer(PruningParamsScorer):
             device=self._mfac_options.grads_device,
         )
         self._buffer_idx = 0
-
-    @staticmethod
-    def get_name() -> str:
-        """
-        :return: name of this pruning method
-        """
-        return "MFAC"
 
 
 AVALIABLE_SCORER_CLASSES = [
