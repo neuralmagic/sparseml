@@ -488,7 +488,7 @@ class ModuleParamPruningMask(object):
                     partial(self._hook_mask_forward, idx)
                 )
 
-            if not self._allow_reintroduction and self._undo_mask_hooks[idx] is None:
+            if self._allow_reintroduction and self._undo_mask_hooks[idx] is None:
                 self._undo_mask_hooks[idx] = layer.register_forward_hook(
                     partial(self._hook_undo_mask, idx)
                 )
@@ -519,7 +519,8 @@ class ModuleParamPruningMask(object):
 
     def _hook_undo_mask(self, param_idx, module, inp, out):
         if self._allow_reintroduction:
-            self._params[param_idx].data.add_(self._params_unmasked[param_idx])
+            with torch.no_grad():
+                self._params[param_idx].data.add_(self._params_unmasked[param_idx])
 
     def _hook_mask_gradient(self, param_idx, grad):
         if 0.0 <= self._track_grad_mom < 1.0:

@@ -151,7 +151,7 @@ class MovementPruningParamsScorer(PruningParamsScorer):
         Update movement scores based on the current Parameter weights and gradients
         """
         for idx, param in enumerate(self._params):
-            if param.grad is not None:
+            if param.grad is not None and not torch.any(param.grad.isnan()):
                 self._movement_scores[idx].add_(-0.01 * param.grad * param.data)
 
     def check_regen_param_vals(self):
