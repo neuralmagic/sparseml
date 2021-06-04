@@ -212,7 +212,9 @@ class FisherInverseFastBlock(FisherInverse):
             )
             fisher_inv_block = FisherInverseFast(block, damp=damp)
             with lock:
-                thread_fisher_inv_blocks[thread_idx_] = fisher_inv_block
+                # ignoring flake8 warning since thread_fisher_inv_blocks is safely
+                # deleted after all calls to _compute_fisher_inv_block
+                thread_fisher_inv_blocks[thread_idx_] = fisher_inv_block  # noqa: F821
 
         for idx, off in enumerate(range(0, grads.shape[1], self._block_size)):
             # create thread
@@ -239,6 +241,9 @@ class FisherInverseFastBlock(FisherInverse):
                         if fisher_inv_block is not None
                     ]
                 )
+        # free h_inv_blocks from GPU memory
+        del thread_fisher_inv_blocks
+        torch.cuda.empty_cache()
 
     def diag(self):
         """
