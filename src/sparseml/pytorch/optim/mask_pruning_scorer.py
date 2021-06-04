@@ -313,7 +313,10 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
                 # initialize grads tensor to fit grad buffers from all processes
                 num_grads = self._mfac_options.num_grads
                 self._grads = self._grad_buffer.new_zeros(
-                    (self._grad_buffer.size(0) * dist.get_world_size(), self.size(1))
+                    (
+                        self._grad_buffer.size(0) * dist.get_world_size(),
+                        self_grad_buffer.size(1),
+                    )
                 )
                 # have gather list reference grads to avoid doubling memory on concat
                 gather_list = [
