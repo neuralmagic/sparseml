@@ -128,7 +128,9 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
         Perform any cleanup after pruning is complete
         """
         super().on_pruning_end()
-        dist.destroy_process_group(self._gloo_handle)
+
+        if self._is_ddp:
+            dist.destroy_process_group(self._gloo_handle)
 
     def _broadcast_list_from_main(self, val: Any) -> Any:
         if not self._is_ddp:
