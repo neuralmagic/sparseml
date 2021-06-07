@@ -38,7 +38,7 @@ except Exception as tensorboard_err:
 try:
     import wandb
 
-    wandb_error = None
+    wandb_err = None
 except Exception as err:
     wandb = None
     wandb_err = err
