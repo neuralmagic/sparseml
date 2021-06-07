@@ -300,8 +300,6 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
                     k: v // world_size for k, v in self._mfac_options.num_grads.items()
                 }
 
-        self._setup_grad_buffer()
-
     def score_parameters(self) -> List[Tensor]:
         """
         :return: List of Tensors the same shapes as the given Parameters where
@@ -359,6 +357,10 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         """
         Update the gradient buffer based on the current gradients
         """
+
+        if self._grad_buffer is None:
+            self._setup_grad_buffer()
+
         if any(param.grad is None for param in self._params):
             # only update buffer if all gradients are computed
             return
