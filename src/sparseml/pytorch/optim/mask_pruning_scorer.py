@@ -358,12 +358,12 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         Update the gradient buffer based on the current gradients
         """
 
-        if self._grad_buffer is None:
-            self._setup_grad_buffer()
-
         if any(param.grad is None for param in self._params):
             # only update buffer if all gradients are computed
             return
+
+        if self._grad_buffer is None:
+            self._setup_grad_buffer()
 
         # get non-pruned grads
         non_pruned_grads = [
