@@ -241,6 +241,8 @@ class FisherInverseFastBlock(FisherInverse):
                         if fisher_inv_block is not None
                     ]
                 )
+                torch.cuda.empty_cache()
+
         # free h_inv_blocks from GPU memory
         del thread_fisher_inv_blocks
         torch.cuda.empty_cache()
