@@ -137,7 +137,7 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
         Re-initializes any DDP params when unpickling
         :param state: state of this object after pickling
         """
-        if not self._is_ddp:
+        if not hasattr(self, "_is_ddp") or not self._is_ddp:
             self._init_ddp_vars()
 
     def on_pruning_end(self):
