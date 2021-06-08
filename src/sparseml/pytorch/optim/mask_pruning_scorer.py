@@ -18,7 +18,7 @@ Classes for tracking and scoring model parameters to generate pruning scores
 
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Union
+from typing import Any, Dict, List, Union
 
 import torch
 import torch.distributed as dist
@@ -116,12 +116,29 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
     def __init__(self, params: List[Parameter]):
         super().__init__(params=params)
 
-        self._is_ddp = dist.is_initialized()
-        self._is_main_proc = not self._is_ddp or dist.get_rank() == 0
+        self._is_ddp = None
+        self._is_main_proc = None
+        self._gloo_handle = None
+        self._init_ddp_vars()
 
-        if self._is_ddp:
-            # create group to broadcast gradients across processes
-            self._gloo_handle = dist.new_group(backend="gloo")
+    def __getstate__(self) -> Dict[str, Any]:
+        """
+        :return: state of this object as dict, without DDP related parameters
+        """
+        ddp_params = ["_is_ddp", "_is_main_proc", "_gloo_handle"]
+        return {
+            param: val
+            for param, val in self.__dict__.items()
+            if param not in ddp_params
+        }
+
+    def __setstate__(self, state):
+        """
+        Re-initializes any DDP params when unpickling
+        :param state: state of this object after pickling
+        """
+        if not self._is_ddp:
+            self._init_ddp_vars()
 
     def on_pruning_end(self):
         """
@@ -131,6 +148,13 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
 
         if self._is_ddp:
             dist.destroy_process_group(self._gloo_handle)
+
+    def _init_ddp_vars(self):
+        self._is_ddp = dist.is_initialized()
+        self._is_main_proc = not self._is_ddp or dist.get_rank() == 0
+
+        # create group to broadcast gradients across processes
+        self._gloo_handle = dist.new_group(backend="gloo") if self._is_ddp else None
 
     def _broadcast_list_from_main(self, val: Any) -> Any:
         if not self._is_ddp:
