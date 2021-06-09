@@ -95,30 +95,27 @@ class DenseIndex():
         return hits
 
     def hybrid_search(self, query: str, k: int = 10, dense_weight: float = 0.5):
-        sparse_results = self.sparse_search(query)
-        dense_results = self.dense_search(query)
         results_index = {}
-        for sparse_result in sparse_results:
+        for sparse_result in self.sparse_search(query):
             id, score = sparse_result['_id'], sparse_result['_score']
             id = int(id)
             results_index[id] = {'elastic_score': score}
-        for dense_result in dense_results:
-            id, score = dense_result['chunk_id'], dense_result['faiss_dist']
+        for dense_result in self.dense_search(query):
+            id, score = dense_result['passage_id'], dense_result['faiss_dist']
             if id in results_index:
                 results_index[id]['faiss_dist'] = score
             else:
-                results_index[id] = {'faiss_dist': score}
+                results_index[id] = {'faiss_dist': score, 'elastic_score': 0}
         results = []
-        for chunk_id, scores in results_index.items():
-            document_id = self.chunk_index[chunk_id]
+        for passage_id, scores in results_index.items():
+            document_id = self.passage_to_doc[passage_id]
             document = self.documents[document_id]
-            chunk = self.chunks[chunk_id]
             doc_profile = document.to_dict()
             result = {
-                'chunk_id': chunk_id,
-                'chunk': chunk,
-                'document_id': document_id,
                 'document': doc_profile,
+                'document_id': document_id,
+                'passage': self.passages[passage_id],
+                'passage_id': int(passage_id),
                 'scores': scores
             }
             results.append(result)
