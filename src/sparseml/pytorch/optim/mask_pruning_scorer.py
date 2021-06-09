@@ -116,29 +116,23 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
     def __init__(self, params: List[Parameter]):
         super().__init__(params=params)
 
-        self._is_ddp = None
-        self._is_main_proc = None
-        self._gloo_handle = None
-        self._init_ddp_vars()
+        self._is_ddp = dist.is_initialized()
+        self._is_main_proc = not self._is_ddp or dist.get_rank() == 0
+
+        # create group to broadcast gradients across processes
+        self._gloo_handle = dist.new_group(backend="gloo") if self._is_ddp else None
+
+        self._pickle_exclude_params = ["_is_ddp", "_is_main_proc", "_gloo_handle"]
 
     def __getstate__(self) -> Dict[str, Any]:
         """
         :return: state of this object as dict, without DDP related parameters
         """
-        ddp_params = ["_is_ddp", "_is_main_proc", "_gloo_handle"]
         return {
             param: val
             for param, val in self.__dict__.items()
-            if param not in ddp_params
+            if param not in self._pickle_exclude_params
         }
-
-    def __setstate__(self, state):
-        """
-        Re-initializes any DDP params when unpickling
-        :param state: state of this object after pickling
-        """
-        if not hasattr(self, "_is_ddp") or not self._is_ddp:
-            self._init_ddp_vars()
 
     def on_pruning_end(self):
         """
@@ -148,13 +142,6 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
 
         if self._is_ddp:
             dist.destroy_process_group(self._gloo_handle)
-
-    def _init_ddp_vars(self):
-        self._is_ddp = dist.is_initialized()
-        self._is_main_proc = not self._is_ddp or dist.get_rank() == 0
-
-        # create group to broadcast gradients across processes
-        self._gloo_handle = dist.new_group(backend="gloo") if self._is_ddp else None
 
     def _broadcast_list_from_main(self, val: Any) -> Any:
         if not self._is_ddp:
@@ -323,6 +310,16 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
                 self._mfac_options.num_grads = {
                     k: v // world_size for k, v in self._mfac_options.num_grads.items()
                 }
+
+        self._pickle_exclude_params.extend(
+            [
+                "_unpruned_idxs",
+                "_grad_buffer",
+                "_grads",
+                "_buffer_idx",
+                "_latest_h_inv_diag",
+            ]
+        )
 
     def score_parameters(self) -> List[Tensor]:
         """
