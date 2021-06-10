@@ -257,6 +257,9 @@ class FisherInverseFastBlock(FisherInverse):
             fisher_inv_block = fisher_inv_block.to(device)
             res.append(fisher_inv_block.diag().to("cpu"))
             res.append(torch.zeros(0, dtype=self._dtype, device="cpu"))
+            # free GPU mem
+            fisher_inv_block.to("cpu")
+            torch.cuda.empty_cache()
         return torch.cat(res[:-1])
 
     def mul(self, x):
@@ -273,6 +276,10 @@ class FisherInverseFastBlock(FisherInverse):
                 device
             )
             res.append(fisher_inv_block.mul(x_block).to("cpu"))
+
+            # free GPU mem
+            fisher_inv_block.to("cpu")
+            torch.cuda.empty_cache()
         return torch.cat(res)
 
 
