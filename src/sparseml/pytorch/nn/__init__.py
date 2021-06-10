@@ -21,6 +21,7 @@ Layers / operators for PyTorch models
 from ..base import check_torch_install as _check_torch_install
 from .activations import *
 from .fatrelu import *
+from .identity import *
 from .se import *
 
 

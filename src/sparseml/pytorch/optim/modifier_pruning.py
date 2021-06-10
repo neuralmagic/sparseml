@@ -19,12 +19,13 @@ on models while pruning.
 import math
 from abc import abstractmethod
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
@@ -43,8 +44,10 @@ from sparseml.pytorch.optim.modifier import (
 from sparseml.pytorch.utils import (
     MFACOptions,
     NamedLayerParam,
+    get_layer,
     get_named_layers_and_params_by_regex,
     get_prunable_layers,
+    replace_layer,
     tensor_sparsity,
 )
 from sparseml.pytorch.utils.logger import BaseLogger
@@ -65,11 +68,13 @@ __all__ = [
     "MFACPruningModifier",
     "MovementPruningModifier",
     "GlobalMagnitudePruningModifier",
+    "LayerPruningModifier",
 ]
 
 
 def _log_sparsity(
-    analyzers: List[ModulePruningAnalyzer],
+    tag_prefix: str,
+    layer_sparsities: List[Union[Tuple[str, float], ModulePruningAnalyzer]],
     loggers: List[BaseLogger],
     epoch: float,
     steps_per_epoch: int,
@@ -77,10 +82,16 @@ def _log_sparsity(
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
 
     for logger in loggers:
-        for analyzer in analyzers:
+        for layer_sparsity in layer_sparsities:
+            if isinstance(layer_sparsity, ModulePruningAnalyzer):
+                layer_sparsity = (
+                    layer_sparsity.tag,
+                    layer_sparsity.param_sparsity.item(),
+                )
+
             logger.log_scalar(
-                "Modifier KS/{}".format(analyzer.tag),
-                analyzer.param_sparsity.item(),
+                f"{tag_prefix}/{layer_sparsity[0]}",
+                layer_sparsity[1],
                 step,
             )
 
@@ -299,7 +310,9 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
 
         if self._should_log(module, optimizer, epoch, steps_per_epoch):
             self._last_logged_epoch = math.floor(epoch)
-            _log_sparsity(self._analyzers, self.loggers, epoch, steps_per_epoch)
+            _log_sparsity(
+                "ParamPruning", self._analyzers, self.loggers, epoch, steps_per_epoch
+            )
 
     def optimizer_post_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -1190,4 +1203,188 @@ class MFACPruningModifier(GMPruningModifier):
             mask_creator=self._mask_creator,
             global_sparsity=self._global_sparsity,
             score_type=MFACOptions(**self._mfac_options),
+        )
+
+
+@PyTorchModifierYAML()
+class LayerPruningModifier(ScheduledUpdateModifier):
+    """
+    Class for pruning away layers within a module (replaces with torch.nn.Identity)
+
+    :param params: A list of full layer names or regex patterns of names to apply
+        pruning to. Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all layers. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: Unused for this modifier
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    """
+
+    def __init__(
+        self,
+        layers: Union[str, List[str]],
+        start_epoch: float = -1.0,
+        end_epoch: float = -1.0,
+        update_frequency: float = -1.0,
+        log_types: Union[str, List[str]] = None,
+    ):
+        super().__init__(
+            log_types=log_types,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=-1.0,
+        )
+        self._layers = validate_str_iterable(
+            layers, "{} for layers".format(self.__class__.__name__)
+        )
+        self._layer_modules = {}  # type: Dict[str, Module]
+        self._layers_replaced = False
+        self._last_logged_epoch = None
+        self._last_logged_layers_replaced = None
+
+    @ModifierProp()
+    def layers(self) -> Union[str, List[str]]:
+        """
+        :return: the layers to prune from the module
+        """
+        return self._layers
+
+    @layers.setter
+    def layers(self, value: Union[str, List[str]]):
+        """
+        :param value: the layers to prune from the module
+        """
+        self._layers = validate_str_iterable(
+            value, "{} for layers".format(self.__class__.__name__)
+        )
+
+    def initialize(
+        self,
+        module: Module,
+        epoch: float = 0,
+        loggers: Optional[List[BaseLogger]] = None,
+        **kwargs,
+    ):
+        """
+        Grab the layers and apply if epoch in range to control pruning for.
+
+        :param module: the PyTorch model/module to modify
+        :param epoch: The epoch to initialize the modifier and module at.
+            Defaults to 0 (start of the training process)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
+        """
+        super().initialize(module, epoch, loggers, **kwargs)
+        layers = self._get_named_layers(module)
+
+        for (layer_name, layer_module) in layers:
+            self._layer_modules[layer_name] = None
+
+        self._check_update_pruning(module, epoch, steps_per_epoch=1)
+
+    def finalize(
+        self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
+    ):
+        """
+        Cleans up any remaining hooks
+
+        :param module: The model/module to finalize the modifier for.
+            Marked optional so state can still be cleaned up on delete,
+            but generally should always be passed in.
+        :param reset_loggers: True to remove any currently attached loggers (default),
+            False to keep the loggers attached.
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
+        """
+        super().finalize(module, reset_loggers, **kwargs)
+        self._check_update_pruning(module, epoch=math.inf, steps_per_epoch=1)
+        self._layer_modules = None
+        self._last_logged_epoch = None
+        self._last_logged_layers_replaced = None
+
+    def update(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Update to enable and disable the layers when chosen.
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+        self._check_update_pruning(module, epoch, steps_per_epoch)
+
+    def log_update(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Check whether to log an update for the state of the modifier.
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        super().log_update(module, optimizer, epoch, steps_per_epoch)
+
+        if self._should_log(module, optimizer, epoch, steps_per_epoch):
+            self._last_logged_epoch = math.floor(epoch)
+            self._last_logged_layers_replaced = self._layers_replaced
+            _log_sparsity(
+                "LayerPruning",
+                [
+                    (name, 1 if self._layers_replaced else 0)
+                    for name in self._layer_modules.keys()
+                ],
+                self.loggers,
+                epoch,
+                steps_per_epoch,
+            )
+
+    def _check_layers_match(self, token: Union[str, List[str]]):
+        if isinstance(token, str):
+            return token in self._layers or token == self._layers
+
+        if isinstance(self._layers, str):
+            return self._layers in token
+
+        return len(set(token).intersection(set(self._layers))) > 0
+
+    def _get_named_layers(self, module: Module) -> List[Tuple[str, Module]]:
+        if self._check_layers_match(ALL_TOKEN):
+            layers = [(name, layer) for name, layer in module.named_modules()]
+        elif self._check_layers_match(ALL_PRUNABLE_TOKEN):
+            layers = get_prunable_layers(module)
+        else:
+            layers = [(name, get_layer(name, module)) for name in self._layers]
+
+        return layers
+
+    def _check_update_pruning(self, module: Module, epoch: float, steps_per_epoch: int):
+        if not self._layers_replaced and (
+            epoch >= self.start_epoch or self.start_epoch == -1
+        ):
+            for name in list(self._layer_modules.keys()):
+                self._layer_modules[name] = replace_layer(module, name, Identity())
+            self._layers_replaced = True
+
+        if self._layers_replaced and (epoch >= self.end_epoch and self.end_epoch != -1):
+            for name, replaced in self._layer_modules.items():
+                replace_layer(module, name, replaced)
+                self._layer_modules[name] = None
+            self._layers_replaced = False
+
+    def _should_log(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ) -> bool:
+        return (
+            self._last_logged_epoch != math.floor(epoch)
+            or self._last_logged_layers_replaced != self._layers_replaced
         )
