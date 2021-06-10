@@ -1209,7 +1209,13 @@ class MFACPruningModifier(GMPruningModifier):
 @PyTorchModifierYAML()
 class LayerPruningModifier(ScheduledUpdateModifier):
     """
-    Class for pruning away layers within a module (replaces with torch.nn.Identity)
+    Class for pruning away layers within a module
+    (replaces with sparseml.pytorch.nn.Identity).
+
+    | Sample yaml:
+    |   !LayerPruningModifier
+    |       layers: ['bert.encoder.layer.6', 'bert.encoder.layer.7']
+    |
 
     :param layers: A list of full layer names to apply pruning to.
         __ALL_ will match to all layers. __ALL_PRUNABLE__ will match to all ConvNd
