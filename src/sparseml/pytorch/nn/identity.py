@@ -25,8 +25,10 @@ class Identity(Module):
     """
     A placeholder identity operator that is argument-insensitive.
 
-    :param mapping_lambda: A lambda callable to map *args and **kwargs from the forward function to a return value.
-        Defaults to returning all positional arguments as a Tuple. If only one argument returned, returns individual.
+    :param mapping_lambda: A lambda callable to map *args and **kwargs from the
+        forward function to a return value.
+        Defaults to returning all positional arguments as a Tuple.
+        If only one argument returned, returns individual.
     """
 
     def __init__(self, mapping_lambda: Optional[Callable] = None, *args, **kwargs):

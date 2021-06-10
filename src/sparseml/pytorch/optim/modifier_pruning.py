@@ -1211,12 +1211,12 @@ class LayerPruningModifier(ScheduledUpdateModifier):
     """
     Class for pruning away layers within a module (replaces with torch.nn.Identity)
 
-    :param params: A list of full layer names or regex patterns of names to apply
-        pruning to. Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all layers. __ALL_PRUNABLE__ will match to all ConvNd
+    :param layers: A list of full layer names to apply pruning to.
+        __ALL_ will match to all layers. __ALL_PRUNABLE__ will match to all ConvNd
         and Linear layers
-    :param start_epoch: The epoch to start the modifier at
-    :param end_epoch: The epoch to end the modifier at
+    :param start_epoch: The epoch the modifier will prune layers away layers at
+    :param end_epoch: The epoch, if set and positive,
+        the modifier will reintroduce the pruned layers at
     :param update_frequency: Unused for this modifier
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
