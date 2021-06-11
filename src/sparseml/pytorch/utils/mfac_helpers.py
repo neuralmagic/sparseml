@@ -484,7 +484,7 @@ class FisherInverseFastPageSwap(FisherInverse):
             grad_sample = self._hinv_g[page_sample_idx + page_offset, :].to(self._gpu0)
             mul = fisher_inv_buf_gpu[:page_sample_idx, :].matmul(
                 grad_sample
-            ) / self._denom[page_sample_idx : (page_sample_idx + page_offset)].to(
+            ) / self._denom[page_offset : (page_sample_idx + page_offset)].to(
                 self._gpu0
             )
             fisher_inv_buf_gpu[page_sample_idx, :] -= mul.matmul(

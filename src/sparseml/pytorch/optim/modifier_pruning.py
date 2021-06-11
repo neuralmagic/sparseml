@@ -31,10 +31,7 @@ from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
     load_mask_creator,
 )
-from sparseml.pytorch.optim.mask_pruning import (
-    ModuleParamPruningMask,
-    PruningScoreTypes,
-)
+from sparseml.pytorch.optim.mask_pruning import ModuleParamPruningMask
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
@@ -520,7 +517,7 @@ class GMPruningModifier(_PruningParamsModifier):
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         global_sparsity: bool = False,
-        score_type: PruningScoreTypes = PruningScoreTypes.MAGNITUDE,
+        score_type: Union[str, MFACOptions] = "magnitude",
     ):
         super().__init__(
             params=params,
@@ -640,7 +637,7 @@ class GMPruningModifier(_PruningParamsModifier):
         return self._global_sparsity
 
     @ModifierProp()
-    def score_type(self) -> PruningScoreTypes:
+    def score_type(self) -> Union[str, MFACOptions]:
         """
         :return: the the scoring method used for pruning
         """
@@ -754,10 +751,10 @@ class GMPruningModifier(_PruningParamsModifier):
             started = True
 
         if self.end_pending(epoch, steps_per_epoch):
-
-            if self._score_type == PruningScoreTypes.MOVEMENT:
-                self._module_masks.apply()  # prune weights to final sparsity
-                self._module_masks.disable_reintroduction()
+            # prune weights to final sparsity if not already
+            self._module_masks.apply()
+            # disable weight reintroduction if not already
+            self._module_masks.disable_reintroduction()
             if not self._leave_enabled:
                 self._module_masks.enabled = False
 
@@ -883,7 +880,7 @@ class MagnitudePruningModifier(GMPruningModifier):
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=False,
-            score_type=PruningScoreTypes.MAGNITUDE,
+            score_type="magnitude",
         )
 
     @ModifierProp(serializable=False)
@@ -894,7 +891,7 @@ class MagnitudePruningModifier(GMPruningModifier):
         return self._global_sparsity
 
     @ModifierProp(serializable=False)
-    def score_type(self) -> PruningScoreTypes:
+    def score_type(self) -> str:
         """
         :return: the the scoring method used for pruning
         """
@@ -973,7 +970,7 @@ class MovementPruningModifier(GMPruningModifier):
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=False,
-            score_type=PruningScoreTypes.MOVEMENT,
+            score_type="movement",
         )
 
     @ModifierProp(serializable=False)
@@ -984,7 +981,7 @@ class MovementPruningModifier(GMPruningModifier):
         return self._global_sparsity
 
     @ModifierProp(serializable=False)
-    def score_type(self) -> PruningScoreTypes:
+    def score_type(self) -> str:
         """
         :return: the the scoring method used for pruning
         """
@@ -1053,7 +1050,7 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
-        score_type: PruningScoreTypes = PruningScoreTypes.MAGNITUDE,
+        score_type: Union[str, MFACOptions] = "magnitude",
     ):
         super().__init__(
             init_sparsity=init_sparsity,
@@ -1163,7 +1160,7 @@ class MFACPruningModifier(GMPruningModifier):
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=True,
-            score_type=PruningScoreTypes.MFAC,
+            score_type="MFAC",
         )
         self._mfac_options = mfac_options or {}
 
@@ -1175,14 +1172,14 @@ class MFACPruningModifier(GMPruningModifier):
         return self._global_sparsity
 
     @ModifierProp(serializable=False)
-    def score_type(self) -> PruningScoreTypes:
+    def score_type(self) -> str:
         """
         :return: the the scoring method used for pruning
         """
         return self._score_type
 
     @ModifierProp(serializable=True)
-    def mfac_options(self) -> PruningScoreTypes:
+    def mfac_options(self) -> Dict[str, Any]:
         """
         :return: Dictionary of key words specifying arguments for the M-FAC
             pruning run. num_grads controls the number of gradient samples,
