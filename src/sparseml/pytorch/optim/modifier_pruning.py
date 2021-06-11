@@ -1122,8 +1122,8 @@ class MFACPruningModifier(GMPruningModifier):
         channels, or a SparsityMaskCreator object. default is 'unstructured'
     :param mfac_options: Dictionary of key words specifying arguments for the M-FAC
         pruning run. num_grads controls the number of gradient samples that are kept,
-        fisher_block_size if given enables block approximations of the Fisher matrix
-        (if not specified, the full matrix is used), available_gpus specifies a list
+        fisher_block_size specifies the block size to break the M-FAC computation into
+        (default is 2000, use None for no blocks), available_gpus specifies a list
         of device ids that can be used for computation. For a full list of options,
         see the MFACOptions dataclass documentation. Default configuration uses
         CPU for computation without blocked computation
@@ -1178,8 +1178,8 @@ class MFACPruningModifier(GMPruningModifier):
         """
         :return: Dictionary of key words specifying arguments for the M-FAC
             pruning run. num_grads controls the number of gradient samples,
-            fisher_block_size if given enables block approximations of the Fisher matrix
-            (if not specified, the full matrix is used), available_gpus specifies a list
+            fisher_block_size is the block size to break the M-FAC computation into
+            (default is 2000, None means no blocks), available_gpus specifies a list
             of device ids that can be used for computation. For a full list of options,
             see the MFACOptions dataclass documentation.
         """
