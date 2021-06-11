@@ -11,3 +11,4 @@ filelock
 numpy
 regex
 spacy
+sparseml
