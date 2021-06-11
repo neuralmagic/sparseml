@@ -7,7 +7,7 @@ def main():
 
     parser.add_argument(
         "--output_file",
-        default="data/hf_doc_query_pairs.train.jsonl",
+        default="data/hf_doc_query_pairs_train.json",
         type=str,
         help="The output file for HF compatible doc2query generation",
     )

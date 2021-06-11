@@ -150,7 +150,7 @@ from transformers.optimization import (
     get_constant_schedule_with_warmup,
     get_cosine_schedule_with_warmup,
     get_cosine_with_hard_restarts_schedule_with_warmup,
-    get_linear_schedule_with_warmup,
+    get_linear_schedule_with_warmup,    
     get_polynomial_decay_schedule_with_warmup,
 )
 
@@ -158,9 +158,9 @@ from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 
-from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
-from sparseml.pytorch.utils import ModuleExporter, logger
+#from sparseml.pytorch.optim.manager import ScheduledModifierManager
+#from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
+#from sparseml.pytorch.utils import ModuleExporter, logger
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +236,7 @@ class DataTrainingArguments:
     # End SparseML Integration
     ####################################################################################
     dataset_name: Optional[str] = field(
-        default="data/hf_doc_query_pairs.train.jsonl", metadata={"help": "The name of the dataset to use (via the datasets library)."}
+        default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     dataset_config_name: Optional[str] = field(
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
@@ -250,7 +250,7 @@ class DataTrainingArguments:
         metadata={"help": "The name of the column in the datasets containing the summaries (for summarization)."},
     )
     train_file: Optional[str] = field(
-        default=None, metadata={"help": "The input training data file (a jsonlines or csv file)."}
+        default="data/hf_doc_query_pairs_train.json", metadata={"help": "The input training data file (a jsonlines or csv file)."}
     )
     validation_file: Optional[str] = field(
         default=None,
@@ -413,8 +413,7 @@ def convert_example_to_features(example, tokenizer, max_seq_length, sentence1_ke
             torch.from_numpy(np.array([np.array(segment_ids, dtype=np.int64)])),
         ) 
 
-def main():
-    summarization_name_mapping = {
+summarization_name_mapping = {
     "amazon_reviews_multi": ("review_body", "review_title"),
     "big_patent": ("description", "abstract"),
     "cnn_dailymail": ("article", "highlights"),
@@ -426,6 +425,7 @@ def main():
     "xglue": ("news_body", "news_title"),
     "xsum": ("document", "summary"),
     "wiki_summary": ("article", "highlights"),
+    None:("input", "target")
 }
 
 
@@ -475,16 +475,13 @@ def main():
         datefmt="%m/%d/%Y %H:%M:%S",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
-    logger.setLevel(logging.INFO if training_args.should_log else logging.WARN)
+    logger.setLevel(logging.INFO)
 
     # Log on each process the small summary:
     logger.warning(
         f"Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}"
         + f"distributed training: {bool(training_args.local_rank != -1)}, 16-bits training: {training_args.fp16}"
     )
-    # Set the verbosity to info of the Transformers logger (on main process only):
-    if training_args.should_log:
-        transformers.utils.logging.set_verbosity_info()
     logger.info(f"Training/evaluation parameters {training_args}")
 
     # Set seed before initializing model.
@@ -707,7 +704,7 @@ def main():
         optim = load_optimizer(model, training_args)
         steps_per_epoch = math.ceil(len(train_dataset) / (training_args.per_device_train_batch_size*training_args._n_gpu))
         #manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
-        training_args.num_train_epochs = float(manager.max_epochs)
+        #training_args.num_train_epochs = float(manager.max_epochs)
         #optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
     
     # Initialize our Trainer
