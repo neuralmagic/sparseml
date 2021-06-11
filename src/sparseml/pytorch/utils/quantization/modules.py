@@ -20,6 +20,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+
 try:
     from torch import quantization as torch_quantization
 except Exception:
