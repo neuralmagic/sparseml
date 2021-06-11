@@ -57,6 +57,7 @@ __all__ = [
     "tensor_sample",
     "mask_difference",
     "get_layer",
+    "replace_layer",
     "get_terminal_layers",
     "get_conv_layers",
     "get_linear_layers",
@@ -634,6 +635,31 @@ def get_layer(name: str, module: Module) -> Module:
         layer = layer.__getattr__(name)
 
     return layer
+
+
+def replace_layer(
+    module: Module,
+    name: str,
+    replace: Module,
+) -> Module:
+    """
+    General function to replace a layer in a module with the given new one.
+
+    :param module: the module to replace the layer in
+    :param name: the name of the layer to replace the activation for
+    :param replace: the module to replace the layer with
+    :return: the original layer that was replaced
+    """
+    parent = module
+    sections = name.split(".")
+
+    for sec in sections[:-1]:
+        parent = parent.__getattr__(sec)
+
+    cur = parent.__getattr__(sections[-1])
+    parent.__setattr__(sections[-1], replace)
+
+    return cur
 
 
 def get_terminal_layers(module: Module) -> Dict[str, Module]:
