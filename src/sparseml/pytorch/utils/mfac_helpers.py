@@ -48,12 +48,12 @@ class MFACOptions:
         dictionary of float sparsity values to the number of gradients that should be
         stored when that sparsity level (between 0.0 and 1.0) is reached. If a
         dictionary, then 0.0 must be included as a key for the base number of gradients
-        to store (i.e. {0: 64, 0.5: 128, 0.75: 256}). Default is 64.
+        to store (i.e. {0: 64, 0.5: 128, 0.75: 256}). Default is 64
     :param damp: dampening factor, default is 1e-5
     :param grads_device: device to store the gradient buffer on. Default is "cpu"
     :param fisher_block_size: optional value to enable blocked computation of the
         Fisher matrix. Blocks will be formed consecutively along the diagonal. If
-        None, blocked computation is not used. Default is None
+        None, blocked computation is not used. Default is 2000
     :param num_pages: number of pages to break the gradient samples into for GPU
         computation. Only available when blocked computation is not enabled.
         Default is 1
@@ -64,7 +64,7 @@ class MFACOptions:
     num_grads: Union[Dict[float, int], int] = 64
     damp: float = 1e-5
     grads_device: Union[str, int] = "cpu"
-    fisher_block_size: Optional[int] = None
+    fisher_block_size: Optional[int] = 2000
     num_pages: int = 1  # break computation into pages when block size is None
     available_gpus: List[str] = field(default_factory=list)
 
