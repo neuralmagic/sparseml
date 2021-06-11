@@ -18,15 +18,19 @@ import pytest
 import torch
 
 from flaky import flaky
+from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim import (
     ConstantPruningModifier,
     GlobalMagnitudePruningModifier,
     GMPruningModifier,
+    LayerPruningModifier,
     MagnitudePruningModifier,
+    MFACPruningModifier,
     MovementPruningModifier,
     load_mask_creator,
 )
-from tests.sparseml.pytorch.helpers import LinearNet
+from sparseml.pytorch.utils import get_layer
+from tests.sparseml.pytorch.helpers import FlatMLPNet, LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
@@ -318,6 +322,97 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
             test_steps_per_epoch,
             True,
         )
+
+
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: LayerPruningModifier(
+            layers=["seq.fc2", "seq.act2"],
+            start_epoch=0.0,
+            end_epoch=15.0,
+            update_frequency=1.0,
+        ),
+        lambda: LayerPruningModifier(
+            layers=["seq.fc2", "seq.act2"],
+            start_epoch=10.0,
+            end_epoch=25.0,
+            update_frequency=1.0,
+        ),
+        lambda: LayerPruningModifier(
+            layers="__ALL_PRUNABLE__",
+            start_epoch=10.0,
+            end_epoch=25.0,
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [FlatMLPNet], scope="function")
+@pytest.mark.parametrize(
+    "optim_lambda",
+    [create_optim_sgd, create_optim_adam],
+    scope="function",
+)
+class TestLayerPruningModifier(ScheduledUpdateModifierTest):
+    def test_lifecycle(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        self.initialize_helper(modifier, model)
+        assert len(modifier._layer_modules) > 0
+        if modifier.start_epoch > 0:
+            for (name, mod) in modifier._layer_modules.items():
+                assert mod is None
+                assert not isinstance(get_layer(name, model), Identity)
+
+            # check sparsity is not set before
+            for epoch in range(int(modifier.start_epoch)):
+                assert not modifier.update_ready(epoch, test_steps_per_epoch)
+
+            for (name, mod) in modifier._layer_modules.items():
+                assert mod is None
+                assert not isinstance(get_layer(name, model), Identity)
+
+            epoch = int(modifier.start_epoch)
+            assert modifier.update_ready(epoch, test_steps_per_epoch)
+            modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
+        else:
+            epoch = 0
+
+        for (name, mod) in modifier._layer_modules.items():
+            assert mod is not None
+            assert isinstance(get_layer(name, model), Identity)
+
+        # check forward pass
+        input_shape = model_lambda.layer_descs()[0].input_size
+        test_batch = torch.randn(10, *input_shape)
+        _ = model(test_batch)
+
+        end_epoch = (
+            modifier.end_epoch if modifier.end_epoch > -1 else modifier.start_epoch + 10
+        )
+
+        while epoch < end_epoch - 0.1:
+            epoch += 0.1
+            assert modifier.update_ready(epoch, test_steps_per_epoch)
+            modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
+
+        _ = model(test_batch)  # check forward pass
+
+        if modifier.end_epoch > -1:
+            epoch = int(modifier.end_epoch)
+            assert modifier.update_ready(epoch, test_steps_per_epoch)
+            modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
+
+            for (name, mod) in modifier._layer_modules.items():
+                assert mod is None
+                assert not isinstance(get_layer(name, model), Identity)
 
 
 @pytest.mark.skipif(
@@ -629,4 +724,86 @@ def test_global_magnitude_pruning_yaml():
         str(yaml_modifier.mask_type)
         == str(serialized_modifier.mask_type)
         == str(obj_modifier.mask_type)
+    )
+
+
+def test_mfac_pruning_yaml():
+    init_sparsity = 0.05
+    final_sparsity = 0.8
+    start_epoch = 5.0
+    end_epoch = 15.0
+    update_frequency = 1.0
+    params = "__ALL_PRUNABLE__"
+    inter_func = "cubic"
+    mask_type = "unstructured"
+    mfac_options = {"num_grads": 64, "available_gpus": ["cuda:0", "cuda:1"]}
+    yaml_str = f"""
+    !MFACPruningModifier
+        init_sparsity: {init_sparsity}
+        final_sparsity: {final_sparsity}
+        start_epoch: {start_epoch}
+        end_epoch: {end_epoch}
+        update_frequency: {update_frequency}
+        params: {params}
+        inter_func: {inter_func}
+        mask_type: {mask_type}
+        mfac_options: {mfac_options}
+    """
+    yaml_modifier = MFACPruningModifier.load_obj(yaml_str)  # type: MFACPruningModifier
+    serialized_modifier = MFACPruningModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: MFACPruningModifier
+    obj_modifier = MFACPruningModifier(
+        init_sparsity=init_sparsity,
+        final_sparsity=final_sparsity,
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+        update_frequency=update_frequency,
+        params=params,
+        inter_func=inter_func,
+        mask_type=mask_type,
+        mfac_options=mfac_options,
+    )
+
+    assert isinstance(yaml_modifier, MFACPruningModifier)
+    assert (
+        yaml_modifier.init_sparsity
+        == serialized_modifier.init_sparsity
+        == obj_modifier.init_sparsity
+    )
+    assert (
+        yaml_modifier.final_sparsity
+        == serialized_modifier.final_sparsity
+        == obj_modifier.final_sparsity
+    )
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
+    assert (
+        yaml_modifier.inter_func
+        == serialized_modifier.inter_func
+        == obj_modifier.inter_func
+    )
+    assert (
+        str(yaml_modifier.mask_type)
+        == str(serialized_modifier.mask_type)
+        == str(obj_modifier.mask_type)
+    )
+    assert (
+        yaml_modifier.mfac_options
+        == serialized_modifier.mfac_options
+        == obj_modifier.mfac_options
     )
