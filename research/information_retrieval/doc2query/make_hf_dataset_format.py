@@ -14,7 +14,7 @@ def main():
     parser.add_argument(
         "--input_file",
         type=str,
-        default="data/doc_query_pairs.train.tsv"
+        default="data/doc_query_pairs.train.tsv",
         help="The input file in TSV form of doc2query",
     )
     args = parser.parse_args()
