@@ -499,6 +499,9 @@ class ModuleParamPruningMask(object):
                 )
 
     def _delete_hooks(self):
+        if not hasattr(self, "_params"):
+            return
+
         for idx in range(len(self._params)):
             if self._forward_hooks[idx] is not None:
                 self._forward_hooks[idx].remove()
