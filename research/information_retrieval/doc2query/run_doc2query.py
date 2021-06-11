@@ -163,20 +163,21 @@ from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter
 
-from distill_trainer_glue import DistillGlueTrainer
+from distill_doc2query import DistillGlueTrainer
+from transformers import T5Tokenizer, T5Model
+tokenizer = T5Tokenizer.from_pretrained('t5-base')
+model = T5Model.from_pretrained('t5-base')
 
-task_to_keys = {
-    "cola": ("sentence", None),
-    "mnli": ("premise", "hypothesis"),
-    "mrpc": ("sentence1", "sentence2"),
-    "qnli": ("question", "sentence"),
-    "qqp": ("question1", "question2"),
-    "rte": ("sentence1", "sentence2"),
-    "sst2": ("sentence", None),
-    "stsb": ("sentence1", "sentence2"),
-    "wnli": ("sentence1", "sentence2"),
-}
-
+input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
+decoder_input_ids = tokenizer("Studies show that", return_tensors="pt").input_ids  # Batch size 1
+outputs = model(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
+last_hidden_states = outputs.last_hidden_state
+print(last_hidden_state)
+input_ids = tokenizer('The <extra_id_0> walks in <extra_id_1> park', return_tensors='pt').input_ids
+labels = tokenizer('<extra_id_0> cute dog <extra_id_1> the <extra_id_2>', return_tensors='pt').input_ids
+# the forward function automatically creates the correct decoder_input_ids
+loss = model(input_ids=input_ids, labels=labels).loss
+last_hidden_states = outputs.last_hidden_state
 logger = logging.getLogger(__name__)
 
 

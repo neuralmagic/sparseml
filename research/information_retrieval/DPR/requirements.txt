@@ -1,0 +1,13 @@
+transformers
+torch
+faiss
+tqdm
+elasticsearch
+streamlit
+requests
+sparseml
+faiss-cpu
+filelock
+numpy
+regex
+spacy
