@@ -97,6 +97,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
     def __init__(
         self,
         learning_rate: Union[float, None],
+        param_groups: Optional[List[int]] = None,
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
@@ -109,11 +110,29 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
             end_epoch=-1,
             end_comparator=None,
         )
+        self._param_groups = param_groups
         self._lr_set = False
         self._applied = -1.0
         self._constant_logging = convert_to_bool(constant_logging)
         self._last_logged_lr = None
         self._last_logged_epoch = None
+
+    @ModifierProp()
+    def param_groups(self) -> Optional[List[int]]:
+        """
+        :return: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        return self._param_groups
+
+    @param_groups.setter
+    def param_groups(self, value: Optional[List[int]]):
+        """
+        :param value: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        self._param_groups = value
+        self.validate()
 
     @ModifierProp()
     def constant_logging(self) -> bool:
@@ -192,8 +211,10 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
             and not self._lr_set
             and self._learning_rate is not None
         ):
-            set_optim_learning_rate(optimizer, self.learning_rate)
-            self._applied = self._learning_rate
+            for (index, group) in enumerate(optimizer.param_groups):
+                if not self.param_groups or index in self.param_groups:
+                    group["lr"] = self.learning_rate
+            self._applied = self.learning_rate
             self._lr_set = True
 
 
@@ -311,7 +332,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         :return: True to constantly log on every step,
             False to only log on an LR change, default True
         """
-        return self._lr_func
+        return self._param_groups
 
     @param_groups.setter
     def param_groups(self, value: Optional[List[int]]):
