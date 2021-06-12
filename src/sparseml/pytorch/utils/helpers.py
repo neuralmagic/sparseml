@@ -43,6 +43,7 @@ from sparseml.utils import create_dirs, save_numpy
 __all__ = [
     "default_device",
     "get_optim_learning_rate",
+    "get_optim_groups_learning_rates",
     "set_optim_learning_rate",
     "early_stop_data_loader",
     "infinite_data_loader",
@@ -115,6 +116,16 @@ def get_optim_learning_rate(optim: Optimizer) -> float:
         return param_group["lr"]
 
     raise RuntimeError("cannot get learning_rate, no param_groups available")
+
+
+def get_optim_groups_learning_rates(optim: Optimizer) -> List[float]:
+    """
+    :param optim: The optimizer to get the learning rates for
+
+    :return: get a list of tuples corresponding to the learning rates for the
+        param groups in the optimizer
+    """
+    return [group["lr"] for param_group in optim.param_groups]
 
 
 def set_optim_learning_rate(optim: Optimizer, value: float):

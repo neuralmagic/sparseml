@@ -39,7 +39,7 @@ from sparseml.pytorch.optim.modifier import (
 )
 from sparseml.pytorch.utils import (
     BaseLogger,
-    get_optim_learning_rate,
+    get_optim_groups_learning_rates,
     set_optim_learning_rate,
 )
 from sparseml.utils import ALL_TOKEN, convert_to_bool
@@ -57,12 +57,16 @@ CONSTRUCTORS = {
 
 
 def _log_lr(
-    cur_lr: float, loggers: List[BaseLogger], epoch: float, steps_per_epoch: int
+    group_lrs: List[Tuple[str, float]],
+    loggers: List[BaseLogger],
+    epoch: float,
+    steps_per_epoch: int,
 ):
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
 
     for logger in loggers:
-        logger.log_scalar("Modifier LR", cur_lr, step)
+        for (group_name, group_lr) in group_lrs:
+            logger.log_scalar(f"LearningRateModifier/{group_name}", group_lr, step)
 
 
 @PyTorchModifierYAML()
@@ -165,7 +169,10 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
             (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
-        current_lr = get_optim_learning_rate(optimizer)
+        group_lrs = [
+            (f"ParamGroup{index}", lr)
+            for (index, lr) in enumerate(get_optim_groups_learning_rates(optimizer))
+        ]
 
         if (
             self._constant_logging
@@ -174,7 +181,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         ):
             self._last_logged_lr = current_lr
             self._last_logged_epoch = math.floor(epoch)
-            _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
+            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
 
     def _check_set_lr(self, optimizer: Optimizer, epoch: float):
         if (
@@ -188,6 +195,225 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
             set_optim_learning_rate(optimizer, self.learning_rate)
             self._applied = self._learning_rate
             self._lr_set = True
+
+
+@PyTorchModifierYAML()
+class LearningRateFunctionModifier(ScheduledUpdateModifier):
+    """
+    Modifier to set the learning rate based on supported math functions.
+    Any time an update point is reached, the LR is updated for the parameters
+    in the optimizer.
+
+    | Sample yaml:
+    |   !LearningRateFunctionModifier
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       lr_func: linear
+    |       init_lr: 0.1
+    |       final_lr: 0.001
+
+    :param lr_func: The name of the lr function to use:
+        [linear, cosine]
+    :param init_lr: The initial learning rate to use once this modifier starts
+    :param init_lr: The final learning rate to use once this modifier starts
+    :param start_epoch: The epoch to start the modifier at
+        (set to -1.0 so it starts immediately)
+    :param end_epoch: The epoch to end the modifier at,
+        (set to -1.0 so it doesn't end)
+    :param update_frequency: unused and should not be set
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    :param constant_logging: True to constantly log on every step,
+        False to only log on an LR change and min once per epoch, default False
+    """
+
+    def __init__(
+        self,
+        lr_func: str,
+        init_lr: float,
+        final_lr: float,
+        start_epoch: float,
+        end_epoch: float,
+        param_groups: Optional[List[int]] = None,
+        update_frequency: float = -1.0,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+    ):
+        super().__init__(
+            log_types=log_types,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=-1.0,
+            end_comparator=1,
+        )
+        self._lr_func = lr_func
+        self._init_lr = init_lr
+        self._final_lr = final_lr
+        self._param_groups = param_groups
+        self._last_applied_lr = None
+        self._last_logged_lr = None
+        self._last_logged_epoch = None
+        self.validate()
+
+    @ModifierProp()
+    def lr_func(self) -> str:
+        """
+        :return: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        return self._lr_func
+
+    @lr_func.setter
+    def lr_func(self, value: str):
+        """
+        :param value: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        self._lr_func = value
+        self.validate()
+
+    @ModifierProp()
+    def init_lr(self) -> float:
+        """
+        :return: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        return self._lr_func
+
+    @init_lr.setter
+    def init_lr(self, value: float):
+        """
+        :param value: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        self._init_lr = value
+        self.validate()
+
+    @ModifierProp()
+    def final_lr(self) -> float:
+        """
+        :return: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        return self._lr_func
+
+    @final_lr.setter
+    def final_lr(self, value: float):
+        """
+        :param value: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        self._final_lr = value
+        self.validate()
+
+    @ModifierProp()
+    def param_groups(self) -> Optional[List[int]]:
+        """
+        :return: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        return self._lr_func
+
+    @param_groups.setter
+    def param_groups(self, value: Optional[List[int]]):
+        """
+        :param value: True to constantly log on every step,
+            False to only log on an LR change, default True
+        """
+        self._param_groups = value
+        self.validate()
+
+    def update(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Calls into the lr scheduler to step given the epoch
+        Additionally will first set the lr to the init_lr if not set yet
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        super().update(module, optimizer, epoch, steps_per_epoch)
+        lambad_func = getattr(LearningRateFunctionModifier, f"_{self._lr_func}")
+        lr = lambad_func(epoch)
+
+        for (index, group) in enumerate(optimizer.param_groups):
+            if not self.param_groups or index in self.param_groups:
+                group["lr"] = lr
+
+    def log_update(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Check whether to log an update for the learning rate of the modifier
+        If constant logging is enabled, then will always log
+        Otherwise checks for a change in the LR before logging
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        super().log_update(module, optimizer, epoch, steps_per_epoch)
+        group_lrs = [
+            (f"ParamGroup{index}", lr)
+            for (index, lr) in enumerate(get_optim_groups_learning_rates(optimizer))
+        ]
+
+        if (
+            self._constant_logging
+            or current_lr != self._last_logged_lr
+            or math.floor(epoch) != self._last_logged_epoch
+        ):
+            self._last_logged_lr = current_lr
+            self._last_logged_epoch = math.floor(epoch)
+            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
+
+    def validate(self):
+        """
+        Validate the values of the params for the current instance are valid
+        """
+        lr_funcs = ["linear", "cosine"]
+        if self.lr_func not in lr_funcs:
+            raise ValueError(f"lr_func must be one of {lr_funcs}")
+
+        if not self.init_lr or self.init_lr < 0.0 or self.init_lr > 1.0:
+            raise ValueError("init_lr must be within range [0.0, 1.0]")
+
+        if not self.final_lr or self.final_lr < 0.0 or self.final_lr > 1.0:
+            raise ValueError("final_lr must be within range [0.0, 1.0]")
+
+        if self.update_frequency != -1.0:
+            raise ValueError("update_frequency must be kept at -1.0")
+
+    def _linear(self, epoch: float) -> float:
+        # y = y1 + ((x – x1) / (x2 – x1)) * (y2 – y1)
+        start = self.start_epoch if self.start_epoch > 0 else 0.0
+        end = self.end_epoch
+
+        return self.init_lr + ((epoch - start) / (end - start)) * (self.final_lr - self.init_lr)
+
+    def _cosine(self, epoch: float) -> float:
+        start = self.start_epoch if self.start_epoch > 0 else 0.0
+        end = self.end_epoch
+
+        # scale x to [0-1] for use with cosine
+        x_norm = (epoch - start) / (end - start)
+
+        # conditional to support cosine down to a value and up to a value
+        if self.final_lr < self.init_lr:
+            y_range = self.init_lr - self.final_lr
+            y_shift = self.final_lr
+            x_shift = 0
+        else:
+            y_range = self.final_lr - self.init_lr
+            y_shift = self.init_lr
+            x_shift = math.pi
+
+        return math.cos(x_norm * math.pi + x_shift) * y_range / 2 + y_range + y_shift
 
 
 @PyTorchModifierYAML()
@@ -337,7 +563,10 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
-        current_lr = get_optim_learning_rate(optimizer)
+        group_lrs = [
+            (f"ParamGroup{index}", lr)
+            for (index, lr) in enumerate(get_optim_groups_learning_rates(optimizer))
+        ]
 
         if (
             self._constant_logging
@@ -346,7 +575,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         ):
             self._last_logged_lr = current_lr
             self._last_logged_epoch = math.floor(epoch)
-            _log_lr(current_lr, self.loggers, epoch, steps_per_epoch)
+            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
 
     def validate(self):
         """
