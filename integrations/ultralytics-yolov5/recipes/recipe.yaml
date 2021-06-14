@@ -28,3 +28,9 @@ modifiers:
     final_lr: 0.01
     param_groups: [2]
 
+  - !LearningRateFunctionModifier
+    start_epoch: 65
+    end_epoch: 240
+    lr_func: cosine
+    init_lr: 0.01
+    final_lr: 0.0001

@@ -21,7 +21,7 @@ import re
 from collections import OrderedDict, namedtuple
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Dict, Iterable, List, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy
 import torch
@@ -125,17 +125,20 @@ def get_optim_groups_learning_rates(optim: Optimizer) -> List[float]:
     :return: get a list of tuples corresponding to the learning rates for the
         param groups in the optimizer
     """
-    return [group["lr"] for param_group in optim.param_groups]
+    return [group["lr"] for group in optim.param_groups]
 
 
-def set_optim_learning_rate(optim: Optimizer, value: float):
+def set_optim_learning_rate(
+    optim: Optimizer, value: float, groups: Optional[List[int]]
+):
     """
     :param optim: The optimizer to set the learning rate for
     :param value: the learning rate to set for the optimizer,
         will set all param groups in the optim to this value
     """
-    for param_group in optim.param_groups:
-        param_group["lr"] = value
+    for (index, group) in enumerate(optim.param_groups):
+        if not groups or index in groups:
+            group["lr"] = value
 
 
 ##############################

@@ -19,7 +19,7 @@ certain update formulas or patterns.
 
 import math
 import sys
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from torch.nn import Module
 from torch.optim.lr_scheduler import (
@@ -270,6 +270,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         self._init_lr = init_lr
         self._final_lr = final_lr
         self._param_groups = param_groups
+        self._learning_rate = None
         self._last_applied_lr = None
         self._last_logged_lr = None
         self._last_logged_epoch = None
@@ -298,7 +299,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         :return: True to constantly log on every step,
             False to only log on an LR change, default True
         """
-        return self._lr_func
+        return self._init_lr
 
     @init_lr.setter
     def init_lr(self, value: float):
@@ -315,7 +316,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         :return: True to constantly log on every step,
             False to only log on an LR change, default True
         """
-        return self._lr_func
+        return self._final_lr
 
     @final_lr.setter
     def final_lr(self, value: float):
@@ -358,19 +359,15 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
         lambad_func = getattr(LearningRateFunctionModifier, f"_{self._lr_func}")
-        lr = lambad_func(epoch)
-
-        for (index, group) in enumerate(optimizer.param_groups):
-            if not self.param_groups or index in self.param_groups:
-                group["lr"] = lr
+        self._learning_rate = lambad_func(self, epoch)
+        set_optim_learning_rate(optimizer, self._learning_rate, self.param_groups)
 
     def log_update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Check whether to log an update for the learning rate of the modifier
-        If constant logging is enabled, then will always log
-        Otherwise checks for a change in the LR before logging
+        Check whether to log an update for the learning rate of the modifier.
+        Checks for a change in the LR or epoch before logging
 
         :param module: module to modify
         :param optimizer: optimizer to modify
@@ -379,19 +376,18 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
-        group_lrs = [
-            (f"ParamGroup{index}", lr)
-            for (index, lr) in enumerate(get_optim_groups_learning_rates(optimizer))
-        ]
 
         if (
-            self._constant_logging
-            or current_lr != self._last_logged_lr
+            self._learning_rate != self._last_logged_lr
             or math.floor(epoch) != self._last_logged_epoch
         ):
-            self._last_logged_lr = current_lr
-            self._last_logged_epoch = math.floor(epoch)
+            group_lrs = [
+                (f"ParamGroup{index}", lr)
+                for (index, lr) in enumerate(get_optim_groups_learning_rates(optimizer))
+            ]
             _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
+            self._last_logged_lr = self._learning_rate
+            self._last_logged_epoch = math.floor(epoch)
 
     def validate(self):
         """
@@ -401,11 +397,23 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         if self.lr_func not in lr_funcs:
             raise ValueError(f"lr_func must be one of {lr_funcs}")
 
-        if not self.init_lr or self.init_lr < 0.0 or self.init_lr > 1.0:
-            raise ValueError("init_lr must be within range [0.0, 1.0]")
+        if (
+            (not self.init_lr and self.init_lr != 0)
+            or self.init_lr < 0.0
+            or self.init_lr > 1.0
+        ):
+            raise ValueError(
+                f"init_lr must be within range [0.0, 1.0], given {self.init_lr}"
+            )
 
-        if not self.final_lr or self.final_lr < 0.0 or self.final_lr > 1.0:
-            raise ValueError("final_lr must be within range [0.0, 1.0]")
+        if (
+            (not self.final_lr and self.final_lr != 0)
+            or self.final_lr < 0.0
+            or self.final_lr > 1.0
+        ):
+            raise ValueError(
+                f"final_lr must be within range [0.0, 1.0], given {self.final_lr}"
+            )
 
         if self.update_frequency != -1.0:
             raise ValueError("update_frequency must be kept at -1.0")
@@ -415,7 +423,9 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         start = self.start_epoch if self.start_epoch > 0 else 0.0
         end = self.end_epoch
 
-        return self.init_lr + ((epoch - start) / (end - start)) * (self.final_lr - self.init_lr)
+        return self.init_lr + ((epoch - start) / (end - start)) * (
+            self.final_lr - self.init_lr
+        )
 
     def _cosine(self, epoch: float) -> float:
         start = self.start_epoch if self.start_epoch > 0 else 0.0
@@ -434,7 +444,9 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             y_shift = self.init_lr
             x_shift = math.pi
 
-        return math.cos(x_norm * math.pi + x_shift) * y_range / 2 + y_range + y_shift
+        return (
+            math.cos(x_norm * math.pi + x_shift) * y_range / 2 + y_range / 2 + y_shift
+        )
 
 
 @PyTorchModifierYAML()
