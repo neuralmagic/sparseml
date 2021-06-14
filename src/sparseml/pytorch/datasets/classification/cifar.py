@@ -43,7 +43,7 @@ _CIFAR10_RGB_STDS = [0.247, 0.243, 0.262]
 @DatasetRegistry.register(
     key=["cifar10", "cifar_10"],
     attributes={
-        "num_classes": 1000,
+        "num_classes": 10,
         "transform_means": _CIFAR10_RGB_MEANS,
         "transform_stds": _CIFAR10_RGB_STDS,
     },
@@ -70,11 +70,11 @@ class CIFAR10Dataset(CIFAR10):
 
         if rand_trans:
             trans = [
-                transforms.RandomResizedCrop(32),
+                transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
             ]
         else:
-            trans = [transforms.Resize(32), transforms.CenterCrop(32)]
+            trans = []
 
         trans.extend(
             [
@@ -93,7 +93,7 @@ _CIFAR100_RGB_STDS = [0.267, 0.256, 0.276]
 @DatasetRegistry.register(
     key=["cifar100", "cifar_100"],
     attributes={
-        "num_classes": 1000,
+        "num_classes": 100,
         "transform_means": _CIFAR100_RGB_MEANS,
         "transform_stds": _CIFAR100_RGB_STDS,
     },
