@@ -52,7 +52,8 @@ def test_pruning_scorer(score_type, n_updates):
 
     for i in range(n_updates):
         _fake_params_random_update(params)
-        scorer.pre_optim_step_update()
+        fake_masks = [(param != 0).type(param.dtype) for param in params]
+        scorer.pre_optim_step_update(fake_masks)
     scores = scorer.score_parameters()
     assert len(scores) == len(params)
 
