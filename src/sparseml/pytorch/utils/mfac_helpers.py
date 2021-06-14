@@ -48,12 +48,12 @@ class MFACOptions:
         dictionary of float sparsity values to the number of gradients that should be
         stored when that sparsity level (between 0.0 and 1.0) is reached. If a
         dictionary, then 0.0 must be included as a key for the base number of gradients
-        to store (i.e. {0: 64, 0.5: 128, 0.75: 256}). Default is 64.
+        to store (i.e. {0: 64, 0.5: 128, 0.75: 256}). Default is 64
     :param damp: dampening factor, default is 1e-5
     :param grads_device: device to store the gradient buffer on. Default is "cpu"
     :param fisher_block_size: optional value to enable blocked computation of the
         Fisher matrix. Blocks will be formed consecutively along the diagonal. If
-        None, blocked computation is not used. Default is None
+        None, blocked computation is not used. Default is 2000
     :param num_pages: number of pages to break the gradient samples into for GPU
         computation. Only available when blocked computation is not enabled.
         Default is 1
@@ -64,7 +64,7 @@ class MFACOptions:
     num_grads: Union[Dict[float, int], int] = 64
     damp: float = 1e-5
     grads_device: Union[str, int] = "cpu"
-    fisher_block_size: Optional[int] = None
+    fisher_block_size: Optional[int] = 2000
     num_pages: int = 1  # break computation into pages when block size is None
     available_gpus: List[str] = field(default_factory=list)
 
@@ -212,7 +212,9 @@ class FisherInverseFastBlock(FisherInverse):
             )
             fisher_inv_block = FisherInverseFast(block, damp=damp)
             with lock:
-                thread_fisher_inv_blocks[thread_idx_] = fisher_inv_block
+                # ignoring flake8 warning since thread_fisher_inv_blocks is safely
+                # deleted after all calls to _compute_fisher_inv_block
+                thread_fisher_inv_blocks[thread_idx_] = fisher_inv_block  # noqa: F821
 
         for idx, off in enumerate(range(0, grads.shape[1], self._block_size)):
             # create thread
@@ -239,6 +241,11 @@ class FisherInverseFastBlock(FisherInverse):
                         if fisher_inv_block is not None
                     ]
                 )
+                torch.cuda.empty_cache()
+
+        # free h_inv_blocks from GPU memory
+        del thread_fisher_inv_blocks
+        torch.cuda.empty_cache()
 
     def diag(self):
         """
@@ -250,6 +257,9 @@ class FisherInverseFastBlock(FisherInverse):
             fisher_inv_block = fisher_inv_block.to(device)
             res.append(fisher_inv_block.diag().to("cpu"))
             res.append(torch.zeros(0, dtype=self._dtype, device="cpu"))
+            # free GPU mem
+            fisher_inv_block.to("cpu")
+            torch.cuda.empty_cache()
         return torch.cat(res[:-1])
 
     def mul(self, x):
@@ -266,6 +276,10 @@ class FisherInverseFastBlock(FisherInverse):
                 device
             )
             res.append(fisher_inv_block.mul(x_block).to("cpu"))
+
+            # free GPU mem
+            fisher_inv_block.to("cpu")
+            torch.cuda.empty_cache()
         return torch.cat(res)
 
 
@@ -484,7 +498,7 @@ class FisherInverseFastPageSwap(FisherInverse):
             grad_sample = self._hinv_g[page_sample_idx + page_offset, :].to(self._gpu0)
             mul = fisher_inv_buf_gpu[:page_sample_idx, :].matmul(
                 grad_sample
-            ) / self._denom[page_sample_idx : (page_sample_idx + page_offset)].to(
+            ) / self._denom[page_offset : (page_sample_idx + page_offset)].to(
                 self._gpu0
             )
             fisher_inv_buf_gpu[page_sample_idx, :] -= mul.matmul(

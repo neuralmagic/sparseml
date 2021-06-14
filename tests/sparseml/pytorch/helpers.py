@@ -40,6 +40,7 @@ __all__ = [
     "framework",
     "LinearNet",
     "MLPNet",
+    "FlatMLPNet",
     "ConvNet",
     "MLPDataset",
     "ConvDataset",
@@ -162,6 +163,56 @@ class MLPNet(Module):
                     ("fc2", Linear(16, 32, bias=True)),
                     ("act2", ReLU()),
                     ("fc3", Linear(32, 64, bias=True)),
+                    ("sig", Sigmoid()),
+                ]
+            )
+        )
+
+    def forward(self, inp: Tensor):
+        return self.seq(inp)
+
+
+class FlatMLPNet(Module):
+    _LAYER_DESCS = None
+
+    @staticmethod
+    def layer_descs() -> List[LayerDesc]:
+        if FlatMLPNet._LAYER_DESCS is None:
+            FlatMLPNet._LAYER_DESCS = []
+            model = FlatMLPNet()
+
+            for name, layer in model.named_modules():
+                if isinstance(layer, Linear):
+                    FlatMLPNet._LAYER_DESCS.append(
+                        LayerDesc(
+                            name,
+                            [layer.in_features],
+                            [layer.out_features],
+                            layer.bias is not None,
+                        )
+                    )
+                elif isinstance(layer, ReLU):
+                    FlatMLPNet._LAYER_DESCS.append(
+                        LayerDesc(
+                            name,
+                            [],
+                            [],
+                            False,
+                        )
+                    )
+
+        return FlatMLPNet._LAYER_DESCS
+
+    def __init__(self):
+        super().__init__()
+        self.seq = Sequential(
+            OrderedDict(
+                [
+                    ("fc1", Linear(16, 16, bias=True)),
+                    ("act1", ReLU()),
+                    ("fc2", Linear(16, 16, bias=True)),
+                    ("act2", ReLU()),
+                    ("fc3", Linear(16, 16, bias=True)),
                     ("sig", Sigmoid()),
                 ]
             )
