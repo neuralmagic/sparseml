@@ -124,16 +124,16 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
     @ModifierProp()
     def param_groups(self) -> Optional[List[int]]:
         """
-        :return: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :return: The param group indices to set the lr for within the optimizer,
+            if not set will set the lr for all param groups
         """
         return self._param_groups
 
     @param_groups.setter
     def param_groups(self, value: Optional[List[int]]):
         """
-        :param value: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :param value: The param group indices to set the lr for within the optimizer,
+            if not set will set the lr for all param groups
         """
         self._param_groups = value
 
