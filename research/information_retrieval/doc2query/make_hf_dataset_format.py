@@ -21,6 +21,7 @@ def main():
     with open(args.input_file,'r') as f:
         with open(args.output_file,'w') as w:
             for l in f:
+                l = l.strip().split('\t')
                 w.write("{}\n".format(json.dumps({"input":l[0], "target":l[1]})))
 
 

@@ -125,7 +125,7 @@ import random
 import math
 
 import nltk
-#import wandb
+import wandb
 import numpy as np
 from datasets import load_dataset, load_metric
 
@@ -158,9 +158,9 @@ from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 
-#from sparseml.pytorch.optim.manager import ScheduledModifierManager
-#from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
-#from sparseml.pytorch.utils import ModuleExporter, logger
+from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
+from sparseml.pytorch.utils import ModuleExporter, logger
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +221,7 @@ class DataTrainingArguments:
     # Start SparseML Integration
     ####################################################################################
     nm_prune_config: Optional[str] = field(
-        default='recipes/noprune1epoch.yaml', metadata={"help": "The input file name for the Neural Magic pruning config"}
+        default='90sparse.yaml', metadata={"help": "The input file name for the Neural Magic pruning config"}
     )
     do_onnx_export: bool = field(
         default=False, metadata={"help": "Export model to onnx"}
@@ -540,7 +540,6 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    print(model)
     model.resize_token_embeddings(len(tokenizer))
 
     if model.config.decoder_start_token_id is None:
@@ -622,6 +621,7 @@ def main():
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
+    print(train_dataset)
 
     if training_args.do_eval:
         max_target_length = data_args.val_max_target_length
@@ -703,9 +703,9 @@ def main():
     if training_args.do_train:
         optim = load_optimizer(model, training_args)
         steps_per_epoch = math.ceil(len(train_dataset) / (training_args.per_device_train_batch_size*training_args._n_gpu))
-        #manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
-        #training_args.num_train_epochs = float(manager.max_epochs)
-        #optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
+        manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
+        training_args.num_train_epochs = float(manager.max_epochs)
+        optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
     
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
