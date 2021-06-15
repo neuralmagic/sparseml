@@ -197,7 +197,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
     
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -389,7 +389,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
 
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -581,7 +581,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
 
-           - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -773,7 +773,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
 
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -965,7 +965,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
     
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -1157,7 +1157,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
 
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -1349,7 +1349,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
     
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -1541,7 +1541,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
 
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -1733,7 +1733,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
 
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -1925,7 +1925,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
     
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
@@ -2117,7 +2117,7 @@ modifiers:
         start_epoch: 1
         update_frequency: 0.01
       
-       - !GMPruningModifier
+    - !GMPruningModifier
         end_epoch: 4
         final_sparsity: 0.90
         init_sparsity: 0.00
