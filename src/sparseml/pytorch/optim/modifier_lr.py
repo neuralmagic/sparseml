@@ -207,10 +207,10 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
 
         if (
             self._constant_logging
-            or (self._lr_set and self._last_logged_lr is not None)
+            or self._last_logged_lr != current_lr
             or math.floor(epoch) != self._last_logged_epoch
         ):
-            self._last_logged_lr = group_lrs
+            self._last_logged_lr = current_lr
             self._last_logged_epoch = math.floor(epoch)
             _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
 
