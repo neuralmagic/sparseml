@@ -280,7 +280,7 @@ class DataTrainingArguments:
         },
     )
     max_target_length: Optional[int] = field(
-        default=128,
+        default=64,
         metadata={
             "help": "The maximum total sequence length for target text after tokenization. Sequences longer "
             "than this will be truncated, sequences shorter will be padded."
@@ -589,8 +589,8 @@ def main():
         )
 
     def preprocess_function(examples):
-        inputs = examples[text_column]
-        targets = examples[summary_column]
+        inputs = examples['input']
+        targets = examples['target']
         inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
 
@@ -621,7 +621,6 @@ def main():
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
-    print(train_dataset)
 
     if training_args.do_eval:
         max_target_length = data_args.val_max_target_length
@@ -652,7 +651,7 @@ def main():
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
-
+    print(model)
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
     data_collator = DataCollatorForSeq2Seq(
