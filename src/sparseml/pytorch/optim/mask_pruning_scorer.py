@@ -58,10 +58,12 @@ class PruningParamsScorer(ABC):
         """
         raise NotImplementedError()
 
-    def pre_optim_step_update(self):
+    def pre_optim_step_update(self, masks: List[Tensor]):
         """
         Perform any required logic for tracking Parameter data and gradients before
             an Optimizer step is applied to the model.
+
+        :param masks: latest masks that are applied to these parameters
         """
         pass
 
@@ -226,9 +228,11 @@ class MovementPruningParamsScorer(PruningParamsGradScorer):
 
         return self._movement_scores
 
-    def pre_optim_step_update(self):
+    def pre_optim_step_update(self, masks: List[Tensor]):
         """
         Update movement scores based on the current Parameter weights and gradients
+
+        :param masks: latest masks that are applied to these parameters
         """
         self.check_regen_param_vals()
         for idx, param in enumerate(self._params):
@@ -374,9 +378,11 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
 
         return param_scores
 
-    def pre_optim_step_update(self):
+    def pre_optim_step_update(self, masks: List[Tensor]):
         """
         Update the gradient buffer based on the current gradients
+
+        :param masks: latest masks that are applied to these parameters
         """
 
         if any(param.grad is None for param in self._params):
@@ -384,7 +390,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             return
 
         if self._grad_buffer is None:
-            self._setup_grad_buffer()
+            self._setup_grad_buffer(masks)
 
         # get non-pruned grads
         non_pruned_grads = [
@@ -432,7 +438,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
 
         self._latest_h_inv_diag = None  # clear h_inv
         self._grads = None  # clear grads
-        self._setup_grad_buffer()  # reset grad buffer
+        self._setup_grad_buffer(masks)  # reset grad buffer
         torch.cuda.empty_cache()  # release GPU memory
 
     @staticmethod
@@ -509,12 +515,10 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         h_inv, diag = self._latest_h_inv_diag
         return h_inv.mul(-1.0 * weights_to_prune / diag)
 
-    def _setup_grad_buffer(self):
+    def _setup_grad_buffer(self, masks: Tensor):
         total_nonzero = 0
-        for idx, param in enumerate(self._params):
-            self._unpruned_idxs[idx] = (
-                param.view(-1).nonzero(as_tuple=False).reshape(-1)
-            )
+        for idx, mask in enumerate(masks):
+            self._unpruned_idxs[idx] = mask.view(-1).nonzero(as_tuple=False).reshape(-1)
             total_nonzero += self._unpruned_idxs[idx].numel()
         # only track nonzero grads
         num_grads = self._mfac_options.get_num_grads_for_sparsity(
