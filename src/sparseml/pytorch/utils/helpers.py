@@ -129,7 +129,7 @@ def get_optim_groups_learning_rates(optim: Optimizer) -> List[float]:
 
 
 def set_optim_learning_rate(
-    optim: Optimizer, value: float, groups: Optional[List[int]]
+    optim: Optimizer, value: float, groups: Optional[List[int]] = None
 ):
     """
     :param optim: The optimizer to set the learning rate for
