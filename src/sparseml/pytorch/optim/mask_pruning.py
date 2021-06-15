@@ -421,7 +421,7 @@ class ModuleParamPruningMask(object):
         updates scores and buffers that depend on gradients. Should be called
         before Optimizer.step() to grab the latest gradients
         """
-        self._scorer.pre_optim_step_update()
+        self._scorer.pre_optim_step_update(self._param_masks)
 
     def pruning_end(self, leave_enabled: bool):
         """
