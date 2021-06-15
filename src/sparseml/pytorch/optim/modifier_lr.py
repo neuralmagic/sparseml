@@ -45,7 +45,11 @@ from sparseml.pytorch.utils import (
 from sparseml.utils import ALL_TOKEN, convert_to_bool
 
 
-__all__ = ["SetLearningRateModifier", "LearningRateModifier"]
+__all__ = [
+    "SetLearningRateModifier",
+    "LearningRateFunctionModifier",
+    "LearningRateModifier",
+]
 
 
 CONSTRUCTORS = {
@@ -132,7 +136,6 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
             False to only log on an LR change, default True
         """
         self._param_groups = value
-        self.validate()
 
     @ModifierProp()
     def constant_logging(self) -> bool:
@@ -191,14 +194,23 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         group_lrs = [
             (f"ParamGroup{index}", lr)
             for (index, lr) in enumerate(get_optim_groups_learning_rates(optimizer))
+            if not self.param_groups or index in self.param_groups
         ]
+
+        if not group_lrs:
+            raise ValueError(
+                "Could not find param groups in the optimizer "
+                f"for given param_groups {self.param_groups}"
+            )
+
+        current_lr = group_lrs[-1][1]
 
         if (
             self._constant_logging
-            or current_lr != self._last_logged_lr
+            or (self._lr_set and self._last_logged_lr is not None)
             or math.floor(epoch) != self._last_logged_epoch
         ):
-            self._last_logged_lr = current_lr
+            self._last_logged_lr = group_lrs
             self._last_logged_epoch = math.floor(epoch)
             _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
 
@@ -221,9 +233,11 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
 @PyTorchModifierYAML()
 class LearningRateFunctionModifier(ScheduledUpdateModifier):
     """
-    Modifier to set the learning rate based on supported math functions.
-    Any time an update point is reached, the LR is updated for the parameters
+    Modifier to set the learning rate based on supported math functions scaling between
+    an init_lr and a final_lr.
+    Any time an update point is reached, the LR is updated for the parameters groups
     in the optimizer.
+    Specific parameter groups can be targeted for the optimizer as well.
 
     | Sample yaml:
     |   !LearningRateFunctionModifier
@@ -233,14 +247,15 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     |       init_lr: 0.1
     |       final_lr: 0.001
 
-    :param lr_func: The name of the lr function to use:
-        [linear, cosine]
+    :param lr_func: The name of the lr function to use: [linear, cosine]
     :param init_lr: The initial learning rate to use once this modifier starts
     :param init_lr: The final learning rate to use once this modifier starts
     :param start_epoch: The epoch to start the modifier at
         (set to -1.0 so it starts immediately)
     :param end_epoch: The epoch to end the modifier at,
         (set to -1.0 so it doesn't end)
+    :param_groups: The param group indices to set the lr for within the optimizer,
+        if not set will set the lr for all param groups
     :param update_frequency: unused and should not be set
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
@@ -279,16 +294,14 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def lr_func(self) -> str:
         """
-        :return: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :return: The name of the lr function to use: [linear, cosine]
         """
         return self._lr_func
 
     @lr_func.setter
     def lr_func(self, value: str):
         """
-        :param value: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :param value: The name of the lr function to use: [linear, cosine]
         """
         self._lr_func = value
         self.validate()
@@ -296,16 +309,14 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def init_lr(self) -> float:
         """
-        :return: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :return: The initial learning rate to use once this modifier starts
         """
         return self._init_lr
 
     @init_lr.setter
     def init_lr(self, value: float):
         """
-        :param value: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :param value: The initial learning rate to use once this modifier starts
         """
         self._init_lr = value
         self.validate()
@@ -313,16 +324,14 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def final_lr(self) -> float:
         """
-        :return: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :return: The final learning rate to use once this modifier starts
         """
         return self._final_lr
 
     @final_lr.setter
     def final_lr(self, value: float):
         """
-        :param value: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :param value: The final learning rate to use once this modifier starts
         """
         self._final_lr = value
         self.validate()
@@ -330,16 +339,16 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def param_groups(self) -> Optional[List[int]]:
         """
-        :return: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :return: The param group indices to set the lr for within the optimizer,
+            if not set will set the lr for all param groups
         """
         return self._param_groups
 
     @param_groups.setter
     def param_groups(self, value: Optional[List[int]]):
         """
-        :param value: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :param value: The param group indices to set the lr for within the optimizer,
+            if not set will set the lr for all param groups
         """
         self._param_groups = value
         self.validate()
@@ -348,8 +357,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
-        Calls into the lr scheduler to step given the epoch
-        Additionally will first set the lr to the init_lr if not set yet
+        Updates the LR based on the given epoch for the optimizer
 
         :param module: module to modify
         :param optimizer: optimizer to modify
@@ -376,17 +384,26 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
+        group_lrs = [
+            (f"ParamGroup{index}", lr)
+            for (index, lr) in enumerate(get_optim_groups_learning_rates(optimizer))
+            if not self.param_groups or index in self.param_groups
+        ]
+
+        if not group_lrs:
+            raise ValueError(
+                "Could not find param groups in the optimizer "
+                f"for given param_groups {self.param_groups}"
+            )
+
+        current_lr = group_lrs[-1][1]
 
         if (
-            self._learning_rate != self._last_logged_lr
+            current_lr != self._last_logged_lr
             or math.floor(epoch) != self._last_logged_epoch
         ):
-            group_lrs = [
-                (f"ParamGroup{index}", lr)
-                for (index, lr) in enumerate(get_optim_groups_learning_rates(optimizer))
-            ]
             _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
-            self._last_logged_lr = self._learning_rate
+            self._last_logged_lr = current_lr
             self._last_logged_epoch = math.floor(epoch)
 
     def validate(self):
@@ -600,6 +617,11 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
             (f"ParamGroup{index}", lr)
             for (index, lr) in enumerate(get_optim_groups_learning_rates(optimizer))
         ]
+
+        if not group_lrs:
+            raise ValueError("Could not find any param groups in the optimizer")
+
+        current_lr = group_lrs[-1][1]
 
         if (
             self._constant_logging

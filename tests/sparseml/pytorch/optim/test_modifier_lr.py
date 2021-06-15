@@ -19,7 +19,11 @@ import sys
 import pytest
 from torch.optim import SGD, Adam
 
-from sparseml.pytorch.optim import LearningRateModifier, SetLearningRateModifier
+from sparseml.pytorch.optim import (
+    LearningRateFunctionModifier,
+    LearningRateModifier,
+    SetLearningRateModifier,
+)
 from sparseml.pytorch.utils import get_optim_learning_rate
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
@@ -151,6 +155,223 @@ def test_set_lr_yaml():
         yaml_modifier.start_epoch
         == serialized_modifier.start_epoch
         == obj_modifier.start_epoch
+    )
+
+
+##############################
+#
+# LearningRateFunctionModifier tests
+#
+##############################
+
+
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: LearningRateFunctionModifier(
+            lr_func="linear",
+            init_lr=0.1,
+            final_lr=0.001,
+            start_epoch=0,
+            end_epoch=10,
+        ),
+        lambda: LearningRateFunctionModifier(
+            lr_func="linear",
+            init_lr=0.1,
+            final_lr=0.001,
+            start_epoch=5,
+            end_epoch=10,
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize(
+    "optim_lambda",
+    [
+        lambda model: SGD(model.parameters(), INIT_LR),
+        lambda model: Adam(model.parameters(), INIT_LR),
+    ],
+    scope="function",
+)
+class TestLearningRateFunctionModifierLinearImpl(ScheduledUpdateModifierTest):
+    def test_lifecycle(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        self.initialize_helper(modifier, model)
+        assert get_optim_learning_rate(optimizer) == INIT_LR
+        last = 1.0
+
+        for epoch in range(int(modifier.end_epoch) + 5):
+            for step in range(test_steps_per_epoch):
+                epoch_test = float(epoch) + float(step) / float(test_steps_per_epoch)
+
+                if epoch_test < modifier.start_epoch:
+                    expected = INIT_LR
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+                elif epoch_test <= modifier.end_epoch:
+                    expected = modifier.init_lr + (
+                        (epoch_test - modifier.start_epoch)
+                        / (modifier.end_epoch - modifier.start_epoch)
+                    ) * (modifier.final_lr - modifier.init_lr)
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
+                    modifier.scheduled_update(
+                        model, optimizer, epoch_test, test_steps_per_epoch
+                    )
+                    assert expected <= last, f"Failed at epoch:{epoch} step:{step}"
+                    last = expected
+                else:
+                    expected = modifier.final_lr
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+
+                assert (
+                    abs(get_optim_learning_rate(optimizer) - expected) < EPSILON
+                ), f"Failed at epoch:{epoch} step:{step}"
+
+
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: LearningRateFunctionModifier(
+            lr_func="cosine",
+            init_lr=0.1,
+            final_lr=0.001,
+            start_epoch=0,
+            end_epoch=10,
+        ),
+        lambda: LearningRateFunctionModifier(
+            lr_func="cosine",
+            init_lr=0.1,
+            final_lr=0.001,
+            start_epoch=5,
+            end_epoch=10,
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize(
+    "optim_lambda",
+    [
+        lambda model: SGD(model.parameters(), INIT_LR),
+        lambda model: Adam(model.parameters(), INIT_LR),
+    ],
+    scope="function",
+)
+class TestLearningRateFunctionModifierCosineImpl(ScheduledUpdateModifierTest):
+    def test_lifecycle(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        self.initialize_helper(modifier, model)
+        assert get_optim_learning_rate(optimizer) == INIT_LR
+        last = 1.0
+
+        for epoch in range(int(modifier.end_epoch) + 5):
+            for step in range(test_steps_per_epoch):
+                epoch_test = float(epoch) + float(step) / float(test_steps_per_epoch)
+
+                if epoch_test < modifier.start_epoch:
+                    expected = INIT_LR
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+                elif epoch_test <= modifier.end_epoch:
+                    expected = (
+                        math.cos(
+                            (
+                                (epoch_test - modifier.start_epoch)
+                                / (modifier.end_epoch - modifier.start_epoch)
+                            )
+                            * math.pi
+                        )
+                        * (modifier.init_lr - modifier.final_lr)
+                        / 2
+                        + (modifier.init_lr - modifier.final_lr) / 2
+                        + modifier.final_lr
+                    )
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
+                    modifier.scheduled_update(
+                        model, optimizer, epoch_test, test_steps_per_epoch
+                    )
+                    assert expected <= last, f"Failed at epoch:{epoch} step:{step}"
+                    last = expected
+                else:
+                    expected = modifier.final_lr
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+
+                assert (
+                    abs(get_optim_learning_rate(optimizer) - expected) < EPSILON
+                ), f"Failed at epoch:{epoch} step:{step}"
+
+
+def test_lr_function_modifier_yaml():
+    lr_func = "linear"
+    start_epoch = 10.0
+    end_epoch = 20.0
+    init_lr = 0.1
+    final_lr = 0.001
+    param_groups = [0, 1]
+    yaml_str = f"""
+    !LearningRateFunctionModifier
+        start_epoch: {start_epoch}
+        end_epoch: {end_epoch}
+        lr_func: {lr_func}
+        init_lr: {init_lr}
+        final_lr: {final_lr}
+        param_groups: {param_groups}
+    """
+    yaml_modifier = LearningRateFunctionModifier.load_obj(
+        yaml_str
+    )  # type: LearningRateFunctionModifier
+    serialized_modifier = LearningRateFunctionModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: LearningRateFunctionModifier
+    obj_modifier = LearningRateFunctionModifier(
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+        lr_func=lr_func,
+        init_lr=init_lr,
+        final_lr=final_lr,
+        param_groups=param_groups,
+    )
+
+    assert isinstance(yaml_modifier, LearningRateFunctionModifier)
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert yaml_modifier.lr_func == serialized_modifier.lr_func == obj_modifier.lr_func
+    assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
+    assert (
+        yaml_modifier.final_lr == serialized_modifier.final_lr == obj_modifier.final_lr
+    )
+    assert (
+        yaml_modifier.param_groups
+        == serialized_modifier.param_groups
+        == obj_modifier.param_groups
     )
 
 
