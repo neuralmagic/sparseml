@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+import logging
 from urllib.error import URLError
 
 import pytest
@@ -47,10 +47,10 @@ def test_voc_detection():
 
         reg_dataset = DatasetRegistry.create("voc_det", train=False)
         _validate_voc(reg_dataset, 300)
-    except URLError:
+    except URLError as err:
         # handle case for VOC server being down,
         # we should not fail our tests on an upstream we can't control
-        pass
+        logging.warning(f"Skipped VOC tests because of URLError: {err}")
 
 
 @pytest.mark.skipif(
