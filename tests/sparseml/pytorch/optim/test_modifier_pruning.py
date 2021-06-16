@@ -357,6 +357,7 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
                         applied_sparsities, last_sparsities
                     )
                 )
+
             last_sparsities = applied_sparsities
 
         _ = model(test_batch)  # check forward pass

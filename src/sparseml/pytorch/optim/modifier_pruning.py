@@ -825,6 +825,7 @@ class GMPruningModifier(_PruningParamsModifier):
         self._pre_step_completed = True
 
         if started:
+            # set the mask tensors according to the new sparsity
             if isinstance(self._final_sparsity, List):
                 self._applied_sparsity = [
                     interpolate(
