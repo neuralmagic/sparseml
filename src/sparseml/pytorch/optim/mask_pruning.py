@@ -369,13 +369,18 @@ class ModuleParamPruningMask(object):
 
         return self.set_param_masks(masks)
 
-    def set_param_masks_from_sparsity(self, sparsity: float) -> List[Tensor]:
+    def set_param_masks_from_sparsity(
+        self, sparsity: Union[float, List[float]]
+    ) -> List[Tensor]:
         """
         Convenience function to set the parameter masks such that each masks have an
         amount of masked values such that the percentage equals the sparsity amount
         given. Masks the absolute smallest values up until sparsity is reached.
 
-        :param sparsity: the decimal sparsity to set the param mask to
+        :param sparsity: the decimal sparsity to set the param mask to can also be a
+            list where each element is a sparsity for a tensor in the same position in
+            the tensor list. If global sparsity is enabled, all values of the sparsity
+            list must be the same
         """
         param_scores = self._scorer.score_parameters()
         masks = self._mask_creator.create_sparsity_masks(
