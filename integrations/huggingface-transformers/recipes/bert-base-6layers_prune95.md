@@ -15,17 +15,17 @@ limitations under the License.
 -->
 
 ---
-# General Epoch/LR variables
+# General Variables
 num_epochs: &num_epochs 30
 
-# pruning hyperparameters
+# Pruning Hyperparameters
 init_sparsity: &init_sparsity 0.00
 final_sparsity: &final_sparsity 0.95
 pruning_start_epoch: &pruning_start_epoch 2
 pruning_end_epoch: &pruning_end_epoch 20
 update_frequency: &pruning_update_frequency 0.01
 
-# modifiers:
+# Modifiers
 training_modifiers:
   - !EpochRangeModifier
     end_epoch: 30
@@ -60,21 +60,21 @@ pruning_modifiers:
       - bert.encoder.layer.10
 ---
 
-# Bert model with dropped and pruned encoder layers
+# BERT Model with Dropped and Pruned Encoder Layers
 
-This recipe defines a dropping and pruning strategy to sparsify 6 encoder layers of a Bert model at 95% sparsity. It was used together with knowledge distillation to create sparse model that achives 90% recovery from its (teacher) baseline accuracy on the Squad dataset. 
-Training was done using 1 GPU at half precision using a training batch size of 16 with the
+This recipe defines a dropping and pruning strategy to sparsify six encoder layers of a BERT model at 95% sparsity. It was used together with knowledge distillation to create sparse model that achives 96.2% recovery from the F1 metric of the baseline model on the SQuAD dataset. (We use the checkpoint at the end of the first 2 epochs as the baseline model for comparison, right before the pruning takes effect.)
+Training was done using one V100 GPU at half precision using a training batch size of 16 with the
 [SparseML integration with huggingface/transformers](https://github.com/neuralmagic/sparseml/tree/main/integrations/huggingface-transformers).
 
 ## Weights and Biases
 
-- [Sparse Bert on Squad](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3plynclw?workspace=user-neuralmagic)
+- [Sparse BERT on SQuAD](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3plynclw?workspace=user-neuralmagic)
 
 ## Training
 
 To set up the training environment, follow the instructions on the [integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/README.md).
 Using the `run_qa.py` script from the question-answering examples, the following command can be used to launch this recipe with distillation.
-Adjust the training command below with your setup for GPU device, checkpoint saving frequency and logging options.
+Adjust the training command below with your setup for GPU device, checkpoint saving frequency, and logging options.
 
 *training command*
 ```
@@ -99,7 +99,7 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --distill_temperature 2.0 \
   --save_steps 1000 \
   --save_total_limit 2 \
-  --recipe ../recipes/uni_95sparse_freq0.01_18prune10fine_6layers.md \
+  --recipe ../recipes/bert-base-6layers_prune95.md \
   --onnx_export_path MODELS_DIR/sparse95_6layers/onnx \
   --report_to wandb
 ```

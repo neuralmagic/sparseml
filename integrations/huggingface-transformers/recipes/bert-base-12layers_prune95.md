@@ -15,17 +15,17 @@ limitations under the License.
 -->
 
 ---
-# General variables
+# General Variables
 num_epochs: &num_epochs 30
 
-# pruning hyperparameters
+# Pruning Hyperparameters
 init_sparsity: &init_sparsity 0.00
 final_sparsity: &final_sparsity 0.95
 pruning_start_epoch: &pruning_start_epoch 2
 pruning_end_epoch: &pruning_end_epoch 20
 update_frequency: &pruning_update_frequency 0.01
 
-# modifiers:
+# Modifiers
 training_modifiers:
   - !EpochRangeModifier
     end_epoch: 30
@@ -34,12 +34,12 @@ training_modifiers:
 pruning_modifiers:
   - !GMPruningModifier
     params:
-      - re:bert.encoder.layer.([0,2,4,6,8]|11).attention.self.query.weight
-      - re:bert.encoder.layer.([0,2,4,6,8]|11).attention.self.key.weight
-      - re:bert.encoder.layer.([0,2,4,6,8]|11).attention.self.value.weight
-      - re:bert.encoder.layer.([0,2,4,6,8]|11).attention.output.dense.weight
-      - re:bert.encoder.layer.([0,2,4,6,8]|11).intermediate.dense.weight
-      - re:bert.encoder.layer.([0,2,4,6,8]|11).output.dense.weight
+      - re:bert.encoder.layer.*.attention.self.query.weight
+      - re:bert.encoder.layer.*.attention.self.key.weight
+      - re:bert.encoder.layer.*.attention.self.value.weight
+      - re:bert.encoder.layer.*.attention.output.dense.weight
+      - re:bert.encoder.layer.*.intermediate.dense.weight
+      - re:bert.encoder.layer.*.output.dense.weight
     start_epoch: *pruning_start_epoch
     end_epoch: *pruning_end_epoch
     init_sparsity: *init_sparsity
@@ -51,21 +51,21 @@ pruning_modifiers:
     log_types: __ALL__
 ---
 
-# Bert model with pruned encoder layers
+# BERT Model with Pruned Encoder Layers
 
-This recipe defines a pruning strategy to sparsify all encoder layers of a Bert model at 95% sparsity. It was used together with knowledge distillation to create sparse model that achives 94.7% recovery from its baseline accuracy on the Squad dataset. 
+This recipe defines a pruning strategy to sparsify all encoder layers of a BERT model at 95% sparsity. It was used together with knowledge distillation to create sparse model that achieves 94.7% recovery from the F1 metric of the baseline model on the SQuAD dataset. (We use the checkpoint at the end of the first 2 epochs as the baseline model for comparison, right before the pruning takes effect.)
 Training was done using 1 GPU at half precision using a training batch size of 16 with the
 [SparseML integration with huggingface/transformers](https://github.com/neuralmagic/sparseml/tree/main/integrations/huggingface-transformers).
 
 ## Weights and Biases
 
-- [Sparse Bert on Squad](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3gv0arxd?workspace=user-neuralmagic)
+- [Sparse BERT on SQuAD](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3gv0arxd?workspace=user-neuralmagic)
 
 ## Training
 
 To set up the training environment, follow the instructions on the [integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/README.md).
 Using the `run_qa.py` script from the question-answering examples, the following command can be used to launch this recipe with distillation.
-Adjust the training command below with your setup for GPU device, checkpoint saving frequency and logging options.
+Adjust the training command below with your setup for GPU device, checkpoint saving frequency, and logging options.
 
 *training command*
 ```
@@ -90,7 +90,7 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --distill_temperature 2.0 \
   --save_steps 1000 \
   --save_total_limit 2 \
-  --recipe ../recipes/uni_95sparse_freq0.01_18prune10fine.md \
+  --recipe ../recipes/bert-base-12layers_prune95.md \
   --onnx_export_path MODELS_DIR/sparse95/onnx \
   --report_to wandb
 ```
