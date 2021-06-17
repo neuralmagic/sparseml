@@ -26,6 +26,7 @@ from sparseml.pytorch.optim import (
     GMPruningModifier,
     LayerPruningModifier,
     MagnitudePruningModifier,
+    MFACGlobalPruningModifier,
     MFACPruningModifier,
     MovementPruningModifier,
     load_mask_creator,
@@ -814,6 +815,7 @@ def test_mfac_pruning_yaml():
     params = "__ALL_PRUNABLE__"
     inter_func = "cubic"
     mask_type = "unstructured"
+    global_sparsity = False
     mfac_options = {"num_grads": 64, "available_gpus": ["cuda:0", "cuda:1"]}
     yaml_str = f"""
     !MFACPruningModifier
@@ -825,9 +827,10 @@ def test_mfac_pruning_yaml():
         params: {params}
         inter_func: {inter_func}
         mask_type: {mask_type}
+        global_sparsity: {global_sparsity}
         mfac_options: {mfac_options}
     """
-    yaml_modifier = MFACPruningModifier.load_obj(yaml_str)  # type: MFACPruningModifier
+    yaml_modifier = MFACPruningModifier.load_obj(yaml_str)
     serialized_modifier = MFACPruningModifier.load_obj(
         str(yaml_modifier)
     )  # type: MFACPruningModifier
@@ -840,10 +843,98 @@ def test_mfac_pruning_yaml():
         params=params,
         inter_func=inter_func,
         mask_type=mask_type,
+        global_sparsity=global_sparsity,
         mfac_options=mfac_options,
     )
 
     assert isinstance(yaml_modifier, MFACPruningModifier)
+    assert (
+        yaml_modifier.init_sparsity
+        == serialized_modifier.init_sparsity
+        == obj_modifier.init_sparsity
+    )
+    assert (
+        yaml_modifier.final_sparsity
+        == serialized_modifier.final_sparsity
+        == obj_modifier.final_sparsity
+    )
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
+    assert (
+        yaml_modifier.inter_func
+        == serialized_modifier.inter_func
+        == obj_modifier.inter_func
+    )
+    assert (
+        str(yaml_modifier.mask_type)
+        == str(serialized_modifier.mask_type)
+        == str(obj_modifier.mask_type)
+    )
+    assert (
+        str(yaml_modifier.global_sparsity)
+        == str(serialized_modifier.global_sparsity)
+        == str(obj_modifier.global_sparsity)
+    )
+    assert (
+        yaml_modifier.mfac_options
+        == serialized_modifier.mfac_options
+        == obj_modifier.mfac_options
+    )
+
+
+def test_global_mfac_pruning_yaml():
+    init_sparsity = 0.05
+    final_sparsity = 0.8
+    start_epoch = 5.0
+    end_epoch = 15.0
+    update_frequency = 1.0
+    params = "__ALL_PRUNABLE__"
+    inter_func = "cubic"
+    mask_type = "unstructured"
+    mfac_options = {"num_grads": 64, "available_gpus": ["cuda:0", "cuda:1"]}
+    yaml_str = f"""
+    !MFACGlobalPruningModifier
+        init_sparsity: {init_sparsity}
+        final_sparsity: {final_sparsity}
+        start_epoch: {start_epoch}
+        end_epoch: {end_epoch}
+        update_frequency: {update_frequency}
+        params: {params}
+        inter_func: {inter_func}
+        mask_type: {mask_type}
+        mfac_options: {mfac_options}
+    """
+    yaml_modifier = MFACGlobalPruningModifier.load_obj(yaml_str)
+    serialized_modifier = MFACGlobalPruningModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: MFACGlobalPruningModifier
+    obj_modifier = MFACGlobalPruningModifier(
+        init_sparsity=init_sparsity,
+        final_sparsity=final_sparsity,
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+        update_frequency=update_frequency,
+        params=params,
+        inter_func=inter_func,
+        mask_type=mask_type,
+        mfac_options=mfac_options,
+    )
+
+    assert isinstance(yaml_modifier, MFACGlobalPruningModifier)
     assert (
         yaml_modifier.init_sparsity
         == serialized_modifier.init_sparsity
