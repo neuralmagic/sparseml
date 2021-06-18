@@ -186,7 +186,7 @@ class ModelArguments:
         default='t5-base', metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
     config_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
+        default='t5-base', metadata={"help": "Pretrained config name or path if not the same as model_name"}
     )
     tokenizer_name: Optional[str] = field(
         default='t5-base', metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
@@ -250,10 +250,10 @@ class DataTrainingArguments:
         metadata={"help": "The name of the column in the datasets containing the summaries (for summarization)."},
     )
     train_file: Optional[str] = field(
-        default="data/hf_doc_query_pairs_train.json", metadata={"help": "The input training data file (a jsonlines or csv file)."}
+        default="data/doc_query_train.json", metadata={"help": "The input training data file (a jsonlines or csv file)."}
     )
     validation_file: Optional[str] = field(
-        default=None,
+        default='data/doc_query_dev.json',
         metadata={
             "help": "An optional input evaluation data file to evaluate the metrics (rouge) on "
             "(a jsonlines or csv file)."
@@ -273,21 +273,21 @@ class DataTrainingArguments:
         metadata={"help": "The number of processes to use for the preprocessing."},
     )
     max_source_length: Optional[int] = field(
-        default=1024,
+        default=256,
         metadata={
             "help": "The maximum total input sequence length after tokenization. Sequences longer "
             "than this will be truncated, sequences shorter will be padded."
         },
     )
     max_target_length: Optional[int] = field(
-        default=64,
+        default=32,
         metadata={
             "help": "The maximum total sequence length for target text after tokenization. Sequences longer "
             "than this will be truncated, sequences shorter will be padded."
         },
     )
     val_max_target_length: Optional[int] = field(
-        default=None,
+        default=32,
         metadata={
             "help": "The maximum total sequence length for validation target text after tokenization. Sequences longer "
             "than this will be truncated, sequences shorter will be padded. Will default to `max_target_length`."
@@ -412,22 +412,6 @@ def convert_example_to_features(example, tokenizer, max_seq_length, sentence1_ke
             torch.from_numpy(np.array([np.array(input_mask, dtype=np.int64)])),
             torch.from_numpy(np.array([np.array(segment_ids, dtype=np.int64)])),
         ) 
-
-summarization_name_mapping = {
-    "amazon_reviews_multi": ("review_body", "review_title"),
-    "big_patent": ("description", "abstract"),
-    "cnn_dailymail": ("article", "highlights"),
-    "orange_sum": ("text", "summary"),
-    "pn_summary": ("article", "summary"),
-    "psc": ("extract_text", "summary_text"),
-    "samsum": ("dialogue", "summary"),
-    "thaisum": ("body", "summary"),
-    "xglue": ("news_body", "news_title"),
-    "xsum": ("document", "summary"),
-    "wiki_summary": ("article", "highlights"),
-    None:("input", "target")
-}
-
 
 def main():
     # See all possible arguments in src/transformers/training_args.py
@@ -560,7 +544,6 @@ def main():
         return
 
     # Get the column names for input/target.
-    dataset_columns = summarization_name_mapping.get(data_args.dataset_name, None)
     if data_args.text_column is None:
         text_column = dataset_columns[0] if dataset_columns is not None else column_names[0]
     else:
@@ -607,7 +590,7 @@ def main():
 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-
+    print(datasets["train"][0])
     if training_args.do_train:
         if "train" not in datasets:
             raise ValueError("--do_train requires a train dataset")
@@ -621,7 +604,7 @@ def main():
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
-
+    print(datasets["train"][0])
     if training_args.do_eval:
         max_target_length = data_args.val_max_target_length
         if "validation" not in datasets:

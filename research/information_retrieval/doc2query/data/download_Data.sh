@@ -5,5 +5,6 @@ tar -xzvf collection.tar.gz
 rm collection.tar.gz
 wget https://msmarco.blob.core.windows.net/msmarcoranking/queries.tar.gz
 tar -xzvf queries.tar.gz
+rm queries.tar.gz
 cat queries.* > queries.tsv
 rm queries.dev.tsv queries.eval.tsv queries.train.tsv
