@@ -19,7 +19,7 @@ We focus on Question Answering and use a modified implementation from the BERT S
 Using various pruning configuration files we demonstrate the effect unstructured pruning can have on SQuAD. The example code is based on the transformers SQuAD implementation focused on BERT on the SQuAD1.0 dataset. It runs in 120 min (with BERT-base) on a single Tesla V100 16GB.
 
 ## Installation and Requirements
-These example scripts require SparseML, transformers, torch, datasets and associated libraries. To install run the following command
+These example scripts require SparseML, transformers, torch, datasets, and associated libraries. To install run the following command
 
 ```bash
 pip install sparseml[torch] torch transformers datasets
@@ -72,7 +72,7 @@ python run_qa.py  \
  --preprocessing_num_workers 4 \
 ```
 
-## SQUAD Performance 
+## SQuAD Performance 
 To demonstrate the effect that various pruning regimes and techniques can have, we prune the same bert-base-uncased model to five different sparsities (0,80,90,95,99) using three pruning methodologies: 
 - one shot (prune to desired weights before fine tune then fine tune for 1 epoch),
 - GMP 1 epoch (prune to desired sparsity over an epoch then stabilize over another epoch), and
@@ -84,7 +84,7 @@ train/exact_match 76.04541
 wandb:                         train/f1 84.5742
 
 
-| base model name       | sparsity 	| total train epochs    | prunned | one shot |pruning epochs| F1 Score 	| EM Score  |
+| base model name       | sparsity 	| total train epochs    | pruned | one shot |pruning epochs| F1 score 	| EM score  |
 |-----------------------|----------	|-----------------------|---------|----------|--------------|----------	|-----------|
 | bert-base-uncased 	|0        	|1                  	|no       |no        |0             |84.574     |76.045     |
 | bert-base-uncased 	|0        	|2                  	|no       |no        |0             |88.002     |80.634     |
@@ -166,7 +166,7 @@ Sparsity 80, 90, 97
 ### Distillation, Pruning, Layer Dropping
 To explore the effect of model pruning compared to layer dropping, we train models to sparsity to match the amount of parameters in models with layers dropped. Results feature both with and without distillation. For distillation we use hard distillation and a a trained teacher model which is trained on SQuAD for 2 epochs and achieves an 88.32442/81.10690 F1/EM. A 9-layer model is roughly equivalent to 20% sparsity, 6-layer to 40%, 3-layer to 60%, 1-layer to 72%. 
 
-| base model name       | sparsity 	| params                |Distilled| prunned | layers   |pruning epochs| F1 Score | EM Score  |
+| base model name       | sparsity 	| params                |distilled| prunned | layers   |pruning epochs| F1 score | EM score  |
 |-----------------------|----------	|-----------------------|---------|---------|----------|--------------|----------|-----------|
 | bert-base-uncased 	|0        	|108,893,186         	|no       |no       |12        |0             |88.32442  |81.10690   |
 | bert-base-uncased 	|0        	|87,629,570         	|no       |no       |9         |0             |86.70732  |78.81740   |
@@ -194,7 +194,7 @@ To explore the effect of model pruning compared to layer dropping, we train mode
 | bert-base-uncased 	|97        	|66,365,954         	|yes      |yes      |6         |18            |72.36219  |60.82308   |
 
 ## QQP, MNLI, GLUE Tasks
-Similar to our modifications to SQUAD, we can prune models for GLUE tasks with minimal changes. Building on the [run_glue.py](https://github.com/huggingface/transformers/blob/master/examples/pytorch/text-classification/run_glue.py) transformers implementation we update the scripts to prune with sparseml and add a distillation trainer. 
+Similar to our modifications to SQuAD, we can prune models for GLUE tasks with minimal changes. Building on the [run_glue.py](https://github.com/huggingface/transformers/blob/master/examples/pytorch/text-classification/run_glue.py) transformers implementation we update the scripts to prune with sparseml and add a distillation trainer. 
 To replicate our experiments you can use the following commonds:
 
 Training without distillation for MNLI where model is pruned to 80% sparsity. To add distillation just include the command ```sh --teacher_model_name_or_path <your teacher model>```
@@ -214,8 +214,8 @@ eval/accuracy 0.90762
 wandb:                          eval/f1 0.8745
 
 ### Results
-We see similair results for QQP and MNLI as in SQUAD but the effect of model distillation is more muted.
-| base model name       | sparsity      |Distilled| prunned |train epochs|pruning epochs| QQP Accuracy | QQP F1   | MNLI Accuracy |
+We see similar results for QQP and MNLI as in SQuAD but the effect of model distillation is more muted.
+| base model name       | sparsity      |distilled| pruned |train epochs|pruning epochs| QQP accuracy | QQP F1   | MNLI accuracy |
 |-----------------------|----------     |---------|---------|------------|--------------|--------------|----------|---------------|
 | bert-base-uncased     |0              |no       |no       |3           |0             |91.47         |88.49     |84.42          |
 | bert-base-uncased     |80             |no       |no       |30          |18            |90.76         |87.45     |81.34          |
@@ -403,7 +403,7 @@ steps_per_epoch = math.ceil(len(train_dataset) / (training_args.per_device_train
 manager = ScheduledModifierManager.from_yaml(data_args.nm_prune_config)
 optim = ScheduledOptimizer(optim, model, manager, steps_per_epoch=steps_per_epoch, loggers=None)
 ```
-Modify the Hugging Face trainer to take the SparseML optimzier as shown below:
+Modify the Hugging Face trainer to take the SparseML optimizer as shown below:
 ```python
 # Initialize our Trainer and continue to use your regular transformers trainer
 trainer = QuestionAnsweringTrainer(
