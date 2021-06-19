@@ -1,3 +1,4 @@
+wget https://msmarco.blob.core.windows.net/msmarcoranking/collectionandqueries.tar.gz
 wget https://msmarco.blob.core.windows.net/msmarcoranking/qrels.train.tsv
 wget https://msmarco.blob.core.windows.net/msmarcoranking/qrels.dev.tsv
 wget https://msmarco.blob.core.windows.net/msmarcoranking/collection.tar.gz

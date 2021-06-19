@@ -525,7 +525,7 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
     model.resize_token_embeddings(len(tokenizer))
-
+    print(model)
     if model.config.decoder_start_token_id is None:
         raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
 
@@ -590,7 +590,6 @@ def main():
 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-    print(datasets["train"][0])
     if training_args.do_train:
         if "train" not in datasets:
             raise ValueError("--do_train requires a train dataset")
@@ -604,7 +603,6 @@ def main():
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
-    print(datasets["train"][0])
     if training_args.do_eval:
         max_target_length = data_args.val_max_target_length
         if "validation" not in datasets:
@@ -634,7 +632,6 @@ def main():
             remove_columns=column_names,
             load_from_cache_file=not data_args.overwrite_cache,
         )
-    print(model)
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
     data_collator = DataCollatorForSeq2Seq(
