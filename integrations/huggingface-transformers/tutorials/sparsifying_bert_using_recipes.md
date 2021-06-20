@@ -31,6 +31,11 @@ Working through this tutorial, you will experience how Neural Magic recipes simp
 
 All the results listed in this tutorials are available publically through a [Weights and Biases project](https://wandb.ai/neuralmagic/sparse-bert-squad?workspace=user-neuralmagic).
 
+<p float="left">
+  <img src="https://github.com/neuralmagic/sparseml/blob/844873995ab1ad39b254440cc32f14ebc516a0ed/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_F1.png" width="450" height="300">
+  <img src="https://github.com/neuralmagic/sparseml/blob/844873995ab1ad39b254440cc32f14ebc516a0ed/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_EM.png" width="450" height="300">
+</p>
+
 ## Need Help?
 For Neural Magic Support, sign up or log in to get help with your questions in our **Tutorials channel:** [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ).
 
@@ -111,15 +116,15 @@ The directory `recipes` contains recipes, for example `bert-base-6layers_prune80
 
 The following table presents the recipes in the directory, the corresponding results, and `wandb` logging for our pruned BERT models.
 
-| Recipe name | Description | EM / F1 | DeepSparse performance | Weight and Biases |
-|-------------|-------------|---------|------------------------|------------------------------------------------------------------------------------------------|
-| bert-base-12layers | BERT fine-tuned on SQuAD | 80.927 / 88.435 |  | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/w3b1ggyq?workspace=user-neuralmagic) |
-| bert-base-12layers_prune80 | Prune baseline model fine-tuned on SQuAD at 80% sparsity of encoder units | 81.372 / 88.62 |  | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/18qdx7b3?workspace=user-neuralmagic) |
-| bert-base-12layers_prune90 | Prune baseline model fine-tuned on SQuAD at 90% sparsity of encoder units | 79.376 / 87.229 |  | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/2ht2eqsn?workspace=user-neuralmagic) |
-| bert-base-12layers_prune95 | Prune baseline model fine-tuned on SQuAD at 95% sparsity of encoder units | 74.939 / 83.929 |  | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3gv0arxd?workspace=user-neuralmagic) |
-| bert-base-6layers_prune80 | Prune 6-layer model fine-tuned on SQuAD at 80% sparsity of encoder units | 78.042 / 85.915 |  | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/ebab4np4?workspace=user-neuralmagic) |
-| bert-base-6layers_prune90 | Prune 6-layer model fine-tuned on SQuAD at 90% sparsity of encoder units | 75.08 / 83.602 |  | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3qvxoroz?workspace=user-neuralmagic) |
-| bert-base-6layers_prune95 | Prune 6-layer model fine-tuned on SQuAD at 95% sparsity of encoder units | 70.946 / 80.483 |  | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3plynclw?workspace=user-neuralmagic) |
+| Recipe name | Description | EM / F1 | Weight and Biases |
+|-------------|-------------|---------|-----------------------------------------------------------------------------------------------|
+| bert-base-12layers | BERT fine-tuned on SQuAD | 80.927 / 88.435 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/w3b1ggyq?workspace=user-neuralmagic) |
+| bert-base-12layers_prune80 | Prune baseline model fine-tuned on SQuAD at 80% sparsity of encoder units | 81.372 / 88.62 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/18qdx7b3?workspace=user-neuralmagic) |
+| bert-base-12layers_prune90 | Prune baseline model fine-tuned on SQuAD at 90% sparsity of encoder units | 79.376 / 87.229 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/2ht2eqsn?workspace=user-neuralmagic) |
+| bert-base-12layers_prune95 | Prune baseline model fine-tuned on SQuAD at 95% sparsity of encoder units | 74.939 / 83.929 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3gv0arxd?workspace=user-neuralmagic) |
+| bert-base-6layers_prune80 | Prune 6-layer model fine-tuned on SQuAD at 80% sparsity of encoder units | 78.042 / 85.915 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/ebab4np4?workspace=user-neuralmagic) |
+| bert-base-6layers_prune90 | Prune 6-layer model fine-tuned on SQuAD at 90% sparsity of encoder units | 75.08 / 83.602 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3qvxoroz?workspace=user-neuralmagic) |
+| bert-base-6layers_prune95 | Prune 6-layer model fine-tuned on SQuAD at 95% sparsity of encoder units | 70.946 / 80.483 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3plynclw?workspace=user-neuralmagic) |
 
 
 ## Exporting for Inference
