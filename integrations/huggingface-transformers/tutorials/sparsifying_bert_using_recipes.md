@@ -116,7 +116,7 @@ The directory `recipes` contains recipes, for example `bert-base-6layers_prune80
 
 The following table presents the recipes in the directory, the corresponding results, and `wandb` logging for our pruned BERT models.
 
-| Recipe name | Description | EM / F1 | Weight and Biases |
+| Recipe name | Description | EM / F1 | Weights and Biases |
 |-------------|-------------|---------|-----------------------------------------------------------------------------------------------|
 | bert-base-12layers | BERT fine-tuned on SQuAD | 80.927 / 88.435 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/w3b1ggyq?workspace=user-neuralmagic) |
 | bert-base-12layers_prune80 | Prune baseline model fine-tuned on SQuAD at 80% sparsity of encoder units | 81.372 / 88.62 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/18qdx7b3?workspace=user-neuralmagic) |
