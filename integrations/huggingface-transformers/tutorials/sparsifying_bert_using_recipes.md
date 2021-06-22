@@ -59,8 +59,7 @@ python transformers/examples/pytorch/question-answering/run_qa.py  \
   --preprocessing_num_workers 8 \
   --fp16 \
   --num_train_epochs 2 \
-  --warmup_steps 5400 \
-  --report_to wandb
+  --warmup_steps 5400
 ```
 
 If the command runs successfully, you should have a model folder called `bert-base-12layers` in the provided model directory `MODELS_DIR`.
@@ -97,9 +96,8 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --preprocessing_num_workers 6 \
   --fp16 \
   --num_train_epochs 30 \
-  --recipe ../recipes/bert-base-12layers_prune80.md \
-  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx \
-  --report_to wandb
+  --recipe recipes/bert-base-12layers_prune80.md \
+  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx
 ```
 
 The directory `recipes` contains information about recipes and training commands used to produce our BERT pruned models on the SQuAD dataset.
