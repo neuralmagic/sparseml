@@ -32,8 +32,8 @@ Working through this tutorial, you will experience how Neural Magic recipes simp
 All the results listed in this tutorials are available publically through a [Weights and Biases project](https://wandb.ai/neuralmagic/sparse-bert-squad?workspace=user-neuralmagic).
 
 <p float="left">
-  <img src="https://github.com/neuralmagic/sparseml/main/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_F1.png" width="450" height="300">
-  <img src="https://github.com/neuralmagic/sparseml/main/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_EM.png" width="450" height="300">
+  <img src="https://github.com/neuralmagic/sparseml/raw/main/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_F1.png" width="450" height="300">
+  <img src="https://github.com/neuralmagic/sparseml/raw/main/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_EM.png" width="450" height="300">
 </p>
 
 ## Need Help?
