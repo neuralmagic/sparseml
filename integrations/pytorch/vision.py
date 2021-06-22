@@ -1073,6 +1073,19 @@ def _save_model_training(
         info_file.write("\n".join(info_lines))
 
 
+def _save_recipe(
+    recipe_manager: ScheduledModifierManager,
+    save_dir: str,
+):
+
+    recipe_save_name: str = (
+        f"recipe-{time.strftime('%Y-%m-%d_%H:%M:%S', time.localtime())}.yml"
+    )
+    recipe_save_path: str = os.path.join(save_dir, recipe_save_name)
+    recipe_manager.save(recipe_save_path)
+    LOGGER.info("Saved time-stamped recipe to {}".format(recipe_save_path))
+
+
 def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers):
     # loss setup
     val_loss = _get_loss_wrapper(args, training=True)
@@ -1102,6 +1115,7 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
         torch.cuda.set_device(args.local_rank)
         device = args.local_rank
         ddp = True
+
     model, device, device_ids = model_to_device(model, device, ddp=ddp)
     LOGGER.info("running on device {} for ids {}".format(device, device_ids))
 
@@ -1126,6 +1140,7 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
         # initial baseline eval run
         tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=args.debug_steps)
 
+    _save_recipe(recipe_manager=manager, save_dir=save_dir)
     if not args.eval_mode:
         LOGGER.info("starting training from epoch {}".format(epoch))
 

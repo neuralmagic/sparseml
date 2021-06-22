@@ -354,6 +354,18 @@ def train_model(
     return model, val_acc_history
 
 
+def _save_recipe(
+    recipe_manager: ScheduledModifierManager,
+    save_dir: str,
+):
+    recipe_save_name: str = (
+        f"recipe-{time.strftime('%Y-%m-%d_%H:%M:%S', time.localtime())}.yml"
+    )
+    recipe_save_path: str = os.path.join(save_dir, recipe_save_name)
+    recipe_manager.save(recipe_save_path)
+    print("Saved time-stamped recipe to {}".format(recipe_save_path))
+
+
 def main(args):
     ############################
     # logging and saving setup #
@@ -419,6 +431,7 @@ def main(args):
     ########################
     # torchvision training #
     ########################
+    _save_recipe(recipe_manager=manager, save_dir=save_dir)
     model, val_acc_history = train_model(
         model,
         dataloaders,
