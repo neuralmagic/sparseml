@@ -358,12 +358,10 @@ def _save_recipe(
     recipe_manager: ScheduledModifierManager,
     save_dir: str,
 ):
-    recipe_save_name: str = (
-        f"recipe-{time.strftime('%Y-%m-%d_%H:%M:%S', time.localtime())}.yml"
-    )
-    recipe_save_path: str = os.path.join(save_dir, recipe_save_name)
+
+    recipe_save_path = os.path.join(save_dir, "recipe.yaml")
     recipe_manager.save(recipe_save_path)
-    print("Saved time-stamped recipe to {}".format(recipe_save_path))
+    print(f"Saved recipe to {recipe_save_path}")
 
 
 def main(args):

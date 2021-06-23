@@ -1078,12 +1078,9 @@ def _save_recipe(
     save_dir: str,
 ):
 
-    recipe_save_name: str = (
-        f"recipe-{time.strftime('%Y-%m-%d_%H:%M:%S', time.localtime())}.yml"
-    )
-    recipe_save_path: str = os.path.join(save_dir, recipe_save_name)
+    recipe_save_path = os.path.join(save_dir, "recipe.yaml")
     recipe_manager.save(recipe_save_path)
-    LOGGER.info("Saved time-stamped recipe to {}".format(recipe_save_path))
+    LOGGER.info(f"Saved recipe to {recipe_save_path}")
 
 
 def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers):

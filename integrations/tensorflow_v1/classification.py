@@ -303,7 +303,6 @@ import argparse
 import json
 import math
 import os
-import time
 from typing import Dict, Optional, Tuple
 
 import numpy
@@ -689,12 +688,9 @@ def _save_recipe(
     save_dir: str,
 ):
 
-    recipe_save_name: str = (
-        f"recipe-{time.strftime('%Y-%m-%d_%H:%M:%S', time.localtime())}.yml"
-    )
-    recipe_save_path: str = os.path.join(save_dir, recipe_save_name)
-    LOGGER.info("Saved time-stamped recipe to {}".format(recipe_save_path))
+    recipe_save_path = os.path.join(save_dir, "recipe.yaml")
     recipe_manager.save(recipe_save_path)
+    LOGGER.info(f"Saved recipe to {recipe_save_path}")
 
 
 def train(args, save_dir, logs_dir):
