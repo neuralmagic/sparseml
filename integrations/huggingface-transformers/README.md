@@ -114,5 +114,5 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx
 ```
 
-The DeepSparse Engine accepts ONNX formats and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
+The DeepSparse Engine [accepts ONNX formats](https://docs.neuralmagic.com/sparseml/source/onnx_export.html) and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
 Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse).
