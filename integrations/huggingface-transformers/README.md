@@ -53,7 +53,7 @@ Recipes encode the instructions and hyperparameters for sparsifying a model usin
 The modifiers can range from pruning and quantization to learning rate and weight decay.
 When appropriately combined, it becomes possible to create highly sparse and accurate models.
 
-This integration adds a `--recipe` argument to the [`run_qa.py` script](https://github.com/neuralmagic/yolov3/blob/master/train.py) among others.
+This integration adds a `--recipe` argument to the [`run_qa.py` script](https://github.com/neuralmagic/transformers/blob/master/examples/pytorch/question-answering/run_qa.py) among others.
 The argument loads an appropriate recipe while preserving the rest of the training pipeline.
 Popular recipes used with this argument are found in the [`recipes` folder](./recipes).
 Distillation arguments to support student-teacher distillation are additionally added to the scripts as they help improve the recovery while sparsifying.
@@ -109,6 +109,7 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --per_device_eval_batch_size 64 \
   --max_seq_length 384 \
   --doc_stride 128 \
+  --output_dir MODELS_DIR/bert-base-12layers_prune80/eval \
   --cache_dir cache \
   --preprocessing_num_workers 6 \
   --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx
