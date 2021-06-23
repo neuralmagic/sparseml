@@ -42,7 +42,7 @@ To begin, run the following command in the root directory of this integration (`
 bash setup_integration.sh
 ```
 
-The setup_integraiton.sh file will clone the transformers repository with the SparseML integration as a subfolder.
+The `setup_integration.sh` file will clone the transformers repository with the SparseML integration as a subfolder.
 After the repo has succesfully cloned, transformers and datasets will be installed along with any necessary dependencies.
 
 It is recommended to run Python 3.8 as some of the scripts within the transformers repository require it.
