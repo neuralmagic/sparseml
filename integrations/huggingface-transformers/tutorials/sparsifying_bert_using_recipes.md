@@ -59,7 +59,8 @@ python transformers/examples/pytorch/question-answering/run_qa.py  \
   --preprocessing_num_workers 8 \
   --fp16 \
   --num_train_epochs 2 \
-  --warmup_steps 5400
+  --warmup_steps 5400 \
+  --save_strategy epoch
 ```
 
 If the command runs successfully, you should have a model folder called `bert-base-12layers` in the provided model directory `MODELS_DIR`.
@@ -75,7 +76,7 @@ Using the teacher model `bert-base-12layers` above, you can now train and prune 
 
 Additionally, you will use the argument `--onnx_export_path` to specify the destination folder for the exported ONNX model. The resulting exported model could then be used for inference with the `DeepSparse Engine`.
 
-The following command prunes the model in 30 epochs to 80% sparsity of the encoder layers:
+The following command prunes the model in 30 epochs to 80% sparsity of the encoder layers, saving two checkpoints during training:
 
 ```bash
 python transformers/examples/pytorch/question-answering/run_qa.py \
@@ -97,7 +98,9 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --fp16 \
   --num_train_epochs 30 \
   --recipe recipes/bert-base-12layers_prune80.md \
-  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx
+  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx \
+  --save_strategy epoch \
+  --save_total_limit 2
 ```
 
 The directory `recipes` contains information about recipes and training commands used to produce our BERT pruned models on the SQuAD dataset.
