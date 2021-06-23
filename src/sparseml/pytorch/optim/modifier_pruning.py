@@ -19,7 +19,7 @@ on models while pruning.
 import math
 from abc import abstractmethod
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 from torch import Tensor
 from torch.nn import Module
@@ -255,7 +255,7 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
                 )
             )
 
-        self._check_mask_update(module, epoch, steps_per_epoch=1)
+        self._check_mask_update(module, epoch, steps_per_epoch=1, **kwargs)
 
     def finalize(
         self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
@@ -332,7 +332,9 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
         self._module_masks.apply()
 
     @abstractmethod
-    def _check_mask_update(self, module: Module, epoch: float, steps_per_epoch: int):
+    def _check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
         raise NotImplementedError()
 
     def _should_log(
@@ -444,7 +446,9 @@ class ConstantPruningModifier(_PruningParamsModifier):
             log_types=log_types,
         )
 
-    def _check_mask_update(self, module: Module, epoch: float, steps_per_epoch: int):
+    def _check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
         if self.start_pending(epoch, steps_per_epoch):
             self._module_masks.set_param_masks_from_weights()
             self._module_masks.enabled = True
@@ -807,7 +811,9 @@ class GMPruningModifier(_PruningParamsModifier):
                 ).format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__)
             )
 
-    def _check_mask_update(self, module: Module, epoch: float, steps_per_epoch: int):
+    def _check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
         """
         Check for updating the pruning masks at the given epoch.
         Called from both initialize and update.
@@ -1359,6 +1365,23 @@ class MFACPruningModifier(GMPruningModifier):
         """
         return self._mfac_options
 
+    def _check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
+        # create grads for pne-shot pruning
+        if ("dataloader" in kwargs) and ("loss_fn" in kwargs):
+            self._collect_grad_samples(module, kwargs["dataloader"], kwargs["loss_fn"])
+
+        elif ("dataloader" in kwargs) ^ ("loss_fn" in kwargs):
+            # raise error if one-shot args are partially provided
+            raise ValueError(
+                f"To perform one-shot pruning with {self.__class__.__name__} "
+                "both a dataloader of model inputs and loss_fn to compute "
+                "model gradients must be provided"
+            )
+
+        super()._check_mask_update(module, epoch, steps_per_epoch, **kwargs)
+
     def _create_pruning_mask(
         self, layers: List[Module], layer_names: List[str], param_names: List[str]
     ) -> ModuleParamPruningMask:
@@ -1370,6 +1393,35 @@ class MFACPruningModifier(GMPruningModifier):
             global_sparsity=self._global_sparsity,
             score_type=MFACOptions(**self._mfac_options),
         )
+
+    def _collect_grad_samples(
+        self,
+        module: Module,
+        dataloader: Iterator[Union[Tensor, List[Tensor]]],
+        loss_fn: Callable[[Tensor], Tensor],
+    ):
+        num_grads = MFACOptions(**self._mfac_options).get_num_grads_for_sparsity(
+            self._applied_sparsity or 0.0
+        )
+        collected_grads = 0
+
+        while collected_grads < num_grads:
+            for sample in dataloader:
+                # run sample forward and backwards pass
+                if isinstance(sample, Tensor):
+                    sample = [sample]
+                model_outputs = module(*sample)
+                loss = loss_fn(model_outputs)
+                loss.backward()
+
+                # exit before final grad update that will be made in pruning step
+                collected_grads += 1
+                if collected_grads >= num_grads:
+                    break
+
+                # collect grad sample
+                self._module_masks.pre_optim_step_update()
+                module.zero_grad()
 
 
 @PyTorchModifierYAML()
