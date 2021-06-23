@@ -1137,8 +1137,8 @@ def train(args, model, train_loader, val_loader, input_shape, save_dir, loggers)
         # initial baseline eval run
         tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=args.debug_steps)
 
-    _save_recipe(recipe_manager=manager, save_dir=save_dir)
     if not args.eval_mode:
+        _save_recipe(recipe_manager=manager, save_dir=save_dir)
         LOGGER.info("starting training from epoch {}".format(epoch))
 
         if epoch > 0:
