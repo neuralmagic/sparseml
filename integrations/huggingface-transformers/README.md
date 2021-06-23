@@ -24,7 +24,7 @@ creating smaller and faster deployable versions.
 The techniques include, but are not limted to:
 - Pruning
 - Quantization
-- Pruning + Quantization
+- Pruning and Quantization
 - Sparse Transfer Learning
 
 ## Highlights
