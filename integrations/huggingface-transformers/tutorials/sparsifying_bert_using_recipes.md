@@ -142,6 +142,7 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --per_device_eval_batch_size 64 \
   --max_seq_length 384 \
   --doc_stride 128 \
+  --output_dir MODELS_DIR/bert-base-12layers_prune80/eval \
   --cache_dir cache \
   --preprocessing_num_workers 6 \
   --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx \
