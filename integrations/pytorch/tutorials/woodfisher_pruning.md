@@ -42,19 +42,19 @@ contains the same parameters as SparseML's magnitude pruning modifiers for contr
 epoch range, sparsity levels, and schedule, so these values may remain
 unchaged when adjusting a recipe.
 
-The `MFACPruningModifier` implements a global pruning scheme however, so all
+The `MFACPruningModifier` implements a global pruning scheme, however, so all
 parameters to be pruned should be listed under the `params` argument. If the previous
 recipe has multiple pruning modifiers, all of their prameters should be merged into a
 single `MFACPruningModifier`.
 
 WoodFisher specific hyperparameters can be specified under the `mfac_options` parameter.
-Values should be listed as a YAML dictionary.  Full detials about these hyperparameters
+Values should be listed as a YAML dictionary.  Full details about these hyperparameters
 are listed in the next section of this tutorial.
 
 ### Example Recipe Section
 
 The following is an example `MFACPruningModifier` to be used in place of other
-PruningModifiers in a recipe:
+pruning modifiers in a recipe:
 
 ```yaml
 pruning_modifiers:
@@ -106,7 +106,7 @@ sufficient for generating the necessary information for pruning.
 
 The `fisher_block_size` specifies this block size.  If using GPUs to perform the
 WoodFisher computations, the GPUs should have `num_grads * fisher_block_size` extra
-memory duing training so each block can be stored and computed sequentially on a GPU.
+memory during training so each block can be stored and computed sequentially on a GPU.
 
 The default block size is 2000, and generally block sizes between 1000 and 10000 may be
 ideal. If `None` is provided, the full matrix will be computed without blocks.
@@ -123,4 +123,9 @@ to a SparseML pruning recipe. Everything else for pruning and exporting stays th
 More papers and results will be posted as they become available.
 
 Open an
-[issue](https://github.com/neuralmagic/sparseml/issues) with any questions or bugs.
+[issue](https://github.com/neuralmagic/sparseml/issues) with any bugs or feature requests.
+
+## Need Help?
+For Neural Magic Support, sign up or log in to get help with your questions in our
+**Tutorials channel:** [Discourse Forum](https://discuss.neuralmagic.com/)
+and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ).
