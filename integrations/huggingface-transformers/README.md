@@ -97,7 +97,7 @@ The following table lays out the root-level files and folders along with a descr
 
 ### Exporting for Inference
 
-After sparsifying a model, the run_qa.py script can be run with the `--onnx_export_path` argument to convert the model into an [ONNX](https://onnx.ai/) deployment format.
+After sparsifying a model, the `run_qa.py` script can be run with the `--onnx_export_path` argument to convert the model into an [ONNX](https://onnx.ai/) deployment format.
 The export process is modified such that the quantized and pruned models are corrected and folded properly.
 
 For example, the following command can be run from within the integration's folder to export a trained/sparsified model's checkpoint:
