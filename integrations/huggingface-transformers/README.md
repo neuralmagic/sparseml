@@ -91,7 +91,7 @@ The following table lays out the root-level files and folders along with a descr
 |----------------------|-----------------------------------------------------------------------------------------------------------------------|
 | recipes              | Typical recipes for sparsifying NLP models along with any downloaded recipes from the SparseZoo.                      |
 | tutorials            | Tutorial walkthroughs for how to sparsify NLP models using recipes.                                                   |
-| transformers         | Integration repository folder used to train and sparsify NLP models (setup_integration.sh must run first).            |
+| transformers         | Integration repository folder used to train and sparsify NLP models (`setup_integration.sh` must run first).            |
 | README.md            | Readme file.                                                                                                          |
 | setup_integration.sh | Setup file for the integration run from the command line.                                                             |
 
