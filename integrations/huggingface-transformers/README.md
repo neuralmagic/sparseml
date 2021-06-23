@@ -59,7 +59,7 @@ Popular recipes used with this argument are found in the [`recipes` folder](./re
 Distillation arguments to support student-teacher distillation are additionally added to the scripts as they help improve the recovery while sparsifying.
 Otherwise, all other arguments and functionality remain the same as the original repository.
 
-For example, pruning and quantizing a model on the SQAD dataset can be done by running the following command from within the root of this integration's folder:
+For example, pruning and quantizing a model on the SQuAD dataset can be done by running the following command from within the root of this integration's folder:
 ```bash
 python transformers/examples/pytorch/question-answering/run_qa.py \
   --model_name_or_path bert-base-uncased \
