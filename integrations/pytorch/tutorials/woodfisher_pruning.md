@@ -35,6 +35,11 @@ methods and results can be found in the [paper](https://arxiv.org/pdf/2004.14340
 WoodFisher pruning can be enabled by a single modifier in a SparseML recipe. This tutorial
 will demonstrate how to adapt an existing SparseML pruning recipe to do this.
 
+## Need Help?
+For Neural Magic Support, sign up or log in to get help with your questions in our
+**Tutorials channel:** [Discourse Forum](https://discuss.neuralmagic.com/)
+and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ).
+
 ## WoodFisher Pruning Recipes
 To use the WoodFisher algorithm in a SparseML pruning recipe, the `MFACPruningModifier`
 must be used in place of the existing pruning modifier(s).  the `MFACPruningModifier`
@@ -124,8 +129,3 @@ More papers and results will be posted as they become available.
 
 Open an
 [issue](https://github.com/neuralmagic/sparseml/issues) with any bugs or feature requests.
-
-## Need Help?
-For Neural Magic Support, sign up or log in to get help with your questions in our
-**Tutorials channel:** [Discourse Forum](https://discuss.neuralmagic.com/)
-and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ).
