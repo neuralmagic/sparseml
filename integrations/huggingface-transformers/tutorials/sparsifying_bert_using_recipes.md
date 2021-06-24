@@ -145,7 +145,7 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --output_dir MODELS_DIR/bert-base-12layers_prune80/eval \
   --cache_dir cache \
   --preprocessing_num_workers 6 \
-  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx \
+  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx
 ```
 
 If it runs successfully, you will have the converted `model.onnx` in `MODELS_DIR/bert-base-12layers_prune80/onnx`. You can now run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse). The `DeepSparse Engine` is explicitly coded to support running sparsified models for significant improvements in inference performance.
