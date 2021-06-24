@@ -185,7 +185,9 @@ class ModuleExporter(object):
         create_parent_dirs(onnx_path)
 
         with torch.no_grad():
-            out = tensors_module_forward(sample_batch, self._module)
+            out = tensors_module_forward(
+                sample_batch, self._module, check_feat_lab_inp=False
+            )
 
         input_names = None
         if isinstance(sample_batch, Tensor):
@@ -194,6 +196,8 @@ class ModuleExporter(object):
             input_names = [
                 "input_{}".format(index) for index, _ in enumerate(iter(sample_batch))
             ]
+            if isinstance(sample_batch, List):
+                sample_batch = tuple(sample_batch)  # torch.onnx.export requires tuple
 
         output_names = None
         if isinstance(out, Tensor):

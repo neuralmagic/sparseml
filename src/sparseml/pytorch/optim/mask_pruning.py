@@ -17,7 +17,6 @@ Code related to applying a mask onto a parameter to impose kernel sparsity,
 aka model pruning
 """
 
-from enum import Enum
 from functools import partial
 from typing import List, Optional, Tuple, Union
 
@@ -29,30 +28,13 @@ from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
 )
-from sparseml.pytorch.utils import MFACOptions, compute_hessian_inv, mask_difference
+from sparseml.pytorch.optim.mask_pruning_scorer import create_pruning_param_scorer
+from sparseml.pytorch.utils import MFACOptions, mask_difference
 
 
 __all__ = [
-    "PruningScoreTypes",
     "ModuleParamPruningMask",
 ]
-
-
-class PruningScoreTypes(str, Enum):
-    """
-    Methods for scoring parameters for pruning
-    """
-
-    MAGNITUDE = "magnitude"  # https://neuralmagic.com/blog/pruning-gmp/
-    MOVEMENT = "movement"  # https://arxiv.org/abs/2005.07683
-    MFAC = "M-FAC"
-
-    @staticmethod
-    def values() -> List[str]:
-        """
-        :return: List of string values this Enum can take
-        """
-        return [score_type.value for score_type in PruningScoreTypes]
 
 
 class ModuleParamPruningMask(object):
@@ -93,7 +75,7 @@ class ModuleParamPruningMask(object):
         mask_creator: PruningMaskCreator = UnstructuredPruningMaskCreator(),
         layer_names: Optional[List[str]] = None,
         global_sparsity: bool = False,
-        score_type: Union[PruningScoreTypes, MFACOptions] = PruningScoreTypes.MAGNITUDE,
+        score_type: Union[str, MFACOptions] = "magnitude",
     ):
         self._layers = layers
         self._param_names = (
@@ -103,9 +85,7 @@ class ModuleParamPruningMask(object):
         )
         self._layer_names = layer_names
         self._store_init = store_init
-        self._store_unmasked = (
-            store_unmasked or score_type == PruningScoreTypes.MOVEMENT
-        )
+        self._store_unmasked = store_unmasked
         self._track_grad_mom = track_grad_mom
         self._mask_creator = mask_creator
         self._global_sparsity = global_sparsity
@@ -131,37 +111,17 @@ class ModuleParamPruningMask(object):
         self._params_unmasked = [None] * len(self._layers)  # type: List[Tensor]
         self._params_grad = [None] * len(self._layers)  # type: List[Tensor]
         self._params_movement = [None] * len(self._layers)  # type: List[Tensor]
-        self._mfac_unpruned_idxs = [None] * len(self._layers)  # type: List[Tensor]
-        self._mfac_grad_buffer = None  # type: Tensor
-        self._mfac_buffer_idx = 0  # type: int
-        self._mfac_latest_h_inv_diag = None  # type: tuple
-        self._mfac_last_applied_sparsity = 0.0  # type: float
 
-        # validate score type
-        if isinstance(score_type, MFACOptions):
-            self._mfac_options = score_type
-            score_type = PruningScoreTypes.MFAC
-        else:
-            self._mfac_options = (
-                MFACOptions() if score_type == PruningScoreTypes.MFAC else None
-            )
-        if score_type not in PruningScoreTypes.values():
-            raise ValueError(
-                f"Invalid score_type: {score_type}. "
-                f"Valid values: {PruningScoreTypes.values()}"
-            )
-        self._score_type = score_type
+        # create scorer
+        self._scorer = create_pruning_param_scorer(self._params, score_type)
+
         # movement pruning requires weight reintroduction
-        self._allow_reintroduction = self._score_type == PruningScoreTypes.MOVEMENT
+        self._allow_reintroduction = self._scorer.get_name() == "movement"
+        self._store_unmasked |= self._allow_reintroduction  # to support reintroduction
 
         self._setup_params_init()
         self._setup_params_unmasked()
         self._setup_params_grad()
-        self._setup_param_movement()
-        self._setup_mfac_grad_buffer()
-
-        if score_type == PruningScoreTypes.MOVEMENT:
-            self.enabled = True
 
     def __len__(self):
         return len(self._layers)
@@ -241,13 +201,6 @@ class ModuleParamPruningMask(object):
         return self._global_sparsity
 
     @property
-    def params_movement(self) -> Union[None, List[Tensor]]:
-        """
-        :return: The current movement scores for each parameter
-        """
-        return self._params_movement
-
-    @property
     def enabled(self) -> bool:
         """
         :return: True if the parameter is currently being masked, False otherwise
@@ -322,11 +275,11 @@ class ModuleParamPruningMask(object):
         return self._params_grad
 
     @property
-    def score_type(self) -> PruningScoreTypes:
+    def score_type(self) -> Union[str, MFACOptions]:
         """
         :return: the scoring method used to create masks (i.e. magnitude, movement)
         """
-        return self._score_type
+        return self._scorer.get_name()
 
     def set_param_data(self, value: Tensor, param_idx: int):
         """
@@ -380,19 +333,14 @@ class ModuleParamPruningMask(object):
 
             mask_diffs.append(mask_diff)
 
-        if self._score_type == PruningScoreTypes.MFAC:
-            if self._mfac_latest_h_inv_diag:
-                # perform OBS weight update
-                self._update_weights_mfac_obs_perturb(mask_diffs)
-            self._mfac_latest_h_inv_diag = None  # clear h_inv
-            self._setup_mfac_grad_buffer()  # reset grad buffer
-            torch.cuda.empty_cache()
-        if self._score_type != PruningScoreTypes.MOVEMENT:
+        self._scorer.mask_update(masks, mask_diffs)
+
+        if not self._allow_reintroduction:
             self.apply()
 
         return mask_diffs
 
-    def set_param_masks_from_weights(self) -> Tensor:
+    def set_param_masks_from_weights(self) -> List[Tensor]:
         """
         Convenience function to set the parameter masks such that the
         mask is 1 if a parameter value is non zero and 0 otherwise,
@@ -407,21 +355,21 @@ class ModuleParamPruningMask(object):
 
     def set_param_masks_from_abs_threshold(
         self, threshold: Union[float, Tensor]
-    ) -> Tensor:
+    ) -> List[Tensor]:
         """
         Convenience function to set the parameter masks such that if
         abs(value) <= threshold the it a value is masked to 0
 
         :param threshold: the threshold at which all values will be masked to 0
         """
-        score_tensors = self._score_parameters()
+        param_scores = self._scorer.score_parameters()
         masks = self._mask_creator.create_sparsity_masks_from_threshold(
-            score_tensors, threshold
+            param_scores, threshold
         )
 
         return self.set_param_masks(masks)
 
-    def set_param_masks_from_sparsity(self, sparsity: float) -> Tensor:
+    def set_param_masks_from_sparsity(self, sparsity: float) -> List[Tensor]:
         """
         Convenience function to set the parameter masks such that each masks have an
         amount of masked values such that the percentage equals the sparsity amount
@@ -429,11 +377,11 @@ class ModuleParamPruningMask(object):
 
         :param sparsity: the decimal sparsity to set the param mask to
         """
-        score_tensors = self._score_parameters()
+        param_scores = self._scorer.score_parameters()
         masks = self._mask_creator.create_sparsity_masks(
-            score_tensors, sparsity, global_sparsity=self._global_sparsity
+            param_scores, sparsity, global_sparsity=self._global_sparsity
         )
-        self._mfac_last_applied_sparsity = sparsity
+        self._scorer.update_last_applied_sparsity(sparsity)
 
         return self.set_param_masks(masks)
 
@@ -473,31 +421,21 @@ class ModuleParamPruningMask(object):
         updates scores and buffers that depend on gradients. Should be called
         before Optimizer.step() to grab the latest gradients
         """
-        if self._score_type == PruningScoreTypes.MOVEMENT:
-            # update movement scores
-            for idx, param in enumerate(self._params):
-                if param.grad is not None:
-                    self._params_movement[idx].add_(-0.01 * param.grad * param.data)
-        elif self._score_type == PruningScoreTypes.MFAC:
-            # update M-FAC gradient buffer
-            if any(param.grad is None for param in self._params):
-                return
+        self._scorer.pre_optim_step_update(self._param_masks)
 
-            # get non-pruned grads
-            non_pruned_grads = [
-                param.grad.view(-1)[self._mfac_unpruned_idxs[idx]].to(
-                    self._mfac_grad_buffer.device
-                )
-                for idx, param in enumerate(self._params)
-            ]
-            # update buffer
-            torch.cat(
-                non_pruned_grads,
-                out=self._mfac_grad_buffer[self._mfac_buffer_idx, :],  # write to buffer
-            )
-            # update buffer idx
-            self._mfac_buffer_idx += 1
-            self._mfac_buffer_idx %= self._mfac_grad_buffer.size(0)
+    def pruning_end(self, leave_enabled: bool):
+        """
+        Performs any cleanup necessary for this pruning method.
+        Disables weight reintroduction if enabled and applies masks
+
+        :param leave_enabled: if False, all pruning hooks will be destroyed. Default
+            is True
+        """
+        if not leave_enabled:
+            self.enabled = False
+        self._allow_reintroduction = False
+        self.apply()  # ensure that weights are pruned to final level
+        self._scorer.on_pruning_end()
 
     def disable_reintroduction(self):
         """
@@ -505,56 +443,6 @@ class ModuleParamPruningMask(object):
         disables further weight reintroduction
         """
         self._allow_reintroduction = False
-
-    def _score_parameters(self):
-        if self._score_type == PruningScoreTypes.MAGNITUDE:
-            # S = |W|
-            return [torch.abs(param.data) for param in self._params]
-        if self._score_type == PruningScoreTypes.MOVEMENT:
-            # S = -dL/dW * W
-            return self._params_movement
-        if self._score_type == PruningScoreTypes.MFAC:
-            if torch.any(torch.all(self._mfac_grad_buffer == 0.0, dim=1)):
-                return [torch.abs(param.data) for param in self._params]
-            # S = W^2 / (2 * diag(H^-1))
-
-            # gather non-pruned weights
-            non_pruned_weights = torch.empty(self._mfac_grad_buffer.size(1)).to(
-                self._mfac_grad_buffer.device
-            )
-            weights_idx = 0
-            for idx, param in enumerate(self._params):
-                indices = self._mfac_unpruned_idxs[idx]
-                next_idx = weights_idx + indices.numel()
-                non_pruned_weights[weights_idx:next_idx] = param.data.view(-1)[indices]
-                weights_idx = next_idx
-
-            # inverse hessian approximation
-            h_inv = compute_hessian_inv(self._mfac_grad_buffer, self._mfac_options)
-            diag = h_inv.diag().to(non_pruned_weights.device)
-
-            global_scores = (non_pruned_weights ** 2) / (2.0 * diag)
-            parameter_scores = []
-            # set pruned weights smaller than unpruned
-            minimum_score = global_scores.min().item() - 1
-            weights_idx = 0
-            for idx, param in enumerate(self._params):
-                indices = self._mfac_unpruned_idxs[idx]
-                next_idx = weights_idx + indices.numel()
-                param_score = ModuleParamPruningMask._detach_tens(
-                    torch.ones_like(param.data) * minimum_score
-                )
-                param_score.view(-1)[self._mfac_unpruned_idxs[idx]] = global_scores[
-                    weights_idx:next_idx
-                ].to(param_score.device)
-                weights_idx = next_idx
-
-                parameter_scores.append(param_score)
-
-            # save h_inv and diag for weight update later
-            self._mfac_latest_h_inv_diag = (h_inv, diag)
-            torch.cuda.empty_cache()
-            return parameter_scores
 
     def _check_regen_value(self, val: Tensor, param_idx: int) -> Tensor:
         if self._params[param_idx].data.device != val.device:
@@ -605,15 +493,7 @@ class ModuleParamPruningMask(object):
                     )
                 )
 
-            if (
-                self._params_movement[idx] is not None
-                and self._params[idx].data.device != self._params_movement[idx].device
-            ):
-                self._params_movement[idx] = ModuleParamPruningMask._detach_tens(
-                    torch.empty_like(self._params[idx].data).copy_(
-                        self._params_movement[idx]
-                    )
-                )
+            self._scorer.check_regen_param_vals()
 
     def _create_hooks(self):
         for idx, (param, layer) in enumerate(zip(self._params, self._layers)):
@@ -622,10 +502,7 @@ class ModuleParamPruningMask(object):
                     partial(self._hook_mask_forward, idx)
                 )
 
-            if (
-                self._score_type == PruningScoreTypes.MOVEMENT
-                and self._undo_mask_hooks[idx] is None
-            ):
+            if self._allow_reintroduction and self._undo_mask_hooks[idx] is None:
                 self._undo_mask_hooks[idx] = layer.register_forward_hook(
                     partial(self._hook_undo_mask, idx)
                 )
@@ -636,6 +513,9 @@ class ModuleParamPruningMask(object):
                 )
 
     def _delete_hooks(self):
+        if not hasattr(self, "_params"):
+            return
+
         for idx in range(len(self._params)):
             if self._forward_hooks[idx] is not None:
                 self._forward_hooks[idx].remove()
@@ -656,7 +536,8 @@ class ModuleParamPruningMask(object):
 
     def _hook_undo_mask(self, param_idx, module, inp, out):
         if self._allow_reintroduction:
-            self._params[param_idx].data.add_(self._params_unmasked[param_idx])
+            with torch.no_grad():
+                self._params[param_idx].data.add_(self._params_unmasked[param_idx])
 
     def _hook_mask_gradient(self, param_idx, grad):
         if 0.0 <= self._track_grad_mom < 1.0:
@@ -698,62 +579,6 @@ class ModuleParamPruningMask(object):
                 )
             elif self._track_grad_mom < 0.0 and self._params_grad[idx] is not None:
                 self._params_grad[idx] = None
-
-    def _setup_param_movement(self):
-        if self._score_type == PruningScoreTypes.MOVEMENT:
-            for idx, param in enumerate(self._params):
-                self._params_movement[idx] = ModuleParamPruningMask._detach_tens(
-                    param.data.new_zeros(param.data.shape)
-                )
-
-    def _setup_mfac_grad_buffer(self):
-        if self._score_type == PruningScoreTypes.MFAC:
-            total_nonzero = 0
-            for idx, mask in enumerate(self._param_masks):
-                self._mfac_unpruned_idxs[idx] = (
-                    mask.view(-1).nonzero(as_tuple=False).reshape(-1)
-                )
-                total_nonzero += self._mfac_unpruned_idxs[idx].numel()
-            # only track nonzero grads
-            num_grads = self._mfac_options.get_num_grads_for_sparsity(
-                self._mfac_last_applied_sparsity
-            )
-            self._mfac_grad_buffer = torch.zeros(
-                (num_grads, total_nonzero),
-                device=self._mfac_options.grads_device,
-            )
-            self._mfac_buffer_idx = 0
-
-    @torch.no_grad()
-    def _update_weights_mfac_obs_perturb(self, mask_diffs):
-        # select weights that are about to be masked with 0s for unmasked weights
-        weights_to_prune = torch.zeros(
-            self._mfac_grad_buffer.size(1),
-            device=self._mfac_grad_buffer.device,
-        )
-        weights_idx = 0
-        for idx, mask_diff in enumerate(mask_diffs):
-            indices = self._mfac_unpruned_idxs[idx]
-            next_idx = weights_idx + indices.numel()
-            weights_to_prune[weights_idx:next_idx] = (
-                self._params[idx].data.view(-1)[indices]
-                * (mask_diff.view(-1)[indices] == -1.0)  # newly pruned weights
-            ).to(weights_to_prune.device)
-            weights_idx = next_idx
-
-        # calculate optimal perturbation = -w_i * H^-1 / H_{i,i}
-        h_inv, diag = self._mfac_latest_h_inv_diag
-        perturb = h_inv.mul(-1.0 * weights_to_prune / diag)
-        weights_idx = 0
-
-        # update weights by mapping to perturbation
-        for idx, param in enumerate(self._params):
-            indices = self._mfac_unpruned_idxs[idx]
-            next_idx = weights_idx + indices.numel()
-            param.view(-1)[self._mfac_unpruned_idxs[idx]] += perturb[
-                weights_idx:next_idx
-            ].to(param.device)
-            weights_idx = next_idx
 
     @staticmethod
     def _detach_tens(tens) -> Tensor:

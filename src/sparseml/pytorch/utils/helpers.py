@@ -21,7 +21,7 @@ import re
 from collections import OrderedDict, namedtuple
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Dict, Iterable, List, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy
 import torch
@@ -43,6 +43,7 @@ from sparseml.utils import create_dirs, save_numpy
 __all__ = [
     "default_device",
     "get_optim_learning_rate",
+    "get_optim_groups_learning_rates",
     "set_optim_learning_rate",
     "early_stop_data_loader",
     "infinite_data_loader",
@@ -57,6 +58,7 @@ __all__ = [
     "tensor_sample",
     "mask_difference",
     "get_layer",
+    "replace_layer",
     "get_terminal_layers",
     "get_conv_layers",
     "get_linear_layers",
@@ -116,14 +118,27 @@ def get_optim_learning_rate(optim: Optimizer) -> float:
     raise RuntimeError("cannot get learning_rate, no param_groups available")
 
 
-def set_optim_learning_rate(optim: Optimizer, value: float):
+def get_optim_groups_learning_rates(optim: Optimizer) -> List[float]:
+    """
+    :param optim: The optimizer to get the learning rates for
+
+    :return: get a list of tuples corresponding to the learning rates for the
+        param groups in the optimizer
+    """
+    return [group["lr"] for group in optim.param_groups]
+
+
+def set_optim_learning_rate(
+    optim: Optimizer, value: float, groups: Optional[List[int]] = None
+):
     """
     :param optim: The optimizer to set the learning rate for
     :param value: the learning rate to set for the optimizer,
         will set all param groups in the optim to this value
     """
-    for param_group in optim.param_groups:
-        param_group["lr"] = value
+    for (index, group) in enumerate(optim.param_groups):
+        if not groups or index in groups:
+            group["lr"] = value
 
 
 ##############################
@@ -634,6 +649,31 @@ def get_layer(name: str, module: Module) -> Module:
         layer = layer.__getattr__(name)
 
     return layer
+
+
+def replace_layer(
+    module: Module,
+    name: str,
+    replace: Module,
+) -> Module:
+    """
+    General function to replace a layer in a module with the given new one.
+
+    :param module: the module to replace the layer in
+    :param name: the name of the layer to replace the activation for
+    :param replace: the module to replace the layer with
+    :return: the original layer that was replaced
+    """
+    parent = module
+    sections = name.split(".")
+
+    for sec in sections[:-1]:
+        parent = parent.__getattr__(sec)
+
+    cur = parent.__getattr__(sections[-1])
+    parent.__setattr__(sections[-1], replace)
+
+    return cur
 
 
 def get_terminal_layers(module: Module) -> Dict[str, Module]:
