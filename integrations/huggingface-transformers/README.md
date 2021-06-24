@@ -63,9 +63,6 @@ For example, pruning and quantizing a model on the SQuAD dataset can be done by 
 ```bash
 python transformers/examples/pytorch/question-answering/run_qa.py \
   --model_name_or_path bert-base-uncased \
-  --distill_teacher MODELS_DIR/bert-base-12layers \
-  --distill_hardness 1.0 \
-  --distill_temperature 2.0 \
   --dataset_name squad \
   --do_train \
   --do_eval \
@@ -80,7 +77,9 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --fp16 \
   --num_train_epochs 30 \
   --recipe recipes/bert-base-12layers_prune80.md \
-  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx
+  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx \
+  --save_strategy epoch \
+  --save_total_limit 2
 ```
 
 ### Structure
