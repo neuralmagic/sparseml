@@ -19,7 +19,7 @@ on models while pruning.
 import math
 from abc import abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from torch import Tensor
 from torch.nn import Module
@@ -39,6 +39,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import (
+    GradSampler,
     MFACOptions,
     NamedLayerParam,
     get_layer,
@@ -1369,16 +1370,8 @@ class MFACPruningModifier(GMPruningModifier):
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
     ):
         # create grads for pne-shot pruning
-        if ("dataloader" in kwargs) and ("loss_fn" in kwargs):
-            self._collect_grad_samples(module, kwargs["dataloader"], kwargs["loss_fn"])
-
-        elif ("dataloader" in kwargs) ^ ("loss_fn" in kwargs):
-            # raise error if one-shot args are partially provided
-            raise ValueError(
-                f"To perform one-shot pruning with {self.__class__.__name__} "
-                "both a dataloader of model inputs and loss_fn to compute "
-                "model gradients must be provided"
-            )
+        if "grad_sampler" in kwargs:
+            self._collect_grad_samples(module, kwargs["grad_sampler"])
 
         super()._check_mask_update(module, epoch, steps_per_epoch, **kwargs)
 
@@ -1397,31 +1390,19 @@ class MFACPruningModifier(GMPruningModifier):
     def _collect_grad_samples(
         self,
         module: Module,
-        dataloader: Iterator[Union[Tensor, List[Tensor]]],
-        loss_fn: Callable[[Tensor], Tensor],
+        grad_sampler: GradSampler,
     ):
+        if not isinstance(grad_sampler, GradSampler):
+            raise ValueError(
+                "One-shot MFAC pruning requires a GradSampler object given by the "
+                f"grad_sampler kwarg. Given an object of type {type(grad_sampler)}"
+            )
         num_grads = MFACOptions(**self._mfac_options).get_num_grads_for_sparsity(
             self._applied_sparsity or 0.0
         )
-        collected_grads = 0
 
-        while collected_grads < num_grads:
-            for sample in dataloader:
-                # run sample forward and backwards pass
-                if isinstance(sample, Tensor):
-                    sample = [sample]
-                model_outputs = module(*sample)
-                loss = loss_fn(model_outputs)
-                loss.backward()
-
-                # exit before final grad update that will be made in pruning step
-                collected_grads += 1
-                if collected_grads >= num_grads:
-                    break
-
-                # collect grad sample
-                self._module_masks.pre_optim_step_update()
-                module.zero_grad()
+        for _ in grad_sampler.iter_module_backwards(module, num_grads):
+            self._module_masks.pre_optim_step_update()
 
 
 @PyTorchModifierYAML()
