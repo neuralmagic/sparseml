@@ -29,6 +29,6 @@ from .model import *
 from .module import *
 from .ssd_helpers import *
 from .yolo_helpers import *
-
+from .verbosity_helper import Verbosity
 
 _check_torch_install()  # TODO: remove once files within package load without installs
