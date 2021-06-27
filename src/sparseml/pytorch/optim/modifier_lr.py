@@ -89,10 +89,6 @@ def _should_log(
     )
 
 
-def _convert_to_int(value):
-    return value if type(value) == int else int(bool(value))
-
-
 @PyTorchModifierYAML()
 class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
     """
