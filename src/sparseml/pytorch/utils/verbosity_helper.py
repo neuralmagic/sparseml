@@ -12,24 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Generic code used as utilities and helpers for PyTorch
-"""
-
-# flake8: noqa
-
-from ..base import check_torch_install as _check_torch_install
-from .benchmarker import *
-from .exporter import *
-from .helpers import *
-from .logger import *
-from .loss import *
-from .mfac_helpers import *
-from .model import *
-from .module import *
-from .ssd_helpers import *
-from .verbosity_helper import Verbosity
-from .yolo_helpers import *
+from enum import Enum
 
 
-_check_torch_install()  # TODO: remove once files within package load without installs
+__all__ = [
+    "Verbosity",
+]
+
+
+class Verbosity(Enum):
+    DEFAULT = 1
+    ON_LR_CHANGE = 2
+    ON_EPOCH_CHANGE = 3
+    ON_LR_OR_EPOCH_CHANGE = 4
+    OFF = 0
+
+    @staticmethod
+    def convert_int_to_verbosity(value):
+        try:
+            return value if isinstance(value, Verbosity) else Verbosity(value)
+        except ValueError:
+            raise ValueError(f"Verbosity levels range from 0-4 got {value}")
