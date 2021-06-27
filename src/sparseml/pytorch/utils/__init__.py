@@ -28,7 +28,8 @@ from .mfac_helpers import *
 from .model import *
 from .module import *
 from .ssd_helpers import *
-from .yolo_helpers import *
 from .verbosity_helper import Verbosity
+from .yolo_helpers import *
+
 
 _check_torch_install()  # TODO: remove once files within package load without installs
