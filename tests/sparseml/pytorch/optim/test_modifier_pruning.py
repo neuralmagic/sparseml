@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import math
+import os
 
 import pytest
 import torch
@@ -309,7 +309,13 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
             if not modifier.phased:
                 assert modifier.applied_sparsity > last_sparsity
             else:
-                pruned_on = math.floor((epoch - modifier.start_epoch) / modifier.update_frequency) % 2 == 0
+                pruned_on = (
+                    math.floor(
+                        (epoch - modifier.start_epoch) / modifier.update_frequency
+                    )
+                    % 2
+                    == 0
+                )
                 if pruned_on:
                     assert modifier.applied_sparsity >= last_sparsity
                 else:
