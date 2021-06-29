@@ -32,8 +32,8 @@ Working through this tutorial, you will experience how Neural Magic recipes simp
 All the results listed in this tutorials are available publically through a [Weights and Biases project](https://wandb.ai/neuralmagic/sparse-bert-squad?workspace=user-neuralmagic).
 
 <p float="left">
-  <img src="https://github.com/neuralmagic/sparseml/main/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_F1.png" width="450" height="300">
-  <img src="https://github.com/neuralmagic/sparseml/main/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_EM.png" width="450" height="300">
+  <img src="https://github.com/neuralmagic/sparseml/raw/main/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_F1.png" width="450" height="300">
+  <img src="https://github.com/neuralmagic/sparseml/raw/main/integrations/huggingface-transformers/tutorials/images/bert_12_6_layers_EM.png" width="450" height="300">
 </p>
 
 ## Need Help?
@@ -60,7 +60,7 @@ python transformers/examples/pytorch/question-answering/run_qa.py  \
   --fp16 \
   --num_train_epochs 2 \
   --warmup_steps 5400 \
-  --report_to wandb
+  --save_strategy epoch
 ```
 
 If the command runs successfully, you should have a model folder called `bert-base-12layers` in the provided model directory `MODELS_DIR`.
@@ -76,7 +76,7 @@ Using the teacher model `bert-base-12layers` above, you can now train and prune 
 
 Additionally, you will use the argument `--onnx_export_path` to specify the destination folder for the exported ONNX model. The resulting exported model could then be used for inference with the `DeepSparse Engine`.
 
-The following command prunes the model in 30 epochs to 80% sparsity of the encoder layers:
+The following command prunes the model in 30 epochs to 80% sparsity of the encoder layers, saving two checkpoints during training:
 
 ```bash
 python transformers/examples/pytorch/question-answering/run_qa.py \
@@ -97,9 +97,10 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --preprocessing_num_workers 6 \
   --fp16 \
   --num_train_epochs 30 \
-  --recipe ../recipes/bert-base-12layers_prune80.md \
+  --recipe recipes/bert-base-12layers_prune80.md \
   --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx \
-  --report_to wandb
+  --save_strategy epoch \
+  --save_total_limit 2
 ```
 
 The directory `recipes` contains information about recipes and training commands used to produce our BERT pruned models on the SQuAD dataset.
@@ -141,9 +142,10 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --per_device_eval_batch_size 64 \
   --max_seq_length 384 \
   --doc_stride 128 \
+  --output_dir MODELS_DIR/bert-base-12layers_prune80/eval \
   --cache_dir cache \
   --preprocessing_num_workers 6 \
-  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx \
+  --onnx_export_path MODELS_DIR/bert-base-12layers_prune80/onnx
 ```
 
 If it runs successfully, you will have the converted `model.onnx` in `MODELS_DIR/bert-base-12layers_prune80/onnx`. You can now run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse). The `DeepSparse Engine` is explicitly coded to support running sparsified models for significant improvements in inference performance.
