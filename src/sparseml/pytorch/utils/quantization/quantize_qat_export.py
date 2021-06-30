@@ -516,6 +516,217 @@ def _convert_quantizable_gemm(
         remove_node_and_params_from_graph(model, gemm_node, keep_params=params_to_keep)
 
 
+def _convert_quantizable_matmul(model: ModelProto):
+    """
+    A pass for converting a MatMul with kernel into a quantized representation
+
+    | Starting with:
+    |          INPUT_0           INPUT_1
+    |            |               |
+    |     QuantizeLinear     QuantizeLinear
+    |            |               |
+    |     DequantizeLinear   DequantizeLinear
+    |                  |      |
+    |                   MatMul
+    |                     |
+    |                     |
+    |               QuantizeLinear
+    |                     |
+    |              DequantizeLinear
+    |                     |
+    |                  OUTPUT
+    | We end up converting to:
+    |          INPUT_0           INPUT_1
+    |            |               |
+    |     QuantizeLinear     QuantizeLinear
+    |                  |      |
+    |                  |      |
+    |                   QLinearMatMul
+    |                     |
+    |                     |
+    |              DequantizeLinear
+    |                     |
+    |                  OUTPUT
+    """
+    conversion_count = 0
+    matmul_nodes = [n for n in model.graph.node if n.op_type in ["MatMul"]]
+    for matmul_node in matmul_nodes:
+        graph = ONNXGraph(model)
+        #############
+        # Matching
+        #############
+
+        # weight_transpose_node = graph.get_node_single_parent(matmul_node, 1)
+        # if not weight_transpose_node or weight_transpose_node.op_type != "Transpose":
+        #     continue
+
+        # weight_dequantize_node = graph.get_node_single_parent(weight_transpose_node, 0)
+        # if (
+        #     not weight_dequantize_node
+        #     or weight_dequantize_node.op_type != "DequantizeLinear"
+        # ):
+        #     continue
+        # weight_quantize_node = graph.get_node_single_parent(weight_dequantize_node, 0)
+        # if not weight_quantize_node or weight_quantize_node.op_type != "QuantizeLinear":
+        #     continue
+
+        input_dequantize_nodes = [
+            graph.get_node_single_parent(matmul_node, i) for i in range(2)
+        ]
+
+        # Make sure these input nodes are DequantizeLinear
+        if numpy.any([(node is None or node.op_type != "DequantizeLinear") for node in input_dequantize_nodes]):
+            continue
+
+        # Make sure their parents are QuantizeLinear
+        parents = [
+            graph.get_node_single_parent(node, 0) for node in input_dequantize_nodes:
+        ]
+        if numpy.any([parent is None or parent.op_type != "QuantizeLinear" for parent in parents])
+            continue
+
+        # input_quantize_node = graph.get_node_single_parent(matmul_node, 0)
+        # if (
+        #     not input_quantize_node
+        #     or input_quantize_node.op_type not in _QUANTIZE_OP_NAMES
+        # ):
+        #     continue
+
+        # bias_add_node = graph.get_node_single_child(matmul_node)
+        # if not bias_add_node or bias_add_node.op_type != "Add":
+        #     continue
+
+        output_quantize_node = graph.get_node_single_child(matmul_node)
+
+        # Make sure the output node is QuantizeLinear
+        if (
+            output_quantize_node is None
+            or output_quantize_node.op_type != "QuantizeLinear"
+        ):
+            continue
+
+        # Make sure the output node's child is DequantizeLinear
+        child = graph.get_node_single_child(output_quantize_node, 0)
+        if (child is None or child.op_type != "DequantizeLinear"):
+            continue
+        
+        input_dequantize_params = [
+            get_quantization_params(
+                model, node, include_target=False
+            ) for node in input_dequantize_nodes
+        ]
+
+        _LOGGER.debug(f"Matched quantizable MatMul: {matmul_node.name}")
+
+        #############
+        # Conversion
+        #############
+
+        # QLinearMatMul
+        # get qmatmul inputs and outputs
+        node_0, node_1 = input_dequantize_nodes
+        qmatmul_inputs = [
+            node_0.input[0], node_0.input[1], node_0.input[2],
+            node_1.input[0], node_1.input[1], node_1.input[2],
+            output_quantize_node.input[1], output_quantize_node[2]
+        ]
+        
+        # qmatmul_inputs = [
+        #     qmatmul_input,  # x
+        #     input_quantize_node.input[1],  # x_scale
+        #     input_quantize_node.input[2],  # x_zero_point
+        #     quantized_weight_name,  # w
+        #     weight_quantize_node.input[1],  # w_scale
+        #     weight_quantize_node.input[2],  # w_zero_point
+        #     output_quantize_node.input[1],  # y_scale
+        #     output_quantize_node.input[2],  # y_zero_point
+        # ]
+
+        qmatmul_output = matmul_node.output[0]
+        qmatmul_name = "{}_quant".format(matmul_node.name)
+
+        # create qmatmul node and add it to graph
+        qmatmul_node = onnx.helper.make_node(
+            "QLinearMatMul",
+            qmatmul_inputs,
+            [qmatmul_output],
+            qmatmul_name,
+        )
+        model.graph.node.append(qmatmul_node)
+
+        # # QLinearAdd
+        # # quantize bias
+        # bias_initializer = numpy_helper.to_array(bias_initializer)
+        # bias_scale = input_quantize_params.scale * weight_quantize_params.scale
+        # bias_zero_point = 0
+        # quantized_bias = _quantize_array(bias_initializer, bias_scale, bias_zero_point)
+        # quantized_bias_name = "{}.bias_quantized".format(bias_add_node.name)
+        # quantized_bias_initializer = numpy_helper.from_array(
+        #     quantized_bias, name=quantized_bias_name
+        # )
+        # model.graph.initializer.append(quantized_bias_initializer)
+        # quantized_bias_scale_name = "{}.scale".format(quantized_bias_name)
+        # model.graph.initializer.append(
+        #     numpy_helper.from_array(
+        #         numpy.asarray(bias_scale), name=quantized_bias_scale_name
+        #     )
+        # )
+        # quantized_bias_zero_point_name = "{}.zero_point".format(quantized_bias_name)
+        # model.graph.initializer.append(
+        #     numpy_helper.from_array(
+        #         numpy.asarray(bias_zero_point, dtype=numpy.uint8),
+        #         name=quantized_bias_zero_point_name,
+        #     )
+        # )
+
+        # # get qadd inputs and outputs
+        # qadd_input = qmatmul_output
+        # qadd_inputs = [
+        #     qadd_input,  # x
+        #     output_quantize_node.input[1],  # x_scale
+        #     output_quantize_node.input[2],  # x_zero_point
+        #     quantized_bias_name,  # b
+        #     quantized_bias_scale_name,  # b_scale
+        #     quantized_bias_zero_point_name,  # b_zero_point
+        #     output_quantize_node.input[1],  # y_scale
+        #     output_quantize_node.input[2],  # y_zero_point
+        # ]
+        # qadd_output = output_quantize_node.output[0]
+        # qadd_name = "{}_quant".format(bias_add_node.name)
+        # kwargs = {"domain": "com.microsoft"}
+        # # create qlinearadd node and add it to graph
+        # qadd_node = onnx.helper.make_node(
+        #     "QLinearAdd",
+        #     qadd_inputs,
+        #     [qadd_output],
+        #     qadd_name,
+        #     **kwargs,
+        # )
+        # model.graph.node.append(qadd_node)
+
+        # Cleanup
+        # delete folded quantization ops
+        # delete_quant_node(model, weight_dequantize_node, keep_params=False)
+        # delete_quant_node(model, weight_quantize_node, keep_params=True)
+        # remove_node_and_params_from_graph(model, weight_transpose_node)
+        delete_quant_node(model, input_dequantize_node, keep_params=True)
+        delete_quant_node(model, output_quantize_node, keep_params=True)
+
+        # delete original Gemm node
+        remove_node_and_params_from_graph(model, matmul_node, keep_params=None)
+
+        # delete original Add node
+        #remove_node_and_params_from_graph(model, bias_add_node, keep_params=None)
+
+        conversion_count += 1
+
+    if matmul_nodes:
+        _LOGGER.info(
+            f"Converted {conversion_count} quantizable MatMul ops "
+            "to QLinearMatMul"
+        )
+
+
 def _convert_quantizable_matmul_and_add(model: ModelProto):
     """
     A pass for converting a MatMul with kernel and bias into a quantized representation
@@ -845,6 +1056,7 @@ def quantize_torch_qat_export(
     _convert_single_constants_to_initializers(model)
     _delete_repeated_qat_blocks(model)
     _convert_quantizable_matmul_and_add(model)
+    _convert_quantizable_matmul(model)
     _convert_quantizable_ops(model)
     quantize_resnet_identity_add_inputs(model)
     quantized_residual_add_optim(model)
