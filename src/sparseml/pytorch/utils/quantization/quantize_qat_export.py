@@ -976,6 +976,7 @@ def quantize_torch_qat_export(
     pdb.set_trace()
     _convert_quantizable_matmul(model)
     _convert_quantizable_matmul_and_add(model)
+    _convert_quantizable_matmul(model)
     _convert_quantizable_ops(model)
     quantize_resnet_identity_add_inputs(model)
     quantized_residual_add_optim(model)
