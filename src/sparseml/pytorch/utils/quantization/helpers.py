@@ -35,6 +35,7 @@ from sparseml.pytorch.nn import ReLU as ReLU_nm
 
 __all__ = [
     "add_quant_dequant",
+    "configure_module_default_qconfigs",
     "get_qat_qconfig",
     "fuse_module_conv_bn_relus",
 ]
@@ -82,19 +83,40 @@ def add_quant_dequant(module):
     return module
 
 
-def get_qat_qconfig() -> torch_quantization.QConfig:
+def configure_module_default_qconfigs(module: Module):
     """
+    if any submodule of the given module has a configure_qconfig function,
+    configure_qconfig will be called on that submodule to set the qconfig(s) of that
+    module to its default
+
+    :param module: module to set qconfigs for
+    """
+    for submodule in module.modules():
+        if hasattr(submodule, "configure_qconfig") and callable(
+            getattr(submodule, "configure_qconfig")
+        ):
+            submodule.configure_qconfig()
+
+
+def get_qat_qconfig(symmetric_activations: bool = False) -> torch_quantization.QConfig:
+    """
+    :param symmetric_activations: if True, activations will have a symmetric
+        quantization range with zero point set to 128. Otherwise activations
+        will use asymmetric quantization with any zero point. Default is False
     :return: A QAT fake quantization config for symmetric weight quantization and
         asymmetric activation quantization.  The difference between this and
         torch.quantization.default_qat_qconfig is that the activation observer
         will not have reduce_range enabled.
     """
+    activation_qscheme = (
+        torch.per_tensor_symmetric if symmetric_activations else torch.per_tensor_affine
+    )
     activation_observer = torch_quantization.FakeQuantize.with_args(
         observer=torch_quantization.MovingAverageMinMaxObserver,
         quant_min=0,
         quant_max=255,
         dtype=torch.quint8,
-        qscheme=torch.per_tensor_affine,
+        qscheme=activation_qscheme,
         reduce_range=False,
     )
     weight_observer = torch_quantization.default_weight_fake_quant

@@ -27,6 +27,9 @@ except Exception:
     torch_quantization = None
 
 
+from sparseml.pytorch.utils.quantization.helpers import get_qat_qconfig
+
+
 __all__ = ["QATMatMul"]
 
 
@@ -66,3 +69,12 @@ class QATMatMul(Module):
         prod = torch.matmul(x, y)
         prod = self.quant_out(prod)
         return self.dequant(prod)
+
+    def configure_qconfig(self):
+        """
+        Sets the qconfigs of the quant stubs to use int8 quantization that is
+        asymmetric for the x Tensor and output and symmetric for the output
+        """
+        self.quant_x.qconfig = get_qat_qconfig()
+        self.quant_y.qconfig = get_qat_qconfig(symmetric_activations=True)
+        self.quant_out.qconfig = get_qat_qconfig()

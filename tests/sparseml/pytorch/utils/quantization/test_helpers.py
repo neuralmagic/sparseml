@@ -19,7 +19,9 @@ import torch
 
 from sparseml.pytorch.models import mobilenet, resnet50
 from sparseml.pytorch.utils.quantization import (
+    QATMatMul,
     add_quant_dequant,
+    configure_module_default_qconfigs,
     fuse_module_conv_bn_relus,
     get_qat_qconfig,
 )
@@ -60,6 +62,57 @@ def test_add_quant_dequant(model_lambda, num_quantizable_ops):
         module, torch_quantization.QuantWrapper
     )
     assert num_wrappers_added == num_quantizable_ops
+
+
+def _assert_module_quant_stub_configs_exist(module, should_exist):
+    for submodule in module.modules():
+        if isinstance(submodule, torch_quantization.QuantStub):
+            config_exists = (
+                hasattr(submodule, "qconfig") and submodule.qconfig is not None
+            )
+            assert config_exists == should_exist
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
+    reason="Skipping pytorch torch quantization tests",
+)
+@pytest.mark.skipif(
+    torch_quantization is None,
+    reason="torch quantization not available",
+)
+def test_configure_module_default_qconfigs():
+    module = QATMatMul()
+    _assert_module_quant_stub_configs_exist(module, False)
+
+    configure_module_default_qconfigs(module)
+    _assert_module_quant_stub_configs_exist(module, True)
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
+    reason="Skipping pytorch torch quantization tests",
+)
+@pytest.mark.skipif(
+    torch_quantization is None,
+    reason="torch quantization not available",
+)
+def test_configure_module_default_qconfigs_no_config():
+    module = QATMatMul()
+    _assert_module_quant_stub_configs_exist(module, False)
+
+    module.configure_qconfig = None
+
+    configure_module_default_qconfigs(module)
+    _assert_module_quant_stub_configs_exist(module, False)
 
 
 @pytest.mark.skipif(
