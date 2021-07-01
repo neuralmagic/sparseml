@@ -48,9 +48,9 @@ class QATMatMul(Module):
 
         super().__init__()
 
-        self.quant_1 = torch_quantization.QuantStub()
-        self.quant_2 = torch_quantization.QuantStub()
-        self.quant_3 = torch_quantization.QuantStub()  # calibrate matmul outputs
+        self.quant_x = torch_quantization.QuantStub()
+        self.quant_y = torch_quantization.QuantStub()
+        self.quant_out = torch_quantization.QuantStub()  # calibrate matmul outputs
         self.dequant = torch_quantization.DeQuantStub()  # to FP32 if model converted
 
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
@@ -60,9 +60,9 @@ class QATMatMul(Module):
         :return: matrix multiplication of x*y. If QAT is enabled, input and output
             ranges will be calibrated
         """
-        x = self.quant_1(x)
-        y = self.quant_2(y)
+        x = self.quant_x(x)
+        y = self.quant_y(y)
 
         prod = torch.matmul(x, y)
-        prod = self.quant_3(prod)
+        prod = self.quant_out(prod)
         return self.dequant(prod)
