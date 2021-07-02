@@ -332,6 +332,16 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             given by the OBS method. For the approximated Hessian inverse matrix
             H^-1, scores will be W^2 / (2 * diag(H^-1))
         """
+
+        if self._grad_buffer is None or torch.any(
+            torch.all(self._grad_buffer == 0.0, dim=1)
+        ):
+            # raise Exception if grad buffer is not full
+            raise RuntimeError(
+                "MFAC pruning step called, but not enough gradient samples have been "
+                f"collected. Expected {self._mfac_options.num_grads} samples"
+            )
+
         if self._is_ddp:
             # move all grads to one device
             if self._is_main_proc:
@@ -450,10 +460,6 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
 
     def _score_parameters(self) -> List[Tensor]:
         # score params using MFAC and the gathered grad buffers
-        if torch.any(torch.all(self._grads == 0.0, dim=1)):
-            # if not all grads are captured, return magnitudes as scores
-            return [torch.abs(param.data) for param in self._params]
-
         # gather non-pruned weights
         non_pruned_weights = torch.empty(self._grads.size(1)).to(self._grads.device)
         weights_idx = 0
