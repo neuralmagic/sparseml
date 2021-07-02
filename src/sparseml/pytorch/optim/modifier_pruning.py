@@ -493,6 +493,9 @@ class GMPruningModifier(_PruningParamsModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
+    :param phased: True to enable a phased approach where pruning will
+        turn on and off with the update_frequency. Starts with pruning on
+        at start_epoch, off at start_epoch + update_frequency, and so on.
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
@@ -514,6 +517,7 @@ class GMPruningModifier(_PruningParamsModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
+        phased: bool = False,
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         global_sparsity: bool = False,
@@ -531,6 +535,7 @@ class GMPruningModifier(_PruningParamsModifier):
         self._final_sparsity = final_sparsity
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
+        self._phased = phased
         self._mask_type = mask_type
         self._mask_creator = (
             mask_type
@@ -610,6 +615,24 @@ class GMPruningModifier(_PruningParamsModifier):
             [linear, cubic, inverse_cubic]
         """
         self._inter_func = value
+        self.validate()
+
+    @ModifierProp()
+    def phased(self) -> bool:
+        """
+        :return: True to enable a phased approach where pruning will
+            turn on and off with the update_frequency. Starts with pruning on
+            at start_epoch, off at start_epoch + update_frequency, and so on.
+        """
+        return self._phased
+
+    @phased.setter
+    def phased(self, value: bool):
+        """
+        :param value: the type of interpolation function to use:
+            [linear, cubic, inverse_cubic]
+        """
+        self._phased = value
         self.validate()
 
     @ModifierProp()
@@ -763,6 +786,16 @@ class GMPruningModifier(_PruningParamsModifier):
                 self._final_sparsity,
                 self._inter_func,
             )
+
+            # make sure if phased that the phases end at the final sparsity
+            # if it doesn't divide evenly
+            if self.phased and not self.end_pending(epoch, steps_per_epoch):
+                # adjust for phased pruning: start=on, start+update=off
+                phase = math.floor((epoch - self.start_epoch) / self.update_frequency)
+                if phase % 2 != 0:
+                    # odd update phase, turn sparsity off
+                    self._applied_sparsity = 0.0
+
             self._module_masks.set_param_masks_from_sparsity(self._applied_sparsity)
 
         if self.end_pending(epoch, steps_per_epoch):
@@ -843,6 +876,9 @@ class MagnitudePruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
+    :param phased: True to enable a phased approach where pruning will
+        turn on and off with the update_frequency. Starts with pruning on
+        at start_epoch, off at start_epoch + update_frequency, and so on.
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
@@ -860,6 +896,7 @@ class MagnitudePruningModifier(GMPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
+        phased: bool = False,
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
     ):
@@ -872,6 +909,7 @@ class MagnitudePruningModifier(GMPruningModifier):
             params=params,
             leave_enabled=leave_enabled,
             inter_func=inter_func,
+            phased=phased,
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=False,
@@ -933,6 +971,9 @@ class MovementPruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
+    :param phased: True to enable a phased approach where pruning will
+        turn on and off with the update_frequency. Starts with pruning on
+        at start_epoch, off at start_epoch + update_frequency, and so on.
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
@@ -950,6 +991,7 @@ class MovementPruningModifier(GMPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
+        phased: bool = False,
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
     ):
@@ -962,6 +1004,7 @@ class MovementPruningModifier(GMPruningModifier):
             params=params,
             leave_enabled=leave_enabled,
             inter_func=inter_func,
+            phased=phased,
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=False,
@@ -1024,6 +1067,9 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
+    :param phased: True to enable a phased approach where pruning will
+        turn on and off with the update_frequency. Starts with pruning on
+        at start_epoch, off at start_epoch + update_frequency, and so on.
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
@@ -1043,6 +1089,7 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         params: Union[str, List[str]] = ALL_PRUNABLE_TOKEN,
         leave_enabled: bool = True,
         inter_func: str = "cubic",
+        phased: bool = False,
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         score_type: Union[str, MFACOptions] = "magnitude",
@@ -1056,6 +1103,7 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
             params=params,
             leave_enabled=leave_enabled,
             inter_func=inter_func,
+            phased=phased,
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=True,
@@ -1115,6 +1163,9 @@ class MFACPruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
+    :param phased: True to enable a phased approach where pruning will
+        turn on and off with the update_frequency. Starts with pruning on
+        at start_epoch, off at start_epoch + update_frequency, and so on.
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
@@ -1139,6 +1190,7 @@ class MFACPruningModifier(GMPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
+        phased: bool = False,
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         mfac_options: Dict[str, Any] = None,
@@ -1152,6 +1204,7 @@ class MFACPruningModifier(GMPruningModifier):
             params=params,
             leave_enabled=leave_enabled,
             inter_func=inter_func,
+            phased=phased,
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=True,
