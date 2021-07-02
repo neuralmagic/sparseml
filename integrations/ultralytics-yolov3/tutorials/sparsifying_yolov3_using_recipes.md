@@ -20,7 +20,7 @@ This tutorial shows how Neural Magic recipes simplify the sparsification process
 
 ## Overview
 
-Neural Magic’s ML team created recipes that allow anyone to plug in their data and leverage SparseML’s recipe-driven approach on top of Ultralytics’ robust training pipelines. Sparsifying involves removing redundant information from neural networks using algorithms such as pruning and quantization, among others. This sparsification process results in many benefits for deployment environments, including faster inference and smaller file sizes. Unfortunately, many have not realized the benefits due to the complicated process and number of hyperparameters involved.
+Neural Magic’s ML team creates recipes that allow anyone to plug in their data and leverage SparseML’s recipe-driven approach on top of Ultralytics’ robust training pipelines. Sparsifying involves removing redundant information from neural networks using algorithms such as pruning and quantization, among others. This sparsification process results in many benefits for deployment environments, including faster inference and smaller file sizes. Unfortunately, many have not realized the benefits due to the complicated process and number of hyperparameters involved.
 
 Working through this tutorial, you will experience how Neural Magic recipes simplify the sparsification process by:
 
