@@ -22,8 +22,8 @@ from ..base import check_torch_install as _check_torch_install
 from .benchmarker import *
 from .exporter import *
 from .helpers import *
+from .log_level_helper import convert_to_logging_level
 from .logger import *
-from .logging_level_helper import convert_to_logging_level
 from .loss import *
 from .mfac_helpers import *
 from .model import *

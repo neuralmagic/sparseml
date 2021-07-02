@@ -14,7 +14,7 @@
 
 import pytest
 
-from sparseml.pytorch.utils import convert_to_verbosity
+from sparseml.pytorch.utils import convert_to_logging_level
 
 
 @pytest.mark.parametrize(
@@ -53,4 +53,4 @@ from sparseml.pytorch.utils import convert_to_verbosity
     ],
 )
 def test_convert_to_verbosity(test_input, expected):
-    assert convert_to_verbosity(test_input) == expected
+    assert convert_to_logging_level(test_input) == expected

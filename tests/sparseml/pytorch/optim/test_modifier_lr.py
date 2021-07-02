@@ -971,10 +971,6 @@ def test_lr_modifier_cosine_annealing_yaml():
     assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
 
 
-@pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
-)
 @pytest.mark.parametrize("epoch_changed", [True, False])
 @pytest.mark.parametrize("lr_changed", [True, False])
 @pytest.mark.parametrize("level,expected", [("OFF", False), ("DEFAULT", True)])
@@ -991,10 +987,6 @@ def test_should_log_off_and_default_levels(
     )
 
 
-@pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
-)
 @pytest.mark.parametrize(
     "epoch_changed,lr_changed,level, expected",
     [
