@@ -23,12 +23,12 @@ from .benchmarker import *
 from .exporter import *
 from .helpers import *
 from .logger import *
+from .logging_level_helper import convert_to_logging_level
 from .loss import *
 from .mfac_helpers import *
 from .model import *
 from .module import *
 from .ssd_helpers import *
-from .verbosity_helper import Verbosity
 from .yolo_helpers import *
 
 

@@ -39,10 +39,10 @@ from sparseml.pytorch.optim.modifier import (
 )
 from sparseml.pytorch.utils import (
     BaseLogger,
+    convert_to_logging_level,
     get_optim_groups_learning_rates,
     set_optim_learning_rate,
 )
-from sparseml.pytorch.utils.verbosity_helper import Verbosity
 from sparseml.utils import ALL_TOKEN, convert_to_bool
 
 
@@ -78,14 +78,14 @@ def _should_log(
     lr_changed: bool,
     level: int,
 ):
-    level = Verbosity.convert_int_to_verbosity(level)
-    if level == Verbosity.OFF:
+    level = convert_to_logging_level(level)
+    if level == "OFF":
         return False
     return (
-        (level == Verbosity.DEFAULT)
-        or (level == Verbosity.ON_LR_OR_EPOCH_CHANGE and (lr_changed or epoch_changed))
-        or (level == Verbosity.ON_LR_CHANGE and lr_changed)
-        or (level == Verbosity.ON_EPOCH_CHANGE and epoch_changed)
+        (level == "DEFAULT")
+        or (level == "ON_LR_OR_EPOCH_CHANGE" and (lr_changed or epoch_changed))
+        or (level == "ON_LR_CHANGE" and lr_changed)
+        or (level == "ON_EPOCH_CHANGE" and epoch_changed)
     )
 
 
@@ -279,12 +279,10 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     :param update_frequency: unused and should not be set
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
-    :param constant_logging: An Integer representing the logging level
-                            0 --> No Logging
-                            1 --> Default, log at each step
-                            2 --> Log on Learning Rate change
-                            3 --> Log on Epoch change
-                            4 --> Log on Learning Rate or Epoch change
+    :param logging_level: A value representing the logging level
+        supports logical values as strings ie True, t, false, 0
+        Any integer or floating point value < 0 or >= # of LOG LEVELS will default to
+        'OFF'
     """
 
     def __init__(
@@ -297,7 +295,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         param_groups: Optional[List[int]] = None,
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
-        constant_logging: int = 1,
+        logging_level: any = 1,
     ):
         super().__init__(
             log_types=log_types,
@@ -314,7 +312,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         self._last_applied_lr = None
         self._last_logged_lr = None
         self._last_logged_epoch = None
-        self._constant_logging = _convert_to_int(constant_logging)
+        self._logging_level = convert_to_logging_level(logging_level)
         self.validate()
 
     @ModifierProp()
@@ -427,7 +425,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         if _should_log(
             lr_changed=current_lr != self._last_logged_lr,
             epoch_changed=math.floor(epoch) != self._last_logged_epoch,
-            level=self._constant_logging,
+            level=self._logging_level,
         ):
             _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
             self._last_logged_lr = current_lr
@@ -511,7 +509,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
     |           gamma: 0.95
     |       init_lr: 0.01
     |       log_types: __ALL__
-    |       constant_logging: True
+    |       logging_level: DEFAULT
 
     :param lr_class: The name of the lr scheduler class to use:
         [StepLR, MultiStepLR, ExponentialLR, CosineAnnealingWarmRestarts]
@@ -525,12 +523,10 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
     :param update_frequency: unused and should not be set
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
-    :param constant_logging: An Integer representing the logging level
-                            0 --> No Logging
-                            1 --> Default, log at each step
-                            2 --> Log on Learning Rate change
-                            3 --> Log on Epoch change
-                            4 --> Log on Learning Rate or Epoch change
+    :param logging_level: A value representing the logging level
+        supports logical values as strings ie True, t, false, 0
+        Any integer or floating point value < 0 or >= # of LOG LEVELS will default to
+        'OFF'
     """
 
     def __init__(
@@ -542,7 +538,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
-        constant_logging: int = 1,
+        logging_level: int = 1,
     ):
         super().__init__(
             lr_class=lr_class,
@@ -557,7 +553,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         self._lr_scheduler = None
         self._base_lr_set = False
         self._last_scheduler_epoch = math.floor(start_epoch)
-        self._constant_logging = _convert_to_int(constant_logging)
+        self._logging_level = convert_to_logging_level(logging_level)
         self._double_step = False
         self._last_logged_lr = None
         self._last_logged_epoch = None
@@ -565,20 +561,22 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         self.validate()
 
     @ModifierProp()
-    def constant_logging(self) -> bool:
+    def logging_level(self) -> bool:
         """
         :return: True to constantly log on every step,
             False to only log on an LR change, default True
         """
-        return self._constant_logging
+        return self._logging_level
 
-    @constant_logging.setter
-    def constant_logging(self, value: bool):
+    @logging_level.setter
+    def logging_level(self, value: bool):
         """
-        :param value: True to constantly log on every step,
-            False to only log on an LR change, default True
+        :param value: A value representing the logging level
+            supports logical values as strings ie True, t, false, 0
+            Any integer or floating point value < 0 or >= # of LOG LEVELS will default
+            to 'OFF'
         """
-        self._constant_logging = value
+        self._logging_level = convert_to_logging_level(value)
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -656,7 +654,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         if _should_log(
             epoch_changed=math.floor(epoch) != self._last_logged_epoch,
             lr_changed=current_lr != self._last_logged_lr,
-            level=self._constant_logging,
+            level=self._logging_level,
         ):
             self._last_logged_lr = current_lr
             self._last_logged_epoch = math.floor(epoch)

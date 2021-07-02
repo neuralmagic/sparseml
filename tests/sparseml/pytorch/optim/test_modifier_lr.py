@@ -24,6 +24,7 @@ from sparseml.pytorch.optim import (
     LearningRateModifier,
     SetLearningRateModifier,
 )
+from sparseml.pytorch.optim.modifier_lr import _should_log
 from sparseml.pytorch.utils import get_optim_learning_rate
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
@@ -968,3 +969,57 @@ def test_lr_modifier_cosine_annealing_yaml():
         == obj_modifier.lr_kwargs
     )
     assert yaml_modifier.init_lr == serialized_modifier.init_lr == obj_modifier.init_lr
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize("epoch_changed", [True, False])
+@pytest.mark.parametrize("lr_changed", [True, False])
+@pytest.mark.parametrize("level,expected", [("OFF", False), ("DEFAULT", True)])
+def test_should_log_off_and_default_levels(
+    epoch_changed: bool,
+    lr_changed: bool,
+    level: int,
+    expected: bool,
+):
+
+    assert (
+        _should_log(epoch_changed=epoch_changed, lr_changed=lr_changed, level=level)
+        == expected
+    )
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize(
+    "epoch_changed,lr_changed,level, expected",
+    [
+        (True, True, "ON_LR_CHANGE", True),
+        (True, False, "ON_LR_CHANGE", False),
+        (False, True, "ON_LR_CHANGE", True),
+        (False, False, "ON_LR_CHANGE", False),
+        (True, True, "ON_EPOCH_CHANGE", True),
+        (True, False, "ON_EPOCH_CHANGE", True),
+        (False, True, "ON_EPOCH_CHANGE", False),
+        (False, False, "ON_EPOCH_CHANGE", False),
+        (True, True, "ON_LR_OR_EPOCH_CHANGE", True),
+        (True, False, "ON_LR_OR_EPOCH_CHANGE", True),
+        (False, True, "ON_LR_OR_EPOCH_CHANGE", True),
+        (False, False, "ON_LR_OR_EPOCH_CHANGE", False),
+    ],
+)
+def test_should_log_middle_levels(
+    epoch_changed: bool,
+    lr_changed: bool,
+    level: int,
+    expected: bool,
+):
+
+    assert (
+        _should_log(epoch_changed=epoch_changed, lr_changed=lr_changed, level=level)
+        == expected
+    )

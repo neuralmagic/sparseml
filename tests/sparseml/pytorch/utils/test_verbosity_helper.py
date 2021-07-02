@@ -14,33 +14,43 @@
 
 import pytest
 
-from sparseml.pytorch.utils.verbosity_helper import Verbosity
+from sparseml.pytorch.utils import convert_to_verbosity
 
 
 @pytest.mark.parametrize(
     "test_input,expected",
     [
-        (1, Verbosity.DEFAULT),
-        (2, Verbosity.ON_LR_CHANGE),
-        (3, Verbosity.ON_EPOCH_CHANGE),
-        (4, Verbosity.ON_LR_OR_EPOCH_CHANGE),
-        (True, Verbosity.DEFAULT),
-        (0, Verbosity.OFF),
-        (False, Verbosity.OFF),
+        (float("-inf"), "OFF"),
+        (-5, "OFF"),
+        (-5.0, "OFF"),
+        (-1, "OFF"),
+        (-1.0, "OFF"),
+        (0, "OFF"),
+        (1, "DEFAULT"),
+        (1.0, "DEFAULT"),
+        (2, "ON_LR_CHANGE"),
+        (2.0, "ON_LR_CHANGE"),
+        (3, "ON_EPOCH_CHANGE"),
+        (3.0, "ON_EPOCH_CHANGE"),
+        (4, "ON_LR_OR_EPOCH_CHANGE"),
+        (4.0, "ON_LR_OR_EPOCH_CHANGE"),
+        (5, "OFF"),
+        (5.0, "OFF"),
+        (True, "DEFAULT"),
+        (False, "OFF"),
+        ([], "OFF"),
+        ([1], "DEFAULT"),
+        ("t", "DEFAULT"),
+        ("true", "DEFAULT"),
+        ("True", "DEFAULT"),
+        ("random", "DEFAULT"),
+        ("f", "OFF"),
+        ("0", "OFF"),
+        ("false", "OFF"),
+        ("False", "OFF"),
+        ("", "OFF"),
+        (float("inf"), "OFF"),
     ],
 )
-def test_convert_int_to_verbosity(test_input, expected):
-    assert Verbosity.convert_int_to_verbosity(test_input) == expected
-
-
-@pytest.mark.parametrize(
-    "test_input",
-    [
-        -1,
-        float("inf"),
-        "invalid_inp",
-    ],
-)
-def test_exception(test_input):
-    with pytest.raises(ValueError):
-        assert Verbosity.convert_int_to_verbosity(test_input)
+def test_convert_to_verbosity(test_input, expected):
+    assert convert_to_verbosity(test_input) == expected
