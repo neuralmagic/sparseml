@@ -510,6 +510,133 @@ def _convert_quantizable_gemm(
         remove_node_and_params_from_graph(model, gemm_node, keep_params=params_to_keep)
 
 
+def _convert_quantizable_matmul(model: ModelProto):
+    """
+    A pass for converting a MatMul into a quantized representation
+    This MatMul is the result of quantizing native torch.matmul using QATMatMul
+
+    | Starting with:
+    |          INPUT_0           INPUT_1
+    |            |               |
+    |     QuantizeLinear     QuantizeLinear
+    |            |               |
+    |     DequantizeLinear   DequantizeLinear
+    |                  |      |
+    |                   MatMul
+    |                     |
+    |                     |
+    |               QuantizeLinear
+    |                     |
+    |              DequantizeLinear
+    |                     |
+    |                  OUTPUT
+    | We end up converting to:
+    |          INPUT_0           INPUT_1
+    |            |               |
+    |     QuantizeLinear     QuantizeLinear
+    |                  |      |
+    |                  |      |
+    |                   QLinearMatMul
+    |                     |
+    |                     |
+    |              DequantizeLinear
+    |                     |
+    |                  OUTPUT
+    """
+    conversion_count = 0
+    matmul_nodes = [n for n in model.graph.node if n.op_type in ["MatMul"]]
+    for matmul_node in matmul_nodes:
+        graph = ONNXGraph(model)
+        #############
+        # Matching
+        #############
+
+        input_dequantize_nodes = [
+            graph.get_node_single_parent(matmul_node, i) for i in range(2)
+        ]
+
+        # Make sure these input nodes are DequantizeLinear
+        if numpy.any(
+            [
+                (node is None or node.op_type != "DequantizeLinear")
+                for node in input_dequantize_nodes
+            ]
+        ):
+            continue
+
+        # Make sure their parents are QuantizeLinear
+        parents = [
+            graph.get_node_single_parent(node, 0) for node in input_dequantize_nodes
+        ]
+        if numpy.any(
+            [
+                (parent is None or parent.op_type != "QuantizeLinear")
+                for parent in parents
+            ]
+        ):
+            continue
+
+        output_quantize_node = graph.get_node_single_child(matmul_node)
+
+        # Make sure the output node is QuantizeLinear
+        if (
+            output_quantize_node is None
+            or output_quantize_node.op_type != "QuantizeLinear"
+        ):
+            continue
+
+        # Make sure the output node's child is DequantizeLinear
+        child = graph.get_node_single_child(output_quantize_node)
+        if child is None or child.op_type != "DequantizeLinear":
+            continue
+
+        _LOGGER.debug(f"Matched quantizable MatMul: {matmul_node.name}")
+
+        #############
+        # Conversion
+        #############
+
+        # QLinearMatMul
+        # get qmatmul inputs and outputs
+        node_0, node_1 = input_dequantize_nodes
+        qmatmul_inputs = [
+            node_0.input[0],  # a
+            node_0.input[1],  # a_scale
+            node_0.input[2],  # a_zero_point
+            node_1.input[0],  # b
+            node_1.input[1],  # b_scale
+            node_1.input[2],  # b_zero_point
+            output_quantize_node.input[1],  # y_scale
+            output_quantize_node.input[2],  # y_zero_point
+        ]
+
+        qmatmul_output = output_quantize_node.output[0]
+        qmatmul_name = "{}_quant".format(matmul_node.name)
+
+        # create qmatmul node and add it to graph
+        qmatmul_node = onnx.helper.make_node(
+            "QLinearMatMul",
+            qmatmul_inputs,
+            [qmatmul_output],
+            qmatmul_name,
+        )
+        model.graph.node.append(qmatmul_node)
+
+        for node in input_dequantize_nodes:
+            delete_quant_node(model, node, keep_params=True)
+        delete_quant_node(model, output_quantize_node, keep_params=True)
+
+        # delete original Gemm node
+        remove_node_and_params_from_graph(model, matmul_node, keep_params=None)
+
+        conversion_count += 1
+
+    if matmul_nodes:
+        _LOGGER.info(
+            f"Converted {conversion_count} quantizable MatMul ops " "to QLinearMatMul"
+        )
+
+
 def _convert_quantizable_matmul_and_add(model: ModelProto):
     """
     A pass for converting a MatMul with kernel and bias into a quantized representation
@@ -838,6 +965,7 @@ def quantize_torch_qat_export(
     _fold_relu_quants(model)
     _convert_single_constants_to_initializers(model)
     _delete_repeated_qat_blocks(model)
+    _convert_quantizable_matmul(model)
     _convert_quantizable_matmul_and_add(model)
     _convert_quantizable_ops(model)
     quantize_resnet_identity_add_inputs(model)
