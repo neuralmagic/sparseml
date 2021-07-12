@@ -128,8 +128,7 @@ pruning_modifiers:
 # YOLOv3-SPP Pruned Transfer Learning
 
 This recipe transfer learns from a sparse, [YOLOv3-SPP](https://arxiv.org/abs/1804.02767) model.
-It was originally tested on the VOC dataset and achieved 0.84 mAP@0.5. 
-More information on the run can be found in the Weights and Biases project.
+It was originally tested on the VOC dataset and achieved 0.84 mAP@0.5.
 
 Training was done using 4 GPUs at half precision with the [SparseML integration with ultralytics/yolov3](https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3).
 
@@ -137,7 +136,9 @@ When running, adjust hyperparameters based on training environment and dataset.
 
 ## Weights and Biases
 
-- [YOLOv3-SPP LeakyReLU on VOC](https://wandb.ai/neuralmagic/yolov3-spp-voc-sparse-transfer-learning/runs/3kvb4neh)
+The training results for this recipe are made available through Weights and Biases for easy viewing.
+
+- [YOLOv3-SPP LeakyReLU VOC Transfer Learning](https://wandb.ai/neuralmagic/yolov3-spp-voc-sparse-transfer-learning/runs/3kvb4neh)
 
 ## Training
 
@@ -145,6 +146,18 @@ To set up the training environment, follow the instructions on the [integration 
 Using the given training script from the `yolov3` directory the following command can be used to launch this recipe.  
 Adjust the script command for your GPU device setup. 
 Ultralytics supports both DataParallel and DDP.
+
+The sparse weights used with this recipe are stored in the SparseZoo and can be retrieved with the following code:
+ ```python
+from sparsezoo import Zoo
+
+
+stub = 'zoo:cv/detection/yolo_v3-spp/pytorch/ultralytics/coco/pruned-aggressive_97'
+model = Zoo.load_model_from_stub(stub)
+downloded_path = model.framework_files[-1].downloaded_path()
+print(f'model with stub {stub} downloaded to')
+print(downloded_path)
+```
 
 *script command:*
 
