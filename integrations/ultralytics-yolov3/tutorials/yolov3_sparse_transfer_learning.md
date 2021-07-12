@@ -133,7 +133,7 @@ The recipes are specific to the sparsification type, so the training command wil
         ```bash
         python train.py --data voc.yaml --cfg ../models/yolov3-spp.lrelu.yaml --weights DOWNLOADED_PATH --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov3-spp.transfer_learn_pruned.md
         ```
-   - Pruned Quantized transfer learning, achieves 0.838 mAP@0.5 on the VOC dataset:
+   - Pruned-Quantized transfer learning, achieves 0.838 mAP@0.5 on the VOC dataset:
         ```bash
         python train.py --data voc.yaml --cfg ../models/yolov3-spp.lrelu.yaml --weights DOWNLOADED_PATH --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov3-spp.transfer_learn_pruned_quantized.md
         ```
