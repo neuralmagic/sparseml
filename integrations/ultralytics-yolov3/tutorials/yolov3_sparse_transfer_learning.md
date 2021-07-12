@@ -81,7 +81,7 @@ These models were originally pruned on the COCO dataset achieving the following 
    
 You are now ready to set up the data for training.
 
-## Setting Up The Data
+## Setting Up the Data
 
 Note: If using your custom data, the Ultralytics repo contains a walk-through for [training custom data](https://github.com/ultralytics/yolov3/wiki/Train-Custom-Data). 
 Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov3/data/scripts path](https://github.com/ultralytics/yolov3/tree/master/data/scripts).
