@@ -20,7 +20,7 @@ This tutorial shows how Neural Magic sparse models simplify the sparsification p
 
 ## Overview
 
-Neural Magic’s ML team created sparsified models that allow anyone to plug in their data and leverage pre-sparsified models from the SparseZoo on top of Ultralytics’ robust training pipelines. 
+Neural Magic’s ML team creates sparsified models that allow anyone to plug in their data and leverage pre-sparsified models from the SparseZoo on top of Ultralytics’ robust training pipelines. 
 Sparsifying involves removing redundant information from neural networks using algorithms such as pruning and quantization, among others. 
 This sparsification process results in many benefits for deployment environments, including faster inference and smaller file sizes. 
 Unfortunately, many have not realized the benefits due to the complicated process and number of hyperparameters involved.
