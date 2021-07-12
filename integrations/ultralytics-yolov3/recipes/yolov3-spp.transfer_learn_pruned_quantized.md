@@ -194,7 +194,7 @@ quantization_modifiers:
       - model.27
 ---
 
-# YOLOv3-SPP Pruned Quantized Transfer Learning
+# YOLOv3-SPP Pruned-Quantized Transfer Learning
 
 This recipe transfer learns from a sparse-quantized, [YOLOv3-SPP](https://arxiv.org/abs/1804.02767) model.
 It was originally tested on the VOC dataset and achieved 0.838 mAP@0.5.
@@ -238,4 +238,3 @@ python train.py \
     --hyp data/hyp.finetune.yaml \
     --recipe ../recipes/yolov3-spp.transfer_learn_pruned_quantized.md
 ```
-
