@@ -86,7 +86,7 @@ You are now ready to set up the data for training.
 Note: If using your custom data, the Ultralytics repo contains a walk-through for [training custom data](https://github.com/ultralytics/yolov3/wiki/Train-Custom-Data). 
 Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-context/) and [COCO](https://cocodataset.org/#home) can be found under the [yolov3/data/scripts path](https://github.com/ultralytics/yolov3/tree/master/data/scripts).
 
-1) For this tutorial, run the VOC setup script with the following command from the root of the yolov3 repository:
+1) For this tutorial, run the VOC setup script with the following command from the root of the `yolov3` repository:
     
     `bash data/scripts/get_voc.sh`
 2) Download and validation of the VOC dataset will begin and take around 10 minutes to finish. 
