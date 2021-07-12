@@ -181,7 +181,7 @@ This directory will contain the outputs from the training run, including experim
 This step loads a checkpoint file of the best weights measured on the validation set, and converts it into the more common inference formats. 
 Then, you can run the file through a compression algorithm to reduce its deployment size and run it in an inference engine such as DeepSparse.
 
-The best.pt file contains a checkpoint of the best weights measured on the validation set. 
+The `best.pt` file contains a checkpoint of the best weights measured on the validation set. 
 These weights can be loaded into the `train.py` and `test.py` scripts now. 
 However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
 
