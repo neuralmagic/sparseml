@@ -30,6 +30,14 @@ PyTorch torchvision and models License https://github.com/pytorch/vision/blob/ma
 
 TensorFlow License https://github.com/tensorflow/tensorflow/blob/master/LICENSE
 
+Ultralytics YOLOv3 License https://github.com/ultralytics/yolov3/blob/master/LICENSE
+
+Ultralytics YOLOv5 License https://github.com/ultralytics/yolov5/blob/master/LICENSE
+
+Hugging Face Transformers License https://github.com/huggingface/transformers/blob/master/LICENSE
+
+Pytorch Image Models (timm) License https://github.com/rwightman/pytorch-image-models/blob/master/LICENSE
+
 Some APIs and classes in SparseML make use of fast.ai's 
 Imagenette / Imagewoof dataset https://github.com/fastai/imagenette 
 provided under the Apache License 2.0 https://github.com/fastai/imagenette/blob/master/LICENSE
