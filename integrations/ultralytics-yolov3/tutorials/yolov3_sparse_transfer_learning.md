@@ -79,7 +79,7 @@ These models were originally pruned on the COCO dataset achieving the following 
     python utility.py strip /PATH/TO/DOWNLOADED/WEIGHTS.pt
     ```
    
-You are now ready to setup the data for training.
+You are now ready to set up the data for training.
 
 ## Setting Up The Data
 
