@@ -142,7 +142,7 @@ The recipes are specific to the sparsification type, so the training command wil
         python train.py --data voc.yaml --cfg ../models/yolov3-spp.lrelu.yaml --weights DOWNLOADED_PATH --hyp data/hyp.finetune.yaml
         ```
 
-    Weights and Biases is very useful for comparing across the different runs, the epochs vs mAP@0.5 graph is supplied below:
+    Weights and Biases is very useful for comparing across the different runs; the epochs vs mAP@0.5 graph is supplied below:
     
     <img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/integrations/ultralytics-yolov3/tutorials/images/transfer-learning-wandb-chart.png" width="960px" style="border: 2px solid #000000;" />
 
