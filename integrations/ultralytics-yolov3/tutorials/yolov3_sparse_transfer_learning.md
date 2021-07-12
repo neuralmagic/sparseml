@@ -201,7 +201,7 @@ The [export.py script](https://github.com/neuralmagic/yolov3/blob/master/models/
     |   `-- last.pt
     `-- ...
     ```
-2) Now you can run the .onnx file through a compression algorithm to reduce its deployment size and run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
+2) Now you can run the `.onnx` file through a compression algorithm to reduce its deployment size and run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
     The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in inference performance. 
     An example for benchmarking and deploying YOLOv3 models with DeepSparse can be found [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3).
 
