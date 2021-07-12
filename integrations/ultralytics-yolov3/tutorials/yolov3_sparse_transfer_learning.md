@@ -147,7 +147,7 @@ The recipes are specific to the sparsification type, so the training command wil
     <img src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/integrations/ultralytics-yolov3/tutorials/images/transfer-learning-wandb-chart.png" width="960px" style="border: 2px solid #000000;" />
 
 Afterward, you will have a sparse model trained on the VOC dataset almost ready for inference.
-The training command creates a runs directory under the yolov3 repository directory. 
+The training command creates a runs directory under the `yolov3` repository directory. 
 This directory will contain the outputs from the training run, including experimental results along with the trained model:
 ```
 |-- VOC
