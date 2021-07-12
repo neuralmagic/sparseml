@@ -45,7 +45,7 @@ For Neural Magic Support, sign up or log in to get help with your questions in o
 
 ## Downloading and Preparing a Pre-pruned Model
 
-First you need to download the sparsified models from the [SparseZoo](https://github.com/neuralmagic/sparsezoo).
+First, you need to download the sparsified models from the [SparseZoo](https://github.com/neuralmagic/sparsezoo).
 These models were originally pruned on the COCO dataset achieving the following metrics:
 
 | Sparsification Type | Description                                                                       | COCO mAP@0.5 | Size on Disk | DeepSparse Performance** |
