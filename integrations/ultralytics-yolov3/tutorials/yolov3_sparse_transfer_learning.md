@@ -137,7 +137,7 @@ The recipes are specific to the sparsification type, so the training command wil
         ```bash
         python train.py --data voc.yaml --cfg ../models/yolov3-spp.lrelu.yaml --weights DOWNLOADED_PATH --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov3-spp.transfer_learn_pruned_quantized.md
         ```
-     Note, running quantization aware training (QAT) will consume up to three times the memory as FP32 training. 
+     Note: Running quantization-aware training (QAT) will consume up to three times the memory as FP32 training. 
      It is recommended to use this recipe with a batch size that fits in memory for FP32 as normal at the start, though.
      This will keep the training times the same until the quantization portion.
      Then it will fail with an out of memory exception, but you can use the `last.pt` checkpoint with the `--weights` argument to resume the run with a lower batch size for QAT.
