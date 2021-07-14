@@ -1,0 +1,18 @@
+version: 1.1.0
+
+modifiers:
+    - !EpochRangeModifier
+        end_epoch: 5
+        start_epoch: 0.0
+
+    - !GMPruningModifier
+        end_epoch: 4
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['model.h.0.attn.c_attn','model.h.0.attn.c_proj','model.h.0.mlp.c_fc','model.h.0.mlp.c_proj']
+        start_epoch: 1
+        update_frequency: 0.01
