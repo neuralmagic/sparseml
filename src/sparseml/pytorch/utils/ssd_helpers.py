@@ -400,7 +400,7 @@ def ssd_random_crop(
     |     2. Random crop minimum IoU is among 0.1, 0.3, 0.5, 0.7, 0.9
     |     3. Random crop
 
-    Adapted from: https://github.com/chauhan-utk/src.DomainAdaptation
+    Adapted from: https://github.com/chauhan-utk/ssd.DomainAdaptation
 
     :param image: the image to potentially crop
     :param boxes: a tensor of bounding boxes in ltrb format with shape n_boxes,4
