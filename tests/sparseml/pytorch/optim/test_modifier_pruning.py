@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import os
 
 import pytest
@@ -246,6 +247,16 @@ def test_constant_pruning_yaml():
             inter_func="cubic",
             mask_type=[1, 4],
         ),
+        lambda: GMPruningModifier(
+            params=["__ALL_PRUNABLE__"],
+            init_sparsity=0.9,
+            final_sparsity=0.9,
+            start_epoch=10.0,
+            end_epoch=25.0,
+            update_frequency=2.0,
+            inter_func="cubic",
+            phased=True,
+        ),
     ],
     scope="function",
 )
@@ -294,7 +305,22 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
             epoch += modifier.update_frequency
             assert modifier.update_ready(epoch, test_steps_per_epoch)
             modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
-            assert modifier.applied_sparsity > last_sparsity
+
+            if not modifier.phased:
+                assert modifier.applied_sparsity > last_sparsity
+            else:
+                pruned_on = (
+                    math.floor(
+                        (epoch - modifier.start_epoch) / modifier.update_frequency
+                    )
+                    % 2
+                    == 0
+                )
+                if pruned_on:
+                    assert modifier.applied_sparsity >= last_sparsity
+                else:
+                    assert modifier.applied_sparsity == 0
+
             last_sparsity = modifier.applied_sparsity
 
         _ = model(test_batch)  # check forward pass
