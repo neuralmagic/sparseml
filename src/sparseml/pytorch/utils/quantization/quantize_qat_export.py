@@ -21,7 +21,7 @@ quantization aware training.
 import logging
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, List, NamedTuple, Optional, Union
 
 import numpy
 import onnx
@@ -129,29 +129,22 @@ def delete_quant_node(model: ModelProto, node: NodeProto, keep_params: bool = Fa
     remove_node_and_params_from_graph(model, node)
 
 
-def _get_single_node_child(
-    model: ModelProto, node: NodeProto
-) -> Union[NodeProto, None]:
-    # return child of input node if it only has one child, otherwise return None
-    children = get_node_output_nodes(model, node)
-    return children[0] if len(children) == 1 else None
-
-
-def _get_single_node_parent(
-    model: ModelProto, node: NodeProto, input_idx: int
-) -> Union[NodeProto, None]:
-    # return parent of input node if it only has one parent, otherwise return None
-    parent = get_nodes_by_output_id(model, node.input[input_idx])
-    return parent[0] if len(parent) == 1 else None
-
-
 def _fold_conv_bn_bias(model: ModelProto, conv_node: NodeProto, bn_node: NodeProto):
-    # fold bias into conv from bn then delete bn node
+    # get bn params
     bn_params = get_batch_norm_params(model, bn_node)
+
+    # get conv bias or initialize to zeros
+    conv_bias = None
+    if len(conv_node.input) > 2:
+        conv_bias_init = get_init_by_name(model, conv_node.input[2])
+        if conv_bias_init is not None:
+            conv_bias = numpy_helper.to_array(conv_bias_init)
+    conv_bias = conv_bias or numpy.zeros(bn_params.mean.shape)
+
+    # fold bias into conv from bn then delete bn node
     variance_term = 1 / numpy.sqrt(bn_params.var + bn_params.epsilon)
-    folded_bias = (
-        -1.0 * bn_params.mean * variance_term * bn_params.scale + bn_params.bias
-    )
+    normalized_bias = (conv_bias - bn_params.mean) * variance_term
+    folded_bias = normalized_bias * bn_params.scale + bn_params.bias
     folded_bias = folded_bias.astype(numpy.float32)
 
     bias_name = conv_node.name + ".bias"
@@ -170,13 +163,14 @@ def _fold_qat_conv_bns(model: ModelProto):
     # fold bn into conv bias and remove bn node
     # (Conv -> Div -> BN) -> Conv
     for conv_node in model.graph.node:
-        if conv_node.op_type != "Conv" or len(conv_node.input) > 2:
+        if conv_node.op_type != "Conv":
             # not conv node or conv node already has bias
             continue
-        div_node = _get_single_node_child(model, conv_node)
+        graph = ONNXGraph(model)
+        div_node = graph.get_node_single_child(conv_node)
         if not div_node or div_node.op_type != "Div":
             continue
-        bn_node = _get_single_node_child(model, div_node)
+        bn_node = graph.get_node_single_child(div_node)
         if not bn_node or bn_node.op_type != "BatchNormalization":
             continue
 
@@ -986,6 +980,34 @@ def quantize_torch_qat_export(
     return model
 
 
+def _delete_quantize_nodes(graph: ONNXGraph, quantize_nodes: List[NodeProto]):
+    # delete given quantize nodes and forward their inputs to the next graph layer
+    for quantize_node in quantize_nodes:
+        quantize_children = graph.get_node_children(quantize_node)
+        quantize_node_id = quantize_node.output[0]
+        for child_node in quantize_children:
+            input_idx = [
+                idx
+                for idx, inp in enumerate(child_node.input)
+                if inp == quantize_node_id
+            ]
+            if not input_idx:
+                continue
+            input_idx = input_idx[0]
+            graph.update_node_input(child_node, quantize_node.input[0], input_idx)
+            _LOGGER.debug(
+                f"set node with output id {child_node.output[0]} as initial node in "
+                "graph"
+            )
+
+    _LOGGER.debug(
+        f"deleting QuantizeLinear node(s) with output id(s): "
+        f"{[n.output for n in quantize_nodes]}"
+    )
+    graph.delete_nodes(quantize_nodes)  # only contains references to the Quantize nodes
+    graph.delete_unused_initializers()  # cleanup
+
+
 def _skip_input_quantize(model: ModelProto) -> Optional[str]:
     if (
         len(model.graph.input) != 1
@@ -1007,35 +1029,52 @@ def _skip_input_quantize(model: ModelProto) -> Optional[str]:
             "the FP32 input tensor in original graph, prior to converting to uint8"
         )
 
-    graph = ONNXGraph(model)
-    for quantize_node in input_children:
-        quantize_children = graph.get_node_children(quantize_node)
-        quantize_node_id = quantize_node.output[0]
-        for child_node in quantize_children:
-            input_idx = [
-                idx
-                for idx, inp in enumerate(child_node.input)
-                if inp == quantize_node_id
-            ]
-            if not input_idx:
-                continue
-            input_idx = input_idx[0]
-            graph.update_node_input(child_node, input_node.name, input_idx)
-            _LOGGER.debug(
-                f"set node with output id {child_node.output[0]} as initial node in "
-                "graph"
-            )
-
-    _LOGGER.debug(
-        f"deleting QuantizeLinear node(s) with output id(s): "
-        f"{[n.output for n in input_children]}"
-    )
-    graph.delete_nodes(input_children)  # only contains references to the Quantize nodes
-    graph.delete_unused_initializers()  # cleanup
+    _delete_quantize_nodes(ONNXGraph(model), input_children)
     input_node.type.tensor_type.elem_type = 2  # fp32 -> uint8
     _LOGGER.info("Model initial QuantizeLinear node(s) deleted and inputs set to uint8")
 
     return None
+
+
+def _skip_trivially_nested_input_quantize(model: ModelProto) -> bool:
+    # converts: input -> (some series of slices and concats) -> QuantizeLinear -> Any
+    # to: input[uint8] -> (some series of slices and concats) -> Any
+    if (
+        len(model.graph.input) != 1
+        or model.graph.input[0].type.tensor_type.elem_type != 1
+    ):
+        # more than 1 input or input is not FP32
+        return False
+
+    input_node = model.graph.input[0]
+    node_queue = [node for node in model.graph.node if input_node.name in node.input]
+    _trivial_node_types = {"Concat", "Slice"}
+    graph = ONNXGraph(model)
+
+    found_quantize_nodes = []
+    while node_queue:
+        current_node = node_queue.pop(0)
+        if current_node.op_type == "QuantizeLinear":
+            found_quantize_nodes.append(current_node)
+        elif current_node.op_type not in _trivial_node_types:
+            break
+        else:
+            node_queue.extend(graph.get_node_children(current_node))
+
+    if (
+        node_queue
+        or not found_quantize_nodes
+        or not all(node == found_quantize_nodes[0] for node in found_quantize_nodes)
+    ):
+        # loop exited because non-trivial node found before QuantizeLinear,
+        # no QuantizeLinear node found, or different QuantizeLinear nodes found
+        return False
+
+    _delete_quantize_nodes(graph, [found_quantize_nodes[0]])
+    input_node.type.tensor_type.elem_type = 2  # fp32 -> uint8
+    _LOGGER.info("Model initial QuantizeLinear node(s) deleted and inputs set to uint8")
+
+    return True
 
 
 def skip_onnx_input_quantize(
@@ -1057,7 +1096,7 @@ def skip_onnx_input_quantize(
 
     optim_error_message = _skip_input_quantize(model)
 
-    if optim_error_message:
+    if optim_error_message and not _skip_trivially_nested_input_quantize(model):
         raise RuntimeError(optim_error_message)
 
     if output_file_path:
