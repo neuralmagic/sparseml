@@ -15,11 +15,12 @@
 """
 Export PyTorch models to the local device
 """
-
+import collections
 import logging
 import os
+import warnings
 from copy import deepcopy
-from typing import Any, Callable, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import numpy
 import onnx
@@ -151,6 +152,23 @@ class ModuleExporter(object):
             sample_originals=sample_originals,
         )
 
+    @classmethod
+    def get_output_names(cls, out: Any):
+        """
+        Get name of output tensors
+
+        :param out: outputs of the model
+        :return: list of names
+        """
+        output_names = None
+        if isinstance(out, Tensor):
+            output_names = ["output"]
+        elif isinstance(out, Iterable):
+            output_names = [
+                "output_{}".format(index) for index, _ in enumerate(iter(out))
+            ]
+        return output_names
+
     def export_onnx(
         self,
         sample_batch: Any,
@@ -180,6 +198,16 @@ class ModuleExporter(object):
             to a fully quantized ONNX model using `quantize_torch_qat_export`. Default
             is False.
         """
+        if isinstance(sample_batch, Dict) and not isinstance(
+            sample_batch, collections.OrderedDict
+        ):
+            warnings.warn(
+                "Sample inputs passed into the ONNX exporter should be in "
+                "the same order defined in the model forward function. "
+                "Consider using OrderedDict for this purpose.",
+                UserWarning,
+            )
+
         sample_batch = tensors_to_device(sample_batch, "cpu")
         onnx_path = os.path.join(self._output_dir, name)
         create_parent_dirs(onnx_path)
@@ -192,6 +220,9 @@ class ModuleExporter(object):
         input_names = None
         if isinstance(sample_batch, Tensor):
             input_names = ["input"]
+        elif isinstance(sample_batch, Dict):
+            input_names = list(sample_batch.keys())
+            sample_batch = tuple([sample_batch[f] for f in input_names])
         elif isinstance(sample_batch, Iterable):
             input_names = [
                 "input_{}".format(index) for index, _ in enumerate(iter(sample_batch))
@@ -199,13 +230,7 @@ class ModuleExporter(object):
             if isinstance(sample_batch, List):
                 sample_batch = tuple(sample_batch)  # torch.onnx.export requires tuple
 
-        output_names = None
-        if isinstance(out, Tensor):
-            output_names = ["output"]
-        elif isinstance(out, Iterable):
-            output_names = [
-                "output_{}".format(index) for index, _ in enumerate(iter(out))
-            ]
+        output_names = self.get_output_names(out)
 
         # disable active quantization observers because they cannot be exported
         disabled_observers = []
