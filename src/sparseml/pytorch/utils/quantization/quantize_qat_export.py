@@ -129,29 +129,22 @@ def delete_quant_node(model: ModelProto, node: NodeProto, keep_params: bool = Fa
     remove_node_and_params_from_graph(model, node)
 
 
-def _get_single_node_child(
-    model: ModelProto, node: NodeProto
-) -> Union[NodeProto, None]:
-    # return child of input node if it only has one child, otherwise return None
-    children = get_node_output_nodes(model, node)
-    return children[0] if len(children) == 1 else None
-
-
-def _get_single_node_parent(
-    model: ModelProto, node: NodeProto, input_idx: int
-) -> Union[NodeProto, None]:
-    # return parent of input node if it only has one parent, otherwise return None
-    parent = get_nodes_by_output_id(model, node.input[input_idx])
-    return parent[0] if len(parent) == 1 else None
-
-
 def _fold_conv_bn_bias(model: ModelProto, conv_node: NodeProto, bn_node: NodeProto):
-    # fold bias into conv from bn then delete bn node
+    # get bn params
     bn_params = get_batch_norm_params(model, bn_node)
+
+    # get conv bias or initialize to zeros
+    conv_bias = None
+    if len(conv_node.input) > 2:
+        conv_bias_init = get_init_by_name(model, conv_node.input[2])
+        if conv_bias_init is not None:
+            conv_bias = numpy_helper.to_array(conv_bias_init)
+    conv_bias = conv_bias or numpy.zeros(bn_params.mean.shape)
+
+    # fold bias into conv from bn then delete bn node
     variance_term = 1 / numpy.sqrt(bn_params.var + bn_params.epsilon)
-    folded_bias = (
-        -1.0 * bn_params.mean * variance_term * bn_params.scale + bn_params.bias
-    )
+    normalized_bias = (conv_bias - bn_params.mean) * variance_term
+    folded_bias = normalized_bias * bn_params.scale + bn_params.bias
     folded_bias = folded_bias.astype(numpy.float32)
 
     bias_name = conv_node.name + ".bias"
@@ -170,13 +163,14 @@ def _fold_qat_conv_bns(model: ModelProto):
     # fold bn into conv bias and remove bn node
     # (Conv -> Div -> BN) -> Conv
     for conv_node in model.graph.node:
-        if conv_node.op_type != "Conv" or len(conv_node.input) > 2:
+        if conv_node.op_type != "Conv":
             # not conv node or conv node already has bias
             continue
-        div_node = _get_single_node_child(model, conv_node)
+        graph = ONNXGraph(model)
+        div_node = graph.get_node_single_child(conv_node)
         if not div_node or div_node.op_type != "Div":
             continue
-        bn_node = _get_single_node_child(model, div_node)
+        bn_node = graph.get_node_single_child(div_node)
         if not bn_node or bn_node.op_type != "BatchNormalization":
             continue
 
