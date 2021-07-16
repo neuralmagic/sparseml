@@ -275,7 +275,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
     def __init__(self, modifiers: List[ScheduledModifier]):
         super().__init__(modifiers=modifiers)
-        self._initialize_epoch = None
+        self._initialize_epoch = 0
 
     def state_dict(self) -> Dict[str, Dict]:
         """
