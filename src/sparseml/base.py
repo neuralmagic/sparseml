@@ -225,7 +225,7 @@ def check_version(
     if max_version and current_version > max_version:
         if raise_on_error:
             raise ImportError(
-                f"required min {package_name} version {min_version}, "
+                f"required max {package_name} version {max_version}, "
                 f"found {current_version}"
             )
         return False
