@@ -19,52 +19,50 @@
 # limitations under the License.
 
 """
-Example script for integrating spaseml with the transformers library to perform model distillation and pruning on GLUE tasks. 
-This script is addopted from hugging face's implementation for the GLUEDataset. 
-Hugging Face's original implementation is regularly updated and can be found at https://github.com/huggingface/transformers/blob/master/examples/pytorch/text-classification/run_glue.py
-This script will:
+Example script for using spaseml with the transformers library to language model using distillation and pruning 
 - Load transformer based models
 - Load a sparseml training and pruning optimizer
-- Train on Target GLUE Task
-- Evaluate on GLUE
+- Train on target text file
+- Evaluate on a target text file
 - Export model to onnx.
 ##########
-Command help:
-usage: run_glue.py [-h] \
-    [--teacher_model_name_or_path] \
-    [--student_model_name_or_path] \
-    [--task_name] \
+Command help:\
+usage: run_language_modeling.py [-h] \
+    [--distill_teacher] \
+    [--model_name_or_path] \
     [--temperature] \
     [--distill_hardness] \
     [--dataset_name]  \
+    [--dataset_config_name] \
     [--num_train_epochs] \
     [--do_train] \
     [--do_eval] \
     [--per_device_train_batch_size] \
     [--per_device_eval_batch_size] \
-    [--learning_rate]\
+    [--evaluation_strategy] \
+    [--save_strategy] \
+    [--learning_rate] \
     [--output_dir] \
     [--overwrite_output_dir] \
     [--cache_dir]\
     [--preprocessing_num_workers] \
     [--seed] \
-    [--nm_prune_config] \
-    [--do_onnx_export] \
+    [--recipe] \
     [--onnx_export_path] \
-    [--layers_to_keep] \
+    [--num_train_epochs] \
 
 Train, prune, and evaluate a transformer base question answering model on squad. 
     -h, --help            show this help message and exit
-    --teacher_model_name_or_path    The name or path of model which will be used for distilation.
-                                    Note, this model needs to be trained for QA task already.
-    --student_model_name_or_path    The path to the transformers model you wish to train
+    --distill_teacher               The name or path of model which will be used for distilation.
+                                    Note, this model needs to be trained for language modeling task already.
+    --model_name_or_path            The path to the transformers model you wish to train
                                     or the name of the pretrained language model you wish
-                                    to use. ex: bert-base-uncased.
-    --task_name                     The name of the GLUE task which the model with train and evalute on. 
+                                    to use. ex: gpt2.
     --temperature                   Hyperparameter which controls model distilation 
     --distill_hardness              Hyperparameter which controls how much of the loss comes from teacher vs training labels
     --dataset_name                  The name of which dataset you want to use to train or
-                                    your model. ex: squad for using SQuAD.
+                                    your model. ex: wikitext.
+    --dataset_config_name           The name of config for specific dataset to train or evaluate your model. ex: wikitext-2-raw-v1
     --num_train_epochs              Paramater to control how many training epochs you wish
                                     your model to train.
     --do_train                      Boolean denoting if the model should be trained
@@ -82,39 +80,32 @@ Train, prune, and evaluate a transformer base question answering model on squad.
                                     , tokenizers) are saved for fast loading. 
     --preprocessing_num_workers     The amount of cpu workers which are used to process datasets
     --seed                          Int which determines what random seed is for training/shuffling
-    --nm_prune_config               Path to the neural magic prune configuration file. examples can
-                                    be found in prune_config_files but are customized for bert-base-uncased. 
-    --do_onnx_export                Boolean denoting if the model should be exported to onnx
+    --recipe                        Path to the neural magic prune configuration file. examples can
+                                    be found in recipes but are customized for gpt. 
     --onnx_export_path              Path where onnx model path will be exported. ex: onnx-export
-    --layers_to_keep                Number of layers to keep from original model. Layers are dropped before training
-    --max_seq_length                Int for the max sequence length to be parsed for glue tasks ex: 128 tokens.
 
 ##########
-Example command for training a 95% sparse BERT SQUAD model for 1 epoch without distilation on the Quora Duplicate Question Task:
-python examples/transformers/run_glue.py \
-    --teacher_model_name_or_path NONE
-    --student_model_name_or_path bert-base-uncased \
-    --task_name QQP
-    --dataset_name squad \
-    --num_train_epochs 1 \
+Example command for training a 90% sparse GPT model for 10 epoch without distilation on the wikitext-2 dataset:
+python research/gpt/src/run_language_modeling.py \
+    --distill_teacher_model_name_or_path None
+    --model_name_or_path gpt2 \
+    --dataset_name wikitext \
+    --dataset_config wikitext-2-raw-v1 \
+    --num_train_epochs 10 \
+    --recipe None
     --do_train \
     --do_eval \
-    --per_device_train_batch_size 12 \
-    --per_device_eval_batch_size 12 \
-    --learning_rate 3e-5 \
-    --max_seq_length 128 \
-    --doc_stride 128 \
-    --output_dir 95sparsity1epoch/ \
+    --per_device_train_batch_size 1 \
+    --per_device_eval_batch_size 1 \
+    --learning_rate 5e-5 \
+    --output_dir prunegpt \
     --overwrite_output_dir \
     --cache_dir cache \
     --preprocessing_num_workers 8 \
     --seed 42 \
-    --nm_prune_config prune_config_files/95sparsity1epoch.yaml \
     --do_onnx_export \
-    --onnx_export_path 95sparsity1epoch/ \
-    --distill_hardness 1.0 \
+    --distill_hardness 0.5 \
     --temperature 2.0 \
-    --layers_to_keep 12 \
 """
 
 import logging
@@ -131,32 +122,23 @@ import wandb
 
 import transformers
 from transformers import (
-    CONFIG_MAPPING,
-    MODEL_FOR_CAUSAL_LM_MAPPING,
     AutoConfig,
-    AutoModelForCausalLM,
     AutoTokenizer,
     AutoConfig,
     AutoModel,
     AutoTokenizer,
     HfArgumentParser,
-    Trainer,
     TrainingArguments,
     default_data_collator,
     set_seed,
 )
 from transformers.testing_utils import CaptureLogger
 from transformers.trainer_utils import get_last_checkpoint
-from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml_utils import SparseMLTrainer, export_model
 
 logger = logging.getLogger(__name__)
-
-
-MODEL_CONFIG_CLASSES = list(MODEL_FOR_CAUSAL_LM_MAPPING.keys())
-MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
 @dataclass
 class ModelArguments:
@@ -225,23 +207,11 @@ class DataTrainingArguments:
     onnx_export_path: Optional[str] = field(
         default=None, metadata={"help": "The filename and path which will be where onnx model is outputed"}
     )
-    repetition_penalty: Optional[float] = field(
-        default=1.0, metadata={"help": "penalty for repetition which can be useful in generative models"}
-    )
-    prompt: Optional[str] = field(
-        default=None, metadata={"help": "Generation prompt."}
-    )
-    prefix: Optional[str] = field(
-        default=None, metadata={"help": "Text added prior to input."}
-    )
-    num_return_sequences: Optional[int] = field(
-        default=1, metadata={"help": "How many sequences to return"}
-    )
     dataset_name: Optional[str] = field(
-        default='wikitext', metadata={"help": "The name of the dataset to use (via the datasets library)."}
+        default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     dataset_config_name: Optional[str] = field(
-        default='wikitext-103-raw-v1', metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
+        default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
     )
     train_file: Optional[str] = field(default=None, metadata={"help": "The input training data file (a text file)."})
     validation_file: Optional[str] = field(
@@ -345,14 +315,8 @@ def main():
     }
     if model_args.config_name:
         config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
-    elif model_args.model_name_or_path:
-        config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
     else:
-        config = CONFIG_MAPPING[model_args.model_type]()
-        logger.warning("You are instantiating a new config instance from scratch.")
-        if model_args.config_overrides is not None:
-            logger.info(f"Overriding config: {model_args.config_overrides}")
-            config.update_from_string(model_args.config_overrides)
+        config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
 
     tokenizer_kwargs = {
         "cache_dir": model_args.cache_dir,
@@ -362,16 +326,11 @@ def main():
     }
     if model_args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
-    elif model_args.model_name_or_path:
-        tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
     else:
-        raise ValueError(
-            "You are instantiating a new tokenizer from scratch. This is not supported by this script."
-            "You can do it from another script, save it, and load it from here, using --tokenizer_name."
-        )
+        tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
 
     if model_args.model_name_or_path:
-        model = AutoModelForCausalLM.from_pretrained(
+        model = AutoModel.from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
@@ -380,7 +339,7 @@ def main():
             use_auth_token=True if model_args.use_auth_token else None,
         )
     else:
-        model = AutoModelForCausalLM.from_config(config)
+        model = AutoModel.from_config(config)
         n_params = sum(dict((p.data_ptr(), p.numel()) for p in model.parameters()).values())
         logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
 
@@ -391,7 +350,7 @@ def main():
 
     teacher_model = None
     if model_args.distill_teacher is not None:
-        teacher_model = AutoModelForCausalLM.from_pretrained(
+        teacher_model = AutoModel.from_pretrained(
             model_args.distill_teacher,
             from_tf=bool(".ckpt" in model_args.distill_teacher),
             config=config,
@@ -423,7 +382,6 @@ def main():
     def tokenize_function(examples):
         with CaptureLogger(tok_logger) as cl:
             output = tokenizer(examples[text_column_name])
-        # clm input could be much much longer than block_size
         if "Token indices sequence length is longer than the" in cl.out:
             tok_logger.warning(
                 "^^^^^^^^^^^^^^^^ Please ignore the warning above - this long input will be chunked into smaller bits before being passed to the model."
@@ -444,7 +402,7 @@ def main():
 
     if training_args.do_train or training_args.do_eval:
         if data_args.dataset_name is not None:
-            raw_datasets = load_dataset(
+            datasets = load_dataset(
                 data_args.dataset_name, data_args.dataset_config_name, cache_dir=model_args.cache_dir
             )
         else:
@@ -460,30 +418,29 @@ def main():
             )
             if extension == "txt":
                 extension = "text"
-            raw_datasets = load_dataset(extension, data_files=data_files, cache_dir=model_args.cache_dir)
+            datasets = load_dataset(extension, data_files=data_files, cache_dir=model_args.cache_dir)
         
         if training_args.do_train:
-            column_names = raw_datasets["train"].column_names
+            column_names = datasets["train"].column_names
         else:
-            column_names = raw_datasets["validation"].column_names
+            column_names = datasets["validation"].column_names
         text_column_name = "text" if "text" in column_names else column_names[0]
-        import pdb
-        #pdb.set_trace()
+
         if "validation" not in raw_datasets.keys():
-            raw_datasets["validation"] = load_dataset(
+            datasets["validation"] = load_dataset(
                 extension,
                 data_files=data_files,
                 split=f"train[:{data_args.validation_split_percentage}%]",
                 cache_dir=model_args.cache_dir,
             )
-            raw_datasets["train"] = load_dataset(
+            datasets["train"] = load_dataset(
                 extension,
                 data_files=data_files,
                 split=f"train[{data_args.validation_split_percentage}%:]",
                 cache_dir=model_args.cache_dir,
             )
 
-        tokenized_datasets = raw_datasets.map(
+        tokenized_datasets = datasets.map(
             tokenize_function,
             batched=True,
             num_proc=data_args.preprocessing_num_workers,
@@ -491,7 +448,7 @@ def main():
             load_from_cache_file=not data_args.overwrite_cache,
             desc="Running tokenizer on dataset",
         )
-        lm_datasets = tokenized_datasets.map(
+        datasets = tokenized_datasets.map(
             group_texts,
             batched=True,
             num_proc=data_args.preprocessing_num_workers,
@@ -502,14 +459,14 @@ def main():
     if training_args.do_train:
         if "train" not in tokenized_datasets:
             raise ValueError("--do_train requires a train dataset")
-        train_dataset = lm_datasets["train"]
+        train_dataset = datasets["train"]
         if data_args.max_train_samples is not None:
             train_dataset = train_dataset.select(range(data_args.max_train_samples))
 
     if training_args.do_eval:
         if "validation" not in tokenized_datasets:
             raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = lm_datasets["validation"]
+        eval_dataset = datasets["validation"]
         if data_args.max_eval_samples is not None:
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
 
@@ -525,7 +482,7 @@ def main():
         tokenizer=tokenizer,
         data_collator=default_data_collator,
     )
-    wandb.init(project='gpt-distill', entity='spacemanidol')
+    
     if training_args.do_train:
         logger.info("*** Train ***")
         checkpoint = None
@@ -534,7 +491,7 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        trainer.save_model()  # Saves the tokenizer too for easy upload
+        trainer.save_model() 
         metrics = train_result.metrics
         max_train_samples = (
             data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
