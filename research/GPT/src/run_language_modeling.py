@@ -486,8 +486,9 @@ def main():
         tokenizer=tokenizer,
         data_collator=default_data_collator,
     )
-    
+
     if training_args.do_train:
+        wandb.init(project='gpt-distill', entity='spacemanidol') #Will remove when numbers are done
         logger.info("*** Train ***")
         checkpoint = None
         if training_args.resume_from_checkpoint is not None:
