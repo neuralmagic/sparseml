@@ -118,14 +118,17 @@ import numpy
 
 import datasets
 from datasets import load_dataset
+from transformers.utils.dummy_pt_objects import ElectraForSequenceClassification
 import wandb
 
 import transformers
 from transformers import (
+    CONFIG_MAPPING,
+    MODEL_FOR_CAUSAL_LM_MAPPING,
     AutoConfig,
+    AutoModelForCausalLM,
     AutoTokenizer,
     AutoConfig,
-    AutoModel,
     AutoTokenizer,
     HfArgumentParser,
     TrainingArguments,
@@ -134,11 +137,14 @@ from transformers import (
 )
 from transformers.testing_utils import CaptureLogger
 from transformers.trainer_utils import get_last_checkpoint
-from transformers.utils.versions import require_version
 
 from sparseml_utils import SparseMLTrainer, export_model
 
 logger = logging.getLogger(__name__)
+
+
+MODEL_CONFIG_CLASSES = list(MODEL_FOR_CAUSAL_LM_MAPPING.keys())
+MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
 @dataclass
 class ModelArguments:
@@ -147,10 +153,6 @@ class ModelArguments:
     """
     model_name_or_path: str = field(
         default=None, metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
-    )
-    model_type: Optional[str] = field(
-        default=None,
-        metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)},
     )
     distill_teacher: Optional[str] = field(
         default=None, metadata={"help": "Path to a pretrained Doc2Query Model to be used for distillation"}
@@ -315,8 +317,14 @@ def main():
     }
     if model_args.config_name:
         config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
-    else:
+    elif model_args.model_name_or_path:
         config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
+    else:
+        config = CONFIG_MAPPING[model_args.model_type]()
+        logger.warning("You are instantiating a new config instance from scratch.")
+        if model_args.config_overrides is not None:
+            logger.info(f"Overriding config: {model_args.config_overrides}")
+            config.update_from_string(model_args.config_overrides)
 
     tokenizer_kwargs = {
         "cache_dir": model_args.cache_dir,
@@ -330,7 +338,7 @@ def main():
         tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
 
     if model_args.model_name_or_path:
-        model = AutoModel.from_pretrained(
+        model = AutoModelForCausalLM.from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
@@ -339,7 +347,7 @@ def main():
             use_auth_token=True if model_args.use_auth_token else None,
         )
     else:
-        model = AutoModel.from_config(config)
+        model = AutoModelForCausalLM.from_config(config)
         n_params = sum(dict((p.data_ptr(), p.numel()) for p in model.parameters()).values())
         logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
 
@@ -350,7 +358,7 @@ def main():
 
     teacher_model = None
     if model_args.distill_teacher is not None:
-        teacher_model = AutoModel.from_pretrained(
+        teacher_model = AutoModelForCausalLM.from_pretrained(
             model_args.distill_teacher,
             from_tf=bool(".ckpt" in model_args.distill_teacher),
             config=config,
@@ -382,10 +390,6 @@ def main():
     def tokenize_function(examples):
         with CaptureLogger(tok_logger) as cl:
             output = tokenizer(examples[text_column_name])
-        if "Token indices sequence length is longer than the" in cl.out:
-            tok_logger.warning(
-                "^^^^^^^^^^^^^^^^ Please ignore the warning above - this long input will be chunked into smaller bits before being passed to the model."
-            )
         return output
         
     def group_texts(examples):
@@ -402,7 +406,7 @@ def main():
 
     if training_args.do_train or training_args.do_eval:
         if data_args.dataset_name is not None:
-            datasets = load_dataset(
+            raw_datasets = load_dataset(
                 data_args.dataset_name, data_args.dataset_config_name, cache_dir=model_args.cache_dir
             )
         else:
@@ -418,29 +422,29 @@ def main():
             )
             if extension == "txt":
                 extension = "text"
-            datasets = load_dataset(extension, data_files=data_files, cache_dir=model_args.cache_dir)
+            raw_datasets = load_dataset(extension, data_files=data_files, cache_dir=model_args.cache_dir)
         
         if training_args.do_train:
-            column_names = datasets["train"].column_names
+            column_names = raw_datasets["train"].column_names
         else:
-            column_names = datasets["validation"].column_names
+            column_names = raw_datasets["validation"].column_names
         text_column_name = "text" if "text" in column_names else column_names[0]
 
         if "validation" not in raw_datasets.keys():
-            datasets["validation"] = load_dataset(
+            raw_datasets["validation"] = load_dataset(
                 extension,
                 data_files=data_files,
                 split=f"train[:{data_args.validation_split_percentage}%]",
                 cache_dir=model_args.cache_dir,
             )
-            datasets["train"] = load_dataset(
+            raw_datasets["train"] = load_dataset(
                 extension,
                 data_files=data_files,
                 split=f"train[{data_args.validation_split_percentage}%:]",
                 cache_dir=model_args.cache_dir,
             )
 
-        tokenized_datasets = datasets.map(
+        tokenized_datasets = raw_datasets.map(
             tokenize_function,
             batched=True,
             num_proc=data_args.preprocessing_num_workers,
@@ -448,7 +452,7 @@ def main():
             load_from_cache_file=not data_args.overwrite_cache,
             desc="Running tokenizer on dataset",
         )
-        datasets = tokenized_datasets.map(
+        lm_datasets = tokenized_datasets.map(
             group_texts,
             batched=True,
             num_proc=data_args.preprocessing_num_workers,
@@ -459,14 +463,14 @@ def main():
     if training_args.do_train:
         if "train" not in tokenized_datasets:
             raise ValueError("--do_train requires a train dataset")
-        train_dataset = datasets["train"]
+        train_dataset = lm_datasets["train"]
         if data_args.max_train_samples is not None:
             train_dataset = train_dataset.select(range(data_args.max_train_samples))
 
     if training_args.do_eval:
         if "validation" not in tokenized_datasets:
             raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = datasets["validation"]
+        eval_dataset = lm_datasets["validation"]
         if data_args.max_eval_samples is not None:
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
 
@@ -491,7 +495,7 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        trainer.save_model() 
+        trainer.save_model()  # Saves the tokenizer too for easy upload
         metrics = train_result.metrics
         max_train_samples = (
             data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
