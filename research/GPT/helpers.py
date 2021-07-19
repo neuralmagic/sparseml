@@ -775,12 +775,9 @@ def get_named_layers_and_params_by_regex(
     
     for layer_name, layer in module.named_modules():
         for param_name, param in layer.named_parameters():
-            if "." in param_name and ".bias" not in param_name and ".weight" not in param_name:  # skip parameters of nested layers
+            if "." in param_name:  # skip parameters of nested layers
                 continue
-            full_param_name = param_name
-            if layer_name != '':
-                full_param_name = "{}.{}".format(layer_name, param_name)
-            print(full_param_name)
+            full_param_name = "{}.{}".format(layer_name, param_name)
             if any_str_or_regex_matches_param_name(full_param_name, param_names):
                 named_layers_and_params.append(
                     NamedLayerParam(layer_name, layer, param_name, param)

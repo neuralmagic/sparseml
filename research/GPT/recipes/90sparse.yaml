@@ -2,17 +2,149 @@ version: 1.1.0
 
 modifiers:
     - !EpochRangeModifier
-        end_epoch: 5
+        end_epoch: 10
         start_epoch: 0.0
 
     - !GMPruningModifier
-        end_epoch: 4
+        end_epoch: 5
         final_sparsity: 0.90
         init_sparsity: 0.00
         inter_func: cubic
         leave_enabled: True
         log_types: __ALL__
         mask_type: unstructured
-        params: ['model.h.0.attn.c_attn','model.h.0.attn.c_proj','model.h.0.mlp.c_fc','model.h.0.mlp.c_proj']
+        params: ['transformer.h.0.attn.c_attn.weight','transformer.h.0.attn.c_proj.weight','transformer.h.0.mlp.c_fc.weight','transformer.h.0.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+    
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.1.attn.c_attn.weight','transformer.h.1.attn.c_proj.weight','transformer.h.1.mlp.c_fc.weight','transformer.h.1.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.2.attn.c_attn.weight','transformer.h.2.attn.c_proj.weight','transformer.h.2.mlp.c_fc.weight','transformer.h.2.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+    
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.3.attn.c_attn.weight','transformer.h.3.attn.c_proj.weight','transformer.h.3.mlp.c_fc.weight','transformer.h.3.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.4.attn.c_attn.weight','transformer.h.4.attn.c_proj.weight','transformer.h.4.mlp.c_fc.weight','transformer.h.4.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+    
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.5.attn.c_attn.weight','transformer.h.5.attn.c_proj.weight','transformer.h.5.mlp.c_fc.weight','transformer.h.5.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.6.attn.c_attn.weight','transformer.h.6.attn.c_proj.weight','transformer.h.6.mlp.c_fc.weight','transformer.h.6.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.7.attn.c_attn.weight','transformer.h.7.attn.c_proj.weight','transformer.h.7.mlp.c_fc.weight','transformer.h.7.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.8.attn.c_attn.weight','transformer.h.8.attn.c_proj.weight','transformer.h.8.mlp.c_fc.weight','transformer.h.8.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.9.attn.c_attn.weight','transformer.h.9.attn.c_proj.weight','transformer.h.9.mlp.c_fc.weight','transformer.h.9.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.10.attn.c_attn.weight','transformer.h.10.attn.c_proj.weight','transformer.h.10.mlp.c_fc.weight','transformer.h.10.mlp.c_proj.weight']
+        start_epoch: 1
+        update_frequency: 0.01
+
+    - !GMPruningModifier
+        end_epoch: 5
+        final_sparsity: 0.90
+        init_sparsity: 0.00
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['transformer.h.11.attn.c_attn.weight','transformer.h.11.attn.c_proj.weight','transformer.h.11.mlp.c_fc.weight','transformer.h.11.mlp.c_proj.weight']
         start_epoch: 1
         update_frequency: 0.01
