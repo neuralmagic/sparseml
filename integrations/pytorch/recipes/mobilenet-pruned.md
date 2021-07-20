@@ -95,12 +95,12 @@ using an SGD optimizer.
 When running, adjust hyperparameters based on training environment and dataset.
 
 ## Training
-The training script can be found at `sparseml/integrations/pytorch/scripts/vision.py`.
+The training script can be found at `sparseml/integrations/pytorch/vision.py`.
 
 *script command:*
 
 ```
-python integrations/pytorch/scripts/vision.py train \
+python integrations/pytorch/vision.py train \
     --recipe-path zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/pruned-moderate?recipe_type=original \
     --pretrained True \
     --arch-key mobilenet \
