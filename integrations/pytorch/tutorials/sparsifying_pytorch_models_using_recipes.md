@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Sparsifying PyTorch Using Recipes
+# Sparsifying PyTorch Models Using Recipes
 
 This tutorial shows how Neural Magic recipes simplify the sparsification process by encoding the hyperparameters and instructions needed to create highly accurate pruned and pruned-quantized PyTorch models.
 
