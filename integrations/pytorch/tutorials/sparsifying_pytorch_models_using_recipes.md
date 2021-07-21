@@ -53,14 +53,16 @@ Recipes consist of a series of `Modifiers` that can influence the training proce
 common modifiers and their uses is provided
 [here](https://github.com/neuralmagic/sparseml/blob/main/docs/source/recipes.md#modifiers-intro).
 
-SparseML provides recipe for sparsifying a ResNet-50 model trained on the tiny imagenette dataset. The recipe can
+SparseML provides a recipe for sparsifying a ResNet-50 model trained on the tiny Imagenette dataset. The recipe can
 be viewed in the browser
 [here](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/recipes/resnet50-imagenette-pruned.md)
 or in the command line from the file `sparseml/integrations/pytorch/recipes/resnet50-imagenette-pruned.md`.
 
-The recipe contains three kinds of modifiers - an `EpochRangeModifier` that sets the number of epochs used
-for sparsification, a `SetLearningRateModifier` that sets the sparsification learning rate, and three
-`GMPruningModifier`s that set various layers of the model to be pruned to different levels.
+The recipe contains three kinds of modifiers:
+
+- an `EpochRangeModifier` that sets the number of epochs used for sparsification
+- a `SetLearningRateModifier` that sets the sparsification learning rate, and
+- three `GMPruningModifier`s that set various layers of the model to be pruned to different levels.
 
 Notice that each `GMPruningModifier` sets specific parameters of the ResNet-50 model to be pruned. To
 prune a different model, the parameter names should be adjusted to match the new model.  To avoid naming
@@ -70,18 +72,18 @@ of the parameters list for a single `GMPruningModifier`.
 ### Applying a Recipe
 
 Recipes can integrated into training flows with a couple of lines of code by using a `ScheduledModifierManager`
-that wraps the pytorch `Optimizer` step.  An example of how this is done can be found
+that wraps the PyTorch `Optimizer` step.  An example of how this is done can be found
 [here](https://github.com/neuralmagic/sparseml/blob/main/docs/source/code.md#pytorch-sparsification).
 
 For this example, we can use the `sparseml/integrations/pytorch/vision.py` script.  This script runs a
 PyTorch training flow that is modified by a `ScheduledModifierManager` and takes a recipe as an input.
 It natively supports ResNet-50 and other popular image classification models.
 
-To prune a ResNet-50 model trained on the imagenette dataset with the recipe above, run the following command.
-If the imagenette dataset has not been downloaded yet, the script will automatically download it to the given
+To prune a ResNet-50 model trained on the Imagenette dataset with the recipe above, run the following command.
+If the Imagenette dataset has not been downloaded yet, the script will automatically download it to the given
 `--dataset-path`. If you have a local copy of the dataset, `--dataset-path` may be updated.
 
-*note:* if an out of memory exception occurs, the train batch size should be lowered to fit on your device
+*Note:* If an out of memory exception occurs, the train batch size should be lowered to fit on your device
 
 ```bash
 cd sparseml
@@ -110,13 +112,13 @@ python integrations/pytorch/vision.py train --help
 
 ## Exporting for Inference
 
-After the training pruned model and training log files will be found under 
+After, the training pruned model and training log files will be found under 
 `sparsification_example/resnet50-imagenette-pruned`. To run the sparsified model for accelerated inference with
 an inference engine such as [DeepSparse](https://github.com/neuralmagic/deepsparse), the pruned model must be
 exported to the ONNX format.
 
 This step has already been done for you by the `train.py` script which uses the
-`sparseml.pytorch.utils.ModuleExporter` class.  The exported sparse ResNet-50 imagenette ONNX model will be
+`sparseml.pytorch.utils.ModuleExporter` class.  The exported sparse ResNet-50 Imagenette ONNX model will be
 saved to `sparsification_example/resnet50-imagenette-pruned/model.onnx`
 
 The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in

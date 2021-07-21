@@ -117,12 +117,12 @@ pruning_modifiers:
     update_frequency: *pruning_update_frequency
 ---
 
-# ResNet-50 imagenette Conservative Sparse
+# ResNet-50 Imagenette Conservative Sparse
 
 This recipe creates a sparse [ResNet-50](https://arxiv.org/abs/1512.03385) model that
-achieves full recovery of its baseline accuracy on the imagenette dataset.
-Training was done using 1 GPUs using a total training batch size of 128
-using an SGD optimizer.
+achieves full recovery of its baseline accuracy on the Imagenette dataset.
+Training was done using 1 GPU with a total training batch size of 128
+using a SGD optimizer.
 
 When running, adjust hyperparameters based on training environment and dataset.
 
