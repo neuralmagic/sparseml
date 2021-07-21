@@ -61,7 +61,7 @@ or in the command line from the file `sparseml/integrations/pytorch/recipes/resn
 The recipe contains three kinds of modifiers:
 
 - an `EpochRangeModifier` that sets the number of epochs used for sparsification
-- a `SetLearningRateModifier` that sets the sparsification learning rate, and
+- a `SetLearningRateModifier` that sets the sparsification learning rate
 - three `GMPruningModifier`s that set various layers of the model to be pruned to different levels.
 
 Notice that each `GMPruningModifier` sets specific parameters of the ResNet-50 model to be pruned. To
