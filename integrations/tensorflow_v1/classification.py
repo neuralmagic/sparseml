@@ -683,6 +683,16 @@ def _save_checkpoint(args, sess, save_dir, checkpoint_name) -> str:
     return checkpoint_path
 
 
+def _save_recipe(
+    recipe_manager: ScheduledModifierManager,
+    save_dir: str,
+):
+
+    recipe_save_path = os.path.join(save_dir, "recipe.yaml")
+    recipe_manager.save(recipe_save_path)
+    LOGGER.info(f"Saved recipe to {recipe_save_path}")
+
+
 def train(args, save_dir, logs_dir):
     # setup dataset
     with tf_compat.device("/cpu:0"):
@@ -723,7 +733,7 @@ def train(args, save_dir, logs_dir):
         file_path=args.recipe_path, add_modifiers=add_mods
     )
     mod_ops, mod_extras = manager.create_ops(train_steps, global_step)
-
+    _save_recipe(recipe_manager=manager, save_dir=save_dir)
     with tf_compat.Session() as sess:
         # set up tensorboard logging
         summary_writer = tf_compat.summary.FileWriter(logs_dir, sess.graph)

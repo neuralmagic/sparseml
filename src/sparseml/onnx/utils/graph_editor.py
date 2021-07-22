@@ -227,6 +227,8 @@ class ONNXGraph(object):
         for parent_node_id, child_nodes in self._input_id_to_nodes.items():
             if parent_node_id not in self._output_id_to_node:
                 continue  # parent is an initializer, not node
+            # standardize all references to nodes by their first output id
+            parent_node_id = self._output_id_to_node[parent_node_id].output[0]
             for child_node in child_nodes:
                 model_dag[child_node.output[0]].add(parent_node_id)
         sorted_node_ids = toposort_flatten(model_dag)

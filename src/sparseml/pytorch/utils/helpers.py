@@ -274,6 +274,11 @@ def tensors_to_device(
     if isinstance(tensors, Tensor):
         return tensors.to(device)
 
+    if isinstance(tensors, OrderedDict):
+        return OrderedDict(
+            [(key, tensors_to_device(tens, device)) for key, tens in tensors.items()]
+        )
+
     if isinstance(tensors, Dict):
         return {key: tensors_to_device(tens, device) for key, tens in tensors.items()}
 
