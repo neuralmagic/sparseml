@@ -38,6 +38,8 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.parallel.parallel_apply import parallel_apply
 
+from sparseml.pytorch.utils import tensors_module_forward
+
 
 __all__ = [
     "GradSampler",
@@ -79,7 +81,8 @@ class GradSampler:
         """
         if isinstance(data, Tensor):
             data = [data]
-        return module(*data)
+
+        return tensors_module_forward(*data, module)
 
     def module_backward(self, module_outputs: Any, targets: Any):
         """
