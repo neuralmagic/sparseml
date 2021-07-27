@@ -829,8 +829,9 @@ class GMPruningModifier(_PruningParamsModifier):
             self._module_masks.enabled = True
             started = True
 
-        self._module_masks.pre_optim_step_update()
-        self._pre_step_completed = True
+        if not self._pre_step_completed:
+            self._module_masks.pre_optim_step_update()
+            self._pre_step_completed = True
 
         if started:
             # set the mask tensors according to the new sparsity
@@ -1372,6 +1373,8 @@ class MFACPruningModifier(GMPruningModifier):
         # create grads for pne-shot pruning
         if "grad_sampler" in kwargs:
             self._collect_grad_samples(module, kwargs["grad_sampler"])
+            self._pre_step_completed = True
+
 
         super()._check_mask_update(module, epoch, steps_per_epoch, **kwargs)
 
