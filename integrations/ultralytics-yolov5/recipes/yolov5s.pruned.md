@@ -140,3 +140,26 @@ pruning_modifiers:
 ---
 
 # YOLOv5s Pruned
+
+This recipe creates a sparse, [YOLOv5s](https://github.com/ultralytics/yolov5) model that achieves 96% recovery of its baseline accuracy on the COCO dataset (0.556 mAP@0.5 baseline vs 0.534 mAP@0.5 for this recipe).
+Training was done using 4 GPUs at half precision with a total batch size of 256 using the [SparseML integration with ultralytics/yolov5](https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov5).
+
+When running, adjust hyperparameters based on training environment and dataset.
+
+## Training
+
+To set up the training environment, follow the instructions on the [integration README](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/README.md).
+Using the given training script from the `yolov5` directory the following command can be used to launch this recipe. 
+Adjust the script command for your GPU device setup. 
+Ultralytics supports both DataParallel and DDP.
+
+*script command:*
+
+```
+python train.py \
+    --cfg ../models/yolov5s.yaml \
+    --weights PRETRAINED_WEIGHTS \
+    --data coco.yaml \
+    --hyp data/hyp.scratch.yaml \
+    --recipe ../recipes/yolov5s.pruned.md \
+```
