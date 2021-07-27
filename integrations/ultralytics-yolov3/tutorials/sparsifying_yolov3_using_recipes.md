@@ -236,12 +236,12 @@ The result is a new file added next to the sparsified checkpoint with a `.onnx` 
 
 2. Now you can run the `.onnx` file through a compression algorithm to reduce its deployment size and run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
  
-The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in inference performance. An example for benchmarking and deploying YOLOv3 models with DeepSparse can be found [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3).
+The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in inference performance. An example for benchmarking and deploying YOLOv3 models with DeepSparse can be found [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo).
 
 ## Wrap-Up
 
 Neural Magic recipes simplify the sparsification process by encoding the hyperparameters and instructions needed to create highly accurate pruned and pruned-quantized YOLOv3 models. In this tutorial, you created a pre-trained model to establish a baseline, applied a Neural Magic recipe for sparsification, and exported to ONNX to run through an inference engine.
 
-Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3) for an example for benchmarking and deploying YOLOv3 models with DeepSparse.
+Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo) for an example for benchmarking and deploying YOLOv3 models with DeepSparse.
 
 For Neural Magic Support, sign up or log in to get help with your questions in our **Tutorials channel**: [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). 
