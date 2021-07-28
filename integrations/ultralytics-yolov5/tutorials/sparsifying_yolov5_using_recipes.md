@@ -230,10 +230,10 @@ The [`export.py` script](https://github.com/neuralmagic/yolov5/blob/master/model
     ```
     |-- exp
     |-- exp1
-    |-- weights
-    |   |-- best.pt
-    |   |-- best.onnx
-    |   `-- last.pt
+    |-- |-- weights
+    |   |   |-- best.pt
+    |   |   |-- best.onnx
+    |   |   `-- last.pt
     `-- ...
     ```
 
