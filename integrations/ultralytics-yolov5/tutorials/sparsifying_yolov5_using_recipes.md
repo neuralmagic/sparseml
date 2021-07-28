@@ -88,7 +88,7 @@ Afterward, you will have a model that achieves roughly 0.556 mAP@0.5 or 0.654 mA
    python train.py --cfg ../models/yolov5s.yaml --weights "" --data coco.yaml --hyp data/hyp.scratch.yaml
    ```    
 
-   YOLOv5L:
+   YOLOv5l:
    ```bash
    python train.py --cfg ../models/yolov5l.yaml --weights "" --data coco.yaml --hyp data/hyp.scratch.yaml
    ```
