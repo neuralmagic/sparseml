@@ -36,7 +36,7 @@ Otherwise, setup scripts for both [VOC](https://cs.stanford.edu/~roozbeh/pascal-
 
 ### Setting Up the Data
 
-1. For this tutorial, we run the COCO setup script with the following command from the root of the yolov5 repository:
+1. For this tutorial, run the COCO setup script with the following command from the root of the `yolov5` repository:
     ```bash
     bash data/scripts/get_voc.sh
     ```
