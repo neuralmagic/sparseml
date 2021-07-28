@@ -243,7 +243,7 @@ The [`export.py` script](https://github.com/neuralmagic/yolov5/blob/master/model
 
 ## Wrap-Up
 
-Neural Magic recipes simplify the sparsification process by encoding the hyperparameters and instructions needed to create highly accurate pruned and pruned-quantized YOLOv3 models. 
+Neural Magic recipes simplify the sparsification process by encoding the hyperparameters and instructions needed to create highly accurate pruned and pruned-quantized YOLOv5 models. 
 In this tutorial, you created a pre-trained model to establish a baseline, applied a Neural Magic recipe for sparsification, and exported to ONNX to run through an inference engine.
 
 Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo) for an example for benchmarking and deploying YOLOv5 models with DeepSparse.
