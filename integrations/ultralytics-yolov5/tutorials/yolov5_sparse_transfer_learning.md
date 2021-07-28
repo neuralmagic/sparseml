@@ -130,7 +130,7 @@ The recipes are specific to the sparsification type, so the training command wil
      ```bash
      python train.py --data voc.yaml --cfg ../models/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98 --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5l.transfer_learn_pruned.md
      ```
-   - YOLOv5l Pruned Quantized transfer learning:
+   - YOLOv5l Pruned-Quantized transfer learning:
      ```bash
      python train.py --data voc.yaml --cfg ../models/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95 --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5l.transfer_learn_pruned_quantized.md
      ```
