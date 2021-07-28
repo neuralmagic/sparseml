@@ -141,6 +141,13 @@ The recipes are specific to the sparsification type, so the training command wil
    
    ***Notes About Transfer Learning***
    
+   - Check your CPU hardware support for quantized networks (VNNI instruction set) using the DeepSparse API:
+     ```python
+     from deepsparse.cpu import cpu_vnni_compatible
+     print(f"VNNI available: {cpu_vnni_compatible()}")
+     ```
+   - If your hardware does not support quantized networks for inference speedup or complete recovery is very important, then Neural Magic recommends using the  `pruned` recipe. The recipe to use depends on how long you are willing to train and how vital full recovery is. Consult the table above for this comparison.
+   - If your hardware does support quantized networks, we recommend using the `pruned quantized` recipe. The recipe to use depends on how long you are willing to train and how crucial full recovery is. Consult the table for this comparison.
    - When running quantized models, the memory footprint for training will significantly increase (roughly 3x). It is recommended to train at a high batch size at first. This will fail with an out-of-memory exception once quantization starts. Once this happens, use the `last.pt` weights from that run to resume training with a lower batch size.
    
    ***VOC Results***
