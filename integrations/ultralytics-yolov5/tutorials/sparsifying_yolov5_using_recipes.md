@@ -94,7 +94,7 @@ Afterward, you will have a model that achieves roughly 0.556 mAP@0.5 or 0.654 mA
    ```
 2. Validate that the training commands completed successfully by checking under the newly created `runs/train/exp` path for the trained weights.
    The best trained weights will be found at `runs/train/exp/weights/best.pt` and will be used later for further sparsification.
-   The full results are also visible in this folder under multiple formats including tensorboard runs, txt files, and png files.
+   The full results are also visible in this folder under multiple formats including TensorBoard runs, txt files, and png files.
    Upon success, the results directory should look like the following:
     ```
     |-- VOC
