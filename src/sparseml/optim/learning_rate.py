@@ -40,7 +40,7 @@ class SetLearningRate(BaseObject):
         return self._learning_rate
 
     @learning_rate.setter
-    def learning_rate(self, value: str):
+    def learning_rate(self, value: float):
         """
         :param value: The learning rate to use once this modifier starts
         """
@@ -48,6 +48,9 @@ class SetLearningRate(BaseObject):
         self.validate_learning_rate()
 
     def validate_learning_rate(self):
+        if isinstance(self._learning_rate, str):
+            self._learning_rate = float(self._learning_rate)
+
         if self._learning_rate <= 0.0:
             raise ValueError("learning_rate must be greater than 0")
 
