@@ -146,7 +146,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 2. Select a recipe to use on top of the pre-trained model you created.
 
     ***Notes About Recipe Selection***
-    - The recipes are not interchangeable between model versions. For example, if you created a pretrained YOLOv5l model then be sure to use a recipe listed for v5l.
+    - The recipes are not interchangeable between model versions. For example, if you created a pre-trained YOLOv5l model then be sure to use a recipe listed for v5l.
     - If your hardware does not support quantized networks for inference speedup or complete recovery is very important, then Neural Magic recommends using the  `pruned` recipe. The recipe to use depends on how long you are willing to train and how vital full recovery is. Consult the table above for this comparison.
     - If your hardware does support quantized networks (VNNI instruction set on CPUs, for example), we recommend using the `pruned quantized` recipe. The recipe to use depends on how long you are willing to train and how crucial full recovery is. Consult the table for this comparison.
     - When running quantized models, the memory footprint for training will significantly increase (roughly 3x). It is recommended to train at a high batch size at first. This will fail with an out-of-memory exception once quantization starts. Once this happens, use the `last.pt` weights from that run to resume training with a lower batch size.
