@@ -176,6 +176,7 @@ class ModuleExporter(object):
         opset: int = DEFAULT_ONNX_OPSET,
         disable_bn_fusing: bool = True,
         convert_qat: bool = False,
+        dynamic_axes: Optional[Dict] = None,
     ):
         """
         Export an onnx file for the current module and for a sample batch.
@@ -197,6 +198,9 @@ class ModuleExporter(object):
             the module being exported, the resulting QAT ONNX model will be converted
             to a fully quantized ONNX model using `quantize_torch_qat_export`. Default
             is False.
+        :param dynamic_axes: The axes to export with a generic placeholder to signify
+            a dynamic shape instead of static. Generally used for batch sizes
+            to enable dynamic batch inputs for ONNX graphs.
         """
         if isinstance(sample_batch, Dict) and not isinstance(
             sample_batch, collections.OrderedDict
@@ -264,6 +268,7 @@ class ModuleExporter(object):
             strip_doc_string=True,
             verbose=False,
             opset_version=opset,
+            dynamic_axes=dynamic_axes,
         )
 
         # re-enable disabled quantization observers
