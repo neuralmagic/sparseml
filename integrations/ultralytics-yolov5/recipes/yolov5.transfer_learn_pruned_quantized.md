@@ -71,7 +71,7 @@ quantization_modifiers:
     submodules: [ 'model.0', 'model.1', 'model.2', 'model.3', 'model.4', 'model.5', 'model.6', 'model.7', 'model.8', 'model.9', 'model.10', 'model.11', 'model.12', 'model.13', 'model.14', 'model.15', 'model.16', 'model.17', 'model.18', 'model.19', 'model.20', 'model.21', 'model.22', 'model.23' ]
 ---
 
-# YOLOv5 Pruned Quantized Transfer Learning
+# YOLOv5 Pruned-Quantized Transfer Learning
 
 This recipe transfer learns from a sparse, [YOLOv5](https://github.com/ultralytics/yolov5) model and then quantizes it.
 It has been tested with s and l versions on the VOC dataset using the the [SparseML integration with ultralytics/yolov5](https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov5).
