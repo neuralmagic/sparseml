@@ -79,7 +79,7 @@ The training command will take multiple hours to complete since it is training f
 Afterward, you will have a model that achieves roughly 0.556 mAP@0.5 or 0.654 mAP@0.5 on the COCO dataset for YOLOv5s and YOLOv5l respectively ready for sparsifying.
 
 1. To create a deployable model, you will train a YOLOv5 version with HardSwish activations from scratch.
-   To decide which version to use, consult the table given in the later [Applying a Recipe](#applying-a-recipe) section. 
+   To decide which version to use, consult the table below in the [Applying a Recipe](#applying-a-recipe) section. 
    The training commands for both are given below.
    Run the commands from the root of the `yolov5` repository folder (`cd integrations/ultralytics-yolov5/yolov5`).
    
