@@ -143,7 +143,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 
     ** DeepSparse Performance measured on an AWS C5 instance with 24 cores, batch size 64, and 640x640 input with version 1.6 of the DeepSparse Engine.
 
-2. Select a recipe to use on top of the pretrained model you created.
+2. Select a recipe to use on top of the pre-trained model you created.
 
     ***Notes About Recipe Selection***
     - The recipes are not interchangeable between model versions. For example, if you created a pretrained YOLOv5l model then be sure to use a recipe listed for v5l.
