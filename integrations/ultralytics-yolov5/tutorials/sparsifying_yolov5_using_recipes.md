@@ -163,7 +163,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 This step loads a checkpoint file of the best weights measured on the validation set, and converts it into the more common inference formats. 
 Then, you can run the file through a compression algorithm to reduce its deployment size and run it in an inference engine such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
 
-When you applied a recipe in the previous step, the sparsification run created a new `exp` directory under the yolov5 runs directory:
+When you applied a recipe in the previous step, the sparsification run created a new `exp` directory under the `yolov5/runs` directory:
 
 ```
 |-- VOC
