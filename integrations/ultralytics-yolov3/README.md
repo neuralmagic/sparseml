@@ -30,7 +30,7 @@ The techniques include, but are not limited to:
 ## Highlights
 
 - Blog: [YOLOv3 on CPUs: Sparsifying to Achieve GPU-Level Performance](https://neuralmagic.com/blog/benchmark-yolov3-on-cpus-with-deepsparse/)
-- Example: [DeepSparse YOLOv3 Inference Example](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3)
+- Example: [DeepSparse YOLOv3 Inference Example](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo)
 - Video: [DeepSparse YOLOv3 Pruned Quantized Performance](https://youtu.be/o5qIYs47MPw)
 
 ## Tutorials
@@ -124,4 +124,4 @@ python models/export.py --weights PATH/TO/weights.pt --img-size 512 512
 ```
 
 The DeepSparse Engine accepts ONNX formats and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
-Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3).
+Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo).
