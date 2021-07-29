@@ -91,6 +91,12 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md">
         <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov3.png" width="136px" />
     </a>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/ultralytics-yolov5/tutorials/sparsifying_yolov5_using_recipes.md">
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov5.png" width="136px" />
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/huggingface-transformers/tutorials/sparsifying_bert_using_recipes.md">
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/nlp_bert.png" width="136px" />
+    </a>
 </p>
 
 ### Transfer Learning from Sparse Models
@@ -98,6 +104,12 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 <p>
     <a href="https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb">
         <img src="https://docs.neuralmagic.com/docs/source/tutorials/classification_resnet-50.png" width="136px" />
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/yolov3_sparse_transfer_learning.md">
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov3.png" width="136px" />
+    </a>
+    <a href="https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/yolov5_sparse_transfer_learning.md">
+        <img src="https://docs.neuralmagic.com/docs/source/tutorials/detection_yolov5.png" width="136px" />
     </a>
 </p>
 
