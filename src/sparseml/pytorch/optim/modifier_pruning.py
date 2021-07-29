@@ -1421,6 +1421,9 @@ class MFACGlobalPruningModifier(MFACPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
+    :param phased: True to enable a phased approach where pruning will
+        turn on and off with the update_frequency. Starts with pruning on
+        at start_epoch, off at start_epoch + update_frequency, and so on.
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
@@ -1445,6 +1448,7 @@ class MFACGlobalPruningModifier(MFACPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
+        phased: bool = False,
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         mfac_options: Dict[str, Any] = None,
@@ -1458,6 +1462,7 @@ class MFACGlobalPruningModifier(MFACPruningModifier):
             params=params,
             leave_enabled=leave_enabled,
             inter_func=inter_func,
+            phased=phased,
             log_types=log_types,
             mask_type=mask_type,
             global_sparsity=True,
