@@ -26,6 +26,7 @@ from typing import (
     Callable,
     Dict,
     Generator,
+    Iterable,
     Iterator,
     List,
     Optional,
@@ -57,7 +58,7 @@ class GradSampler:
     Class for computing gradient samples for a Model given a sample data loader and
     loss function.
 
-    :param dataloader: iterator of data samples to use as model inputs and their loss
+    :param data_loader: iterator of data samples to use as model inputs and their loss
         targets. Samples can either be single tensors as model input or a list of
         inputs and should be iterated in tuples with their targets
     :param loss_fn: function to be called on model outputs to compute the loss at
@@ -66,14 +67,24 @@ class GradSampler:
 
     def __init__(
         self,
-        dataloader: Iterator[Tuple[Union[Tensor, List[Tensor]], Any]],
+        data_loader: Iterator[Tuple[Union[Tensor, List[Tensor]], Any]],
         loss_fn: Callable[[Tensor], Tensor],
     ):
-        self._dataloader = dataloader
+        if not isinstance(data_loader, Iterable):
+            raise ValueError(
+                "data_loader for GradSampler must be Iterable, received object of "
+                f"type {type(data_loader)}"
+            )
+        if not callable(loss_fn):
+            raise ValueError(
+                "loss_fn for GradSampler must be callable, given input "
+                f"with type {type(loss_fn)}"
+            )
+
+        self._data_loader = data_loader
         self._loss_fn = loss_fn
 
-    @staticmethod
-    def module_forward(module: Module, data: Union[Tensor, List[Tensor]]) -> Any:
+    def module_forward(self, module: Module, data: Union[Tensor, List[Tensor]]) -> Any:
         """
         :param module: module to perform forward pass with
         :param data: single data sample to pass to module
@@ -108,7 +119,7 @@ class GradSampler:
         computed_grads = 0
 
         while computed_grads < num_grads:
-            for sample, target in self._dataloader:
+            for sample, target in self._data_loader:
                 # run sample forward and backwards pass
                 model_outputs = self.module_forward(module, sample)
                 self.module_backward(model_outputs, target)
