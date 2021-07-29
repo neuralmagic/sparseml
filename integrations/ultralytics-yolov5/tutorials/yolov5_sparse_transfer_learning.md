@@ -117,11 +117,11 @@ The recipes are specific to the sparsification type, so the training command wil
 1) Select the proper command to run based on the model and the sparsification type of the model you chose earlier.
    - YOLOv5s Pruned transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96 --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5s.transfer_learn_pruned.md
+     python train.py --data voc.yaml --cfg ../models/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96?recipe_type=transfer --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned.md
      ```
    - YOLOv5s Pruned-Quantized transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94 --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5s.transfer_learn_pruned_quantized.md
+     python train.py --data voc.yaml --cfg ../models/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94?recipe_type=transfer --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned_quantized.md
      ```
    - YOLOv5s Baseline transfer learning:
      ```bash
@@ -129,11 +129,11 @@ The recipes are specific to the sparsification type, so the training command wil
      ```
    - YOLOv5l Pruned transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98 --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5l.transfer_learn_pruned.md
+     python train.py --data voc.yaml --cfg ../models/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98?recipe_type=transfer --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned.md
      ```
    - YOLOv5l Pruned-Quantized transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95 --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5l.transfer_learn_pruned_quantized.md
+     python train.py --data voc.yaml --cfg ../models/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95?recipe_type=transfer --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned_quantized.md
      ```
    - YOLOv5l Baseline transfer learning:
      ```bash
