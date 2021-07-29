@@ -1375,7 +1375,6 @@ class MFACPruningModifier(GMPruningModifier):
             self._collect_grad_samples(module, kwargs["grad_sampler"])
             self._pre_step_completed = True
 
-
         super()._check_mask_update(module, epoch, steps_per_epoch, **kwargs)
 
     def _create_pruning_mask(
