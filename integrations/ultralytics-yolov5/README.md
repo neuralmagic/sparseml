@@ -29,11 +29,12 @@ The techniques include, but are not limited to:
 
 ## Highlights
 
-- Coming soon!
+- Example: [DeepSparse YOLOv5 Inference Example](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo)
 
 ## Tutorials
 
-- Coming soon!
+- [Sparsifying YOLOv5 Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/sparsifying_yolov5_using_recipes.md)
+- [Sparse Transfer Learning With YOLOv5](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/yolov5_sparse_transfer_learning.md)
 
 ## Installation
 
@@ -44,6 +45,7 @@ bash setup_integration.sh
 
 The setup_integration.sh file will clone the yolov5 repository with the SparseML integration as a subfolder.
 After the repo has successfully cloned,  all dependencies from the `yolov5/requirements.txt` file will install in your current environment.
+Note, the `yolov5` repository requires Python 3.7 or greater.
 
 ## Quick Tour
 
@@ -84,8 +86,8 @@ The export process is modified such that the quantized and pruned models are cor
 
 For example, the following command can be run from within the yolov5 repository folder to export a trained/sparsified model's checkpoint:
 ```bash
-python models/export.py --weights PATH/TO/weights.pt --img-size 512 512
+python models/export.py --weights PATH/TO/weights.pt --dynamic
 ```
 
 The DeepSparse Engine accepts ONNX formats and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
-Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolov3).
+Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo).
