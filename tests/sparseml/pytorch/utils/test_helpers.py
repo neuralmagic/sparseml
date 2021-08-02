@@ -534,7 +534,7 @@ def test_tensors_module_forward_cuda(module, tensors, check_feat_lab_inp):
     module = module.to("cuda")
     tensors = tensors_to_device(tensors, "cuda")
     out = tensors_module_forward(tensors, module, check_feat_lab_inp)
-    assert out
+    assert out is not None
 
 
 @pytest.mark.skipif(
