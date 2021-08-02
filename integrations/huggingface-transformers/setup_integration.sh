@@ -8,3 +8,4 @@ git clone https://github.com/neuralmagic/transformers.git
 cd transformers
 pip install -e .
 pip install datasets
+pip install sparseml[torch]
