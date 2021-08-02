@@ -40,17 +40,19 @@ from sparseml.onnx.utils.helpers import (
     get_prunable_node_from_foldable,
     is_foldable_node,
 )
+from sparsezoo.objects import File, Model
 
 
 try:
     import deepsparse
-    from deepsparse import analyze_model, compile_model
+    from deepsparse import Scheduler, analyze_model, compile_model
     from deepsparse.cpu import cpu_details
 except Exception:
     deepsparse = None
     compile_model = None
     analyze_model = None
     cpu_details = None
+    Scheduler = None
 
 try:
     from openvino.inference_engine import IECore, IENetwork, StatusCode, get_version
@@ -568,7 +570,7 @@ class _DeepSparseBaseModelRunner(ModelRunner):
 
     def __init__(
         self,
-        model: Union[str, ModelProto],
+        model: Union[str, ModelProto, Model, File],
         batch_size: int,
         num_cores: int,
         loss: Union[
@@ -587,7 +589,11 @@ class _DeepSparseBaseModelRunner(ModelRunner):
         self._batch_size = batch_size
         self._num_cores = num_cores
 
-        if not isinstance(self._model, str):
+        if not (
+            isinstance(self._model, str)
+            or isinstance(self._model, File)
+            or isinstance(self._model, Model)
+        ):
             self._model_tmp = tempfile.NamedTemporaryFile(delete=True)
             self._model_tmp.write(self._model.SerializeToString())
             self._model_tmp.flush()
@@ -624,16 +630,22 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
 
     def __init__(
         self,
-        model: Union[str, ModelProto],
+        model: Union[str, ModelProto, Model, File],
         batch_size: int,
         num_cores: int = None,
+        num_sockets: int = None,
+        scheduler: Scheduler = None,
         loss: Union[
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ] = None,
     ):
         super().__init__(model, batch_size, num_cores, loss)
         self._engine = compile_model(
-            self._model, batch_size=batch_size, num_cores=num_cores
+            self._model,
+            batch_size=batch_size,
+            num_cores=num_cores,
+            num_sockets=num_sockets,
+            scheduler=scheduler,
         )
         _LOGGER.debug("created model in neural magic {}".format(self._engine))
 
