@@ -86,10 +86,6 @@ def test_configure_module_qat_wrappers():
 
     configure_module_qat_wrappers(module)
 
-    import pdb
-
-    pdb.set_trace()
-
     qat_matmul = module.module
 
     assert isinstance(qat_matmul, QATWrapper)
