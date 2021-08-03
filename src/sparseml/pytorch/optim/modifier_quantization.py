@@ -37,6 +37,8 @@ from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifi
 from sparseml.pytorch.utils import BaseLogger
 from sparseml.pytorch.utils.quantization import (
     add_quant_dequant,
+    configure_module_default_qconfigs,
+    configure_module_qat_wrappers,
     fuse_module_conv_bn_relus,
     get_qat_qconfig,
 )
@@ -338,10 +340,13 @@ class QuantizationModifier(ScheduledModifier):
         # prepare each module / submodule for quantization
         qconfig = get_qat_qconfig()
         for quant_module in self._modules_to_quantize:
+            # wrap any modules with wrap_qat set to True as QATWrapper(s)
+            configure_module_qat_wrappers(quant_module)
             # set quantization config (asymmetric activations, symmetric weights)
             quant_module.qconfig = qconfig
             # wrap all conv / linear blocks in with quantization observers
             torch_quantization.propagate_qconfig_(quant_module)
+            configure_module_default_qconfigs(quant_module)
             add_quant_dequant(quant_module)
             # set model to QAT mode
             torch_quantization.prepare_qat(quant_module, inplace=True)
