@@ -16,7 +16,7 @@
 Code related to benchmarking batched inference runs
 """
 
-from typing import Any, Dict, Iterable, Iterator, List, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Union
 
 import numpy
 
@@ -44,10 +44,14 @@ class BatchBenchmarkResult(object):
         self,
         batch_time: float,
         batch_size: int,
-        inputs: Union[None, List[numpy.ndarray]] = None,
-        outputs: Union[None, List[numpy.ndarray], Dict[str, numpy.ndarray]] = None,
+        inputs: Optional[Union[List[numpy.ndarray], Dict[str, numpy.ndarray]]] = None,
+        outputs: Optional[Union[List[numpy.ndarray], Dict[str, numpy.ndarray]]] = None,
         extras: Any = None,
     ):
+        if batch_time <= 0:
+            raise ValueError("batch_time must be positive")
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
         self._batch_time = batch_time
         self._batch_size = batch_size
         self._inputs = inputs
@@ -87,14 +91,14 @@ class BatchBenchmarkResult(object):
         return self._batch_size
 
     @property
-    def inputs(self) -> Union[None, List[numpy.ndarray]]:
+    def inputs(self) -> Optional[Union[List[numpy.ndarray], Dict[str, numpy.ndarray]]]:
         """
         :return: Batch inputs that were given for the run, if any
         """
         return self._inputs
 
     @property
-    def outputs(self) -> Union[None, List[numpy.ndarray]]:
+    def outputs(self) -> Optional[Union[List[numpy.ndarray], Dict[str, numpy.ndarray]]]:
         """
         :return: Batch outputs that were given for the run, if any
         """
@@ -128,7 +132,7 @@ class BatchBenchmarkResult(object):
         """
         :return: The number of milliseconds it took to run the batch
         """
-        return self.batch_time * 1000.0
+        return self.batch_time * 1e3
 
     @property
     def ms_per_item(self) -> float:
@@ -136,7 +140,7 @@ class BatchBenchmarkResult(object):
         :return: The averaged number of milliseconds it took to run each item
             in the batch
         """
-        return self.batch_time * 1000.0 / self._batch_size
+        return self.batch_time * 1e3 / self._batch_size
 
     def dict(self) -> Dict[str, Any]:
         """
@@ -145,6 +149,7 @@ class BatchBenchmarkResult(object):
         return BatchBenchmarkResultSchema(
             batch_time=self.batch_time,
             batch_size=self.batch_size,
+            batches_per_second=self.batches_per_second,
             items_per_second=self.items_per_second,
             ms_per_batch=self.ms_per_batch,
             ms_per_item=self.ms_per_item,
@@ -157,7 +162,7 @@ class BenchmarkResults(Iterable):
     """
 
     def __init__(self):
-        self._results = []  # type: List[BatchBenchmarkResult]
+        self._results: List[BatchBenchmarkResult] = []
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self._properties_dict})"
@@ -236,6 +241,8 @@ class BenchmarkResults(Iterable):
         """
         :return: the mean of all the batch run times that have been added
         """
+        if len(self) == 0:
+            return 0.0
         return numpy.mean(self.batch_times).item()
 
     @property
@@ -243,6 +250,8 @@ class BenchmarkResults(Iterable):
         """
         :return: the median of all the batch run times that have been added
         """
+        if len(self) == 0:
+            return 0.0
         return numpy.median(self.batch_times).item()
 
     @property
@@ -250,6 +259,8 @@ class BenchmarkResults(Iterable):
         """
         :return: the standard deviation of all the batch run times that have been added
         """
+        if len(self) == 0:
+            return 0.0
         return numpy.std(self.batch_times).item()
 
     @property
@@ -258,6 +269,8 @@ class BenchmarkResults(Iterable):
         :return: The number of batches that could be run in one second
             based on this result
         """
+        if len(self) == 0:
+            return 0.0
         return self.num_batches / sum(self.batch_times)
 
     @property
@@ -266,6 +279,8 @@ class BenchmarkResults(Iterable):
         :return: The number of items that could be run in one second
             based on this result
         """
+        if len(self) == 0:
+            return 0.0
         return self.num_items / sum(self.batch_times)
 
     @property
@@ -273,6 +288,8 @@ class BenchmarkResults(Iterable):
         """
         :return: The number of milliseconds it took to run the batch
         """
+        if len(self) == 0:
+            return 0.0
         return sum(self.batch_times) * 1000.0 / self.num_batches
 
     @property
@@ -281,6 +298,8 @@ class BenchmarkResults(Iterable):
         :return: The averaged number of milliseconds it took to run each item
             in the batch
         """
+        if len(self) == 0:
+            return 0.0
         return sum(self.batch_times) * 1000.0 / self.num_items
 
     @property
@@ -288,6 +307,10 @@ class BenchmarkResults(Iterable):
         """
         :return: The median batch run times of the top 90% of the batch times
         """
+        if len(self) == 0:
+            return 0.0
+        if len(self) == 1:
+            return self.batch_times_median
         sorted_batch_times = numpy.sort(self.batch_times)
         top_90_index = int(len(sorted_batch_times) * 0.9)
         return numpy.median(sorted_batch_times[:top_90_index]).item()
@@ -297,6 +320,10 @@ class BenchmarkResults(Iterable):
         """
         :return: The median batch run times of the top 95% of the batch times
         """
+        if len(self) == 0:
+            return 0.0
+        if len(self) == 1:
+            return self.batch_times_median
         sorted_batch_times = numpy.sort(self.batch_times)
         top_95_index = int(len(sorted_batch_times) * 0.95)
         return numpy.median(sorted_batch_times[:top_95_index]).item()
@@ -306,19 +333,27 @@ class BenchmarkResults(Iterable):
         """
         :return: The median batch run times of the top 99% of the batch times
         """
+        if len(self) == 0:
+            return 0.0
+        if len(self) == 1:
+            return self.batch_times_median
         sorted_batch_times = numpy.sort(self.batch_times)
         top_99_index = int(len(sorted_batch_times) * 0.99)
         return numpy.median(sorted_batch_times[:top_99_index]).item()
 
     @property
-    def inputs(self) -> Union[None, List[numpy.ndarray]]:
+    def inputs(
+        self,
+    ) -> List[Optional[Union[List[numpy.ndarray], Dict[str, numpy.ndarray]]]]:
         """
         :return: Batch inputs that were given for the run, if any
         """
         return [res.inputs for res in self._results]
 
     @property
-    def outputs(self) -> Union[None, List[numpy.ndarray]]:
+    def outputs(
+        self,
+    ) -> List[Optional[Union[List[numpy.ndarray], Dict[str, numpy.ndarray]]]]:
         """
         :return: Batch outputs that were given for the run, if any
         """
@@ -326,27 +361,23 @@ class BenchmarkResults(Iterable):
 
     def append_batch(
         self,
-        time_start: float,
-        time_end: float,
+        batch_time: float,
         batch_size: int,
-        inputs: Union[None, List[numpy.ndarray]] = None,
-        outputs: Union[None, List[numpy.ndarray], Dict[str, numpy.ndarray]] = None,
+        inputs: Optional[Union[List[numpy.ndarray], Dict[str, numpy.ndarray]]] = None,
+        outputs: Optional[Union[List[numpy.ndarray], Dict[str, numpy.ndarray]]] = None,
         extras: Any = None,
     ):
         """
         Add a recorded batch to the current results
 
-        :param time_start: The system time when the run for the batch was started
-        :param time_end: The system time when the run for the batch ended
+        :param batch_time: The time it took to run the batch
         :param batch_size: The size of the batch that was benchmarked
         :param inputs: Optional batch inputs that were given for the run
         :param outputs: Optional batch outputs that were given for the run
         :param extras: Optional batch extras to store any other data for the run
         """
         self._results.append(
-            BatchBenchmarkResult(
-                time_start, time_end, batch_size, inputs, outputs, extras
-            )
+            BatchBenchmarkResult(batch_time, batch_size, inputs, outputs, extras)
         )
 
     def append(
@@ -354,14 +385,9 @@ class BenchmarkResults(Iterable):
         batch_result: BatchBenchmarkResult,
     ):
         """
-        Add a recorded batch to the current results
+        Add a batch result to the current results
 
-        :param time_start: The system time when the run for the batch was started
-        :param time_end: The system time when the run for the batch ended
-        :param batch_size: The size of the batch that was benchmarked
-        :param inputs: Optional batch inputs that were given for the run
-        :param outputs: Optional batch outputs that were given for the run
-        :param extras: Optional batch extras to store any other data for the run
+        :param batch_result: The batch result to add
         """
         self._results.append(batch_result)
 

@@ -43,22 +43,27 @@ class BatchBenchmarkResultSchema(BaseModel):
     batch_time: float = Field(
         title="batch_time",
         description="Time to process a batch of data in seconds",
-        ge=0.0,
+        gt=0.0,
+    )
+    batches_per_second: float = Field(
+        title="batches_per_second",
+        description="Number of batches processed per second",
+        gt=0.0,
     )
     items_per_second: float = Field(
         title="items_per_second",
         description="Items processed per second",
-        ge=0.0,
+        gt=0.0,
     )
     ms_per_batch: float = Field(
         title="ms_per_batch",
         description="Time to process a batch of data in milliseconds",
-        ge=0.0,
+        gt=0.0,
     )
     ms_per_item: float = Field(
         title="ms_per_item",
         description="Time to process a single item in milliseconds",
-        ge=0.0,
+        gt=0.0,
     )
     batch_size: int = Field(
         title="batch_size",

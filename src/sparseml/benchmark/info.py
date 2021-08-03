@@ -107,6 +107,8 @@ from sparseml.utils.helpers import convert_to_bool
 __all__ = [
     "BenchmarkRunner",
     "save_benchmark_results",
+    "load_benchmark_info",
+    "load_and_run_benchmark",
 ]
 
 
@@ -364,19 +366,23 @@ def load_benchmark_info(load: str) -> BenchmarkInfo:
     return info
 
 
-def rerun_benchmark(
+def load_and_run_benchmark(
     model: Any,
     data: Any,
     load: str,
     save_path: Optional[str] = None,
 ):
     """
-    Loads the benchmark runner from a file or raw json.
+    Loads the benchmark configuration from a file or raw json and reruns
+    the benchmark.
+
     If load exists as a path, will read from the file and use that.
     Otherwise will try to parse the input as a raw json str.
 
+    :param model: model to benchmark
+    :param data: data to benchmark
     :param load: Either a file path to a json file or a raw json string.
-    :type load: str
+    :param save_path: path to save the new benchmark results
     """
     _LOGGER.info(f"Rerunning benchmark {load}")
 
@@ -396,7 +402,7 @@ def rerun_benchmark(
         iterations=info.config.iterations,
         warmup_iterations=info.config.warmup_iterations,
         framework=info.framework,
-        provider=info.config.inference_provider,
+        provider=info.config.inference_provider.name,
         device=info.config.device,
         framework_args=info.config.framework_args,
         save_path=save_path,
