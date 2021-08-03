@@ -120,8 +120,12 @@ class QATWrapper(Module):
         forward_fn: Callable[[Any], Any],
         num_inputs: int = 1,
         num_outputs: int = 1,
-        input_qconfigs: Union["QConfig", str, List["QConfig"]] = "asymmetric",
-        output_qconfigs: Union["QConfig", str, List["QConfig"]] = "asymmetric",
+        input_qconfigs: Union[
+            "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
+        ] = "asymmetric",
+        output_qconfigs: Union[
+            "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
+        ] = "asymmetric",
     ):
         super().__init__()
 
@@ -204,7 +208,9 @@ class QATWrapper(Module):
 
     @staticmethod
     def _load_qconfigs(
-        name: str, expected_len: int, qconfigs: Union["QConfig", str, List["QConfig"]]
+        name: str,
+        expected_len: int,
+        qconfigs: Union["QConfig", str, List["QConfig"]],  # noqa: F821
     ):
         if not isinstance(qconfigs, (str, torch_quantization.QConfig, List)):
             raise ValueError(
