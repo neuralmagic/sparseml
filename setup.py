@@ -53,8 +53,8 @@ _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_bas
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_base}"
 ]
-_pytorch_deps = ["torch>=1.1.0,<1.8", "tensorboard>=1.0", "tensorboardX>=1.0"]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<0.9"]
+_pytorch_deps = ["torch>=1.1.0,<=1.9.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.10.0"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
