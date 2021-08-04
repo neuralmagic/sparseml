@@ -39,8 +39,10 @@ class _QATMatMul(torch.nn.Module):
         super().__init__()
 
         self.wrap_qat = True
-        self.num_inputs = 2
-        self.input_qconfigs = ["asymmetric", "symmetric"]
+        self.qat_wrapper_kwargs = {
+            "num_inputs": 2,
+            "input_qconfigs": ["asymmetric", "symmetric"],
+        }
 
     def forward(self, a: torch.Tensor, b: torch.Tensor):
         return torch.matmul(a, b)

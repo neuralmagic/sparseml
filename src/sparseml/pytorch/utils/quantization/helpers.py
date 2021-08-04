@@ -77,6 +77,8 @@ class QATWrapper(Module):
     :param num_inputs: number of inputs of the forward function to add a QuantStub
         to. Will wrap the first num_inputs ordered inputs of the function. Default
         is 1
+    :param kwarg_input_names: list of names of key word arguments to the forward pass
+        that should be wrapped with a fake quantize operation. Defaults to empty
     :param num_outputs: number of outputs of the forward function to add a QuantStub
         to. Will wrap the first num_inputs ordered outputs of the function. Default
         is 1. Will also add a DeQuantStub for FP32 conversion if
@@ -101,17 +103,11 @@ class QATWrapper(Module):
             function. Will attempt to find any other named parameter of the QATWrapper
             constructor from the attributes of the given Module
         """
-        qat_wrapper_param_names = [
-            "num_inputs",
-            "num_outputs",
-            "input_qconfigs",
-            "output_qconfigs",
-        ]
-        qat_wrapper_kwargs = {
-            param_name: getattr(module, param_name)
-            for param_name in qat_wrapper_param_names
-            if hasattr(module, param_name)
-        }
+        qat_wrapper_kwargs = (
+            module.qat_wrapper_kwargs or {}
+            if hasattr(module, "qat_wrapper_kwargs")
+            else {}
+        )
 
         return QATWrapper(forward_fn=module, **qat_wrapper_kwargs)
 
@@ -119,6 +115,7 @@ class QATWrapper(Module):
         self,
         forward_fn: Callable[[Any], Any],
         num_inputs: int = 1,
+        kwarg_input_names: List[str] = None,
         num_outputs: int = 1,
         input_qconfigs: Union[
             "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
@@ -132,7 +129,7 @@ class QATWrapper(Module):
         if torch_quantization is None:
             raise RuntimeError(
                 "Unable to import package torch.quantization. "
-                "Try upgrading your PyTorch version."
+                "Try upgrading your PyTorch version to >= 1.7.0."
             )
 
         if not callable(forward_fn):
@@ -141,16 +138,19 @@ class QATWrapper(Module):
                 f"Received {type(forward_fn)}"
             )
 
+        self.kwarg_input_names = kwarg_input_names or []
+        num_input_quant_stubs = num_inputs + len(self.kwarg_input_names)
+
         self.forward_fn = forward_fn
         self.input_qconfigs = self._load_qconfigs(
-            "input_qconfigs", num_inputs, input_qconfigs
+            "input_qconfigs", num_input_quant_stubs, input_qconfigs
         )
         self.output_qconfigs = self._load_qconfigs(
             "output_qconfigs", num_outputs, output_qconfigs
         )
 
         self.input_quant_stubs = torch.nn.ModuleList(
-            [torch_quantization.QuantStub() for _ in range(num_inputs)]
+            [torch_quantization.QuantStub() for _ in range(num_input_quant_stubs)]
         )
         self.output_quant_stubs = torch.nn.ModuleList(
             [torch_quantization.QuantStub() for _ in range(num_outputs)]
@@ -168,13 +168,27 @@ class QATWrapper(Module):
             num_outputs outputs
         """
 
+        if any(kwarg not in kwargs for kwarg in self.kwarg_input_names):
+            raise ValueError(
+                f"QATWrapper expected kwargs {self.kwarg_input_names} to be included "
+                f"in forward function kwargs. Found {list(kwargs.keys())}. missing "
+                f"{[kwarg for kwarg in self.kwarg_input_names if kwarg not in kwargs]}"
+            )
+
         qat_args = []
 
+        # fake quantize positional arguments
+        num_args_stubs = len(self.input_quant_stubs) - len(self.kwarg_input_names)
         for idx, arg in enumerate(args):
-            if idx < len(self.input_quant_stubs):
+            if idx < num_args_stubs:
                 arg = self.input_quant_stubs[idx](arg)
             qat_args.append(arg)
 
+        # fake quantize key word arguments
+        for idx, kwarg in enumerate(self.kwarg_input_names):
+            kwargs[kwarg] = self.input_quant_stubs[num_args_stubs + idx](kwargs[kwarg])
+
+        # wrapped forward pass
         outputs = self.forward_fn(*qat_args, **kwargs)
 
         if len(self.output_quant_stubs) == 0:
@@ -182,6 +196,11 @@ class QATWrapper(Module):
             return outputs
 
         if isinstance(outputs, torch.Tensor):
+            if len(self.output_quant_stubs) > 1:
+                raise ValueError(
+                    f"QATWrapper expected {len(self.output_quant_stubs)} outputs in "
+                    "forward pass. Found one output"
+                )
             # output is a single Tensor
             qat_output = self.output_quant_stubs[0](outputs)
             return self.output_dequant_stubs[0](qat_output)
@@ -250,7 +269,9 @@ class QATWrapper(Module):
 def configure_module_qat_wrappers(module: Module):
     """
     if any submodule of the given module has the attribute wrap_qat == True,
-    then it will be replaced by a QATWrapper of it created by QATWrapper.from_module
+    then it will be replaced by a QATWrapper of it created by QATWrapper.from_module.
+    Other named kwargs to the QATWrapper constructor must be contained in a dictionary
+    under an attributed named `qat_wrapper_kwargs`
 
     :param module: module to potentially wrap the submodules of
     """
