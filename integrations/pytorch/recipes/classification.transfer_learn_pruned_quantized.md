@@ -20,6 +20,11 @@ num_epochs: &num_epochs 10.0
 init_lr: &init_lr 0.008
 lr_step_milestones: &lr_step_milestones [5]
 
+# quantization variables
+quantization_start_epoch: &quantization_start_epoch 4.0
+quantize_submodules: &quantize_submodules
+  - input
+  - sections
 
 training_modifiers:
   - !EpochRangeModifier
@@ -39,7 +44,17 @@ sparse_transfer_learning_modifiers:
   - !ConstantPruningModifier
     start_epoch: 0.0
     params: __ALL_PRUNABLE__
-    
+
+# phase 2 apply quantization
+sparse_quantized_transfer_learning_modifiers:
+  - !QuantizationModifier
+    start_epoch: *quantization_start_epoch
+    submodules:
+      - input
+      - sections
+  - !SetWeightDecayModifier
+    start_epoch: 0.0
+    weight_decay: 0.0    
 ---
 
 # Transfer Learning
@@ -58,7 +73,7 @@ To transfer learn ResNet-50 on [Imagenette](https://github.com/fastai/imagenette
 
 ```
 python integrations/pytorch/vision.py train \
-    --recipe-path integrations/pytorch/recipes/sparse-transfer-learn.md \
+    --recipe-path integrations/pytorch/recipes/classification.transfer_learn_pruned_quantized.md \
     --checkpoint-path /PATH/TO/MODEL_CHECKPOINT \
     --arch-key resnet50 \
     --model-kwargs '{"ignore_error_tensors": ["classifier.fc.weight", "classifier.fc.bias"]}' \
@@ -68,14 +83,14 @@ python integrations/pytorch/vision.py train \
     --loader-num-workers 0 \
     --optim Adam \
     --optim-args '{}' \
-    --model-tag resnet50-imagenette-sparse-transfer-learned
+    --model-tag resnet50-imagenette-sparse-transfer-learned-quantized
 ```
 
 To transfer learn MobileNet on [Imagenette](https://github.com/fastai/imagenette) with this recipe, run the following example command.
 
 ```
 python integrations/pytorch/vision.py train \
-    --recipe-path  integrations/pytorch/recipes/sparse-transfer-learn.md\
+    --recipe-path  integrations/pytorch/recipes/classification.transfer_learn_pruned_quantized.md \
     --checkpoint-path /PATH/TO/MODEL_CHECKPOINT \
     --arch-key mobilenet \
     --model-kwargs '{"ignore_error_tensors": ["classifier.fc.weight", "classifier.fc.bias"]}' \
@@ -85,14 +100,16 @@ python integrations/pytorch/vision.py train \
     --loader-num-workers 0 \
     --optim Adam \
     --optim-args '{}' \
-    --model-tag mobilenet-imagenette-sparse-transfer-learned
+    --model-tag mobilenet-imagenette-sparse-transfer-learned-quantized
 ```
 ## Other Datasets
 To transfer learn this sparsified model to other datasets
 you may have to adjust certain hyperparameters in this recipe and/or training script.
 Some considerations:
-* For more complex datasets, increate the number of epochs, adjusting the learning rate step accordingly
+* For more complex datasets, increase the number of epochs, adjusting the learning rate step accordingly
 * Adding more learning rate step milestones can lead to more jumps in accuracy
 * Increase the learning rate when increasing batch size
+* Increasing the number of epochs before starting quantization can give a higher baseline
+* If accuracy is not recovering in the quantization phase, the total number of epochs should be increased as well
 * Increase the number of epochs if using SGD instead of the Adam optimizer
 * Update the base learning rate based on the number of steps needed to train your dataset 

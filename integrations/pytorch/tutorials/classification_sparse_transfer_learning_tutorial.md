@@ -108,13 +108,13 @@ sparse_transfer_learning_modifiers:
 ```
 
 `ConstantPruningModifier` maintains model's sparsity levels during transfer learning process.
-We include this example [recipe](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/recipes/sparse-transfer-learn.md) in the SparseML [GitHub repository](https://github.com/neuralmagic/sparseml).
+We include this example [recipe](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/recipes/classification.transfer-learn-pruned.md) in the SparseML [GitHub repository](https://github.com/neuralmagic/sparseml).
 [Learn more about recipes and modifiers](https://github.com/neuralmagic/sparseml/blob/main/docs/source/recipes.md).
 
 - Run the following example command to kick off transfer learning for [ResNet-50](https://arxiv.org/abs/1512.03385):
 ```
 python integrations/pytorch/vision.py train \
-    --recipe-path integrations/pytorch/recipes/sparse-transfer-learn.md \
+    --recipe-path integrations/pytorch/recipes/classification.transfer_learn_pruned.md \
     --checkpoint-path /PATH/TO/MODEL_CHECKPOINT \
     --arch-key resnet50 \
     --model-kwargs '{"ignore_error_tensors": ["classifier.fc.weight", "classifier.fc.bias"]}' \
@@ -131,7 +131,7 @@ To transfer learn [MobileNet](https://arxiv.org/abs/1704.04861) on [Imagenette](
 
 ```
 python integrations/pytorch/vision.py train \
-    --recipe-path integrations/pytorch/recipes/sparse-transfer-learn.md \
+    --recipe-path integrations/pytorch/recipes/classification.transfer_learn_pruned.md \
     --checkpoint-path /PATH/TO/MODEL_CHECKPOINT \
     --arch-key mobilenet \
     --model-kwargs '{"ignore_error_tensors": ["classifier.fc.weight", "classifier.fc.bias"]}' \
