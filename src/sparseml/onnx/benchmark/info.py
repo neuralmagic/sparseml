@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 import onnx
 from onnx import ModelProto
@@ -23,7 +23,7 @@ from sparseml.base import Framework
 from sparseml.benchmark import (
     BatchBenchmarkResult,
     BenchmarkInfo,
-    BenchmarkResults,
+    BenchmarkResult,
     BenchmarkRunner,
 )
 from sparseml.framework import FrameworkInfo
@@ -134,7 +134,7 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         show_progress: bool = False,
         *args,
         **kwargs,
-    ) -> BenchmarkResults:
+    ) -> BenchmarkResult:
         """
         Runs a benchmark on the given data.
 
@@ -143,6 +143,7 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         :param args: additional arguments to pass to the framework
         :param kwargs: additional arguments to pass to the framework
         """
+        _LOGGER.debug("Loading data with load_model")
         data = load_data(
             data,
             self._model,
@@ -153,13 +154,21 @@ class ORTBenchmarkRunner(BenchmarkRunner):
             data, desc=desc, show_progress=show_progress, *args, **kwargs
         )
 
-    def run_batch(self, batch: Any, *args, **kwargs) -> BatchBenchmarkResult:
+    def run_batch(
+        self, batch: Union[Dict[str, Any], Tuple[Dict[str, Any]]], *args, **kwargs
+    ) -> BatchBenchmarkResult:
+        """
+        Runs a benchmark on a given batch.
+
+        :param batch: the batch to benchmark
+        :param args: additional arguments to pass to the framework
+        :param kwargs: additional arguments to pass to the framework
+        """
+        # Handles case where batch consists of a tuple of input/labels
         if isinstance(batch, tuple):
             batch = batch[0]
         outputs, batch_time = self._model_runner.batch_forward(batch, *args, **kwargs)
-        return BatchBenchmarkResult(
-            batch_time, self._batch_size, inputs=batch, outputs=outputs
-        )
+        return BatchBenchmarkResult.from_result(batch_time, self.batch_size)
 
     @property
     def framework(self) -> Framework:
@@ -417,6 +426,7 @@ def detect_benchmark_runner(
             )
 
         if provider is None and device is None:
+            # Default to first available inference provider
             provider = framework_info.inference_providers[0].name
             device = framework_info.inference_providers[0].device
         elif provider is None:
@@ -441,6 +451,10 @@ def detect_benchmark_runner(
                     f"No inference providers available for provider {provider}."
                 )
             device = matching_provider[0].device
+
+    _LOGGER.info(
+        f"Obtaining ONNX Runtime benchmark runner for provider {provider} and device {device}"
+    )
 
     if (
         provider == ORTCpuBenchmarkRunner.PROVIDER
@@ -482,6 +496,7 @@ def create_benchmark_runner(
     :return: Benchmark runner for the given model for the given provider and device.
     """
     runner_constructor = detect_benchmark_runner(provider, device)
+    _LOGGER.debug(f"Creating benchmark runner with {runner_constructor.__name__}")
     return runner_constructor(
         model,
         batch_size=batch_size,
@@ -549,7 +564,7 @@ def run_benchmark(
         return BenchmarkInfo(
             framework=benchmark_runner.framework,
             package_versions=benchmark_runner.package_versions,
-            benchmark=results.dict(),
+            benchmark=results,
             config=benchmark_runner.benchmark_config,
         )
     else:
