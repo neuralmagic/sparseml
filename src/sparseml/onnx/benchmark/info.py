@@ -453,7 +453,8 @@ def detect_benchmark_runner(
             device = matching_provider[0].device
 
     _LOGGER.info(
-        f"Obtaining ONNX Runtime benchmark runner for provider {provider} and device {device}"
+        f"Obtaining ONNX Runtime benchmark runner for provider {provider} "
+        f"and device {device}"
     )
 
     if (
