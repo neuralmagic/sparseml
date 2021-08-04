@@ -22,9 +22,6 @@ lr_step_milestones: &lr_step_milestones [5]
 
 # quantization variables
 quantization_start_epoch: &quantization_start_epoch 4.0
-quantize_submodules: &quantize_submodules
-  - input
-  - sections
 
 training_modifiers:
   - !EpochRangeModifier
@@ -49,14 +46,8 @@ sparse_transfer_learning_modifiers:
 sparse_quantized_transfer_learning_modifiers:
   - !QuantizationModifier
     start_epoch: *quantization_start_epoch
-    submodules:
-      - input
-      - sections
-  - !SetWeightDecayModifier
-    start_epoch: 0.0
-    weight_decay: 0.0    
----
 
+---
 # Transfer Learning
 
 This recipe provides a framework for performing sparse transfer learning on
