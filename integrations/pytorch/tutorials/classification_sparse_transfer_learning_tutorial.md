@@ -53,8 +53,10 @@ First, you need to download the sparsified models from the [SparseZoo](https://s
 |----------|-------------|-------------|
 | resnet-pruned-moderate | zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned-moderate |This model is a sparse, [ResNet-50](https://arxiv.org/abs/1512.03385) model that achieves 99% of the accuracy of the original baseline model (76.1% top1). Pruned layers achieve 88% sparsity.|
 |resnet-pruned-conservative|zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned-conservative|This model is a sparse, [ResNet-50](https://arxiv.org/abs/1512.03385) model that achieves full recovery original baseline model accuracy (76.1% top1). Pruned layers achieve 80% sparsity.|
+|resnet-pruned-moderate-quantized|zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned_quant-moderate|This model is a sparse, INT8 quantized [ResNet-50](https://arxiv.org/abs/1512.03385) model that achieves 99% of the original baseline accuracy. The average model sparsity is about 72% with pruned layers achieving between 70-80% sparsity. This pruned quantized model achieves 75.46% top1 accuracy on the ImageNet dataset.|
 |mobilenetv1-pruned-moderate|zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/pruned-moderate|This model is a sparse, [MobileNetV1](https://arxiv.org/abs/1704.04861) model that achieves 99% of the accuracy of the original baseline model (70.9% top1). Pruned layers achieve between 70-90% sparsity.|
 |mobilenetv1-pruned-conservative|zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/pruned-conservative|This model is a sparse, [MobileNetV1](https://arxiv.org/abs/1704.04861) model that achieves the same accuracy as the original baseline model. Pruned layers achieve between 60-86% sparsity. This pruned quantized model achieves 70.9% top1 accuracy on the ImageNet dataset.|
+|mobilenetv1-pruned-moderate-quantized|zoo:cv/classification/mobilenet_v1-1.0/pytorch/sparseml/imagenet/pruned_quant-moderate|Pruned [MobileNetV1](https://arxiv.org/abs/1704.04861) architecture with width=1.0 trained on the ImageNet dataset. Recalibrated performance model: within 99% of baseline validation top1 accuracy (70.9%)|
 
 Note: The models above were originally trained and sparsified on the [ImageNet](https://image-net.org/) dataset.
 
@@ -108,7 +110,7 @@ sparse_transfer_learning_modifiers:
 ```
 
 `ConstantPruningModifier` maintains model's sparsity levels during transfer learning process.
-We include this example [recipe](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/recipes/classification.transfer-learn-pruned.md) in the SparseML [GitHub repository](https://github.com/neuralmagic/sparseml).
+We include this example [recipe](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/recipes/classification.transfer-learn-pruned.md) along with others in the SparseML [GitHub repository](https://github.com/neuralmagic/sparseml). 
 [Learn more about recipes and modifiers](https://github.com/neuralmagic/sparseml/blob/main/docs/source/recipes.md).
 
 - Run the following example command to kick off transfer learning for [ResNet-50](https://arxiv.org/abs/1512.03385):
