@@ -19,5 +19,4 @@ Functionality related to running benchmarks across ML frameworks.
 # flake8: noqa
 
 from .info import *
-from .results import *
 from .serialization import *

@@ -17,10 +17,10 @@ from typing import Any, Dict
 import pytest
 
 from sparseml.benchmark.serialization import (
-    BatchBenchmarkResultSchema,
+    BatchBenchmarkResult,
     BenchmarkConfig,
     BenchmarkInfo,
-    BenchmarkResultSchema,
+    BenchmarkResult,
 )
 
 
@@ -47,7 +47,7 @@ def _test_serialization(SchemaType: type, data: Dict[str, Any], expect_error: bo
         assert exception is not None, "Expected error for schema construction"
 
 
-# Test serialization of BatchBenchmarkResultSchema
+# Test serialization of BatchBenchmarkResult
 @pytest.mark.parametrize(
     "data,expect_error",
     [
@@ -131,10 +131,10 @@ def _test_serialization(SchemaType: type, data: Dict[str, Any], expect_error: bo
     ],
 )
 def test_batch_benchmark_result_schema(data, expect_error):
-    _test_serialization(BatchBenchmarkResultSchema, data, expect_error)
+    _test_serialization(BatchBenchmarkResult, data, expect_error)
 
 
-# Test serialization of BenchmarkResultSchema
+# Test serialization of BenchmarkResult
 @pytest.mark.parametrize(
     "data,expect_error",
     [
@@ -393,7 +393,7 @@ def test_batch_benchmark_result_schema(data, expect_error):
     ],
 )
 def test_benchmark_result_schema(data, expect_error):
-    _test_serialization(BenchmarkResultSchema, data, expect_error)
+    _test_serialization(BenchmarkResult, data, expect_error)
 
 
 # Test serialization of BenchmarkConfig

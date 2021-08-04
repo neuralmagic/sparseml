@@ -97,8 +97,12 @@ from typing import Any, Dict, Iterable, Optional
 from tqdm import auto
 
 from sparseml.base import Framework, detect_framework, execute_in_sparseml_framework
-from sparseml.benchmark.results import BatchBenchmarkResult, BenchmarkResults
-from sparseml.benchmark.serialization import BenchmarkConfig, BenchmarkInfo
+from sparseml.benchmark.serialization import (
+    BatchBenchmarkResult,
+    BenchmarkConfig,
+    BenchmarkInfo,
+    BenchmarkResult,
+)
 from sparseml.framework.info import FrameworkInferenceProviderInfo, FrameworkInfo
 from sparseml.utils import clean_path, create_parent_dirs
 from sparseml.utils.helpers import convert_to_bool
@@ -127,7 +131,7 @@ class BenchmarkRunner(ABC):
         show_progress: bool = False,
         *args,
         **kwargs,
-    ) -> BenchmarkResults:
+    ) -> BenchmarkResult:
         """
         Runs a benchmark on the given data.
 
@@ -139,12 +143,12 @@ class BenchmarkRunner(ABC):
         :return: the results of the benchmark run
         :rtype: BenchmarkResults
         """
-        results = BenchmarkResults()
+        results = []
         for batch_result in self.run_iter(
             data, desc=desc, show_progress=show_progress, *args, **kwargs
         ):
             results.append(batch_result)
-        return results
+        return BenchmarkResult.from_results(results)
 
     def run_iter(
         self,
@@ -174,6 +178,7 @@ class BenchmarkRunner(ABC):
         )
         for index, batch in data_iter:
             if index < self.warmup_iterations:
+                self.run_batch(batch, *args, **kwargs)
                 continue
             yield self.run_batch(batch, *args, **kwargs)
 

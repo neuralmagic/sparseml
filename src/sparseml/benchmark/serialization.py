@@ -16,8 +16,9 @@
 Functionality related to serialization of the benchmarking run.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
+import numpy
 from pydantic import BaseModel, Field
 
 from sparseml.base import Framework
@@ -25,14 +26,14 @@ from sparseml.framework import FrameworkInferenceProviderInfo
 
 
 __all__ = [
-    "BatchBenchmarkResultSchema",
-    "BenchmarkResultSchema",
+    "BatchBenchmarkResult",
+    "BenchmarkResult",
     "BenchmarkConfig",
     "BenchmarkInfo",
 ]
 
 
-class BatchBenchmarkResultSchema(BaseModel):
+class BatchBenchmarkResult(BaseModel):
     """
     Class for storing the result of one batch of a benchmark run.
 
@@ -71,8 +72,36 @@ class BatchBenchmarkResultSchema(BaseModel):
         ge=1,
     )
 
+    @classmethod
+    def from_result(cls, batch_time: float, batch_size: int) -> "BatchBenchmarkResult":
+        """
+        Creates a serialized BatchBenchmarkResult from a given batch time and
+        batch size.
 
-class BenchmarkResultSchema(BaseModel):
+        :param batch_time: Time to process a batch of data in seconds
+        :param batch_size: Batch size of the result
+        :return: A serialized BatchBenchmarkResult
+        """
+        if batch_time <= 0:
+            raise ValueError("batch_time must be positive")
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
+        batches_per_second = 1.0 / batch_time
+        items_per_second = batch_size / batch_time
+        ms_per_batch = batch_time * 1e3
+        ms_per_item = batch_time * 1e3 / batch_size
+
+        return BatchBenchmarkResult(
+            batch_time=batch_time,
+            batches_per_second=batches_per_second,
+            items_per_second=items_per_second,
+            ms_per_batch=ms_per_batch,
+            ms_per_item=ms_per_item,
+            batch_size=batch_size,
+        )
+
+
+class BenchmarkResult(BaseModel):
     """
     Class for storing the results of a benchmark run. Includes any statistics of the
     benchmark batch times.
@@ -81,7 +110,7 @@ class BenchmarkResultSchema(BaseModel):
     to proper type checking on construction.
     """
 
-    results: List[BatchBenchmarkResultSchema] = Field(
+    results: List[BatchBenchmarkResult] = Field(
         default=[],
         title="results",
         description="The results of all benchmark runs",
@@ -147,6 +176,65 @@ class BenchmarkResultSchema(BaseModel):
         ge=0,
     )
 
+    @classmethod
+    def from_results(
+        cls,
+        results: List[Union[BatchBenchmarkResult, float]],
+        batch_size: Optional[int] = None,
+    ) -> "BenchmarkResult":
+        """
+        Creates a serialized BenchmarkResult from a given list of benchmark results.
+        If the results are a list of batch times, the batch size is required.
+
+        :param batch_time: Time to process a batch of data in seconds
+        :param batch_size: Batch size of the result
+        :return: A serialized BatchBenchmarkResult
+        """
+        if not results:
+            raise ValueError("results must be non-empty")
+
+        for index, result in enumerate(results):
+            if not isinstance(result, BatchBenchmarkResult):
+                results[index] = BatchBenchmarkResult.from_result(result, batch_size)
+        batch_times = [r.batch_time for r in results]
+        num_batches = len(batch_times)
+        num_items = sum(r.batch_size for r in results)
+
+        batch_times_mean = numpy.mean(batch_times).item()
+        batch_times_median = numpy.median(batch_times).item()
+        batch_times_std = numpy.std(batch_times).item()
+
+        batches_per_second = num_batches / sum(batch_times)
+        items_per_second = num_items / sum(batch_times)
+
+        ms_per_batch = sum(batch_times) * 1e3 / num_batches
+        ms_per_item = sum(batch_times) * 1e3 / num_items
+
+        sorted_batch_times = sorted(batch_times)
+        top_90_index = int((num_batches) * 0.9)
+        top_95_index = int((num_batches) * 0.95)
+        top_99_index = int((num_batches) * 0.99)
+
+        batch_times_median_90 = numpy.median(sorted_batch_times[:top_90_index]).item()
+        batch_times_median_95 = numpy.median(sorted_batch_times[:top_95_index]).item()
+        batch_times_median_99 = numpy.median(sorted_batch_times[:top_99_index]).item()
+
+        return BenchmarkResult(
+            results=results,
+            batch_times_mean=batch_times_mean,
+            batch_times_median=batch_times_median,
+            batch_times_std=batch_times_std,
+            batch_times_median_90=batch_times_median_90,
+            batch_times_median_95=batch_times_median_95,
+            batch_times_median_99=batch_times_median_99,
+            items_per_second=items_per_second,
+            batches_per_second=batches_per_second,
+            ms_per_batch=ms_per_batch,
+            ms_per_item=ms_per_item,
+            num_items=num_items,
+            num_batches=num_batches,
+        )
+
 
 class BenchmarkConfig(BaseModel):
     """
@@ -209,7 +297,7 @@ class BenchmarkInfo(BaseModel):
             "If the package is not detected, will be set to None."
         ),
     )
-    benchmark: BenchmarkResultSchema = Field(
+    benchmark: BenchmarkResult = Field(
         title="benchmark",
         description="The benchmark results for the framework.",
     )
