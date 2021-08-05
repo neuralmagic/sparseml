@@ -283,6 +283,14 @@ class BenchmarkRunner(ABC):
         """
         raise NotImplementedError()
 
+    @property
+    @abstractmethod
+    def model(self) -> Any:
+        """
+        :return: the model as ran in the benchmark
+        """
+        raise NotImplementedError()
+
 
 def save_benchmark_results(
     model: Any,
@@ -389,7 +397,7 @@ def load_and_run_benchmark(
     :param load: Either a file path to a json file or a raw json string.
     :param save_path: path to save the new benchmark results
     """
-    _LOGGER.info(f"Rerunning benchmark {load}")
+    _LOGGER.info(f"rerunning benchmark {load}")
 
     info = load_benchmark_info(load)
 

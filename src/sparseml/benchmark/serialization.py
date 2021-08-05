@@ -215,9 +215,21 @@ class BenchmarkResult(BaseModel):
         top_95_index = int((num_batches) * 0.95)
         top_99_index = int((num_batches) * 0.99)
 
-        batch_times_median_90 = numpy.median(sorted_batch_times[:top_90_index]).item()
-        batch_times_median_95 = numpy.median(sorted_batch_times[:top_95_index]).item()
-        batch_times_median_99 = numpy.median(sorted_batch_times[:top_99_index]).item()
+        batch_times_median_90 = (
+            numpy.median(sorted_batch_times[:top_90_index]).item()
+            if top_90_index > 1
+            else sorted_batch_times[0]
+        )
+        batch_times_median_95 = (
+            numpy.median(sorted_batch_times[:top_95_index]).item()
+            if top_95_index > 1
+            else sorted_batch_times[0]
+        )
+        batch_times_median_99 = (
+            numpy.median(sorted_batch_times[:top_99_index]).item()
+            if top_99_index > 1
+            else sorted_batch_times[0]
+        )
 
         return BenchmarkResult(
             results=results,
