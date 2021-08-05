@@ -134,7 +134,7 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         show_progress: bool = False,
         *args,
         **kwargs,
-    ) -> BenchmarkResult:
+    ) -> Iterable[BenchmarkResult]:
         """
         Runs a benchmark on the given data.
 
@@ -143,7 +143,7 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         :param args: additional arguments to pass to the framework
         :param kwargs: additional arguments to pass to the framework
         """
-        _LOGGER.debug("Loading data with load_model")
+        _LOGGER.debug("loading data with load_model")
         data = load_data(
             data,
             self._model,
@@ -233,6 +233,13 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         """
         return self._device
 
+    @property
+    def model(self) -> ModelProto:
+        """
+        :return: the model as an ONNX ModelProto
+        """
+        return self._model
+
 
 class ORTCudaBenchmarkRunner(ORTBenchmarkRunner):
     """
@@ -260,8 +267,12 @@ class ORTCudaBenchmarkRunner(ORTBenchmarkRunner):
         framework_args: Dict[str, Any] = {},
         **kwargs,
     ):
-        del kwargs["provider"]
-        del kwargs["device"]
+        if "provider" in kwargs:
+            _LOGGER.debug(f"ignoring kwarg provider={kwargs['provider']}")
+            del kwargs["provider"]
+        if "device" in kwargs:
+            _LOGGER.debug(f"ignoring kwarg device={kwargs['device']}")
+            del kwargs["device"]
         super().__init__(
             model=model,
             batch_size=batch_size,
@@ -300,8 +311,12 @@ class ORTCpuBenchmarkRunner(ORTBenchmarkRunner):
         framework_args: Dict[str, Any] = {},
         **kwargs,
     ):
-        del kwargs["provider"]
-        del kwargs["device"]
+        if "provider" in kwargs:
+            _LOGGER.debug(f"ignoring kwarg provider={kwargs['provider']}")
+            del kwargs["provider"]
+        if "device" in kwargs:
+            _LOGGER.debug(f"ignoring kwarg device={kwargs['device']}")
+            del kwargs["device"]
         super().__init__(
             model=model,
             batch_size=batch_size,
@@ -366,14 +381,14 @@ def load_data(
             model, batch_size, iter_steps=total_iterations
         )
 
-    if isinstance(data, str) and data.startswith("zoo:"):
-        model_from_zoo = Zoo.load_model_from_stub(data)
-        return model_from_zoo.data_inputs.loader(
-            batch_size, total_iterations, batch_as_list=False
-        )
-
     if isinstance(data, DataLoader):
         return data
+
+    if isinstance(data, str) and data.startswith("zoo:"):
+        model_from_zoo = Zoo.load_model_from_stub(data)
+        data = model_from_zoo.data_inputs.loader(
+            batch_size, total_iterations, batch_as_list=False
+        )
 
     if isinstance(data, SparseZooDataLoader):
         datasets = [
@@ -453,7 +468,7 @@ def detect_benchmark_runner(
             device = matching_provider[0].device
 
     _LOGGER.info(
-        f"Obtaining ONNX Runtime benchmark runner for provider {provider} "
+        f"obtaining ONNX Runtime benchmark runner for provider {provider} "
         f"and device {device}"
     )
 
@@ -497,7 +512,7 @@ def create_benchmark_runner(
     :return: Benchmark runner for the given model for the given provider and device.
     """
     runner_constructor = detect_benchmark_runner(provider, device)
-    _LOGGER.debug(f"Creating benchmark runner with {runner_constructor.__name__}")
+    _LOGGER.debug(f"creating benchmark runner with {runner_constructor.__name__}")
     return runner_constructor(
         model,
         batch_size=batch_size,
