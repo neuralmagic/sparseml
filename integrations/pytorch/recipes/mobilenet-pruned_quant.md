@@ -148,7 +148,7 @@ The training script can be found at `sparseml/integrations/pytorch/vision.py`.
 ```
 python -m torch.distributed.launch \
   --nproc_per_node 4 \
-  integrations/pytorch/vision.py train \
+  integrations/pytorch/train.py \
     --recipe-path zoo:cv/classification/mobilenet_v1-1.0/pytorch-sparseml/imagenet/pruned_quant-moderate?recipe_type=original \
     --pretrained True \
     --arch-key mobilenet \

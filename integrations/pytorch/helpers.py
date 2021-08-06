@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Helper methods for image classification/detection based tasks
+"""
 import argparse
 import json
 import os
 from contextlib import suppress
-from typing import Any, List, Tuple, Union
+from enum import Enum, auto, unique
+from typing import Any, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
@@ -60,10 +64,19 @@ with suppress(Exception):
 LOGGER = get_main_logger()
 
 
-# Arguments
+@unique
+class Tasks(Enum):
+    TRAIN = auto()
+    EXPORT = auto()
+    ANALYSIS = auto()
+    LR_SENSITIVITY = "lr_sensitivity"
+    PR_SENSITIVITY = "pr_sensitivity"
 
 
-def add_lr_sensitivity_specific_args(parser):
+# Argument helpers add relevant arguments to given parser according to task
+
+
+def add_lr_sensitivity_specific_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--final-lr",
         type=float,
@@ -72,7 +85,7 @@ def add_lr_sensitivity_specific_args(parser):
     )
 
 
-def add_pruning_specific_args(parser):
+def add_pruning_specific_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--approximate",
         action="store_true",
@@ -81,7 +94,7 @@ def add_pruning_specific_args(parser):
     )
 
 
-def add_export_specific_args(parser):
+def add_export_specific_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--num-samples",
         type=int,
@@ -106,7 +119,7 @@ def add_export_specific_args(parser):
     )
 
 
-def add_training_specific_args(parser):
+def add_training_specific_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--recipe-path",
         type=str,
@@ -185,26 +198,28 @@ def add_training_specific_args(parser):
     )
 
 
-def add_batch_size_arg(parser, task=None):
+def add_batch_size_arg(parser: argparse.ArgumentParser, task: Optional[Tasks] = None):
     parser.add_argument(
         "--batch-size",
         type=int,
-        required=task == "lr_sensitivity",
-        default=64 if task == "pr_sensitivity" else None,
+        required=task == Tasks.LR_SENSITIVITY,
+        default=64 if task == Tasks.PR_SENSITIVITY else None,
         help="The batch size to use while training",
     )
 
 
-def add_steps_per_measurement(parser, task=None):
+def add_steps_per_measurement(
+    parser: argparse.ArgumentParser, task: Optional[Tasks] = None
+):
     parser.add_argument(
         "--steps-per-measurement",
         type=int,
-        default=15 if task == "pr_sensitivity" else 20,
+        default=15 if task == Tasks.PR_SENSITIVITY else 20,
         help="The number of steps (batches) to run for each measurement",
     )
 
 
-def add_optimizer_args(parser, task=None):
+def add_optimizer_args(parser: argparse.ArgumentParser, task: Optional[Tasks] = None):
     parser.add_argument(
         "--optim-args",
         type=json.loads,
@@ -218,21 +233,21 @@ def add_optimizer_args(parser, task=None):
     )
 
 
-def add_learning_rate(parser, task=None):
+def add_learning_rate(parser: argparse.ArgumentParser, task: Optional[Tasks] = None):
     parser.add_argument(
         "--init-lr",
         type=float,
-        default=1e-5 if task == "lr_sensitivity" else 1e-9,
+        default=1e-5 if task == Tasks.LR_SENSITIVITY else 1e-9,
         help=(
             "The initial learning rate to use for the sensitivity analysis"
-            if task == "lr_sensitivity"
+            if task == Tasks.LR_SENSITIVITY
             else "The initial learning rate to use while training, "
             "the actual initial value used should be set by the sparseml recipe"
         ),
     )
 
 
-def add_pin_memory_args(parser):
+def add_pin_memory_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--loader-pin-memory",
         type=bool,
@@ -241,7 +256,7 @@ def add_pin_memory_args(parser):
     )
 
 
-def add_workers_args(parser):
+def add_workers_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--loader-num-workers",
         type=int,
@@ -250,7 +265,7 @@ def add_workers_args(parser):
     )
 
 
-def add_device_args(parser):
+def add_device_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--device",
         type=str,
@@ -262,7 +277,7 @@ def add_device_args(parser):
     )
 
 
-def add_universal_args(parser, task=None):
+def add_universal_args(parser: argparse.ArgumentParser, task: Optional[Tasks] = None):
     parser.add_argument(
         "--arch-key",
         type=str,
@@ -352,7 +367,7 @@ def add_universal_args(parser, task=None):
     )
 
 
-def add_local_rank(parser):
+def add_local_rank(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--local_rank",  # DO NOT MODIFY
         type=int,
@@ -361,7 +376,7 @@ def add_local_rank(parser):
     )
 
 
-def append_preprocessing_args(args):
+def append_preprocessing_args(args: argparse.Namespace):
     if "preprocessing_type" not in args.dataset_kwargs and (
         "coco" in args.dataset.lower() or "voc" in args.dataset.lower()
     ):
@@ -372,8 +387,11 @@ def append_preprocessing_args(args):
 
 
 # distributed training
-def parse_ddp_args(args, task=None):
-    if task != "train":
+def parse_ddp_args(args: argparse.Namespace, task: Optional[Tasks] = None):
+    """
+    Utility function to add configuration for distributed training
+    """
+    if task != Tasks.TRAIN:
         # set ddp args to default values
         args.local_rank = -1
         args.rank = -1
@@ -395,7 +413,10 @@ def parse_ddp_args(args, task=None):
     return args
 
 
-def distributed_setup(local_rank):
+def distributed_setup(local_rank: int):
+    """
+    :param local_rank: -1 for distributed training
+    """
     # initialize DDP process, set deterministic seeds
     if local_rank != -1:
         torch.distributed.init_process_group(backend="nccl", init_method="env://")
@@ -405,12 +426,14 @@ def distributed_setup(local_rank):
 # loggers
 
 
-def get_save_dir_and_loggers(args, task=None) -> Tuple[Union[str, None], List]:
+def get_save_dir_and_loggers(
+    args: argparse.Namespace, task: Optional[Tasks] = None
+) -> Tuple[Union[str, None], List]:
     if args.is_main_process:
         save_dir = os.path.abspath(os.path.expanduser(args.save_dir))
         logs_dir = (
             os.path.abspath(os.path.expanduser(os.path.join(args.logs_dir)))
-            if task == "train"
+            if task == Tasks.TRAIN
             else None
         )
 
@@ -437,7 +460,7 @@ def get_save_dir_and_loggers(args, task=None) -> Tuple[Union[str, None], List]:
 
         # loggers setup
         loggers = [PythonLogger()]
-        if task == "train":
+        if task == Tasks.TRAIN:
             logs_dir = os.path.join(logs_dir, model_id)
             create_dirs(logs_dir)
             loggers.append(TensorBoardLogger(log_path=logs_dir))
@@ -452,24 +475,26 @@ def get_save_dir_and_loggers(args, task=None) -> Tuple[Union[str, None], List]:
 # data helpers
 
 
-def _get_collate_fn(args, task=None):
+def _get_collate_fn(args: argparse.Namespace, task: Optional[Tasks] = None):
     if (
         "ssd" not in args.arch_key.lower() and "yolo" not in args.arch_key.lower()
-    ) or task == "export":
+    ) or task == Tasks.EXPORT:
         # default collate function
         return None
     return ssd_collate_fn if "ssd" in args.arch_key.lower() else yolo_collate_fn
 
 
 def _create_train_dataset_and_loader(
-    args, image_size: Tuple[int, ...], task=None
+    args: argparse.Namespace,
+    image_size: Tuple[int, ...],
+    task: Optional[Tasks] = None,
 ) -> Tuple[Any, Any]:
     # create train dataset if it should be ran for this flow, otherwise return None
     if (
-        task == "export"
-        or task == "pr_sensitivity"
+        task == Tasks.EXPORT
+        or task == Tasks.PR_SENSITIVITY
         and args.approximate
-        or task == "train"
+        or task == Tasks.TRAIN
         and args.eval_mode
     ):
         return None, None
@@ -491,7 +516,7 @@ def _create_train_dataset_and_loader(
         else None
     )
     shuffle = True if sampler is None else False
-    batch_size = args.train_batch_size if task == "train" else args.batch_size
+    batch_size = args.train_batch_size if task == Tasks.TRAIN else args.batch_size
 
     train_loader = DataLoader(
         train_dataset,
@@ -507,11 +532,11 @@ def _create_train_dataset_and_loader(
 
 
 def _create_val_dataset_and_loader(
-    args, image_size: Tuple[int, ...], task=None
+    args, image_size: Tuple[int, ...], task: Optional[Tasks] = None
 ) -> Tuple[Any, Any]:
     if (
-        task == "pr_sensitivity"
-        or task == "lr_sensitivity"
+        task == Tasks.PR_SENSITIVITY
+        or task == Tasks.LR_SENSITIVITY
         or not (args.is_main_process and args.dataset != "imagefolder")
     ):
         return None, None  # val dataset not needed
@@ -524,7 +549,7 @@ def _create_val_dataset_and_loader(
         **args.dataset_kwargs,
     )
     if args.is_main_process:
-        is_training = task == "train"
+        is_training = task == Tasks.TRAIN
         val_loader = DataLoader(
             val_dataset,
             batch_size=args.test_batch_size if is_training else 1,
@@ -533,7 +558,7 @@ def _create_val_dataset_and_loader(
             pin_memory=args.loader_pin_memory if is_training else False,
             collate_fn=_get_collate_fn(args),
         )
-        if task == "export":
+        if task == Tasks.EXPORT:
             val_loader = early_stop_data_loader(
                 val_loader, args.num_samples if args.num_samples > 1 else 1
             )
@@ -543,7 +568,16 @@ def _create_val_dataset_and_loader(
     return val_dataset, val_loader
 
 
-def get_train_and_validation_loaders(args, image_size, task=None):
+def get_train_and_validation_loaders(
+    args, image_size: Tuple[int, ...], task: Optional[Tasks] = None
+):
+    """
+    :param args: Namespace object containing relevant configuration for the task
+    :param image_size: A Tuple of integers representing the shape of input image
+    :param task: The current task being performed
+    :return: 4 element tuple with the following format (train_dataset, train_loader,
+        val_dataset, val_loader)
+    """
     train_dataset, train_loader = _create_train_dataset_and_loader(
         args, image_size, task=task
     )
@@ -556,7 +590,11 @@ def get_train_and_validation_loaders(args, image_size, task=None):
 # Model creation Helpers
 
 
-def create_model(args, num_classes):
+def create_model(args: argparse.Namespace, num_classes: int) -> Module:
+    """
+    :param args: Namespace object with configuration for model classes
+    :param num_classes: Integer representing the number of output classes
+    """
     with torch_distributed_zero_first(args.local_rank):  # only download once locally
         if args.checkpoint_path == "zoo":
             if args.recipe_path and args.recipe_path.startswith("zoo:"):
@@ -582,6 +620,12 @@ def create_model(args, num_classes):
 
 
 def infer_num_classes(args, train_dataset, val_dataset):
+    """
+    :param args: Namespace object with configuration settings
+    :param train_dataset: dataset representing training data
+    :param val_dataset: dataset representing validation data
+    :return: An integer representing the number of classes
+    """
     if "num_classes" in args.model_kwargs:
         # handle manually overriden num classes
         num_classes = args.model_kwargs["num_classes"]
@@ -595,14 +639,19 @@ def infer_num_classes(args, train_dataset, val_dataset):
     return num_classes
 
 
-def get_loss_wrapper(args, training=False, task=None):
+def get_loss_wrapper(args, training=False, task: Optional[Tasks] = None):
+    """
+    :param args: Namespace object with config
+    :param training: True if training task started else False
+    :param task: current task being executed
+    """
     if "ssd" in args.arch_key.lower():
         return SSDLossWrapper()
     if "yolo" in args.arch_key.lower():
         return YoloLossWrapper()
 
     extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
-    if task == "train":
+    if task == Tasks.TRAIN:
         return (
             CrossEntropyLossWrapper(extras)
             if training and "inception" not in args.arch_key
@@ -618,6 +667,12 @@ def create_scheduled_optimizer(
     train_loader: DataLoader,
     loggers: List[Any],
 ) -> Tuple[int, ScheduledOptimizer, ScheduledModifierManager]:
+    """
+    :params args : A Namespace object with task specific config
+    :param model: model architecture to train
+    :param train_loader: A DataLoader for training data
+    :param loggers: List of loggers to use during training process
+    """
     # optimizer setup
     if args.optim == "SGD":
         optim_const = SGD
@@ -693,6 +748,16 @@ def save_model_training(
     val_res: Union[ModuleRunResults, None],
     convert_qat: bool = False,
 ):
+    """
+    :param model: model architecture to train
+    :param optim: The optimizer used
+    :param input_shape: A tuple of integers representing the input shape
+    :param save_name: name to save model to
+    :param save_dir: directory to save results in
+    :param epoch: integer representing umber of epochs to
+    :param val_res: results from validation run
+    :param convert_qat: True if model is to be quantized before saving
+    """
     LOGGER.info(
         "Saving model for epoch {} and val_loss {} to {} for {}".format(
             epoch, val_res.result_mean(DEFAULT_LOSS_KEY).item(), save_dir, save_name

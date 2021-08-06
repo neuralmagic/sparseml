@@ -85,8 +85,9 @@ The following table lays out the root-level files and folders along with a descr
 | tutorials                     | Tutorial walkthroughs for how to sparsify PyTorch models using recipes.                                               |
 | README.md                     | Readme file.                                                                                                          |
 | torchvision_sparsification.py | Example training script for sparsifying PyTorch torchvision classification models.                                    |
-| vision.py                     | Utility training script for sparsifying classification and detection models in PyTorch (loads SparseML models).       |
-
+| train.py                     | Utility training script for sparsifying classification and detection models in PyTorch (loads SparseML models).       |
+| export.py                     | Utility script for exporting pytorch model to ONNX file along with sample inputs, outputs and labels.                 |
+|analysis.py|Utility script to Run a kernel sparsity (pruning) or learning rate sensitivity analysis for a desired image classification architecture |
 ### Exporting for Inference
 
 All scripts and notebooks end with an export to the [ONNX](https://onnx.ai/) file format.

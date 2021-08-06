@@ -73,7 +73,7 @@ The training script can be found at `sparseml/integrations/pytorch/vision.py`.
 *script command:*
 
 ```
-python integrations/pytorch/vision.py train \
+python integrations/pytorch/train.py \
     --recipe-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenet/pruned-moderate?recipe_type=original \
     --pretrained True \
     --arch-key resnet50 \
