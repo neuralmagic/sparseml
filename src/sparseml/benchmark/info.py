@@ -92,7 +92,7 @@ import argparse
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterable, Iterator, Optional
 
 from tqdm import auto
 
@@ -128,6 +128,7 @@ class BenchmarkRunner(ABC):
         self,
         data: Any,
         desc: str = "",
+        load_data_kwargs: Dict[str, Any] = {},
         show_progress: bool = False,
         *args,
         **kwargs,
@@ -139,6 +140,8 @@ class BenchmarkRunner(ABC):
         :param data: data to use for benchmarking
         :param desc: str to display if show_progress is True
         :param show_progress: whether to show progress
+        :param load_data_kwargs: additional arguments to pass to the framework's
+            load_data method
         :param args: additional arguments to pass to the framework
         :param kwargs: additional arguments to pass to the framework
         :return: the results of the benchmark run
@@ -146,7 +149,12 @@ class BenchmarkRunner(ABC):
         """
         results = []
         for batch_result in self.run_iter(
-            data, desc=desc, show_progress=show_progress, *args, **kwargs
+            data,
+            desc=desc,
+            show_progress=show_progress,
+            load_data_kwargs=load_data_kwargs,
+            *args,
+            **kwargs,
         ):
             results.append(batch_result)
         return BenchmarkResult.from_results(results)
@@ -156,6 +164,7 @@ class BenchmarkRunner(ABC):
         data: Any,
         desc: str = "",
         show_progress: bool = False,
+        load_data_kwargs: Dict[str, Any] = {},
         *args,
         **kwargs,
     ) -> Iterator[BatchBenchmarkResult]:
@@ -166,23 +175,47 @@ class BenchmarkRunner(ABC):
         :param data: data to use for benchmarking
         :param desc: str to display if show_progress is True
         :param show_progress: whether to show progress
+        :param load_data_kwargs: additional arguments to pass to the framework's
+            load_data method
         :param args: additional arguments to pass to the framework
         :param kwargs: additional arguments to pass to the framework
         :return: an iterator of the benchmark results for each batch
         :rtype: Iterator[BatchBenchmarkResult]
         """
+        _LOGGER.debug("loading data with load_model")
+        loaded_data = self.load_data(data, **load_data_kwargs)
+
         progress_steps = self.warmup_iterations + self.iterations
         _LOGGER.debug("running {} items through model".format(progress_steps))
         data_iter = (
-            enumerate(data)
+            enumerate(loaded_data)
             if not show_progress
-            else auto.tqdm(enumerate(data), desc=desc, total=progress_steps)
+            else auto.tqdm(enumerate(loaded_data), desc=desc, total=progress_steps)
         )
         for index, batch in data_iter:
             if index < self.warmup_iterations:
                 self.run_batch(batch, *args, **kwargs)
                 continue
             yield self.run_batch(batch, *args, **kwargs)
+
+    def load_data(self, data: Any, **kwargs) -> Iterable[Any]:
+        """
+        Uses the framework's load_data method to load the data into
+        an iterable for use in benchmarking.
+
+        :param data: data to load
+        :param kwargs: additional arguments to pass to the framework's load_data method
+        :return: an iterable of the loaded data
+        """
+        return execute_in_sparseml_framework(
+            self.framework,
+            "load_data",
+            data=data,
+            model=self.model,
+            batch_size=self.batch_size,
+            total_iterations=self.warmup_iterations + self.iterations,
+            **kwargs,
+        )
 
     @abstractmethod
     def run_batch(
