@@ -138,7 +138,7 @@ from transformers import (
 from transformers.testing_utils import CaptureLogger
 from transformers.trainer_utils import get_last_checkpoint
 
-from sparseml_utils import SparseMLTrainer, export_model
+from sparseml_utils import SparseMLGPTTrainer, export_model
 
 logger = logging.getLogger(__name__)
 
@@ -474,7 +474,7 @@ def main():
         if data_args.max_eval_samples is not None:
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
 
-    trainer =  SparseMLTrainer(
+    trainer =  SparseMLGPTTrainer(
         model=model,
         recipe=data_args.recipe,
         teacher=teacher_model,
