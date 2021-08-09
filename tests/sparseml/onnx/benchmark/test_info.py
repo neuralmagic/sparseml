@@ -20,7 +20,6 @@ import numpy
 import onnx
 import pytest
 
-import sparseml.onnx.benchmark.info as info
 from pytest_mock import MockerFixture, mocker  # noqa: F401
 from sparseml.base import Framework
 from sparseml.benchmark.serialization import BatchBenchmarkResult, BenchmarkResult
@@ -316,7 +315,6 @@ class TestOrtBenchmarkRunner:
         mocker: MockerFixture,  # noqa: F811
         cpu_runner_fixture: ORTBenchmarkRunner,
     ):
-        load_data_spy = mocker.spy(info, "load_data")
         mock_data = [OrderedDict([("arr00", numpy.random.randn(3, 224, 224))])] * 5
 
         data_loader = load_data(
@@ -327,7 +325,6 @@ class TestOrtBenchmarkRunner:
             + cpu_runner_fixture.warmup_iterations,
         )
         benchmark_results = cpu_runner_fixture.run(mock_data)
-        load_data_spy.assert_called()
 
         mock_calls = cpu_runner_fixture._model_runner.batch_forward.call_args_list
         for mock_call, (data, _) in zip(mock_calls, data_loader):
@@ -349,7 +346,6 @@ class TestOrtBenchmarkRunner:
         mocker: MockerFixture,  # noqa: F811
         cpu_runner_fixture: ORTBenchmarkRunner,
     ):
-        load_data_spy = mocker.spy(info, "load_data")
         mock_data = [OrderedDict([("arr00", numpy.random.randn(3, 224, 224))])] * 5
 
         total_iterations = (
@@ -371,7 +367,6 @@ class TestOrtBenchmarkRunner:
         for index, benchmark_result in enumerate(
             cpu_runner_fixture.run_iter(mock_data)
         ):
-            load_data_spy.assert_called()
             assert isinstance(benchmark_result, BatchBenchmarkResult)
             assert (
                 cpu_runner_fixture._model_runner.batch_forward.call_count

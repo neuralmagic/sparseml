@@ -20,12 +20,7 @@ import onnx
 from onnx import ModelProto
 
 from sparseml.base import Framework
-from sparseml.benchmark import (
-    BatchBenchmarkResult,
-    BenchmarkInfo,
-    BenchmarkResult,
-    BenchmarkRunner,
-)
+from sparseml.benchmark import BatchBenchmarkResult, BenchmarkInfo, BenchmarkRunner
 from sparseml.framework import FrameworkInfo
 from sparseml.framework.info import FrameworkInferenceProviderInfo
 from sparseml.onnx.base import (
@@ -126,33 +121,6 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         self._batch_size = batch_size
         self._iterations = iterations
         self._warmup_iterations = warmup_iterations
-
-    def run_iter(
-        self,
-        data: Any,
-        desc: str = "",
-        show_progress: bool = False,
-        *args,
-        **kwargs,
-    ) -> Iterator[BenchmarkResult]:
-        """
-        Runs a benchmark on the given data.
-
-        :param data: data to use for benchmarking
-        :param show_progress: whether to show progress
-        :param args: additional arguments to pass to the framework
-        :param kwargs: additional arguments to pass to the framework
-        """
-        _LOGGER.debug("loading data with load_model")
-        loaded_data = load_data(
-            data,
-            self._model,
-            self._batch_size,
-            self._warmup_iterations + self._iterations,
-        )
-        return super().run_iter(
-            loaded_data, desc=desc, show_progress=show_progress, *args, **kwargs
-        )
 
     def run_batch(
         self, batch: Union[Dict[str, Any], Tuple[Dict[str, Any], Any]], *args, **kwargs
