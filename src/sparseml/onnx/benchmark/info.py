@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 import onnx
 from onnx import ModelProto
@@ -331,18 +331,31 @@ def load_model(model: Any, **kwargs) -> ModelProto:
 
 
 def load_data(
-    data: Any, model: Any = None, batch_size: int = 1, total_iterations: int = 0
+    data: Any,
+    model: Any = None,
+    batch_size: int = 1,
+    total_iterations: int = 0,
+    **kwargs,
 ) -> Iterable[Tuple[OrderedDict[str, Any], Any]]:
     """
-    Creates a DataLoader for the given data. If data is None value,
-    then random data will be generated using the given model.
+    Creates a iteratable data loader for the given data.
+
+    Acceptable types for data are:
+    - a folder path containing numpy files
+    - a list of file paths
+    - a SparseML DataLoader
+    - a SparseZoo DataLoader
+    - an iterable
+    - None type, in which case model must be passed
 
     :param data: data to use for benchmarking
     :param model: model to use for generating data
     :param batch_size: batch size
     :param total_iterations: total number of iterations
-    :return: DataLoader
+    :param kwargs: additional arguments to pass to the DataLoader
+    :return: an iterable of data and labels
     """
+    # Creates random data from model input shapes if data is not provided
     if not data:
         if not model:
             raise ValueError("must provide model or data")
@@ -351,16 +364,20 @@ def load_data(
             model, batch_size, iter_steps=total_iterations
         )
 
-    if isinstance(data, DataLoader):
-        return data
-
+    # If data is a SparseZoo stub, downloads model data
     if isinstance(data, str) and data.startswith("zoo:"):
         model_from_zoo = Zoo.load_model_from_stub(data)
         data = model_from_zoo.data_inputs.loader(
             batch_size, total_iterations, batch_as_list=False
         )
 
-    if isinstance(data, SparseZooDataLoader):
+    # Imediately return the data if it is already a DataLoader
+    if isinstance(data, DataLoader):
+        return data
+
+    # If data is a SparseZoo DataLoader, unbatches the dataloader and creates
+    # DataLoader from it
+    elif isinstance(data, SparseZooDataLoader):
         datasets = [
             SparseZooDataset(name, dataset) for name, dataset in data.datasets.items()
         ]
@@ -374,20 +391,38 @@ def load_data(
             )
             for entry in data
         ]
-        return DataLoader(
-            data, None, batch_size=batch_size, iter_steps=total_iterations
-        )
 
-    if (
-        isinstance(data, str)
-        or isinstance(data, Iterable)
-        or isinstance(data, Iterator)
-    ):
-        return DataLoader(
-            data, None, batch_size=batch_size, iter_steps=total_iterations
-        )
+    # If data is a dictionary of data shapes, creates DataLoader from random data
+    elif isinstance(data, dict):
+        is_dict_of_shapes = True
+        for _, value in data.items():
+            is_dict_of_shapes = is_dict_of_shapes and isinstance(value, tuple)
+        if is_dict_of_shapes:
+            return DataLoader.from_random(
+                data,
+                None,
+                batch_size=batch_size,
+                iter_steps=total_iterations,
+                **kwargs,
+            )
 
-    return data
+    # If data is a list of data shapes, creates DataLoader from random data
+    elif isinstance(data, Iterable):
+        element = next(iter(data))
+        if isinstance(element, tuple):
+            data_shapes = OrderedDict(
+                (f"{index:04}", shape) for index, shape in enumerate(data)
+            )
+            return DataLoader.from_random(
+                data_shapes,
+                None,
+                batch_size=batch_size,
+                iter_steps=total_iterations,
+                **kwargs,
+            )
+    return DataLoader(
+        data, None, batch_size=batch_size, iter_steps=total_iterations, **kwargs
+    )
 
 
 def detect_benchmark_runner(
