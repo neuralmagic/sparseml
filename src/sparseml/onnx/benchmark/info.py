@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Tuple, Union
 
 import onnx
 from onnx import ModelProto
@@ -134,7 +134,7 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         show_progress: bool = False,
         *args,
         **kwargs,
-    ) -> Iterable[BenchmarkResult]:
+    ) -> Iterator[BenchmarkResult]:
         """
         Runs a benchmark on the given data.
 
@@ -144,18 +144,18 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         :param kwargs: additional arguments to pass to the framework
         """
         _LOGGER.debug("loading data with load_model")
-        data = load_data(
+        loaded_data = load_data(
             data,
             self._model,
             self._batch_size,
             self._warmup_iterations + self._iterations,
         )
         return super().run_iter(
-            data, desc=desc, show_progress=show_progress, *args, **kwargs
+            loaded_data, desc=desc, show_progress=show_progress, *args, **kwargs
         )
 
     def run_batch(
-        self, batch: Union[Dict[str, Any], Tuple[Dict[str, Any]]], *args, **kwargs
+        self, batch: Union[Dict[str, Any], Tuple[Dict[str, Any], Any]], *args, **kwargs
     ) -> BatchBenchmarkResult:
         """
         Runs a benchmark on a given batch.
@@ -167,7 +167,7 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         # Handles case where batch consists of a tuple of input/labels
         if isinstance(batch, tuple):
             batch = batch[0]
-        outputs, batch_time = self._model_runner.batch_forward(batch, *args, **kwargs)
+        _, batch_time = self._model_runner.batch_forward(batch, *args, **kwargs)
         return BatchBenchmarkResult.from_result(batch_time, self.batch_size)
 
     @property
@@ -363,8 +363,8 @@ def load_model(model: Any, **kwargs) -> ModelProto:
 
 
 def load_data(
-    data: Any, model: Any, batch_size: int, total_iterations: int
-) -> Iterable[OrderedDict[str, Any]]:
+    data: Any, model: Any = None, batch_size: int = 1, total_iterations: int = 0
+) -> Iterable[Tuple[OrderedDict[str, Any], Any]]:
     """
     Creates a DataLoader for the given data. If data is None value,
     then random data will be generated using the given model.
@@ -376,6 +376,8 @@ def load_data(
     :return: DataLoader
     """
     if not data:
+        if not model:
+            raise ValueError("must provide model or data")
         model = load_model(model)
         return DataLoader.from_model_random(
             model, batch_size, iter_steps=total_iterations
@@ -408,7 +410,11 @@ def load_data(
             data, None, batch_size=batch_size, iter_steps=total_iterations
         )
 
-    if isinstance(data, str) or isinstance(data, Iterable):
+    if (
+        isinstance(data, str)
+        or isinstance(data, Iterable)
+        or isinstance(data, Iterator)
+    ):
         return DataLoader(
             data, None, batch_size=batch_size, iter_steps=total_iterations
         )

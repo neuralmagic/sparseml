@@ -31,6 +31,7 @@ import psutil
 from onnx import ModelProto
 from tqdm import auto
 
+from sparseml.onnx.base import require_onnxruntime
 from sparseml.onnx.utils.data import DataLoader
 from sparseml.onnx.utils.graph_editor import override_model_batch_size
 from sparseml.onnx.utils.helpers import (
@@ -448,6 +449,7 @@ class ORTModelRunner(ModelRunner):
         ort.get_available_providers()
     """
 
+    @require_onnxruntime()
     def __init__(
         self,
         model: Union[str, ModelProto],
