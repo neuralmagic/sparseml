@@ -27,13 +27,9 @@ python src/run_language_modeling.py --model_name_or_path gpt2 --do_eval --do_tra
 | GPT-2 (XL)(Zero-Shot)1.5 B|0         |17.48     |No        |N/A              |
 | GPT-2 122M (Zero-Shot)    |0         |30.63     |No        |N/A              |
 | GPT-2 122M                |0         |15.08     |No        |N/A              |
-| GPT-2 122M                |0         |          |Yes       |gpt2(zero-shot)  |
-| GPT-2 122M                |0         |          |Yes       |gpt2(wikitext2)  |
-| GPT-2 122M                |0         |          |Yes       |gpt2(wikitext103)|
+| GPT-2 122M                |0         |4.59e10   |Yes       |gpt2(wikitext103)|
 | GPT-2 122M                |90        |26.79     |No        |N/A              |
-| GPT-2 122M                |90        |          |Yes       |gpt2(zero-shot)  |
-| GPT-2 122M                |90        |          |Yes       |gpt2(wikitext2)  |
-| GPT-2 122M                |90        |          |Yes       |gpt2(wikitext103)|
+| GPT-2 122M                |90        |3.27e130  |Yes       |gpt2(wikitext103)|
 
 
 ##### Individual Layer Pruning on Wikitext-2
