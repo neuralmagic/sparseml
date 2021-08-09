@@ -161,10 +161,9 @@ class BenchmarkRunner(ABC):
     ) -> Iterator[BatchBenchmarkResult]:
         """
         Iteratively runs a benchmark on the given data. Non warmup iterations
-        results are returned as an iterator containing the results serialized as
-        a BatchBenchmarkResult.
+        results are returned serialized as BatchBenchmarkResult.
 
-        :param data_loader: data loader to use
+        :param data: data to use for benchmarking
         :param desc: str to display if show_progress is True
         :param show_progress: whether to show progress
         :param args: additional arguments to pass to the framework
@@ -185,19 +184,6 @@ class BenchmarkRunner(ABC):
                 continue
             yield self.run_batch(batch, *args, **kwargs)
 
-    @property
-    def benchmark_config(self) -> BenchmarkConfig:
-        """
-        :return: The benchmark configuration.
-        """
-        return BenchmarkConfig(
-            batch_size=self.batch_size,
-            iterations=self.iterations,
-            warmup_iterations=self.warmup_iterations,
-            device=self.device,
-            inference_provider=self.inference_provider,
-        )
-
     @abstractmethod
     def run_batch(
         self,
@@ -213,6 +199,19 @@ class BenchmarkRunner(ABC):
         :param kwargs: additional arguments to pass to the framework
         """
         raise NotImplementedError()
+
+    @property
+    def benchmark_config(self) -> BenchmarkConfig:
+        """
+        :return: The benchmark configuration.
+        """
+        return BenchmarkConfig(
+            batch_size=self.batch_size,
+            iterations=self.iterations,
+            warmup_iterations=self.warmup_iterations,
+            device=self.device,
+            inference_provider=self.inference_provider,
+        )
 
     @property
     @abstractmethod
