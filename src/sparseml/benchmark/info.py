@@ -92,7 +92,7 @@ import argparse
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterator, Optional
 
 from tqdm import auto
 
@@ -133,7 +133,8 @@ class BenchmarkRunner(ABC):
         **kwargs,
     ) -> BenchmarkResult:
         """
-        Runs a benchmark on the given data.
+        Runs a benchmark on the given data. Results are serialized together using
+        the BenchmarkResult class.
 
         :param data: data to use for benchmarking
         :param desc: str to display if show_progress is True
@@ -141,7 +142,7 @@ class BenchmarkRunner(ABC):
         :param args: additional arguments to pass to the framework
         :param kwargs: additional arguments to pass to the framework
         :return: the results of the benchmark run
-        :rtype: BenchmarkResults
+        :rtype: BenchmarkResult
         """
         results = []
         for batch_result in self.run_iter(
@@ -157,9 +158,11 @@ class BenchmarkRunner(ABC):
         show_progress: bool = False,
         *args,
         **kwargs,
-    ) -> Iterable[BatchBenchmarkResult]:
+    ) -> Iterator[BatchBenchmarkResult]:
         """
-        Iteratively runs a benchmark on the given data.
+        Iteratively runs a benchmark on the given data. Non warmup iterations
+        results are returned as an iterator containing the results serialized as
+        a BatchBenchmarkResult.
 
         :param data_loader: data loader to use
         :param desc: str to display if show_progress is True
@@ -167,7 +170,7 @@ class BenchmarkRunner(ABC):
         :param args: additional arguments to pass to the framework
         :param kwargs: additional arguments to pass to the framework
         :return: an iterator of the benchmark results for each batch
-        :rtype: Iterable[BatchBenchmarkResult]
+        :rtype: Iterator[BatchBenchmarkResult]
         """
         progress_steps = self.warmup_iterations + self.iterations
         _LOGGER.debug("running {} items through model".format(progress_steps))
