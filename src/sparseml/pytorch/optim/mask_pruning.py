@@ -328,9 +328,6 @@ class ModuleParamPruningMask(object):
 
             self._param_masks[idx] = value
 
-            if not self._allow_reintroduction:
-                self.apply()
-
             mask_diffs.append(mask_diff)
 
         self._scorer.mask_update(masks, mask_diffs)
