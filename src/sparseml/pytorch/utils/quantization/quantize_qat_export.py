@@ -778,6 +778,19 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         quantized_bias = _quantize_array(
             bias_initializer, bias_scale, bias_zero_point, dtype=numpy.int32
         )
+
+        # bias zero point correction
+        act_zero_point = numpy_helper.to_array(
+            get_init_by_name(model, output_quantize_node.input[2])
+        ).astype(numpy.int32)
+        act_zero_point = act_zero_point * numpy.ones(
+            (1, quantized_weight.shape[0]), dtype=numpy.int32
+        )
+        correction_term = numpy.matmul(
+            act_zero_point, quantized_weight.astype(numpy.int32)
+        )
+        quantized_bias -= correction_term.reshape(quantized_bias.shape)
+
         quantized_bias_name = "{}.bias_quantized".format(bias_add_node.name)
         quantized_bias_initializer = numpy_helper.from_array(
             quantized_bias, name=quantized_bias_name
