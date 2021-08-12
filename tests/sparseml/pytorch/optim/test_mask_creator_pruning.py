@@ -30,8 +30,11 @@ def _test_sparsity_mask_creator(tensor_shapes, mask_creator, sparsity_val, devic
     initial_masks = mask_creator.create_sparsity_masks_from_tensor(tensors)
     update_masks = mask_creator.create_sparsity_masks(tensors, sparsity_val)
 
-    for update_mask in update_masks:
-        assert abs(tensor_sparsity(update_mask) - sparsity_val) < 1e-2
+    if isinstance(sparsity_val, float):
+        sparsity_val = [sparsity_val] * len(update_masks)
+
+    for update_mask, target_sparsity in zip(update_masks, sparsity_val):
+        assert abs(tensor_sparsity(update_mask) - target_sparsity) < 1e-2
 
     if isinstance(mask_creator, GroupedPruningMaskCreator):
         _test_grouped_masks(initial_masks + update_masks, mask_creator)
@@ -116,6 +119,35 @@ def test_global_sparsity_mask_creator(tensors, mask_creator, sparsity_val):
 
     if isinstance(mask_creator, GroupedPruningMaskCreator):
         _test_grouped_masks(masks, mask_creator)
+
+
+@pytest.mark.parametrize(
+    ("tensor_shapes,mask_creator,sparsity_val"),
+    [
+        (
+            [[128, 128, 3, 3], [64, 64]],
+            UnstructuredPruningMaskCreator(),
+            [0.8, 0.9],
+        ),
+        (
+            [[64, 64, 3, 3]] * 6,
+            UnstructuredPruningMaskCreator(),
+            [0.4, 0.6, 0.8, 0.9, 0.95, 0.99],
+        ),
+        (
+            [[128, 128, 3, 3], [64, 512]],
+            BlockPruningMaskCreator([1, 4]),
+            [0.8, 0.9],
+        ),
+        (
+            [[64, 64, 3, 3]] * 6,
+            BlockPruningMaskCreator([1, 4]),
+            [0.4, 0.6, 0.8, 0.9, 0.95, 0.99],
+        ),
+    ],
+)
+def test_sparsity_mask_creator_mult_tensor(tensor_shapes, mask_creator, sparsity_val):
+    _test_sparsity_mask_creator(tensor_shapes, mask_creator, sparsity_val, "cpu")
 
 
 @pytest.mark.parametrize(
