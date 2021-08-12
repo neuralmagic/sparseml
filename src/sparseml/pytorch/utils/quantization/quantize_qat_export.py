@@ -818,13 +818,30 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         model.graph.node.append(qadd_node)
 
         # create Cast node and add it to graph
+        cast_node_name = "{}_cast".format(bias_add_node.name)
+        cast_node_output = "{}_cast".format(quant_add_output)
         cast_node = onnx.helper.make_node(
             "Cast",
             [quant_add_output],
-            [output_dequantize_node.output[0]],
+            [cast_node_output],
+            cast_node_name,
             to=getattr(onnx.TensorProto, "FLOAT"),  # get Float32 enum id
         )
         model.graph.node.append(cast_node)
+
+        # create Mul node for rescale
+        mul_node_inputs = [
+            cast_node_output,  # a
+            quantized_bias_scale_name,  # b -> rescale factor
+        ]
+        mul_node_name = "{}_rescale_mul".format(bias_add_node.name)
+        mul_node = onnx.helper.make_node(
+            "Mul",
+            mul_node_inputs,
+            [output_dequantize_node.output[0]],
+            mul_node_name,
+        )
+        model.graph.node.append(mul_node)
 
         # Cleanup
         # delete folded quantization ops
