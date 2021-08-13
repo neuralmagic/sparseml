@@ -17,7 +17,7 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
-from typing import Union
+from typing import Any, Callable, List, Union
 
 import torch
 from torch.nn import BatchNorm2d, Conv2d, Module, ReLU
@@ -34,6 +34,9 @@ from sparseml.pytorch.nn import ReLU as ReLU_nm
 
 
 __all__ = [
+    "QATWrapper",
+    "configure_module_qat_wrappers",
+    "configure_module_default_qconfigs",
     "add_quant_dequant",
     "get_qat_qconfig",
     "fuse_module_conv_bn_relus",
@@ -64,6 +67,235 @@ _QUANTIZABLE_MODULE_TYPES = (
 )
 
 
+class QATWrapper(Module):
+    """
+    Wraps inputs and outputs of a Module or function with QuantStubs for
+    Quantization-Aware-Training (QAT)
+
+    :param forward_fn: function to be wrapped, should generally accept and return
+        torch Tensor(s)
+    :param num_inputs: number of inputs of the forward function to add a QuantStub
+        to. Will wrap the first num_inputs ordered inputs of the function. Default
+        is 1
+    :param kwarg_input_names: list of names of key word arguments to the forward pass
+        that should be wrapped with a fake quantize operation. Defaults to empty
+    :param num_outputs: number of outputs of the forward function to add a QuantStub
+        to. Will wrap the first num_inputs ordered outputs of the function. Default
+        is 1. Will also add a DeQuantStub for FP32 conversion if
+        torch.quantization.convert is invoked
+    :param input_qconfigs: QConfig to use for calibrating the input QuantStubs. Can
+        be a single QConfig that will be copied to each QuantStub or a list of one
+        QConfig for each input. Instead of a QConfig objects, the string 'asymmetric'
+        or 'symmetric' may be used to use default UINT8 asymmetric and symmetric
+        quantization respectively
+    :param output_qconfigs: QConfig to use for calibrating the output QuantStubs. Can
+        be a single QConfig that will be copied to each QuantStub or a list of one
+        QConfig for each output. Instead of a QConfig objects, the string 'asymmetric'
+        or 'symmetric' may be used to use default UINT8 asymmetric and symmetric
+        quantization respectively
+    """
+
+    @staticmethod
+    def from_module(module: Module) -> "QATWrapper":
+        """
+        :param module: torch Module to create a QATWrapper for
+        :return: QATWrapper object created using the given Module as the forward
+            function. Will attempt to find any other named parameter of the QATWrapper
+            constructor from the attributes of the given Module
+        """
+        qat_wrapper_kwargs = (
+            module.qat_wrapper_kwargs or {}
+            if hasattr(module, "qat_wrapper_kwargs")
+            else {}
+        )
+
+        return QATWrapper(forward_fn=module, **qat_wrapper_kwargs)
+
+    def __init__(
+        self,
+        forward_fn: Callable[[Any], Any],
+        num_inputs: int = 1,
+        kwarg_input_names: List[str] = None,
+        num_outputs: int = 1,
+        input_qconfigs: Union[
+            "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
+        ] = "asymmetric",
+        output_qconfigs: Union[
+            "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
+        ] = "asymmetric",
+    ):
+        super().__init__()
+
+        if torch_quantization is None:
+            raise RuntimeError(
+                "Unable to import package torch.quantization. "
+                "Try upgrading your PyTorch version to >= 1.7.0."
+            )
+
+        if not callable(forward_fn):
+            raise ValueError(
+                "forward_fn of QATWrapper must be callable. "
+                f"Received {type(forward_fn)}"
+            )
+
+        self.kwarg_input_names = kwarg_input_names or []
+        num_input_quant_stubs = num_inputs + len(self.kwarg_input_names)
+
+        self.forward_fn = forward_fn
+        self.input_qconfigs = self._load_qconfigs(
+            "input_qconfigs", num_input_quant_stubs, input_qconfigs
+        )
+        self.output_qconfigs = self._load_qconfigs(
+            "output_qconfigs", num_outputs, output_qconfigs
+        )
+
+        self.input_quant_stubs = torch.nn.ModuleList(
+            [torch_quantization.QuantStub() for _ in range(num_input_quant_stubs)]
+        )
+        self.output_quant_stubs = torch.nn.ModuleList(
+            [torch_quantization.QuantStub() for _ in range(num_outputs)]
+        )
+        self.output_dequant_stubs = torch.nn.ModuleList(
+            [torch_quantization.DeQuantStub() for _ in range(num_outputs)]
+        )
+
+    def forward(self, *args, **kwargs) -> Any:
+        """
+        :param args: arguments to forward function; the first num_inputs of these args
+            will be wrapped by a QuantStub
+        :param kwargs: key word arguments to pass to the wrapped forward function
+        :return: outputs of the forward function with a QuantStub applied to the first
+            num_outputs outputs
+        """
+
+        if any(kwarg not in kwargs for kwarg in self.kwarg_input_names):
+            raise ValueError(
+                f"QATWrapper expected kwargs {self.kwarg_input_names} to be included "
+                f"in forward function kwargs. Found {list(kwargs.keys())}. missing "
+                f"{[kwarg for kwarg in self.kwarg_input_names if kwarg not in kwargs]}"
+            )
+
+        qat_args = []
+
+        # fake quantize positional arguments
+        num_args_stubs = len(self.input_quant_stubs) - len(self.kwarg_input_names)
+        for idx, arg in enumerate(args):
+            if idx < num_args_stubs:
+                arg = self.input_quant_stubs[idx](arg)
+            qat_args.append(arg)
+
+        # fake quantize key word arguments
+        for idx, kwarg in enumerate(self.kwarg_input_names):
+            kwargs[kwarg] = self.input_quant_stubs[num_args_stubs + idx](kwargs[kwarg])
+
+        # wrapped forward pass
+        outputs = self.forward_fn(*qat_args, **kwargs)
+
+        if len(self.output_quant_stubs) == 0:
+            # no output wrapping
+            return outputs
+
+        if isinstance(outputs, torch.Tensor):
+            if len(self.output_quant_stubs) > 1:
+                raise ValueError(
+                    f"QATWrapper expected {len(self.output_quant_stubs)} outputs in "
+                    "forward pass. Found one output"
+                )
+            # output is a single Tensor
+            qat_output = self.output_quant_stubs[0](outputs)
+            return self.output_dequant_stubs[0](qat_output)
+
+        qat_outputs = []
+
+        for idx, output in enumerate(outputs):
+            if idx < len(self.output_quant_stubs):
+                output = self.output_quant_stubs[idx](output)
+                output = self._output_deuant_stubs[idx](output)
+            qat_outputs.append(output)
+
+        return qat_outputs
+
+    def configure_qconfig(self):
+        """
+        Sets the qconfigs of the quant stubs to the pre-initialized QConfigs
+        """
+        for quant_stub, qconfig in zip(self.input_quant_stubs, self.input_qconfigs):
+            quant_stub.qconfig = qconfig
+
+        for quant_stub, qconfig in zip(self.output_quant_stubs, self.output_qconfigs):
+            quant_stub.qconfig = qconfig
+
+    @staticmethod
+    def _load_qconfigs(
+        name: str,
+        expected_len: int,
+        qconfigs: Union["QConfig", str, List["QConfig"]],  # noqa: F821
+    ):
+        if not isinstance(qconfigs, (str, torch_quantization.QConfig, List)):
+            raise ValueError(
+                f"QATWrapper {name} must be a string, torch.quantization.QConfig, "
+                f"or a List of them. Received a {type(qconfigs)}"
+            )
+
+        if isinstance(qconfigs, (str, torch_quantization.QConfig)):
+            qconfigs = [deepcopy(qconfigs) for _ in range(expected_len)]
+
+        if len(qconfigs) != expected_len:
+            raise ValueError(
+                f"QATWrapper {name} should have exactly one qconfig or one for every "
+                f"argument ({expected_len}). Given {len(qconfigs)}"
+            )
+
+        valid_qconfig_strs = ["asymmetric", "symmetric"]
+        for idx, qconfig in enumerate(qconfigs):
+            if not isinstance(qconfig, str):
+                continue
+
+            if qconfig not in valid_qconfig_strs:
+                raise ValueError(
+                    "QATWrapper qconfig names can either be "
+                    "torch.quantization.QConfig objects or a string "
+                    f"in {valid_qconfig_strs} that will be converted to a QConfig. "
+                    f"Found string with value {qconfig} in {name}"
+                )
+
+            qconfigs[idx] = get_qat_qconfig(
+                symmetric_activations=(qconfig == "symmetric")
+            )
+
+        return qconfigs
+
+
+def configure_module_qat_wrappers(module: Module):
+    """
+    if any submodule of the given module has the attribute wrap_qat == True,
+    then it will be replaced by a QATWrapper of it created by QATWrapper.from_module.
+    Other named kwargs to the QATWrapper constructor must be contained in a dictionary
+    under an attributed named `qat_wrapper_kwargs`
+
+    :param module: module to potentially wrap the submodules of
+    """
+    for submodule in module.modules():
+        for child_name, child_module in module.named_children():
+            if hasattr(child_module, "wrap_qat") and child_module.wrap_qat:
+                setattr(submodule, child_name, QATWrapper.from_module(child_module))
+
+
+def configure_module_default_qconfigs(module: Module):
+    """
+    if any submodule of the given module has a configure_qconfig function,
+    configure_qconfig will be called on that submodule to set the qconfig(s) of that
+    module to its default
+
+    :param module: module to set qconfigs for
+    """
+    for submodule in module.modules():
+        if hasattr(submodule, "configure_qconfig") and callable(
+            getattr(submodule, "configure_qconfig")
+        ):
+            submodule.configure_qconfig()
+
+
 def add_quant_dequant(module):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
@@ -82,19 +314,27 @@ def add_quant_dequant(module):
     return module
 
 
-def get_qat_qconfig() -> torch_quantization.QConfig:
+def get_qat_qconfig(
+    symmetric_activations: bool = False,
+) -> "torch.quantization.QConfig":
     """
+    :param symmetric_activations: if True, activations will have a symmetric
+        quantization range with zero point set to 128. Otherwise activations
+        will use asymmetric quantization with any zero point. Default is False
     :return: A QAT fake quantization config for symmetric weight quantization and
         asymmetric activation quantization.  The difference between this and
         torch.quantization.default_qat_qconfig is that the activation observer
         will not have reduce_range enabled.
     """
+    activation_qscheme = (
+        torch.per_tensor_symmetric if symmetric_activations else torch.per_tensor_affine
+    )
     activation_observer = torch_quantization.FakeQuantize.with_args(
         observer=torch_quantization.MovingAverageMinMaxObserver,
         quant_min=0,
         quant_max=255,
         dtype=torch.quint8,
-        qscheme=torch.per_tensor_affine,
+        qscheme=activation_qscheme,
         reduce_range=False,
     )
     weight_observer = torch_quantization.default_weight_fake_quant

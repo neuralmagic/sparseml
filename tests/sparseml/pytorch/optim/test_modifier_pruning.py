@@ -65,14 +65,15 @@ def _test_state_dict_save_load(
     )
     # get state dict
     state_dict = modifier.state_dict()
-    for mask in state_dict.values():
+    applied_sparsities = modifier.applied_sparsity if is_gm_pruning else None
+    if not isinstance(applied_sparsities, list):
+        applied_sparsities = [applied_sparsities] * len(state_dict)
+    for mask, applied_sparsity in zip(state_dict.values(), applied_sparsities):
         if is_gm_pruning:
             # check that the mask sparsity is the applied one leaving a relatively
             # large margin of error since parameter sizes are small so the exact
             # sparsity cannot always be attained
-            assert (
-                abs(1 - (mask.sum() / mask.numel()) - modifier.applied_sparsity) < 0.05
-            )
+            assert abs(1 - (mask.sum() / mask.numel()) - applied_sparsity) < 0.05
         else:
             # all weights should be non zero, pending randomness, so the mask should be
             # all ones for this constant_pruning modifier
@@ -257,6 +258,19 @@ def test_constant_pruning_yaml():
             inter_func="cubic",
             phased=True,
         ),
+        lambda: GMPruningModifier(
+            params=[],
+            init_sparsity=0.05,
+            final_sparsity={
+                0.6: ["seq.fc1.weight", "seq.fc2.weight"],
+                0.8: ["re:seq.block1.*weight"],
+            },
+            start_epoch=10.0,
+            end_epoch=25.0,
+            update_frequency=1.0,
+            inter_func="cubic",
+            mask_type=[1, 4],
+        ),
     ],
     scope="function",
 )
@@ -293,8 +307,16 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
         epoch = int(modifier.start_epoch)
         assert modifier.update_ready(epoch, test_steps_per_epoch)
         modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
-        assert modifier.applied_sparsity == modifier.init_sparsity
-        last_sparsity = modifier.init_sparsity
+
+        applied_sparsities = modifier.applied_sparsity
+        if not isinstance(applied_sparsities, list):
+            applied_sparsities = [applied_sparsities]
+        assert all(
+            applied_sparsity == modifier.init_sparsity
+            for applied_sparsity in applied_sparsities
+        )
+
+        last_sparsities = [modifier.init_sparsity]
 
         # check forward pass
         input_shape = model_lambda.layer_descs()[0].input_size
@@ -306,8 +328,17 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
             assert modifier.update_ready(epoch, test_steps_per_epoch)
             modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
 
+            applied_sparsities = modifier.applied_sparsity
+            if not isinstance(applied_sparsities, list):
+                applied_sparsities = [applied_sparsities]
+
             if not modifier.phased:
-                assert modifier.applied_sparsity > last_sparsity
+                assert all(
+                    applied_sparsity > last_sparsity
+                    for applied_sparsity, last_sparsity in zip(
+                        applied_sparsities, last_sparsities
+                    )
+                )
             else:
                 pruned_on = (
                     math.floor(
@@ -316,22 +347,37 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
                     % 2
                     == 0
                 )
-                if pruned_on:
-                    assert modifier.applied_sparsity >= last_sparsity
-                else:
-                    assert modifier.applied_sparsity == 0
-
-            last_sparsity = modifier.applied_sparsity
+                assert all(
+                    (
+                        (applied_sparsity > last_sparsity)
+                        if pruned_on
+                        else (applied_sparsity == 0)
+                    )
+                    for applied_sparsity, last_sparsity in zip(
+                        applied_sparsities, last_sparsities
+                    )
+                )
+            last_sparsities = applied_sparsities
 
         _ = model(test_batch)  # check forward pass
         epoch = int(modifier.end_epoch)
         assert modifier.update_ready(epoch, test_steps_per_epoch)
         modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
-        assert modifier.applied_sparsity == modifier.final_sparsity
+
+        def _test_final_sparsity_applied():
+            if isinstance(modifier.final_sparsity, float):
+                assert modifier.applied_sparsity == modifier.final_sparsity
+            else:
+                assert all(
+                    sparsity in modifier.final_sparsity
+                    for sparsity in modifier.applied_sparsity
+                )
+
+        _test_final_sparsity_applied()
 
         for epoch in range(int(modifier.end_epoch) + 1, int(modifier.end_epoch) + 6):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
-            assert modifier.applied_sparsity == modifier.final_sparsity
+            _test_final_sparsity_applied()
 
     def test_state_dict_save_load(
         self,
@@ -441,17 +487,22 @@ class TestLayerPruningModifier(ScheduledUpdateModifierTest):
                 assert not isinstance(get_layer(name, model), Identity)
 
 
+@pytest.mark.parametrize(
+    "params, final_sparsity",
+    [
+        (["re:.*weight"], 0.8),
+        ([], {0.7: ["param1"], 0.8: ["param2", "param3"], 0.9: ["param4", "param5"]}),
+    ],
+)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-def test_gm_pruning_yaml():
+def test_gm_pruning_yaml(params, final_sparsity):
     init_sparsity = 0.05
-    final_sparsity = 0.8
     start_epoch = 5.0
     end_epoch = 15.0
     update_frequency = 1.0
-    params = ["re:.*weight"]
     inter_func = "cubic"
     mask_type = "filter"
     global_sparsity = False
