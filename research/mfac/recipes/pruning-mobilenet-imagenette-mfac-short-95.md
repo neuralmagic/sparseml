@@ -67,5 +67,5 @@ This recipe prunes a MobileNet model to 95% sparsity over 3 epochs using the M-F
     the learning rate and number of M-FAC gradients should be adjusted accordingly
 * `available_gpus` should be updated based on the devices available on the system.
     If no GPU is available, then it should be removed
-* This recipe is for demonstration purposes only, in practice a larger dataset and longer pruning
+* This recipe is for demonstration purposes only; in practice a larger dataset and longer pruning
     schedule should be used to obtain best results

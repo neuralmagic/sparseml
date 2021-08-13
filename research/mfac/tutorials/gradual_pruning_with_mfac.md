@@ -32,7 +32,7 @@ epochs.
 
 In this tutorial, you will prune a MobileNet model trained on the tiny Imagenette dataset - 
 once with magnitude pruning and once with M-FAC pruning.  Both pruning runs will
-prune the model to 95% sparsity and only use 3 epochs . The selected model, dataset, and
+prune the model to 95% sparsity and only use 3 epochs. The selected model, dataset, and
 pruning schedule are selected for the purposes of this tutorial only to quickly demonstrate
 the benefits of the M-FAC algorithm.  In practice, a longer pruning schedule and larger dataset
 should be used.
@@ -41,7 +41,7 @@ should be used.
 ### Steps
 1. Setting Up
 2. Inspecting the Recipes
-3. Run M-FAC and Magnitude Pruning
+3. Running M-FAC and Magnitude Pruning
 4. Comparing the Results
 
 
@@ -72,7 +72,7 @@ Notice that the recipes are identical except that the `MFACPruningModifier` and 
 are used in M-FAC pruning.  The M-FAC recipe's `available_gpus` parameter should be updated
 based on your system's available devices. If no GPU is available, then the line may be deleted.
 
-## Run M-FAC and Magnitude Pruning
+## Running M-FAC and Magnitude Pruning
 
 SparseML provides an integrated training script that can be used to sparsify common
 computer vision models. The following commands can be used to prune MobileNet

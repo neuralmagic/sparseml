@@ -69,11 +69,11 @@ in SparseML. They can be viewed with the command line or by following the links 
 Notice that the recipes are identical except that the `MFACPruningModifier` and `mfac_options`
 are used in M-FAC pruning.
 
-The remainder of this tutorial can be run in a single python REPL
+The remainder of this tutorial can be run in a single Python REPL
 (launch by entering `python` in your command prompt).
 
 ## Applying Recipes in One Shot
-All SparseML recipes can be applied to a model in one-shot by using
+All SparseML recipes can be applied to a model in one shot by using
 `ScheduledModifierManger.apply`. The given model will automatically
 be updated to reflect the applied final state of the recipe.
 
@@ -141,8 +141,8 @@ manager_mfac.apply(model_mfac, grad_sampler=grad_sampler)
 ```
 
 ## One-Shot Pruning with Magnitude Pruning
-Magnitude pruning recipes just look at the pretrained model weights, so need
-no extra information to prune the model in one-shot. The recipe can be applied directly
+Magnitude pruning recipes just look at the pre-trained model weights, so extra
+information is not needed to prune the model in one shot. The recipe can be applied directly
 to prune the model to 35% sparsity:
 
 ```python

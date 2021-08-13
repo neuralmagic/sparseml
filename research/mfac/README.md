@@ -17,7 +17,7 @@ limitations under the License.
 # Matrix-Free Approximate Curvature (M-FAC) Pruning
 
 The paper
-[Efficient Matrix-Free Approximations of Second-Order Information, With Applications to Pruning and Optimization](https://arxiv.org/pdf/2107.03356.pdf)
+[Efficient Matrix-Free Approximations of Second-Order Information, with Applications to Pruning and Optimization](https://arxiv.org/pdf/2107.03356.pdf)
 written by Elias Frantar, Eldar Kurtic, and Assistant Professor Dan Alistarh of IST Austria
 introduces the Matrix-Free Approximate Curvature (M-FAC) method of pruning.
 M-FAC builds on advances from the [WoodFisher](https://arxiv.org/pdf/2004.14340.pdf)
@@ -32,8 +32,8 @@ SparseML makes it easy to use the M-FAC pruning algorithm as part of sparsificat
 recipes to improve pruning recovery by providing an `MFACPruningModifier`.
 The `MFACPruningModifier` contains the same settings as the magnitude
 pruning modifiers and contains extra settings for the M-FAC algorithm under the
-`mfac_options` parameter.  `mfac_optons` should be provided as a YAML dictionary and
-details of the main options will be provided below.
+`mfac_options` parameter.  `mfac_options` should be provided as a YAML dictionary and
+details of the main options are provided below.
 
 ### Example M-FAC Recipe
 The following is an example `MFACPruningModifier` to be used in place of other
@@ -64,10 +64,10 @@ To approximate the second order information in the M-FAC algorithm, first order
 gradients are used. `num_grads` specifies the number of recent gradient samples to store
 of a model while training.
 
-This value can be an int where that constant value will be used throughout pruning or a
-dictionary of float sparsity values to the number of gradients that should be
-stored when that sparsity level (between 0.0 and 1.0) is reached. If a
-dictionary, then 0.0 must be included as a key for the base number of gradients
+This value can be an int where that constant value will be used throughout pruning.
+Alternatively the value can be a dictionary of float sparsity values to the number of
+gradients that should be stored when that sparsity level (between 0.0 and 1.0) is reached.
+If a dictionary is used, then 0.0 must be included as a key for the base number of gradients
 to store (i.e. {0: 64, 0.5: 128, 0.75: 256}).
 
 Storing gradients can be expensive, as for a dense model, each additional gradient
