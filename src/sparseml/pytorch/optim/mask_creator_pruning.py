@@ -61,13 +61,18 @@ class PruningMaskCreator(ABC):
 
     @abstractmethod
     def create_sparsity_masks(
-        self, tensors: List[Tensor], sparsity: float, global_sparsity: bool = False
+        self,
+        tensors: List[Tensor],
+        sparsity: Union[float, List[float]],
+        global_sparsity: bool = False,
     ) -> List[Tensor]:
         """
         :param tensors: list of tensors to calculate a masks based on their contained
             values
         :param sparsity: the desired sparsity to reach within the mask
-            (decimal fraction of zeros)
+            (decimal fraction of zeros) can also be a list where each element is a
+            sparsity for a tensor in the same position in the tensor list. If global
+            sparsity is enabled, all values of the sparsity list must be the same
         :param global_sparsity: if True, sparsity masks will be created such that the
             average sparsity across all given tensors is the target sparsity with the
             lowest global values masked. If False, each tensor will be masked to the
@@ -104,14 +109,16 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
     def create_sparsity_masks(
         self,
         tensors: List[Tensor],
-        sparsity: float,
+        sparsity: Union[float, List[float]],
         global_sparsity: bool = False,
     ) -> List[Tensor]:
         """
         :param tensors: list of tensors to calculate a mask from based on their
             contained values
         :param sparsity: the desired sparsity to reach within the mask
-            (decimal fraction of zeros)
+            (decimal fraction of zeros) can also be a list where each element is a
+            sparsity for a tensor in the same position in the tensor list. If global
+            sparsity is enabled, all values of the sparsity list must be the same
         :param global_sparsity: if True, sparsity masks will be created such that the
             average sparsity across all given tensors is the target sparsity with the
             lowest global values masked. If False, each tensor will be masked to the
@@ -122,17 +129,31 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             matches the sparsity.  If there are more zeros than the desired sparsity,
             zeros will be randomly chosen to match the target sparsity
         """
+        if isinstance(sparsity, float):
+            sparsity = [sparsity] * len(tensors)
+        if len(sparsity) != len(tensors):
+            raise ValueError(
+                "a sparsity target must be defined for every given Tensor. Received"
+                f"{len(sparsity)} targets for {len(tensors)} Tensors."
+            )
+
         if global_sparsity:
             # create tensor to make global mask with
             original_tensors = tensors
             tensors = [self._flatten_and_stack_tensors(tensors)]
+            if not all(target == sparsity[0] for target in sparsity):
+                raise ValueError(
+                    "all sparsity targets must be the same for global pruning "
+                    f"received targets: {sparsity}"
+                )
+            sparsity = [sparsity[0]]
         else:
             original_tensors = None
 
         masks = []
 
-        for tensor in tensors:
-            threshold = self._threshold_from_sparsity(tensor, sparsity)
+        for tensor, sparsity_target in zip(tensors, sparsity):
+            threshold = self._threshold_from_sparsity(tensor, sparsity_target)
 
             if threshold.numel() < 1:
                 masks.append(tensor.new_ones(tensor.shape))
@@ -149,7 +170,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             rand_indices = list(range(zero_indices.shape[0]))
             random.shuffle(rand_indices)
             num_elem = tensor.numel()
-            num_mask = int(num_elem * sparsity)
+            num_mask = int(num_elem * sparsity_target)
             rand_indices = rand_indices[:num_mask]
             rand_indices = tensor.new_tensor(rand_indices, dtype=torch.int64)
             zero_indices = zero_indices[rand_indices, :]
@@ -170,7 +191,9 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         """
         :param tensor: the tensor to find a value in for which setting
             all values < that value will give desired sparsity
-        :param sparsity: the desired sparsity to apply
+        :param sparsity: the desired sparsity to reach within the mask
+            (decimal fraction of zeros) can also be a list where each element is a
+            sparsity for a tensor in the same position in the tensor list
         :return: the threshold to get to the desired sparsity or an empty tensor
             if it was not possible given the inputs
         """
@@ -327,14 +350,16 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
     def create_sparsity_masks(
         self,
         tensors: List[Tensor],
-        sparsity: float,
+        sparsity: Union[float, List[float]],
         global_sparsity: bool = False,
     ) -> List[Tensor]:
         """
         :param tensors: list of tensors to calculate masks from based on their contained
             values
         :param sparsity: the desired sparsity to reach within the mask
-            (decimal fraction of zeros)
+            (decimal fraction of zeros) can also be a list where each element is a
+            sparsity for a tensor in the same position in the tensor list. If global
+            sparsity is enabled, all values of the sparsity list must be the same
         :param global_sparsity: if True, sparsity masks will be created such that the
             average sparsity across all given tensors is the target sparsity with the
             lowest global values masked. If False, each tensor will be masked to the
@@ -393,14 +418,16 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
     def create_sparsity_masks(
         self,
         tensors: List[Tensor],
-        sparsity: float,
+        sparsity: Union[float, List[float]],
         global_sparsity: bool = False,
     ) -> List[Tensor]:
         """
         :param tensors: list of tensors to calculate masks from based on their contained
             values
         :param sparsity: the desired sparsity to reach within the mask
-            (decimal fraction of zeros)
+            (decimal fraction of zeros) can also be a list where each element is a
+            sparsity for a tensor in the same position in the tensor list, If global
+            sparsity is enabled, all values of the sparsity list must be the same
         :param global_sparsity: do not set True, unsupported for
             DimensionSparsityMaskCreator
         :return: list of masks (0.0 for values that are masked, 1.0 for values that are

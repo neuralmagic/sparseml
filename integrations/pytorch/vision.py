@@ -550,7 +550,9 @@ def parse_args():
         if par == train_parser:
             checkpoint_path_help += (
                 ". If using a SparseZoo recipe, can also provide 'zoo' to load "
-                "the base weights associated with that recipe"
+                "the base weights associated with that recipe."
+                "To use custom recipes with SparseZoo checkpoints provide "
+                "complete SparseZoo stubs "
             )
         par.add_argument(
             "--checkpoint-path",

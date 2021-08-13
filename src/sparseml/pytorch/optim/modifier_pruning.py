@@ -479,7 +479,10 @@ class GMPruningModifier(_PruningParamsModifier):
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
-    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch.
+        Can also be a Dict of final sparsity values to a list of parameters to apply
+        them to. If given a Dict, then params must be set to [] and the params to
+        be pruned will be read from the final_sparsity Dict
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to update at
@@ -487,7 +490,8 @@ class GMPruningModifier(_PruningParamsModifier):
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-        and Linear layers' weights
+        and Linear layers' weights. If a sparsity to param mapping is defined by
+        final_sparsity, then params should be set to []
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -510,7 +514,7 @@ class GMPruningModifier(_PruningParamsModifier):
     def __init__(
         self,
         init_sparsity: float,
-        final_sparsity: float,
+        final_sparsity: Union[float, Dict[float, List[str]]],
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
@@ -523,6 +527,11 @@ class GMPruningModifier(_PruningParamsModifier):
         global_sparsity: bool = False,
         score_type: Union[str, MFACOptions] = "magnitude",
     ):
+        self._final_sparsity_orig = final_sparsity
+        self._params_orig = params
+        params, self._final_sparsity = self._get_params_and_final_sparsity(
+            params, final_sparsity
+        )
         super().__init__(
             params=params,
             start_epoch=start_epoch,
@@ -532,7 +541,6 @@ class GMPruningModifier(_PruningParamsModifier):
             log_types=log_types,
         )
         self._init_sparsity = init_sparsity
-        self._final_sparsity = final_sparsity
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
         self._phased = phased
@@ -553,6 +561,33 @@ class GMPruningModifier(_PruningParamsModifier):
         self.validate()
 
     @ModifierProp()
+    def params(self) -> Union[str, List[str], None]:
+        """
+        :return: A list of full parameter names or regex patterns of names to apply
+            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+            and Linear layers' weights
+        """
+        return self._params_orig
+
+    @params.setter
+    def params(self, value: Union[str, List[str], None]):
+        """
+        :params value: A list of full parameter names or regex patterns of names to
+            apply pruning to.
+            Regex patterns must be specified with the prefix 're:'. __ALL__
+            will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+            and Linear layers' weights
+        """
+        self._params_orig = value
+        params, self._final_sparsity = self._get_params_and_final_sparsity(
+            self._params_orig, self._final_sparsity_orig
+        )
+        self._params = validate_str_iterable(
+            params, "{} for params".format(self.__class__.__name__)
+        )
+
+    @ModifierProp()
     def init_sparsity(self) -> float:
         """
         :return: the initial sparsity for the param to start with at start_epoch
@@ -568,18 +603,24 @@ class GMPruningModifier(_PruningParamsModifier):
         self.validate()
 
     @ModifierProp()
-    def final_sparsity(self) -> float:
+    def final_sparsity(self) -> Union[float, Dict[float, List[str]]]:
         """
         :return: the final sparsity for the param to end with at end_epoch
         """
-        return self._final_sparsity
+        return self._final_sparsity_orig
 
     @final_sparsity.setter
-    def final_sparsity(self, value: float):
+    def final_sparsity(self, value: Union[float, Dict[float, List[str]]]):
         """
-        :param value: the final sparsity for the param to end with at end_epoch
+        :param value: the final sparsity for the param to end with at end_epoch.
+            Can also be a Dict of final sparsity values to a list of parameters to apply
+            them to. If given a Dict, then params must be set to [] and the params to
+            be pruned will be read from the final_sparsity Dict
         """
-        self._final_sparsity = value
+        self._final_sparsity_orig = value
+        self._params, self._final_sparsity = self._get_params_and_final_sparsity(
+            self._params_orig, value
+        )
         self.validate()
 
     @ModifierProp()
@@ -667,9 +708,9 @@ class GMPruningModifier(_PruningParamsModifier):
         return self._score_type
 
     @ModifierProp(serializable=False)
-    def applied_sparsity(self) -> float:
+    def applied_sparsity(self) -> Union[float, List[float]]:
         """
-        :return: the currently applied sparsity level to the contained params
+        :return: the currently applied sparsity level to each of the contained params
         """
         return self._applied_sparsity
 
@@ -735,17 +776,24 @@ class GMPruningModifier(_PruningParamsModifier):
                 ).format(self._init_sparsity, self.__class__.__name__)
             )
 
-        if not isinstance(self._final_sparsity, float):
+        if not isinstance(self._final_sparsity_orig, float) and not isinstance(
+            self._final_sparsity_orig, Dict
+        ):
             raise TypeError(
-                "final_sparsity must be of float type for {}".format(
+                "final_sparsity must be of float or Dict type for {}".format(
                     self.__class__.__name__
                 )
             )
 
-        if self._final_sparsity < 0.0 or self._final_sparsity > 1.0:
+        final_sparsities = (
+            self._final_sparsity
+            if isinstance(self._final_sparsity, List)
+            else [self._final_sparsity]
+        )
+        if not all(0.0 < sparsity < 1.0 for sparsity in final_sparsities):
             raise ValueError(
                 (
-                    "final_sparsity value must be in the range [0.0, 1.0],"
+                    "final_sparsity value(s) must be in the range (0.0, 1.0),"
                     " given {} for {}"
                 ).format(self._final_sparsity, self.__class__.__name__)
             )
@@ -777,15 +825,27 @@ class GMPruningModifier(_PruningParamsModifier):
         self._pre_step_completed = True
 
         if started:
-            # set the mask tensors according to the new sparsity
-            self._applied_sparsity = interpolate(
-                epoch,
-                self.start_epoch,
-                self.end_epoch,
-                self._init_sparsity,
-                self._final_sparsity,
-                self._inter_func,
-            )
+            if isinstance(self._final_sparsity, List):
+                self._applied_sparsity = [
+                    interpolate(
+                        epoch,
+                        self.start_epoch,
+                        self.end_epoch,
+                        self._init_sparsity,
+                        final_sparsity,
+                        self._inter_func,
+                    )
+                    for final_sparsity in self._final_sparsity
+                ]
+            else:
+                self._applied_sparsity = interpolate(
+                    epoch,
+                    self.start_epoch,
+                    self.end_epoch,
+                    self._init_sparsity,
+                    self._final_sparsity,
+                    self._inter_func,
+                )
 
             # make sure if phased that the phases end at the final sparsity
             # if it doesn't divide evenly
@@ -794,7 +854,11 @@ class GMPruningModifier(_PruningParamsModifier):
                 phase = math.floor((epoch - self.start_epoch) / self.update_frequency)
                 if phase % 2 != 0:
                     # odd update phase, turn sparsity off
-                    self._applied_sparsity = 0.0
+                    self._applied_sparsity = (
+                        0.0
+                        if not isinstance(self._applied_sparsity, List)
+                        else [0.0] * len(self._applied_sparsity)
+                    )
 
             self._module_masks.set_param_masks_from_sparsity(self._applied_sparsity)
 
@@ -836,6 +900,53 @@ class GMPruningModifier(_PruningParamsModifier):
             score_type=self._score_type,
         )
 
+    def _create_named_layers_and_params(self, module: Module) -> List[NamedLayerParam]:
+        if isinstance(self._final_sparsity_orig, float):
+            return super()._create_named_layers_and_params(module)
+
+        final_sparsities = []
+        named_layers_and_params = []
+        added_names = set()
+
+        for sparsity, param_names in self._final_sparsity_orig.items():
+            layer_param_name_results = get_named_layers_and_params_by_regex(
+                module,
+                param_names,
+                params_strict=True,
+            )
+            for result in layer_param_name_results:
+                name = f"{result.layer_name}.{result.param_name}"
+                if name not in added_names:
+                    final_sparsities.append(sparsity)
+                    named_layers_and_params.append(result)
+                    added_names.add(name)
+        self._final_sparsity = final_sparsities
+        return named_layers_and_params
+
+    @staticmethod
+    def _get_params_and_final_sparsity(
+        params: Union[str, List[str]],
+        final_sparsity: Union[float, Dict[float, List[str]]],
+    ) -> Tuple[Union[str, List[str]], Union[float, List[float]]]:
+        if isinstance(final_sparsity, Dict):
+            if params:
+                raise ValueError(
+                    "when final_sparsity is set to a Dict, params must be set to "
+                    f"[]. Given final_sparsity: {final_sparsity} with params: "
+                    f"{params}"
+                )
+            params = []
+            sparsities = []
+            for sparsity, sparsity_params in final_sparsity.items():
+                for param in sparsity_params:
+                    params.append(param)
+                    sparsities.append(sparsity)
+            return params, sparsities
+        else:
+            # default params to ALL_PRUNABLE_TOKEN
+            params = params or ALL_PRUNABLE_TOKEN
+            return params, final_sparsity
+
 
 @PyTorchModifierYAML()
 class MagnitudePruningModifier(GMPruningModifier):
@@ -862,7 +973,10 @@ class MagnitudePruningModifier(GMPruningModifier):
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
-    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch.
+        Can also be a Dict of final sparsity values to a list of parameters to apply
+        them to. If given a Dict, then params must be set to [] and the params to
+        be pruned will be read from the final_sparsity Dict
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to update at
@@ -870,7 +984,8 @@ class MagnitudePruningModifier(GMPruningModifier):
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-        and Linear layers' weights
+        and Linear layers' weights. If a sparsity to param mapping is defined by
+        final_sparsity, then params should be set to []
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -889,7 +1004,7 @@ class MagnitudePruningModifier(GMPruningModifier):
     def __init__(
         self,
         init_sparsity: float,
-        final_sparsity: float,
+        final_sparsity: Union[float, Dict[float, List[str]]],
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
@@ -957,7 +1072,10 @@ class MovementPruningModifier(GMPruningModifier):
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
-    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch.
+        Can also be a Dict of final sparsity values to a list of parameters to apply
+        them to. If given a Dict, then params must be set to [] and the params to
+        be pruned will be read from the final_sparsity Dict
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to update at
@@ -965,7 +1083,8 @@ class MovementPruningModifier(GMPruningModifier):
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-        and Linear layers' weights
+        and Linear layers' weights. If a sparsity to param mapping is defined by
+        final_sparsity, then params should be set to []
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -984,7 +1103,7 @@ class MovementPruningModifier(GMPruningModifier):
     def __init__(
         self,
         init_sparsity: float,
-        final_sparsity: float,
+        final_sparsity: Union[float, Dict[float, List[str]]],
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
@@ -1149,7 +1268,10 @@ class MFACPruningModifier(GMPruningModifier):
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
-    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch.
+        Can also be a Dict of final sparsity values to a list of parameters to apply
+        them to. If given a Dict, then params must be set to [] and the params to
+        be pruned will be read from the final_sparsity Dict
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to update at
@@ -1157,7 +1279,8 @@ class MFACPruningModifier(GMPruningModifier):
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-        and Linear layers' weights
+        and Linear layers' weights. If a sparsity to param mapping is defined by
+        final_sparsity, then params should be set to []
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune
@@ -1183,7 +1306,7 @@ class MFACPruningModifier(GMPruningModifier):
     def __init__(
         self,
         init_sparsity: float,
-        final_sparsity: float,
+        final_sparsity: Union[float, Dict[float, List[str]]],
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
