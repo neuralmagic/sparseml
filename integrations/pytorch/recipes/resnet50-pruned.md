@@ -68,7 +68,7 @@ using an SGD optimizer.
 When running, adjust hyperparameters based on training environment and dataset.
 
 ## Training
-The training script can be found at `sparseml/integrations/pytorch/vision.py`.
+The training script can be found at `sparseml/integrations/pytorch/train.py`.
 
 *script command:*
 

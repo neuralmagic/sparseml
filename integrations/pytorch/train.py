@@ -143,7 +143,7 @@ python -m torch.distributed.launch \
 --nproc_per_node <NUM GPUs> \
 integrations/pytorch/train.py \
 --use-mixed-precision \
-<VISION.PY TRAIN ARGUMENTS>
+<TRAIN.PY ARGUMENTS>
 """
 import argparse
 from typing import Any, List, Tuple
