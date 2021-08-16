@@ -275,10 +275,12 @@ def configure_module_qat_wrappers(module: Module):
 
     :param module: module to potentially wrap the submodules of
     """
-    for submodule in module.modules():
-        for child_name, child_module in module.named_children():
-            if hasattr(child_module, "wrap_qat") and child_module.wrap_qat:
-                setattr(submodule, child_name, QATWrapper.from_module(child_module))
+    # wrap any children of the given module as a QATWrapper if required
+    for child_name, child_module in module.named_children():
+        if hasattr(child_module, "wrap_qat") and child_module.wrap_qat:
+            setattr(module, child_name, QATWrapper.from_module(child_module))
+        # recurse on child module
+        configure_module_qat_wrappers(child_module)
 
 
 def configure_module_default_qconfigs(module: Module):
