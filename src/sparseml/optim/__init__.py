@@ -20,6 +20,7 @@ Handles things like model pruning and increasing activation sparsity.
 # flake8: noqa
 
 from .analyzer import *
+from .helpers import *
 from .learning_rate import *
 from .manager import *
 from .modifier import *
