@@ -193,8 +193,6 @@ def evaluate_recipe_variables(
     valid_variables = deepcopy(metadata_variables)
 
     for name, val in recipe_dict.items():
-        if "modifiers" not in name:
-            print((name, val, type(val)))
         if isinstance(val, (int, float)):
             valid_variables[name] = val
 
