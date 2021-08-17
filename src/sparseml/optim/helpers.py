@@ -28,9 +28,9 @@ import yaml
 __all__ = [
     "VALID_RECIPE_METADATA_FIELDS",
     "RecipeMetadataField",
-    "load_recipe_variables",
     "maybe_evaluate_recipe_equation",
     "maybe_evaluate_yaml_object",
+    "evaluate_recipe_variables",
     "evaluate_recipe_yaml_str_equations",
 ]
 
@@ -107,9 +107,19 @@ def maybe_evaluate_recipe_equation(
     :return: if the given string consists of only numbers, variable names that
         are defined in `variables`, or any operator in ['+', '-', '*', or '/']
         then the numeric result of that expression will be returned. Otherwise,
-        the same string will be returned
+        the same string will be returned. if the value string is wrapped
+        with `eval(...)` and the value fails to evaluate based on valid values
+        (numbers, metadata variable names, and arithmetic signs) an error will
+        be raised.
     """
     valid_operations = {"+", "-", "*", "/"}
+
+    if val.startswith("eval(") and val.endswith(")"):
+        is_eval_str = True
+        val = val[5:-1]
+    else:
+        is_eval_str = False
+
     equation = val.split()  # split on whitespace
 
     for idx, part in enumerate(equation):
@@ -118,6 +128,8 @@ def maybe_evaluate_recipe_equation(
 
         if isinstance(part, str) and part not in valid_operations:
             # not a number, valid variable, or valid operation. return unchanged val
+            if is_eval_str:
+                _raise_invalid_eval_exception(val)
             return val
 
         # assert that if part this is added to the final equation,
@@ -127,9 +139,14 @@ def maybe_evaluate_recipe_equation(
         equation[idx] = str(part)
 
     try:
-        return eval(" ".join(equation))
+        evaluated_val = eval(" ".join(equation))
     except Exception:
-        return val
+        evaluated_val = val
+
+    if is_eval_str and not isinstance(evaluated_val, (int, float)):
+        _raise_invalid_eval_exception(evaluated_val)
+
+    return evaluated_val
 
 
 def maybe_evaluate_yaml_object(
@@ -156,14 +173,18 @@ def maybe_evaluate_yaml_object(
         return obj
 
 
-def load_recipe_variables(
-    variables: Dict[str, Union[int, float, str]],
+def evaluate_recipe_variables(
+    recipe_dict: Dict[str, Any],
     metadata_variables: Dict[str, Union[int, float]],
-) -> Dict[str, Union[int, float]]:
+) -> Tuple[Dict[str, Any], Dict[str, Union[int, float]]]:
     """
-    :param variables: variables dictionary from recipe. must map a string name
-        to a number or an expression of valid metadata variables that
-        yields a number
+    evaluates any string values in the recipe dictionary based on metadata variables
+    and simple arithmetic and sets them in the dictionary. if a variable string
+    is wrapped with `eval(...)` and the value fails to evaluate based on valid
+    values (numbers, metadata variable names, and arithmetic signs) an error will
+    be raised
+
+    :param recipe_dict: dictionary of values from a loaded base recipe string
     :param metadata_variables: dictionary of loaded metadata variables from
         validate_recipe_metadata
     :return: the processed variables dictionary (including metadata variables)
@@ -171,26 +192,24 @@ def load_recipe_variables(
     """
     valid_variables = deepcopy(metadata_variables)
 
-    for name, val in variables.items():
-        if not isinstance(name, str):
-            raise ValueError(
-                f"variable key must be a str. received key {name} of type {type(name)}"
-            )
+    for name, val in recipe_dict.items():
+        if "modifiers" not in name:
+            print((name, val, type(val)))
+        if isinstance(val, (int, float)):
+            valid_variables[name] = val
 
-        if isinstance(val, str):
-            val = maybe_evaluate_recipe_equation(val, metadata_variables)
+        if not isinstance(val, str):
+            # only parse string values
+            continue
 
-        if not isinstance(val, (float, int)):
-            # unable to evaluate variable equation
-            raise ValueError(
-                f"Received invalid variable {name} with value {val}. "
-                f"Variables must be numbers or a valid string arithmetic expression "
-                f"with numeric variables or valid variables from metadata fields"
-            )
+        val = maybe_evaluate_recipe_equation(val, metadata_variables)
 
-        valid_variables[name] = val
+        if isinstance(val, (int, float)):
+            # update variable value in recipe to be evaluated value, add to valid vars
+            recipe_dict[name] = val
+            valid_variables[name] = val
 
-    return valid_variables
+    return recipe_dict, valid_variables
 
 
 def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
@@ -213,12 +232,11 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
     metadata, metadata_variables = validate_recipe_metadata(metadata)
 
     # validate and load remaining variables
-    variables = load_recipe_variables(
-        container.get("variables", {}), metadata_variables
-    )
+    container, variables = evaluate_recipe_variables(container, metadata_variables)
 
+    # update values nested in modifier lists based on the variables
     for key, val in container.items():
-        if key in ["metadata", "variables"]:
+        if "modifiers" not in key:
             continue
         container[key] = maybe_evaluate_yaml_object(val, variables)
 
@@ -227,6 +245,15 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
     # convert object dicts back to object declarations and return
     pattern = re.compile(r"OBJECT\.(?P<class_name>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+):")
     return pattern.sub(r"!\g<class_name>", updated_yaml_str)
+
+
+def _raise_invalid_eval_exception(equation: str):
+    raise ValueError(
+        f"Unable to evaluation invalid recipe equation value: {equation}. "
+        "Valid equations for variables outside of modifiers may only include "
+        "metadata variables, numbers, and arithmetic operators. Equations for "
+        "modifier params may also include previously defined variable names"
+    )
 
 
 def _maybe_parse_number(val: str) -> Union[str, float, int]:
