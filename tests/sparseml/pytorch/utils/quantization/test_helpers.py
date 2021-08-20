@@ -82,13 +82,13 @@ def _count_submodule_instances(module, clazz):
     reason="torch quantization not available",
 )
 def test_configure_module_qat_wrappers():
-    module = _ModuleWrapper(_QATMatMul())
+    module = _ModuleWrapper(_ModuleWrapper(_QATMatMul()))
 
     assert not _module_has_quant_stubs(module)
 
     configure_module_qat_wrappers(module)
 
-    qat_matmul = module.module
+    qat_matmul = module.module.module
 
     assert isinstance(qat_matmul, QATWrapper)
     assert _module_has_quant_stubs(module)
