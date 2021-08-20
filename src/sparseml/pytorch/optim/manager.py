@@ -26,7 +26,7 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseManager, load_recipe_yaml_str
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
-from sparseml.pytorch.utils import BaseLogger
+from sparseml.pytorch.utils import BaseLogger, is_parallel_model
 from sparsezoo.objects import Recipe
 
 
@@ -387,6 +387,9 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         if epoch is None:
             epoch = self._initialize_epoch
+
+        if is_parallel_model(module):
+            module = module.module  # unwrap parallel module
 
         if not self.initialized:
             self.initialize(module, epoch)
