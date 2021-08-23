@@ -18,6 +18,7 @@ Utility / helper functions
 
 import logging
 from collections import OrderedDict
+from copy import deepcopy
 from functools import reduce
 from typing import Any, Dict, List, NamedTuple, Tuple, Union
 
@@ -25,7 +26,7 @@ import numpy
 import onnx
 import onnxruntime
 from onnx import ModelProto, NodeProto, TensorProto, numpy_helper
-from onnx.helper import get_attribute_value, make_empty_tensor_value_info, make_model
+from onnx.helper import get_attribute_value, make_empty_tensor_value_info
 
 from sparseml.utils import clean_path
 
@@ -240,7 +241,7 @@ def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
     :param model: an ONNX model
     :return: a list of NodeArg with their shape exposed
     """
-    model_copy = make_model(model.graph)
+    model_copy = deepcopy(model)
 
     for node in model_copy.graph.node:
         intermediate_layer_value_info = make_empty_tensor_value_info(
@@ -277,7 +278,7 @@ def extract_nodes_shapes_shape_inference(
     :param model: an ONNX model
     :return: a list of NodeProto with their shape exposed
     """
-    model_copy = make_model(model.graph)
+    model_copy = deepcopy(model)
 
     for node in model_copy.graph.node:
         model_copy.graph.output.extend(
