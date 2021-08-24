@@ -23,11 +23,7 @@ from sparseml.base import Framework
 from sparseml.benchmark import BatchBenchmarkResult, BenchmarkInfo, BenchmarkRunner
 from sparseml.framework import FrameworkInfo
 from sparseml.framework.info import FrameworkInferenceProviderInfo
-from sparseml.onnx.base import (
-    require_onnx,
-    require_onnxruntime,
-    require_onnxruntime_gpu,
-)
+from sparseml.onnx.base import require_onnx, require_onnxruntime
 from sparseml.onnx.framework import framework_info as get_framework_info
 from sparseml.onnx.framework import is_supported
 from sparseml.onnx.utils import DataLoader, ORTModelRunner
@@ -40,16 +36,54 @@ from typing_extensions import OrderedDict
 
 __all__ = [
     "ORTBenchmarkRunner",
-    "ORTCpuBenchmarkRunner",
-    "ORTCudaBenchmarkRunner",
     "load_model",
     "load_data",
-    "detect_benchmark_runner",
-    "create_benchmark_runner",
     "run_benchmark",
 ]
 
 _LOGGER = logging.getLogger(__name__)
+
+
+GPU_ORT_PROVIDERS = [
+    "CUDAExecutionProvider",
+    "MIGraphXExecutionProvider",
+    "TensorrtExecutionProvider",
+    "DmlExecutionProvider",
+]
+
+CPU_DEFAULT_ORT_PROVIDER = "CPUExecutionProvider"
+
+
+def _resolve_device_provider(
+    framework_info: FrameworkInfo,
+    device: Optional[str] = None,
+    provider: Optional[str] = None,
+) -> Tuple[str, str]:
+    if provider is None and device is None:
+        # Default to first available inference provider
+        provider = framework_info.inference_providers[0].name
+        device = framework_info.inference_providers[0].device
+    elif provider is None:
+        matching_provider = [
+            inference_provider
+            for inference_provider in framework_info.inference_providers
+            if inference_provider.device == device
+        ]
+        if len(matching_provider) == 0:
+            raise ValueError(f"No inference providers available for device {device}.")
+        provider = matching_provider[0].name
+    elif device is None:
+        matching_provider = [
+            inference_provider
+            for inference_provider in framework_info.inference_providers
+            if inference_provider.name == provider
+        ]
+        if len(matching_provider) == 0:
+            raise ValueError(
+                f"No inference providers available for provider {provider}."
+            )
+        device = matching_provider[0].device
+    return device, provider
 
 
 class ORTBenchmarkRunner(BenchmarkRunner):
@@ -78,7 +112,7 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         framework_args: Dict[str, Any] = {},
         provider: str = "cpu",
         device: str = "cpu",
-        ort_provider: str = "CPUExecutionProvider",
+        ort_provider: Optional[str] = None,
         **kwargs,
     ):
         if iterations < 0:
@@ -94,6 +128,35 @@ class ORTBenchmarkRunner(BenchmarkRunner):
 
         self._framework_info = get_framework_info()
         self._package_versions = self._framework_info.package_versions
+
+        device, provider = _resolve_device_provider(
+            self._framework_info, device=device, provider=provider
+        )
+
+        if "ort_provider" in framework_args:
+            ort_provider = framework_args["ort_provider"]
+
+        if ort_provider is None:
+            if device == "cpu":
+                ort_provider = CPU_DEFAULT_ORT_PROVIDER
+            elif device == "gpu":
+                possible_ort_providers = [
+                    provider
+                    for provider in GPU_ORT_PROVIDERS
+                    if provider
+                    in self._framework_info.properties["available_providers"]
+                ]
+                if len(possible_ort_providers) > 0:
+                    ort_provider = possible_ort_providers[0]
+                else:
+                    _LOGGER.warn(
+                        "No Onnx Runtime GPU providers installed. Defaulting to CPU"
+                    )
+                    device, provider = _resolve_device_provider(
+                        self._framework_info, device="cpu"
+                    )
+                    ort_provider = CPU_DEFAULT_ORT_PROVIDER
+
         inference_providers = [
             inference_provider
             for inference_provider in self._framework_info.inference_providers
@@ -207,95 +270,6 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         :return: the model as an ONNX ModelProto
         """
         return self._model
-
-
-class ORTCudaBenchmarkRunner(ORTBenchmarkRunner):
-    """
-    Benchmark runner for ONNXruntime on CUDA. Will create an
-    ORTBenchmarkRunner using the CUDAExecutionProvider and with
-    provider and device set to cuda and gpu respectively.
-
-    :param model: model to benchmark
-    :param batch_size: batch size
-    :param iterations: number of iterations to run
-    :param warmup_iterations: number of warmup iterations
-    :param framework_args: additional arguments for the framework
-    """
-
-    PROVIDER: str = "cuda"
-    DEVICE: str = "gpu"
-
-    @require_onnxruntime_gpu()
-    def __init__(
-        self,
-        model: Any,
-        batch_size: int = 1,
-        iterations: int = 0,
-        warmup_iterations: int = 0,
-        framework_args: Dict[str, Any] = {},
-        **kwargs,
-    ):
-        if "provider" in kwargs:
-            _LOGGER.debug(f"ignoring kwarg provider={kwargs['provider']}")
-            del kwargs["provider"]
-        if "device" in kwargs:
-            _LOGGER.debug(f"ignoring kwarg device={kwargs['device']}")
-            del kwargs["device"]
-        super().__init__(
-            model=model,
-            batch_size=batch_size,
-            iterations=iterations,
-            warmup_iterations=warmup_iterations,
-            framework_args=framework_args,
-            ort_provider="CUDAExecutionProvider",
-            provider=ORTCudaBenchmarkRunner.PROVIDER,
-            device=ORTCudaBenchmarkRunner.DEVICE,
-            **kwargs,
-        )
-
-
-class ORTCpuBenchmarkRunner(ORTBenchmarkRunner):
-    """
-    Benchmark runner for ONNXruntime on CPU. Will create an
-    ORTBenchmarkRunner using the CPUExecutionProvider and with
-    provider and device set to cpu and cpu respectively.
-
-    :param model: model to benchmark
-    :param batch_size: batch size
-    :param iterations: number of iterations to run
-    :param warmup_iterations: number of warmup iterations
-    :param framework_args: additional arguments for the framework
-    """
-
-    PROVIDER: str = "cpu"
-    DEVICE: str = "cpu"
-
-    def __init__(
-        self,
-        model: Any,
-        batch_size: int = 1,
-        iterations: int = 0,
-        warmup_iterations: int = 0,
-        framework_args: Dict[str, Any] = {},
-        **kwargs,
-    ):
-        if "provider" in kwargs:
-            _LOGGER.debug(f"ignoring kwarg provider={kwargs['provider']}")
-            del kwargs["provider"]
-        if "device" in kwargs:
-            _LOGGER.debug(f"ignoring kwarg device={kwargs['device']}")
-            del kwargs["device"]
-        super().__init__(
-            model=model,
-            batch_size=batch_size,
-            iterations=iterations,
-            warmup_iterations=warmup_iterations,
-            framework_args=framework_args,
-            ort_provider="CPUExecutionProvider",
-            provider=ORTCpuBenchmarkRunner.PROVIDER,
-            device=ORTCpuBenchmarkRunner.DEVICE,
-            **kwargs,
-        )
 
 
 def load_model(model: Any, **kwargs) -> ModelProto:
@@ -481,59 +455,6 @@ def detect_benchmark_runner(
         f"and device {device}"
     )
 
-    if (
-        provider == ORTCpuBenchmarkRunner.PROVIDER
-        and device == ORTCpuBenchmarkRunner.DEVICE
-    ):
-        return ORTCpuBenchmarkRunner
-    elif (
-        provider == ORTCudaBenchmarkRunner.PROVIDER
-        and device == ORTCudaBenchmarkRunner.DEVICE
-    ):
-        return ORTCudaBenchmarkRunner
-    else:
-        return ORTBenchmarkRunner
-
-
-def create_benchmark_runner(
-    model: Any,
-    batch_size: int = 1,
-    iterations: int = 0,
-    warmup_iterations: int = 0,
-    provider: Optional[str] = None,
-    device: Optional[str] = None,
-    show_progress: bool = True,
-    framework_args: Dict[str, Any] = {},
-    **kwargs,
-) -> BenchmarkRunner:
-    """
-    Create a benchmark runner for the given model.
-
-    :param model: Model to benchmark.
-    :param batch_size: Batch size to use for the benchmark.
-    :param iterations: number of iterations to run the model.
-    :param warmup_iterations: number of warmup iterations to run the model.
-    ::param provider: inference provider name to use from available
-        FrameworkInfo
-    :param device: Device to use for inference.
-    :param show_progress: Show progress bar.
-    :param framework_args: Additional arguments to pass to the framework.
-    :return: Benchmark runner for the given model for the given provider and device.
-    """
-    runner_constructor = detect_benchmark_runner(provider, device)
-    _LOGGER.debug(f"creating benchmark runner with {runner_constructor.__name__}")
-    return runner_constructor(
-        model,
-        batch_size=batch_size,
-        iterations=iterations,
-        warmup_iterations=warmup_iterations,
-        framework_args=framework_args,
-        show_progress=show_progress,
-        provider=provider,
-        device=device,
-        **kwargs,
-    )
-
 
 @require_onnx()
 @require_onnxruntime()
@@ -543,8 +464,8 @@ def run_benchmark(
     batch_size: int = 1,
     iterations: int = 0,
     warmup_iterations: int = 0,
-    provider: Optional[str] = None,
-    device: Optional[str] = None,
+    provider: Optional[str] = "cpu",
+    device: Optional[str] = "cpu",
     framework_args: Dict[str, Any] = {},
     show_progress: bool = True,
     **kwargs,
@@ -567,13 +488,10 @@ def run_benchmark(
     :param kwargs: Additional arguments to pass to the framework.
     :return: BenchmarkInfo
     """
-    if data is None and isinstance(model, str) and model.startswith("zoo:"):
-        data = model
-
     model = load_model(model)
 
     if is_supported(model):
-        benchmark_runner = create_benchmark_runner(
+        benchmark_runner = ORTBenchmarkRunner(
             model,
             batch_size=batch_size,
             iterations=iterations,

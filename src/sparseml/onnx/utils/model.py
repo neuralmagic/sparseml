@@ -460,6 +460,7 @@ class ORTModelRunner(ModelRunner):
         nthreads: int = 0,
         batch_size: int = None,
         providers: List[str] = None,
+        **kwargs,
     ):
         super().__init__(loss)
         self._model = check_load_model(model)
@@ -625,8 +626,13 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
 
     :param model: the path to the ONNX model file or the loaded onnx.ModelProto
     :param batch_size: the size of the batch to create the model for
-    :param num_cores: the number of physical cores to run the model on. Defaults
-        to run on all available cores
+    :param num_cores: The number of physical cores to run the model on.
+        Pass None or 0 to run on the max number of cores
+        in one socket for the current machine, default None
+    :param num_sockets: The number of physical sockets to run the model on.
+        Pass None or 0 to run on the max number of sockets for the
+        current machine, default None
+    :param scheduler: The kind of scheduler to execute with. Pass None for the default.
     :param loss: the loss function, if any, to run for evaluation of the model
     """
 

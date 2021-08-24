@@ -23,14 +23,7 @@ import pytest
 from pytest_mock import MockerFixture, mocker  # noqa: F401
 from sparseml.base import Framework
 from sparseml.benchmark.serialization import BatchBenchmarkResult, BenchmarkResult
-from sparseml.onnx.benchmark import (
-    ORTBenchmarkRunner,
-    ORTCpuBenchmarkRunner,
-    ORTCudaBenchmarkRunner,
-    create_benchmark_runner,
-    detect_benchmark_runner,
-    load_model,
-)
+from sparseml.onnx.benchmark import ORTBenchmarkRunner, load_model
 from sparseml.onnx.benchmark.info import load_data
 from sparseml.onnx.framework import framework_info as get_framework_info
 from sparseml.onnx.utils.data import DataLoader
@@ -60,7 +53,7 @@ def cpu_runner_fixture(
     mocker.patch(
         "sparseml.onnx.benchmark.info.ORTModelRunner", return_value=ort_model_runner
     )
-    return ORTCpuBenchmarkRunner(
+    return ORTBenchmarkRunner(
         mobilenet_fixture,
         batch_size=32,
         iterations=10,
@@ -216,69 +209,6 @@ class TestLoadData:
                 assert (original_data[original_key] == loaded_data[loaded_key]).all()
 
 
-@pytest.mark.parametrize(
-    "provider,device,benchmark_class",
-    [
-        ("cpu", "cpu", ORTCpuBenchmarkRunner),
-        ("cuda", "gpu", ORTCudaBenchmarkRunner),
-        ("vnni", "cpu", ORTBenchmarkRunner),
-    ],
-)
-def test_detect_benchmark_runner(provider: str, device: str, benchmark_class: type):
-    assert detect_benchmark_runner(provider=provider, device=device) == benchmark_class
-
-
-@pytest.mark.parametrize(
-    (
-        "batch_size,iterations,warmup_iterations,provider,device,framework_args,"
-        "ort_execution_provider,ort_benchmark_class"
-    ),
-    [
-        (32, 100, 10, "cpu", "cpu", {}, "CPUExecutionProvider", ORTCpuBenchmarkRunner),
-    ],
-)
-def test_create_benchmark_runner(
-    mocker: MockerFixture,  # noqa: F811
-    mobilenet_fixture: Model,
-    batch_size: int,
-    iterations: int,
-    warmup_iterations: int,
-    provider: str,
-    device: str,
-    framework_args: Dict[str, Any],
-    ort_execution_provider: str,
-    ort_benchmark_class: type,
-):
-    ort_model_runner = mocker.MagicMock()
-    mocker.patch("sparseml.onnx.benchmark.info.ORTModelRunner", ort_model_runner)
-    runner = create_benchmark_runner(
-        mobilenet_fixture,
-        batch_size=batch_size,
-        iterations=iterations,
-        warmup_iterations=warmup_iterations,
-        provider=provider,
-        device=device,
-        framework_args=framework_args,
-    )
-
-    assert isinstance(runner, ort_benchmark_class)
-    ort_model_runner.assert_called_with(
-        runner.model,
-        batch_size=batch_size,
-        providers=[ort_execution_provider],
-        **framework_args,
-    )
-    assert runner.framework == Framework.onnx
-    assert runner.batch_size == batch_size
-    assert runner.iterations == iterations
-    assert runner.warmup_iterations == warmup_iterations
-    assert runner.device == device
-    assert runner.inference_provider.name == provider
-    assert runner.framework_args == framework_args
-    assert runner.inference_provider.name == provider
-    assert runner.inference_provider.device == device
-
-
 class TestOrtBenchmarkRunner:
     def test_cpu_init(
         self, mocker: MockerFixture, mobilenet_fixture: Model  # noqa: F811
@@ -297,7 +227,7 @@ class TestOrtBenchmarkRunner:
             "sparseml.onnx.benchmark.info.ORTModelRunner", return_value=ort_model_runner
         )
 
-        runner = ORTCpuBenchmarkRunner(
+        runner = ORTBenchmarkRunner(
             mobilenet_fixture,
             batch_size=batch_size,
             iterations=iterations,
@@ -312,12 +242,9 @@ class TestOrtBenchmarkRunner:
         assert runner.batch_size == batch_size
         assert runner.iterations == iterations
         assert runner.warmup_iterations == warmup_iterations
-        assert runner.inference_provider.name == ORTCpuBenchmarkRunner.PROVIDER
-        assert runner.inference_provider.device == ORTCpuBenchmarkRunner.DEVICE
         assert "onnx" in runner.package_versions
         assert "onnxruntime" in runner.package_versions
         assert runner.framework_args == framework_args
-        assert runner.device == ORTCpuBenchmarkRunner.DEVICE
         assert runner.model == model
 
     def test_run_batch(self, cpu_runner_fixture: ORTBenchmarkRunner):
