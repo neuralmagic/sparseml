@@ -14,7 +14,7 @@
 
 import tempfile
 from collections import OrderedDict
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy
 import onnx
