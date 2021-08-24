@@ -24,6 +24,7 @@ from sparseml.base import Framework, get_version
 from sparseml.deepsparse.base import check_deepsparse_install
 from sparseml.deepsparse.sparsification import sparsification_info
 from sparseml.framework import FrameworkInferenceProviderInfo, FrameworkInfo
+from sparseml.onnx.base import check_onnx_install
 from sparseml.sparsification import SparsificationInfo
 from sparsezoo import File, Model
 
@@ -82,11 +83,21 @@ def detect_framework(item: Any) -> Framework:
         _LOGGER.debug("framework detected from .onnx")
         # string, check if it's a file url or path that ends with onnx extension
         framework = Framework.deepsparse
-    elif isinstance(item, Model) or isinstance(item, File):
+    elif (
+        isinstance(item, Model)
+        or isinstance(item, File)
+        or (isinstance(item, str) and item.startswith("zoo:"))
+    ):
         _LOGGER.debug("framework detected from SparseZoo instance")
         # sparsezoo model/file, deepsparse supports these natively
         framework = Framework.deepsparse
+    elif check_onnx_install(raise_on_error=False):
+        from onnx import ModelProto
 
+        if isinstance(item, ModelProto):
+            _LOGGER.debug("framework detected from ONNX instance")
+            # onnx native support
+            framework = Framework.onnx
     return framework
 
 
