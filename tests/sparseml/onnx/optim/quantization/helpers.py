@@ -135,7 +135,7 @@ def onnx_conv_net() -> ModelProto:
         ],
     )
     opset_id = onnx.helper.make_opsetid("", 11)
-    model = onnx.helper.make_model(graph, opset_imports=[opset_id])
+    model = onnx.helper.make_model(graph, opset_imports=[opset_id], ir_version=6)
     return model
 
 
@@ -174,5 +174,5 @@ def onnx_linear_net() -> ModelProto:
         [matmul1_weight, matmul2_weight],
     )
     opset_id = onnx.helper.make_opsetid("", 11)
-    model = onnx.helper.make_model(graph, opset_imports=[opset_id])
+    model = onnx.helper.make_model(graph, opset_imports=[opset_id], ir_version=6)
     return model
