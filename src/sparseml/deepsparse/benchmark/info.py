@@ -102,8 +102,6 @@ class DeepSparseBenchmarkRunner(BenchmarkRunner):
         self._model_runner = DeepSparseModelRunner(
             self._model,
             batch_size=batch_size,
-            # num_cores=num_cores,
-            # num_sockets=num_sockets,
             **framework_args,
         )
 
