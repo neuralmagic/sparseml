@@ -122,7 +122,7 @@ Coming soon!
 
 This repository is tested on Python 3.6+, and Linux/Debian systems.
 It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
-Currently supported ML Frameworks are the following: `torch>=1.1.0,<=1.8.0`, `tensorflow>=1.8.0,<=2.0.0`, `tensorflow.keras >= 2.2.0`.
+Currently supported ML Frameworks are the following: `torch>=1.1.0,<=1.9.0`, `tensorflow>=1.8.0,<=2.0.0`, `tensorflow.keras >= 2.2.0`.
 
 Install with pip using:
 
