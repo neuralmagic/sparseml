@@ -13,13 +13,10 @@
 # limitations under the License.
 
 """
-Functionality for working with and sparsifying Models in the DeepSparse framework
+Functionality related to running benchmarks in the ONNX/ONNXruntime
+frameworks.
 """
 
 # flake8: noqa
 
-from .base import *
-from .benchmark import *
-from .framework import detect_framework, framework_info, is_supported
-from .sparsification import sparsification_info
-from .utils import *
+from .info import *
