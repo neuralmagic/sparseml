@@ -114,6 +114,7 @@ def _setup_extras() -> Dict:
 def _setup_entry_points() -> Dict:
     return {
         "console_scripts": [
+            "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
         ]
