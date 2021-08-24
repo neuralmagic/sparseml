@@ -31,10 +31,10 @@ The techniques include, but are not limited to:
 
 ## Tutorials
 
-- [Classification](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/classification.ipynb)
-- [Detection](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/detection.ipynb)
-- [Sparse Quantized Transfer Learning](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb)
-- [Torchvision](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/torchvision.ipynb)
+- [Classification](./notebooks/classification.ipynb)
+- [Detection](./notebooks/detection.ipynb)
+- [Sparse Quantized Transfer Learning](./notebooks/sparse_quantized_transfer_learning.ipynb)
+- [Torchvision](./notebooks/torchvision.ipynb)
 
 ## Installation
 
@@ -80,14 +80,14 @@ The following table lays out the root-level files and folders along with a descr
 
 | Folder/File Name              | Description                                                                                                           |
 |-------------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| [notebooks](https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/notebooks)                     | Jupyter notebooks to walk through sparsifiation within standard PyTorch training flows                                |
-| [recipes](https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/recipes)                       | Typical recipes for sparsifying PyTorch models along with any downloaded recipes from the SparseZoo.                  |
-| [tutorials](https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/tutorials)                     | Tutorial walkthroughs for how to sparsify PyTorch models using recipes.                                               |
-| [README.md](https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/README.md)                     | Readme file.                                                                                                          |
-| [torchvision_sparsification.py](https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/torchvision_sparsification.py) | Example training script for sparsifying PyTorch torchvision classification models.                                    |
-| [train.py](https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/train.py)                     | Utility training script for sparsifying classification and detection models in PyTorch (loads SparseML models).       |
-| [export.py](https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/export.py)                     | Utility script for exporting pytorch model to ONNX file along with sample inputs, outputs and labels.                 |
-|[analysis.py](https://github.com/neuralmagic/sparseml/tree/main/integrations/pytorch/analysis.py)|Utility script to Run a kernel sparsity (pruning) or learning rate sensitivity analysis for a desired image classification architecture |
+| [notebooks](./notebooks)                     | Jupyter notebooks to walk through sparsifiation within standard PyTorch training flows                                |
+| [recipes](./recipes)                       | Typical recipes for sparsifying PyTorch models along with any downloaded recipes from the SparseZoo.                  |
+| [tutorials](./tutorials)                     | Tutorial walkthroughs for how to sparsify PyTorch models using recipes.                                               |
+| [README.md](./README.md)                     | Readme file.                                                                                                          |
+| [torchvision_sparsification.py](./torchvision_sparsification.py) | Example training script for sparsifying PyTorch torchvision classification models.                                    |
+| [train.py](./train.py)                     | Utility training script for sparsifying classification and detection models in PyTorch (loads SparseML models).       |
+| [export.py](./export.py)                     | Utility script for exporting pytorch model to ONNX file along with sample inputs, outputs and labels.                 |
+|[analysis.py](./analysis.py)                  |Utility script to Run a kernel sparsity (pruning) or learning rate sensitivity analysis for a desired image classification architecture |
 
 ### Exporting for Inference
 

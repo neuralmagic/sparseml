@@ -18,12 +18,12 @@
 Command help:
 usage: train.py [-h] --arch-key ARCH_KEY [--pretrained PRETRAINED]
                 [--pretrained-dataset PRETRAINED_DATASET]
-                [--checkpoint-path CHECKPOINT_PATH]
                 [--model-kwargs MODEL_KWARGS] --dataset DATASET --dataset-path
                 DATASET_PATH [--dataset-kwargs DATASET_KWARGS]
                 [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
                 [--device DEVICE] [--loader-num-workers LOADER_NUM_WORKERS]
-                [--loader-pin-memory LOADER_PIN_MEMORY] [--init-lr INIT_LR]
+                [--loader-pin-memory LOADER_PIN_MEMORY]
+                [--checkpoint-path CHECKPOINT_PATH] [--init-lr INIT_LR]
                 [--optim-args OPTIM_ARGS] [--recipe-path RECIPE_PATH]
                 [--sparse-transfer-learn] [--eval-mode] --train-batch-size
                 TRAIN_BATCH_SIZE --test-batch-size TEST_BATCH_SIZE
@@ -50,12 +50,6 @@ optional arguments:
                         pretrained is set. Default is None which will load the
                         default dataset for the architecture. Ex can be set to
                         imagenet, cifar10, etc
-  --checkpoint-path CHECKPOINT_PATH
-                        A path to a previous checkpoint to load the state from
-                        and resume the state for. If provided, pretrained will
-                        be ignored. If using a SparseZoo recipe, can also
-                        provide 'zoo' to load the base weights associated with
-                        that recipe
   --model-kwargs MODEL_KWARGS
                         Keyword arguments to be passed to model constructor,
                         should be given as a json object
@@ -79,9 +73,18 @@ optional arguments:
                         The number of workers to use for data loading
   --loader-pin-memory LOADER_PIN_MEMORY
                         Use pinned memory for data loading
-  --init-lr INIT_LR     The initial learning rate to use while training, the
-                        actual initial value used should be set by the
-                        sparseml recipe
+  --checkpoint-path CHECKPOINT_PATH
+                        A path to a previous checkpoint to load the state from
+                        and resume the state for. If provided, pretrained will
+                        be ignored. If using a SparseZoo recipe, can also
+                        provide 'zoo' to load the base weights associated with
+                        that recipe. If using a SparseZoo recipe, can also
+                        provide 'zoo' to load the base weights associated with
+                        that recipe
+  --init-lr INIT_LR     The initial learning rate to use for the sensitivity
+                        analysisThe initial learning rate to use while
+                        training, the actual initial value used should be set
+                        by the sparseml recipe
   --optim-args OPTIM_ARGS
                         Additional args to be passed to the optimizer passed
                         in as a json object
@@ -115,6 +118,7 @@ optional arguments:
   --debug-steps DEBUG_STEPS
                         Amount of steps to run for training and testing for a
                         debug mode
+
 #########
 EXAMPLES
 #########
@@ -146,35 +150,16 @@ integrations/pytorch/train.py \
 <TRAIN.PY ARGUMENTS>
 """
 import argparse
+import json
+import os
 from typing import Any, List, Tuple
 
 import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
 
-from helpers import (
-    LOGGER,
-    Tasks,
-    add_device_args,
-    add_learning_rate,
-    add_local_rank,
-    add_optimizer_args,
-    add_pin_memory_args,
-    add_training_specific_args,
-    add_universal_args,
-    add_workers_args,
-    append_preprocessing_args,
-    create_model,
-    create_scheduled_optimizer,
-    distributed_setup,
-    get_loss_wrapper,
-    get_save_dir_and_loggers,
-    get_train_and_validation_loaders,
-    infer_num_classes,
-    parse_ddp_args,
-    save_model_training,
-    save_recipe,
-)
+import utils
+from sparseml import get_main_logger
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
@@ -187,7 +172,8 @@ from sparseml.pytorch.utils import (
 )
 
 
-CURRENT_TASK = Tasks.TRAIN
+CURRENT_TASK = utils.Tasks.TRAIN
+LOGGER = get_main_logger()
 
 
 def train(
@@ -212,15 +198,15 @@ def train(
     :param loggers: List of loggers to use during training process
     """
     # loss setup
-    val_loss = get_loss_wrapper(args, training=True)
+    val_loss = utils.get_loss_wrapper(args, training=True)
     LOGGER.info("created loss for validation: {}".format(val_loss))
 
-    train_loss = get_loss_wrapper(args, training=True)
+    train_loss = utils.get_loss_wrapper(args, training=True)
     LOGGER.info("created loss for training: {}".format(train_loss))
 
     # training setup
     if not args.eval_mode:
-        epoch, optim, manager = create_scheduled_optimizer(
+        epoch, optim, manager = utils.create_scheduled_optimizer(
             args,
             model,
             train_loader,
@@ -266,7 +252,7 @@ def train(
         tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=args.debug_steps)
 
     if not args.eval_mode:
-        save_recipe(recipe_manager=manager, save_dir=save_dir)
+        utils.save_recipe(recipe_manager=manager, save_dir=save_dir)
         LOGGER.info("starting training from epoch {}".format(epoch))
 
         if epoch > 0:
@@ -302,7 +288,7 @@ def train(
                 if epoch >= args.save_best_after and (
                     best_loss is None or val_loss <= best_loss
                 ):
-                    save_model_training(
+                    utils.save_model_training(
                         model,
                         optim,
                         input_shape,
@@ -315,7 +301,7 @@ def train(
 
             # save checkpoints
             if args.is_main_process and args.save_epochs and epoch in args.save_epochs:
-                save_model_training(
+                utils.save_model_training(
                     model,
                     optim,
                     input_shape,
@@ -332,7 +318,7 @@ def train(
         if args.is_main_process:
             # only convert qat -> quantized ONNX graph for finalized model
             # TODO: change this to all checkpoints when conversion times improve
-            save_model_training(
+            utils.save_model_training(
                 model, optim, input_shape, "model", save_dir, epoch - 1, val_res, True
             )
 
@@ -356,23 +342,134 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Train and/or prune an image classification model on a dataset"
     )
-    # DDP argument, necessary for launching via torch.distributed
-    add_local_rank(parser)
-    add_universal_args(parser, task=CURRENT_TASK)
 
-    add_device_args(parser)
-    add_workers_args(parser)
-    add_pin_memory_args(parser)
+    utils.add_local_rank(parser)
+    utils.add_universal_args(parser)
+    utils.add_device_args(parser)
+    utils.add_workers_args(parser)
+    utils.add_pin_memory_args(parser)
 
-    add_learning_rate(parser, task=CURRENT_TASK)
-    add_optimizer_args(parser, task=CURRENT_TASK)
-    add_training_specific_args(parser)
+    parser.add_argument(
+        "--checkpoint-path",
+        type=str,
+        default=None,
+        help=(
+            "A path to a previous checkpoint to load the state from and "
+            "resume the state for. If provided, pretrained will be ignored"
+            ". If using a SparseZoo recipe, can also provide 'zoo' to load "
+            "the base weights associated with that recipe"
+            ". If using a SparseZoo recipe, can also provide 'zoo' to load "
+            "the base weights associated with that recipe"
+        ),
+    )
+    parser.add_argument(
+        "--init-lr",
+        type=float,
+        default=1e-9,
+        help=(
+            "The initial learning rate to use for the sensitivity analysis"
+            "The initial learning rate to use while training, "
+            "the actual initial value used should be set by the sparseml recipe"
+        ),
+    )
+    parser.add_argument(
+        "--optim-args",
+        type=json.loads,
+        default=({"momentum": 0.9, "nesterov": True, "weight_decay": 0.0001}),
+        help="Additional args to be passed to the optimizer passed in"
+        " as a json object",
+    )
+    parser.add_argument(
+        "--recipe-path",
+        type=str,
+        default=None,
+        help="The path to the yaml file containing the modifiers and "
+        "schedule to apply them with. Can also provide a SparseZoo stub "
+        "prefixed with 'zoo:' with an optional '?recipe_type=' argument",
+    )
+    parser.add_argument(
+        "--sparse-transfer-learn",
+        action="store_true",
+        help=(
+            "Enable sparse transfer learning modifiers to enforce the sparsity "
+            "for already sparse layers. The modifiers are added to the "
+            "ones to be loaded from the recipe-path"
+        ),
+    )
+    parser.add_argument(
+        "--eval-mode",
+        action="store_true",
+        help="Puts into evaluation mode so that the model can be "
+        "evaluated on the desired dataset",
+    )
+    parser.add_argument(
+        "--train-batch-size",
+        type=int,
+        required=True,
+        help="The batch size to use while training",
+    )
+    parser.add_argument(
+        "--test-batch-size",
+        type=int,
+        required=True,
+        help="The batch size to use while testing",
+    )
+    parser.add_argument(
+        "--optim",
+        type=str,
+        default="SGD",
+        help="The optimizer type to use, one of [SGD, Adam]",
+    )
+    parser.add_argument(
+        "--logs-dir",
+        type=str,
+        default=os.path.join("pytorch_vision_train", "tensorboard-logs"),
+        help="The path to the directory for saving logs",
+    )
+    parser.add_argument(
+        "--save-best-after",
+        type=int,
+        default=-1,
+        help="start saving the best validation result after the given "
+        "epoch completes until the end of training",
+    )
+    parser.add_argument(
+        "--save-epochs",
+        type=int,
+        default=[],
+        nargs="+",
+        help="epochs to save checkpoints at",
+    )
+    parser.add_argument(
+        "--use-mixed-precision",
+        action="store_true",
+        help=(
+            "Trains model using mixed precision. Supported environments are "
+            "single GPU and multiple GPUs using DistributedDataParallel with "
+            "one GPU per process"
+        ),
+    )
+    parser.add_argument(
+        "--debug-steps",
+        type=int,
+        default=-1,
+        help="Amount of steps to run for training and testing for a debug mode",
+    )
 
     args = parser.parse_args()
-    args = parse_ddp_args(args, task=CURRENT_TASK)
+    args.world_size = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
+    args.rank = int(os.environ["RANK"]) if "RANK" in os.environ else -1
+    args.is_main_process = args.rank in [-1, 0]  # non DDP execution or 0th DDP process
 
-    append_preprocessing_args(args)
+    # modify training batch size for give world size
+    assert args.train_batch_size % args.world_size == 0, (
+        f"Invalid training batch size for world size {args.world_size} "
+        f"given batch size {args.train_batch_size}. "
+        f"world size must divide training batch size evenly."
+    )
 
+    args.train_batch_size = args.train_batch_size // args.world_size
+    utils.append_preprocessing_args(args)
     return args
 
 
@@ -381,8 +478,8 @@ def main():
     Driver function for the script
     """
     args_ = parse_args()
-    distributed_setup(args_.local_rank)
-    save_dir, loggers = get_save_dir_and_loggers(args_, task=CURRENT_TASK)
+    utils.distributed_setup(args_.local_rank)
+    save_dir, loggers = utils.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
 
     input_shape = ModelRegistry.input_shape(args_.arch_key)
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
@@ -392,12 +489,12 @@ def main():
         train_loader,
         val_dataset,
         val_loader,
-    ) = get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
+    ) = utils.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
 
     # model creation
-    num_classes = infer_num_classes(args_, train_dataset, val_dataset)
+    num_classes = utils.infer_num_classes(args_, train_dataset, val_dataset)
 
-    model = create_model(args_, num_classes)
+    model = utils.create_model(args_, num_classes)
 
     train(args_, model, train_loader, val_loader, input_shape, save_dir, loggers)
 

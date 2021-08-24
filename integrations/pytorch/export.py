@@ -17,10 +17,10 @@
 Command help:
 usage: export.py [-h] --arch-key ARCH_KEY [--pretrained PRETRAINED]
                  [--pretrained-dataset PRETRAINED_DATASET]
-                 [--checkpoint-path CHECKPOINT_PATH]
                  [--model-kwargs MODEL_KWARGS] --dataset DATASET
                  --dataset-path DATASET_PATH [--dataset-kwargs DATASET_KWARGS]
                  [--model-tag MODEL_TAG] [--save-dir SAVE_DIR]
+                 [--checkpoint-path CHECKPOINT_PATH]
                  [--num-samples NUM_SAMPLES] [--onnx-opset ONNX_OPSET]
                  [--use-zipfile-serialization-if-available
                  USE_ZIPFILE_SERIALIZATION_IF_AVAILABLE]
@@ -43,12 +43,6 @@ optional arguments:
                         pretrained is set. Default is None which will load the
                         default dataset for the architecture. Ex can be set to
                         imagenet, cifar10, etc
-  --checkpoint-path CHECKPOINT_PATH
-                        A path to a previous checkpoint to load the state from
-                        and resume the state for. If provided, pretrained will
-                        be ignored. If using a SparseZoo recipe, can also
-                        provide 'zoo' to load the base weights associated with
-                        that recipe
   --model-kwargs MODEL_KWARGS
                         Keyword arguments to be passed to model constructor,
                         should be given as a json object
@@ -66,6 +60,12 @@ optional arguments:
                         A tag to use for the model for saving results under
                         save-dir, defaults to the model arch and dataset used
   --save-dir SAVE_DIR   The path to the directory for saving results
+  --checkpoint-path CHECKPOINT_PATH
+                        A path to a previous checkpoint to load the state from
+                        and resume the state for. If provided, pretrained will
+                        be ignored. If using a SparseZoo recipe, can also
+                        provide 'zoo' to load the base weights associated with
+                        that recipe
   --num-samples NUM_SAMPLES
                         The number of samples to export along with the model
                         onnx and pth files (sample inputs and labels as well
@@ -88,24 +88,15 @@ from torch.nn import Module
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from helpers import (
-    LOGGER,
-    Tasks,
-    add_export_specific_args,
-    add_universal_args,
-    append_preprocessing_args,
-    create_model,
-    distributed_setup,
-    get_save_dir_and_loggers,
-    get_train_and_validation_loaders,
-    infer_num_classes,
-    parse_ddp_args,
-)
+import utils
+from sparseml import get_main_logger
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.utils import ModuleExporter
+from sparseml.utils import convert_to_bool
 
 
-CURRENT_TASK = Tasks.EXPORT
+CURRENT_TASK = utils.Tasks.EXPORT
+LOGGER = get_main_logger()
 
 
 def export(
@@ -158,7 +149,7 @@ def export_setup(args_: argparse.Namespace) -> Tuple[Module, Optional[str], Any]
         loader_num_workers, loader_pin_memory, model_kwargs, checkpoint_path,
         pretrained, pretrained_dataset}
     """
-    save_dir, loggers = get_save_dir_and_loggers(args_, task=CURRENT_TASK)
+    save_dir, loggers = utils.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
     input_shape = ModelRegistry.input_shape(args_.arch_key)
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
     (
@@ -166,10 +157,11 @@ def export_setup(args_: argparse.Namespace) -> Tuple[Module, Optional[str], Any]
         train_loader,
         val_dataset,
         val_loader,
-    ) = get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
+    ) = utils.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
+
     # model creation
-    num_classes = infer_num_classes(args_, train_dataset, val_dataset)
-    model = create_model(args_, num_classes)
+    num_classes = utils.infer_num_classes(args_, train_dataset, val_dataset)
+    model = utils.create_model(args_, num_classes)
     return model, save_dir, val_loader
 
 
@@ -182,13 +174,50 @@ def parse_args() -> argparse.Namespace:
         "and also store sample inputs/outputs"
     )
 
-    add_universal_args(parser=parser, task=CURRENT_TASK)
-    add_export_specific_args(parser=parser)
+    utils.add_universal_args(parser=parser)
+
+    parser.add_argument(
+        "--checkpoint-path",
+        type=str,
+        default=None,
+        help=(
+            "A path to a previous checkpoint to load the state from and "
+            "resume the state for. If provided, pretrained will be ignored"
+            ". If using a SparseZoo recipe, can also provide 'zoo' to load "
+            "the base weights associated with that recipe"
+        ),
+    )
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=100,
+        help="The number of samples to export along with the model onnx "
+        "and pth files (sample inputs and labels as well as the outputs "
+        "from model execution)",
+    )
+    parser.add_argument(
+        "--onnx-opset",
+        type=int,
+        default=11,
+        help="The onnx opset to use for export. Default is 11",
+    )
+    parser.add_argument(
+        "--use-zipfile-serialization-if-available",
+        type=convert_to_bool,
+        default=True,
+        help="for torch >= 1.6.0 only exports the Module's state dict "
+        "using the new zipfile serialization. Default is True, has no "
+        "affect on lower torch versions",
+    )
+
     args = parser.parse_args()
-    args = parse_ddp_args(args, task=CURRENT_TASK)
 
-    append_preprocessing_args(args)
-
+    # set ddp args to default values
+    args.local_rank = -1
+    args.rank = -1
+    args.world_size = 1
+    args.is_main_process = True
+    utils.append_preprocessing_args(args)
     return args
 
 
@@ -197,7 +226,7 @@ def main():
     Driver function
     """
     args_ = parse_args()
-    distributed_setup(args_.local_rank)
+    utils.distributed_setup(args_.local_rank)
     model, save_dir, val_loader = export_setup(args_)
     export(args_, model, val_loader, save_dir)
 

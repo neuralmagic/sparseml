@@ -73,9 +73,9 @@ Note: The models above were originally trained and sparsified on the [ImageNet](
 
 ## Applying a Sparse Transfer Learning Recipe
 
-- After noting respective SparseZoo model stub, [train.py](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/train.py) script can be used to download checkpoint and [Imagenette](https://github.com/fastai/imagenette) and kick-start transfer learning. 
-   The transfer learning process itself is guided using recipes; We include example [recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/recipes) for classification along with others in the SparseML [GitHub repository](https://github.com/neuralmagic/sparseml). 
-[Learn more about recipes and modifiers](https://github.com/neuralmagic/sparseml/blob/main/docs/source/recipes.md).
+- After noting respective SparseZoo model stub, [train.py](../train.py) script can be used to download checkpoint and [Imagenette](https://github.com/fastai/imagenette) and kick-start transfer learning. 
+   The transfer learning process itself is guided using recipes; We include example [recipes](../recipes) for classification along with others in the SparseML [GitHub repository](https://github.com/neuralmagic/sparseml). 
+[Learn more about recipes and modifiers](../../../docs/source/recipes.md).
 
 - Run the following example command to kick off transfer learning for [ResNet-50](https://arxiv.org/abs/1512.03385) starting from a moderately pruned checkpoint from [SparseZoo](https://sparsezoo.neuralmagic.com/):
 ```

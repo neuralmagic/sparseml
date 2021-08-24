@@ -55,7 +55,6 @@ from sparseml.pytorch.utils import (
 )
 from sparseml.utils import create_dirs
 from sparsezoo import Zoo
-from sparsezoo.utils import convert_to_bool
 
 
 with suppress(Exception):
@@ -66,185 +65,15 @@ LOGGER = get_main_logger()
 
 @unique
 class Tasks(Enum):
+    """
+    A class representing supported image classification/detection tasks
+    """
+
     TRAIN = auto()
     EXPORT = auto()
     ANALYSIS = auto()
     LR_SENSITIVITY = "lr_sensitivity"
     PR_SENSITIVITY = "pr_sensitivity"
-
-
-# Argument helpers add relevant arguments to given parser according to task
-
-
-def add_lr_sensitivity_specific_args(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--final-lr",
-        type=float,
-        default=0.5,
-        help="The final learning rate to use for the sensitivity analysis",
-    )
-
-
-def add_pruning_specific_args(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--approximate",
-        action="store_true",
-        help="True to approximate without running data through the model, "
-        "otherwise will run a one shot analysis",
-    )
-
-
-def add_export_specific_args(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--num-samples",
-        type=int,
-        default=100,
-        help="The number of samples to export along with the model onnx "
-        "and pth files (sample inputs and labels as well as the outputs "
-        "from model execution)",
-    )
-    parser.add_argument(
-        "--onnx-opset",
-        type=int,
-        default=11,
-        help="The onnx opset to use for export. Default is 11",
-    )
-    parser.add_argument(
-        "--use-zipfile-serialization-if-available",
-        type=convert_to_bool,
-        default=True,
-        help="for torch >= 1.6.0 only exports the Module's state dict "
-        "using the new zipfile serialization. Default is True, has no "
-        "affect on lower torch versions",
-    )
-
-
-def add_training_specific_args(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--recipe-path",
-        type=str,
-        default=None,
-        help="The path to the yaml file containing the modifiers and "
-        "schedule to apply them with. Can also provide a SparseZoo stub "
-        "prefixed with 'zoo:' with an optional '?recipe_type=' argument",
-    )
-    parser.add_argument(
-        "--sparse-transfer-learn",
-        action="store_true",
-        help=(
-            "Enable sparse transfer learning modifiers to enforce the sparsity "
-            "for already sparse layers. The modifiers are added to the "
-            "ones to be loaded from the recipe-path"
-        ),
-    )
-    parser.add_argument(
-        "--eval-mode",
-        action="store_true",
-        help="Puts into evaluation mode so that the model can be "
-        "evaluated on the desired dataset",
-    )
-    parser.add_argument(
-        "--train-batch-size",
-        type=int,
-        required=True,
-        help="The batch size to use while training",
-    )
-    parser.add_argument(
-        "--test-batch-size",
-        type=int,
-        required=True,
-        help="The batch size to use while testing",
-    )
-    parser.add_argument(
-        "--optim",
-        type=str,
-        default="SGD",
-        help="The optimizer type to use, one of [SGD, Adam]",
-    )
-    parser.add_argument(
-        "--logs-dir",
-        type=str,
-        default=os.path.join("pytorch_vision_train", "tensorboard-logs"),
-        help="The path to the directory for saving logs",
-    )
-    parser.add_argument(
-        "--save-best-after",
-        type=int,
-        default=-1,
-        help="start saving the best validation result after the given "
-        "epoch completes until the end of training",
-    )
-    parser.add_argument(
-        "--save-epochs",
-        type=int,
-        default=[],
-        nargs="+",
-        help="epochs to save checkpoints at",
-    )
-    parser.add_argument(
-        "--use-mixed-precision",
-        action="store_true",
-        help=(
-            "Trains model using mixed precision. Supported environments are "
-            "single GPU and multiple GPUs using DistributedDataParallel with "
-            "one GPU per process"
-        ),
-    )
-    parser.add_argument(
-        "--debug-steps",
-        type=int,
-        default=-1,
-        help="Amount of steps to run for training and testing for a debug mode",
-    )
-
-
-def add_batch_size_arg(parser: argparse.ArgumentParser, task: Optional[Tasks] = None):
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        required=task == Tasks.LR_SENSITIVITY,
-        default=64 if task == Tasks.PR_SENSITIVITY else None,
-        help="The batch size to use while training",
-    )
-
-
-def add_steps_per_measurement(
-    parser: argparse.ArgumentParser, task: Optional[Tasks] = None
-):
-    parser.add_argument(
-        "--steps-per-measurement",
-        type=int,
-        default=15 if task == Tasks.PR_SENSITIVITY else 20,
-        help="The number of steps (batches) to run for each measurement",
-    )
-
-
-def add_optimizer_args(parser: argparse.ArgumentParser, task: Optional[Tasks] = None):
-    parser.add_argument(
-        "--optim-args",
-        type=json.loads,
-        default=(
-            {"momentum": 0.9, "nesterov": True, "weight_decay": 0.0001}
-            if task == "train"
-            else {}
-        ),
-        help="Additional args to be passed to the optimizer passed in"
-        " as a json object",
-    )
-
-
-def add_learning_rate(parser: argparse.ArgumentParser, task: Optional[Tasks] = None):
-    parser.add_argument(
-        "--init-lr",
-        type=float,
-        default=1e-5 if task == Tasks.LR_SENSITIVITY else 1e-9,
-        help=(
-            "The initial learning rate to use for the sensitivity analysis"
-            if task == Tasks.LR_SENSITIVITY
-            else "The initial learning rate to use while training, "
-            "the actual initial value used should be set by the sparseml recipe"
-        ),
-    )
 
 
 def add_pin_memory_args(parser: argparse.ArgumentParser):
@@ -277,7 +106,7 @@ def add_device_args(parser: argparse.ArgumentParser):
     )
 
 
-def add_universal_args(parser: argparse.ArgumentParser, task: Optional[Tasks] = None):
+def add_universal_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--arch-key",
         type=str,
@@ -303,23 +132,7 @@ def add_universal_args(parser: argparse.ArgumentParser, task: Optional[Tasks] = 
         "Default is None which will load the default dataset for the architecture."
         " Ex can be set to imagenet, cifar10, etc",
     )
-    checkpoint_path_help = (
-        "A path to a previous checkpoint to load the state from and "
-        "resume the state for. If provided, pretrained will be ignored"
-        ". If using a SparseZoo recipe, can also provide 'zoo' to load "
-        "the base weights associated with that recipe"
-    )
-    if task == "train":
-        checkpoint_path_help += (
-            ". If using a SparseZoo recipe, can also provide 'zoo' to load "
-            "the base weights associated with that recipe"
-        )
-    parser.add_argument(
-        "--checkpoint-path",
-        type=str,
-        default=None,
-        help=checkpoint_path_help,
-    )
+
     parser.add_argument(
         "--model-kwargs",
         type=json.loads,
@@ -384,33 +197,6 @@ def append_preprocessing_args(args: argparse.Namespace):
             args.dataset_kwargs["preprocessing_type"] = "ssd"
         elif "yolo" in args.arch_key.lower():
             args.dataset_kwargs["preprocessing_type"] = "yolo"
-
-
-# distributed training
-def parse_ddp_args(args: argparse.Namespace, task: Optional[Tasks] = None):
-    """
-    Utility function to add configuration for distributed training
-    """
-    if task != Tasks.TRAIN:
-        # set ddp args to default values
-        args.local_rank = -1
-        args.rank = -1
-        args.world_size = 1
-        args.is_main_process = True
-        return args
-
-    args.world_size = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
-    args.rank = int(os.environ["RANK"]) if "RANK" in os.environ else -1
-    args.is_main_process = args.rank in [-1, 0]  # non DDP execution or 0th DDP process
-
-    # modify training batch size for give world size
-    assert args.train_batch_size % args.world_size == 0, (
-        "Invalid training batch size for world size {}"
-        " given batch size {}. world size must divide training batch size evenly."
-    ).format(args.world_size, args.train_batch_size)
-    args.train_batch_size = args.train_batch_size // args.world_size
-
-    return args
 
 
 def distributed_setup(local_rank: int):

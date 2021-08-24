@@ -15,12 +15,10 @@
 """
 #####
 Command help:
-
 usage: analysis.py [-h] {pr_sensitivity,lr_sensitivity} ...
 
-Utility script to Run a kernel sparsity (pruning) or
-learning rate sensitivity analysis for a desired image
-classification architecture
+Utility script to Run a kernel sparsity (pruning) or learning rate sensitivity
+analysis for a desired image classification architecture
 
 positional arguments:
   {pr_sensitivity,lr_sensitivity}
@@ -33,7 +31,6 @@ pr-sensitivity command help:
 usage: analysis.py pr_sensitivity [-h] --arch-key ARCH_KEY
                                   [--pretrained PRETRAINED]
                                   [--pretrained-dataset PRETRAINED_DATASET]
-                                  [--checkpoint-path CHECKPOINT_PATH]
                                   [--model-kwargs MODEL_KWARGS] --dataset
                                   DATASET --dataset-path DATASET_PATH
                                   [--dataset-kwargs DATASET_KWARGS]
@@ -41,6 +38,7 @@ usage: analysis.py pr_sensitivity [-h] --arch-key ARCH_KEY
                                   [--save-dir SAVE_DIR] [--device DEVICE]
                                   [--loader-num-workers LOADER_NUM_WORKERS]
                                   [--loader-pin-memory LOADER_PIN_MEMORY]
+                                  [--checkpoint-path CHECKPOINT_PATH]
                                   [--steps-per-measurement STEPS_PER_MEASUREMENT]
                                   [--batch-size BATCH_SIZE] [--approximate]
 
@@ -62,12 +60,6 @@ optional arguments:
                         pretrained is set. Default is None which will load the
                         default dataset for the architecture. Ex can be set to
                         imagenet, cifar10, etc
-  --checkpoint-path CHECKPOINT_PATH
-                        A path to a previous checkpoint to load the state from
-                        and resume the state for. If provided, pretrained will
-                        be ignored. If using a SparseZoo recipe, can also
-                        provide 'zoo' to load the base weights associated with
-                        that recipe
   --model-kwargs MODEL_KWARGS
                         Keyword arguments to be passed to model constructor,
                         should be given as a json object
@@ -91,6 +83,12 @@ optional arguments:
                         The number of workers to use for data loading
   --loader-pin-memory LOADER_PIN_MEMORY
                         Use pinned memory for data loading
+  --checkpoint-path CHECKPOINT_PATH
+                        A path to a previous checkpoint to load the state from
+                        and resume the state for. If provided, pretrained will
+                        be ignored. If using a SparseZoo recipe, can also
+                        provide 'zoo' to load the base weights associated with
+                        that recipe
   --steps-per-measurement STEPS_PER_MEASUREMENT
                         The number of steps (batches) to run for each
                         measurement
@@ -105,7 +103,6 @@ lr_sensitivity command help:
 usage: analysis.py lr_sensitivity [-h] --arch-key ARCH_KEY
                                   [--pretrained PRETRAINED]
                                   [--pretrained-dataset PRETRAINED_DATASET]
-                                  [--checkpoint-path CHECKPOINT_PATH]
                                   [--model-kwargs MODEL_KWARGS] --dataset
                                   DATASET --dataset-path DATASET_PATH
                                   [--dataset-kwargs DATASET_KWARGS]
@@ -113,6 +110,7 @@ usage: analysis.py lr_sensitivity [-h] --arch-key ARCH_KEY
                                   [--save-dir SAVE_DIR] [--device DEVICE]
                                   [--loader-num-workers LOADER_NUM_WORKERS]
                                   [--loader-pin-memory LOADER_PIN_MEMORY]
+                                  [--checkpoint-path CHECKPOINT_PATH]
                                   [--init-lr INIT_LR]
                                   [--optim-args OPTIM_ARGS]
                                   [--final-lr FINAL_LR]
@@ -138,12 +136,6 @@ optional arguments:
                         pretrained is set. Default is None which will load the
                         default dataset for the architecture. Ex can be set to
                         imagenet, cifar10, etc
-  --checkpoint-path CHECKPOINT_PATH
-                        A path to a previous checkpoint to load the state from
-                        and resume the state for. If provided, pretrained will
-                        be ignored. If using a SparseZoo recipe, can also
-                        provide 'zoo' to load the base weights associated with
-                        that recipe
   --model-kwargs MODEL_KWARGS
                         Keyword arguments to be passed to model constructor,
                         should be given as a json object
@@ -167,6 +159,12 @@ optional arguments:
                         The number of workers to use for data loading
   --loader-pin-memory LOADER_PIN_MEMORY
                         Use pinned memory for data loading
+  --checkpoint-path CHECKPOINT_PATH
+                        A path to a previous checkpoint to load the state from
+                        and resume the state for. If provided, pretrained will
+                        be ignored. If using a SparseZoo recipe, can also
+                        provide 'zoo' to load the base weights associated with
+                        that recipe
   --init-lr INIT_LR     The initial learning rate to use for the sensitivity
                         analysis
   --optim-args OPTIM_ARGS
@@ -204,6 +202,7 @@ python integrations/pytorch/analysis.py lr_sensitivity \
 """
 
 import argparse
+import json
 import os
 from typing import Any, List
 
@@ -211,29 +210,8 @@ from torch.nn import Module
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 
-from helpers import (
-    LOGGER,
-    Tasks,
-    add_batch_size_arg,
-    add_device_args,
-    add_learning_rate,
-    add_local_rank,
-    add_lr_sensitivity_specific_args,
-    add_optimizer_args,
-    add_pin_memory_args,
-    add_pruning_specific_args,
-    add_steps_per_measurement,
-    add_universal_args,
-    add_workers_args,
-    append_preprocessing_args,
-    create_model,
-    distributed_setup,
-    get_loss_wrapper,
-    get_save_dir_and_loggers,
-    get_train_and_validation_loaders,
-    infer_num_classes,
-    parse_ddp_args,
-)
+import utils
+from sparseml import get_main_logger
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import (
     default_exponential_check_lrs,
@@ -244,7 +222,8 @@ from sparseml.pytorch.optim import (
 from sparseml.pytorch.utils import PythonLogger, model_to_device
 
 
-CURRENT_TASK = Tasks.ANALYSIS
+CURRENT_TASK = utils.Tasks.ANALYSIS
+LOGGER = get_main_logger()
 
 
 def pruning_loss_sensitivity(
@@ -266,7 +245,7 @@ def pruning_loss_sensitivity(
     """
     # loss setup
     if not args.approximate:
-        loss = get_loss_wrapper(args)
+        loss = utils.get_loss_wrapper(args)
         LOGGER.info("created loss: {}".format(loss))
     else:
         loss = None
@@ -336,7 +315,7 @@ def lr_sensitivity(
     LOGGER.info("created optimizer: {}".format(optim))
 
     # loss setup
-    loss = get_loss_wrapper(args)
+    loss = utils.get_loss_wrapper(args)
     LOGGER.info("created loss: {}".format(loss))
 
     # device setup
@@ -374,45 +353,94 @@ def parse_args() -> argparse.Namespace:
         "for a desired image classification architecture"
     )
     # DDP argument, necessary for launching via torch.distributed
-    add_local_rank(parser)
+    utils.add_local_rank(parser)
 
     subparsers = parser.add_subparsers(dest="command")
     pruning_sensitivity_parser = subparsers.add_parser(
-        Tasks.PR_SENSITIVITY.value,
+        utils.Tasks.PR_SENSITIVITY.value,
         description="Run a kernel sparsity (pruning) analysis for a given model",
     )
     lr_sensitivity_parser = subparsers.add_parser(
-        Tasks.LR_SENSITIVITY.value,
+        utils.Tasks.LR_SENSITIVITY.value,
         description="Run a learning rate sensitivity analysis for a desired image "
         "classification or detection architecture",
     )
 
     subtasks = [
-        (pruning_sensitivity_parser, Tasks.PR_SENSITIVITY),
-        (lr_sensitivity_parser, Tasks.LR_SENSITIVITY),
+        (pruning_sensitivity_parser, utils.Tasks.PR_SENSITIVITY),
+        (lr_sensitivity_parser, utils.Tasks.LR_SENSITIVITY),
     ]
 
     for _parser, subtask in subtasks:
-        add_universal_args(parser=_parser, task=None)
-        add_device_args(parser=_parser)
-        add_workers_args(parser=_parser)
-        add_pin_memory_args(parser=_parser)
+        utils.add_universal_args(parser=_parser)
+        utils.add_device_args(parser=_parser)
+        utils.add_workers_args(parser=_parser)
+        utils.add_pin_memory_args(parser=_parser)
+
+        _parser.add_argument(
+            "--checkpoint-path",
+            type=str,
+            default=None,
+            help=(
+                "A path to a previous checkpoint to load the state from and "
+                "resume the state for. If provided, pretrained will be ignored"
+                ". If using a SparseZoo recipe, can also provide 'zoo' to load "
+                "the base weights associated with that recipe"
+            ),
+        )
 
         if _parser == lr_sensitivity_parser:
-            add_learning_rate(parser=_parser, task=subtask)
-            add_optimizer_args(parser=_parser, task=subtask)
-            add_lr_sensitivity_specific_args(parser=_parser)
+            _parser.add_argument(
+                "--init-lr",
+                type=float,
+                default=1e-5,
+                help=("The initial learning rate to use for the sensitivity analysis"),
+            )
+            _parser.add_argument(
+                "--optim-args",
+                type=json.loads,
+                default={},
+                help="Additional args to be passed to the optimizer passed in"
+                " as a json object",
+            )
+            _parser.add_argument(
+                "--final-lr",
+                type=float,
+                default=0.5,
+                help="The final learning rate to use for the sensitivity analysis",
+            )
 
-        add_steps_per_measurement(parser=_parser, task=subtask)
-        add_batch_size_arg(parser=_parser, task=subtask)
+        _parser.add_argument(
+            "--steps-per-measurement",
+            type=int,
+            default=15 if subtask == utils.Tasks.PR_SENSITIVITY else 20,
+            help="The number of steps (batches) to run for each measurement",
+        )
+        _parser.add_argument(
+            "--batch-size",
+            type=int,
+            required=subtask == utils.Tasks.LR_SENSITIVITY,
+            default=64 if subtask == utils.Tasks.PR_SENSITIVITY else None,
+            help="The batch size to use while training",
+        )
 
         if _parser == pruning_sensitivity_parser:
-            add_pruning_specific_args(parser=_parser)
+            _parser.add_argument(
+                "--approximate",
+                action="store_true",
+                help="True to approximate without running data through the model, "
+                "otherwise will run a one shot analysis",
+            )
 
     args = parser.parse_args()
-    args = parse_ddp_args(args, task=CURRENT_TASK)
-    append_preprocessing_args(args)
 
+    # set ddp args to default values
+    args.local_rank = -1
+    args.rank = -1
+    args.world_size = 1
+    args.is_main_process = True
+
+    utils.append_preprocessing_args(args)
     return args
 
 
@@ -421,9 +449,9 @@ def main():
     Driver function for the script
     """
     args_ = parse_args()
-    distributed_setup(args_.local_rank)
+    utils.distributed_setup(args_.local_rank)
 
-    save_dir, loggers = get_save_dir_and_loggers(args_, task=CURRENT_TASK)
+    save_dir, loggers = utils.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
 
     input_shape = ModelRegistry.input_shape(args_.arch_key)
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
@@ -433,13 +461,13 @@ def main():
         train_loader,
         val_dataset,
         val_loader,
-    ) = get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
+    ) = utils.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
 
-    num_classes = infer_num_classes(args_, train_dataset, val_dataset)
+    num_classes = utils.infer_num_classes(args_, train_dataset, val_dataset)
 
-    model = create_model(args_, num_classes)
+    model = utils.create_model(args_, num_classes)
 
-    if args_.command == Tasks.LR_SENSITIVITY.value:
+    if args_.command == utils.Tasks.LR_SENSITIVITY.value:
         lr_sensitivity(args_, model, train_loader, save_dir)
     else:
         pruning_loss_sensitivity(args_, model, train_loader, save_dir, loggers)
