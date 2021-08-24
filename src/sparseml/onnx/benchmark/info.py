@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 import onnx
 from onnx import ModelProto
@@ -396,63 +396,6 @@ def load_data(
             )
     return DataLoader(
         data, None, batch_size=batch_size, iter_steps=total_iterations, **kwargs
-    )
-
-
-def detect_benchmark_runner(
-    provider: Optional[str] = None,
-    device: Optional[str] = None,
-) -> Callable[
-    [Any, int, int, int, Dict[str, Any], Optional[str], Optional[str]],
-    ORTBenchmarkRunner,
-]:
-    """
-    Detects the benchmark runner based on the provider and device.
-
-    :param provider: inference provider name to use from available
-        FrameworkInfo
-    :param device: the device to use for benchmarking
-    :return: callable for contsructing the benchmark runner
-    """
-    # Obtains the provider/device name if any of them are not provided
-    if provider is None or device is None:
-        framework_info = get_framework_info()
-        if len(framework_info.inference_providers) < 1:
-            raise RuntimeError(
-                "No inference providers available. Please install "
-                "onnxruntime or onnx pip."
-            )
-
-        if provider is None and device is None:
-            # Default to first available inference provider
-            provider = framework_info.inference_providers[0].name
-            device = framework_info.inference_providers[0].device
-        elif provider is None:
-            matching_provider = [
-                inference_provider
-                for inference_provider in framework_info.inference_providers
-                if inference_provider.device == device
-            ]
-            if len(matching_provider) == 0:
-                raise ValueError(
-                    f"No inference providers available for device {device}."
-                )
-            provider = matching_provider[0].name
-        elif device is None:
-            matching_provider = [
-                inference_provider
-                for inference_provider in framework_info.inference_providers
-                if inference_provider.name == provider
-            ]
-            if len(matching_provider) == 0:
-                raise ValueError(
-                    f"No inference providers available for provider {provider}."
-                )
-            device = matching_provider[0].device
-
-    _LOGGER.info(
-        f"obtaining ONNX Runtime benchmark runner for provider {provider} "
-        f"and device {device}"
     )
 
 
