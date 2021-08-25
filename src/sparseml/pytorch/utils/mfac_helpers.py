@@ -68,9 +68,11 @@ class MFACOptions:
     num_pages: int = 1  # break computation into pages when block size is None
     available_gpus: List[str] = field(default_factory=list)
 
-    def get_num_grads_for_sparsity(self, sparsity: float) -> int:
+    def get_num_grads_for_sparsity(self, sparsity: Union[float, List[float]]) -> int:
         if isinstance(self.num_grads, int):
             return self.num_grads
+        if isinstance(sparsity, List):
+            sparsity = sum(sparsity) / len(sparsity)
 
         sparsity_thresholds = list(sorted(self.num_grads, key=lambda key: float(key)))
         if 0.0 not in sparsity_thresholds:
