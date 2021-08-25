@@ -131,8 +131,16 @@ def framework_info() -> FrameworkInfo:
             ),
             "onnx": get_version(package_name="onnx", raise_on_error=False),
             "tf2onnx": get_version(package_name="tf2onnx", raise_on_error=False),
-            "sparsezoo": get_version(package_name="sparsezoo", raise_on_error=False),
-            "sparseml": get_version(package_name="sparseml", raise_on_error=False),
+            "sparsezoo": get_version(
+                package_name="sparsezoo",
+                raise_on_error=False,
+                alternate_package_names=["sparsezoo-nightly"],
+            ),
+            "sparseml": get_version(
+                package_name="sparseml",
+                raise_on_error=False,
+                alternate_package_names=["sparseml-nightly"],
+            ),
         },
         sparsification=sparsification_info(),
         inference_providers=[cpu_provider, gpu_provider],
