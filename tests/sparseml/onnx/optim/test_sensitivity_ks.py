@@ -221,6 +221,7 @@ def test_one_shot_ks_loss_sensitivity(
 @pytest.mark.skipif(
     deepsparse is None, reason="deepsparse is not installed on the system"
 )
+@flaky(max_runs=2, min_passes=1)
 def test_one_shot_ks_perf_sensitivity(
     onnx_models_with_analysis: OnnxModelAnalysisFixture,
 ):
