@@ -21,14 +21,29 @@ import math
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import torch
 from torch import Tensor
+from torch.nn import Module
 from torch.nn.parallel.parallel_apply import parallel_apply
+
+from sparseml.pytorch.utils import tensors_module_forward
 
 
 __all__ = [
+    "GradSampler",
     "MFACOptions",
     "FisherInverse",
     "FisherInverseFast",
@@ -36,6 +51,86 @@ __all__ = [
     "FisherInverseFastPageSwap",
     "compute_hessian_inv",
 ]
+
+
+class GradSampler:
+    """
+    Class for computing gradient samples for a Model given a sample data loader and
+    loss function.
+
+    :param data_loader: iterator of data samples to use as model inputs and their loss
+        targets. Samples can either be single tensors as model input or a list of
+        inputs and should be iterated in tuples with their targets
+    :param loss_fn: function to be called on model outputs to compute the loss at
+        each step
+    """
+
+    def __init__(
+        self,
+        data_loader: Iterator[Tuple[Union[Tensor, List[Tensor]], Any]],
+        loss_fn: Callable[[Tensor], Tensor],
+    ):
+        if not isinstance(data_loader, Iterable):
+            raise ValueError(
+                "data_loader for GradSampler must be Iterable, received object of "
+                f"type {type(data_loader)}"
+            )
+        if not callable(loss_fn):
+            raise ValueError(
+                "loss_fn for GradSampler must be callable, given input "
+                f"with type {type(loss_fn)}"
+            )
+
+        self._data_loader = data_loader
+        self._loss_fn = loss_fn
+
+    def module_forward(self, module: Module, data: Union[Tensor, List[Tensor]]) -> Any:
+        """
+        :param module: module to perform forward pass with
+        :param data: single data sample to pass to module
+        :return: output(s) of the module forward pass
+        """
+        if isinstance(data, Tensor):
+            data = [data]
+
+        return tensors_module_forward(*data, module)
+
+    def module_backward(self, module_outputs: Any, targets: Any):
+        """
+        Computes module loss based on the given module outputs, target data and loss
+        function
+
+        :param module_outputs: outputs of a forward pass from a module
+        :param targets: target outputs for the module to be used for the loss function
+        """
+        loss = self._loss_fn(module_outputs, targets)
+        loss.backward()
+
+    def iter_module_backwards(
+        self, module: Module, num_grads: int
+    ) -> Generator[int, None, None]:
+        """
+
+        :param module: module to compute gradients for
+        :param num_grads: number of gradient samples to compute
+        :return: generator that yields after every gradient is computed with the index
+            of the gradient sample number
+        """
+        computed_grads = 0
+
+        while computed_grads < num_grads:
+            for sample, target in self._data_loader:
+                # run sample forward and backwards pass
+                model_outputs = self.module_forward(module, sample)
+                self.module_backward(model_outputs, target)
+
+                # yield so gradients can be collected
+                computed_grads += 1
+                yield computed_grads
+
+                if computed_grads >= num_grads:
+                    break
+                module.zero_grad()
 
 
 @dataclass

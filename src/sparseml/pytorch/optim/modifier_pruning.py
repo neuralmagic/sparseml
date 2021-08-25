@@ -39,6 +39,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import (
+    GradSampler,
     MFACOptions,
     NamedLayerParam,
     get_layer,
@@ -255,7 +256,7 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
                 )
             )
 
-        self._check_mask_update(module, epoch, steps_per_epoch=1)
+        self._check_mask_update(module, epoch, steps_per_epoch=1, **kwargs)
 
     def finalize(
         self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
@@ -332,7 +333,9 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
         self._module_masks.apply()
 
     @abstractmethod
-    def _check_mask_update(self, module: Module, epoch: float, steps_per_epoch: int):
+    def _check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
         raise NotImplementedError()
 
     def _should_log(
@@ -444,7 +447,9 @@ class ConstantPruningModifier(_PruningParamsModifier):
             log_types=log_types,
         )
 
-    def _check_mask_update(self, module: Module, epoch: float, steps_per_epoch: int):
+    def _check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
         if self.start_pending(epoch, steps_per_epoch):
             self._module_masks.set_param_masks_from_weights()
             self._module_masks.enabled = True
@@ -807,7 +812,9 @@ class GMPruningModifier(_PruningParamsModifier):
                 ).format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__)
             )
 
-    def _check_mask_update(self, module: Module, epoch: float, steps_per_epoch: int):
+    def _check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
         """
         Check for updating the pruning masks at the given epoch.
         Called from both initialize and update.
@@ -822,8 +829,9 @@ class GMPruningModifier(_PruningParamsModifier):
             self._module_masks.enabled = True
             started = True
 
-        self._module_masks.pre_optim_step_update()
-        self._pre_step_completed = True
+        if not self._pre_step_completed:
+            self._module_masks.pre_optim_step_update()
+            self._pre_step_completed = True
 
         if started:
             # set the mask tensors according to the new sparsity
@@ -1359,6 +1367,16 @@ class MFACPruningModifier(GMPruningModifier):
         """
         return self._mfac_options
 
+    def _check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
+        # create grads for pne-shot pruning
+        if "grad_sampler" in kwargs:
+            self._collect_grad_samples(module, kwargs["grad_sampler"])
+            self._pre_step_completed = True
+
+        super()._check_mask_update(module, epoch, steps_per_epoch, **kwargs)
+
     def _create_pruning_mask(
         self, layers: List[Module], layer_names: List[str], param_names: List[str]
     ) -> ModuleParamPruningMask:
@@ -1370,6 +1388,23 @@ class MFACPruningModifier(GMPruningModifier):
             global_sparsity=self._global_sparsity,
             score_type=MFACOptions(**self._mfac_options),
         )
+
+    def _collect_grad_samples(
+        self,
+        module: Module,
+        grad_sampler: GradSampler,
+    ):
+        if not isinstance(grad_sampler, GradSampler):
+            raise ValueError(
+                "One-shot MFAC pruning requires a GradSampler object given by the "
+                f"grad_sampler kwarg. Given an object of type {type(grad_sampler)}"
+            )
+        num_grads = MFACOptions(**self._mfac_options).get_num_grads_for_sparsity(
+            self._applied_sparsity or 0.0
+        )
+
+        for _ in grad_sampler.iter_module_backwards(module, num_grads):
+            self._module_masks.pre_optim_step_update()
 
 
 @PyTorchModifierYAML()
