@@ -76,7 +76,7 @@ class Tasks(Enum):
     PR_SENSITIVITY = "pr_sensitivity"
 
 
-def add_pin_memory_args(parser: argparse.ArgumentParser):
+def _add_pin_memory_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--loader-pin-memory",
         type=bool,
@@ -85,7 +85,7 @@ def add_pin_memory_args(parser: argparse.ArgumentParser):
     )
 
 
-def add_workers_args(parser: argparse.ArgumentParser):
+def _add_workers_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--loader-num-workers",
         type=int,
@@ -94,7 +94,7 @@ def add_workers_args(parser: argparse.ArgumentParser):
     )
 
 
-def add_device_args(parser: argparse.ArgumentParser):
+def _add_device_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--device",
         type=str,
@@ -104,6 +104,12 @@ def add_device_args(parser: argparse.ArgumentParser):
             " cpu, cuda, cuda:0,1"
         ),
     )
+
+
+def add_device_memory_and_worker_args(parser: argparse.ArgumentParser):
+    _add_device_args(parser)
+    _add_workers_args(parser)
+    _add_pin_memory_args(parser)
 
 
 def add_universal_args(parser: argparse.ArgumentParser):
@@ -177,15 +183,6 @@ def add_universal_args(parser: argparse.ArgumentParser):
         type=str,
         default="pytorch_vision",
         help="The path to the directory for saving results",
-    )
-
-
-def add_local_rank(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--local_rank",  # DO NOT MODIFY
-        type=int,
-        default=-1,
-        help=argparse.SUPPRESS,  # hide from help text
     )
 
 
@@ -571,3 +568,16 @@ def save_model_training(
                 )
 
         info_file.write("\n".join(info_lines))
+
+
+def _set_ddp_deafaults(args):
+    # set ddp args to default values
+    args.local_rank = -1
+    args.rank = -1
+    args.world_size = 1
+    args.is_main_process = True
+
+
+def append_ddp_defaults_and_preprocessing_args(args):
+    _set_ddp_deafaults(args=args)
+    append_preprocessing_args(args=args)

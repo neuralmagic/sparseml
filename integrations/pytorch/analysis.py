@@ -96,7 +96,6 @@ optional arguments:
                         The batch size to use while training
   --approximate         True to approximate without running data through the
                         model, otherwise will run a one shot analysis
-
 ######
 lr_sensitivity command help:
 
@@ -352,18 +351,35 @@ def parse_args() -> argparse.Namespace:
         "learning rate sensitivity analysis "
         "for a desired image classification architecture"
     )
-    # DDP argument, necessary for launching via torch.distributed
-    utils.add_local_rank(parser)
+
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    utils.add_universal_args(parser=parent_parser)
+    utils.add_device_memory_and_worker_args(parser=parent_parser)
+
+    parent_parser.add_argument(
+        "--checkpoint-path",
+        type=str,
+        default=None,
+        help=(
+            "A path to a previous checkpoint to load the state from and "
+            "resume the state for. If provided, pretrained will be ignored"
+            ". If using a SparseZoo recipe, can also provide 'zoo' to load "
+            "the base weights associated with that recipe"
+        ),
+    )
 
     subparsers = parser.add_subparsers(dest="command")
+
     pruning_sensitivity_parser = subparsers.add_parser(
         utils.Tasks.PR_SENSITIVITY.value,
         description="Run a kernel sparsity (pruning) analysis for a given model",
+        parents=[parent_parser],
     )
     lr_sensitivity_parser = subparsers.add_parser(
         utils.Tasks.LR_SENSITIVITY.value,
         description="Run a learning rate sensitivity analysis for a desired image "
         "classification or detection architecture",
+        parents=[parent_parser],
     )
 
     subtasks = [
@@ -372,22 +388,6 @@ def parse_args() -> argparse.Namespace:
     ]
 
     for _parser, subtask in subtasks:
-        utils.add_universal_args(parser=_parser)
-        utils.add_device_args(parser=_parser)
-        utils.add_workers_args(parser=_parser)
-        utils.add_pin_memory_args(parser=_parser)
-
-        _parser.add_argument(
-            "--checkpoint-path",
-            type=str,
-            default=None,
-            help=(
-                "A path to a previous checkpoint to load the state from and "
-                "resume the state for. If provided, pretrained will be ignored"
-                ". If using a SparseZoo recipe, can also provide 'zoo' to load "
-                "the base weights associated with that recipe"
-            ),
-        )
 
         if _parser == lr_sensitivity_parser:
             _parser.add_argument(
@@ -435,12 +435,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
 
     # set ddp args to default values
-    args.local_rank = -1
-    args.rank = -1
-    args.world_size = 1
-    args.is_main_process = True
-
-    utils.append_preprocessing_args(args)
+    utils.append_ddp_defaults_and_preprocessing_args(args=args)
     return args
 
 

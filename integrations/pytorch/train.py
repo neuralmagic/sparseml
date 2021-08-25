@@ -343,11 +343,8 @@ def parse_args():
         description="Train and/or prune an image classification model on a dataset"
     )
 
-    utils.add_local_rank(parser)
     utils.add_universal_args(parser)
-    utils.add_device_args(parser)
-    utils.add_workers_args(parser)
-    utils.add_pin_memory_args(parser)
+    utils.add_device_memory_and_worker_args(parser)
 
     parser.add_argument(
         "--checkpoint-path",
@@ -457,6 +454,9 @@ def parse_args():
     )
 
     args = parser.parse_args()
+
+    # add ddp args
+    args.local_rank = -1
     args.world_size = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     args.rank = int(os.environ["RANK"]) if "RANK" in os.environ else -1
     args.is_main_process = args.rank in [-1, 0]  # non DDP execution or 0th DDP process

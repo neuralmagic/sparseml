@@ -212,12 +212,7 @@ def parse_args() -> argparse.Namespace:
 
     args = parser.parse_args()
 
-    # set ddp args to default values
-    args.local_rank = -1
-    args.rank = -1
-    args.world_size = 1
-    args.is_main_process = True
-    utils.append_preprocessing_args(args)
+    utils.append_ddp_defaults_and_preprocessing_args(args=args)
     return args
 
 
