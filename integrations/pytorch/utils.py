@@ -76,25 +76,7 @@ class Tasks(Enum):
     PR_SENSITIVITY = "pr_sensitivity"
 
 
-def _add_pin_memory_args(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--loader-pin-memory",
-        type=bool,
-        default=True,
-        help="Use pinned memory for data loading",
-    )
-
-
-def _add_workers_args(parser: argparse.ArgumentParser):
-    parser.add_argument(
-        "--loader-num-workers",
-        type=int,
-        default=4,
-        help="The number of workers to use for data loading",
-    )
-
-
-def _add_device_args(parser: argparse.ArgumentParser):
+def add_device_memory_and_worker_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--device",
         type=str,
@@ -104,12 +86,18 @@ def _add_device_args(parser: argparse.ArgumentParser):
             " cpu, cuda, cuda:0,1"
         ),
     )
-
-
-def add_device_memory_and_worker_args(parser: argparse.ArgumentParser):
-    _add_device_args(parser)
-    _add_workers_args(parser)
-    _add_pin_memory_args(parser)
+    parser.add_argument(
+        "--loader-num-workers",
+        type=int,
+        default=4,
+        help="The number of workers to use for data loading",
+    )
+    parser.add_argument(
+        "--loader-pin-memory",
+        type=bool,
+        default=True,
+        help="Use pinned memory for data loading",
+    )
 
 
 def add_universal_args(parser: argparse.ArgumentParser):
