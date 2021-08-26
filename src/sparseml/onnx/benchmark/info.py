@@ -26,7 +26,7 @@ from sparseml.framework.info import FrameworkInferenceProviderInfo
 from sparseml.onnx.base import require_onnx, require_onnxruntime
 from sparseml.onnx.framework import framework_info as get_framework_info
 from sparseml.onnx.framework import is_supported
-from sparseml.onnx.utils import DataLoader, ORTModelRunner
+from sparseml.onnx.utils import DataLoader, ORTModelRunner, max_available_cores
 from sparsezoo.models import Zoo
 from sparsezoo.objects import File, Model
 from sparsezoo.utils import DataLoader as SparseZooDataLoader
@@ -235,6 +235,13 @@ class ORTBenchmarkRunner(BenchmarkRunner):
         :return: the number of iterations
         """
         return self._iterations
+
+    @property
+    def num_cores(self) -> str:
+        """
+        :return: the number of cores
+        """
+        return max_available_cores()
 
     @property
     def inference_provider(self) -> FrameworkInferenceProviderInfo:
