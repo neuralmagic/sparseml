@@ -46,14 +46,14 @@ from sparsezoo.objects import File, Model
 
 try:
     import deepsparse
-    from deepsparse import Scheduler, analyze_model, compile_model
+    from deepsparse import analyze_model, compile_model
     from deepsparse.cpu import cpu_details
 except Exception:
     deepsparse = None
     compile_model = None
     analyze_model = None
     cpu_details = None
-    Scheduler = None
+
 
 try:
     from openvino.inference_engine import IECore, IENetwork, StatusCode, get_version
@@ -623,37 +623,25 @@ class _DeepSparseBaseModelRunner(ModelRunner):
 class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
     """
     Class for handling running inference for an ONNX model through Neural Magic
-
     :param model: the path to the ONNX model file or the loaded onnx.ModelProto
     :param batch_size: the size of the batch to create the model for
-    :param num_cores: The number of physical cores to run the model on.
-        Pass None or 0 to run on the max number of cores
-        in one socket for the current machine, default None
-    :param num_sockets: The number of physical sockets to run the model on.
-        Pass None or 0 to run on the max number of sockets for the
-        current machine, default None
-    :param scheduler: The kind of scheduler to execute with. Pass None for the default.
+    :param num_cores: the number of physical cores to run the model on. Defaults
+        to run on all available cores
     :param loss: the loss function, if any, to run for evaluation of the model
     """
 
     def __init__(
         self,
-        model: Union[str, ModelProto, Model, File],
+        model: Union[str, ModelProto],
         batch_size: int,
         num_cores: int = None,
-        num_sockets: int = None,
-        scheduler: Scheduler = None,
         loss: Union[
             Callable[[Dict[str, numpy.ndarray], Dict[str, numpy.ndarray]], Any], None
         ] = None,
     ):
         super().__init__(model, batch_size, num_cores, loss)
         self._engine = compile_model(
-            self._model,
-            batch_size=batch_size,
-            num_cores=num_cores,
-            num_sockets=num_sockets,
-            scheduler=scheduler,
+            self._model, batch_size=batch_size, num_cores=num_cores
         )
         _LOGGER.debug("created model in neural magic {}".format(self._engine))
 
@@ -680,7 +668,6 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
         """
         Run inference for a model for the data given in the data_loader iterator
         through neural magic inference engine.
-
         :param data_loader: the data_loader used to load batches of data to
             run through the model
         :param desc: str to display if show_progress is True
