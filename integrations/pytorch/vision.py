@@ -19,8 +19,8 @@ Deprecated script kindly use the following task specific scripts for
 * Model pruning - integrations/pytorch/train.py
 * Quantization aware training - integrations/pytorch/train.py
 * Sparse transfer learning - integrations/pytorch/train.py
-* pruning sensitivity analysis - integrations/pytorch/analysis.py
-* learning rate sensitivity analysis - integrations/pytorch/analysis.py
+* pruning sensitivity analysis - integrations/pytorch/pr_sensitivity.py
+* learning rate sensitivity analysis - integrations/pytorch/lr_analysis.py
 * ONNX export - integrations/pytorch/export.py
 """
 

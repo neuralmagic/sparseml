@@ -794,3 +794,4 @@ fabric.properties
 *.pidb
 *.resources
 test-results/
+integrations/pytorch/pytorch_vision*

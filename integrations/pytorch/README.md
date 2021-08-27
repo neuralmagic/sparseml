@@ -87,7 +87,8 @@ The following table lays out the root-level files and folders along with a descr
 | [torchvision_sparsification.py](./torchvision_sparsification.py) | Example training script for sparsifying PyTorch torchvision classification models.                                    |
 | [train.py](./train.py)                     | Utility training script for sparsifying classification and detection models in PyTorch (loads SparseML models).       |
 | [export.py](./export.py)                     | Utility script for exporting pytorch model to ONNX file along with sample inputs, outputs and labels.                 |
-|[analysis.py](./analysis.py)                  |Utility script to Run a kernel sparsity (pruning) or learning rate sensitivity analysis for a desired image classification architecture |
+|[lr_analysis.py](./lr_analysis.py)                  |Utility script to Run learning rate sensitivity analysis for a desired image classification architecture |
+|[pr_sensitivity.py](./pr_sensitivity.py)                  |Utility script to Run a kernel sparsity (pruning) analysis for a desired image classification architecture |
 
 ### Exporting for Inference
 
