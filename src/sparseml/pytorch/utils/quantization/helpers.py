@@ -458,12 +458,7 @@ def prepare_embeddings_qat(
 
 
 def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConfig"):
-    embedding.weight_fake_quant = qconfig.weight(
-        # factory_kwargs={
-        #     "device": embedding.weight.device,
-        #     "dtype": embedding.weight.dtype
-        # }
-    )
+    embedding.weight_fake_quant = qconfig.weight()
 
     def _qat_forward(self, input: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.embedding(
