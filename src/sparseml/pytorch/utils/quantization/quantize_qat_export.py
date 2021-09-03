@@ -995,6 +995,7 @@ def _quantize_qat_embedding(model: ModelProto):
 
             delete_quant_node(model, input_quant_node, keep_params=False)
         graph.update()
+        converted_nodes += 1
 
     graph.delete_unused_initializers()
 
