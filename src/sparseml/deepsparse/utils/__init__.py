@@ -12,13 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Functionality for working with and sparsifying Models in the DeepSparse framework
-"""
-
 # flake8: noqa
 
-from .base import *
-from .framework import detect_framework, framework_info, is_supported
-from .sparsification import sparsification_info
-from .utils import *
+from .model import *

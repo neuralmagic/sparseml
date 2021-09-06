@@ -25,10 +25,12 @@ import numpy
 from onnx import ModelProto
 from tqdm import auto
 
-from sparseml.onnx.utils import (
-    DataLoader,
+from sparseml.deepsparse.utils import (
     DeepSparseAnalyzeModelRunner,
     DeepSparseModelRunner,
+)
+from sparseml.onnx.utils import (
+    DataLoader,
     ORTModelRunner,
     check_load_model,
     extract_node_id,
