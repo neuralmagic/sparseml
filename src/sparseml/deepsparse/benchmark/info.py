@@ -22,10 +22,10 @@ from sparseml.benchmark import BatchBenchmarkResult, BenchmarkInfo, BenchmarkRun
 from sparseml.deepsparse.base import require_deepsparse
 from sparseml.deepsparse.framework import framework_info as get_framework_info
 from sparseml.deepsparse.framework import is_supported
+from sparseml.deepsparse.utils import DeepSparseModelRunner, max_available_cores
 from sparseml.framework import FrameworkInfo
 from sparseml.framework.info import FrameworkInferenceProviderInfo
-from sparseml.onnx.benchmark.info import load_data, load_model
-from sparseml.onnx.utils import DeepSparseModelRunner
+from sparseml.onnx.benchmark import load_data, load_model
 
 
 __all__ = [
@@ -197,6 +197,10 @@ class DeepSparseBenchmarkRunner(BenchmarkRunner):
         :return: the model as an ONNX ModelProto
         """
         return self._model
+
+    @property
+    def num_cores(self) -> int:
+        return max_available_cores()
 
 
 @require_deepsparse()

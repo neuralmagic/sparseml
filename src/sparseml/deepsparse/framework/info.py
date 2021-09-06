@@ -96,8 +96,8 @@ def detect_framework(item: Any) -> Framework:
 
         if isinstance(item, ModelProto):
             _LOGGER.debug("framework detected from ONNX instance")
-            # onnx native support
-            framework = Framework.onnx
+            # onnx native support in deepsparse
+            framework = Framework.deepsparse
     return framework
 
 
