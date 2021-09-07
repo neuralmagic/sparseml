@@ -45,7 +45,11 @@ except Exception:
     cpu_details = None
     Scheduler = None
 
-__all__ = ["DeepSparseModelRunner", "DeepSparseAnalyzeModelRunner"]
+__all__ = [
+    "max_available_cores",
+    "DeepSparseModelRunner",
+    "DeepSparseAnalyzeModelRunner",
+]
 
 _LOGGER = logging.getLogger(__name__)
 
