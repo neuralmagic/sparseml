@@ -244,6 +244,7 @@ class BenchmarkRunner(ABC):
             warmup_iterations=self.warmup_iterations,
             device=self.device,
             inference_provider=self.inference_provider,
+            num_cores=self.num_cores,
         )
 
     @property
@@ -283,6 +284,14 @@ class BenchmarkRunner(ABC):
     def iterations(self) -> int:
         """
         :return: the number of iterations
+        """
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def num_cores(self) -> int:
+        """
+        :return: the number of cores
         """
         raise NotImplementedError()
 

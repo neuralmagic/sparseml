@@ -274,6 +274,12 @@ class BenchmarkConfig(BaseModel):
         title="warmup_iterations",
         description="The number of warmup iterations used for benchmarking",
     )
+    num_cores: int = Field(
+        default=1,
+        ge=1,
+        title="num_cores",
+        description="The number of cores used for benchmarking",
+    )
     device: str = Field(
         title="device",
         description="The device the framework is running on.",
