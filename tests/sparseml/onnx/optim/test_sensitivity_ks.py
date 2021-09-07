@@ -24,6 +24,7 @@ from sparseml.onnx.optim.sensitivity_pruning import (
 )
 from tests.sparseml.onnx.helpers import GENERATE_TEST_FILES, OnnxRepoModelFixture
 
+
 from tests.sparseml.onnx.helpers import onnx_repo_models  # noqa isort: skip
 
 RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
