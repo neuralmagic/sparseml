@@ -13,18 +13,28 @@
 # limitations under the License.
 
 import os
-from typing import Any, Dict, List, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Union
 
 import pytest
 
 from flaky import flaky
-from sparseml.onnx.optim.sensitivity_pruning import (
-    PruningLossSensitivityAnalysis,
-    pruning_loss_sens_magnitude,
+from sparseml.deepsparse.optim.sensitivity_pruning import (
+    pruning_loss_sens_one_shot,
+    pruning_perf_sens_one_shot,
 )
+from sparseml.onnx.optim.sensitivity_pruning import PruningLossSensitivityAnalysis
+from sparseml.onnx.utils.data import DataLoader
 from tests.sparseml.onnx.helpers import GENERATE_TEST_FILES, OnnxRepoModelFixture
 
+
 from tests.sparseml.onnx.helpers import onnx_repo_models  # noqa isort: skip
+
+
+try:
+    import deepsparse
+except ModuleNotFoundError:
+    deepsparse = None
+
 
 RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -34,7 +44,8 @@ OnnxModelAnalysisFixture = NamedTuple(
         ("model_path", str),
         ("input_paths", str),
         ("output_paths", str),
-        ("loss_approx_path", str),
+        ("loss_one_shot_path", str),
+        ("perf_path", str),
         ("model_name", str),
         ("sparsity_levels", List[float]),
     ],
@@ -42,28 +53,36 @@ OnnxModelAnalysisFixture = NamedTuple(
 
 
 @pytest.fixture(scope="session")
-def onnx_models_with_analysis_approx(
+def onnx_models_with_analysis(
     request, onnx_repo_models: OnnxRepoModelFixture  # noqa: F811
 ) -> OnnxModelAnalysisFixture:
     data_path = "test_sensitivity_ks_data"
     sparsity_levels = [0, 0.4, 0.8, 0.99]
 
     model_name = onnx_repo_models.model_name
-    loss_approx_path = os.path.join(
-        RELATIVE_PATH, data_path, "{}_loss_approx.json".format(model_name)
+    loss_one_shot_path = os.path.join(
+        RELATIVE_PATH, data_path, "{}_loss_one_shot.json".format(model_name)
+    )
+    perf_path = os.path.join(
+        RELATIVE_PATH, data_path, "{}_perf.json".format(model_name)
     )
 
     if GENERATE_TEST_FILES:
         _create_sensitivity_ks_data(
             onnx_repo_models.model_path,
-            loss_approx_path,
+            onnx_repo_models.input_paths,
+            onnx_repo_models.output_paths,
+            loss_one_shot_path,
+            perf_path,
+            sparsity_levels,
         )
 
     return OnnxModelAnalysisFixture(
         onnx_repo_models.model_path,
         onnx_repo_models.input_paths,
         onnx_repo_models.output_paths,
-        loss_approx_path,
+        loss_one_shot_path,
+        perf_path,
         model_name,
         sparsity_levels,
     )
@@ -71,10 +90,35 @@ def onnx_models_with_analysis_approx(
 
 def _create_sensitivity_ks_data(
     model_path: str,
-    loss_approx_path: str,
+    input_paths: str,
+    output_paths: str,
+    loss_one_shot_path: str,
+    perf_path: str,
+    sparsity_levels: Union[List[float], None],
 ):
-    analysis = pruning_loss_sens_magnitude(model_path)
-    analysis.save_json(loss_approx_path)
+    dataloader = DataLoader(input_paths, output_paths, 1)
+    analysis = pruning_loss_sens_one_shot(
+        model_path,
+        dataloader,
+        1,
+        1,
+        show_progress=False,
+        sparsity_levels=sparsity_levels,
+    )
+    analysis.save_json(loss_one_shot_path)
+
+    if deepsparse is not None:
+        analysis = pruning_perf_sens_one_shot(
+            model_path,
+            dataloader,
+            1,
+            None,
+            iterations_per_check=10,
+            warmup_iterations_per_check=5,
+            sparsity_levels=sparsity_levels,
+            show_progress=False,
+        )
+        analysis.save_json(perf_path)
 
 
 def _test_analysis_comparison(
@@ -116,16 +160,70 @@ def _test_analysis_comparison(
 
 
 @flaky(max_runs=2, min_passes=1)
-def test_approx_ks_loss_sensitivity(
-    onnx_models_with_analysis_approx: OnnxModelAnalysisFixture,
+def test_one_shot_ks_loss_sensitivity(
+    onnx_models_with_analysis: OnnxModelAnalysisFixture,
 ):
-    analysis = pruning_loss_sens_magnitude(onnx_models_with_analysis_approx.model_path)
-
-    expected_analysis = PruningLossSensitivityAnalysis.load_json(
-        onnx_models_with_analysis_approx.loss_approx_path
+    dataloader = DataLoader(
+        onnx_models_with_analysis.input_paths, onnx_models_with_analysis.output_paths, 1
     )
+
+    analysis = pruning_loss_sens_one_shot(
+        onnx_models_with_analysis.model_path,
+        dataloader,
+        1,
+        1,
+        show_progress=False,
+        sparsity_levels=onnx_models_with_analysis.sparsity_levels,
+    )
+    expected_analysis = PruningLossSensitivityAnalysis.load_json(
+        onnx_models_with_analysis.loss_one_shot_path
+    )
+
     expected_layers = sorted(
         expected_analysis.dict()["results"], key=lambda x: x["index"]
     )
-    actual_layers = sorted(analysis.dict()["results"], key=lambda x: x["index"])
+
+    actual_layers = sorted(
+        analysis.dict()["results"],
+        key=lambda x: x["index"],
+    )
+
+    _test_analysis_comparison(expected_layers, actual_layers)
+
+
+@pytest.mark.skipif(
+    deepsparse is None, reason="deepsparse is not installed on the system"
+)
+@flaky(max_runs=2, min_passes=1)
+def test_one_shot_ks_perf_sensitivity(
+    onnx_models_with_analysis: OnnxModelAnalysisFixture,
+):
+    expected_analysis = PruningLossSensitivityAnalysis.load_json(
+        onnx_models_with_analysis.perf_path
+    )
+
+    dataloader = DataLoader(
+        onnx_models_with_analysis.input_paths, onnx_models_with_analysis.output_paths, 1
+    )
+
+    analysis = pruning_perf_sens_one_shot(
+        onnx_models_with_analysis.model_path,
+        dataloader,
+        1,
+        None,
+        iterations_per_check=10,
+        warmup_iterations_per_check=3,
+        sparsity_levels=onnx_models_with_analysis.sparsity_levels,
+        show_progress=False,
+    )
+
+    expected_layers = sorted(
+        expected_analysis.dict()["results"], key=lambda x: x["index"]
+    )
+
+    actual_layers = sorted(
+        analysis.dict()["results"],
+        key=lambda x: x["index"],
+    )
+
     _test_analysis_comparison(expected_layers, actual_layers)

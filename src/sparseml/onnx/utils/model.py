@@ -31,7 +31,6 @@ from tqdm import auto
 
 from sparseml.onnx.base import require_onnxruntime
 from sparseml.onnx.utils.data import DataLoader
-
 from sparseml.onnx.utils.graph_editor import override_model_batch_size
 from sparseml.onnx.utils.helpers import (
     check_load_model,
@@ -612,4 +611,3 @@ def correct_nm_analyze_model_node_ids(nm_result: Dict, model: Union[str, ModelPr
                     ).format(prunable_node_id, node_id)
                 )
                 layer["canonical_name"] = prunable_node_id
-

@@ -1,0 +1,1628 @@
+{
+  "num_cores": null,
+  "batch_size": 1,
+  "results_model": {
+    "id": "__model__",
+    "name": "model",
+    "index": -1,
+    "baseline_measurement_index": 0,
+    "has_baseline": true,
+    "baseline_measurement_key": 0.0,
+    "sparse_measurements": [
+      [
+        0.0,
+        [
+          0.0011949999999999999,
+          0.0012009999999999996,
+          0.0012019999999999995,
+          0.0012079999999999992,
+          0.0012079999999999994,
+          0.0012089999999999994,
+          0.0012139999999999998,
+          0.001218,
+          0.0012189999999999996,
+          0.0012269999999999996
+        ]
+      ],
+      [
+        0.4,
+        [
+          0.0020779999999999996,
+          0.0020809999999999995,
+          0.0020839999999999995,
+          0.0020849999999999996,
+          0.0020909999999999995,
+          0.0020959999999999998,
+          0.0021019999999999997,
+          0.0021089999999999993,
+          0.0021149999999999997,
+          0.0021329999999999995
+        ]
+      ],
+      [
+        0.8,
+        [
+          0.0010880000000000002,
+          0.0010960000000000002,
+          0.001098,
+          0.0011010000000000002,
+          0.0011010000000000004,
+          0.0011020000000000001,
+          0.0011040000000000004,
+          0.001107,
+          0.0011090000000000002,
+          0.001144
+        ]
+      ],
+      [
+        0.99,
+        [
+          0.0009350000000000004,
+          0.0009440000000000004,
+          0.0009440000000000004,
+          0.0009440000000000004,
+          0.0009470000000000004,
+          0.0009500000000000004,
+          0.0009540000000000004,
+          0.0009540000000000004,
+          0.0009560000000000004,
+          0.0009730000000000004
+        ]
+      ]
+    ],
+    "averages": {
+      "0.0": 0.0012100999999999995,
+      "0.4": 0.0020973999999999997,
+      "0.8": 0.0011050000000000005,
+      "0.99": 0.0009501000000000004
+    },
+    "baseline_average": 0.0012100999999999995,
+    "sparse_average": 0.274420325,
+    "sparse_integral": 0.0014972145,
+    "sparse_comparison": -0.00025999999999999916
+  },
+  "results": [
+    {
+      "id": null,
+      "name": "ORT Subgraph 0",
+      "index": 0,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            3.300000000000001e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            3.4000000000000007e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.2000000000000005e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            3.300000000000001e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 3.300000000000001e-05,
+        "0.4": 3.4000000000000007e-05,
+        "0.8": 3.2000000000000005e-05,
+        "0.99": 3.300000000000001e-05
+      },
+      "baseline_average": 3.300000000000001e-05,
+      "sparse_average": 0.2737665,
+      "sparse_integral": 3.277500000000001e-05,
+      "sparse_comparison": 0.0
+    },
+    {
+      "id": "165",
+      "name": "convolution_0",
+      "index": 1,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            5.63e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            3.759999999999999e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.89e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.8300000000000003e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 5.63e-05,
+        "0.4": 3.759999999999999e-05,
+        "0.8": 2.89e-05,
+        "0.99": 2.8300000000000003e-05
+      },
+      "baseline_average": 5.63e-05,
+      "sparse_average": 0.2737688875,
+      "sparse_integral": 3.7513999999999994e-05,
+      "sparse_comparison": -2.7999999999999996e-05
+    },
+    {
+      "id": "168",
+      "name": "depthwise_convolution_1",
+      "index": 2,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            2.1899999999999997e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            3.0400000000000004e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.9800000000000003e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.8400000000000003e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 2.1899999999999997e-05,
+        "0.4": 3.0400000000000004e-05,
+        "0.8": 2.9800000000000003e-05,
+        "0.99": 2.8400000000000003e-05
+      },
+      "baseline_average": 2.1899999999999997e-05,
+      "sparse_average": 0.27376381250000004,
+      "sparse_integral": 2.8029000000000006e-05,
+      "sparse_comparison": 6.5000000000000055e-06
+    },
+    {
+      "id": "171",
+      "name": "convolution_2",
+      "index": 3,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            3.7999999999999995e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            5.6200000000000004e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            4.569999999999999e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            4.649999999999999e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 3.7999999999999995e-05,
+        "0.4": 5.6200000000000004e-05,
+        "0.8": 4.569999999999999e-05,
+        "0.99": 4.649999999999999e-05
+      },
+      "baseline_average": 3.7999999999999995e-05,
+      "sparse_average": 0.2737733,
+      "sparse_integral": 4.797899999999999e-05,
+      "sparse_comparison": 8.499999999999997e-06
+    },
+    {
+      "id": "174",
+      "name": "depthwise_convolution_3",
+      "index": 4,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            2.7600000000000003e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            0.00011400000000000002
+          ]
+        ],
+        [
+          0.8,
+          [
+            5.07e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            4.869999999999999e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 2.7600000000000003e-05,
+        "0.4": 0.00011400000000000002,
+        "0.8": 5.07e-05,
+        "0.99": 4.869999999999999e-05
+      },
+      "baseline_average": 2.7600000000000003e-05,
+      "sparse_average": 0.273780125,
+      "sparse_integral": 7.070300000000002e-05,
+      "sparse_comparison": 2.1099999999999988e-05
+    },
+    {
+      "id": "177",
+      "name": "convolution_4",
+      "index": 5,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            3.9999999999999996e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            4.789999999999999e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.21e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            3.0100000000000007e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 3.9999999999999996e-05,
+        "0.4": 4.789999999999999e-05,
+        "0.8": 3.21e-05,
+        "0.99": 3.0100000000000007e-05
+      },
+      "baseline_average": 3.9999999999999996e-05,
+      "sparse_average": 0.2737687625,
+      "sparse_integral": 3.9489e-05,
+      "sparse_comparison": -9.89999999999999e-06
+    },
+    {
+      "id": "180",
+      "name": "depthwise_convolution_5",
+      "index": 6,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            2.8300000000000003e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            9.429999999999997e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            6.76e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            6.71e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 2.8300000000000003e-05,
+        "0.4": 9.429999999999997e-05,
+        "0.8": 6.76e-05,
+        "0.99": 6.71e-05
+      },
+      "baseline_average": 2.8300000000000003e-05,
+      "sparse_average": 0.2737821625,
+      "sparse_integral": 6.969649999999999e-05,
+      "sparse_comparison": 3.88e-05
+    },
+    {
+      "id": "183",
+      "name": "convolution_6",
+      "index": 7,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            6.35e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            7.969999999999999e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.84e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            3.240000000000001e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 6.35e-05,
+        "0.4": 7.969999999999999e-05,
+        "0.8": 3.84e-05,
+        "0.99": 3.240000000000001e-05
+      },
+      "baseline_average": 6.35e-05,
+      "sparse_average": 0.27377675,
+      "sparse_integral": 5.898599999999999e-05,
+      "sparse_comparison": -3.109999999999999e-05
+    },
+    {
+      "id": "186",
+      "name": "depthwise_convolution_7",
+      "index": 8,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            2.03e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            3.949999999999999e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.589999999999999e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            3.49e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 2.03e-05,
+        "0.4": 3.949999999999999e-05,
+        "0.8": 3.589999999999999e-05,
+        "0.99": 3.49e-05
+      },
+      "baseline_average": 2.03e-05,
+      "sparse_average": 0.27376632500000003,
+      "sparse_integral": 3.3765999999999995e-05,
+      "sparse_comparison": 1.4600000000000003e-05
+    },
+    {
+      "id": "189",
+      "name": "convolution_8",
+      "index": 9,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            4.03e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            4.649999999999999e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.4799999999999996e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.4599999999999998e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 4.03e-05,
+        "0.4": 4.649999999999999e-05,
+        "0.8": 2.4799999999999996e-05,
+        "0.99": 2.4599999999999998e-05
+      },
+      "baseline_average": 4.03e-05,
+      "sparse_average": 0.273767025,
+      "sparse_integral": 3.6312999999999996e-05,
+      "sparse_comparison": -1.57e-05
+    },
+    {
+      "id": "192",
+      "name": "depthwise_convolution_9",
+      "index": 10,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            1.8200000000000002e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            5.0900000000000004e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            4.159999999999999e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            4.439999999999999e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 1.8200000000000002e-05,
+        "0.4": 5.0900000000000004e-05,
+        "0.8": 4.159999999999999e-05,
+        "0.99": 4.439999999999999e-05
+      },
+      "baseline_average": 1.8200000000000002e-05,
+      "sparse_average": 0.2737693875,
+      "sparse_integral": 4.049e-05,
+      "sparse_comparison": 2.6199999999999986e-05
+    },
+    {
+      "id": "195",
+      "name": "convolution_10",
+      "index": 11,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            7.05e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            8.329999999999999e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            4.02e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            3.150000000000001e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 7.05e-05,
+        "0.4": 8.329999999999999e-05,
+        "0.8": 4.02e-05,
+        "0.99": 3.150000000000001e-05
+      },
+      "baseline_average": 7.05e-05,
+      "sparse_average": 0.2737781875,
+      "sparse_integral": 6.22715e-05,
+      "sparse_comparison": -3.9e-05
+    },
+    {
+      "id": "198",
+      "name": "depthwise_convolution_11",
+      "index": 12,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            1.6200000000000004e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            2.1299999999999996e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            1.9599999999999995e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            1.96e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 1.6200000000000004e-05,
+        "0.4": 2.1299999999999996e-05,
+        "0.8": 1.9599999999999995e-05,
+        "0.99": 1.96e-05
+      },
+      "baseline_average": 1.6200000000000004e-05,
+      "sparse_average": 0.2737595875,
+      "sparse_integral": 1.9404e-05,
+      "sparse_comparison": 3.3999999999999946e-06
+    },
+    {
+      "id": "201",
+      "name": "convolution_12",
+      "index": 13,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            4.2499999999999996e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            5.650000000000001e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.3199999999999995e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            1.67e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 4.2499999999999996e-05,
+        "0.4": 5.650000000000001e-05,
+        "0.8": 2.3199999999999995e-05,
+        "0.99": 1.67e-05
+      },
+      "baseline_average": 4.2499999999999996e-05,
+      "sparse_average": 0.2737673625,
+      "sparse_integral": 3.9530500000000004e-05,
+      "sparse_comparison": -2.5799999999999997e-05
+    },
+    {
+      "id": "204",
+      "name": "depthwise_convolution_13",
+      "index": 14,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            1.31e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            2.6999999999999996e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.2199999999999994e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.53e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 1.31e-05,
+        "0.4": 2.6999999999999996e-05,
+        "0.8": 2.2199999999999994e-05,
+        "0.99": 2.53e-05
+      },
+      "baseline_average": 1.31e-05,
+      "sparse_average": 0.27376095,
+      "sparse_integral": 2.2372499999999993e-05,
+      "sparse_comparison": 1.2199999999999998e-05
+    },
+    {
+      "id": "207",
+      "name": "convolution_14",
+      "index": 15,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            7.569999999999998e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            0.00010640000000000001
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.9099999999999995e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.4499999999999996e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 7.569999999999998e-05,
+        "0.4": 0.00010640000000000001,
+        "0.8": 3.9099999999999995e-05,
+        "0.99": 2.4499999999999996e-05
+      },
+      "baseline_average": 7.569999999999998e-05,
+      "sparse_average": 0.27378071249999997,
+      "sparse_integral": 7.1562e-05,
+      "sparse_comparison": -5.1199999999999984e-05
+    },
+    {
+      "id": "210",
+      "name": "depthwise_convolution_15",
+      "index": 16,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            2.2299999999999993e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            3.21e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.7700000000000002e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.63e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 2.2299999999999993e-05,
+        "0.4": 3.21e-05,
+        "0.8": 2.7700000000000002e-05,
+        "0.99": 2.63e-05
+      },
+      "baseline_average": 2.2299999999999993e-05,
+      "sparse_average": 0.27376355,
+      "sparse_integral": 2.7969999999999998e-05,
+      "sparse_comparison": 4.000000000000006e-06
+    },
+    {
+      "id": "213",
+      "name": "convolution_16",
+      "index": 17,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            7.439999999999999e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            0.000105
+          ]
+        ],
+        [
+          0.8,
+          [
+            4.03e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.49e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 7.439999999999999e-05,
+        "0.4": 0.000105,
+        "0.8": 4.03e-05,
+        "0.99": 2.49e-05
+      },
+      "baseline_average": 7.439999999999999e-05,
+      "sparse_average": 0.27378057499999997,
+      "sparse_integral": 7.113400000000001e-05,
+      "sparse_comparison": -4.95e-05
+    },
+    {
+      "id": "216",
+      "name": "depthwise_convolution_17",
+      "index": 18,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            2.2499999999999995e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            3.150000000000001e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.6500000000000004e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.7099999999999995e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 2.2499999999999995e-05,
+        "0.4": 3.150000000000001e-05,
+        "0.8": 2.6500000000000004e-05,
+        "0.99": 2.7099999999999995e-05
+      },
+      "baseline_average": 2.2499999999999995e-05,
+      "sparse_average": 0.27376345,
+      "sparse_integral": 2.7492e-05,
+      "sparse_comparison": 4.6e-06
+    },
+    {
+      "id": "219",
+      "name": "convolution_18",
+      "index": 19,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            7.449999999999998e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            0.0001072
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.929999999999999e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.4499999999999996e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 7.449999999999998e-05,
+        "0.4": 0.0001072,
+        "0.8": 3.929999999999999e-05,
+        "0.99": 2.4499999999999996e-05
+      },
+      "baseline_average": 7.449999999999998e-05,
+      "sparse_average": 0.2737806875,
+      "sparse_integral": 7.1701e-05,
+      "sparse_comparison": -4.999999999999998e-05
+    },
+    {
+      "id": "222",
+      "name": "depthwise_convolution_19",
+      "index": 20,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            2.2799999999999995e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            3.280000000000001e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.63e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.69e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 2.2799999999999995e-05,
+        "0.4": 3.280000000000001e-05,
+        "0.8": 2.63e-05,
+        "0.99": 2.69e-05
+      },
+      "baseline_average": 2.2799999999999995e-05,
+      "sparse_average": 0.2737636,
+      "sparse_integral": 2.7994000000000003e-05,
+      "sparse_comparison": 4.100000000000005e-06
+    },
+    {
+      "id": "225",
+      "name": "convolution_20",
+      "index": 21,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            7.519999999999998e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            0.0001057
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.929999999999999e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.4799999999999996e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 7.519999999999998e-05,
+        "0.4": 0.0001057,
+        "0.8": 3.929999999999999e-05,
+        "0.99": 2.4799999999999996e-05
+      },
+      "baseline_average": 7.519999999999998e-05,
+      "sparse_average": 0.273780625,
+      "sparse_integral": 7.126949999999999e-05,
+      "sparse_comparison": -5.039999999999999e-05
+    },
+    {
+      "id": "228",
+      "name": "depthwise_convolution_21",
+      "index": 22,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            2.2799999999999995e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            3.19e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.4999999999999998e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.7300000000000003e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 2.2799999999999995e-05,
+        "0.4": 3.19e-05,
+        "0.8": 2.4999999999999998e-05,
+        "0.99": 2.7300000000000003e-05
+      },
+      "baseline_average": 2.2799999999999995e-05,
+      "sparse_average": 0.27376337500000003,
+      "sparse_integral": 2.7288499999999998e-05,
+      "sparse_comparison": 4.500000000000008e-06
+    },
+    {
+      "id": "231",
+      "name": "convolution_22",
+      "index": 23,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            7.399999999999998e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            0.0001035
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.899999999999999e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.4499999999999996e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 7.399999999999998e-05,
+        "0.4": 0.0001035,
+        "0.8": 3.899999999999999e-05,
+        "0.99": 2.4499999999999996e-05
+      },
+      "baseline_average": 7.399999999999998e-05,
+      "sparse_average": 0.273780125,
+      "sparse_integral": 7.003249999999999e-05,
+      "sparse_comparison": -4.9499999999999983e-05
+    },
+    {
+      "id": "234",
+      "name": "depthwise_convolution_23",
+      "index": 24,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            1.1199999999999998e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            1.6300000000000003e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            1.2399999999999998e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            1.23e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 1.1199999999999998e-05,
+        "0.4": 1.6300000000000003e-05,
+        "0.8": 1.2399999999999998e-05,
+        "0.99": 1.23e-05
+      },
+      "baseline_average": 1.1199999999999998e-05,
+      "sparse_average": 0.27375652500000003,
+      "sparse_integral": 1.35865e-05,
+      "sparse_comparison": 1.100000000000003e-06
+    },
+    {
+      "id": "237",
+      "name": "convolution_24",
+      "index": 25,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            4.2699999999999994e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            0.00012839999999999998
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.98e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.2199999999999994e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 4.2699999999999994e-05,
+        "0.4": 0.00012839999999999998,
+        "0.8": 3.98e-05,
+        "0.99": 2.2199999999999994e-05
+      },
+      "baseline_average": 4.2699999999999994e-05,
+      "sparse_average": 0.2737791375,
+      "sparse_integral": 7.374999999999999e-05,
+      "sparse_comparison": -2.05e-05
+    },
+    {
+      "id": "240",
+      "name": "depthwise_convolution_25",
+      "index": 26,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            9.899999999999997e-06
+          ]
+        ],
+        [
+          0.4,
+          [
+            2.2399999999999996e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            1.96e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            1.8799999999999996e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 9.899999999999997e-06,
+        "0.4": 2.2399999999999996e-05,
+        "0.8": 1.96e-05,
+        "0.99": 1.8799999999999996e-05
+      },
+      "baseline_average": 9.899999999999997e-06,
+      "sparse_average": 0.2737588375,
+      "sparse_integral": 1.8507999999999996e-05,
+      "sparse_comparison": 8.9e-06
+    },
+    {
+      "id": "243",
+      "name": "convolution_26",
+      "index": 27,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            7.509999999999998e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            0.00027770000000000003
+          ]
+        ],
+        [
+          0.8,
+          [
+            7e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            3.450000000000001e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 7.509999999999998e-05,
+        "0.4": 0.00027770000000000003,
+        "0.8": 7e-05,
+        "0.99": 3.450000000000001e-05
+      },
+      "baseline_average": 7.509999999999998e-05,
+      "sparse_average": 0.2738071625,
+      "sparse_integral": 0.00015002749999999999,
+      "sparse_comparison": -4.059999999999997e-05
+    },
+    {
+      "id": "248",
+      "name": "pooling_27",
+      "index": 28,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            9.899999999999998e-06
+          ]
+        ],
+        [
+          0.4,
+          [
+            9.299999999999999e-06
+          ]
+        ],
+        [
+          0.8,
+          [
+            8.999999999999997e-06
+          ]
+        ],
+        [
+          0.99,
+          [
+            8.999999999999999e-06
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 9.899999999999998e-06,
+        "0.4": 9.299999999999999e-06,
+        "0.8": 8.999999999999997e-06,
+        "0.99": 8.999999999999999e-06
+      },
+      "baseline_average": 9.899999999999998e-06,
+      "sparse_average": 0.27375465,
+      "sparse_integral": 9.209999999999998e-06,
+      "sparse_comparison": -8.999999999999999e-07
+    },
+    {
+      "id": "output_0",
+      "name": "gevm_28",
+      "index": 29,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.005642361007630825,
+      "sparse_measurements": [
+        [
+          0.005642361007630825,
+          [
+            2.5600000000000002e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            5.979999999999998e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.3399999999999996e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            1.7999999999999997e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.005642361007630825": 2.5600000000000002e-05,
+        "0.4": 5.979999999999998e-05,
+        "0.8": 2.3399999999999996e-05,
+        "0.99": 1.7999999999999997e-05
+      },
+      "baseline_average": 2.5600000000000002e-05,
+      "sparse_average": 0.27447114512595383,
+      "sparse_integral": 3.7412071184974155e-05,
+      "sparse_comparison": -7.600000000000005e-06
+    },
+    {
+      "id": null,
+      "name": "shuffle_29",
+      "index": 30,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            9.899999999999998e-06
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 9.899999999999998e-06
+      },
+      "baseline_average": 9.899999999999998e-06,
+      "sparse_average": 4.949999999999999e-06,
+      "sparse_integral": 9.899999999999998e-06,
+      "sparse_comparison": 0.0
+    },
+    {
+      "id": "output_1",
+      "name": "softmax_30",
+      "index": 31,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            9.899999999999998e-06
+          ]
+        ],
+        [
+          0.4,
+          [
+            1.2800000000000001e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            1.0099999999999998e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            8.6e-06
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 9.899999999999998e-06,
+        "0.4": 1.2800000000000001e-05,
+        "0.8": 1.0099999999999998e-05,
+        "0.99": 8.6e-06
+      },
+      "baseline_average": 9.899999999999998e-06,
+      "sparse_average": 0.273755175,
+      "sparse_integral": 1.08965e-05,
+      "sparse_comparison": -1.2999999999999977e-06
+    },
+    {
+      "id": null,
+      "name": "ORT Subgraph 1",
+      "index": 32,
+      "baseline_measurement_index": 0,
+      "has_baseline": true,
+      "baseline_measurement_key": 0.0,
+      "sparse_measurements": [
+        [
+          0.0,
+          [
+            2.1999999999999996e-05
+          ]
+        ],
+        [
+          0.4,
+          [
+            2.1999999999999996e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            2.3999999999999997e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            2.1999999999999996e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.0": 2.1999999999999996e-05,
+        "0.4": 2.1999999999999996e-05,
+        "0.8": 2.3999999999999997e-05,
+        "0.99": 2.1999999999999996e-05
+      },
+      "baseline_average": 2.1999999999999996e-05,
+      "sparse_average": 0.27376125,
+      "sparse_integral": 2.2369999999999994e-05,
+      "sparse_comparison": 0.0
+    },
+    {
+      "id": null,
+      "name": "shuffle_2",
+      "index": 3,
+      "baseline_measurement_index": -1,
+      "has_baseline": false,
+      "baseline_measurement_key": null,
+      "sparse_measurements": [
+        [
+          0.4,
+          [
+            4.699999999999999e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            3.7999999999999995e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            3.7199999999999996e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.4": 4.699999999999999e-05,
+        "0.8": 3.7999999999999995e-05,
+        "0.99": 3.7199999999999996e-05
+      },
+      "baseline_average": null,
+      "sparse_average": 0.36502036666666665,
+      "sparse_integral": 2.4143999999999994e-05,
+      "sparse_comparison": -9.799999999999994e-06
+    },
+    {
+      "id": null,
+      "name": "shuffle_28",
+      "index": 29,
+      "baseline_measurement_index": -1,
+      "has_baseline": false,
+      "baseline_measurement_key": null,
+      "sparse_measurements": [
+        [
+          0.4,
+          [
+            1.6500000000000005e-05
+          ]
+        ],
+        [
+          0.8,
+          [
+            1.4900000000000001e-05
+          ]
+        ],
+        [
+          0.99,
+          [
+            1.5900000000000004e-05
+          ]
+        ]
+      ],
+      "averages": {
+        "0.4": 1.6500000000000005e-05,
+        "0.8": 1.4900000000000001e-05,
+        "0.99": 1.5900000000000004e-05
+      },
+      "baseline_average": null,
+      "sparse_average": 0.3650078833333334,
+      "sparse_integral": 9.206000000000001e-06,
+      "sparse_comparison": -6.00000000000001e-07
+    },
+    {
+      "id": null,
+      "name": "shuffle_31",
+      "index": 32,
+      "baseline_measurement_index": -1,
+      "has_baseline": false,
+      "baseline_measurement_key": null,
+      "sparse_measurements": [
+        [
+          0.4,
+          [
+            9.999999999999999e-06
+          ]
+        ],
+        [
+          0.8,
+          [
+            8.6e-06
+          ]
+        ],
+        [
+          0.99,
+          [
+            9.299999999999999e-06
+          ]
+        ]
+      ],
+      "averages": {
+        "0.4": 9.999999999999999e-06,
+        "0.8": 8.6e-06,
+        "0.99": 9.299999999999999e-06
+      },
+      "baseline_average": null,
+      "sparse_average": 0.36500465,
+      "sparse_integral": 5.4205e-06,
+      "sparse_comparison": -7.000000000000001e-07
+    }
+  ]
+}
