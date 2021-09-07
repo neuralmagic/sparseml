@@ -83,7 +83,8 @@ class QuantizationModifier(ScheduledModifier):
         to the model fusing function
     :param quantize_embeddings: if True, will perform QAT on torch.nn.Embedding layers
         using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
-        quantize embedding weights. Default is True
+        quantize embedding weights. Default is True. Models without embedding layers
+        will be unaffected
     """
 
     def __init__(
@@ -146,7 +147,7 @@ class QuantizationModifier(ScheduledModifier):
     def submodules(self, value: Union[List[str], None]):
         """
         :params value: List of submodule names to perform QAT on. Set None to quantize
-        entire model
+            entire model
         """
         self._submodules = value
         if isinstance(self._submodules, list):
@@ -157,8 +158,8 @@ class QuantizationModifier(ScheduledModifier):
     def model_fuse_fn_name(self) -> Union[str, None]:
         """
         :return: Name of model function to fuse the model in place prior
-        to performing QAT. None to uses the default function
-        `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
+            to performing QAT. None to uses the default function
+            `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         """
         return self._model_fuse_fn_name
 
@@ -166,9 +167,9 @@ class QuantizationModifier(ScheduledModifier):
     def model_fuse_fn_name(self, value: Union[str, None]):
         """
         :params value: Name of model function to fuse the model in place prior
-        to performing QAT. Set None to use the default function
-        `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.  Set as 'no_fuse'
-        to skip module fusing.
+            to performing QAT. Set None to use the default function
+            `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.  Set as 'no_fuse'
+            to skip module fusing.
         """
         self._model_fuse_fn_name = value
         if (
@@ -182,8 +183,8 @@ class QuantizationModifier(ScheduledModifier):
     def disable_quantization_observer_epoch(self) -> Union[float, None]:
         """
         :return: Epoch to disable updates to the module's
-        quantization observers. After this point, quantized weights and zero points will
-        not be updated. When None, observers never disabled during QAT
+            quantization observers. After this point, quantized weights and zero points
+            will not be updated. When None, observers never disabled during QAT
         """
         return self._disable_quantization_observer_epoch
 
@@ -191,8 +192,8 @@ class QuantizationModifier(ScheduledModifier):
     def disable_quantization_observer_epoch(self, value: Union[float, None]):
         """
         :params value: Epoch to disable updates to the module's
-        quantization observers. After this point, quantized weights and zero points will
-        not be updated. Set None to not disable observers during QAT
+            quantization observers. After this point, quantized weights and zero points
+            will not be updated. Set None to not disable observers during QAT
         """
         self._disable_quantization_observer_epoch = value
         self._validate_params()
@@ -201,7 +202,7 @@ class QuantizationModifier(ScheduledModifier):
     def freeze_bn_stats_epoch(self) -> Union[float, None]:
         """
         :return: Epoch to stop the tracking of batch norm stats. When
-        None, batch norm stats are track for all of training
+            None, batch norm stats are track for all of training
         """
         return self._freeze_bn_stats_epoch
 
@@ -209,7 +210,7 @@ class QuantizationModifier(ScheduledModifier):
     def freeze_bn_stats_epoch(self, value: Union[float, None]):
         """
         :params value: Epoch to stop the tracking of batch norm stats. Set
-        None to not stop tracking batch norm stats during QAT
+            None to not stop tracking batch norm stats during QAT
         """
         self._freeze_bn_stats_epoch = value
         self._validate_params()
@@ -218,8 +219,8 @@ class QuantizationModifier(ScheduledModifier):
     def quantize_embeddings(self) -> bool:
         """
         :return: if True, will perform QAT on torch.nn.Embedding layers
-        using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
-        quantize embedding weights
+            using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
+            quantize embedding weights
         """
         return self._freeze_bn_stats_epoch
 
@@ -227,8 +228,8 @@ class QuantizationModifier(ScheduledModifier):
     def quantize_embeddings(self, value: bool):
         """
         :params value: if True, will perform QAT on torch.nn.Embedding layers
-        using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
-        quantize embedding weights
+            using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
+            quantize embedding weights
         """
         self._quantize_embeddings = value
 
