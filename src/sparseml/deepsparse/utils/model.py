@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Utilities for ONNX models and running inference with them in DeepSparse
+"""
 import logging
 import tempfile
 import time

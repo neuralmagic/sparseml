@@ -14,4 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Recalibration code for the ONNX framework.
+Handles things like model pruning.
+"""
+
+# flake8: noqa
+
 from .sensitivity_pruning import *

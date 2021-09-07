@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Generic code used as utilities and helpers for ONNX with DeepSparse engine.
+"""
+
 # flake8: noqa
 
 from .model import *
