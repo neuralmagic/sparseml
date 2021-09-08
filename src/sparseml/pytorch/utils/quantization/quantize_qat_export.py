@@ -909,6 +909,100 @@ def _convert_quantizable_ops(model: ModelProto):
             )
 
 
+def _quantize_qat_embedding(model: ModelProto):
+    """
+    A pass for quantizing qat embeddings
+
+    Starting with:
+    |    INPUT    QuantizeLinear (with constant embedding)
+    |      |          |
+    |      |     DequantizeLinear
+    |      |         |
+    |         Gather
+    |           |
+    |       QuantizeLinear
+    |           |
+    |       DequantizeLinear
+    |           |
+    |         OUTPUT
+
+    Converts to:
+    |   INPUT
+    |     |
+    |   Gather(UINT8 data initializer)
+    |     |
+    |   DequantizeLinear
+    |     |
+    |   OUTPUT
+    """
+    graph = ONNXGraph(model)
+    gather_nodes = [node for node in model.graph.node if node.op_type == "Gather"]
+
+    converted_nodes = 0
+    for gather_node in gather_nodes:
+        # find input quant and dequant nodes
+        input_dequant_node = graph.get_node_single_parent(gather_node, 0)
+        if not input_dequant_node or input_dequant_node.op_type != "DequantizeLinear":
+            continue
+        input_quant_node = graph.get_node_single_parent(input_dequant_node, 0)
+        if not input_quant_node or input_quant_node.op_type != "QuantizeLinear":
+            continue
+        # find embedding weights, sclae, and zero point
+        embedding_initializer = graph.get_init_by_name(input_quant_node.input[0])
+        scale_initializer = graph.get_init_by_name(input_quant_node.input[1])
+        zp_initializer = graph.get_init_by_name(input_quant_node.input[2])
+        if not embedding_initializer or not scale_initializer or not zp_initializer:
+            continue
+
+        # quantize embedding
+        embedding = numpy_helper.to_array(embedding_initializer)
+        scale = numpy_helper.to_array(scale_initializer)
+        zero_point = numpy_helper.to_array(zp_initializer)
+        embedding_quant = _quantize_array(embedding, scale, zero_point)
+        embedding_quant_initializer = numpy_helper.from_array(
+            embedding_quant, name=f"{embedding_initializer.name}_quant"
+        )
+
+        # update graph
+        model.graph.initializer.append(embedding_quant_initializer)
+        gather_node.input[0] = embedding_quant_initializer.name
+
+        # detect QDQ block on output
+        output_quant_node = graph.get_node_single_child(gather_node)
+        if output_quant_node and output_quant_node.op_type == "QuantizeLinear":
+            output_dequant_node = graph.get_node_single_child(output_quant_node)
+            qdq_output = (
+                output_dequant_node
+                and output_dequant_node.op_type == "DequantizeLinear"
+            )
+        else:
+            qdq_output = False
+
+        if qdq_output:
+            # delete unnecessary quantize and dequantize ops
+            delete_quant_node(model, input_quant_node, keep_params=False)
+            delete_quant_node(model, input_dequant_node, keep_params=False)
+            delete_quant_node(model, output_quant_node, keep_params=False)
+            # forward gather output to dequant input
+            output_dequant_node.input[0] = gather_node.output[0]
+
+        else:
+            # use input dequant to dequantize output
+            embedding_quant_output_id = f"{gather_node.output[0]}_quant"
+            input_dequant_node.input[0] = embedding_quant_output_id
+            input_dequant_node.output[0] = gather_node.output[0]
+            gather_node.output[0] = embedding_quant_output_id
+
+            delete_quant_node(model, input_quant_node, keep_params=False)
+        graph.update()
+        converted_nodes += 1
+
+    graph.delete_unused_initializers()
+
+    if converted_nodes > 0:
+        _LOGGER.info(f"Converted {converted_nodes} QAT embedding ops to UINT8")
+
+
 def _replace_input_id_model(model: ModelProto, old_id: str, new_id: str):
     for node in model.graph.node:
         for idx, inp in enumerate(node.input):
@@ -996,6 +1090,7 @@ def quantize_torch_qat_export(
     _convert_quantizable_matmul(model)
     _convert_quantizable_matmul_and_add(model)
     _convert_quantizable_ops(model)
+    _quantize_qat_embedding(model)
     quantize_resnet_identity_add_inputs(model)
     quantized_residual_add_optim(model)
     _remove_duplicate_quantize_ops(model)

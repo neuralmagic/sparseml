@@ -20,7 +20,7 @@ from copy import deepcopy
 from typing import Any, Callable, List, Union
 
 import torch
-from torch.nn import BatchNorm2d, Conv2d, Module, ReLU
+from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
 
 
 try:
@@ -40,6 +40,7 @@ __all__ = [
     "add_quant_dequant",
     "get_qat_qconfig",
     "fuse_module_conv_bn_relus",
+    "prepare_embeddings_qat",
 ]
 
 
@@ -318,11 +319,15 @@ def add_quant_dequant(module):
 
 def get_qat_qconfig(
     symmetric_activations: bool = False,
+    symmetric_weights: bool = True,
 ) -> "torch.quantization.QConfig":
     """
     :param symmetric_activations: if True, activations will have a symmetric
-        quantization range with zero point set to 128. Otherwise activations
+        UINT8 quantization range with zero point set to 128. Otherwise activations
         will use asymmetric quantization with any zero point. Default is False
+    :param symmetric_weights: if True, weights will have a symmetric
+        INT8 quantization range with zero point set to 0. Otherwise activations
+        will use asymmetric quantization with any zero point. Default is True
     :return: A QAT fake quantization config for symmetric weight quantization and
         asymmetric activation quantization.  The difference between this and
         torch.quantization.default_qat_qconfig is that the activation observer
@@ -339,7 +344,17 @@ def get_qat_qconfig(
         qscheme=activation_qscheme,
         reduce_range=False,
     )
-    weight_observer = torch_quantization.default_weight_fake_quant
+    weight_qscheme = (
+        torch.per_tensor_symmetric if symmetric_weights else torch.per_tensor_affine
+    )
+    weight_observer = torch_quantization.FakeQuantize.with_args(
+        observer=torch_quantization.MovingAverageMinMaxObserver,
+        quant_min=-128,
+        quant_max=127,
+        dtype=torch.qint8,
+        qscheme=weight_qscheme,
+        reduce_range=False,
+    )
     return torch_quantization.QConfig(
         activation=activation_observer,
         weight=weight_observer,
@@ -421,6 +436,44 @@ def fuse_module_conv_bn_relus(
     if conv_blocks:
         torch_quantization.fuse_modules(module, conv_blocks, inplace=True)
     return module
+
+
+def prepare_embeddings_qat(
+    module: Module,
+    qconfig: "torch.quantization.QConfig" = None,
+):
+    """
+    adds a fake quantize call to the weights of any Embedding modules in the given
+    module
+
+    :param module: module to run QAT for the embeddings of
+    :param qconfig: qconfig to generate the fake quantize ops from. Default uses INT8
+        asymmetric range
+    """
+    if qconfig is None:
+        qconfig = get_qat_qconfig(symmetric_weights=False)
+    for submodule in module.modules():
+        if type(submodule) is Embedding:
+            _prepare_qat_embedding(submodule, qconfig)
+
+
+def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConfig"):
+    embedding.weight_fake_quant = qconfig.weight()
+
+    def _qat_forward(self, input: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.embedding(
+            input,
+            self.weight_fake_quant(self.weight),
+            self.padding_idx,
+            self.max_norm,
+            self.norm_type,
+            self.scale_grad_by_freq,
+            self.sparse,
+        )
+
+    # bind qat forward to embedding
+    qat_forward_bound = _qat_forward.__get__(embedding, embedding.__class__)
+    setattr(embedding, "forward", qat_forward_bound)
 
 
 def _set_submodule(root_module, sub_module_path, sub_module):
