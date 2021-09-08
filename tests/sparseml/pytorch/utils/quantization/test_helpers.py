@@ -25,6 +25,7 @@ from sparseml.pytorch.utils.quantization import (
     configure_module_qat_wrappers,
     fuse_module_conv_bn_relus,
     get_qat_qconfig,
+    prepare_embeddings_qat,
 )
 
 
@@ -222,3 +223,19 @@ def test_fuse_module_conv_bn_relus(model_lambda, conv_bn_relus, conv_bns):
     fuse_module_conv_bn_relus(module, inplace=True)
     assert _count_submodule_instances(module, conv_bn_relu_class) == conv_bn_relus
     assert _count_submodule_instances(module, conv_bn_class) == conv_bns
+
+
+def test_prepare_embeddings_qat():
+    module = _ModuleWrapper(torch.nn.Embedding(10, 10))
+
+    # check that fake quant observer is properly added
+    assert not hasattr(module.module, "weight_fake_quant")
+    prepare_embeddings_qat(module)
+    assert hasattr(module.module, "weight_fake_quant")
+
+    # check that the observer is updated on embedding forward pass
+    observer = module.module.weight_fake_quant
+    orig_range_min = observer.activation_post_process.min_val.item()
+    module(torch.arange(10))
+    observed_range_min = observer.activation_post_process.min_val.item()
+    assert orig_range_min != observed_range_min
