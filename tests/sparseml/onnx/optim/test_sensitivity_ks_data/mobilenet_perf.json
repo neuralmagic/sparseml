@@ -1471,7 +1471,7 @@
     },
     {
       "id": null,
-      "name": "shuffle_31",
+      "name": "ORT Subgraph 1",
       "index": 32,
       "baseline_measurement_index": 0,
       "has_baseline": true,
@@ -1480,82 +1480,38 @@
         [
           0.0,
           [
-            5.9e-06
+            2.1999999999999996e-05
           ]
         ],
         [
           0.4,
           [
-            5.699999999999999e-06
+            2.1e-05
           ]
         ],
         [
           0.8,
           [
-            5.1999999999999985e-06
+            1.7999999999999994e-05
           ]
         ],
         [
           0.99,
           [
-            4.9e-06
+            2.1999999999999996e-05
           ]
         ]
       ],
       "averages": {
-        "0.0": 5.9e-06,
-        "0.4": 5.699999999999999e-06,
-        "0.8": 5.1999999999999985e-06,
-        "0.99": 4.9e-06
+        "0.0": 2.1999999999999996e-05,
+        "0.4": 2.1e-05,
+        "0.8": 1.7999999999999994e-05,
+        "0.99": 2.1999999999999996e-05
       },
-      "baseline_average": 5.9e-06,
-      "sparse_average": 0.2737527125,
-      "sparse_integral": 5.459499999999999e-06,
-      "sparse_comparison": -1.0000000000000006e-06
-    },
-    {
-      "id": null,
-      "name": "ORT Subgraph 1",
-      "index": 33,
-      "baseline_measurement_index": 0,
-      "has_baseline": true,
-      "baseline_measurement_key": 0.0,
-      "sparse_measurements": [
-        [
-          0.0,
-          [
-            1.9999999999999998e-05
-          ]
-        ],
-        [
-          0.4,
-          [
-            1.7999999999999994e-05
-          ]
-        ],
-        [
-          0.8,
-          [
-            1.9999999999999998e-05
-          ]
-        ],
-        [
-          0.99,
-          [
-            1.7999999999999994e-05
-          ]
-        ]
-      ],
-      "averages": {
-        "0.0": 1.9999999999999998e-05,
-        "0.4": 1.7999999999999994e-05,
-        "0.8": 1.9999999999999998e-05,
-        "0.99": 1.7999999999999994e-05
-      },
-      "baseline_average": 1.9999999999999998e-05,
-      "sparse_average": 0.2737595,
-      "sparse_integral": 1.8809999999999994e-05,
-      "sparse_comparison": -2.0000000000000046e-06
+      "baseline_average": 2.1999999999999996e-05,
+      "sparse_average": 0.273760375,
+      "sparse_integral": 2.0199999999999996e-05,
+      "sparse_comparison": 0.0
     },
     {
       "id": null,
@@ -1633,8 +1589,8 @@
     },
     {
       "id": null,
-      "name": "shuffle_33",
-      "index": 34,
+      "name": "shuffle_31",
+      "index": 32,
       "baseline_measurement_index": -1,
       "has_baseline": false,
       "baseline_measurement_key": null,

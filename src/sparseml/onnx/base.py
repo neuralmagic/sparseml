@@ -35,7 +35,6 @@ except Exception as err:
     onnxruntime = object()  # TODO: populate with fake object for necessary imports
     onnxruntime_err = err
 
-
 __all__ = [
     "onnx",
     "onnx_err",

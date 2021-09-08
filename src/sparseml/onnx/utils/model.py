@@ -31,6 +31,7 @@ import psutil
 from onnx import ModelProto
 from tqdm import auto
 
+from sparseml.onnx.base import require_onnxruntime
 from sparseml.onnx.utils.data import DataLoader
 from sparseml.onnx.utils.graph_editor import override_model_batch_size
 from sparseml.onnx.utils.helpers import (
@@ -40,6 +41,7 @@ from sparseml.onnx.utils.helpers import (
     get_prunable_node_from_foldable,
     is_foldable_node,
 )
+from sparsezoo.objects import File, Model
 
 
 try:
@@ -51,6 +53,7 @@ except Exception:
     compile_model = None
     analyze_model = None
     cpu_details = None
+
 
 try:
     from openvino.inference_engine import IECore, IENetwork, StatusCode, get_version
@@ -446,6 +449,7 @@ class ORTModelRunner(ModelRunner):
         ort.get_available_providers()
     """
 
+    @require_onnxruntime()
     def __init__(
         self,
         model: Union[str, ModelProto],
@@ -456,6 +460,7 @@ class ORTModelRunner(ModelRunner):
         nthreads: int = 0,
         batch_size: int = None,
         providers: List[str] = None,
+        **kwargs,
     ):
         super().__init__(loss)
         self._model = check_load_model(model)
@@ -568,7 +573,7 @@ class _DeepSparseBaseModelRunner(ModelRunner):
 
     def __init__(
         self,
-        model: Union[str, ModelProto],
+        model: Union[str, ModelProto, Model, File],
         batch_size: int,
         num_cores: int,
         loss: Union[
@@ -587,7 +592,11 @@ class _DeepSparseBaseModelRunner(ModelRunner):
         self._batch_size = batch_size
         self._num_cores = num_cores
 
-        if not isinstance(self._model, str):
+        if not (
+            isinstance(self._model, str)
+            or isinstance(self._model, File)
+            or isinstance(self._model, Model)
+        ):
             self._model_tmp = tempfile.NamedTemporaryFile(delete=True)
             self._model_tmp.write(self._model.SerializeToString())
             self._model_tmp.flush()
@@ -614,7 +623,6 @@ class _DeepSparseBaseModelRunner(ModelRunner):
 class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
     """
     Class for handling running inference for an ONNX model through Neural Magic
-
     :param model: the path to the ONNX model file or the loaded onnx.ModelProto
     :param batch_size: the size of the batch to create the model for
     :param num_cores: the number of physical cores to run the model on. Defaults
@@ -660,7 +668,6 @@ class DeepSparseModelRunner(_DeepSparseBaseModelRunner):
         """
         Run inference for a model for the data given in the data_loader iterator
         through neural magic inference engine.
-
         :param data_loader: the data_loader used to load batches of data to
             run through the model
         :param desc: str to display if show_progress is True

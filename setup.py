@@ -80,6 +80,7 @@ _dev_deps = [
     "sphinx-rtd-theme>=0.5.0",
     "wheel>=0.36.2",
     "pytest>=6.0.0",
+    "pytest-mock>=3.6.1",
     "flaky>=3.0.0",
     "sphinx-rtd-theme",
 ]
