@@ -24,7 +24,6 @@ from torch.optim import Optimizer
 
 from sparseml.pytorch.optim import DistillationModifier, Modifier
 from sparseml.pytorch.utils import PythonLogger
-from tests.sparseml.optim import BaseModifierTest
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
 

@@ -190,6 +190,28 @@ class DistillationModifier(ScheduledModifier):
         super().update(module, optimizer, epoch, steps_per_epoch)
         self._check_distillation_update(module, epoch, steps_per_epoch)
 
+    def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
+        """
+
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        :return: True if the modifier is pending an update and update() should be called
+        """
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
+
+        if not self._enabled:
+            return False
+
+        pending = (
+            self.start_pending(epoch, steps_per_epoch)
+            or self.end_pending(epoch, steps_per_epoch)
+            or (not self._distillation_enabled and self._is_distillation_epoch(epoch))
+        )
+
+        return pending
+
     def loss_update(
         self,
         loss: Tensor,
@@ -298,7 +320,9 @@ class DistillationModifier(ScheduledModifier):
     def _check_distillation_update(
         self, module: Module, epoch: float, steps_per_epoch: int
     ):
-        if self.start_pending(epoch, steps_per_epoch):
+        if self.start_pending(epoch, steps_per_epoch) or (
+            not self._distillation_enabled and self._is_distillation_epoch(epoch)
+        ):
             self._set_student_hook(module)
             self._distillation_enabled = True
 
@@ -324,3 +348,6 @@ class DistillationModifier(ScheduledModifier):
             self._track_student_hook = None
             self._student_inputs = None
             self._student_outputs = None
+
+    def _is_distillation_epoch(self, epoch):
+        return self.start_epoch <= epoch < self.end_epoch
