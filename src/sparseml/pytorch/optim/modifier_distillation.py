@@ -17,6 +17,7 @@ Modifier for performing model distillation
 """
 
 
+from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Optional
 
 import torch.nn.functional as TF
@@ -39,9 +40,10 @@ class DistillationModifier(ScheduledModifier):
     """
     Adds a knowledge distillation loss based on a teacher model during the
     loss_update phase of the SparseML lifecycle. A distillation_teacher
-    module must be provided as a kwarg to the Manager initialization and
+    module may be provided as a kwarg to the Manager initialization and
     loss_update(loss) must be called before any backwards pass in the integrated
-    training flow
+    training flow. If no teacher model is provided, then self distillation
+    will be used
 
     | Sample yaml:
     |   !DistillationModifier
@@ -83,6 +85,7 @@ class DistillationModifier(ScheduledModifier):
         self._track_student_hook = None
         self._student_inputs = None  # last forward inputs to student module
         self._student_outputs = None  # last forward outputs of student module
+        self._disable_distillation = False
 
     @ModifierProp()
     def hardness(self) -> float:
@@ -143,34 +146,25 @@ class DistillationModifier(ScheduledModifier):
         **kwargs,
     ):
         """
-        Store the teacher model for distillation. Must be provided by the
-        distillation_teacher kwarg to the manager/modifier initializer
+        Store the teacher model for distillation if provided
 
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
         :param loggers: Optional list of loggers to log the modification process to
         :param distillation_teacher: teacher module to perform knowledge distillation
-            with. Must take inputs of the same shape as the base module and produce
-            outputs of the same type and structure
+            with. If not provided, self distillation will be used with a teacher
+             from a copy of the given module at the start epoch. If given string
+             "disable" this modifier will not apply distillation of any kind,
+             even in the active epoch range
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
         super().initialize(module, epoch, loggers, **kwargs)
 
-        if distillation_teacher is None:
-            raise ValueError(
-                "A valid teacher module must be provided to the "
-                "distill_teacher kwarg in the modifier/manager initialize(...) function"
-            )
-
-        if not isinstance(distillation_teacher, Module):
-            raise ValueError(
-                "distill_teacher must be a Module. received type "
-                f"{type(distillation_teacher)}"
-            )
-
+        self._disable_distillation = distillation_teacher == "disable"
         self._teacher = distillation_teacher
+
         self._check_distillation_update(module, epoch, steps_per_epoch=0)
 
     def update(
@@ -201,7 +195,7 @@ class DistillationModifier(ScheduledModifier):
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
 
-        if not self._enabled:
+        if not self._enabled or self._disable_distillation:
             return False
 
         pending = (
@@ -233,7 +227,7 @@ class DistillationModifier(ScheduledModifier):
         """
         loss = super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
 
-        if not self._distillation_enabled:
+        if not self._distillation_enabled or self._disable_distillation:
             return loss
 
         if self._student_outputs is None or self._student_inputs is None:
@@ -320,9 +314,13 @@ class DistillationModifier(ScheduledModifier):
     def _check_distillation_update(
         self, module: Module, epoch: float, steps_per_epoch: int
     ):
+        if self._disable_distillation:
+            return
         if self.start_pending(epoch, steps_per_epoch) or (
             not self._distillation_enabled and self._is_distillation_epoch(epoch)
         ):
+            if self._teacher is None:
+                self._teacher = deepcopy(module)
             self._set_student_hook(module)
             self._distillation_enabled = True
 

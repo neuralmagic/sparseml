@@ -48,19 +48,6 @@ DISTILLATION_MODIFIERS = [
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
 class TestDistillationModifierImpl(ScheduledModifierTest):
-    def initialize_helper(
-        self,
-        modifier: Modifier,
-        model: Module = None,
-        epoch: float = 0.0,
-        log_initialize: bool = True,
-    ):
-        # use model copy as teacher
-        modifier.initialize(model, epoch, distillation_teacher=deepcopy(model))
-
-        if log_initialize:
-            modifier.initialize_loggers([PythonLogger()])
-
     def test_lifecycle(
         self,
         modifier_lambda,
