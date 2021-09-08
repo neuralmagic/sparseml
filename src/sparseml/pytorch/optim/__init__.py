@@ -29,6 +29,7 @@ from .mask_pruning import *
 from .mask_pruning_scorer import *
 from .modifier import *
 from .modifier_as import *
+from .modifier_distillation import *
 from .modifier_epoch import *
 from .modifier_lr import *
 from .modifier_params import *
