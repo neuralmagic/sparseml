@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-from copy import deepcopy
 from typing import Callable
 
 import pytest
@@ -23,7 +22,6 @@ from torch.nn import Module
 from torch.optim import Optimizer
 
 from sparseml.pytorch.optim import DistillationModifier, Modifier
-from sparseml.pytorch.utils import PythonLogger
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
 
