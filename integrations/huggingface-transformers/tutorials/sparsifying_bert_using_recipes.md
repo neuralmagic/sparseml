@@ -16,7 +16,7 @@ limitations under the License.
 
 # Sparsifying BERT Models Using Recipes
 
-This tutorial presents an essential extension from SparseML to Hugging Face Transformers training workflow to support model sparsification that includes knowledge distillation, parameter pruning and layer dropping. The examples used in this tutorial are specifically for BERT base uncased models, trained and pruned on the SQuAD dataset; further support and results will be available for other datasets in the near future.
+This tutorial presents an essential extension from SparseML to Hugging Face Transformers training workflow to support model sparsification that includes knowledge distillation, parameter pruning, quantization, and layer dropping. The examples used in this tutorial are specifically for BERT base uncased models, trained, pruned, and quantized on the SQuAD dataset; further support and results will be available for other datasets in the near future.
 
 ## Overview
 Neural Magic’s ML team creates recipes that allow anyone to plug in their data and leverage SparseML’s recipe-driven approach on top of Hugging Face’s robust training pipelines. Sparsifying involves removing redundant information from neural networks using algorithms such as pruning and quantization, among others. This sparsification process results in many benefits for deployment environments, including faster inference and smaller file sizes. Unfortunately, many have not realized the benefits due to the complicated process and number of hyperparameters involved.
@@ -119,13 +119,17 @@ The following table presents the recipes in the directory, the corresponding res
 
 | Recipe name | Description | EM / F1 | Weights and Biases |
 |-------------|-------------|---------|-----------------------------------------------------------------------------------------------|
-| bert-base-12layers | BERT fine-tuned on SQuAD | 80.927 / 88.435 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/w3b1ggyq?workspace=user-neuralmagic) |
-| bert-base-12layers_prune80 | Prune baseline model fine-tuned on SQuAD at 80% sparsity of encoder units | 81.372 / 88.62 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/18qdx7b3?workspace=user-neuralmagic) |
-| bert-base-12layers_prune90 | Prune baseline model fine-tuned on SQuAD at 90% sparsity of encoder units | 79.376 / 87.229 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/2ht2eqsn?workspace=user-neuralmagic) |
-| bert-base-12layers_prune95 | Prune baseline model fine-tuned on SQuAD at 95% sparsity of encoder units | 74.939 / 83.929 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3gv0arxd?workspace=user-neuralmagic) |
-| bert-base-6layers_prune80 | Prune 6-layer model fine-tuned on SQuAD at 80% sparsity of encoder units | 78.042 / 85.915 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/ebab4np4?workspace=user-neuralmagic) |
-| bert-base-6layers_prune90 | Prune 6-layer model fine-tuned on SQuAD at 90% sparsity of encoder units | 75.08 / 83.602 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3qvxoroz?workspace=user-neuralmagic) |
-| bert-base-6layers_prune95 | Prune 6-layer model fine-tuned on SQuAD at 95% sparsity of encoder units | 70.946 / 80.483 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3plynclw?workspace=user-neuralmagic) |
+| bert-base-12layers               | BERT fine-tuned on SQuAD | 80.927 / 88.435 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/w3b1ggyq?workspace=user-neuralmagic) |
+| bert-base-12layers_prune80       | Prune baseline model fine-tuned on SQuAD at 80% sparsity of encoder units | 81.372 / 88.62 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/18qdx7b3?workspace=user-neuralmagic) |
+| bert-base-12layers_prune90       | Prune baseline model fine-tuned on SQuAD at 90% sparsity of encoder units | 79.376 / 87.229 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/2ht2eqsn?workspace=user-neuralmagic) |
+| bert-base-12layers_prune95       | Prune baseline model fine-tuned on SQuAD at 95% sparsity of encoder units | 74.939 / 83.929 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3gv0arxd?workspace=user-neuralmagic) |
+| bert-base-6layers_prune80        | Prune 6-layer model fine-tuned on SQuAD at 80% sparsity of encoder units | 78.042 / 85.915 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/ebab4np4?workspace=user-neuralmagic) |
+| bert-base-6layers_prune90        | Prune 6-layer model fine-tuned on SQuAD at 90% sparsity of encoder units | 75.08 / 83.602 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3qvxoroz?workspace=user-neuralmagic) |
+| bert-base-6layers_prune95        | Prune 6-layer model fine-tuned on SQuAD at 95% sparsity of encoder units | 70.946 / 80.483 | [wandb](https://wandb.ai/neuralmagic/sparse-bert-squad/runs/3plynclw?workspace=user-neuralmagic) |
+| bert-base-12layers_prune_quant70 | Prune and quantize baseline model fine-tuned on SQuAD at 70% sparsity of encoder units | 80.331 / 87.537 | [wandb](https://wandb.ai/neuralmagic/huggingface/runs/33mglpyq?workspace=user-neuralmagic) |
+| bert-base-12layers_prune_quant90 | Prune and quantize baseline model fine-tuned on SQuAD at 90% sparsity of encoder units | 75.383 / 83.924 | [wandb](https://wandb.ai/neuralmagic/huggingface/runs/hr48lbh1?workspace=user-neuralmagic) |
+| bert-base-6layers_prune_quant70  | Prune and quantize 6-layer model fine-tuned on SQuAD at 70% sparsity of encoder units | 77.001 / 85.252 | [wandb](https://wandb.ai/neuralmagic/huggingface/runs/1ei4qarw?workspace=user-neuralmagic) |
+| bert-base-6layers_prune_quant90  | Prune and quantize 6-layer model fine-tuned on SQuAD at 90% sparsity of encoder units | 71.948 / 81.060 | [wandb](https://wandb.ai/neuralmagic/huggingface/runs/tkpvq7iz?workspace=user-neuralmagic) |
 
 
 ## Exporting for Inference

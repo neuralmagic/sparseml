@@ -156,6 +156,9 @@ class LearningRate(BaseObject):
         else:
             raise ValueError("unknown lr_class given of {}".format(self._lr_class))
 
+        if isinstance(self._init_lr, str):
+            self._init_lr = float(self._init_lr)
+
         if self._init_lr <= 0.0:
             raise ValueError("init_lr must be greater than 0")
 
