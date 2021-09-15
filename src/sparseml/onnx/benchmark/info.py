@@ -31,7 +31,6 @@ from sparsezoo.models import Zoo
 from sparsezoo.objects import File, Model
 from sparsezoo.utils import DataLoader as SparseZooDataLoader
 from sparsezoo.utils import Dataset as SparseZooDataset
-from typing_extensions import OrderedDict
 
 
 __all__ = [
@@ -317,7 +316,7 @@ def load_data(
     batch_size: int = 1,
     total_iterations: int = 0,
     **kwargs,
-) -> Iterable[Tuple[OrderedDict[str, Any], Any]]:
+) -> Iterable[Tuple[Dict[str, Any], Any]]:
     """
     Creates a iteratable data loader for the given data.
 
