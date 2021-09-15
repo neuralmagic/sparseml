@@ -17,6 +17,7 @@ Modifier for performing model distillation
 """
 
 
+import logging
 from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -33,6 +34,9 @@ from sparseml.pytorch.utils import BaseLogger, tensors_module_forward
 __all__ = [
     "DistillationModifier",
 ]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @PyTorchModifierYAML()
@@ -163,7 +167,11 @@ class DistillationModifier(ScheduledModifier):
         super().initialize(module, epoch, loggers, **kwargs)
 
         self._disable_distillation = distillation_teacher == "disable"
-        self._teacher = distillation_teacher
+        if distillation_teacher is not None:
+            _LOGGER.info(
+                "Setting teacher module for distillation to distillation_teacher object"
+            )
+            self._teacher = distillation_teacher
 
         self._check_distillation_update(module, epoch, steps_per_epoch=0)
 
@@ -315,11 +323,15 @@ class DistillationModifier(ScheduledModifier):
         self, module: Module, epoch: float, steps_per_epoch: int
     ):
         if self._disable_distillation:
+            _LOGGER.info("Distillation disabled, using default loss")
             return
         if self.start_pending(epoch, steps_per_epoch) or (
             not self._distillation_enabled and self._is_distillation_epoch(epoch)
         ):
             if self._teacher is None:
+                _LOGGER.info(
+                    "Using self distillation with copy of the module's current state"
+                )
                 self._teacher = deepcopy(module)
             self._set_student_hook(module)
             self._distillation_enabled = True
