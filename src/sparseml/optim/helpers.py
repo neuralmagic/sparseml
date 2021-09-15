@@ -24,13 +24,14 @@ from typing import Any, Dict, Tuple, Union
 
 import yaml
 
+from sparseml.utils import UnknownVariableException, restricted_eval
+
 
 __all__ = [
     "VALID_RECIPE_METADATA_FIELDS",
     "RecipeMetadataField",
-    "maybe_evaluate_recipe_equation",
-    "maybe_evaluate_yaml_object",
-    "evaluate_recipe_variables",
+    "load_recipe_yaml_str_no_classes",
+    "rewrite_recipe_yaml_string_with_classes",
     "evaluate_recipe_yaml_str_equations",
 ]
 
@@ -96,118 +97,27 @@ def validate_recipe_metadata(
     return metadata, metadata_vars
 
 
-def maybe_evaluate_recipe_equation(
-    val: str,
-    variables: Dict[str, Union[int, float]],
-) -> Union[str, float, int]:
+def load_recipe_yaml_str_no_classes(recipe_yaml_str: str) -> str:
     """
-    :param val: string to evaluate
-    :param variables: dictionary of possible variable names to the numerical
-        values they hold
-    :return: if the given string consists of only numbers, variable names that
-        are defined in `variables`, or any operator in ['+', '-', '*', or '/']
-        then the numeric result of that expression will be returned. Otherwise,
-        the same string will be returned. if the value string is wrapped
-        with `eval(...)` and the value fails to evaluate based on valid values
-        (numbers, metadata variable names, and arithmetic signs) an error will
-        be raised.
+    :param recipe_yaml_str: YAML string of a SparseML recipe
+    :return: recipe loaded into YAML with all objects replaced
+        as a dictionary of their parameters
     """
-    valid_operations = {"+", "-", "*", "/"}
-
-    if val.startswith("eval(") and val.endswith(")"):
-        is_eval_str = True
-        val = val[5:-1]
-    else:
-        is_eval_str = False
-
-    equation = val.split()  # split on whitespace
-
-    for idx, part in enumerate(equation):
-        part = _maybe_parse_number(part)  # attempt to parse number from string
-        part = variables.get(part, part)  # attempt to load from variable
-
-        if isinstance(part, str) and part not in valid_operations:
-            # not a number, valid variable, or valid operation. return unchanged val
-            if is_eval_str:
-                _raise_invalid_eval_exception(val)
-            return val
-
-        # assert that if part this is added to the final equation,
-        # it will be a number or operation
-        assert part in valid_operations or isinstance(part, (int, float))
-
-        equation[idx] = str(part)
-
-    try:
-        evaluated_val = eval(" ".join(equation))
-    except Exception:
-        evaluated_val = val
-
-    if is_eval_str and not isinstance(evaluated_val, (int, float)):
-        _raise_invalid_eval_exception(evaluated_val)
-
-    return evaluated_val
+    pattern = re.compile(r"!(?P<class_name>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+)")
+    classless_yaml_str = pattern.sub(r"OBJECT.\g<class_name>:", recipe_yaml_str)
+    return yaml.safe_load(classless_yaml_str)
 
 
-def maybe_evaluate_yaml_object(
-    obj: Any, variables: Dict[str, Union[int, float]]
-) -> Any:
+def rewrite_recipe_yaml_string_with_classes(recipe_contianer: Any) -> str:
     """
-
-    :param obj: object to evaluate string elements of. will nest through
-        any lists and dictionary values. Any object that is not a string,
-        list, or dictionary will be unchanged
-    :param variables: dictionary of possible variable names to the numerical
-        values they hold
-    :return: the object with any valid evaluations mde
+    :param recipe_contianer: recipe loaded as yaml with load_recipe_yaml_str_no_classes
+    :return: recipe serialized into YAML with original class values re-added
     """
-    if isinstance(obj, str):
-        return maybe_evaluate_recipe_equation(obj, variables)
-    elif isinstance(obj, list):
-        return [maybe_evaluate_yaml_object(val, variables) for val in obj]
-    elif isinstance(obj, dict):
-        return {
-            key: maybe_evaluate_yaml_object(val, variables) for key, val in obj.items()
-        }
-    else:
-        return obj
+    updated_yaml_str = yaml.dump(recipe_contianer)
 
-
-def evaluate_recipe_variables(
-    recipe_dict: Dict[str, Any],
-    metadata_variables: Dict[str, Union[int, float]],
-) -> Tuple[Dict[str, Any], Dict[str, Union[int, float]]]:
-    """
-    evaluates any string values in the recipe dictionary based on metadata variables
-    and simple arithmetic and sets them in the dictionary. if a variable string
-    is wrapped with `eval(...)` and the value fails to evaluate based on valid
-    values (numbers, metadata variable names, and arithmetic signs) an error will
-    be raised
-
-    :param recipe_dict: dictionary of values from a loaded base recipe string
-    :param metadata_variables: dictionary of loaded metadata variables from
-        validate_recipe_metadata
-    :return: the processed variables dictionary (including metadata variables)
-        with any string values evaluated based on the given metadata variables
-    """
-    valid_variables = deepcopy(metadata_variables)
-
-    for name, val in recipe_dict.items():
-        if isinstance(val, (int, float)):
-            valid_variables[name] = val
-
-        if not isinstance(val, str):
-            # only parse string values
-            continue
-
-        val = maybe_evaluate_recipe_equation(val, metadata_variables)
-
-        if isinstance(val, (int, float)):
-            # update variable value in recipe to be evaluated value, add to valid vars
-            recipe_dict[name] = val
-            valid_variables[name] = val
-
-    return recipe_dict, valid_variables
+    # convert object dicts back to object declarations and return
+    pattern = re.compile(r"OBJECT\.(?P<class_name>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+):")
+    return pattern.sub(r"!\g<class_name>", updated_yaml_str)
 
 
 def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
@@ -216,11 +126,7 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
     :return: the YAML string with any expressions based on valid
         metadata and recipe variables and operations
     """
-    # change references to any classes to become dicts
-    pattern = re.compile(r"!(?P<class_name>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+)")
-    classless_yaml_str = pattern.sub(r"OBJECT.\g<class_name>:", recipe_yaml_str)
-
-    container = yaml.safe_load(classless_yaml_str)
+    container = load_recipe_yaml_str_no_classes(recipe_yaml_str)
     if not isinstance(container, dict):
         # yaml string does not create a dict, return original string
         return recipe_yaml_str
@@ -230,28 +136,98 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
     metadata, metadata_variables = validate_recipe_metadata(metadata)
 
     # validate and load remaining variables
-    container, variables = evaluate_recipe_variables(container, metadata_variables)
+    container, variables = _evaluate_recipe_variables(container, metadata_variables)
 
     # update values nested in modifier lists based on the variables
     for key, val in container.items():
         if "modifiers" not in key:
             continue
-        container[key] = maybe_evaluate_yaml_object(val, variables)
+        container[key] = _maybe_evaluate_yaml_object(val, variables)
 
-    updated_yaml_str = yaml.dump(container)
-
-    # convert object dicts back to object declarations and return
-    pattern = re.compile(r"OBJECT\.(?P<class_name>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+):")
-    return pattern.sub(r"!\g<class_name>", updated_yaml_str)
+    return rewrite_recipe_yaml_string_with_classes(container)
 
 
-def _raise_invalid_eval_exception(equation: str):
-    raise ValueError(
-        f"Unable to evaluation invalid recipe equation value: {equation}. "
-        "Valid equations for variables outside of modifiers may only include "
-        "metadata variables, numbers, and arithmetic operators. Equations for "
-        "modifier params may also include previously defined variable names"
-    )
+def is_eval_string(val: str) -> bool:
+    return val.startswith("eval(") and val.endswith(")")
+
+
+def _maybe_evaluate_recipe_equation(
+    val: str,
+    variables: Dict[str, Union[int, float]],
+) -> Union[str, float, int]:
+    if is_eval_string(val):
+        is_eval_str = True
+        val = val[5:-1]
+    else:
+        return val
+
+    evaluated_val = restricted_eval(val, variables)
+
+    if is_eval_str and not isinstance(evaluated_val, (int, float)):
+        raise RuntimeError(
+            "eval expressions in recipes must evaluate to a float or int"
+        )
+
+    return evaluated_val
+
+
+def _evaluate_recipe_variables(
+    recipe_dict: Dict[str, Any],
+    metadata_variables: Dict[str, Union[int, float]],
+) -> Tuple[Dict[str, Any], Dict[str, Union[int, float]]]:
+    valid_variables = deepcopy(metadata_variables)
+    prev_num_variables = -1
+
+    while prev_num_variables != len(valid_variables):
+        prev_num_variables = len(valid_variables)
+
+        for name, val in recipe_dict.items():
+            if name in valid_variables:
+                continue
+
+            if isinstance(val, (int, float)):
+                valid_variables[name] = val
+
+            if not isinstance(val, str):
+                # only parse string values
+                continue
+
+            try:
+                val = _maybe_evaluate_recipe_equation(val, valid_variables)
+            except UnknownVariableException:
+                # dependant variables maybe not evaluated yet
+                continue
+
+            if isinstance(val, (int, float)):
+                # update variable value and add to valid vars
+                recipe_dict[name] = val
+                valid_variables[name] = val
+
+    # check that all eval statements have been evaluated
+    for name, val in recipe_dict.items():
+        if isinstance(val, str) and is_eval_string(val):
+            raise RuntimeError(
+                f"Unable to evaluate expression: {val}. Check if any dependent "
+                "variables form a cycle or are not defined"
+            )
+
+    return recipe_dict, valid_variables
+
+
+def _maybe_evaluate_yaml_object(
+    obj: Any, variables: Dict[str, Union[int, float]]
+) -> Any:
+
+    if isinstance(obj, str):
+        return _maybe_evaluate_recipe_equation(obj, variables)
+    elif isinstance(obj, list):
+        return [_maybe_evaluate_yaml_object(val, variables) for val in obj]
+    elif isinstance(obj, dict):
+        return {
+            key: _maybe_evaluate_yaml_object(val, variables) for key, val in obj.items()
+        }
+    else:
+        return obj
 
 
 def _maybe_parse_number(val: str) -> Union[str, float, int]:
