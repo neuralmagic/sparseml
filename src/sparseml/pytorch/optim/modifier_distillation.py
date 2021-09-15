@@ -288,8 +288,15 @@ class DistillationModifier(ScheduledModifier):
                 )
 
         # get distillation loss as average of individual output distillation loss values
-        distill_loss = sum(distill_losses) / len(distill_losses)
-        return ((1.0 - self._hardness) * loss) + (self._hardness * distill_loss)
+        teacher_loss = sum(distill_losses) / len(distill_losses)
+        distillation_loss = ((1.0 - self._hardness) * loss) + (
+            self._hardness * teacher_loss
+        )
+
+        _log_losses(
+            self.loggers, epoch, steps_per_epoch, loss, teacher_loss, distillation_loss
+        )
+        return distillation_loss
 
     def finalize(
         self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
@@ -361,3 +368,24 @@ class DistillationModifier(ScheduledModifier):
 
     def _is_distillation_epoch(self, epoch):
         return self.start_epoch <= epoch < self.end_epoch
+
+
+def _log_losses(
+    loggers: List[BaseLogger],
+    epoch: float,
+    steps_per_epoch: int,
+    original_loss: float,
+    teacher_loss: float,
+    distillation_loss: float,
+):
+    step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
+
+    losses = {
+        "original_loss": original_loss,
+        "teacher_loss": teacher_loss,
+        "distillation_loss": distillation_loss,
+    }
+
+    for logger in loggers:
+        for (name, loss) in losses.items():
+            logger.log_scalar(f"DistillationModifier/{name}", loss.item(), step)
