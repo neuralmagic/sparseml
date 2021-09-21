@@ -21,10 +21,9 @@ Also handles loading modifiers from yaml files
 import itertools
 from typing import Any, Callable, Dict, List, Tuple, Union
 
-from sparseml.optim import BaseManager, BaseScheduled
+from sparseml.optim import BaseManager, BaseScheduled, load_recipe_yaml_str
 from sparseml.tensorflow_v1.optim.modifier import NM_RECAL, Modifier, ScheduledModifier
 from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.utils import load_recipe_yaml_str
 from sparsezoo.objects import Recipe
 
 
@@ -78,6 +77,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
     def from_yaml(
         file_path: Union[str, Recipe],
         add_modifiers: List[Modifier] = None,
+        **recipe_variables,
     ):
         """
         Convenience function used to create the manager of multiple modifiers from a
@@ -91,9 +91,11 @@ class ScheduledModifierManager(BaseManager, Modifier):
             'zoo:model/stub/path?recipe_type=transfer'
         :param add_modifiers: additional modifiers that should be added to the
             returned manager alongside the ones loaded from the recipe file
+        :param recipe_variables: additional variable values to overridethe recipe
+            with (i.e. num_epochs, init_lr)
         :return: ScheduledModifierManager() created from the recipe file
         """
-        yaml_str = load_recipe_yaml_str(file_path)
+        yaml_str = load_recipe_yaml_str(file_path, **recipe_variables)
         modifiers = Modifier.load_list(yaml_str)
         if add_modifiers:
             modifiers.extend(add_modifiers)

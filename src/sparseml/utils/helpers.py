@@ -21,7 +21,6 @@ import errno
 import fnmatch
 import logging
 import os
-import re
 import sys
 from collections import OrderedDict
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
@@ -29,8 +28,6 @@ from urllib.parse import urlparse
 
 import numpy
 
-from sparsezoo import Zoo
-from sparsezoo.objects import Recipe
 from sparsezoo.utils import load_numpy_list
 
 
@@ -59,7 +56,6 @@ __all__ = [
     "NumpyArrayBatcher",
     "tensor_export",
     "tensors_export",
-    "load_recipe_yaml_str",
     "parse_optimization_str",
 ]
 
@@ -766,74 +762,6 @@ def _tensors_export_batch(
     raise ValueError(
         "unrecognized type for tensors given of {}".format(tensors.__class__.__name__)
     )
-
-
-def load_recipe_yaml_str(file_path: Union[str, Recipe]) -> str:
-    """
-    Loads a YAML recipe file to a string or
-    extracts recipe from YAML front matter in a sparsezoo markdown recipe card.
-    Recipes can also be provided as SparseZoo model stubs or Recipe
-    objects.
-
-    YAML front matter: https://jekyllrb.com/docs/front-matter/
-
-    :param file_path: file path to recipe YAML file or markdown recipe card or
-        stub to a SparseZoo model whose recipe will be downloaded and loaded.
-        SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
-        '?recipe_type=<type>' parameter or include a `/<type>` subpath. Can also
-        be a SparseZoo Recipe object. i.e. '/path/to/local/recipe.yaml',
-        'zoo:model/stub/path', 'zoo:model/stub/path?recipe_type=transfer_learn',
-        'zoo:model/stub/path/transfer_learn'
-    :return: the recipe YAML configuration loaded as a string
-    """
-    if isinstance(file_path, Recipe):
-        # download and unwrap Recipe object
-        file_path = file_path.downloaded_path()
-
-    if not isinstance(file_path, str):
-        raise ValueError(f"file_path must be a str, given {type(file_path)}")
-
-    if file_path.startswith("zoo:"):
-        # download from zoo stub
-        recipe = Zoo.download_recipe_from_stub(file_path)
-        file_path = recipe.downloaded_path()
-
-    # load the yaml string
-    if "\n" in file_path or "\r" in file_path:
-        # treat as raw yaml passed in
-        yaml_str = file_path
-        extension = "unknown"
-    else:
-        # load yaml from file_path
-        extension = file_path.lower().split(".")[-1]
-        if extension not in ["md", "yaml"]:
-            raise ValueError(
-                "Unsupported file extension for recipe. Excepted '.md' or '.yaml'. "
-                "Received {}".format(file_path)
-            )
-        with open(file_path, "r") as yaml_file:
-            yaml_str = yaml_file.read()
-
-    if extension == "md" or extension == "unknown":
-        # extract YAML front matter from markdown recipe card
-        # adapted from
-        # https://github.com/jonbeebe/frontmatter/blob/master/frontmatter
-        yaml_delim = r"(?:---|\+\+\+)"
-        yaml = r"(.*?)"
-        re_pattern = r"^\s*" + yaml_delim + yaml + yaml_delim
-        regex = re.compile(re_pattern, re.S | re.M)
-        result = regex.search(yaml_str)
-
-        if result:
-            yaml_str = result.group(1)
-        elif extension == "md":
-            # fail if we know whe should have extracted front matter out
-            raise RuntimeError(
-                "Could not extract YAML front matter from recipe card:"
-                " {}".format(file_path)
-            )
-
-    return yaml_str
 
 
 def parse_optimization_str(optim_full_name: str) -> Tuple[str, str, Any]:
