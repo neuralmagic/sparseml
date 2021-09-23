@@ -222,7 +222,7 @@ class QuantizationModifier(ScheduledModifier):
             using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
             quantize embedding weights
         """
-        return self._freeze_bn_stats_epoch
+        return self._quantize_embeddings
 
     @quantize_embeddings.setter
     def quantize_embeddings(self, value: bool):

@@ -414,6 +414,9 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         if self.lr_func not in lr_funcs:
             raise ValueError(f"lr_func must be one of {lr_funcs}")
 
+        if isinstance(self.init_lr, str):
+            self.init_lr = float(self.init_lr)
+
         if (
             (not self.init_lr and self.init_lr != 0)
             or self.init_lr < 0.0
@@ -422,6 +425,9 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             raise ValueError(
                 f"init_lr must be within range [0.0, 1.0], given {self.init_lr}"
             )
+
+        if isinstance(self.final_lr, str):
+            self.final_lr = float(self.final_lr)
 
         if (
             (not self.final_lr and self.final_lr != 0)
