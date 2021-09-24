@@ -21,9 +21,7 @@ from sparseml.optim import (
 
 
 RECIPE_SIMPLE_EVAL = """
-metadata:
-  num_epochs: 10.0
-
+num_epochs: 10.0
 pruning_start_epoch: eval(num_epochs * 0.2)
 pruning_end_epoch: eval(num_epochs * 0.8)
 init_sparsity: 0.2
@@ -49,9 +47,7 @@ modifiers:
 
 
 RECIPE_MULTI_EVAL = """
-metadata:
-  num_epochs: 10.0
-
+num_epochs: 10.0
 pruning_end_epoch: eval(pruning_start_epoch + num_pruning_epochs)
 pruning_start_epoch: eval(num_epochs * 0.2)
 num_pruning_epochs: 6
@@ -76,9 +72,7 @@ modifiers:
 """
 
 TARGET_RECIPE = """
-metadata:
-  num_epochs: 10.0
-
+num_epochs: 10.0
 init_sparsity: 0.2
 pruning_start_epoch: 2.0
 pruning_end_epoch: 8.0

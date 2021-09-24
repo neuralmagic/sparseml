@@ -18,8 +18,6 @@ Helper functions for base Modifier and Manger utilities
 
 
 import re
-from copy import deepcopy
-from dataclasses import dataclass
 from typing import Any, Dict, Tuple, Union
 
 import yaml
@@ -28,73 +26,10 @@ from sparseml.utils import UnknownVariableException, restricted_eval
 
 
 __all__ = [
-    "VALID_RECIPE_METADATA_FIELDS",
-    "RecipeMetadataField",
     "load_recipe_yaml_str_no_classes",
     "rewrite_recipe_yaml_string_with_classes",
     "evaluate_recipe_yaml_str_equations",
 ]
-
-
-@dataclass
-class RecipeMetadataField:
-    """
-    Information about a valid SparseML recipe metadata field
-
-    :param valid_types: tuple of valid types that the given parameter can be
-    :param can_be_variable: True if the field can be referenced as a variable
-        in the recipe, False otherwise
-    """
-
-    valid_types: Tuple
-    can_be_variable: bool
-
-
-VALID_RECIPE_METADATA_FIELDS = {
-    "num_epochs": RecipeMetadataField((int, float), True),
-    "init_lr": RecipeMetadataField((float,), True),
-}
-
-
-def validate_recipe_metadata(
-    metadata: Dict[str, Any]
-) -> Tuple[Dict[str, Any], Dict[str, Union[int, float]]]:
-    """
-    Validates the recipe metadata field of a recipe that all key and value types
-    are expected
-
-    :param metadata: metadata Dict to be validated
-    :return: tuple of the validated metadata Dict and sub-dictionary of the valid
-        metadata fields that can be used as variables in the recipe
-    """
-    if not isinstance(metadata, Dict):
-        raise ValueError(
-            f"Recipe metadata must be a Dict, received metadata type {type(metadata)}"
-        )
-
-    metadata_vars = {}
-    for name, val in metadata.items():
-        if not isinstance(name, str):
-            raise ValueError(
-                f"metadata key must be a str. received key {name} of type {type(name)}"
-            )
-
-        if name not in VALID_RECIPE_METADATA_FIELDS:
-            raise ValueError(
-                f"Invalid recipe metadata field: {name}. "
-                f"Valid fields: {list(VALID_RECIPE_METADATA_FIELDS.keys())}"
-            )
-        expected_types = VALID_RECIPE_METADATA_FIELDS[name].valid_types
-        if not isinstance(val, expected_types):
-            raise ValueError(
-                f"Expected metadata field: {name} to have type in: {expected_types}. "
-                f"Received object of type {type(val)}"
-            )
-
-        if VALID_RECIPE_METADATA_FIELDS[name].can_be_variable:
-            metadata_vars[name] = val
-
-    return metadata, metadata_vars
 
 
 def load_recipe_yaml_str_no_classes(recipe_yaml_str: str) -> str:
@@ -131,12 +66,8 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
         # yaml string does not create a dict, return original string
         return recipe_yaml_str
 
-    # validate and load metadata
-    metadata = container.get("metadata", {})
-    metadata, metadata_variables = validate_recipe_metadata(metadata)
-
     # validate and load remaining variables
-    container, variables = _evaluate_recipe_variables(container, metadata_variables)
+    container, variables = _evaluate_recipe_variables(container)
 
     # update values nested in modifier lists based on the variables
     for key, val in container.items():
@@ -173,9 +104,8 @@ def _maybe_evaluate_recipe_equation(
 
 def _evaluate_recipe_variables(
     recipe_dict: Dict[str, Any],
-    metadata_variables: Dict[str, Union[int, float]],
 ) -> Tuple[Dict[str, Any], Dict[str, Union[int, float]]]:
-    valid_variables = deepcopy(metadata_variables)
+    valid_variables = {}
     prev_num_variables = -1
 
     while prev_num_variables != len(valid_variables):
