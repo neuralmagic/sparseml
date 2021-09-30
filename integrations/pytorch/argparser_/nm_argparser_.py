@@ -244,7 +244,7 @@ class NmArgumentParser(ArgumentParser):
             # additional namespace.
             outputs.append(namespace)
         if return_remaining_strings:
-            return *outputs, remaining_args
+            return (*outputs, remaining_args)
         else:
             if remaining_args:
                 raise ValueError(
