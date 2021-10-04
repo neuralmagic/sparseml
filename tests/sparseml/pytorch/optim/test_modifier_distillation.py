@@ -70,9 +70,18 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
 
         # test distillation has been applied
         # fake forward pass
-        fake_loss = model(self._get_fake_batch(model_lambda)).mean()
+        student_inputs = self._get_fake_batch(model_lambda)
+        student_outputs = model(student_inputs)
+        teacher_outputs = student_outputs + 0.5  # fake teacher model's outputs
+        fake_loss = student_outputs.mean()
         updated_loss = modifier.loss_update(
-            fake_loss, model, optimizer, -1, test_steps_per_epoch
+            fake_loss,
+            model,
+            optimizer,
+            -1,
+            test_steps_per_epoch,
+            student_outputs,
+            teacher_outputs,
         )
 
         assert isinstance(updated_loss, torch.Tensor)
@@ -98,18 +107,7 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
 
-        with pytest.raises(RuntimeError):
-            modifier.loss_update(
-                test_loss, model, optimizer, test_epoch, test_steps_per_epoch
-            )
-
         self.initialize_helper(modifier, model)
-
-        # should fail until a forward pass is run
-        with pytest.raises(RuntimeError):
-            modifier.loss_update(
-                test_loss, model, optimizer, test_epoch, test_steps_per_epoch
-            )
 
         # run fake forward pass and try updating the loss
         _ = model(self._get_fake_batch(model_lambda))
