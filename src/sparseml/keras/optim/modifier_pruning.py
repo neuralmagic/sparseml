@@ -28,13 +28,14 @@ from sparseml.keras.optim.mask_pruning import (
 )
 from sparseml.keras.optim.modifier import (
     KerasModifierYAML,
-    ModifierProp,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
 from sparseml.keras.optim.utils import get_layer_name_from_param
 from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, keras
-from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
+from sparseml.optim import ConstantPruningModifier as BaseConstantPruningModifier
+from sparseml.optim import GMPruningModifier as BaseGMPruningModifier
+from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["ConstantPruningModifier", "GMPruningModifier"]
@@ -382,7 +383,7 @@ class SparsityLoggingCallback(LoggerSettingCallback):
 
 
 @KerasModifierYAML()
-class ConstantPruningModifier(ScheduledModifier):
+class ConstantPruningModifier(BaseConstantPruningModifier, ScheduledModifier):
     """
     Holds the sparsity level and shape for a given param constant while training.
     Useful for transfer learning use cases.
@@ -412,37 +413,17 @@ class ConstantPruningModifier(ScheduledModifier):
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(ConstantPruningModifier, self).__init__(
+            params=params,
             log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             end_comparator=None,
         )
-        self._params = validate_str_iterable(
-            params, "{} for params".format(self.__class__.__name__)
-        )  # type: List[str]
         self._layer_names = [get_layer_name_from_param(p) for p in self._params]
         self._masked_layers = []
 
         self._sparsity_scheduler = None
         self._mask_type = "unstructured"
-
-    @ModifierProp()
-    def params(self) -> Union[str, List[str]]:
-        """
-        :return: List of str for the variable names or regex patterns of names
-            to apply the KS modifier to. Regex patterns must be specified with
-            the prefix 're:'.
-        """
-        return self._params
-
-    @params.setter
-    def params(self, value: Union[str, List[str]]):
-        """
-        :param value: List of str for the variable names or regex patterns of names
-            to apply the KS modifier to. Regex patterns must be specified with
-            the prefix 're:'.
-        """
-        self._params = value
 
     @property
     def layer_names(self) -> List[str]:
@@ -550,7 +531,7 @@ class ConstantPruningModifier(ScheduledModifier):
 
 
 @KerasModifierYAML()
-class GMPruningModifier(ScheduledUpdateModifier):
+class GMPruningModifier(BaseGMPruningModifier, ScheduledUpdateModifier):
     """
     Gradually applies kernel sparsity to a given variable or variables from
     init_sparsity until final_sparsity is reached over a given amount of time and
@@ -610,25 +591,22 @@ class GMPruningModifier(ScheduledUpdateModifier):
         leave_enabled: bool = True,
     ):
         super(GMPruningModifier, self).__init__(
-            log_types=log_types,
+            params=params,
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
             start_epoch=start_epoch,
-            min_start=-1.0,
             end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            inter_func=inter_func,
+            log_types=log_types,
+            mask_type=mask_type,
+            leave_enabled=leave_enabled,
+            min_start=-1.0,
             min_end=0.0,
             end_comparator=1,
-            update_frequency=update_frequency,
             min_frequency=-1.0,
         )
-        self._params = validate_str_iterable(
-            params, "{} for params".format(self.__class__.__name__)
-        )  # type: List[str]
         self._layer_names = [get_layer_name_from_param(p) for p in self._params]
-        self._init_sparsity = init_sparsity
-        self._final_sparsity = final_sparsity
-        self._leave_enabled = convert_to_bool(leave_enabled)
-        self._inter_func = inter_func
-        self._mask_type = mask_type
-        self._leave_enabled = convert_to_bool(leave_enabled)
         self._prune_op_vars = None
         self._update_ready = None
         self._sparsity = None
@@ -636,147 +614,9 @@ class GMPruningModifier(ScheduledUpdateModifier):
 
         self._masked_layers = []
 
-        self.validate()
-
-    @ModifierProp()
-    def params(self) -> Union[str, List[str]]:
-        """
-        :return: List of str for the variable names or regex patterns of names
-            to apply the KS modifier to. Regex patterns must be specified with
-            the prefix 're:'.
-        """
-        return self._params
-
-    @params.setter
-    def params(self, value: Union[str, List[str]]):
-        """
-        :param value: List of str for the variable names or regex patterns of names
-            to apply the KS modifier to. Regex patterns must be specified with
-            the prefix 're:'.
-        """
-        self._params = value
-        self.validate()
-
     @property
     def layer_names(self) -> List[str]:
         return self._layer_names
-
-    @ModifierProp()
-    def init_sparsity(self) -> float:
-        """
-        :return: The initial sparsity for the variable to start with at start_epoch
-        """
-        return self._init_sparsity
-
-    @init_sparsity.setter
-    def init_sparsity(self, value: float):
-        """
-        :param value: The initial sparsity for the variable to start with at start_epoch
-        """
-        self._init_sparsity = value
-        self.validate()
-
-    @ModifierProp()
-    def final_sparsity(self) -> float:
-        """
-        :return: The final sparsity for the variable to end with at end_epoch
-        """
-        return self._final_sparsity
-
-    @final_sparsity.setter
-    def final_sparsity(self, value: float):
-        """
-        :param value: The final sparsity for the variable to end with at end_epoch
-        """
-        self._final_sparsity = value
-        self.validate()
-
-    @ModifierProp()
-    def leave_enabled(self) -> bool:
-        """
-        :return: True to continue masking the weights after end_epoch,
-            False to stop masking. Should be set to False if exporting
-            the result immediately after or doing some other prune
-        """
-        return self._leave_enabled
-
-    @leave_enabled.setter
-    def leave_enabled(self, value: bool):
-        """
-        :param value: True to continue masking the weights after end_epoch,
-            False to stop masking. Should be set to False if exporting the result
-            immediately after or doing some other prune
-        """
-        self._leave_enabled = value
-        self.validate()
-
-    @ModifierProp()
-    def inter_func(self) -> str:
-        """
-        :return: The type of interpolation function to use:
-            [linear, cubic, inverse_cubic]
-        """
-        return self._inter_func
-
-    @inter_func.setter
-    def inter_func(self, value: str):
-        """
-        :param value: The type of interpolation function to use:
-            [linear, cubic, inverse_cubic]
-        """
-        self._inter_func = value
-        self.validate()
-
-    @ModifierProp()
-    def mask_type(self) -> Union[str, List[int]]:
-        """
-        :return: the mask type used
-        """
-        return self._mask_type
-
-    @mask_type.setter
-    def mask_type(self, value: Union[str, List[int]]):
-        """
-        :param value: the mask type to use
-        """
-        self._mask_type = value
-
-    @ModifierProp()
-    def leave_enabled(self) -> bool:
-        """
-        :return: True to continue masking the weights after end_epoch,
-            False to stop masking. Note, if set as False, sparsity will not be enforced
-            and the model will likely deviate from the sparse solution
-        """
-        return self._leave_enabled
-
-    @leave_enabled.setter
-    def leave_enabled(self, value: bool):
-        """
-        :param value: True to continue masking the weights after end_epoch,
-            False to stop masking. Note, if set as False, sparsity will not be enforced
-            and the model will likely deviate from the sparse solution
-        """
-        self._leave_enabled = value
-
-    @ModifierProp(serializable=False)
-    def exponent(self) -> float:
-        """
-        :return: the exponent to be used in for the sparsity schedule
-        """
-
-        if self._inter_func == "linear":
-            return 1.0
-
-        if self._inter_func == "cubic":
-            return 3.0
-
-        if self._inter_func == "inverse_cubic":
-            return 1 / 3.0
-
-        raise ValueError(
-            "unrecognized value given for inter_func of {}".format(self._inter_func)
-        )
 
     @property
     def update_ready(self):
@@ -793,58 +633,6 @@ class GMPruningModifier(ScheduledUpdateModifier):
             if create_ops has been called, else None
         """
         return self._sparsity
-
-    def validate(self):
-        """
-        Validate the values of the params for the current instance are valid
-        """
-
-        if not self._leave_enabled:
-            raise ValueError(
-                "leave_enabled == True is only supported for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if not isinstance(self._init_sparsity, float):
-            raise TypeError(
-                "init_sparsity must be of float type for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if not 0.0 <= self._init_sparsity <= 1.0:
-            raise ValueError(
-                (
-                    "init_sparsity value must be in the range"
-                    " [0.0, 1.0], given {} for {}"
-                ).format(self._init_sparsity, self.__class__.__name__)
-            )
-
-        if not isinstance(self._final_sparsity, float):
-            raise TypeError(
-                "final_sparsity must be of float type for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if not 0.0 <= self._final_sparsity <= 1.0:
-            raise ValueError(
-                (
-                    "final_sparsity value must be in the range"
-                    " [0.0, 1.0], given {} for {}"
-                ).format(self._init_sparsity, self.__class__.__name__)
-            )
-
-        interpolation_funcs = ["linear", "cubic", "inverse_cubic"]
-
-        if self._inter_func not in interpolation_funcs:
-            raise ValueError(
-                (
-                    "{} is not a supported inter_func in layers_settings,"
-                    " available are {} for {}"
-                ).format(self._inter_func, interpolation_funcs, self.__class__.__name__)
-            )
 
     def _create_sparsity_scheduler(self, steps_per_epoch):
         begin_step, end_step = self.start_end_steps(steps_per_epoch, after_optim=False)

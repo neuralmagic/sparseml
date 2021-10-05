@@ -24,6 +24,7 @@ from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import ModifierProp
+from sparseml.optim import TrainableParamsModifier as BaseTrainableParamsModifier
 from sparseml.pytorch.optim.modifier import (
     PyTorchModifierYAML,
     ScheduledModifier,
@@ -33,7 +34,6 @@ from sparseml.pytorch.utils import BaseLogger, get_named_layers_and_params_by_re
 from sparseml.utils import (
     ALL_TOKEN,
     INTERPOLATION_FUNCS,
-    convert_to_bool,
     interpolate,
     validate_str_iterable,
 )
@@ -43,7 +43,7 @@ __all__ = ["TrainableParamsModifier", "SetParamModifier", "GradualParamModifier"
 
 
 @PyTorchModifierYAML()
-class TrainableParamsModifier(ScheduledModifier):
+class TrainableParamsModifier(BaseTrainableParamsModifier, ScheduledModifier):
     """
     Modifier to control the params for a given list of parameter regex patterns.
     If end_epoch is supplied and greater than 0, then it will revert to the trainable
@@ -81,72 +81,16 @@ class TrainableParamsModifier(ScheduledModifier):
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
     ):
-        super().__init__(
-            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
+        super(TrainableParamsModifier, self).__init__(
+            params=params,
+            trainable=trainable,
+            params_strict=params_strict,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            end_comparator=-1,
         )
-        self._start_epoch = start_epoch
-        self._params = validate_str_iterable(
-            params, "{} for params".format(self.__class__.__name__)
-        )
-        self._trainable = convert_to_bool(trainable)
-        self._params_strict = convert_to_bool(params_strict)
         self._module_params = []  # type: List[Parameter]
         self._original = []
-
-    @ModifierProp()
-    def params(self) -> Union[str, List[str]]:
-        """
-        :return: A list of full parameter names or regex patterns of names to apply
-            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-            will match to all parameters.
-        """
-        return self._params
-
-    @params.setter
-    def params(self, value: Union[str, List[str]]):
-        """
-        :params value: A list of full parameter names or regex patterns of names
-            to apply pruning to.
-            Regex patterns must be specified with the prefix 're:'. __ALL__
-            will match to all parameters.
-        """
-        self._params = validate_str_iterable(
-            value, "{} for params".format(self.__class__.__name__)
-        )
-
-    @ModifierProp()
-    def trainable(self) -> bool:
-        """
-        :return: True if the param(s) should be made trainable,
-            False to make them non-trainable
-        """
-        return self._trainable
-
-    @trainable.setter
-    def trainable(self, value: bool):
-        """
-        :param value: True if the param(s) should be made trainable,
-            False to make them non-trainable
-        """
-        self._trainable = value
-
-    @ModifierProp()
-    def params_strict(self) -> bool:
-        """
-        :return: True if every regex pattern in params must match at least
-            one parameter name in the module
-            False if missing params are ok and will not raise an err
-        """
-        return self._params_strict
-
-    @params_strict.setter
-    def params_strict(self, value: bool):
-        """
-        :param value: True if every regex pattern in params must match at least
-            one parameter name in the module
-            False if missing params are ok and will not raise an err
-        """
-        self._params_strict = value
 
     def initialize(
         self,

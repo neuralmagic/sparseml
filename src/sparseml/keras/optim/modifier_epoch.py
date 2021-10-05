@@ -17,13 +17,14 @@ Contains code for epoch modifiers in Keras
 """
 
 from sparseml.keras.optim.modifier import KerasModifierYAML, ScheduledModifier
+from sparseml.optim import EpochRangeModifier as BaseEpochRangeModifier
 
 
 __all__ = ["EpochRangeModifier"]
 
 
 @KerasModifierYAML()
-class EpochRangeModifier(ScheduledModifier):
+class EpochRangeModifier(BaseEpochRangeModifier, ScheduledModifier):
     """
     Simple modifier to set the range of epochs to train over for
     the recalibration process.
@@ -45,6 +46,6 @@ class EpochRangeModifier(ScheduledModifier):
         :param start_epoch: The epoch to start the modifier at
         :param end_epoch: The epoch to end the modifier at
         """
-        super().__init__(
+        super(EpochRangeModifier, self).__init__(
             start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
         )

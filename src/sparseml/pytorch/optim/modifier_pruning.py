@@ -25,6 +25,8 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+from sparseml.optim import ConstantPruningModifier as BaseConstantPruningModifier
+from sparseml.optim import GMPruningModifier as BaseGMPruningModifier
 from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.mask_creator_pruning import (
@@ -52,7 +54,6 @@ from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.utils import (
     ALL_PRUNABLE_TOKEN,
     ALL_TOKEN,
-    INTERPOLATION_FUNCS,
     convert_to_bool,
     interpolate,
     validate_str_iterable,
@@ -132,8 +133,10 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
         update_frequency: float = -1.0,
         min_frequency: float = -1.0,
         log_types: Union[str, List[str]] = None,
+        **kwargs,
     ):
         super().__init__(
+            params=params,
             log_types=log_types,
             start_epoch=start_epoch,
             min_start=min_start,
@@ -142,6 +145,7 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
             end_comparator=end_comparator,
             update_frequency=update_frequency,
             min_frequency=min_frequency,
+            **kwargs,
         )
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)
@@ -183,29 +187,6 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
 
         self._module_masks.set_param_masks(
             [state_dict[name] for name in self._module_masks.names]
-        )
-
-    @ModifierProp()
-    def params(self) -> Union[str, List[str]]:
-        """
-        :return: A list of full parameter names or regex patterns of names to apply
-            pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-            will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-            and Linear layers' weights
-        """
-        return self._params
-
-    @params.setter
-    def params(self, value: Union[str, List[str]]):
-        """
-        :params value: A list of full parameter names or regex patterns of names to
-            apply pruning to.
-            Regex patterns must be specified with the prefix 're:'. __ALL__
-            will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-            and Linear layers' weights
-        """
-        self._params = validate_str_iterable(
-            value, "{} for params".format(self.__class__.__name__)
         )
 
     @property
@@ -383,7 +364,7 @@ class _PruningParamsModifier(ScheduledUpdateModifier):
 
 
 @PyTorchModifierYAML()
-class ConstantPruningModifier(_PruningParamsModifier):
+class ConstantPruningModifier(_PruningParamsModifier, BaseConstantPruningModifier):
     """
     Holds the sparsity level and shape for a given parameter(s) constant while training.
     Useful for transfer learning use cases.
@@ -438,7 +419,7 @@ class ConstantPruningModifier(_PruningParamsModifier):
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
-        super().__init__(
+        super(ConstantPruningModifier, self).__init__(
             params=params,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
@@ -460,7 +441,7 @@ class ConstantPruningModifier(_PruningParamsModifier):
 
 
 @PyTorchModifierYAML()
-class GMPruningModifier(_PruningParamsModifier):
+class GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
     """
     Gradually applies kernel sparsity to a given parameter or parameters from
     init_sparsity until final_sparsity is reached over a given amount of time
@@ -538,13 +519,18 @@ class GMPruningModifier(_PruningParamsModifier):
         params, self._final_sparsity = self._get_params_and_final_sparsity(
             params, final_sparsity
         )
-        super().__init__(
+        super(GMPruningModifier, self).__init__(
             params=params,
+            init_sparsity=init_sparsity,
+            final_sparsity=self._final_sparsity,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
-            end_comparator=-1,
             update_frequency=update_frequency,
+            inter_func=inter_func,
             log_types=log_types,
+            mask_type=mask_type,
+            leave_enabled=leave_enabled,
+            end_comparator=-1,
         )
         self._init_sparsity = init_sparsity
         self._leave_enabled = convert_to_bool(leave_enabled)
@@ -594,21 +580,6 @@ class GMPruningModifier(_PruningParamsModifier):
         )
 
     @ModifierProp()
-    def init_sparsity(self) -> float:
-        """
-        :return: the initial sparsity for the param to start with at start_epoch
-        """
-        return self._init_sparsity
-
-    @init_sparsity.setter
-    def init_sparsity(self, value: float):
-        """
-        :param value: the initial sparsity for the param to start with at start_epoch
-        """
-        self._init_sparsity = value
-        self.validate()
-
-    @ModifierProp()
     def final_sparsity(self) -> Union[float, Dict[float, List[str]]]:
         """
         :return: the final sparsity for the param to end with at end_epoch
@@ -630,41 +601,6 @@ class GMPruningModifier(_PruningParamsModifier):
         self.validate()
 
     @ModifierProp()
-    def leave_enabled(self) -> bool:
-        """
-        :return: True to continue masking the weights after end_epoch,
-            False to stop masking. Note, if set as False, sparsity will not be enforced
-            and the model will likely deviate from the sparse solution
-        """
-        return self._leave_enabled
-
-    @leave_enabled.setter
-    def leave_enabled(self, value: bool):
-        """
-        :param value: True to continue masking the weights after end_epoch,
-            False to stop masking. Note, if set as False, sparsity will not be enforced
-            and the model will likely deviate from the sparse solution
-        """
-        self._leave_enabled = value
-
-    @ModifierProp()
-    def inter_func(self) -> str:
-        """
-        :return: the type of interpolation function to use:
-            [linear, cubic, inverse_cubic]
-        """
-        return self._inter_func
-
-    @inter_func.setter
-    def inter_func(self, value: str):
-        """
-        :param value: the type of interpolation function to use:
-            [linear, cubic, inverse_cubic]
-        """
-        self._inter_func = value
-        self.validate()
-
-    @ModifierProp()
     def phased(self) -> bool:
         """
         :return: True to enable a phased approach where pruning will
@@ -683,9 +619,9 @@ class GMPruningModifier(_PruningParamsModifier):
         self.validate()
 
     @ModifierProp()
-    def mask_type(self) -> Union[str, List[int], PruningMaskCreator]:
+    def mask_type(self) -> Union[str, List[int]]:
         """
-        :return: the SparsityMaskCreator object used
+        :return: the mask type used
         """
         return self._mask_type
 
@@ -761,56 +697,6 @@ class GMPruningModifier(_PruningParamsModifier):
             # be sure to apply mask again after optimizer update because weights may
             # have changed (optimizer with momentum, not masking gradient)
             self._module_masks.apply()
-
-    def validate(self):
-        """
-        Validate the values of the params for the current instance are valid
-        """
-
-        if not isinstance(self._init_sparsity, float):
-            raise TypeError(
-                "init_sparsity must be of float type for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        if self._init_sparsity < 0.0 or self._init_sparsity > 1.0:
-            raise ValueError(
-                (
-                    "init_sparsity value must be in the range [0.0, 1.0],"
-                    " given {} for {}"
-                ).format(self._init_sparsity, self.__class__.__name__)
-            )
-
-        if not isinstance(self._final_sparsity_orig, float) and not isinstance(
-            self._final_sparsity_orig, Dict
-        ):
-            raise TypeError(
-                "final_sparsity must be of float or Dict type for {}".format(
-                    self.__class__.__name__
-                )
-            )
-
-        final_sparsities = (
-            self._final_sparsity
-            if isinstance(self._final_sparsity, List)
-            else [self._final_sparsity]
-        )
-        if not all(0.0 < sparsity < 1.0 for sparsity in final_sparsities):
-            raise ValueError(
-                (
-                    "final_sparsity value(s) must be in the range (0.0, 1.0),"
-                    " given {} for {}"
-                ).format(self._final_sparsity, self.__class__.__name__)
-            )
-
-        if self._inter_func not in INTERPOLATION_FUNCS:
-            raise ValueError(
-                (
-                    "{} is not a supported inter_func in layers_settings,"
-                    " available are {} for {}"
-                ).format(self._inter_func, INTERPOLATION_FUNCS, self.__class__.__name__)
-            )
 
     def _check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
