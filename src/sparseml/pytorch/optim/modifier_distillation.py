@@ -21,6 +21,7 @@ import logging
 from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Optional, Union
 
+import torch
 import torch.nn.functional as TF
 from torch import Tensor
 from torch.nn import Module
@@ -28,7 +29,7 @@ from torch.optim import Optimizer
 
 from sparseml.optim import ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.utils import BaseLogger
+from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
 
 
 __all__ = [
@@ -222,7 +223,7 @@ class DistillationModifier(ScheduledModifier):
         epoch: float,
         steps_per_epoch: int,
         student_outputs: Union[Tensor, Dict, Iterable] = None,
-        teacher_outputs: Union[Tensor, Dict, Iterable] = None,
+        teacher_inputs: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]] = None,
         **kwargs,
     ) -> Tensor:
         """
@@ -243,8 +244,20 @@ class DistillationModifier(ScheduledModifier):
         if not self._distillation_enabled or self._disable_distillation:
             return loss
 
-        if student_outputs is None or teacher_outputs is None:
-            return loss
+        if student_outputs is None or teacher_inputs is None:
+            raise ValueError(
+                "Student outputs and teacher inputs are required for "
+                "distillation loss update"
+            )
+
+        # ensure that teacher model is in eval mode and on correct device
+        self._teacher.eval()
+        target_device = device_of(teacher_inputs)
+        self._teacher.to(target_device)
+        with torch.no_grad():
+            teacher_outputs = tensors_module_forward(
+                teacher_inputs, self._teacher, check_feat_lab_inp=False
+            )
 
         if type(student_outputs) != type(teacher_outputs):
             raise ValueError(

@@ -110,9 +110,16 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
         self.initialize_helper(modifier, model)
 
         # run fake forward pass and try updating the loss
-        _ = model(self._get_fake_batch(model_lambda))
+        inputs = self._get_fake_batch(model_lambda)
+        student_outputs = model(inputs)
         new_loss = modifier.loss_update(
-            test_loss, model, optimizer, test_epoch, test_steps_per_epoch
+            test_loss,
+            model,
+            optimizer,
+            test_epoch,
+            test_steps_per_epoch,
+            student_outputs,
+            inputs,
         )
 
         assert isinstance(new_loss, Tensor)
