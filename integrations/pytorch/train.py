@@ -220,7 +220,7 @@ class TrainingArguments:
     :param logs_dir: The path to the directory for saving logs.
     :param save_best_after: int epoch number to start saving the best
         validation result after until the end of training.
-    :param save_epochs: int epochs to save checkpoints at.
+    :param save_epochs: List of int epochs to save checkpoints at.
     :param use_mixed_precision: bool to train model using mixed precision.
         Supported environments are single GPU and multiple GPUs using
         DistributedDataParallel with one GPU per process.
@@ -366,7 +366,7 @@ class TrainingArguments:
             "epoch completes until the end of training"
         },
     )
-    save_epochs: int = field(
+    save_epochs: List[int] = field(
         default_factory=lambda: [], metadata={"help": "epochs to save checkpoints at"}
     )
 
