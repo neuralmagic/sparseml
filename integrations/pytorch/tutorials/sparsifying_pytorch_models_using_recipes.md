@@ -51,11 +51,11 @@ pip install sparseml[torchvision]
 Recipes are YAML or Markdown files that SparseML uses to easily define and control the sparsification of a model.
 Recipes consist of a series of `Modifiers` that can influence the training process in different ways. A list of
 common modifiers and their uses is provided
-[here](https://github.com/neuralmagic/sparseml/blob/main/docs/source/recipes.md#modifiers-intro).
+[here](../../../docs/source/recipes.md#modifiers-intro).
 
 SparseML provides a recipe for sparsifying a ResNet-50 model trained on the tiny Imagenette dataset. The recipe can
 be viewed in the browser
-[here](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/recipes/resnet50-imagenette-pruned.md)
+[here](../recipes/resnet50-imagenette-pruned.md)
 or in the command line from the file `sparseml/integrations/pytorch/recipes/resnet50-imagenette-pruned.md`.
 
 The recipe contains three kinds of modifiers:
@@ -73,9 +73,9 @@ of the parameters list for a single `GMPruningModifier`.
 
 Recipes can integrated into training flows with a couple of lines of code by using a `ScheduledModifierManager`
 that wraps the PyTorch `Optimizer` step.  An example of how this is done can be found
-[here](https://github.com/neuralmagic/sparseml/blob/main/docs/source/code.md#pytorch-sparsification).
+[here](../../../docs/source/code.md#pytorch-sparsification).
 
-For this example, we can use the `sparseml/integrations/pytorch/vision.py` script.  This script runs a
+For this example, we can use the `sparseml/integrations/pytorch/train.py` script.  This script runs a
 PyTorch training flow that is modified by a `ScheduledModifierManager` and takes a recipe as an input.
 It natively supports ResNet-50 and other popular image classification models.
 
@@ -88,7 +88,7 @@ If the Imagenette dataset has not been downloaded yet, the script will automatic
 ```bash
 cd sparseml
 
-python integrations/pytorch/vision.py train \
+python integrations/pytorch/train.py \
     --recipe-path integrations/pytorch/recipes/resnet50-imagenette-pruned.md \
     --dataset-path ./data \
     --pretrained True \
@@ -106,7 +106,7 @@ python integrations/pytorch/vision.py train \
 A full list of arguments and their descriptions can be found by running 
 
 ```bash
-python integrations/pytorch/vision.py train --help
+python integrations/pytorch/train.py --help
 ```
 
 
@@ -117,9 +117,8 @@ After, the training pruned model and training log files will be found under
 an inference engine such as [DeepSparse](https://github.com/neuralmagic/deepsparse), the pruned model must be
 exported to the ONNX format.
 
-This step has already been done for you by the `train.py` script which uses the
-`sparseml.pytorch.utils.ModuleExporter` class.  The exported sparse ResNet-50 Imagenette ONNX model will be
-saved to `sparsification_example/resnet50-imagenette-pruned/model.onnx`
+This step can be completed using `sparseml/integrations/pytorch/export.py` script which uses the
+`sparseml.pytorch.utils.ModuleExporter` class. Run the script with `--help` option to see usage.
 
 The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in
 inference performance. An example for benchmarking and deploying image classification models with DeepSparse can
