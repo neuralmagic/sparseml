@@ -24,6 +24,7 @@ from typing import Any, Callable, Dict, List, Union
 
 import yaml
 
+from sparseml.optim.helpers import evaluate_recipe_yaml_str_equations
 from sparseml.utils import validate_str_iterable
 
 
@@ -288,6 +289,7 @@ class BaseModifier(BaseObject):
         :param framework: the framework to load the modifiers for
         :return: the loaded modifiers list
         """
+        yaml_str = evaluate_recipe_yaml_str_equations(yaml_str)
         yaml_str = BaseModifier._convert_to_framework_modifiers(yaml_str, framework)
         container = yaml.safe_load(yaml_str)
 
