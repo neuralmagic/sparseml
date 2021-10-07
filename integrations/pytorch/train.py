@@ -248,6 +248,7 @@ class TrainingArguments:
         default=4.
     :param loader_pin_memory: bool to use pinned memory for data loading,
         default=True.
+    :param save_last_epoch: bool to save last completed epoch
     """
 
     train_batch_size: int = field(
