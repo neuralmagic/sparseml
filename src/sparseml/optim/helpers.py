@@ -51,7 +51,9 @@ def rewrite_recipe_yaml_string_with_classes(recipe_contianer: Any) -> str:
     updated_yaml_str = yaml.dump(recipe_contianer)
 
     # convert object dicts back to object declarations and return
-    pattern = re.compile(r"OBJECT\.(?P<class_name>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+):")
+    pattern = re.compile(
+        r"OBJECT\.(?P<class_name>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+):( null)?"
+    )
     return pattern.sub(r"!\g<class_name>", updated_yaml_str)
 
 
@@ -147,7 +149,6 @@ def _evaluate_recipe_variables(
 def _maybe_evaluate_yaml_object(
     obj: Any, variables: Dict[str, Union[int, float]]
 ) -> Any:
-
     if isinstance(obj, str):
         return _maybe_evaluate_recipe_equation(obj, variables)
     elif isinstance(obj, list):
