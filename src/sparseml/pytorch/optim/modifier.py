@@ -287,6 +287,7 @@ class Modifier(BaseModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
+        **kwargs,
     ):
         """
         Optional call that can be made on the optimizer to update the modifiers

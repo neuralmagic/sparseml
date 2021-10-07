@@ -20,7 +20,7 @@ import logging
 import os
 import warnings
 from copy import deepcopy
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy
 import onnx
@@ -42,7 +42,10 @@ from sparseml.pytorch.utils.model import (
     script_model,
     trace_model,
 )
-from sparseml.pytorch.utils.quantization import quantize_torch_qat_export
+from sparseml.pytorch.utils.quantization import (
+    quantize_torch_qat_export,
+    skip_onnx_input_quantize,
+)
 from sparseml.utils import clean_path, create_parent_dirs
 
 
@@ -152,23 +155,6 @@ class ModuleExporter(object):
             sample_originals=sample_originals,
         )
 
-    @classmethod
-    def get_output_names(cls, out: Any):
-        """
-        Get name of output tensors
-
-        :param out: outputs of the model
-        :return: list of names
-        """
-        output_names = None
-        if isinstance(out, Tensor):
-            output_names = ["output"]
-        elif isinstance(out, Iterable):
-            output_names = [
-                "output_{}".format(index) for index, _ in enumerate(iter(out))
-            ]
-        return output_names
-
     def export_onnx(
         self,
         sample_batch: Any,
@@ -203,95 +189,15 @@ class ModuleExporter(object):
             See more on the torch.onnx.export api spec in the PyTorch docs:
             https://pytorch.org/docs/stable/onnx.html
         """
-        if not export_kwargs:
-            export_kwargs = {}
-
-        if isinstance(sample_batch, Dict) and not isinstance(
-            sample_batch, collections.OrderedDict
-        ):
-            warnings.warn(
-                "Sample inputs passed into the ONNX exporter should be in "
-                "the same order defined in the model forward function. "
-                "Consider using OrderedDict for this purpose.",
-                UserWarning,
-            )
-
-        sample_batch = tensors_to_device(sample_batch, "cpu")
-        onnx_path = os.path.join(self._output_dir, name)
-        create_parent_dirs(onnx_path)
-
-        with torch.no_grad():
-            out = tensors_module_forward(
-                sample_batch, self._module, check_feat_lab_inp=False
-            )
-
-        if "input_names" not in export_kwargs:
-            if isinstance(sample_batch, Tensor):
-                export_kwargs["input_names"] = ["input"]
-            elif isinstance(sample_batch, Dict):
-                export_kwargs["input_names"] = list(sample_batch.keys())
-                sample_batch = tuple(
-                    [sample_batch[f] for f in export_kwargs["input_names"]]
-                )
-            elif isinstance(sample_batch, Iterable):
-                export_kwargs["input_names"] = [
-                    "input_{}".format(index)
-                    for index, _ in enumerate(iter(sample_batch))
-                ]
-                if isinstance(sample_batch, List):
-                    sample_batch = tuple(
-                        sample_batch
-                    )  # torch.onnx.export requires tuple
-
-        if "output_names" not in export_kwargs:
-            export_kwargs["output_names"] = self.get_output_names(out)
-
-        # disable active quantization observers because they cannot be exported
-        disabled_observers = []
-        for submodule in self._module.modules():
-            if (
-                hasattr(submodule, "observer_enabled")
-                and submodule.observer_enabled[0] == 1
-            ):
-                submodule.observer_enabled[0] = 0
-                disabled_observers.append(submodule)
-
-        is_quant_module = any(
-            hasattr(submodule, "qconfig") and submodule.qconfig
-            for submodule in self._module.modules()
-        )
-        batch_norms_wrapped = False
-        if torch.__version__ >= "1.7" and not is_quant_module and disable_bn_fusing:
-            # prevent batch norm fusing by adding a trivial operation before every
-            # batch norm layer
-            export_module = deepcopy(self._module)
-            batch_norms_wrapped = _wrap_batch_norms(export_module)
-        else:
-            export_module = self._module
-
-        torch.onnx.export(
-            export_module,
-            sample_batch,
-            onnx_path,
-            strip_doc_string=True,
-            verbose=False,
-            opset_version=opset,
+        export_onnx(
+            module=self._module,
+            sample_batch=sample_batch,
+            file_path=os.path.join(self._output_dir, name),
+            opset=opset,
+            disable_bn_fusing=disable_bn_fusing,
+            convert_qat=convert_qat,
             **export_kwargs,
         )
-
-        # re-enable disabled quantization observers
-        for submodule in disabled_observers:
-            submodule.observer_enabled[0] = 1
-
-        # clean up graph from any injected / wrapped operations
-        if batch_norms_wrapped:
-            onnx_model = onnx.load(onnx_path)
-            _delete_trivial_onnx_adds(onnx_model)
-            onnx.save(onnx_model, onnx_path)
-
-        if convert_qat and is_quant_module:
-            # overwrite exported model with fully quantized version
-            quantize_torch_qat_export(model=onnx_path, output_file_path=onnx_path)
 
     def export_torchscript(
         self,
@@ -423,6 +329,166 @@ class ModuleExporter(object):
 
                 assert len(exported_input) == len(exported_output)
                 exp_counter += len(exported_input)
+
+
+def export_onnx(
+    module: Module,
+    sample_batch: Any,
+    file_path: str,
+    opset: int = DEFAULT_ONNX_OPSET,
+    disable_bn_fusing: bool = True,
+    convert_qat: bool = False,
+    dynamic_axes: Union[str, Dict[str, List[int]]] = None,
+    skip_input_quantize: bool = False,
+    **export_kwargs,
+):
+    """
+    Export an onnx file for the current module and for a sample batch.
+    Sample batch used to feed through the model to freeze the graph for a
+    particular execution.
+
+    :param module: torch Module object to export
+    :param sample_batch: the batch to export an onnx for, handles creating the
+        static graph for onnx as well as setting dimensions
+    :param file_path: path to the onnx file to save
+    :param opset: onnx opset to use for exported model. Default is 11, if torch
+        version is 1.2 or below, default is 9
+    :param disable_bn_fusing: torch >= 1.7.0 only. Set True to disable batch norm
+        fusing during torch export. Default and suggested setting is True. Batch
+        norm fusing will change the exported parameter names as well as affect
+        sensitivity analyses of the exported graph.  Additionally, the DeepSparse
+        inference engine, and other engines, perform batch norm fusing at model
+        compilation.
+    :param convert_qat: if True and quantization aware training is detected in
+        the module being exported, the resulting QAT ONNX model will be converted
+        to a fully quantized ONNX model using `quantize_torch_qat_export`. Default
+        is False.
+    :param dynamic_axes: dictionary of input or output names to list of dimensions
+        of those tensors that should be exported as dynamic. May input 'batch'
+        to set the first dimension of all inputs and outputs to dynamic. Default
+        is an empty dict
+    :param skip_input_quantize: if True, the export flow will attempt to delete
+        the first Quantize Linear Nodes(s) immediately after model input and set
+        the model input type to UINT8. Default is False
+    :param export_kwargs: kwargs to be passed as is to the torch.onnx.export api
+        call. Useful to pass in dyanmic_axes, input_names, output_names, etc.
+        See more on the torch.onnx.export api spec in the PyTorch docs:
+        https://pytorch.org/docs/stable/onnx.html
+    """
+    if not export_kwargs:
+        export_kwargs = {}
+
+    if isinstance(sample_batch, Dict) and not isinstance(
+        sample_batch, collections.OrderedDict
+    ):
+        warnings.warn(
+            "Sample inputs passed into the ONNX exporter should be in "
+            "the same order defined in the model forward function. "
+            "Consider using OrderedDict for this purpose.",
+            UserWarning,
+        )
+
+    sample_batch = tensors_to_device(sample_batch, "cpu")
+    create_parent_dirs(file_path)
+
+    module = deepcopy(module).cpu().eval()
+
+    with torch.no_grad():
+        out = tensors_module_forward(sample_batch, module, check_feat_lab_inp=False)
+
+    if "input_names" not in export_kwargs:
+        if isinstance(sample_batch, Tensor):
+            export_kwargs["input_names"] = ["input"]
+        elif isinstance(sample_batch, Dict):
+            export_kwargs["input_names"] = list(sample_batch.keys())
+            sample_batch = tuple(
+                [sample_batch[f] for f in export_kwargs["input_names"]]
+            )
+        elif isinstance(sample_batch, Iterable):
+            export_kwargs["input_names"] = [
+                "input_{}".format(index) for index, _ in enumerate(iter(sample_batch))
+            ]
+            if isinstance(sample_batch, List):
+                sample_batch = tuple(sample_batch)  # torch.onnx.export requires tuple
+
+    if "output_names" not in export_kwargs:
+        export_kwargs["output_names"] = _get_output_names(out)
+
+    if dynamic_axes == "batch":
+        dynamic_axes = {
+            tensor_name: {0: "batch"}
+            for tensor_name in (
+                export_kwargs["input_names"] + export_kwargs["output_names"]
+            )
+        }
+
+    # disable active quantization observers because they cannot be exported
+    disabled_observers = []
+    for submodule in module.modules():
+        if (
+            hasattr(submodule, "observer_enabled")
+            and submodule.observer_enabled[0] == 1
+        ):
+            submodule.observer_enabled[0] = 0
+            disabled_observers.append(submodule)
+
+    is_quant_module = any(
+        hasattr(submodule, "qconfig") and submodule.qconfig
+        for submodule in module.modules()
+    )
+    batch_norms_wrapped = False
+    if torch.__version__ >= "1.7" and not is_quant_module and disable_bn_fusing:
+        # prevent batch norm fusing by adding a trivial operation before every
+        # batch norm layer
+        batch_norms_wrapped = _wrap_batch_norms(module)
+
+    torch.onnx.export(
+        module,
+        sample_batch,
+        file_path,
+        strip_doc_string=True,
+        verbose=False,
+        opset_version=opset,
+        dynamic_axes=dynamic_axes,
+        **export_kwargs,
+    )
+
+    # re-enable disabled quantization observers
+    for submodule in disabled_observers:
+        submodule.observer_enabled[0] = 1
+
+    # clean up graph from any injected / wrapped operations
+    if batch_norms_wrapped:
+        onnx_model = onnx.load(file_path)
+        _delete_trivial_onnx_adds(onnx_model)
+        onnx.save(onnx_model, file_path)
+
+    if convert_qat and is_quant_module:
+        # overwrite exported model with fully quantized version
+        quantize_torch_qat_export(model=file_path, output_file_path=file_path)
+
+    if skip_input_quantize:
+        try:
+            skip_onnx_input_quantize(file_path, file_path)
+        except Exception as e:
+            _LOGGER.warning(
+                f"Unable to skip input QuantizeLinear op with exception {e}"
+            )
+
+
+def _get_output_names(out: Any):
+    """
+    Get name of output tensors
+
+    :param out: outputs of the model
+    :return: list of names
+    """
+    output_names = None
+    if isinstance(out, Tensor):
+        output_names = ["output"]
+    elif isinstance(out, Iterable):
+        output_names = ["output_{}".format(index) for index, _ in enumerate(iter(out))]
+    return output_names
 
 
 class _AddNoOpWrapper(Module):
