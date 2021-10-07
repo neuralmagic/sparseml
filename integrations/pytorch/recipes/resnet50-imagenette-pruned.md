@@ -127,13 +127,13 @@ using a SGD optimizer.
 When running, adjust hyperparameters based on training environment and dataset.
 
 ## Training
-The training script can be found at `sparseml/integrations/pytorch/scripts/vision.py`. 
-Alternatively, a full walk-through notebook is located at `sparseml/notebooks/pytorch_classification.ipynb`.
+The training script can be found at `sparseml/integrations/pytorch/scripts/train.py`. 
+Alternatively, a full walk-through notebook is located at `sparseml/integrations/pytorch/notebooks/classification.ipynb`.
 
 *script command:*
 
 ```
-python integrations/pytorch/scripts/vision.py train \
+python integrations/pytorch/scripts/train.py \
     --recipe-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative?recipe_type=original \
     --pretrained True \
     --arch-key resnet50 \
