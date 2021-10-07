@@ -456,7 +456,7 @@ class TrainingArguments:
     )
 
     save_last_epoch: bool = field(
-        default=False,
+        default=True,
         metadata={"help": "Use save-last-epoch for saving last completed epoch"},
     )
 
@@ -622,10 +622,21 @@ def train(
                     )
                     best_loss = val_loss
 
+            # save latest-completed epoch
+            if train_args.save_last_epoch:
+                utils.save_model_training(
+                    model,
+                    optim,
+                    input_shape,
+                    "checkpoint-latest",
+                    save_dir,
+                    epoch,
+                    val_res,
+                )
+
             # save checkpoints
             _save_epoch = (
-                train_args.save_last_epoch
-                or train_args.is_main_process
+                train_args.is_main_process
                 and train_args.save_epochs
                 and epoch in train_args.save_epochs
             )
