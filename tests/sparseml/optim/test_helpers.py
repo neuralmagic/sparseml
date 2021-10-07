@@ -16,7 +16,9 @@ import pytest
 
 from sparseml.optim import (
     evaluate_recipe_yaml_str_equations,
+    load_recipe_yaml_str,
     load_recipe_yaml_str_no_classes,
+    update_recipe_variables,
 )
 
 
@@ -72,7 +74,7 @@ modifiers:
 """
 
 TARGET_RECIPE = """
-num_epochs: 10.0
+num_epochs: {num_epochs}
 init_sparsity: 0.2
 pruning_start_epoch: 2.0
 pruning_end_epoch: 8.0
@@ -117,9 +119,9 @@ def _test_nested_equality(val, other):
 @pytest.mark.parametrize(
     "recipe,expected_recipe",
     [
-        (TARGET_RECIPE, TARGET_RECIPE),
-        (RECIPE_SIMPLE_EVAL, TARGET_RECIPE),
-        (RECIPE_MULTI_EVAL, TARGET_RECIPE),
+        (TARGET_RECIPE.format(num_epochs=10.0), TARGET_RECIPE.format(num_epochs=10.0)),
+        (RECIPE_SIMPLE_EVAL, TARGET_RECIPE.format(num_epochs=10.0)),
+        (RECIPE_MULTI_EVAL, TARGET_RECIPE.format(num_epochs=10.0)),
     ],
 )
 def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe):
@@ -130,7 +132,6 @@ def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe):
     assert isinstance(evaluated_yaml, dict)
     assert isinstance(expected_yaml, dict)
     _test_nested_equality(evaluated_yaml, expected_yaml)
-    # assert evaluated_yaml == expected_recipe
 
 
 RECIPE_INVALID_LOOP = """
@@ -158,3 +159,38 @@ val_1: eval([1,2])
 def test_evaluate_recipe_yaml_str_equations_invalid(recipe):
     with pytest.raises(RuntimeError):
         evaluate_recipe_yaml_str_equations(recipe)
+
+
+@pytest.mark.parametrize(
+    "zoo_path",
+    [
+        (
+            "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/"
+            "pruned-conservative"
+        ),
+        (
+            "zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/"
+            "pruned-conservative?recipe_type=original"
+        ),
+    ],
+)
+def test_load_recipe_yaml_str_zoo(zoo_path):
+    assert load_recipe_yaml_str(zoo_path)
+
+
+@pytest.mark.parametrize(
+    "base_recipe,override_variables,target_recipe",
+    [
+        (
+            TARGET_RECIPE.format(num_epochs=100.0),
+            {"num_epochs": 10.0},
+            TARGET_RECIPE.format(num_epochs=10.0),
+        ),
+    ],
+)
+def test_update_recipe_variables(base_recipe, override_variables, target_recipe):
+    updated_recipe = update_recipe_variables(base_recipe, override_variables)
+
+    updated_yaml = load_recipe_yaml_str_no_classes(updated_recipe)
+    target_yaml = load_recipe_yaml_str_no_classes(target_recipe)
+    _test_nested_equality(updated_yaml, target_yaml)
