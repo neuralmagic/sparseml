@@ -9,9 +9,6 @@
 # neuralmagic: no copyright
 # flake8: noqa
 
-import os
-import struct
-
 import numpy as np
 import onnx
 import onnx.numpy_helper
@@ -1086,6 +1083,10 @@ class ONNXQuantizer:
         bias_data = self.find_weight_data(bias_initializer)
         quantized_bias_name = bias_name + "_quantized"
 
+        if bias_name in self.quantized_value_map:
+            print(f"WARNING: {bias_name} already has a quantization value.")
+            return quantized_bias_name
+
         # input scale is not provided and this input is dynamically quantized so it is not pre-computed at this point
         # so resort to dynamic quantization for bias
         if (
@@ -1152,7 +1153,6 @@ class ONNXQuantizer:
             )
             self._quantized_weights.append(quantized_bias_entry)
 
-            assert bias_name not in self.quantized_value_map
             quantized_value = QuantizedValue(
                 bias_name,
                 quantized_bias_name,

@@ -19,8 +19,9 @@ Modifier for performing model distillation
 
 import logging
 from copy import deepcopy
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
+import torch
 import torch.nn.functional as TF
 from torch import Tensor
 from torch.nn import Module
@@ -28,7 +29,7 @@ from torch.optim import Optimizer
 
 from sparseml.optim import ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.utils import BaseLogger, tensors_module_forward
+from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
 
 
 __all__ = [
@@ -221,6 +222,9 @@ class DistillationModifier(ScheduledModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
+        student_outputs: Union[Tensor, Dict, Iterable] = None,
+        teacher_inputs: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]] = None,
+        **kwargs,
     ) -> Tensor:
         """
         Updates the bass loss with the distillation loss
@@ -233,58 +237,47 @@ class DistillationModifier(ScheduledModifier):
             (calculate batch number using this and epoch)
         :return: loss tensor with knowledge distillation loss added
         """
-        loss = super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
+        loss = super().loss_update(
+            loss, module, optimizer, epoch, steps_per_epoch, **kwargs
+        )
 
         if not self._distillation_enabled or self._disable_distillation:
             return loss
 
-        if self._student_outputs is None or self._student_inputs is None:
-            raise RuntimeError(
-                "A forward pass of the module must be run before calling loss_update "
-                "with a DistillationModifier"
+        if student_outputs is None or teacher_inputs is None:
+            raise ValueError(
+                "Student outputs and teacher inputs are required for "
+                "distillation loss update"
             )
 
         # ensure that teacher model is in eval mode and on correct device
         self._teacher.eval()
-        target_device = (
-            self._student_inputs.device
-            if isinstance(self._student_inputs, Tensor)
-            else self._student_inputs[0].device
-            if isinstance(self._student_inputs, Iterable)
-            else [
-                tens.device
-                for tens in self._student_inputs.values()
-                if isinstance(tens, Tensor)
-            ][0]
-        )
+        target_device = device_of(teacher_inputs)
         self._teacher.to(target_device)
+        with torch.no_grad():
+            teacher_outputs = tensors_module_forward(
+                teacher_inputs, self._teacher, check_feat_lab_inp=False
+            )
 
-        teacher_outputs = tensors_module_forward(
-            self._student_inputs, self._teacher, check_feat_lab_inp=False
-        )
-
-        assert type(self._student_outputs) == type(
-            teacher_outputs
-        ), "Student and teacher models must have the same output type"
+        if type(student_outputs) != type(teacher_outputs):
+            raise ValueError(
+                "Student and teacher models must have the same output type"
+            )
 
         distill_losses = []
-        if isinstance(self._student_outputs, Tensor):
+        if isinstance(student_outputs, Tensor):
             distill_losses.append(
-                self._calc_distill_loss(self._student_outputs, teacher_outputs)
+                self._calc_distill_loss(student_outputs, teacher_outputs)
             )
-        elif isinstance(self._student_outputs, Dict):
-            for key in self._distill_output_keys or self._student_outputs:
+        elif isinstance(student_outputs, Dict):
+            for key in self._distill_output_keys or student_outputs:
                 distill_losses.append(
-                    self._calc_distill_loss(
-                        self._student_outputs[key], teacher_outputs[key]
-                    )
+                    self._calc_distill_loss(student_outputs[key], teacher_outputs[key])
                 )
-        elif isinstance(self._student_outputs, Iterable):
-            for idx in self._distill_output_keys or range(len(self._student_outputs)):
+        elif isinstance(student_outputs, Iterable):
+            for idx in self._distill_output_keys or range(len(student_outputs)):
                 distill_losses.append(
-                    self._calc_distill_loss(
-                        self._student_outputs[idx], teacher_outputs[idx]
-                    )
+                    self._calc_distill_loss(student_outputs[idx], teacher_outputs[idx])
                 )
 
         # get distillation loss as average of individual output distillation loss values
@@ -292,10 +285,9 @@ class DistillationModifier(ScheduledModifier):
         distillation_loss = ((1.0 - self._hardness) * loss) + (
             self._hardness * teacher_loss
         )
-
-        _log_losses(
-            self.loggers, epoch, steps_per_epoch, loss, teacher_loss, distillation_loss
-        )
+        global_step = kwargs.get("global_step")
+        global_step = epoch * steps_per_epoch if global_step is None else global_step
+        _log_losses(self.loggers, global_step, loss, teacher_loss, distillation_loss)
         return distillation_loss
 
     def finalize(
@@ -340,31 +332,10 @@ class DistillationModifier(ScheduledModifier):
                     "Using self distillation with copy of the module's current state"
                 )
                 self._teacher = deepcopy(module)
-            self._set_student_hook(module)
             self._distillation_enabled = True
 
         if self.end_pending(epoch, steps_per_epoch):
-            self._disable_student_hook()
             self._distillation_enabled = False
-
-    def _set_student_hook(self, module: Module):
-        # delete hook if already exists
-        self._disable_student_hook()
-
-        def _track_inputs_and_outputs_hook(mod, inputs, outputs):
-            self._student_inputs = inputs
-            self._student_outputs = outputs
-
-        self._track_student_hook = module.register_forward_hook(
-            _track_inputs_and_outputs_hook
-        )
-
-    def _disable_student_hook(self):
-        if self._track_student_hook is not None:
-            self._track_student_hook.remove()
-            self._track_student_hook = None
-            self._student_inputs = None
-            self._student_outputs = None
 
     def _is_distillation_epoch(self, epoch):
         return self.start_epoch <= epoch < self.end_epoch
@@ -372,14 +343,11 @@ class DistillationModifier(ScheduledModifier):
 
 def _log_losses(
     loggers: List[BaseLogger],
-    epoch: float,
-    steps_per_epoch: int,
+    global_step: int,
     original_loss: float,
     teacher_loss: float,
     distillation_loss: float,
 ):
-    step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
-
     losses = {
         "original_loss": original_loss,
         "teacher_loss": teacher_loss,
@@ -388,4 +356,4 @@ def _log_losses(
 
     for logger in loggers:
         for (name, loss) in losses.items():
-            logger.log_scalar(f"DistillationModifier/{name}", loss.item(), step)
+            logger.log_scalar(f"DistillationModifier/{name}", loss.item(), global_step)

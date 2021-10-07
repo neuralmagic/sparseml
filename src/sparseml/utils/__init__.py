@@ -20,6 +20,7 @@ General utility functions used throughout sparseml
 
 from .frameworks import *
 from .helpers import *
+from .restricted_eval import *
 from .singleton import *
 from .worker import *
 from .wrapper import *
