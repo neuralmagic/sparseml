@@ -261,7 +261,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
             'zoo:model/stub/path?recipe_type=transfer'
         :param add_modifiers: additional modifiers that should be added to the
             returned manager alongside the ones loaded from the recipe file
-        :param recipe_variables: additional variable values to overridethe recipe
+        :param recipe_variables: additional variable values to override the recipe
             with (i.e. num_epochs, init_lr)
         :return: ScheduledModifierManager() created from the recipe file
         """

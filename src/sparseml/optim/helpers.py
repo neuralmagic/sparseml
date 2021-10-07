@@ -19,7 +19,7 @@ Helper functions for base Modifier and Manger utilities
 
 import logging
 import re
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Tuple, Union
 
 import yaml
 
@@ -85,7 +85,7 @@ def load_recipe_yaml_str(
         if extension not in ["md", "yaml"]:
             raise ValueError(
                 "Unsupported file extension for recipe. Excepted '.md' or '.yaml'. "
-                "Received {}".format(file_path)
+                f"Received {file_path}"
             )
         with open(file_path, "r") as yaml_file:
             yaml_str = yaml_file.read()
