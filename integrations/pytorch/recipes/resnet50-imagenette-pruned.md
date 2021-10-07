@@ -133,7 +133,7 @@ Alternatively, a full walk-through notebook is located at `sparseml/integrations
 *script command:*
 
 ```
-python integrations/pytorch/scripts/train.py \
+python integrations/pytorch/train.py \
     --recipe-path zoo:cv/classification/resnet_v1-50/pytorch/sparseml/imagenette/pruned-conservative?recipe_type=original \
     --pretrained True \
     --arch-key resnet50 \
