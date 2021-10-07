@@ -16,7 +16,7 @@
 Contains code for epoch modifiers in tensorflow_v1
 """
 
-from sparseml.optim import EpochRangeModifier as BaseEpochRangeModifier
+from sparseml.sparsification import EpochRangeModifier as BaseEpochRangeModifier
 from sparseml.tensorflow_v1.optim.modifier import (
     ScheduledModifier,
     TensorFlowModifierYAML,

@@ -30,8 +30,6 @@ from torch.optim.lr_scheduler import (
 )
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import LearningRateModifier as BaseLearningRateModifier
-from sparseml.optim import SetLearningRateModifier as BaseSetLearningRateModifier
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
@@ -42,6 +40,10 @@ from sparseml.pytorch.utils import (
     BaseLogger,
     get_optim_groups_learning_rates,
     set_optim_learning_rate,
+)
+from sparseml.sparsification import LearningRateModifier as BaseLearningRateModifier
+from sparseml.sparsification import (
+    SetLearningRateModifier as BaseSetLearningRateModifier,
 )
 from sparseml.utils import ALL_TOKEN, convert_to_bool
 

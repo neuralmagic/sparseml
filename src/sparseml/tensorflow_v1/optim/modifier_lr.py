@@ -18,8 +18,10 @@ Learning rate modifiers for TensorFlow models
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from sparseml.optim import LearningRateModifier as BaseLearningRateModifier
-from sparseml.optim import SetLearningRateModifier as BaseSetLearningRateModifier
+from sparseml.sparsification import LearningRateModifier as BaseLearningRateModifier
+from sparseml.sparsification import (
+    SetLearningRateModifier as BaseSetLearningRateModifier,
+)
 from sparseml.tensorflow_v1.optim.modifier import (
     EXTRAS_KEY_LEARNING_RATE,
     EXTRAS_KEY_SUMMARIES,

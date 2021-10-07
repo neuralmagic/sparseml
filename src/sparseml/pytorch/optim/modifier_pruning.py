@@ -25,8 +25,6 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import ConstantPruningModifier as BaseConstantPruningModifier
-from sparseml.optim import GMPruningModifier as BaseGMPruningModifier
 from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.mask_creator_pruning import (
@@ -51,6 +49,10 @@ from sparseml.pytorch.utils import (
     tensor_sparsity,
 )
 from sparseml.pytorch.utils.logger import BaseLogger
+from sparseml.sparsification import (
+    ConstantPruningModifier as BaseConstantPruningModifier,
+)
+from sparseml.sparsification import GMPruningModifier as BaseGMPruningModifier
 from sparseml.utils import (
     ALL_PRUNABLE_TOKEN,
     ALL_TOKEN,

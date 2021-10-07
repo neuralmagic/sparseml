@@ -16,8 +16,8 @@
 Modifiers related to controlling the training epochs while training a model
 """
 
-from sparseml.optim import EpochRangeModifier as BaseEpochRangeModifier
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
+from sparseml.sparsification import EpochRangeModifier as BaseEpochRangeModifier
 
 
 __all__ = ["EpochRangeModifier"]

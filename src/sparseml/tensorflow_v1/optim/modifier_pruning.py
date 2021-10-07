@@ -20,8 +20,10 @@ on models while pruning.
 import hashlib
 from typing import Any, Dict, List, Tuple, Union
 
-from sparseml.optim import ConstantPruningModifier as BaseConstantPruningModifier
-from sparseml.optim import GMPruningModifier as BaseGMPruningModifier
+from sparseml.sparsification import (
+    ConstantPruningModifier as BaseConstantPruningModifier,
+)
+from sparseml.sparsification import GMPruningModifier as BaseGMPruningModifier
 from sparseml.tensorflow_v1.optim.mask_creator_pruning import (
     PruningMaskCreator,
     load_mask_creator,

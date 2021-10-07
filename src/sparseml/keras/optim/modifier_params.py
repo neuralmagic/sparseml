@@ -24,7 +24,9 @@ from tensorflow import Tensor
 from sparseml.keras.optim.modifier import KerasModifierYAML, ScheduledModifier
 from sparseml.keras.optim.utils import get_layer_name_from_param
 from sparseml.keras.utils import keras
-from sparseml.optim import TrainableParamsModifier as BaseTrainableParamsModifier
+from sparseml.sparsification import (
+    TrainableParamsModifier as BaseTrainableParamsModifier,
+)
 from sparseml.utils import ALL_TOKEN, flatten_iterable
 
 

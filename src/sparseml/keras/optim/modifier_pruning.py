@@ -33,8 +33,10 @@ from sparseml.keras.optim.modifier import (
 )
 from sparseml.keras.optim.utils import get_layer_name_from_param
 from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, keras
-from sparseml.optim import ConstantPruningModifier as BaseConstantPruningModifier
-from sparseml.optim import GMPruningModifier as BaseGMPruningModifier
+from sparseml.sparsification import (
+    ConstantPruningModifier as BaseConstantPruningModifier,
+)
+from sparseml.sparsification import GMPruningModifier as BaseGMPruningModifier
 from sparseml.utils import ALL_TOKEN
 
 

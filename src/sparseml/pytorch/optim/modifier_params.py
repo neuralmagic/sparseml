@@ -24,13 +24,15 @@ from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import ModifierProp
-from sparseml.optim import TrainableParamsModifier as BaseTrainableParamsModifier
 from sparseml.pytorch.optim.modifier import (
     PyTorchModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import BaseLogger, get_named_layers_and_params_by_regex
+from sparseml.sparsification import (
+    TrainableParamsModifier as BaseTrainableParamsModifier,
+)
 from sparseml.utils import (
     ALL_TOKEN,
     INTERPOLATION_FUNCS,

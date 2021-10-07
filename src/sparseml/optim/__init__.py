@@ -22,8 +22,4 @@ Handles things like model pruning and increasing activation sparsity.
 from .analyzer import *
 from .manager import *
 from .modifier import *
-from .modifier_epoch import *
-from .modifier_lr import *
-from .modifier_params import *
-from .modifier_pruning import *
 from .sensitivity import *

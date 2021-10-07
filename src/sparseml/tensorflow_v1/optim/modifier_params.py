@@ -19,7 +19,9 @@ certain update formulas or patterns.
 
 from typing import Any, Dict, List, Tuple, Union
 
-from sparseml.optim import TrainableParamsModifier as BaseTrainableParamsModifier
+from sparseml.sparsification import (
+    TrainableParamsModifier as BaseTrainableParamsModifier,
+)
 from sparseml.tensorflow_v1.optim.modifier import (
     EXTRAS_KEY_VAR_LIST,
     ScheduledModifier,

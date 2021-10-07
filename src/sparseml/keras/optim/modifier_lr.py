@@ -26,8 +26,10 @@ from sparseml.keras.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, LoggingMode, keras
-from sparseml.optim import LearningRateModifier as BaseLearningRateModifier
-from sparseml.optim import SetLearningRateModifier as BaseSetLearningRateModifier
+from sparseml.sparsification import LearningRateModifier as BaseLearningRateModifier
+from sparseml.sparsification import (
+    SetLearningRateModifier as BaseSetLearningRateModifier,
+)
 from sparseml.utils import ALL_TOKEN
 
 
