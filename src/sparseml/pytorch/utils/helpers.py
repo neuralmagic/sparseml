@@ -42,6 +42,7 @@ from sparseml.utils import create_dirs, save_numpy
 
 __all__ = [
     "default_device",
+    "device_of",
     "get_optim_learning_rate",
     "get_optim_groups_learning_rates",
     "set_optim_learning_rate",
@@ -96,6 +97,19 @@ def default_device() -> str:
     device_ids = [str(i) for i in range(torch.cuda.device_count())]
 
     return "cuda:{}".format(",".join(device_ids))
+
+
+def device_of(inputs: Any):
+    if isinstance(inputs, Tensor):
+        return inputs.device
+    elif isinstance(inputs, Dict):
+        for tens in inputs.values():
+            return device_of(tens)
+    elif isinstance(inputs, Iterable):
+        return device_of(inputs[0])
+    else:
+        raise RuntimeError("Unknown type of inputs to device_of function")
+    return default_device()
 
 
 ##############################

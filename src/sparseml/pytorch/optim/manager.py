@@ -455,6 +455,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
+        **kwargs,
     ) -> Tensor:
         """
         Optional call that can be made on the optimizer to update the contained
@@ -468,13 +469,15 @@ class ScheduledModifierManager(BaseManager, Modifier):
             (calculate batch number using this and epoch)
         :return: the modified loss tensor
         """
-        super().loss_update(loss, module, optimizer, epoch, steps_per_epoch)
+        super().loss_update(loss, module, optimizer, epoch, steps_per_epoch, **kwargs)
 
         for mod in self._modifiers:
             if not mod.enabled:
                 continue
 
-            loss = mod.loss_update(loss, module, optimizer, epoch, steps_per_epoch)
+            loss = mod.loss_update(
+                loss, module, optimizer, epoch, steps_per_epoch, **kwargs
+            )
 
         return loss
 
