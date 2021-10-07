@@ -454,6 +454,11 @@ class TrainingArguments:
         default=True, metadata={"help": "Use pinned memory for data loading"}
     )
 
+    save_last_epoch: bool = field(
+        default=False,
+        metadata={"help": "Use save-last-epoch for saving last completed epoch"},
+    )
+
     def __post_init__(self):
         # add ddp args
         env_world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -618,7 +623,8 @@ def train(
 
             # save checkpoints
             _save_epoch = (
-                train_args.is_main_process
+                train_args.save_last_epoch
+                or train_args.is_main_process
                 and train_args.save_epochs
                 and epoch in train_args.save_epochs
             )
