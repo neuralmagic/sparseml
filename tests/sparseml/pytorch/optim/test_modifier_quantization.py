@@ -166,20 +166,16 @@ def test_quantization_modifier_yaml():
     model_fuse_fn_name = "fuse_module"
     disable_quantization_observer_epoch = 2.0
     freeze_bn_stats_epoch = 3.0
-    yaml_str = """
+    quantize_embeddings = False
+    yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
             submodules: {submodules}
             model_fuse_fn_name: {model_fuse_fn_name}
             disable_quantization_observer_epoch: {disable_quantization_observer_epoch}
             freeze_bn_stats_epoch: {freeze_bn_stats_epoch}
-        """.format(
-        start_epoch=start_epoch,
-        submodules=submodules,
-        model_fuse_fn_name=model_fuse_fn_name,
-        disable_quantization_observer_epoch=disable_quantization_observer_epoch,
-        freeze_bn_stats_epoch=freeze_bn_stats_epoch,
-    )
+            quantize_embeddings: {quantize_embeddings}
+        """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
     )  # type: QuantizationModifier
@@ -192,6 +188,7 @@ def test_quantization_modifier_yaml():
         model_fuse_fn_name=model_fuse_fn_name,
         disable_quantization_observer_epoch=disable_quantization_observer_epoch,
         freeze_bn_stats_epoch=freeze_bn_stats_epoch,
+        quantize_embeddings=quantize_embeddings,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -219,4 +216,9 @@ def test_quantization_modifier_yaml():
         yaml_modifier.freeze_bn_stats_epoch
         == serialized_modifier.freeze_bn_stats_epoch
         == obj_modifier.freeze_bn_stats_epoch
+    )
+    assert (
+        yaml_modifier.quantize_embeddings
+        == serialized_modifier.quantize_embeddings
+        == obj_modifier.quantize_embeddings
     )

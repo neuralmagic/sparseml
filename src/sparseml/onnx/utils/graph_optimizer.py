@@ -165,8 +165,12 @@ def quantize_resnet_identity_add_inputs(quantized_model: onnx.ModelProto) -> boo
         quantize_node = get_quantize_parent_for_dequantize_node(
             quantized_model, dequantize_node
         )
+
         # check that the quantize block takes input from the same relu
-        if quantize_node.input[0] != other_input_node.output[0]:
+        if (
+            quantize_node is None
+            or quantize_node.input[0] != other_input_node.output[0]
+        ):
             continue
 
         # create de-quantize node for identity

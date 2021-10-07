@@ -57,7 +57,7 @@ for your dataset and training environment.
 To transfer learn ResNet-50 on [Imagenette](https://github.com/fastai/imagenette) with this recipe, run the following example command.
 
 ```
-python integrations/pytorch/vision.py train \
+python integrations/pytorch/train.py \
     --recipe-path integrations/pytorch/recipes/classification.transfer_learn_pruned.md \
     --checkpoint-path /PATH/TO/MODEL_CHECKPOINT \
     --arch-key resnet50 \
@@ -74,7 +74,7 @@ python integrations/pytorch/vision.py train \
 To transfer learn MobileNet on [Imagenette](https://github.com/fastai/imagenette) with this recipe, run the following example command.
 
 ```
-python integrations/pytorch/vision.py train \
+python integrations/pytorch/train.py \
     --recipe-path  integrations/pytorch/recipes/classification.transfer_learn_pruned.md\
     --checkpoint-path /PATH/TO/MODEL_CHECKPOINT \
     --arch-key mobilenet \
