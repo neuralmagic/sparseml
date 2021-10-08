@@ -157,7 +157,8 @@ def test_recipe_builder_build_variables():
     assert recipe_builder.get_variable("target_sparsity") is None
 
     recipe_builder.set_variable("init_lr", 0.05)
-    recipe_builder.set_variable("target_sparsity", 0.9)
+    builder_ref = recipe_builder.set_variable("target_sparsity", 0.9)
+    assert builder_ref is recipe_builder  # test that setter is chainable
 
     assert recipe_builder.get_variable("init_lr") == 0.05
     assert recipe_builder.get_variable("target_sparsity") == 0.9
