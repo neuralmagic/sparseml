@@ -19,7 +19,7 @@ implementations
 
 
 import textwrap
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import yaml
 
@@ -45,7 +45,7 @@ class ModifierYAMLBuilder(object):
         a YAML representation for
     """
 
-    def __init__(self, modifier_class: type):
+    def __init__(self, modifier_class: Type[BaseModifier]):
         assert issubclass(
             modifier_class, BaseModifier
         ), "a subclass of Modifier must be used to instantiate a ModifierYAMLBuilder"
@@ -59,7 +59,7 @@ class ModifierYAMLBuilder(object):
                 self._add_setter_getter(attr)
 
     @property
-    def modifier_class(self) -> type:
+    def modifier_class(self) -> Type[BaseModifier]:
         """
         :return: the class of the Modifier for which this object is building a string
         """
@@ -145,7 +145,7 @@ class RecipeYAMLBuilder(object):
 
     def get_modifier_builders(
         self,
-        modifier_type: Optional[Union[type, str]] = None,
+        modifier_type: Optional[Union[Type[BaseModifier], str]] = None,
         modifier_groups: Optional[Union[List[str], str]] = None,
     ):
         """
@@ -261,7 +261,7 @@ class RecipeYAMLBuilder(object):
 
     @staticmethod
     def _modifier_builder_is_instance(
-        builder: ModifierYAMLBuilder, type_: Union[type, str]
+        builder: ModifierYAMLBuilder, type_: Union[Type[BaseModifier], str]
     ) -> bool:
         builder_class = builder.modifier_class
         if isinstance(type_, str):

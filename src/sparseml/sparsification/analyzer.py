@@ -17,10 +17,8 @@ Code for running analysis on neural networks
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 from sparseml.sparsification.model_info import ModelInfo, ModelResult
-from sparseml.utils import clean_path, create_parent_dirs
 
 
 __all__ = [
