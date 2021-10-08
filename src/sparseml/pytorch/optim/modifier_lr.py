@@ -30,7 +30,6 @@ from torch.optim.lr_scheduler import (
 )
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import LearningRate, SetLearningRate
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
@@ -41,6 +40,10 @@ from sparseml.pytorch.utils import (
     BaseLogger,
     get_optim_groups_learning_rates,
     set_optim_learning_rate,
+)
+from sparseml.sparsification import LearningRateModifier as BaseLearningRateModifier
+from sparseml.sparsification import (
+    SetLearningRateModifier as BaseSetLearningRateModifier,
 )
 from sparseml.utils import ALL_TOKEN, convert_to_bool
 
@@ -74,7 +77,7 @@ def _log_lr(
 
 
 @PyTorchModifierYAML()
-class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
+class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
     """
     Modifier to set the learning rate to a specific value at a certain point in the
     training process.
@@ -107,7 +110,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         log_types: Union[str, List[str]] = ALL_TOKEN,
         constant_logging: bool = False,
     ):
-        super().__init__(
+        super(SetLearningRateModifier, self).__init__(
             learning_rate=learning_rate,
             log_types=log_types,
             start_epoch=start_epoch,
@@ -473,7 +476,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
 
 
 @PyTorchModifierYAML()
-class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
+class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
     """
     Modifier to set the learning rate to specific values at certain points in the
     training process between set epochs.
@@ -519,7 +522,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         log_types: Union[str, List[str]] = ALL_TOKEN,
         constant_logging: bool = False,
     ):
-        super().__init__(
+        super(LearningRateModifier, self).__init__(
             lr_class=lr_class,
             lr_kwargs=lr_kwargs,
             init_lr=init_lr,

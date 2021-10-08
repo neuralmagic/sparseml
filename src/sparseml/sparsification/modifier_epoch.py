@@ -13,21 +13,21 @@
 # limitations under the License.
 
 """
-Contains code for epoch modifiers in Keras
+Base class for modifiers related to controlling the training epochs while training a
+model
 """
 
-from sparseml.keras.optim.modifier import KerasModifierYAML, ScheduledModifier
-from sparseml.sparsification import EpochRangeModifier as BaseEpochRangeModifier
+from sparseml.optim.modifier import BaseModifier, BaseScheduled
 
 
 __all__ = ["EpochRangeModifier"]
 
 
-@KerasModifierYAML()
-class EpochRangeModifier(BaseEpochRangeModifier, ScheduledModifier):
+class EpochRangeModifier(BaseModifier, BaseScheduled):
     """
-    Simple modifier to set the range of epochs to train over for
-    the recalibration process.
+    Simple modifier to set the range of epochs when applying a modifier
+    (ie to set min and max epochs within a range without hacking other modifiers).
+
     Note, that if other modifiers exceed the range of this one for min or max epochs,
     this modifier will not have an effect.
 
@@ -35,17 +35,17 @@ class EpochRangeModifier(BaseEpochRangeModifier, ScheduledModifier):
     |   !EpochRangeModifier:
     |       start_epoch: 0
     |       end_epoch: 90
+
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
     """
 
     def __init__(
         self,
         start_epoch: float,
         end_epoch: float,
+        **kwargs,
     ):
-        """
-        :param start_epoch: The epoch to start the modifier at
-        :param end_epoch: The epoch to end the modifier at
-        """
         super(EpochRangeModifier, self).__init__(
-            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
+            start_epoch=start_epoch, end_epoch=end_epoch, **kwargs
         )
