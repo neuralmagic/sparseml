@@ -17,13 +17,14 @@ Modifiers related to controlling the training epochs while training a model
 """
 
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
+from sparseml.sparsification import EpochRangeModifier as BaseEpochRangeModifier
 
 
 __all__ = ["EpochRangeModifier"]
 
 
 @PyTorchModifierYAML()
-class EpochRangeModifier(ScheduledModifier):
+class EpochRangeModifier(BaseEpochRangeModifier, ScheduledModifier):
     """
     Simple modifier to set the range of epochs for running in a scheduled optimizer
     (ie to set min and max epochs within a range without hacking other modifiers).
@@ -45,6 +46,6 @@ class EpochRangeModifier(ScheduledModifier):
         start_epoch: float,
         end_epoch: float,
     ):
-        super().__init__(
+        super(EpochRangeModifier, self).__init__(
             start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1
         )

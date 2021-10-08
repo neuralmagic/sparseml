@@ -25,7 +25,7 @@ from typing import Any, Callable, Dict, List, Union
 import yaml
 
 from sparseml.optim.helpers import evaluate_recipe_yaml_str_equations
-from sparseml.utils import validate_str_iterable
+from sparseml.utils import ALL_TOKEN, validate_str_iterable
 
 
 __all__ = [
@@ -438,7 +438,7 @@ class BaseModifier(BaseObject):
             return 1
         return 0
 
-    def __init__(self, log_types: Union[str, List[str]], **kwargs):
+    def __init__(self, log_types: Union[str, List[str]] = ALL_TOKEN, **kwargs):
         super().__init__(**kwargs)
         self._log_types = (
             validate_str_iterable(
@@ -584,11 +584,11 @@ class BaseScheduled(BaseObject):
 
     def __init__(
         self,
-        start_epoch: float,
-        min_start: float,
-        end_epoch: float,
-        min_end: float,
-        end_comparator: Union[int, None],
+        start_epoch: float = -1.0,
+        min_start: float = -1.0,
+        end_epoch: float = -1.0,
+        min_end: float = -1.0,
+        end_comparator: Union[int, None] = 0,
         **kwargs,
     ):
         super().__init__(**kwargs)

@@ -26,7 +26,10 @@ from sparseml.keras.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.keras.utils import KerasLogger, LoggerSettingCallback, LoggingMode, keras
-from sparseml.optim import LearningRate, SetLearningRate
+from sparseml.sparsification import LearningRateModifier as BaseLearningRateModifier
+from sparseml.sparsification import (
+    SetLearningRateModifier as BaseSetLearningRateModifier,
+)
 from sparseml.utils import ALL_TOKEN
 
 
@@ -186,7 +189,7 @@ class LearningRateLoggingCallback(LoggerSettingCallback):
 
 
 @KerasModifierYAML()
-class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
+class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
     """
     Modifier to set the learning rate to a specific value at a certain point
     in the training process. Once that point is reached, will update the optimizer's
@@ -212,7 +215,7 @@ class SetLearningRateModifier(ScheduledModifier, SetLearningRate):
         end_epoch: float = -1,
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
-        super().__init__(
+        super(SetLearningRateModifier, self).__init__(
             learning_rate=learning_rate,
             log_types=log_types,
             start_epoch=start_epoch,
@@ -316,7 +319,7 @@ class _PiecewiseConstantDecay(keras.optimizers.schedules.PiecewiseConstantDecay)
 
 
 @KerasModifierYAML()
-class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
+class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
     """
     Modifier to set the learning rate to follow specific schedulers
     within a period of epochs.
@@ -358,7 +361,7 @@ class LearningRateModifier(ScheduledUpdateModifier, LearningRate):
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
-        super().__init__(
+        super(LearningRateModifier, self).__init__(
             lr_class=lr_class,
             lr_kwargs=lr_kwargs,
             init_lr=init_lr,
