@@ -17,11 +17,7 @@ import random
 import pytest
 
 from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.sparsification import (
-    ModifierYAMLBuilder,
-    RecipeYAMLBuilder,
-    to_yaml_str,
-)
+from sparseml.sparsification import ModifierYAMLBuilder, RecipeYAMLBuilder, to_yaml_str
 
 
 class FakeModifier(BaseModifier):
@@ -77,10 +73,9 @@ def test_modifier_builder_setters_getters(modifier_class):
 
 
 def _create_fake_modifier_builder(prop_one, prop_two):
-    builder = ModifierYAMLBuilder(FakeModifier)
-    builder.set_prop_one(prop_one)
-    builder.set_prop_two(prop_two)
-    return builder
+    return (
+        ModifierYAMLBuilder(FakeModifier).set_prop_one(prop_one).set_prop_two(prop_two)
+    )
 
 
 def _expected_fake_modifier_yaml_str(prop_one, prop_two):
@@ -183,7 +178,8 @@ def test_recipe_builder_modifier_groups():
         # group names must contain 'modifiers'
         recipe_builder.add_modifier_group("invalid_name")
 
-    recipe_builder.add_modifier_group("modifiers")
+    builder_ref = recipe_builder.add_modifier_group("modifiers")
+    assert builder_ref is recipe_builder  # test method is chainable
     assert isinstance(recipe_builder.get_modifier_group("modifiers"), list)
     assert len(recipe_builder.get_modifier_group("modifiers")) == 0
 

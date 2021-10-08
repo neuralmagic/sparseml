@@ -78,8 +78,9 @@ class ModifierYAMLBuilder(object):
 
     def _add_setter_getter(self, property_name: str):
         # define generic setter and getter functions for this property
-        def setter(self_, val: Any):
+        def setter(self_, val: Any) -> ModifierYAMLBuilder:
             self_._properties[property_name] = val
+            return self_
 
         def getter(self_):
             return self_._properties.get(property_name)
@@ -115,14 +116,14 @@ class RecipeYAMLBuilder(object):
 
     def add_modifier_group(
         self, name: str, modifier_builders: List[ModifierYAMLBuilder] = None
-    ):
+    ) -> "RecipeYAMLBuilder":
         """
         Adds a modifier group with the given name to this builder
 
         :param name: name of new modifier group
         :param modifier_builders: list of modifier builder objects to initialize
             this group with. Default is an empty list
-        :return:
+        :return: a reference to this object with the modifier group now added
         """
         self._validate_modifier_group_name(name)
         if name in self._modifier_groups:
@@ -133,6 +134,7 @@ class RecipeYAMLBuilder(object):
         modifier_builders = modifier_builders or []
         self._modifier_groups[name] = modifier_builders
         self._validate()
+        return self
 
     def get_modifier_group(self, name: str) -> Optional[List[ModifierYAMLBuilder]]:
         """
@@ -190,14 +192,16 @@ class RecipeYAMLBuilder(object):
         """
         return name in self._variables
 
-    def set_variable(self, name: str, val: Any):
+    def set_variable(self, name: str, val: Any) -> "RecipeYAMLBuilder":
         """
         Sets the given variable name to the given value
 
         :param name: variable name to set
         :param val: value to set the variable to
+        :return: a reference to this object with the variable now set
         """
         self._variables[name] = val
+        return self
 
     def build_yaml_str(self) -> str:
         """
