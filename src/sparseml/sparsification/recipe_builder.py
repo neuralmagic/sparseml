@@ -82,7 +82,7 @@ class ModifierYAMLBuilder(object):
             self_._properties[property_name] = val
             return self_
 
-        def getter(self_):
+        def getter(self_) -> Optional[Any]:
             return self_._properties.get(property_name)
 
         # bind setter and getter functions to this class
