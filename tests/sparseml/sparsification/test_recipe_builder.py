@@ -16,9 +16,8 @@ import random
 
 import pytest
 
-from sparseml.optim import (
-    BaseModifier,
-    ModifierProp,
+from sparseml.optim import BaseModifier, ModifierProp
+from sparseml.sparsification import (
     ModifierYAMLBuilder,
     RecipeYAMLBuilder,
     to_yaml_str,

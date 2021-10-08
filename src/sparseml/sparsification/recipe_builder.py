@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
-from sparseml.optim.modifier import BaseModifier, ModifierProp
+from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.utils import create_parent_dirs
 
 

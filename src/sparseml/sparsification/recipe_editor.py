@@ -20,8 +20,8 @@ structure and analysis
 
 from abc import ABC, abstractmethod
 
-from sparseml.optim.model_info import ModelInfo
-from sparseml.optim.recipe_builder import RecipeYAMLBuilder
+from sparseml.sparsification.model_info import ModelInfo
+from sparseml.sparsification.recipe_builder import RecipeYAMLBuilder
 
 
 __all__ = [

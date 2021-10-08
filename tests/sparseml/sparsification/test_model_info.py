@@ -14,7 +14,7 @@
 
 import pytest
 
-from sparseml.optim import LayerInfo, ModelResult, Result
+from sparseml.sparsification import LayerInfo, ModelResult, Result
 
 
 def _test_layer_info_eq(layer_one, layer_two):
