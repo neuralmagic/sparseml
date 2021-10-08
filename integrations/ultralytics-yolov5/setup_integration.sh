@@ -5,4 +5,6 @@
 # Command: `bash setup_integration.sh`
 
 git clone https://github.com/neuralmagic/yolov5.git
-pip install -r yolov5/requirements.txt
+cd yolov5
+git checkout release/0.7
+pip install -r requirements.txt
