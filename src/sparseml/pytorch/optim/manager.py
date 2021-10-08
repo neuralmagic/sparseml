@@ -369,7 +369,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         steps_per_epoch: int,
         wrap_optim: Any = None,
         epoch: float = None,
-        use_parallel_module: bool = False,
+        allow_parallel_module: bool = True,
     ) -> RecipeManagerStepWrapper:
         """
         Modify the given module and optimizer for training aware algorithms such as
@@ -386,12 +386,12 @@ class ScheduledModifierManager(BaseManager, Modifier):
             the optimizer.step() function.
         :param epoch: Optional epoch that can be passed in to start modifying at.
             Defaults to the epoch that was supplied to the initialize function.
-        :param use_parallel_module: if False, a DataParallel or DistributedDataParallel
-            module passed to this function will be unwrapped to its base module during
-            recipe initialization by referencing module.module. This is useful so a
-            recipe may reference the base module parameters instead of the wrapped
-            distributed ones. Set to True to not unwrap the distributed module. Default
-            is False
+        :param allow_parallel_module: if False, a DataParallel or
+            DistributedDataParallel module passed to this function will be unwrapped
+            to its base module during recipe initialization by referencing
+            module.module. This is useful so a recipe may reference the base module
+            parameters instead of the wrapped distributed ones. Set to True to not
+            unwrap the distributed module. Default is True
         :return: A wrapped optimizer object. The wrapped object makes all the
             original properties for the wrapped object available so it can be
             used without any additional code changes.
@@ -399,13 +399,18 @@ class ScheduledModifierManager(BaseManager, Modifier):
         if epoch is None:
             epoch = self._initialize_epoch
 
-        if is_parallel_model(module) and not use_parallel_module:
-            _LOGGER.warning(
-                "Parallel module detected by ScheduledModifierManager. Unwrapping to "
-                "use base module for recipe initialization. Run modify() with "
-                "use_parallel_module=True to suppress this behavior"
-            )
-            module = module.module  # unwrap parallel module
+        if is_parallel_model(module) and not allow_parallel_module:
+            if allow_parallel_module:
+                _LOGGER.warning(
+                    "Parallel module detected by ScheduledModifierManager. Note that "
+                    "the base module parameters will be prefixed by 'module.' which "
+                    "may lead to matching issues if unaccounted for in recipe. Run "
+                    "modify() with allow_parallel_module=False to unwrap the parallel "
+                    "module during recipe initialization"
+                )
+            else:
+                _LOGGER.info("Unwrapping parallel module for recipe initialization")
+                module = module.module  # unwrap parallel module
 
         if not self.initialized:
             self.initialize(module, epoch)
