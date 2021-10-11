@@ -127,11 +127,13 @@ EXAMPLES
 Example command for pruning resnet50 on imagenet dataset:
 python integrations/pytorch/train.py \
     --recipe-path ~/sparseml_recipes/pruning_resnet50.yaml \
-    --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
+    --arch-key resnet50 --dataset imagenet \
+    --dataset-path ~/datasets/ILSVRC2012 \
     --train-batch-size 256 --test-batch-size 1024
 
 ##########
-Example command for transfer learning sparse mobilenet_v1 on an image folder dataset:
+Example command for transfer learning sparse mobilenet_v1 on an image folder
+dataset:
 python integrations/pytorch/train.py \
     --sparse-transfer-learn \
     --recipe-path  ~/sparseml_recipes/pruning_mobilenet.yaml \
@@ -150,9 +152,13 @@ integrations/pytorch/train.py \
 <TRAIN.PY ARGUMENTS>
 """
 import argparse
+import glob
 import json
 import os
+from collections import deque
+from contextlib import suppress
 from dataclasses import dataclass, field
+from itertools import chain
 from typing import Any, List, Optional, Tuple
 
 import torch
@@ -218,9 +224,15 @@ class TrainingArguments:
     :param optim: str respresnting the optimizer type to use, one of
         [SGD, Adam, RMSprop].
     :param logs_dir: The path to the directory for saving logs.
-    :param save_best_after: int epoch number to start saving the best
-        validation result after until the end of training.
-    :param save_epochs: List of int epochs to save checkpoints at.
+    :param save_strategy : The save strategy to use for saving checkpoints.
+        Can be one of the following(defaults to steps):
+        *`no`: No save is done during training.
+        *`epoch`: Save is done at the end of each epoch.
+        *`steps`: Save is done every :obj:`save_steps`
+    :param save_steps: Number of updates steps before two checkpoint saves if
+        `save_strategy="steps"`.
+    :param save_total_limit If a value is passed, will limit the total amount
+        of checkpoints. Deletes the older checkpoints in `save_dir`.
     :param use_mixed_precision: bool to train model using mixed precision.
         Supported environments are single GPU and multiple GPUs using
         DistributedDataParallel with one GPU per process.
@@ -248,7 +260,6 @@ class TrainingArguments:
         default=4.
     :param loader_pin_memory: bool to use pinned memory for data loading,
         default=True.
-    :param save_last_epoch: bool to save last completed epoch
     """
 
     train_batch_size: int = field(
@@ -360,17 +371,6 @@ class TrainingArguments:
         },
     )
 
-    save_best_after: int = field(
-        default=-1,
-        metadata={
-            "help": "start saving the best validation result after the given "
-            "epoch completes until the end of training"
-        },
-    )
-    save_epochs: List[int] = field(
-        default_factory=lambda: [], metadata={"help": "epochs to save checkpoints at"}
-    )
-
     use_mixed_precision: Optional[bool] = field(
         default=False,
         metadata={
@@ -402,17 +402,18 @@ class TrainingArguments:
     pretrained_dataset: str = field(
         default=None,
         metadata={
-            "help": "The dataset to load pretrained weights for if pretrained is "
-            "set. Default is None which will load the default dataset for "
-            "the architecture. Ex can be set to imagenet, cifar10, etc",
+            "help": "The dataset to load pretrained weights for if "
+            "pretrained is set. Default is None which will load"
+            " the default dataset for the architecture."
+            "Ex can be set to imagenet, cifar10, etc",
         },
     )
 
     model_kwargs: json.loads = field(
         default_factory=lambda: {},
         metadata={
-            "help": "Keyword arguments to be passed to model constructor, should "
-            "be given as a json object"
+            "help": "Keyword arguments to be passed to model constructor, "
+            "should be given as a json object"
         },
     )
 
@@ -427,8 +428,8 @@ class TrainingArguments:
     model_tag: str = field(
         default=None,
         metadata={
-            "help": "A tag to use for the model for saving results under save-dir, "
-            "defaults to the model arch and dataset used",
+            "help": "A tag to use for the model for saving results under "
+            "save-dir, defaults to the model arch and dataset used",
         },
     )
 
@@ -436,6 +437,23 @@ class TrainingArguments:
         default="pytorch_vision",
         metadata={
             "help": "The path to the directory for saving results",
+        },
+    )
+    save_strategy: utils.SaveStrategy = field(
+        default="steps",
+        metadata={"help": "The checkpoint save strategy to use."},
+    )
+    save_steps: int = field(
+        default=500, metadata={"help": "Save checkpoint every X updates steps."}
+    )
+    save_total_limit: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Limit the total amount of checkpoints. "
+                "Deletes the older checkpoints in the output_dir. Default is "
+                "unlimited checkpoints"
+            )
         },
     )
 
@@ -453,11 +471,6 @@ class TrainingArguments:
 
     loader_pin_memory: bool = field(
         default=True, metadata={"help": "Use pinned memory for data loading"}
-    )
-
-    save_last_epoch: bool = field(
-        default=True,
-        metadata={"help": "Use save-last-epoch for saving last completed epoch"},
     )
 
     def __post_init__(self):
@@ -495,6 +508,7 @@ class TrainingArguments:
             set_deterministic_seeds(0)
 
         self.approximate = False
+        self.save_strategy = utils.SaveStrategy(self.save_strategy)
 
 
 def train(
@@ -583,6 +597,8 @@ def train(
 
         best_loss = None
         val_res = None
+        steps = 0
+        saved_patterns = deque([])
 
         while epoch < manager.max_epochs:
             if train_args.debug_steps > 0:
@@ -611,47 +627,44 @@ def train(
                 if epoch >= train_args.save_best_after and (
                     best_loss is None or val_loss <= best_loss
                 ):
-                    utils.save_model_training(
-                        model,
-                        optim,
-                        input_shape,
-                        "checkpoint-best",
-                        save_dir,
-                        epoch,
-                        val_res,
-                    )
                     best_loss = val_loss
 
-            # save latest-completed epoch
-            if train_args.save_last_epoch:
-                utils.save_model_training(
-                    model,
-                    optim,
-                    input_shape,
-                    "checkpoint-latest",
-                    save_dir,
-                    epoch,
-                    val_res,
-                )
-
-            # save checkpoints
-            _save_epoch = (
-                train_args.is_main_process
-                and train_args.save_epochs
-                and epoch in train_args.save_epochs
+            steps += 1
+            _save_epoch = train_args.save_strategy == utils.SaveStrategy.EPOCHS
+            _save_step = (
+                train_args.save_strategy == utils.SaveStrategy.STEPS
+                and steps == train_args.save_steps
             )
-            if _save_epoch:
+
+            _save_checkpoint = train_args.save_strategy != utils.SaveStrategy.NO and (
+                _save_epoch or _save_step
+            )
+            _save_name = f"checkpoint-{epoch:04d}-{val_loss:.04f}"
+            if _save_checkpoint:
                 utils.save_model_training(
                     model,
                     optim,
                     input_shape,
-                    f"checkpoint-{epoch:04d}-{val_loss:.04f}",
+                    _save_name,
                     save_dir,
                     epoch,
                     val_res,
                 )
+                onnx_pattern = os.path.join(save_dir, _save_name)
+                framework_pattern = os.path.join(save_dir, "framework", _save_name)
+                saved_patterns.append((onnx_pattern, framework_pattern))
+                if len(saved_patterns) > train_args.save_total_limit:
+                    onnx_pattern, framework_pattern = saved_patterns.popleft()
+                    with suppress(FileNotFoundError):
+                        for f in chain(
+                            glob.glob(f"{onnx_pattern}*"),
+                            glob.glob(f"{framework_pattern}*"),
+                        ):
+                            os.remove(f)
 
             epoch += 1
+            if _save_step:
+                steps = 0
 
         # export the final model
         LOGGER.info("completed...")
@@ -683,7 +696,8 @@ def main():
     save_dir, loggers = utils.get_save_dir_and_loggers(training_args, task=CURRENT_TASK)
 
     input_shape = ModelRegistry.input_shape(training_args.arch_key)
-    image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
+    # assume shape [C, S, S] where S is the image size
+    image_size = input_shape[1]
 
     (
         train_dataset,

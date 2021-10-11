@@ -64,6 +64,24 @@ class Tasks(Enum):
     PR_SENSITIVITY = auto()
 
 
+@unique
+class SaveStrategy(Enum):
+    """
+    A class representing supported save strategies
+    """
+
+    NO = "no"
+    STEPS = "steps"
+    EPOCHS = "epochs"
+
+    @classmethod
+    def _missing_(cls, value):
+        raise ValueError(
+            f"{value} is not a valid {cls.__name__}, please select one of "
+            f"{list(cls._value2member_map_.keys())}"
+        )
+
+
 # loggers
 def get_save_dir_and_loggers(
     args: Any, task: Optional[Tasks] = None
@@ -204,7 +222,8 @@ def _create_val_dataset_and_loader(
                 )
             print(f"created val_dataset: {val_dataset}")
         else:
-            val_loader = None  # only val dataset needed to get the number of classes
+            # only val dataset needed to get the number of classes
+            val_loader = None
         return val_dataset, val_loader
     return None, None  # val dataset not needed
 
