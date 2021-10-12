@@ -32,7 +32,7 @@ def _test_layer_info_eq(layer_one, layer_two):
     "layer_info,expected_dict",
     [
         (
-            LayerInfo("layers.1", "TestLayer", attributes={"val": 1}),
+            LayerInfo(name="layers.1", op_type="TestLayer", attributes={"val": 1}),
             {
                 "name": "layers.1",
                 "op_type": "TestLayer",
@@ -128,20 +128,20 @@ def _test_model_result_eq(result_one, result_two):
     "model_result,expected_dict",
     [
         (
-            ModelResult("lr_sensitivity", value={0.1: 100, 0.2: 50}),
+            ModelResult(analysis_type="lr_sensitivity", value={0.1: 100, 0.2: 50}),
             {
                 "analysis_type": "lr_sensitivity",
                 "value": {0.1: 100, 0.2: 50},
                 "layer_results": {},
-                "attributes": {},
+                "attributes": None,
             },
         ),
         (
             ModelResult(
-                "pruning_sensitivity",
+                analysis_type="pruning_sensitivity",
                 layer_results={
-                    "net.1": Result({0.0: 0.25, 0.6: 0.2, 0.8: 0.1}),
-                    "net.2": Result({0.0: 0.2, 0.6: 0.2, 0.8: 0.2}),
+                    "net.1": Result(value={0.0: 0.25, 0.6: 0.2, 0.8: 0.1}),
+                    "net.2": Result(value={0.0: 0.2, 0.6: 0.2, 0.8: 0.2}),
                 },
             ),
             {
@@ -150,14 +150,14 @@ def _test_model_result_eq(result_one, result_two):
                 "layer_results": {
                     "net.1": {
                         "value": {0.0: 0.25, 0.6: 0.2, 0.8: 0.1},
-                        "attributes": {},
+                        "attributes": None,
                     },
                     "net.2": {
                         "value": {0.0: 0.2, 0.6: 0.2, 0.8: 0.2},
-                        "attributes": {},
+                        "attributes": None,
                     },
                 },
-                "attributes": {},
+                "attributes": None,
             },
         ),
     ],

@@ -24,6 +24,7 @@ from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy
+from pydantic import BaseModel, Field, root_validator
 
 from sparseml.utils import clean_path, create_parent_dirs
 
@@ -36,49 +37,63 @@ __all__ = [
 ]
 
 
-class LayerInfo(object):
+class LayerInfo(BaseModel):
     """
     Class for storing properties about a layer in a model
-
-    :param name: unique name of the layer within its model
-    :param op_type: type of layer, i.e. "conv", "linear"
-    :param params: number of non-bias parameters in the layer. must be
-        included for prunable layers
-    :param bias_params: number of bias parameters in the layer
-    :param prunable: True if the layers non-bias parameters can be pruned.
-        Default is False
-    :param flops: optional number of float operations within the layer
-    :param execution_order: optional execution order of the layer within the
-        model. Default is -1
-    :param attributes: optional dictionary of string attribute names to their
-        values
     """
 
-    def __init__(
-        self,
-        name: str,
-        op_type: str,
-        params: Optional[int] = None,
-        bias_params: Optional[int] = None,
-        prunable: bool = False,
-        flops: Optional[int] = None,
-        execution_order: int = -1,
-        attributes: Optional[Dict[str, Any]] = None,
-    ):
+    name: str = Field(
+        title="name",
+        description="unique name of the layer within its model",
+    )
+    op_type: str = Field(
+        title="op_type",
+        description="type of layer, i.e. 'conv', 'linear'",
+    )
+    params: Optional[int] = Field(
+        title="params",
+        default=None,
+        description=(
+            "number of non-bias parameters in the layer. must be included "
+            "for prunable layers"
+        ),
+    )
+    bias_params: Optional[int] = Field(
+        title="bias_params",
+        default=None,
+        description="number of bias parameters in the layer",
+    )
+    prunable: bool = Field(
+        title="prunable",
+        default=False,
+        description="True if the layers non-bias parameters can be pruned",
+    )
+    flops: Optional[int] = Field(
+        title="flops",
+        default=None,
+        description="number of float operations within the layer",
+    )
+    execution_order: int = Field(
+        title="execution_order",
+        default=-1,
+        description="execution order of the layer within the model",
+    )
+    attributes: Optional[Dict[str, Any]] = Field(
+        title="attributes",
+        default=None,
+        description="dictionary of string attribute names to their values",
+    )
+
+    @root_validator(pre=True)
+    def check_params_if_prunable(_, values):
+        prunable = values.get("prunable")
+        params = values.get("params")
         if prunable and not params:
             raise ValueError(
                 f"Prunable layers must have non 0 number of params given {params} "
-                f"for layer {name} with prunable set to {prunable}"
+                f"for layer {values.get('name')} with prunable set to {prunable}"
             )
-
-        self.name = name
-        self.op_type = op_type
-        self.params = params
-        self.bias_params = bias_params
-        self.prunable = prunable
-        self.flops = flops
-        self.execution_order = execution_order
-        self.attributes = attributes or {}
+        return values
 
     @classmethod
     def linear_layer(
@@ -188,17 +203,21 @@ class LayerInfo(object):
         return props
 
 
-class Result(object):
+class Result(BaseModel):
     """
     Base class for storing the results of an analysis
-
-    :param value: initial value of the result. Defaults to None
-    :param attributes: dict of attributes of this result. Defaults to empty
     """
 
-    def __init__(self, value: Any = None, attributes: Optional[Dict[str, Any]] = None):
-        self.value = value
-        self.attributes = attributes or {}
+    value: Any = Field(
+        title="value",
+        default=None,
+        description="initial value of the result",
+    )
+    attributes: Optional[Dict[str, Any]] = Field(
+        title="attributes",
+        default=None,
+        description="dict of attributes of this result",
+    )
 
     @classmethod
     def from_dict(cls, dictionary: Dict[str, Any]):
@@ -219,25 +238,20 @@ class Result(object):
 class ModelResult(Result):
     """
     Class for storing the results of an analysis for an entire model
-
-    :param analysis_type: name of the type of analysis that was performed
-    :param value: initial value of the result. Defaults to None
-    :param layer_results: dict of layer results to initialize for this model.
-        Defaults to empty dict
-    :param attributes: dict of attributes of this result. Defaults to empty
     """
 
-    def __init__(
-        self,
-        analysis_type: str,
-        value: Any = None,
-        layer_results: Dict[str, Result] = None,
-        attributes: Optional[Dict[str, Any]] = None,
-    ):
-        super().__init__(value=value, attributes=attributes)
-
-        self.analysis_type = analysis_type
-        self.layer_results = layer_results or {}
+    analysis_type: str = Field(
+        title="analysis_type",
+        description="name of the type of analysis that was performed",
+    )
+    layer_results: Dict[str, Result] = Field(
+        title="layer_results",
+        default_factory=dict,
+        description=(
+            "dict of layer results to initialize for this analysis. should map "
+            "layer name to Result object"
+        ),
+    )
 
     @classmethod
     def from_dict(cls, dictionary: Dict[str, Any]):
