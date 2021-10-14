@@ -174,34 +174,6 @@ class LayerInfo(BaseModel):
             **kwargs,  # TODO: add FLOPS calculation
         )
 
-    @classmethod
-    def from_dict(cls, dictionary: Dict[str, Any]):
-        """
-        :param dictionary: dict serialized by LyaerInfo.from_dict
-        :return: LayerInfo object created from the given dict
-        """
-        dictionary = deepcopy(dictionary)
-        return cls(**dictionary)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        :return: dict representation of this LayerInfo parameters
-        """
-        props = {
-            "name": self.name,
-            "op_type": self.op_type,
-            "prunable": self.prunable,
-            "execution_order": self.execution_order,
-            "attributes": self.attributes,
-        }
-        if self.params is not None:
-            props["params"] = self.params
-        if self.bias_params is not None:
-            props["bias_params"] = self.bias_params
-        if self.flops is not None:
-            props["flops"] = self.flops
-        return props
-
 
 class Result(BaseModel):
     """
@@ -218,21 +190,6 @@ class Result(BaseModel):
         default=None,
         description="dict of attributes of this result",
     )
-
-    @classmethod
-    def from_dict(cls, dictionary: Dict[str, Any]):
-        """
-        :param dictionary: dict serialized by Result.from_dict
-        :return: Result object created from the given dict
-        """
-        dictionary = deepcopy(dictionary)
-        return cls(**dictionary)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        :return: dict representation of this Result
-        """
-        return {"value": self.value, "attributes": self.attributes}
 
 
 class ModelResult(Result):
@@ -252,33 +209,6 @@ class ModelResult(Result):
             "layer name to Result object"
         ),
     )
-
-    @classmethod
-    def from_dict(cls, dictionary: Dict[str, Any]):
-        """
-        :param dictionary: dict serialized by ModelResult.from_dict
-        :return: ModelResult object created from the given dict
-        """
-        dictionary = deepcopy(dictionary)
-        dictionary["layer_results"] = dictionary.get("layer_results", {})
-        dictionary["layer_results"] = {
-            layer_name: Result.from_dict(layer_result)
-            for layer_name, layer_result in dictionary["layer_results"].items()
-        }
-        return cls(**dictionary)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        :return: dict representation of this ModelResult
-        """
-        dictionary = super().to_dict()
-        dictionary["analysis_type"] = self.analysis_type
-        dictionary["layer_results"] = {
-            layer_name: layer_result.to_dict()
-            for layer_name, layer_result in self.layer_results.items()
-        }
-
-        return dictionary
 
 
 class ModelInfo(ABC):
@@ -303,7 +233,7 @@ class ModelInfo(ABC):
     @classmethod
     def from_dict(cls, dictionary: Dict[str, Any]):
         """
-        :param dictionary: dict serialized by ModelInfo.from_dict
+        :param dictionary: dict serialized by `dict(ModelInfo(...))`
         :return: ModelInfo object created from the given dict
         """
         dictionary = deepcopy(dictionary)
@@ -312,7 +242,7 @@ class ModelInfo(ABC):
                 "ModelInfo objects serialized as a dict must include a 'layer_info' key"
             )
         layer_info = {
-            name: LayerInfo.from_dict(info)
+            name: LayerInfo.parse_obj(info)
             for name, info in dictionary["layer_info"].items()
         }
 
@@ -320,7 +250,7 @@ class ModelInfo(ABC):
 
         results = dictionary.get("analysis_results", [])
         for result in results:
-            model_result = ModelResult.from_dict(result)
+            model_result = ModelResult.parse_obj(result)
             model_info.add_analysis_result(model_result)
 
         return model_info
@@ -382,8 +312,8 @@ class ModelInfo(ABC):
         """
         :return: dict representation of this ModelResult
         """
-        layer_info = {name: info.to_dict() for name, info in self._layer_info.items()}
-        analysis_results = [result.to_dict() for result in self._analysis_results]
+        layer_info = {name: dict(info) for name, info in self._layer_info.items()}
+        analysis_results = [dict(result) for result in self._analysis_results]
         return {
             "metadata": self.metadata,
             "layer_info": layer_info,
