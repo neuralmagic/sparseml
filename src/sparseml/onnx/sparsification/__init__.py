@@ -22,3 +22,4 @@ algorithms to models within in the ONNX/ONNXRuntime framework.
 # flake8: noqa
 
 from .info import *
+from .model_info import *

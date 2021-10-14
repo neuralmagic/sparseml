@@ -55,6 +55,13 @@ class ONNXGraph(object):
 
         self.update()
 
+    @property
+    def nodes(self) -> Iterable[NodeProto]:
+        """
+        :return: ordered collection of nodes in this graph
+        """
+        return self._model.graph.node
+
     def update(self, model: Optional[ModelProto] = None):
         """
         Update the graph state based on the model this graph represents or
