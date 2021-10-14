@@ -49,7 +49,10 @@ from sparseml.pytorch.utils.quantization import (
 from sparseml.utils import clean_path, create_parent_dirs
 
 
-__all__ = ["ModuleExporter"]
+__all__ = [
+    "ModuleExporter",
+    "export_onnx",
+]
 
 
 DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
