@@ -32,13 +32,16 @@ def _test_layer_info_eq(layer_one, layer_two):
     "layer_info,expected_dict",
     [
         (
-            LayerInfo("layers.1", "TestLayer", attributes={"val": 1}),
+            LayerInfo(name="layers.1", op_type="TestLayer", attributes={"val": 1}),
             {
                 "name": "layers.1",
                 "op_type": "TestLayer",
                 "prunable": False,
                 "execution_order": -1,
                 "attributes": {"val": 1},
+                "flops": None,
+                "bias_params": None,
+                "params": None,
             },
         ),
         (
@@ -51,6 +54,7 @@ def _test_layer_info_eq(layer_one, layer_two):
                 "prunable": True,
                 "execution_order": -1,
                 "attributes": {"in_channels": 64, "out_channels": 128},
+                "flops": None,
             },
         ),
         (
@@ -69,6 +73,8 @@ def _test_layer_info_eq(layer_one, layer_two):
                     "stride": 1,
                     "padding": [0, 0, 0, 0],
                 },
+                "bias_params": None,
+                "flops": None,
             },
         ),
         (
@@ -89,14 +95,16 @@ def _test_layer_info_eq(layer_one, layer_two):
                     "stride": 1,
                     "padding": [0, 0, 0, 0],
                 },
+                "bias_params": None,
+                "flops": None,
             },
         ),
     ],
 )
 def test_layer_info_serialization(layer_info, expected_dict):
-    layer_info_dict = layer_info.to_dict()
-    expected_dict_loaded = LayerInfo.from_dict(expected_dict)
-    layer_info_dict_reloaded = LayerInfo.from_dict(layer_info_dict)
+    layer_info_dict = dict(layer_info)
+    expected_dict_loaded = LayerInfo.parse_obj(expected_dict)
+    layer_info_dict_reloaded = LayerInfo.parse_obj(layer_info_dict)
 
     assert type(expected_dict_loaded) is LayerInfo
     assert type(layer_info_dict_reloaded) is LayerInfo
@@ -128,20 +136,20 @@ def _test_model_result_eq(result_one, result_two):
     "model_result,expected_dict",
     [
         (
-            ModelResult("lr_sensitivity", value={0.1: 100, 0.2: 50}),
+            ModelResult(analysis_type="lr_sensitivity", value={0.1: 100, 0.2: 50}),
             {
                 "analysis_type": "lr_sensitivity",
                 "value": {0.1: 100, 0.2: 50},
                 "layer_results": {},
-                "attributes": {},
+                "attributes": None,
             },
         ),
         (
             ModelResult(
-                "pruning_sensitivity",
+                analysis_type="pruning_sensitivity",
                 layer_results={
-                    "net.1": Result({0.0: 0.25, 0.6: 0.2, 0.8: 0.1}),
-                    "net.2": Result({0.0: 0.2, 0.6: 0.2, 0.8: 0.2}),
+                    "net.1": Result(value={0.0: 0.25, 0.6: 0.2, 0.8: 0.1}),
+                    "net.2": Result(value={0.0: 0.2, 0.6: 0.2, 0.8: 0.2}),
                 },
             ),
             {
@@ -150,22 +158,22 @@ def _test_model_result_eq(result_one, result_two):
                 "layer_results": {
                     "net.1": {
                         "value": {0.0: 0.25, 0.6: 0.2, 0.8: 0.1},
-                        "attributes": {},
+                        "attributes": None,
                     },
                     "net.2": {
                         "value": {0.0: 0.2, 0.6: 0.2, 0.8: 0.2},
-                        "attributes": {},
+                        "attributes": None,
                     },
                 },
-                "attributes": {},
+                "attributes": None,
             },
         ),
     ],
 )
 def test_model_result_serialization(model_result, expected_dict):
-    model_result_dict = model_result.to_dict()
-    expected_dict_loaded = ModelResult.from_dict(expected_dict)
-    model_result_dict_reloaded = ModelResult.from_dict(model_result_dict)
+    model_result_dict = dict(model_result)
+    expected_dict_loaded = ModelResult.parse_obj(expected_dict)
+    model_result_dict_reloaded = ModelResult.parse_obj(model_result_dict)
 
     assert type(expected_dict_loaded) is ModelResult
     assert type(model_result_dict_reloaded) is ModelResult
