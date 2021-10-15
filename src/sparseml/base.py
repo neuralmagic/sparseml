@@ -15,6 +15,7 @@
 
 import importlib
 import logging
+from collections import OrderedDict
 from enum import Enum
 from typing import Any, List, Optional
 
@@ -48,7 +49,22 @@ class Framework(Enum):
     tensorflow_v1 = "tensorflow_v1"
 
 
-def detect_framework(item: Any) -> Framework:
+def _execute_sparseml_package_function(
+    framework: Framework, function_name: str, *args, **kwargs
+):
+    try:
+        module = importlib.import_module(f"sparseml.{framework.value}")
+        function = getattr(module, function_name)
+    except Exception as err:
+        raise ValueError(
+            f"unknown or unsupported framework {framework}, "
+            f"cannot call function {function_name}"
+        )
+
+    return function(*args, **kwargs)
+
+
+def detect_framework(item: Any, attempt_num: int = 0) -> Framework:
     """
     Detect the supported ML framework for a given item.
     Supported input types are the following:
@@ -61,31 +77,55 @@ def detect_framework(item: Any) -> Framework:
     If the framework cannot be determined, will return Framework.unknown
     :param item: The item to detect the ML framework for
     :type item: Any
+    :param attempt_num: The number of detection attempts so far.
+        Because multiple frameworks can run the same type of file,
+        this enables fall backs until the correct one is able to run.
+    :type attempt_num: int
     :return: The detected framework from the given item
     :rtype: Framework
     """
     _LOGGER.debug("detecting framework for %s", item)
-    framework = Framework.unknown
 
     if isinstance(item, Framework):
         _LOGGER.debug("framework detected from Framework instance")
-        framework = item
-    elif isinstance(item, str) and item.lower().strip() in Framework.__members__:
+
+        return item if attempt_num == 0 else Framework.unknown
+
+    if isinstance(item, str) and item.lower().strip() in Framework.__members__:
         _LOGGER.debug("framework detected from Framework string instance")
-        framework = Framework[item.lower().strip()]
-    else:
-        _LOGGER.debug("detecting framework by calling into supported frameworks")
 
-        for test in Framework:
-            try:
-                framework = execute_in_sparseml_framework(
-                    test, "detect_framework", item
+        return (
+            Framework[item.lower().strip()] if attempt_num == 0 else Framework.unknown
+        )
+
+    _LOGGER.debug(
+        "detecting framework by calling into supported frameworks "
+        "for attempt_num %s",
+        attempt_num,
+    )
+    framework = Framework.unknown
+    found_count = 0
+
+    for test in Framework:
+        if test == Framework.unknown:
+            continue
+
+        try:
+            framework = _execute_sparseml_package_function(
+                test, "detect_framework", item
+            )
+        except Exception as err:
+            # errors are expected if the framework is not installed, log as debug
+            _LOGGER.debug("error while calling detect_framework for %s: %s", test, err)
+
+        if framework != Framework.unknown and framework is not None:
+            found_count += 1
+
+            if found_count <= attempt_num:
+                _LOGGER.debug(
+                    "skipping framework %s with attempt_num=%s", framework, attempt_num
                 )
-            except Exception as err:
-                # errors are expected if the framework is not installed, log as debug
-                _LOGGER.debug(f"error while calling detect_framework for {test}: {err}")
-
-            if framework != Framework.unknown:
+            else:
                 break
 
     _LOGGER.info("detected framework of %s from %s", framework, item)
@@ -94,7 +134,7 @@ def detect_framework(item: Any) -> Framework:
 
 
 def execute_in_sparseml_framework(
-    framework: Framework, function_name: str, *args, **kwargs
+    framework: Any, function_name: str, *args, **kwargs
 ) -> Any:
     """
     Execute a general function that is callable from the root of the frameworks
@@ -102,7 +142,7 @@ def execute_in_sparseml_framework(
     Useful for benchmarking, analyzing, etc.
     Will pass the args and kwargs to the callable function.
     :param framework: The ML framework to run the function under in SparseML.
-    :type framework: Framework
+    :type framework: Any
     :param function_name: The name of the function in SparseML that should be run
         with the given args and kwargs.
     :type function_name: str
@@ -119,25 +159,35 @@ def execute_in_sparseml_framework(
         kwargs,
     )
 
-    if not isinstance(framework, Framework):
-        framework = detect_framework(framework)
+    framework_errs = OrderedDict()
+    ret = None
+    test_framework = detect_framework(framework)
+    attempt_num = 1
 
-    if framework == Framework.unknown:
-        raise ValueError(
-            f"unknown or unsupported framework {framework}, "
-            f"cannot call function {function_name}"
-        )
+    while test_framework != Framework.unknown:
+        function = None
 
-    try:
-        module = importlib.import_module(f"sparseml.{framework.value}")
-        function = getattr(module, function_name)
-    except Exception as err:
-        raise ValueError(
-            f"could not find function_name {function_name} in framework {framework}: "
-            f"{err}"
-        )
+        try:
+            module = importlib.import_module(f"sparseml.{test_framework.value}")
+            function = getattr(module, function_name)
 
-    return function(*args, **kwargs)
+            return function(*args, **kwargs)
+        except Exception as err:
+            framework_errs[framework] = err
+
+        test_framework = detect_framework(framework, attempt_num)
+        attempt_num += 1
+
+    if len(framework_errs) == 1:
+        raise list(framework_errs.values())[0]
+
+    if len(framework_errs) > 1:
+        raise RuntimeError(str(framework_errs))
+
+    raise ValueError(
+        f"unknown or unsupported framework {framework}, "
+        f"cannot call function {function_name}"
+    )
 
 
 def get_version(
