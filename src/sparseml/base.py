@@ -160,7 +160,6 @@ def execute_in_sparseml_framework(
     )
 
     framework_errs = OrderedDict()
-    ret = None
     test_framework = detect_framework(framework)
     attempt_num = 1
 
