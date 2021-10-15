@@ -24,7 +24,8 @@ import onnx
 from onnx import ModelProto, NodeProto, numpy_helper
 
 from sparseml.onnx.utils import ONNXGraph, get_node_attributes
-from sparseml.sparsification import LayerInfo, ModelInfo
+from sparseml.sparsification import LayerInfo
+from sparseml.sparsification import ModelInfo as BaseModelInfo
 
 
 __all__ = [
@@ -32,7 +33,7 @@ __all__ = [
 ]
 
 
-class ONNXModelInfo(ModelInfo):
+class ONNXModelInfo(BaseModelInfo):
     """
     Class for extracting and serializing ONNX model metadata, layers info, and
     analysis results
