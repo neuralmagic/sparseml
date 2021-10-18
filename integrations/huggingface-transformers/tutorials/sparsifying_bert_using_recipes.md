@@ -70,9 +70,7 @@ If the command runs successfully, you should have a model folder called `bert-ba
 Using the teacher model `bert-base-12layers` above, you can now train and prune a "student" BERT model on the same dataset using knowledge distillation. `SparseML` extends the training script `run_qa.py` with the following arguments to support recipes and knowledge distillation:
 
 - `--recipe`: path to a YAML recipe file that defines, among other information, the parameters and the desired sparsity levels to prune;
-- `--distill_teacher`: path to the teacher model for distillation; the student model is trained to learn from both its correct targets and those "instructed" by the teacher model;
-- `--distill_hardness`: ratio (in `[0.0, 1.0]`) of the loss defined on the teacher model targets;
-- `--distill_temperature`: the temperature used to soften the distribution of the targets.
+- `--distill_teacher`: path to the teacher model for distillation; the student model is trained to learn from both its correct targets and those "instructed" by the teacher model. The distillation hardness defining the ratio (in `[0.0, 1.0]`) of the loss defined on the teacher model targets, and the temperature used to soften the distribution of the targets are specified as parts of the distillation modifier in the recipe.
 
 Additionally, you will use the argument `--onnx_export_path` to specify the destination folder for the exported ONNX model. The resulting exported model could then be used for inference with the `DeepSparse Engine`.
 
@@ -82,8 +80,6 @@ The following command prunes the model in 30 epochs to 80% sparsity of the encod
 python transformers/examples/pytorch/question-answering/run_qa.py \
   --model_name_or_path bert-base-uncased \
   --distill_teacher MODELS_DIR/bert-base-12layers \
-  --distill_hardness 1.0 \
-  --distill_temperature 2.0 \
   --dataset_name squad \
   --do_train \
   --do_eval \
