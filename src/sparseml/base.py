@@ -148,7 +148,8 @@ def execute_in_sparseml_framework(
     Useful for benchmarking, analyzing, etc.
     Will pass the args and kwargs to the callable function.
 
-    :param framework: The ML framework to run the function under in SparseML.
+    :param framework: The item to detect the ML framework for to run the function under,
+        see detect_frameworks for more details on acceptible inputs
     :type framework: Any
     :param function_name: The name of the function in SparseML that should be run
         with the given args and kwargs.
