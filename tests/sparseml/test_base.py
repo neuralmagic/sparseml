@@ -62,7 +62,7 @@ def test_execute_in_sparseml_framework():
     with pytest.raises(ValueError):
         execute_in_sparseml_framework(Framework.unknown, "unknown")
 
-    with pytest.raises(ImportError):
+    with pytest.raises(Exception):
         execute_in_sparseml_framework(Framework.onnx, "unknown")
 
     # TODO: fill in with sample functions to execute in frameworks once available

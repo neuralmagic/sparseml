@@ -109,7 +109,9 @@ def detect_frameworks(item: Any) -> List[Framework]:
                 frameworks.append(detected)
             except Exception as err:
                 # errors are expected if the framework is not installed, log as debug
-                _LOGGER.debug("error while calling detect_framework for %s: %s", test, err)
+                _LOGGER.debug(
+                    "error while calling detect_framework for %s: %s", test, err
+                )
 
     _LOGGER.info("detected frameworks of %s from %s", frameworks, item)
 
