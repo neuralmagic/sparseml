@@ -21,7 +21,7 @@ quantization aware training.
 import logging
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, List, NamedTuple, Optional, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 import numpy
 import onnx
@@ -110,12 +110,19 @@ def get_quantization_params(
     return QuantizationParams(scale=scale, zero_point=zero_point, target=target)
 
 
-def delete_quant_node(model: ModelProto, node: NodeProto, keep_params: bool = False):
+def delete_quant_node(
+    model: ModelProto,
+    node: NodeProto,
+    keep_params: bool = False,
+    keep_weight: bool = False,
+):
     """
     Deletes a QuantizeLinear or DequantizeLinear and its parameters from the model
     :param model: ONNX model to modify
     :param node: the QuantizeLinear or DequantizeLinear node to delete
     :param keep_params: set true to not delete scale and zero point parameters stored
+        in the graph
+    :param keep_weight: set true to not possible quantize weight input stored
         in the graph
     """
     assert (
@@ -126,6 +133,8 @@ def delete_quant_node(model: ModelProto, node: NodeProto, keep_params: bool = Fa
     if keep_params:
         del node.input[2]  # delete reference to zero point
         del node.input[1]  # delete reference to scale
+    if keep_weight:
+        del node.input[0]
     remove_node_and_params_from_graph(model, node)
 
 
@@ -309,7 +318,7 @@ def _convert_quantizable_conv(
     weight_dequantize_node: NodeProto,
     weight_quantize_node: NodeProto,
     output_quantize_node: NodeProto,
-):
+) -> NodeProto:
     weight_quantize_params = get_quantization_params(
         model, weight_quantize_node, include_target=True
     )
@@ -383,12 +392,13 @@ def _convert_quantizable_conv(
     # delete original conv and folded quantization ops
     remove_node_and_params_from_graph(model, conv_node)
     delete_quant_node(model, weight_dequantize_node, keep_params=False)
-    delete_quant_node(model, weight_quantize_node, keep_params=True)
+    delete_quant_node(model, weight_quantize_node, keep_params=True, keep_weight=True)
     if fold_input_quant and len(get_node_output_nodes(model, input_quantize_node)) <= 1:
         # fold if this conv is the only node that reads from this quant op
         delete_quant_node(model, input_quantize_node, keep_params=True)
     if fold_output_quant:
         delete_quant_node(model, output_quantize_node, keep_params=True)
+    return qconv_node
 
 
 def _convert_quantizable_gemm(
@@ -868,8 +878,40 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         graph.delete_unused_initializers()
 
 
+def _reduce_qconv_shared_weights(
+    model: ModelProto, orig_qconv_weight_name_to_node_ids: Dict[str, List[NodeProto]]
+):
+    graph = ONNXGraph(model)
+    for weight_name, node_ids in orig_qconv_weight_name_to_node_ids.items():
+        if len(node_ids) < 2:
+            continue
+
+        qconv_nodes = [graph.get_node_by_output_id(id) for id in node_ids]
+        if any(node.op_type != "QLinearConv" for node in qconv_nodes):
+            continue
+
+        weights = [graph.get_init_by_name(node.input[3]) for node in qconv_nodes]
+        if any(weight is None for weight in weights):
+            continue
+
+        weights = [numpy_helper.to_array(weight) for weight in weights]
+        if not all(numpy.all(weight == weights[0]) for weight in weights):
+            continue
+
+        shared_weight = numpy_helper.from_array(
+            weights[0], name=f"{weight_name}_quantized"
+        )
+        for node in qconv_nodes:
+            node.input[3] = shared_weight.name
+        model.graph.initializer.append(shared_weight)
+
+    graph.update()
+    graph.delete_unused_initializers()
+
+
 def _convert_quantizable_ops(model: ModelProto):
     quantizable_nodes = [n for n in model.graph.node if n.op_type in ["Conv", "Gemm"]]
+    orig_qconv_weight_name_to_node_ids = defaultdict(list)
     for quantizable_node in quantizable_nodes:
         graph = ONNXGraph(model)
 
@@ -889,7 +931,8 @@ def _convert_quantizable_ops(model: ModelProto):
             continue
 
         if quantizable_node.op_type == "Conv":
-            _convert_quantizable_conv(
+            weight_name = weight_quant.input[0]
+            qconv_node = _convert_quantizable_conv(
                 model,
                 quantizable_node,
                 input_quant,
@@ -897,6 +940,7 @@ def _convert_quantizable_ops(model: ModelProto):
                 weight_quant,
                 output_quant,
             )
+            orig_qconv_weight_name_to_node_ids[weight_name].append(qconv_node.output[0])
 
         if quantizable_node.op_type == "Gemm":
             _convert_quantizable_gemm(
@@ -907,6 +951,8 @@ def _convert_quantizable_ops(model: ModelProto):
                 weight_quant,
                 output_quant,
             )
+
+    _reduce_qconv_shared_weights(model, orig_qconv_weight_name_to_node_ids)
 
 
 def _quantize_qat_embedding(model: ModelProto):
