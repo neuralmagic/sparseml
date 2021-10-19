@@ -59,7 +59,7 @@ def _execute_sparseml_package_function(
     except Exception as err:
         raise ValueError(
             f"unknown or unsupported framework {framework}, "
-            f"cannot call function {function_name}"
+            f"cannot call function {function_name}: {err}"
         )
 
     return function(*args, **kwargs)
@@ -83,32 +83,33 @@ def detect_frameworks(item: Any) -> List[Framework]:
     :rtype: List[Framework]
     """
     _LOGGER.debug("detecting frameworks for %s", item)
+    frameworks = []
+
+    if isinstance(item, str) and item.lower().strip() in Framework.__members__:
+        _LOGGER.debug("framework detected from Framework string instance")
+        item = Framework[item.lower().strip()]
 
     if isinstance(item, Framework):
         _LOGGER.debug("framework detected from Framework instance")
 
-        return [item]
+        if item != Framework.unknown:
+            frameworks.append(item)
+    else:
+        _LOGGER.debug("detecting frameworks by calling into supported frameworks")
+        frameworks = []
 
-    if isinstance(item, str) and item.lower().strip() in Framework.__members__:
-        _LOGGER.debug("framework detected from Framework string instance")
+        for test in Framework:
+            if test == Framework.unknown:
+                continue
 
-        return [Framework[item.lower().strip()]]
-
-    _LOGGER.debug("detecting frameworks by calling into supported frameworks")
-    frameworks = []
-
-    for test in Framework:
-        if test == Framework.unknown:
-            continue
-
-        try:
-            detected = _execute_sparseml_package_function(
-                test, "detect_framework", item
-            )
-            frameworks.append(detected)
-        except Exception as err:
-            # errors are expected if the framework is not installed, log as debug
-            _LOGGER.debug("error while calling detect_framework for %s: %s", test, err)
+            try:
+                detected = _execute_sparseml_package_function(
+                    test, "detect_framework", item
+                )
+                frameworks.append(detected)
+            except Exception as err:
+                # errors are expected if the framework is not installed, log as debug
+                _LOGGER.debug("error while calling detect_framework for %s: %s", test, err)
 
     _LOGGER.info("detected frameworks of %s from %s", frameworks, item)
 
