@@ -9,4 +9,4 @@ cd transformers
 git checkout release/0.7
 pip install "torch<1.9"
 pip install -e .
-pip install sparseml[torch]
+pip install sparseml[torch] datasets seqeval

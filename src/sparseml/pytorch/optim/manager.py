@@ -18,6 +18,7 @@ grouping modifiers and running them together.
 Also handles loading modifiers from yaml files
 """
 
+import logging
 from typing import Any, Dict, List, Optional, Union
 
 from torch import Tensor
@@ -26,11 +27,14 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseManager, load_recipe_yaml_str
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
-from sparseml.pytorch.utils import BaseLogger
+from sparseml.pytorch.utils import BaseLogger, is_parallel_model
 from sparsezoo.objects import Recipe
 
 
 __all__ = ["RecipeManagerStepWrapper", "ScheduledModifierManager"]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class RecipeManagerStepWrapper(object):
@@ -365,6 +369,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         steps_per_epoch: int,
         wrap_optim: Any = None,
         epoch: float = None,
+        allow_parallel_module: bool = True,
     ) -> RecipeManagerStepWrapper:
         """
         Modify the given module and optimizer for training aware algorithms such as
@@ -381,12 +386,31 @@ class ScheduledModifierManager(BaseManager, Modifier):
             the optimizer.step() function.
         :param epoch: Optional epoch that can be passed in to start modifying at.
             Defaults to the epoch that was supplied to the initialize function.
+        :param allow_parallel_module: if False, a DataParallel or
+            DistributedDataParallel module passed to this function will be unwrapped
+            to its base module during recipe initialization by referencing
+            module.module. This is useful so a recipe may reference the base module
+            parameters instead of the wrapped distributed ones. Set to True to not
+            unwrap the distributed module. Default is True
         :return: A wrapped optimizer object. The wrapped object makes all the
             original properties for the wrapped object available so it can be
             used without any additional code changes.
         """
         if epoch is None:
             epoch = self._initialize_epoch
+
+        if is_parallel_model(module) and not allow_parallel_module:
+            if allow_parallel_module:
+                _LOGGER.warning(
+                    "Parallel module detected by ScheduledModifierManager. Note that "
+                    "the base module parameters will be prefixed by 'module.' which "
+                    "may lead to matching issues if unaccounted for in recipe. Run "
+                    "modify() with allow_parallel_module=False to unwrap the parallel "
+                    "module during recipe initialization"
+                )
+            else:
+                _LOGGER.info("Unwrapping parallel module for recipe initialization")
+                module = module.module  # unwrap parallel module
 
         if not self.initialized:
             self.initialize(module, epoch)
