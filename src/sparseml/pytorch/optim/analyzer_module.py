@@ -94,7 +94,7 @@ class ModuleAnalyzer(object):
         """
         if value and not self._enabled:
             self._create_hooks()
-            self._param_grad = None
+            self._params_grad = None
         elif not value and self._enabled:
             self._delete_hooks()
 
