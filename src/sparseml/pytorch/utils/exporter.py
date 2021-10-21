@@ -49,7 +49,10 @@ from sparseml.pytorch.utils.quantization import (
 from sparseml.utils import clean_path, create_parent_dirs
 
 
-__all__ = ["ModuleExporter"]
+__all__ = [
+    "ModuleExporter",
+    "export_onnx",
+]
 
 
 DEFAULT_ONNX_OPSET = 9 if torch.__version__ < "1.3" else 11
@@ -391,7 +394,8 @@ def export_onnx(
     sample_batch = tensors_to_device(sample_batch, "cpu")
     create_parent_dirs(file_path)
 
-    module = deepcopy(module).cpu().eval()
+    module = deepcopy(module).cpu()
+    module.eval()
 
     with torch.no_grad():
         out = tensors_module_forward(sample_batch, module, check_feat_lab_inp=False)
