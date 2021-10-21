@@ -25,6 +25,10 @@ pruning_start_epoch: &pruning_start_epoch 2
 pruning_end_epoch: &pruning_end_epoch 20
 update_frequency: &pruning_update_frequency 0.01
 
+# Distillation Hyperparams
+distill_hardness: &distill_hardness 1.0
+distill_temperature: &distill_temperature 2.0
+
 # Modifiers
 training_modifiers:
   - !EpochRangeModifier
@@ -58,6 +62,12 @@ pruning_modifiers:
       - bert.encoder.layer.7
       - bert.encoder.layer.9
       - bert.encoder.layer.10
+
+distillation_modifiers:
+  - !DistillationModifier
+     hardness: *distill_hardness
+     temperature: *distill_temperature
+     distill_output_keys: [start_logits, end_logits]
 ---
 
 # BERT Model with Dropped and Pruned Encoder Layers
@@ -95,8 +105,6 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
   --preprocessing_num_workers 6 \
   --seed 42 \
   --num_train_epochs 30 \
-  --distill_hardness 1.0 \
-  --distill_temperature 2.0 \
   --save_steps 1000 \
   --save_total_limit 2 \
   --recipe ../recipes/bert-base-6layers_prune80.md \
