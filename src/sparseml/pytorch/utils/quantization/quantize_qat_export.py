@@ -68,10 +68,13 @@ _QLINEAR_OP_NAMES = ["QLinearConv", "QLinearMatMul", "QLinearAdd"]
 
 
 def get_quantization_params(
-    model: ModelProto, node: NodeProto, include_target: bool = False
+    model: Union[ModelProto, ONNXGraph],
+    node: NodeProto,
+    include_target: bool = False,
+    graph: Optional[ONNXGraph] = None,
 ) -> QuantizationParams:
     """
-    :param model: ONNX model to read from
+    :param model: ONNX model to read from or ONNXGraph object
     :param node: A QuantizeLinear or DequantizeLinear Node
     :param include_target: Set True include quantization target. If False,
         target value will be returned as None. Default is None
@@ -84,18 +87,20 @@ def get_quantization_params(
         node.op_type
     )
 
-    scale = get_init_by_name(model, node.input[1])
+    graph = model if isinstance(model, ONNXGraph) else ONNXGraph(model)
+
+    scale = graph.get_init_by_name(node.input[1])
     if scale is None:
-        scale_const = get_nodes_by_output_id(model, node.input[1])
+        scale_const = graph.get_node_by_output_id(node.input[1])
         if scale_const:
-            scale = scale_const[0].attribute[0].t
+            scale = scale_const.attribute[0].t
     assert scale, "Quantization scale {} not found".format(node.input[1])
 
-    zero_point = get_init_by_name(model, node.input[2])
+    zero_point = graph.get_init_by_name(node.input[2])
     if zero_point is None:
-        zero_point_const = get_nodes_by_output_id(model, node.input[2])
+        zero_point_const = graph.get_node_by_output_id(node.input[2])
         if zero_point_const:
-            zero_point = zero_point_const[0].attribute[0].t
+            zero_point = zero_point_const.attribute[0].t
     assert zero_point, "Quantization zero point {} not found".format(node.input[2])
 
     scale = numpy_helper.to_array(scale)
@@ -103,7 +108,7 @@ def get_quantization_params(
 
     target = None
     if include_target:
-        target = get_init_by_name(model, node.input[0])
+        target = graph.get_init_by_name(node.input[0])
         if target is not None:
             target = numpy_helper.to_array(target)
 
@@ -1062,14 +1067,21 @@ def _remove_duplicate_quantize_ops(model: ModelProto):
         if node.op_type == "QuantizeLinear":
             quantize_ops_by_input[node.input[0]].append(node)
 
+    graph = ONNXGraph(model)
+
     for quantize_op_group in quantize_ops_by_input.values():
         if len(quantize_op_group) == 1:
             continue
         keep_node = quantize_op_group[0]
+        keep_node_params = get_quantization_params(graph, keep_node)
         remove_nodes = quantize_op_group[1:]
         for remove_node in remove_nodes:
-            _replace_input_id_model(model, remove_node.output[0], keep_node.output[0])
-            remove_node_and_params_from_graph(model, remove_node)
+            remove_node_params = get_quantization_params(graph, remove_node)
+            if keep_node_params == remove_node_params:
+                _replace_input_id_model(
+                    model, remove_node.output[0], keep_node.output[0]
+                )
+                remove_node_and_params_from_graph(model, remove_node)
 
 
 def _cleanup_unused_quants(model: ModelProto):
