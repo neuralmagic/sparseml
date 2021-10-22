@@ -214,7 +214,7 @@ class ONNXGraph(object):
     def delete_unused_initializers(self):
         """
         deletes tensors in the initializer list that are not listed as inputs to any
-        node in the current graph state
+        node in the current graph state or directly passed as model outputs
         """
         output_names = {out.name for out in self._model.graph.output}
         self.delete_initializers(
