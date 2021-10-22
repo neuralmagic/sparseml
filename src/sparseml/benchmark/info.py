@@ -96,7 +96,7 @@ from typing import Any, Dict, Iterable, Iterator, Optional
 
 from tqdm import auto
 
-from sparseml.base import Framework, detect_framework, execute_in_sparseml_framework
+from sparseml.base import Framework, execute_in_sparseml_framework
 from sparseml.benchmark.serialization import (
     BatchBenchmarkResult,
     BenchmarkConfig,
@@ -369,13 +369,8 @@ def save_benchmark_results(
         pass to the runner
     :param show_progress: True to show a tqdm bar when running, False otherwise
     """
-    if framework is None:
-        framework = detect_framework(model)
-    else:
-        framework = detect_framework(framework)
-
     results = execute_in_sparseml_framework(
-        framework,
+        framework if framework is not None else model,
         "run_benchmark",
         model,
         data,
@@ -442,18 +437,9 @@ def load_and_run_benchmark(
     :param save_path: path to save the new benchmark results
     """
     _LOGGER.info(f"rerunning benchmark {load}")
-
     info = load_benchmark_info(load)
-
-    framework = info.framework
-
-    if framework is None:
-        framework = detect_framework(model)
-    else:
-        framework = detect_framework(framework)
-
     save_benchmark_results(
-        model,
+        info.framework if info.framework is not None else model,
         data,
         batch_size=info.config.batch_size,
         iterations=info.config.iterations,
