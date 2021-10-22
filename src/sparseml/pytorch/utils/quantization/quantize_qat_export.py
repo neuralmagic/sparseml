@@ -33,7 +33,6 @@ from sparseml.onnx.utils import (
     get_init_by_name,
     get_node_attributes,
     get_node_output_nodes,
-    get_nodes_by_output_id,
     quantize_resnet_identity_add_inputs,
     quantized_residual_add_optim,
     remove_node_and_params_from_graph,
@@ -127,8 +126,8 @@ def delete_quant_node(
     :param node: the QuantizeLinear or DequantizeLinear node to delete
     :param keep_params: set true to not delete scale and zero point parameters stored
         in the graph
-    :param keep_weight: set true to not possible quantize weight input stored
-        in the graph
+    :param keep_weight: set true to not delete the weight param possibly stored as an
+        initializer to the first input of this node
     """
     assert (
         node.op_type in _QUANTIZE_OP_NAMES
