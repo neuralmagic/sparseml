@@ -70,7 +70,6 @@ def get_quantization_params(
     model: Union[ModelProto, ONNXGraph],
     node: NodeProto,
     include_target: bool = False,
-    graph: Optional[ONNXGraph] = None,
 ) -> QuantizationParams:
     """
     :param model: ONNX model to read from or ONNXGraph object
