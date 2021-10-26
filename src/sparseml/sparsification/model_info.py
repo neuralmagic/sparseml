@@ -21,7 +21,8 @@ import json
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from enum import Enum
+from typing import Any, Dict, List, Optional, Set, Union
 
 import numpy
 from pydantic import BaseModel, Field, root_validator
@@ -33,6 +34,8 @@ __all__ = [
     "LayerInfo",
     "Result",
     "ModelResult",
+    "PruningSensitivityResult",
+    "PruningSensitivityResultTypes",
     "ModelInfo",
 ]
 
@@ -211,6 +214,63 @@ class ModelResult(Result):
     )
 
 
+class PruningSensitivityResultTypes(Enum):
+    """
+    Types of pruning sensitivity results standardized by SparseML, used as
+    ModelResult.analysis_type
+    """
+
+    LOSS = "pruning_sensitivity_loss"
+    PERF = "pruning_sensitivity_perf"
+
+
+class PruningSensitivityResult(ModelResult):
+    """
+    Helper class for creating and updating results of pruning sensitivity analyses
+
+    :param analysis_type: PruningSensitivityResultTypes Enum value
+        of type of analysis this is
+    :param kwargs: optional args to be passed into model result constructor
+    """
+
+    def __init__(
+        self,
+        analysis_type: PruningSensitivityResultTypes,
+        **kwargs,
+    ):
+        # validate result type
+        analysis_type = PruningSensitivityResultTypes(analysis_type)
+        super().__init__(analysis_type=analysis_type.value, **kwargs)
+
+    def add_layer_sparsity_result(self, layer_name: str, sparsity: float, value: Any):
+        """
+        Adds a result of the given value for a given sparsity to the given layer name
+        :param layer_name: layer param name to add result for
+        :param sparsity: sparsity of the layer at which the sensitivity was measured
+        :param value: sensitivity value
+        """
+
+        sparsity = str(sparsity)
+
+        if layer_name not in self.layer_results:
+            self.layer_results[layer_name] = Result(value={})
+
+        self.layer_results[layer_name].value[sparsity] = value
+
+    def add_model_sparsity_result(self, sparsity: float, value: Any):
+        """
+        Adds a model result of the given value for a given sparsity
+        :param sparsity: sparsity of model at which the sensitivity was measured
+        :param value: sensitivity value
+        """
+
+        sparsity = str(sparsity)
+
+        if self.value is None:
+            self.value = {}
+        self.value[sparsity] = value
+
+
 class ModelInfo(ABC):
     """
     Base class for extracting and serializing model metadata, layers info, and
@@ -309,6 +369,16 @@ class ModelInfo(ABC):
             for result in self._analysis_results
             if result.analysis_type == analysis_type
         ]
+
+    def get_prunable_param_names(self) -> Set[str]:
+        """
+        :return: set of parameter names of all prunable layers in this ModelInfo
+        """
+        return {
+            layer_name
+            for layer_name, layer_info in self.layer_info.items()
+            if layer_info.prunable
+        }
 
     def to_dict(self) -> Dict[str, Any]:
         """
