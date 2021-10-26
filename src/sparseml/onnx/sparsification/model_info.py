@@ -29,11 +29,11 @@ from sparseml.sparsification import ModelInfo as BaseModelInfo
 
 
 __all__ = [
-    "ONNXModelInfo",
+    "ModelInfo",
 ]
 
 
-class ONNXModelInfo(BaseModelInfo):
+class ModelInfo(BaseModelInfo):
     """
     Class for extracting and serializing ONNX model metadata, layers info, and
     analysis results
@@ -61,6 +61,10 @@ class ONNXModelInfo(BaseModelInfo):
                 layer_info = self._make_matmul_layer_info(node, graph, len(layers))
 
             if layer_info is not None:
+                if node.name:
+                    layer_info.attributes["node_name"] = node.name
+                if node.output:
+                    layer_info.attributes["node_output_id"] = node.output[0]
                 layers[layer_info.name] = layer_info
 
         return layers
@@ -71,7 +75,7 @@ class ONNXModelInfo(BaseModelInfo):
         graph: ONNXGraph,
         execution_order: int,
     ) -> Optional[NodeProto]:
-        param = ONNXModelInfo._get_node_param_array(node, graph)
+        param = ModelInfo._get_node_param_array(node, graph)
         if param is None:
             return
 
@@ -100,7 +104,7 @@ class ONNXModelInfo(BaseModelInfo):
         graph: ONNXGraph,
         execution_order: int,
     ) -> Optional[NodeProto]:
-        param = ONNXModelInfo._get_node_param_array(node, graph)
+        param = ModelInfo._get_node_param_array(node, graph)
         if param is None:
             return
 
@@ -124,7 +128,7 @@ class ONNXModelInfo(BaseModelInfo):
         graph: ONNXGraph,
         execution_order: int,
     ) -> Optional[NodeProto]:
-        param = ONNXModelInfo._get_node_param_array(node, graph)
+        param = ModelInfo._get_node_param_array(node, graph)
         if param is None:
             return
 
