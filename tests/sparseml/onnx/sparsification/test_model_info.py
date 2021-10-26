@@ -14,7 +14,7 @@
 
 import pytest
 
-from sparseml.onnx.sparsification import ONNXModelInfo
+from sparseml.onnx.sparsification import ModelInfo
 from tests.sparseml.onnx.utils.test_helpers import get_prunable_onnx_model
 
 
@@ -79,5 +79,5 @@ from tests.sparseml.onnx.utils.test_helpers import get_prunable_onnx_model
     ],
 )
 def test_onnx_model_info(model, expected_dict):
-    model_info = ONNXModelInfo(model)
+    model_info = ModelInfo(model)
     assert model_info.to_dict() == expected_dict
