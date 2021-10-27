@@ -404,6 +404,7 @@ class DistillationModifier(ScheduledModifier):
 
         # get distillation loss as average of individual output distillation loss values
         teacher_loss = sum(distill_losses) / len(distill_losses)
+        teacher_loss = teacher_loss.to(loss.device)
         distillation_loss = ((1.0 - self._hardness) * loss) + (
             self._hardness * teacher_loss
         )
@@ -432,6 +433,7 @@ class DistillationModifier(ScheduledModifier):
 
     def _calc_distill_loss(self, student_val: Tensor, teacher_val: Tensor) -> Tensor:
         loss_input = TF.log_softmax(student_val / self._temperature, dim=-1)
+        pdb.set_trace()
         if self._topk > 0:
             vals, idx = teacher_val.topk(self._topk)
             teacher_val = torch.zeros_like(teacher_val)
