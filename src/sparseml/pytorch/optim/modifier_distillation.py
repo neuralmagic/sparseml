@@ -435,7 +435,7 @@ class DistillationModifier(ScheduledModifier):
         if self._topk > 0:
             vals, idx = teacher_val.topk(self._topk)
             teacher_val = torch.zeros_like(teacher_val)
-            teacher_val[idx] = vals
+            teacher_val.view(-1)[idx] = vals
             del vals, idx
         loss_target = TF.softmax(teacher_val / self._temperature, dim=-1)
         if self._loss == 'kl-divergence':
