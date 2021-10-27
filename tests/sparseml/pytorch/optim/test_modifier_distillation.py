@@ -139,12 +139,19 @@ def test_distillation_modifier_yaml():
     hardness = 0.9
     temperature = 5.0
     distill_output_keys = [0]
+    topk = 5
+    multi_gpu_distillation = True
+    loss = 'kl-divergence'
+    
     yaml_str = f"""
         !DistillationModifier
             start_epoch: {start_epoch}
             hardness: {hardness}
             temperature: {temperature}
             distill_output_keys: {distill_output_keys}
+            topk: {topk}
+            multigpu_distillation: {multi_gpu_distillation}
+            loss: {loss}
         """
     yaml_modifier = DistillationModifier.load_obj(
         yaml_str
@@ -157,6 +164,9 @@ def test_distillation_modifier_yaml():
         hardness=hardness,
         temperature=temperature,
         distill_output_keys=distill_output_keys,
+        topk=topk,
+        multi_gpu_distillation=multi_gpu_distillation,
+        loss=loss
     )
 
     assert isinstance(yaml_modifier, DistillationModifier)
@@ -177,4 +187,19 @@ def test_distillation_modifier_yaml():
         yaml_modifier.distill_output_keys
         == serialized_modifier.distill_output_keys
         == obj_modifier.distill_output_keys
+    )
+    assert (
+        yaml_modifier.topk
+        == serialized_modifier.topk
+        == obj_modifier.topk
+    )
+    assert (
+        yaml_modifier.multigpu_distillation
+        == serialized_modifier.multigpu_distillation
+        == obj_modifier.multigpu_distillation
+    )
+    assert (
+        yaml_modifier.loss
+        == serialized_modifier.loss
+        == obj_modifier.loss
     )

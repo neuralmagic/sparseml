@@ -57,6 +57,9 @@ class DistillationModifier(ScheduledModifier):
     |       hardness: 0.5
     |       temperature: 2.0
     |       distill_output_keys: [0]
+    |       topk: 5
+    |       multigpu_distillation: True
+    |       loss: kl-divergence
 
     :param start_epoch: The epoch to start the modifier at
     :param hardness: how much to weight the distillation loss vs the base loss
@@ -76,6 +79,10 @@ class DistillationModifier(ScheduledModifier):
         hardness: float = 0.5,
         temperature: float = 2.0,
         distill_output_keys: List[Any] = None,
+        multigpu_distillation: bool = False,
+        loss: str = 'kl-divergence',
+        topk: int = -1,
+
     ):
         super().__init__(
             start_epoch=start_epoch,
@@ -85,6 +92,10 @@ class DistillationModifier(ScheduledModifier):
         self._hardness = hardness
         self._temperature = temperature
         self._distill_output_keys = distill_output_keys or []
+        self._loss = loss
+        self._topk = topk
+        self._multigpu_distillation = multigpu_distillation
+
 
         self._teacher = None
         self._distillation_enabled = False
@@ -94,12 +105,65 @@ class DistillationModifier(ScheduledModifier):
         self._disable_distillation = False
 
     @ModifierProp()
+    def loss(self) -> str:
+        """
+        :return: the name of the loss function for distillation
+            (e.g. using the kl-divergence will return the kl-divergence)
+        """
+        return self._loss
+    
+    @loss.setter
+    def loss(self, value: str):
+        """
+        :params value: what loss function to use for distillation
+            (e.g. loss of kl-divergence will return kl-divergence)
+        """
+        self._loss = value
+
+    @ModifierProp()
+    def topk(self) -> int:
+        """
+        :return: how many topk values to take from teacher logits for distillation
+            (e.g. topk of 2 will return 2 hardness used to keep only top 2 values from logits vals, idx = teacher_val.topk(self._topk)
+        """
+        return self._topk
+    
+    @topk.setter
+    def topk(self, value: int):
+        """
+        :params value: how many values from teacher logits to use for distillation
+            (e.g. topk of 2 will return 2 hardness used to keep only top 2 values from logits vals, idx = teacher_val.topk(self._topk)
+        """
+
+        self._topk = value
+
+    @ModifierProp()
+    def multigpu_distillation (self) -> bool:
+        """
+        :return: bool on perfoming distillation across gpus
+            (e.g. multigpu_distillation of true will create a teacher on each gpu)
+        """
+        return self._multigpu_distillation
+    
+    
+
+    @multigpu_distillation.setter
+    def multigpu_distillation(self, value: int):
+        """
+        :params value: bool on perfoming distillation across gpus
+            (e.g. multigpu_distillation of true will create a teacher on each gpu)
+        """
+        
+        self._multigpu_distillation = value
+
+    @ModifierProp()
     def hardness(self) -> float:
         """
         :return: how much to weight the distillation loss vs the base loss
             (e.g. hardness of 0.6 will return 0.6 * distill_loss + 0.4 * base_loss)
         """
         return self._hardness
+    
 
     @hardness.setter
     def hardness(self, value: float):
@@ -174,7 +238,7 @@ class DistillationModifier(ScheduledModifier):
                 "Setting teacher module for distillation to distillation_teacher object"
             )
             self._teacher = distillation_teacher
-            if torch.cuda.device_count() > 1:
+            if self._multigpu_distillation:
                 _LOGGER.info(
                     "Setting up per device distillation"
                 )
@@ -261,7 +325,7 @@ class DistillationModifier(ScheduledModifier):
                 "Student outputs and teacher inputs are required for "
                 "distillation loss update"
             )
-        if isinstance(self._teacher , list):
+        if self._multigpu_distillation:
             # If we are using distillation with multiple GPUs we run the teacher model on each device with respective student output. 
             # This allows us to maximize batch size as without that the teacher forward pass would be of size batch_size * num_gpus which can overload GPU memory
             input_ids = torch.split(teacher_inputs['input_ids'], int(teacher_inputs['input_ids'].shape[0]/self.num_gpus))
@@ -283,8 +347,8 @@ class DistillationModifier(ScheduledModifier):
             distill_losses = []
             for i in range(0,self.num_gpus):
                 self._teacher[i].eval()
+                input_device = self._teacher[i].device
                 with torch.no_grad():
-                    input_device = self._teacher[i].device
                     teacher_outputs = self._teacher[i](
                         input_ids=input_ids[i].to(input_device),
                         token_type_ids=token_type_ids[i].to(input_device),
@@ -293,12 +357,12 @@ class DistillationModifier(ScheduledModifier):
                 
                 if isinstance(student_outputs, Tensor):
                     distill_losses.append(
-                        self._calc_distill_loss(student_outputs[i], teacher_outputs)
+                        self._calc_distill_loss(student_outputs[i].to(input_device), teacher_outputs)
                     )
                 elif isinstance(student_outputs, Dict):
                     for key in self._distill_output_keys or student_outputs[i]:
                         distill_losses.append(
-                            self._calc_distill_loss(student_outputs[key][i], teacher_outputs[key])
+                            self._calc_distill_loss(student_outputs[key][i].to(input_device), teacher_outputs[key])
                         )
                 elif isinstance(student_outputs, Iterable):
                     for idx in self._distill_output_keys or range(len(student_outputs[i])):
@@ -338,7 +402,6 @@ class DistillationModifier(ScheduledModifier):
                         self._calc_distill_loss(student_outputs[idx], teacher_outputs[idx])
                     )
 
-        pdb.set_trace()
         # get distillation loss as average of individual output distillation loss values
         teacher_loss = sum(distill_losses) / len(distill_losses)
         distillation_loss = ((1.0 - self._hardness) * loss) + (
@@ -368,16 +431,31 @@ class DistillationModifier(ScheduledModifier):
         self._disable_student_hook()
 
     def _calc_distill_loss(self, student_val: Tensor, teacher_val: Tensor) -> Tensor:
-        pdb.set_trace()
-        return (
-            TF.kl_div(
-                input=TF.log_softmax(student_val / self._temperature, dim=-1),
-                target=TF.softmax(teacher_val / self._temperature, dim=-1),
-                reduction="batchmean",
+        loss_input = TF.log_softmax(student_val / self._temperature, dim=-1)
+        if self._topk > 0:
+            vals, idx = teacher_val.topk(self._topk)
+            teacher_val = torch.zeros_like(teacher_val)
+            teacher_val[idx] = vals
+            del vals, idx
+        loss_target = TF.softmax(teacher_val / self._temperature, dim=-1)
+        if self._loss == 'kl-divergence':
+            return (
+                TF.kl_div(
+                    input=loss_input,
+                    target=loss_target,
+                    reduction="batchmean",
+                )
+                * (self._temperature ** 2)
             )
-            * (self._temperature ** 2)
-        )
-        TF.kl_div(input=TF.log_softmax(student_val / self._temperature, dim=-1),target=TF.softmax(teacher_val / self._temperature, dim=-1),reduction="batchmean",)* (self._temperature ** 2)
+        elif self._loss == 'mean-squared-error':
+            loss = torch.nn.MSELoss()
+            return (
+                loss(loss_input,loss_target) * (self._temperature ** 2)
+            )
+        else: 
+            raise ValueError(
+                "Invalid Knowledge distillation method selected. Supported methods are kl-divergence and mean-squared-error"
+            )
 
     def _check_distillation_update(
         self, module: Module, epoch: float, steps_per_epoch: int
