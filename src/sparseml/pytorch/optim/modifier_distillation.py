@@ -27,6 +27,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 
+import pdb
 from sparseml.optim import ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
@@ -173,6 +174,17 @@ class DistillationModifier(ScheduledModifier):
                 "Setting teacher module for distillation to distillation_teacher object"
             )
             self._teacher = distillation_teacher
+            if torch.cuda.device_count() > 1:
+                _LOGGER.info(
+                    "Setting up per device distillation"
+                )
+                self.num_gpus = torch.cuda.device_count()
+                self._teacher = [self._teacher for i in range(self.num_gpus)]
+                for i in range(0,self.num_gpus):
+                    _LOGGER.info(
+                        "Moving teacher to GPU %i ", i
+                    )
+                    self._teacher[i] = self._teacher[i].to(i)
 
         self._check_distillation_update(module, epoch, steps_per_epoch=0)
 
@@ -249,37 +261,84 @@ class DistillationModifier(ScheduledModifier):
                 "Student outputs and teacher inputs are required for "
                 "distillation loss update"
             )
-
-        # ensure that teacher model is in eval mode and on correct device
-        self._teacher.eval()
-        target_device = device_of(teacher_inputs)
-        self._teacher.to(target_device)
-        with torch.no_grad():
-            teacher_outputs = tensors_module_forward(
-                teacher_inputs, self._teacher, check_feat_lab_inp=False
-            )
-
-        if type(student_outputs) != type(teacher_outputs):
-            raise ValueError(
-                "Student and teacher models must have the same output type"
-            )
-
-        distill_losses = []
-        if isinstance(student_outputs, Tensor):
-            distill_losses.append(
-                self._calc_distill_loss(student_outputs, teacher_outputs)
-            )
-        elif isinstance(student_outputs, Dict):
-            for key in self._distill_output_keys or student_outputs:
-                distill_losses.append(
-                    self._calc_distill_loss(student_outputs[key], teacher_outputs[key])
+        if isinstance(self._teacher , list):
+            # If we are using distillation with multiple GPUs we run the teacher model on each device with respective student output. 
+            # This allows us to maximize batch size as without that the teacher forward pass would be of size batch_size * num_gpus which can overload GPU memory
+            input_ids = torch.split(teacher_inputs['input_ids'], int(teacher_inputs['input_ids'].shape[0]/self.num_gpus))
+            token_type_ids = torch.split(teacher_inputs['token_type_ids'], int(teacher_inputs['token_type_ids'].shape[0]/self.num_gpus))
+            attention_mask = torch.split(teacher_inputs['attention_mask'], int(teacher_inputs['attention_mask'].shape[0]/self.num_gpus))
+            if isinstance(student_outputs, Tensor):
+                student_outputs = torch.split(student_outputs, int(student_outputs.shape[0]/self.num_gpus))
+            elif isinstance(student_outputs, Dict):
+                split_student_outputs = {}
+                for key in self._distill_output_keys or student_outputs:
+                    split_student_outputs[key] = torch.split(student_outputs[key], int(student_outputs[key].shape[0]/self.num_gpus))
+                student_outputs = split_student_outputs
+            elif isinstance(student_outputs, Iterable):
+                split_student_outputs = []
+                for idx in self._distill_output_keys or range(len(student_outputs)):
+                    split_student_outputs = torch.split(student_outputs[idx], int(student_outputs[idx].shape[0]/self.num_gpus))
+                student_outputs = split_student_outputs
+            
+            distill_losses = []
+            for i in range(0,self.num_gpus):
+                self._teacher[i].eval()
+                with torch.no_grad():
+                    input_device = self._teacher[i].device
+                    teacher_outputs = self._teacher[i](
+                        input_ids=input_ids[i].to(input_device),
+                        token_type_ids=token_type_ids[i].to(input_device),
+                        attention_mask=attention_mask[i].to(input_device)
+                    )
+                
+                if isinstance(student_outputs, Tensor):
+                    distill_losses.append(
+                        self._calc_distill_loss(student_outputs[i], teacher_outputs)
+                    )
+                elif isinstance(student_outputs, Dict):
+                    for key in self._distill_output_keys or student_outputs[i]:
+                        distill_losses.append(
+                            self._calc_distill_loss(student_outputs[key][i], teacher_outputs[key])
+                        )
+                elif isinstance(student_outputs, Iterable):
+                    for idx in self._distill_output_keys or range(len(student_outputs[i])):
+                        distill_losses.append(
+                            self._calc_distill_loss(student_outputs[idx][i], teacher_outputs[idx])
+                        )
+                del teacher_outputs
+                        
+        else:    
+            # ensure that teacher model is in eval mode and on correct device
+            self._teacher.eval()
+            target_device = device_of(teacher_inputs)
+            self._teacher.to(target_device)
+            with torch.no_grad():
+                teacher_outputs = tensors_module_forward(
+                    teacher_inputs, self._teacher, check_feat_lab_inp=False
                 )
-        elif isinstance(student_outputs, Iterable):
-            for idx in self._distill_output_keys or range(len(student_outputs)):
-                distill_losses.append(
-                    self._calc_distill_loss(student_outputs[idx], teacher_outputs[idx])
+
+            if type(student_outputs) != type(teacher_outputs):
+                raise ValueError(
+                    "Student and teacher models must have the same output type"
                 )
 
+            distill_losses = []
+            if isinstance(student_outputs, Tensor):
+                distill_losses.append(
+                    self._calc_distill_loss(student_outputs, teacher_outputs)
+                )
+            elif isinstance(student_outputs, Dict):
+                for key in self._distill_output_keys or student_outputs:
+                    distill_losses.append(
+                        self._calc_distill_loss(student_outputs[key], teacher_outputs[key])
+                    )
+            elif isinstance(student_outputs, Iterable):
+                for idx in self._distill_output_keys or range(len(student_outputs)):
+                    distill_losses.append(
+                        self._calc_distill_loss(student_outputs[idx], teacher_outputs[idx])
+                    )
+
+        pdb.set_trace()
         # get distillation loss as average of individual output distillation loss values
         teacher_loss = sum(distill_losses) / len(distill_losses)
         distillation_loss = ((1.0 - self._hardness) * loss) + (
@@ -309,6 +368,7 @@ class DistillationModifier(ScheduledModifier):
         self._disable_student_hook()
 
     def _calc_distill_loss(self, student_val: Tensor, teacher_val: Tensor) -> Tensor:
+        pdb.set_trace()
         return (
             TF.kl_div(
                 input=TF.log_softmax(student_val / self._temperature, dim=-1),
@@ -317,6 +377,7 @@ class DistillationModifier(ScheduledModifier):
             )
             * (self._temperature ** 2)
         )
+        TF.kl_div(input=TF.log_softmax(student_val / self._temperature, dim=-1),target=TF.softmax(teacher_val / self._temperature, dim=-1),reduction="batchmean",)* (self._temperature ** 2)
 
     def _check_distillation_update(
         self, module: Module, epoch: float, steps_per_epoch: int
