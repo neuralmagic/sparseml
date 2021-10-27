@@ -27,7 +27,6 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 
-import pdb
 from sparseml.optim import ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
@@ -433,7 +432,6 @@ class DistillationModifier(ScheduledModifier):
 
     def _calc_distill_loss(self, student_val: Tensor, teacher_val: Tensor) -> Tensor:
         loss_input = TF.log_softmax(student_val / self._temperature, dim=-1)
-        pdb.set_trace()
         if self._topk > 0:
             vals, idx = teacher_val.topk(self._topk)
             teacher_val = torch.zeros_like(teacher_val)
