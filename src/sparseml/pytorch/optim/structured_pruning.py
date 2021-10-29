@@ -18,11 +18,12 @@ Code to assist in the compression of structured-pruned models
 
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
+from torch.optim import Optimizer
 
 
 __all__ = ["compress_strucure_pruned_module"]
@@ -35,6 +36,7 @@ def compress_strucure_pruned_module(
     module: Module,
     param_group_dependency_map: Dict[str, List[str]],
     structure_type: str = "filter",
+    optimizer: Optional[Optimizer] = None,
 ):
     """
     Removes in-place the given module parameters along either input or output channel
@@ -52,6 +54,8 @@ def compress_strucure_pruned_module(
     :param structure_type: type of pruning structure used to prune the model and
         generate the dependency map. Valid options are 'filter' and 'channel'.
         Default is 'filter'
+    :param optimizer: optional optimizer object to update momentum buffer of for
+        relevant parameters
     """
     if structure_type not in ["filter", "channel"]:
         raise ValueError(
@@ -125,6 +129,7 @@ def compress_strucure_pruned_module(
                     target_dim=prune_dim,
                     idxs_to_keep=unpruned_channel_idxs,
                     module=param_name_to_module[param_name],
+                    optimizer=optimizer,
                 )
 
             # compress dependent params along opposite dimension
@@ -136,6 +141,7 @@ def compress_strucure_pruned_module(
                     target_dim=int(not prune_dim),  # 0 <-> 1
                     idxs_to_keep=unpruned_channel_idxs,
                     module=param_name_to_module[dependent_param_name],
+                    optimizer=optimizer,
                 )
 
 
@@ -157,7 +163,8 @@ def _compress_module_param_dim(
     param: Parameter,
     target_dim: int,
     idxs_to_keep: Tensor,
-    module: Module = None,
+    module: Optional[Module] = None,
+    optimizer: Optional[Optimizer] = None,
 ):
     if param.dim() == 1:
         target_dim = 0
@@ -178,6 +185,24 @@ def _compress_module_param_dim(
         if target_dim == 0
         else param.data[:, idxs_to_keep, ...]
     )
+
+    if param.grad is not None:
+        param.grad = (
+            param.grad[idxs_to_keep, ...]
+            if target_dim == 0
+            else param.grad[:, idxs_to_keep, ...]
+        )
+
+    if (
+        optimizer is not None
+        and param in optimizer.state
+        and ("momentum_buffer" in optimizer.state[param])
+    ):
+        optimizer.state[param]["momentum_buffer"] = (
+            optimizer.state[param]["momentum_buffer"][idxs_to_keep, ...]
+            if target_dim == 0
+            else optimizer.state[param]["momentum_buffer"][:, idxs_to_keep, ...]
+        )
 
     # update module attrs
     if module is not None:

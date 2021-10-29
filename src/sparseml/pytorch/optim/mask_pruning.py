@@ -337,16 +337,21 @@ class ModuleParamPruningMask(object):
 
         return mask_diffs
 
-    def set_param_masks_from_weights(self) -> List[Tensor]:
+    def set_param_masks_from_weights(self, reset: bool = False) -> List[Tensor]:
         """
         Convenience function to set the parameter masks such that the
         mask is 1 if a parameter value is non zero and 0 otherwise,
         unless otherwise defined by this object's mask_creator.
 
+        :param reset: if True, the previous masks will be cleared before computing mask
+            differences
         """
         masks = self._mask_creator.create_sparsity_masks_from_tensor(
             [param.data for param in self._params]
         )
+
+        if reset:
+            self._param_masks = masks
 
         return self.set_param_masks(masks)
 

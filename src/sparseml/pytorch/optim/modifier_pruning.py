@@ -552,6 +552,7 @@ class GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
         self._applied_sparsity = None
         self._last_logged_sparsity = None
         self._pre_step_completed = False
+        self._sparsity_applied = False  # set to True after a pruning step occurs
 
         self._non_serializable_props = {}
 
@@ -703,6 +704,8 @@ class GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
             # have changed (optimizer with momentum, not masking gradient)
             self._module_masks.apply()
 
+        self._sparsity_applied = False
+
     def _check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
     ):
@@ -762,6 +765,7 @@ class GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
                     )
 
             self._module_masks.set_param_masks_from_sparsity(self._applied_sparsity)
+            self._sparsity_applied = True
 
         if self.end_pending(epoch, steps_per_epoch):
             self._module_masks.pruning_end(self._leave_enabled)
@@ -1306,6 +1310,28 @@ class StructuredPruningModifier(GMPruningModifier):
             score_type=self._score_type,
         )
 
+    def optimizer_post_step(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Reapply the mask after the optimizer step in case the optimizer
+        has momentum that may have moved weights from 0. Not applied for
+        movement pruning to allow weight reintroduction.
+
+        If the module had been pruned on the previous step, then structured
+        pruning compression based on the dependency map will be applied
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        sparsity_was_applied = self._sparsity_applied
+        super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
+        if sparsity_was_applied:
+            self._compress(module, optimizer)
+
     def finalize(
         self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
     ):
@@ -1324,14 +1350,16 @@ class StructuredPruningModifier(GMPruningModifier):
         self._compress(module)
 
     def _compress(self, module: Module, optimizer: Optimizer = None):
-        if optimizer is not None:
-            # clear any stored gradient variables
-            optimizer.zero_grad()
         compress_strucure_pruned_module(
             module,
             self._param_group_dependency_map,
             structure_type=self._mask_creator.structure_type,
+            optimizer=optimizer,
         )
+
+        if self._module_masks.enabled:
+            # reset size of module masks to updated shapes
+            self._module_masks.set_param_masks_from_weights(reset=True)
 
 
 @PyTorchModifierYAML()
