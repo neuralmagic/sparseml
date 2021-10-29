@@ -28,6 +28,7 @@ from torch.optim.optimizer import Optimizer
 from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.mask_creator_pruning import (
+    DimensionSparsityMaskCreator,
     PruningMaskCreator,
     load_mask_creator,
 )
@@ -38,6 +39,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
+from sparseml.pytorch.optim.structured_pruning import compress_strucure_pruned_module
 from sparseml.pytorch.utils import (
     GradSampler,
     MFACOptions,
@@ -71,6 +73,7 @@ __all__ = [
     "MovementPruningModifier",
     "GlobalMagnitudePruningModifier",
     "LayerPruningModifier",
+    "StructuredPruningModifier",
 ]
 
 
@@ -1133,6 +1136,202 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         :return: True if global pruning is enabled, False otherwise
         """
         return self._global_sparsity
+
+
+@PyTorchModifierYAML()
+class StructuredPruningModifier(GMPruningModifier):
+    """
+    Gradually applies structured kernel sparsity to a given parameter or parameters
+    from init_sparsity until final_sparsity is reached over a given amount of time
+    and applied with an interpolated function for each step taken. Channel and filter
+    pruning supported.
+
+    A param_group_dependency_map must be provided that maps
+    groups of prunable parameter names that should have their dimensions pruned
+    together to a list of module parameter names that should be updated accordingly
+    when those parameters are pruned.
+
+    | Sample yaml:
+    |   !StructuredPruningModifier
+    |       param_group_dependency_map: {
+    |            "param.1.name,param.2.name": ["param.1.dep.1.name"]
+    |       }
+    |       init_sparsity: 0.05
+    |       final_sparsity: 0.8
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       update_frequency: 1.0
+    |       params: __ALL_PRUNABLE__
+    |       leave_enabled: True
+    |       inter_func: cubic
+    |       log_types: __ALL__
+    |       mask_type: filter
+    |       score_type: magnitude
+
+    :param param_group_dependency_map: mapping of comma separated parameter names that
+        should be pruned together to a list of parameter names whose opposite channels
+        should be updated based on which ones of the group are removed. Can be
+        generated from an onnx export of the target module with
+        sparseml.onnx.optim.get_param_structured_pruning_group_dependencies
+        i.e. {"param.1.name,param.2.name": ["param.1.dep.1.name", "other.dep",
+        "other.dep.2], ...}
+    :param init_sparsity: the initial sparsity for the param to start with at
+        start_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The number of epochs or fraction of epochs to update at
+        between start and end
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers' weights. Defualt is __ALL_PRUNABLE__
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param inter_func: the type of interpolation function to use:
+        [linear, cubic, inverse_cubic]
+    :param phased: True to enable a phased approach where pruning will
+        turn on and off with the update_frequency. Starts with pruning on
+        at start_epoch, off at start_epoch + update_frequency, and so on.
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    :param mask_type: String to define type of structured sparsity (options: [
+        'channel', 'filter']), or a DimensionSparsityMaskCreator object.
+        default is 'filter'
+    :param score_type: Method used to score parameters for masking, i.e.
+        'magnitude', 'movement'. Default is 'magnitude'
+    """
+
+    def __init__(
+        self,
+        param_group_dependency_map: Dict[str, List[str]],
+        init_sparsity: float,
+        final_sparsity: float,
+        start_epoch: float,
+        end_epoch: float,
+        update_frequency: float,
+        params: Union[str, List[str]] = ALL_PRUNABLE_TOKEN,
+        leave_enabled: bool = True,
+        inter_func: str = "cubic",
+        phased: bool = False,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        mask_type: Union[str, DimensionSparsityMaskCreator] = "filter",
+        score_type: Union[str, MFACOptions] = "magnitude",
+    ):
+        if not isinstance(mask_type, DimensionSparsityMaskCreator) and (
+            mask_type not in ["channel", "filter"]
+        ):
+            raise ValueError(
+                "StructuredPruningModifier mask_type must be a "
+                "DimensionSparsityMaskCreator or designate 'channel' or 'filter' "
+                f"found {mask_type}"
+            )
+        super().__init__(
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            params=params,
+            leave_enabled=leave_enabled,
+            inter_func=inter_func,
+            phased=phased,
+            log_types=log_types,
+            mask_type=mask_type,
+            global_sparsity=False,
+            score_type=score_type,
+        )
+
+        self._param_group_dependency_map = param_group_dependency_map
+
+    @ModifierProp()
+    def param_group_dependency_map(self) -> Dict[str, List[str]]:
+        """
+        :return: mapping of comma separated parameter names that should
+            be pruned together to a list of parameter names whose opposite channels
+            should be updated based on which ones of the group are removed
+        """
+        return self._param_group_dependency_map
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True if global pruning is enabled, False otherwise
+        """
+        return self._global_sparsity
+
+    def _create_pruning_mask(
+        self, layers: List[Module], layer_names: List[str], param_names: List[str]
+    ) -> ModuleParamPruningMask:
+        # find and validate parameter groups for structured pruning
+        full_param_names = [
+            f"{layer_name}.{param_name}"
+            for layer_name, param_name in zip(layer_names, param_names)
+        ]
+        param_name_to_idx = dict(zip(full_param_names, range(len(full_param_names))))
+        param_group_idxs = []
+        added_idxs = set()
+
+        for param_group in self._param_group_dependency_map.keys():
+            param_group = param_group.split(",")  # unwrap CSV
+            group_idxs = []
+            for param_name in param_group:
+                if param_name not in param_name_to_idx:
+                    raise ValueError(
+                        f"param {param_name} from param_group_dependency_map "
+                        f"not found in pruning modifier params {full_param_names}"
+                    )
+                param_idx = param_name_to_idx[param_name]
+                if param_idx in added_idxs:
+                    raise ValueError(
+                        "found repeated param name in param_group_dependency_map "
+                        f"{param_name}"
+                    )
+                group_idxs.append(param_idx)
+                added_idxs.add(param_idx)
+            param_group_idxs.append(group_idxs)
+        for idx in range(len(full_param_names)):
+            if idx not in added_idxs:
+                param_group_idxs.append([idx])
+
+        self._mask_creator.set_tensor_group_idxs(param_group_idxs)
+
+        return ModuleParamPruningMask(
+            layers,
+            param_names,
+            layer_names=layer_names,
+            mask_creator=self._mask_creator,
+            global_sparsity=False,
+            score_type=self._score_type,
+        )
+
+    def finalize(
+        self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
+    ):
+        """
+        Cleans up any remaining hooks
+
+        :param module: The model/module to finalize the modifier for.
+            Marked optional so state can still be cleaned up on delete,
+            but generally should always be passed in.
+        :param reset_loggers: True to remove any currently attached loggers (default),
+            False to keep the loggers attached.
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
+        """
+        super().finalize(module, reset_loggers, **kwargs)
+        self._compress(module)
+
+    def _compress(self, module: Module, optimizer: Optimizer = None):
+        if optimizer is not None:
+            # clear any stored gradient variables
+            optimizer.zero_grad()
+        compress_strucure_pruned_module(
+            module,
+            self._param_group_dependency_map,
+            structure_type=self._mask_creator.structure_type,
+        )
 
 
 @PyTorchModifierYAML()

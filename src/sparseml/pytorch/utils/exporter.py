@@ -461,11 +461,14 @@ def export_onnx(
     for submodule in disabled_observers:
         submodule.observer_enabled[0] = 1
 
-    # clean up graph from any injected / wrapped operations
+    # onnx file fixes
+    onnx_model = onnx.load(file_path)
+    # fix changed batch norm names
+    _fix_batch_norm_names(onnx_model)
     if batch_norms_wrapped:
-        onnx_model = onnx.load(file_path)
+        # clean up graph from any injected / wrapped operations
         _delete_trivial_onnx_adds(onnx_model)
-        onnx.save(onnx_model, file_path)
+    onnx.save(onnx_model, file_path)
 
     if convert_qat and is_quant_module:
         # overwrite exported model with fully quantized version
@@ -554,3 +557,27 @@ def _delete_trivial_onnx_adds(model: onnx.ModelProto):
                 model.graph.node.remove(add_const_node)
         except Exception:  # skip node on any error
             continue
+
+
+def _fix_batch_norm_names(model: onnx.ModelProto):
+    name_to_inits = {init.name: init for init in model.graph.initializer}
+    for node in model.graph.node:
+        if node.op_type != "BatchNormalization":
+            continue
+        for idx in range(len(node.input)):
+            init_name = node.input[idx]
+            name_parts = init_name.split(".")
+            if (
+                init_name not in name_to_inits
+                or len(name_parts) < 2
+                or (name_parts[-2] != "module")
+            ):
+                continue
+            del name_parts[-2]
+            new_name = ".".join(name_parts)
+            if new_name not in name_to_inits:
+                init = name_to_inits[init_name]
+                del name_to_inits[init_name]
+                init.name = new_name
+                node.input[idx] = new_name
+                name_to_inits[new_name] = init

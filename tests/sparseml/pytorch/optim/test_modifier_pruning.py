@@ -29,6 +29,7 @@ from sparseml.pytorch.optim import (
     MFACGlobalPruningModifier,
     MFACPruningModifier,
     MovementPruningModifier,
+    StructuredPruningModifier,
     load_mask_creator,
 )
 from sparseml.pytorch.utils import get_layer
@@ -489,6 +490,47 @@ class TestLayerPruningModifier(ScheduledUpdateModifierTest):
                 assert not isinstance(get_layer(name, model), Identity)
 
 
+def _test_pruning_modifier_serialization_vals(
+    yaml_modifier, serialized_modifier, obj_modifier
+):
+    assert (
+        yaml_modifier.init_sparsity
+        == serialized_modifier.init_sparsity
+        == obj_modifier.init_sparsity
+    )
+    assert (
+        yaml_modifier.final_sparsity
+        == serialized_modifier.final_sparsity
+        == obj_modifier.final_sparsity
+    )
+    assert (
+        yaml_modifier.start_epoch
+        == serialized_modifier.start_epoch
+        == obj_modifier.start_epoch
+    )
+    assert (
+        yaml_modifier.end_epoch
+        == serialized_modifier.end_epoch
+        == obj_modifier.end_epoch
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
+    assert (
+        yaml_modifier.inter_func
+        == serialized_modifier.inter_func
+        == obj_modifier.inter_func
+    )
+    assert (
+        str(yaml_modifier.mask_type)
+        == str(serialized_modifier.mask_type)
+        == str(obj_modifier.mask_type)
+    )
+
+
 @pytest.mark.parametrize(
     "params, final_sparsity",
     [
@@ -537,41 +579,8 @@ def test_gm_pruning_yaml(params, final_sparsity):
     )
 
     assert isinstance(yaml_modifier, GMPruningModifier)
-    assert (
-        yaml_modifier.init_sparsity
-        == serialized_modifier.init_sparsity
-        == obj_modifier.init_sparsity
-    )
-    assert (
-        yaml_modifier.final_sparsity
-        == serialized_modifier.final_sparsity
-        == obj_modifier.final_sparsity
-    )
-    assert (
-        yaml_modifier.start_epoch
-        == serialized_modifier.start_epoch
-        == obj_modifier.start_epoch
-    )
-    assert (
-        yaml_modifier.end_epoch
-        == serialized_modifier.end_epoch
-        == obj_modifier.end_epoch
-    )
-    assert (
-        yaml_modifier.update_frequency
-        == serialized_modifier.update_frequency
-        == obj_modifier.update_frequency
-    )
-    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
-    assert (
-        yaml_modifier.inter_func
-        == serialized_modifier.inter_func
-        == obj_modifier.inter_func
-    )
-    assert (
-        str(yaml_modifier.mask_type)
-        == str(serialized_modifier.mask_type)
-        == str(obj_modifier.mask_type)
+    _test_pruning_modifier_serialization_vals(
+        yaml_modifier, serialized_modifier, obj_modifier
     )
     assert (
         str(yaml_modifier.global_sparsity)
@@ -618,41 +627,8 @@ def test_magnitude_pruning_yaml():
     )
 
     assert isinstance(yaml_modifier, MagnitudePruningModifier)
-    assert (
-        yaml_modifier.init_sparsity
-        == serialized_modifier.init_sparsity
-        == obj_modifier.init_sparsity
-    )
-    assert (
-        yaml_modifier.final_sparsity
-        == serialized_modifier.final_sparsity
-        == obj_modifier.final_sparsity
-    )
-    assert (
-        yaml_modifier.start_epoch
-        == serialized_modifier.start_epoch
-        == obj_modifier.start_epoch
-    )
-    assert (
-        yaml_modifier.end_epoch
-        == serialized_modifier.end_epoch
-        == obj_modifier.end_epoch
-    )
-    assert (
-        yaml_modifier.update_frequency
-        == serialized_modifier.update_frequency
-        == obj_modifier.update_frequency
-    )
-    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
-    assert (
-        yaml_modifier.inter_func
-        == serialized_modifier.inter_func
-        == obj_modifier.inter_func
-    )
-    assert (
-        str(yaml_modifier.mask_type)
-        == str(serialized_modifier.mask_type)
-        == str(obj_modifier.mask_type)
+    _test_pruning_modifier_serialization_vals(
+        yaml_modifier, serialized_modifier, obj_modifier
     )
 
 
@@ -694,41 +670,8 @@ def test_movement_pruning_yaml():
     )
 
     assert isinstance(yaml_modifier, MovementPruningModifier)
-    assert (
-        yaml_modifier.init_sparsity
-        == serialized_modifier.init_sparsity
-        == obj_modifier.init_sparsity
-    )
-    assert (
-        yaml_modifier.final_sparsity
-        == serialized_modifier.final_sparsity
-        == obj_modifier.final_sparsity
-    )
-    assert (
-        yaml_modifier.start_epoch
-        == serialized_modifier.start_epoch
-        == obj_modifier.start_epoch
-    )
-    assert (
-        yaml_modifier.end_epoch
-        == serialized_modifier.end_epoch
-        == obj_modifier.end_epoch
-    )
-    assert (
-        yaml_modifier.update_frequency
-        == serialized_modifier.update_frequency
-        == obj_modifier.update_frequency
-    )
-    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
-    assert (
-        yaml_modifier.inter_func
-        == serialized_modifier.inter_func
-        == obj_modifier.inter_func
-    )
-    assert (
-        str(yaml_modifier.mask_type)
-        == str(serialized_modifier.mask_type)
-        == str(obj_modifier.mask_type)
+    _test_pruning_modifier_serialization_vals(
+        yaml_modifier, serialized_modifier, obj_modifier
     )
 
 
@@ -753,7 +696,7 @@ def test_global_magnitude_pruning_yaml():
         mask_type: {mask_type}
     """
     yaml_modifier = GlobalMagnitudePruningModifier.load_obj(yaml_str)
-    serialized_modifier = GMPruningModifier.load_obj(
+    serialized_modifier = GlobalMagnitudePruningModifier.load_obj(
         str(yaml_modifier)
     )  # type: GlobalMagnitudePruningModifier
     obj_modifier = GlobalMagnitudePruningModifier(
@@ -768,41 +711,60 @@ def test_global_magnitude_pruning_yaml():
     )
 
     assert isinstance(yaml_modifier, GlobalMagnitudePruningModifier)
-    assert (
-        yaml_modifier.init_sparsity
-        == serialized_modifier.init_sparsity
-        == obj_modifier.init_sparsity
+    _test_pruning_modifier_serialization_vals(
+        yaml_modifier, serialized_modifier, obj_modifier
+    )
+
+
+def test_structured_pruning_yaml():
+    param_group_dependency_map = {
+        "param1,param2": ["dep_param1", "dep_param2"],
+        "param3": ["dep_param3"],
+    }
+    init_sparsity = 0.05
+    final_sparsity = 0.8
+    start_epoch = 5.0
+    end_epoch = 15.0
+    update_frequency = 1.0
+    params = "__ALL_PRUNABLE__"
+    inter_func = "cubic"
+    mask_type = "filter"
+    yaml_str = f"""
+    !StructuredPruningModifier
+        param_group_dependency_map: {param_group_dependency_map}
+        init_sparsity: {init_sparsity}
+        final_sparsity: {final_sparsity}
+        start_epoch: {start_epoch}
+        end_epoch: {end_epoch}
+        update_frequency: {update_frequency}
+        params: {params}
+        inter_func: {inter_func}
+        mask_type: {mask_type}
+    """
+    yaml_modifier = StructuredPruningModifier.load_obj(yaml_str)
+    serialized_modifier = StructuredPruningModifier.load_obj(
+        str(yaml_modifier)
+    )  # type: StructuredPruningModifier
+    obj_modifier = StructuredPruningModifier(
+        param_group_dependency_map=param_group_dependency_map,
+        init_sparsity=init_sparsity,
+        final_sparsity=final_sparsity,
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+        update_frequency=update_frequency,
+        params=params,
+        inter_func=inter_func,
+        mask_type=mask_type,
+    )
+
+    assert isinstance(yaml_modifier, StructuredPruningModifier)
+    _test_pruning_modifier_serialization_vals(
+        yaml_modifier, serialized_modifier, obj_modifier
     )
     assert (
-        yaml_modifier.final_sparsity
-        == serialized_modifier.final_sparsity
-        == obj_modifier.final_sparsity
-    )
-    assert (
-        yaml_modifier.start_epoch
-        == serialized_modifier.start_epoch
-        == obj_modifier.start_epoch
-    )
-    assert (
-        yaml_modifier.end_epoch
-        == serialized_modifier.end_epoch
-        == obj_modifier.end_epoch
-    )
-    assert (
-        yaml_modifier.update_frequency
-        == serialized_modifier.update_frequency
-        == obj_modifier.update_frequency
-    )
-    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
-    assert (
-        yaml_modifier.inter_func
-        == serialized_modifier.inter_func
-        == obj_modifier.inter_func
-    )
-    assert (
-        str(yaml_modifier.mask_type)
-        == str(serialized_modifier.mask_type)
-        == str(obj_modifier.mask_type)
+        yaml_modifier.param_group_dependency_map
+        == serialized_modifier.param_group_dependency_map
+        == obj_modifier.param_group_dependency_map
     )
 
 
@@ -848,41 +810,8 @@ def test_mfac_pruning_yaml():
     )
 
     assert isinstance(yaml_modifier, MFACPruningModifier)
-    assert (
-        yaml_modifier.init_sparsity
-        == serialized_modifier.init_sparsity
-        == obj_modifier.init_sparsity
-    )
-    assert (
-        yaml_modifier.final_sparsity
-        == serialized_modifier.final_sparsity
-        == obj_modifier.final_sparsity
-    )
-    assert (
-        yaml_modifier.start_epoch
-        == serialized_modifier.start_epoch
-        == obj_modifier.start_epoch
-    )
-    assert (
-        yaml_modifier.end_epoch
-        == serialized_modifier.end_epoch
-        == obj_modifier.end_epoch
-    )
-    assert (
-        yaml_modifier.update_frequency
-        == serialized_modifier.update_frequency
-        == obj_modifier.update_frequency
-    )
-    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
-    assert (
-        yaml_modifier.inter_func
-        == serialized_modifier.inter_func
-        == obj_modifier.inter_func
-    )
-    assert (
-        str(yaml_modifier.mask_type)
-        == str(serialized_modifier.mask_type)
-        == str(obj_modifier.mask_type)
+    _test_pruning_modifier_serialization_vals(
+        yaml_modifier, serialized_modifier, obj_modifier
     )
     assert (
         str(yaml_modifier.global_sparsity)
@@ -935,41 +864,8 @@ def test_global_mfac_pruning_yaml():
     )
 
     assert isinstance(yaml_modifier, MFACGlobalPruningModifier)
-    assert (
-        yaml_modifier.init_sparsity
-        == serialized_modifier.init_sparsity
-        == obj_modifier.init_sparsity
-    )
-    assert (
-        yaml_modifier.final_sparsity
-        == serialized_modifier.final_sparsity
-        == obj_modifier.final_sparsity
-    )
-    assert (
-        yaml_modifier.start_epoch
-        == serialized_modifier.start_epoch
-        == obj_modifier.start_epoch
-    )
-    assert (
-        yaml_modifier.end_epoch
-        == serialized_modifier.end_epoch
-        == obj_modifier.end_epoch
-    )
-    assert (
-        yaml_modifier.update_frequency
-        == serialized_modifier.update_frequency
-        == obj_modifier.update_frequency
-    )
-    assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
-    assert (
-        yaml_modifier.inter_func
-        == serialized_modifier.inter_func
-        == obj_modifier.inter_func
-    )
-    assert (
-        str(yaml_modifier.mask_type)
-        == str(serialized_modifier.mask_type)
-        == str(obj_modifier.mask_type)
+    _test_pruning_modifier_serialization_vals(
+        yaml_modifier, serialized_modifier, obj_modifier
     )
     assert (
         yaml_modifier.mfac_options
