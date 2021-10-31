@@ -594,6 +594,7 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
             )
             grouped_mask = unstrided_mask
             del self._stride_grouped_tensors[tensor_idx]
+
         return grouped_mask.expand(original_tensor_shape)
 
     def _validate_tensor_group_idxs(self, num_tensors: int):

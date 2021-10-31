@@ -76,10 +76,6 @@ def test_structured_pruning_one_shot_e2e(
         mask_type=structure_type,
     )
 
-    import pdb
-
-    pdb.set_trace()
-
     # track shapes before pruning
     init_param_shapes = _get_param_shapes(module)
 

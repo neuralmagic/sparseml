@@ -301,6 +301,7 @@ def _test_set_param_mask_from_abs_threshold(
     mask.set_param_data(param, 0)
     mask.set_param_masks_from_abs_threshold(threshold)
     sparsity = tensor_sparsity(mask.param_masks[0])
+
     assert (sparsity - expected_sparsity).abs() < 0.01
     if isinstance(mask_creator, GroupedPruningMaskCreator):
         _test_grouped_sparsity_mask_output(mask_creator, mask.param_masks[0])
@@ -381,9 +382,9 @@ def _test_set_param_mask_from_abs_threshold(
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
             torch.randn(512, 256, 3, 3),
-            1.0,
-            0.8428,
-            DimensionSparsityMaskCreator([0, 1]),
+            0.83,
+            0.9961,
+            DimensionSparsityMaskCreator([0]),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -483,9 +484,9 @@ def test_set_param_mask_from_abs_threshold(
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
             torch.randn(512, 256, 3, 3),
-            1.0,
-            0.8428,
-            DimensionSparsityMaskCreator([0, 1]),
+            0.83,
+            0.9961,
+            DimensionSparsityMaskCreator([0]),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -588,7 +589,7 @@ def _test_set_param_mask_from_sparsity(
             "weight",
             torch.randn(512, 256, 3, 3),
             0.6,
-            DimensionSparsityMaskCreator([0, 1]),
+            DimensionSparsityMaskCreator([0]),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -671,7 +672,7 @@ def test_set_param_mask_from_sparsity(layer, param_name, param, sparsity, mask_c
             "weight",
             torch.randn(512, 256, 3, 3),
             0.6,
-            DimensionSparsityMaskCreator([0, 1]),
+            DimensionSparsityMaskCreator([0]),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
