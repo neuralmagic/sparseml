@@ -38,7 +38,10 @@ DATA_PATH = os.path.join(RELATIVE_PATH, "test_analyzer_data")
 def _load_pruning_analysis_test_results(path, live_results):
     if GENERATE_TEST_FILES:
         with open(path, "w") as live_results_file:
-            live_results_json = json.loads(live_results.json())
+            live_results_json = live_results.dict()
+            import pdb
+
+            pdb.set_trace()
             json.dump(live_results_json, live_results_file, indent=4)
     return PruningSensitivityResult.parse_file(path)
 

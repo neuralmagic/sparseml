@@ -14,7 +14,13 @@
 
 import pytest
 
-from sparseml.sparsification import LayerInfo, ModelResult, Result
+from sparseml.sparsification import (
+    LayerInfo,
+    ModelResult,
+    PruningSensitivityResult,
+    PruningSensitivityResultTypes,
+    Result,
+)
 
 
 def _test_layer_info_eq(layer_one, layer_two):
@@ -171,7 +177,7 @@ def _test_model_result_eq(result_one, result_two):
     ],
 )
 def test_model_result_serialization(model_result, expected_dict):
-    model_result_dict = dict(model_result)
+    model_result_dict = model_result.dict()
     expected_dict_loaded = ModelResult.parse_obj(expected_dict)
     model_result_dict_reloaded = ModelResult.parse_obj(model_result_dict)
 
@@ -184,3 +190,71 @@ def test_model_result_serialization(model_result, expected_dict):
     assert model_result_dict == expected_dict
     _test_model_result_eq(model_result, expected_dict_loaded)
     _test_model_result_eq(model_result, model_result_dict_reloaded)
+
+
+def _fake_pruning_loss_sensitivity_result():
+    result = PruningSensitivityResult(PruningSensitivityResultTypes.LOSS)
+    result.add_layer_sparsity_result("layer_1", 0.8, 0.005)
+    result.add_layer_sparsity_result("layer_1", 0.9, 0.003)
+    result.add_layer_sparsity_result("layer_2", 0.8, 0.002)
+    return result
+
+
+def _fake_pruning_perf_sensitivity_result():
+    result = PruningSensitivityResult(PruningSensitivityResultTypes.PERF)
+    result.add_model_sparsity_result(0.8, 1.1)
+    result.add_model_sparsity_result(0.9, 0.9)
+    result.add_layer_sparsity_result("layer_1", 0.8, 0.5)
+    result.add_layer_sparsity_result("layer_1", 0.9, 0.3)
+    result.add_layer_sparsity_result("layer_2", 0.8, 0.2)
+    return result
+
+
+@pytest.mark.parametrize(
+    "result,expected_dict",
+    [
+        (
+            _fake_pruning_loss_sensitivity_result(),
+            {
+                "analysis_type": PruningSensitivityResultTypes.LOSS.value,
+                "value": None,
+                "layer_results": {
+                    "layer_1": {
+                        "value": {"0.8": 0.005, "0.9": 0.003},
+                        "attributes": None,
+                    },
+                    "layer_2": {
+                        "value": {"0.8": 0.002},
+                        "attributes": None,
+                    },
+                },
+                "attributes": None,
+            },
+        ),
+        (
+            _fake_pruning_perf_sensitivity_result(),
+            {
+                "analysis_type": PruningSensitivityResultTypes.PERF.value,
+                "value": {
+                    "0.8": 1.1,
+                    "0.9": 0.9,
+                },
+                "layer_results": {
+                    "layer_1": {
+                        "value": {"0.8": 0.5, "0.9": 0.3},
+                        "attributes": None,
+                    },
+                    "layer_2": {
+                        "value": {"0.8": 0.2},
+                        "attributes": None,
+                    },
+                },
+                "attributes": None,
+            },
+        ),
+    ],
+)
+def test_pruning_sensitivity_results(result, expected_dict):
+    result_dict = result.dict()
+    assert result_dict == expected_dict
+    assert result_dict == PruningSensitivityResult.parse_obj(expected_dict).dict()

@@ -271,6 +271,24 @@ class PruningSensitivityResult(ModelResult):
         self.value[sparsity] = value
 
 
+_ANALYSIS_TYPE_TO_CLASS = {
+    PruningSensitivityResultTypes.LOSS.value: PruningSensitivityResult,
+    PruningSensitivityResultTypes.PERF.value: PruningSensitivityResult,
+}
+
+
+def _model_result_from_dict(model_result_dict: Dict[str, Any]) -> ModelResult:
+    if "analysis_type" not in model_result_dict:
+        raise ValueError(
+            "'analysis_type' must be a dict key of a ModelResult dict found keys: "
+            f"{list(model_result_dict.keys())}"
+        )
+    result_class = _ANALYSIS_TYPE_TO_CLASS.get(
+        model_result_dict["analysis_type"], ModelResult
+    )
+    return result_class.parse_obj(model_result_dict)
+
+
 class ModelInfo(ABC):
     """
     Base class for extracting and serializing model metadata, layers info, and
@@ -312,7 +330,7 @@ class ModelInfo(ABC):
 
         results = dictionary.get("analysis_results", [])
         for result in results:
-            model_result = ModelResult.parse_obj(result)
+            model_result = _model_result_from_dict(result)
             model_info.add_analysis_result(model_result)
 
         return model_info
