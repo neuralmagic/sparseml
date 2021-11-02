@@ -399,7 +399,7 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
         grouping_fn_name: str = "mean",
     ):
         if isinstance(dim, int):
-            dim = [dim]
+            self._dim = [dim]  # List[int]
         self._dim_name = None
         self._grouping_fn_name = grouping_fn_name
         if isinstance(dim, str):
@@ -413,7 +413,6 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
                         dim, valid_dim_names
                     )
                 )
-        self._dim = dim  # List[int]
 
     def create_sparsity_masks(
         self,
