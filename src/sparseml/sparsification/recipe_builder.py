@@ -43,20 +43,55 @@ class ModifierYAMLBuilder(object):
 
     :param modifier_class: reference to the class of modifier this object should create
         a YAML representation for
+    :param kwargs: modifier property kwargs to values to initialize them. each key must
+        be a valid serializable ModifierProp of the modifier class
     """
 
-    def __init__(self, modifier_class: Type[BaseModifier]):
+    def __init__(self, modifier_class: Type[BaseModifier], **kwargs):
         assert issubclass(
             modifier_class, BaseModifier
         ), "a subclass of Modifier must be used to instantiate a ModifierYAMLBuilder"
 
         self._modifier_class = modifier_class
+        self._modifier_property_names = set()
         self._properties = {}
 
         for attr in dir(modifier_class):
             attr_obj = getattr(modifier_class, attr)
             if isinstance(attr_obj, ModifierProp) and attr_obj.serializable:
-                self._add_setter_getter(attr)
+                self._modifier_property_names.add(attr)
+
+        for key, value in kwargs.items():
+            if key in self._modifier_property_names:
+                self._properties[key] = value
+            else:
+                raise ValueError(
+                    f"Modifier {modifier_class} has no serializable " f"property {key}"
+                )
+
+    def __getattr__(self, item: str) -> Any:
+        if item in self.__dict__:
+            return getattr(self, item)
+        elif item in self._modifier_property_names:
+            return self._properties.get(item)
+        elif item == "__name__":
+            return f"{self.__class__.__name__}.{self._modifier_class.__name__}"
+        else:
+            raise ValueError(
+                f"{self.__class__.__name__} of {self._modifier_class} has no "
+                f"property {item}"
+            )
+
+    def __setattr__(self, key: str, value: Any):
+        if key in ["_modifier_class", "_modifier_property_names", "_properties"]:
+            super().__setattr__(key, value)
+        elif key in self._modifier_property_names:
+            self._properties[key] = value
+        else:
+            raise ValueError(
+                f"{self.__class__.__name__} of {self._modifier_class.__name__} has no "
+                f"property {key}"
+            )
 
     @property
     def modifier_class(self) -> Type[BaseModifier]:
@@ -75,21 +110,6 @@ class ModifierYAMLBuilder(object):
         )
         properties_yaml = textwrap.indent(properties_yaml, "  ")
         return f"{class_name_yaml}\n{properties_yaml}"
-
-    def _add_setter_getter(self, property_name: str):
-        # define generic setter and getter functions for this property
-        def setter(self_, val: Any) -> ModifierYAMLBuilder:
-            self_._properties[property_name] = val
-            return self_
-
-        def getter(self_) -> Optional[Any]:
-            return self_._properties.get(property_name)
-
-        # bind setter and getter functions to this class
-        setter_bound = setter.__get__(self, self.__class__)
-        setattr(self, f"set_{property_name}", setter_bound)
-        getter_bound = getter.__get__(self, self.__class__)
-        setattr(self, f"get_{property_name}", getter_bound)
 
 
 class RecipeYAMLBuilder(object):
