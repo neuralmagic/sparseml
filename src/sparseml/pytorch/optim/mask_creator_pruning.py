@@ -274,11 +274,14 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         :param tensor: the tensor to reduce
         :param dim: dimension or list of dimension to reduce along
         :param reduce_fn_name: function name to reduce tensor with. valid options
-            are 'mean', 'max', 'min'
+            are 'l2', 'mean', 'max', 'min'
         :param keepdim: preserves the reduced dimension(s) in returned tensor shape
             as shape 1. default is True
         :return: Tensor reduced along the given dimension(s)
         """
+        reduce_fn_name = reduce_fn_name.lower()
+        if reduce_fn_name == "l2":
+            return torch.linalg.norm(input=tensor, dim=dim, keepdim=keepdim)
         if reduce_fn_name == "mean":
             return torch.mean(input=tensor, dim=dim, keepdim=keepdim)
         if reduce_fn_name == "max":
@@ -396,7 +399,7 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
     :param dim: The index or list of indices of dimensions to group the mask by or
         the type of dims to prune (['channel', 'filter'])
     :param grouping_fn_name: The name of the torch grouping function to reduce
-        dimensions by
+        dimensions by. Default is 'l2'
     :param tensor_group_idxs: list of lists of input tensor idxs whose given dimensions
         should be scored together. If set, all idxs in the range of provided tensors
         must be included in exactly one group (tensors in their own group should be a
@@ -406,7 +409,7 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
     def __init__(
         self,
         dim: Union[str, int, List[int]],
-        grouping_fn_name: str = "mean",
+        grouping_fn_name: str = "l2",
         tensor_group_idxs: Optional[List[List[int]]] = None,
     ):
         self._grouping_fn_name = grouping_fn_name
@@ -550,7 +553,7 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
             tensors_in_group_flat = [
                 grouped_tensors[idx].reshape(-1) for idx in idx_group
             ]
-            group_score = torch.mean(torch.stack(tensors_in_group_flat), axis=0)
+            group_score = torch.sum(torch.stack(tensors_in_group_flat), axis=0)
 
             # set all tensors in group to the group score
             for idx in idx_group:
