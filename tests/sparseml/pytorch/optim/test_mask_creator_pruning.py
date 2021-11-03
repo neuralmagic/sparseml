@@ -46,6 +46,7 @@ def _test_grouped_masks(masks, mask_creator):
     # an absolte mean to each grouping
     for mask in masks:
         grouped_mask = mask_creator.group_tensor(mask)
+        grouped_mask /= max(torch.max(grouped_mask).item(), 1.0)
         mask_vals_are_grouped = torch.all((grouped_mask == 0.0) | (grouped_mask == 1.0))
         assert mask_vals_are_grouped
 
