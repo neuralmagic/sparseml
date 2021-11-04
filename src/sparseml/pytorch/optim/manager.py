@@ -262,8 +262,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
             SparseZoo stubs should be preceded by 'zoo:', and can contain an optional
             '?recipe_type=<type>' parameter. Can also be a SparseZoo Recipe
             object. i.e. '/path/to/local/recipe.yaml', 'zoo:model/stub/path',
-            'zoo:model/stub/path?recipe_type=transfer'. Can also be a raw
-            yaml str.
+            'zoo:model/stub/path?recipe_type=transfer'. Additionally, a raw
+             yaml str is also supported in place of a file path.
         :param add_modifiers: additional modifiers that should be added to the
             returned manager alongside the ones loaded from the recipe file
         :param recipe_variables: additional variable values to override the recipe

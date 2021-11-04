@@ -57,7 +57,8 @@ def load_recipe_yaml_str(
         '?recipe_type=<type>' parameter or include a `/<type>` subpath. Can also
         be a SparseZoo Recipe object. i.e. '/path/to/local/recipe.yaml',
         'zoo:model/stub/path', 'zoo:model/stub/path?recipe_type=transfer_learn',
-        'zoo:model/stub/path/transfer_learn'. Can also be a yaml str
+        'zoo:model/stub/path/transfer_learn'. Additionally, a raw
+         yaml str is also supported in place of a file path.
     :param variable_overrides: dict of variable values to replace
         in the loaded yaml string. Default is None
     :return: the recipe YAML configuration loaded as a string
