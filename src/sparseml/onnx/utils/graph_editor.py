@@ -90,6 +90,13 @@ class ONNXGraph(object):
         """
         return self._name_to_initializer.get(name)
 
+    def get_node_by_output_id(self, id: str) -> Optional[TensorProto]:
+        """
+        :param id: name of output id of node
+        :return: the associated node if it is present in the graph, None otherwise
+        """
+        return self._output_id_to_node.get(id)
+
     def get_node_parents(
         self, node: NodeProto
     ) -> List[Union[NodeProto, TensorProto, None]]:
@@ -214,13 +221,15 @@ class ONNXGraph(object):
     def delete_unused_initializers(self):
         """
         deletes tensors in the initializer list that are not listed as inputs to any
-        node in the current graph state
+        node in the current graph state or directly passed as model outputs
         """
+        output_names = {out.name for out in self._model.graph.output}
         self.delete_initializers(
             [
                 init
                 for init in self._model.graph.initializer
                 if not self._input_id_to_nodes[init.name]
+                and (init.name not in output_names)
             ]
         )  # delete inits that have no edge
 
