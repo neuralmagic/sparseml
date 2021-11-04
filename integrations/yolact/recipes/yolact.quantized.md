@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-___
+---
 # General Hyperparams
 num_epochs: &num_epochs 4
 
@@ -42,7 +42,7 @@ pruning_modifiers:
 quantization_modifiers:
   - !QuantizationModifier
     start_epoch: *quantization_start_epoch
-___
+---
 # YOLACT Pruned
 
 This recipe quantizes a [YOLACT](https://github.com/dbolya/yolact) model.

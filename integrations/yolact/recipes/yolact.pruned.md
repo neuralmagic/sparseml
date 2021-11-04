@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-___
+---
 # General Hyperparams
 num_epochs: &num_epochs 60
 
@@ -37,13 +37,13 @@ training_modifiers:
 pruning_modifiers:
   - !GMPruningModifier
     params:
-    - module.backbone.layers.0.1.conv1.0.weight
-    - module.backbone.layers.0.1.conv2.0.weight
-    - module.backbone.layers.1.0.0.weight
-    - module.backbone.layers.1.1.conv1.0.weight
-    - module.backbone.layers.1.1.conv2.0.weight
-    - module.backbone.layers.1.2.conv1.0.weight
-    - module.backbone.layers.1.2.conv2.0.weight
+    - backbone.layers.0.1.conv1.0.weight
+    - backbone.layers.0.1.conv2.0.weight
+    - backbone.layers.1.0.0.weight
+    - backbone.layers.1.1.conv1.0.weight
+    - backbone.layers.1.1.conv2.0.weight
+    - backbone.layers.1.2.conv1.0.weight
+    - backbone.layers.1.2.conv2.0.weight
 
     init_sparsity: *init_sparsity
     final_sparsity: *prune_none_target_sparsity
@@ -54,23 +54,23 @@ pruning_modifiers:
 
   - !GMPruningModifier
     params:
-      - module.backbone.layers.2.0.0.weight
-      - module.backbone.layers.2.1.conv1.0.weight
-      - module.backbone.layers.2.1.conv2.0.weight
-      - module.backbone.layers.2.2.conv1.0.weight
-      - module.backbone.layers.2.2.conv2.0.weight
-      - module.backbone.layers.2.3.conv1.0.weight
-      - module.backbone.layers.2.3.conv2.0.weight
-      - module.backbone.layers.2.4.conv1.0.weight
-      - module.backbone.layers.2.4.conv2.0.weight
-      - module.backbone.layers.2.5.conv1.0.weight
-      - module.backbone.layers.2.5.conv2.0.weight
-      - module.backbone.layers.2.6.conv1.0.weight
-      - module.backbone.layers.2.6.conv2.0.weight
-      - module.backbone.layers.2.7.conv1.0.weight
-      - module.backbone.layers.2.7.conv2.0.weight
-      - module.backbone.layers.2.8.conv1.0.weight
-      - module.backbone.layers.2.8.conv2.0.weight
+      - backbone.layers.2.0.0.weight
+      - backbone.layers.2.1.conv1.0.weight
+      - backbone.layers.2.1.conv2.0.weight
+      - backbone.layers.2.2.conv1.0.weight
+      - backbone.layers.2.2.conv2.0.weight
+      - backbone.layers.2.3.conv1.0.weight
+      - backbone.layers.2.3.conv2.0.weight
+      - backbone.layers.2.4.conv1.0.weight
+      - backbone.layers.2.4.conv2.0.weight
+      - backbone.layers.2.5.conv1.0.weight
+      - backbone.layers.2.5.conv2.0.weight
+      - backbone.layers.2.6.conv1.0.weight
+      - backbone.layers.2.6.conv2.0.weight
+      - backbone.layers.2.7.conv1.0.weight
+      - backbone.layers.2.7.conv2.0.weight
+      - backbone.layers.2.8.conv1.0.weight
+      - backbone.layers.2.8.conv2.0.weight
     init_sparsity: *init_sparsity
     final_sparsity: *prune_low_target_sparsity
     start_epoch: *pruning_start_epoch
@@ -80,40 +80,40 @@ pruning_modifiers:
 
   - !GMPruningModifier
     params:
-      - module.backbone.layers.3.0.0.weight
-      - module.backbone.layers.3.1.conv1.0.weight
-      - module.backbone.layers.3.1.conv2.0.weight
-      - module.backbone.layers.3.2.conv1.0.weight
-      - module.backbone.layers.3.2.conv2.0.weight
-      - module.backbone.layers.3.3.conv1.0.weight
-      - module.backbone.layers.3.3.conv2.0.weight
-      - module.backbone.layers.3.4.conv1.0.weight
-      - module.backbone.layers.3.4.conv2.0.weight
-      - module.backbone.layers.3.5.conv1.0.weight
-      - module.backbone.layers.3.5.conv2.0.weight
-      - module.backbone.layers.3.6.conv1.0.weight
-      - module.backbone.layers.3.6.conv2.0.weight
-      - module.backbone.layers.3.7.conv1.0.weight
-      - module.backbone.layers.3.7.conv2.0.weight
-      - module.backbone.layers.3.8.conv1.0.weight
-      - module.backbone.layers.3.8.conv2.0.weight
-      - module.proto_net.0.weight
-      - module.proto_net.2.weight
-      - module.proto_net.4.weight
-      - module.proto_net.8.weight
-      - module.proto_net.10.weight
-      - module.fpn.lat_layers.0.weight
-      - module.fpn.lat_layers.1.weight
-      - module.fpn.lat_layers.2.weight
-      - module.fpn.pred_layers.0.weight
-      - module.fpn.pred_layers.1.weight
-      - module.fpn.pred_layers.2.weight
-      - module.fpn.downsample_layers.0.weight
-      - module.fpn.downsample_layers.1.weight
-      - module.prediction_layers.0.upfeature.0.weight
-      - module.prediction_layers.0.bbox_layer.weight
-      - module.prediction_layers.0.conf_layer.weight
-      - module.num_epochs: &num_epochs 4
+      - backbone.layers.3.0.0.weight
+      - backbone.layers.3.1.conv1.0.weight
+      - backbone.layers.3.1.conv2.0.weight
+      - backbone.layers.3.2.conv1.0.weight
+      - backbone.layers.3.2.conv2.0.weight
+      - backbone.layers.3.3.conv1.0.weight
+      - backbone.layers.3.3.conv2.0.weight
+      - backbone.layers.3.4.conv1.0.weight
+      - backbone.layers.3.4.conv2.0.weight
+      - backbone.layers.3.5.conv1.0.weight
+      - backbone.layers.3.5.conv2.0.weight
+      - backbone.layers.3.6.conv1.0.weight
+      - backbone.layers.3.6.conv2.0.weight
+      - backbone.layers.3.7.conv1.0.weight
+      - backbone.layers.3.7.conv2.0.weight
+      - backbone.layers.3.8.conv1.0.weight
+      - backbone.layers.3.8.conv2.0.weight
+      - proto_net.0.weight
+      - proto_net.2.weight
+      - proto_net.4.weight
+      - proto_net.8.weight
+      - proto_net.10.weight
+      - fpn.lat_layers.0.weight
+      - fpn.lat_layers.1.weight
+      - fpn.lat_layers.2.weight
+      - fpn.pred_layers.0.weight
+      - fpn.pred_layers.1.weight
+      - fpn.pred_layers.2.weight
+      - fpn.downsample_layers.0.weight
+      - fpn.downsample_layers.1.weight
+      - prediction_layers.0.upfeature.0.weight
+      - prediction_layers.0.bbox_layer.weight
+      - prediction_layers.0.conf_layer.weight
+      - num_epochs: &num_epochs 4
 
 quantization_start_epoch: &quantization_start_epoch 0
 quantization_init_lr: &quantization_init_lr 0.00001
@@ -139,7 +139,7 @@ quantization_modifiers:
   - !QuantizationModifier
     start_epoch: *quantization_start_epoch
 prediction_layers.0.mask_layer.weight
-      - module.semantic_seg_conv.weight
+      - semantic_seg_conv.weight
 
     init_sparsity: *init_sparsity
     final_sparsity: *prune_mid_target_sparsity
@@ -150,32 +150,32 @@ prediction_layers.0.mask_layer.weight
 
   - !GMPruningModifier
     params:
-      - module.backbone.layers.3.0.0.weight
-      - module.backbone.layers.3.1.conv1.0.weight
-      - module.backbone.layers.3.1.conv2.0.weight
-      - module.backbone.layers.3.2.conv1.0.weight
-      - module.backbone.layers.3.2.conv2.0.weight
-      - module.backbone.layers.3.3.conv1.0.weight
-      - module.backbone.layers.3.3.conv2.0.weight
-      - module.backbone.layers.3.4.conv1.0.weight
-      - module.backbone.layers.3.4.conv2.0.weight
-      - module.backbone.layers.3.5.conv1.0.weight
-      - module.backbone.layers.3.5.conv2.0.weight
-      - module.backbone.layers.3.6.conv1.0.weight
-      - module.backbone.layers.3.6.conv2.0.weight
-      - module.backbone.layers.3.7.conv1.0.weight
-      - module.backbone.layers.3.7.conv2.0.weight
-      - module.backbone.layers.3.8.conv1.0.weight
-      - module.backbone.layers.3.8.conv2.0.weight
-      - module.backbone.layers.4.0.0.weight
-      - module.backbone.layers.4.1.conv1.0.weight
-      - module.backbone.layers.4.1.conv2.0.weight
-      - module.backbone.layers.4.2.conv1.0.weight
-      - module.backbone.layers.4.2.conv2.0.weight
-      - module.backbone.layers.4.3.conv1.0.weight
-      - module.backbone.layers.4.3.conv2.0.weight
-      - module.backbone.layers.4.4.conv1.0.weight
-      - module.backbone.layers.4.4.conv2.0.weight
+      - backbone.layers.3.0.0.weight
+      - backbone.layers.3.1.conv1.0.weight
+      - backbone.layers.3.1.conv2.0.weight
+      - backbone.layers.3.2.conv1.0.weight
+      - backbone.layers.3.2.conv2.0.weight
+      - backbone.layers.3.3.conv1.0.weight
+      - backbone.layers.3.3.conv2.0.weight
+      - backbone.layers.3.4.conv1.0.weight
+      - backbone.layers.3.4.conv2.0.weight
+      - backbone.layers.3.5.conv1.0.weight
+      - backbone.layers.3.5.conv2.0.weight
+      - backbone.layers.3.6.conv1.0.weight
+      - backbone.layers.3.6.conv2.0.weight
+      - backbone.layers.3.7.conv1.0.weight
+      - backbone.layers.3.7.conv2.0.weight
+      - backbone.layers.3.8.conv1.0.weight
+      - backbone.layers.3.8.conv2.0.weight
+      - backbone.layers.4.0.0.weight
+      - backbone.layers.4.1.conv1.0.weight
+      - backbone.layers.4.1.conv2.0.weight
+      - backbone.layers.4.2.conv1.0.weight
+      - backbone.layers.4.2.conv2.0.weight
+      - backbone.layers.4.3.conv1.0.weight
+      - backbone.layers.4.3.conv2.0.weight
+      - backbone.layers.4.4.conv1.0.weight
+      - backbone.layers.4.4.conv2.0.weight
     init_sparsity: *init_sparsity
     final_sparsity: *prune_high_target_sparsity
     start_epoch: *pruning_start_epoch
@@ -183,7 +183,7 @@ prediction_layers.0.mask_layer.weight
     update_frequency: *pruning_update_frequency
     mask_type: *mask_type
       
-___
+---
 
 # YOLACT Pruned
 
