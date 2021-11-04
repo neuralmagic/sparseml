@@ -1357,10 +1357,6 @@ class StructuredPruningModifier(GMPruningModifier):
             optimizer=optimizer,
         )
 
-        if self._module_masks is not None and self._module_masks.enabled:
-            # reset size of module masks to updated shapes
-            self._module_masks.set_param_masks_from_weights(reset=True)
-
 
 @PyTorchModifierYAML()
 class MFACPruningModifier(GMPruningModifier):
