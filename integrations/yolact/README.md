@@ -98,6 +98,8 @@ python export.py --checkpoint ./quantized-yolact/yolact_darknet53_0_10.pth \
     --no-qat
 ```
 
+### DeepSparse
+
 The [DeepSparse](https://github.com/neuralmagic/deepsparse) Engine accepts ONNX 
 formats and is engineered to significantly speed up inference on CPUs for 
-the sparsified models from this integration.
+the sparsified models from this integration. [Example](https://github.com/neuralmagic/deepsparse/tree/main/examples/yolact) scripts can be found in the DeepSparse repository.
