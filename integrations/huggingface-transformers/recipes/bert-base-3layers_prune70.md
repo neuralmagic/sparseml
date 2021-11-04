@@ -25,6 +25,9 @@ pruning_start_epoch: &pruning_start_epoch 2
 pruning_end_epoch: &pruning_end_epoch 20
 update_frequency: &pruning_update_frequency 0.01
 
+# Distillation Hyperparams
+distill_hardness: &distill_hardness 1.0
+distill_temperature: &distill_temperature 2.0
 
 # Modifiers
 training_modifiers:
@@ -56,6 +59,12 @@ pruning_modifiers:
     leave_enabled: True
     mask_type: unstructured
     log_types: __ALL__
+
+distillation_modifiers:
+  - !DistillationModifier
+     hardness: *distill_hardness
+     temperature: *distill_temperature
+     distill_output_keys: [start_logits, end_logits]
 ---
 
 # BERT Model with Dropped and Pruned Encoder Layers
@@ -79,8 +88,6 @@ Adjust the training command below with your setup for GPU device, checkpoint sav
 python transformers/examples/pytorch/question-answering/run_qa.py \
   --model_name_or_path bert-base-uncased \
   --distill_teacher $MODEL_DIR/bert-base-12layers \
-  --distill_hardness 1.0 \
-  --distill_temperature 2.0 \
   --dataset_name squad \
   --do_train \
   --do_eval \
