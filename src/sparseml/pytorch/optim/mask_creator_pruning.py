@@ -168,7 +168,8 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             # and choose which zeros to not keep in mask at random
             zero_indices = (tensor == min_val).nonzero(as_tuple=False)
             rand_indices = list(range(zero_indices.shape[0]))
-            random.shuffle(rand_indices)
+            local_rng = random.Random(42)
+            local_rng.shuffle(rand_indices)
             num_elem = tensor.numel()
             num_mask = int(num_elem * sparsity_target)
             rand_indices = rand_indices[:num_mask]
