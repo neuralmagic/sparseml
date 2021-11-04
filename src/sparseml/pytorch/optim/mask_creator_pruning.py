@@ -517,6 +517,10 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
                 if not all(grouped_tensors[idx].size(dim) == 1 for dim in self._dim)
             ]
 
+            if not idx_group:
+                # all non-prunable along target dim
+                continue
+
             # validate tensors have the same number of dimension elements
             group_tensors_numel = [grouped_tensors[idx].numel() for idx in idx_group]
             group_base_numel = min(group_tensors_numel)

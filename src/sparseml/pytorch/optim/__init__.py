@@ -36,11 +36,11 @@ from .modifier_params import *
 from .modifier_pruning import *
 from .modifier_quantization import *
 from .modifier_regularizer import *
+from .modifier_thinning import *
 from .optimizer import *
 from .sensitivity_as import *
 from .sensitivity_lr import *
 from .sensitivity_pruning import *
-from .structured_pruning import *
 
 
 _check_torch_install()  # TODO: remove once files within package load without installs

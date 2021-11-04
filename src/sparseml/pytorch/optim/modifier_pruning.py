@@ -39,7 +39,6 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.optim.structured_pruning import compress_strucure_pruned_module
 from sparseml.pytorch.utils import (
     GradSampler,
     MFACOptions,
@@ -1157,9 +1156,9 @@ class StructuredPruningModifier(GMPruningModifier):
 
     | Sample yaml:
     |   !StructuredPruningModifier
-    |       param_group_dependency_map: {
-    |            "param.1.name,param.2.name": ["param.1.dep.1.name"]
-    |       }
+    |       param_groups: [
+    |           ["param.1.name","param.2.name"], ["param.3.name", "param.4.name"]
+    |       ]
     |       init_sparsity: 0.05
     |       final_sparsity: 0.8
     |       start_epoch: 0.0
@@ -1172,13 +1171,6 @@ class StructuredPruningModifier(GMPruningModifier):
     |       mask_type: filter
     |       score_type: magnitude
 
-    :param param_group_dependency_map: mapping of comma separated parameter names that
-        should be pruned together to a list of parameter names whose opposite channels
-        should be updated based on which ones of the group are removed. Can be
-        generated from an onnx export of the target module with
-        sparseml.onnx.optim.get_param_structured_pruning_group_dependencies
-        i.e. {"param.1.name,param.2.name": ["param.1.dep.1.name", "other.dep",
-        "other.dep.2], ...}
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
     :param final_sparsity: the final sparsity for the param to end with at end_epoch
@@ -1186,6 +1178,13 @@ class StructuredPruningModifier(GMPruningModifier):
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The number of epochs or fraction of epochs to update at
         between start and end
+    :param param_groups: list of list of parameter names that should be pruned together
+        during structured pruning so that their same indices may be removed. May be
+        useful for structures such as residual blocks or grouped convolutions. Can be
+        generated from an onnx export of the target module with
+        sparseml.onnx.optim.get_param_structured_pruning_group_dependencies by
+        splitting its comma separated keys into lists.
+        i.e. [["param.1.name","param.2.name"], ["param.3.name", "param.4.name"]]
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
@@ -1209,12 +1208,12 @@ class StructuredPruningModifier(GMPruningModifier):
 
     def __init__(
         self,
-        param_group_dependency_map: Dict[str, List[str]],
         init_sparsity: float,
         final_sparsity: float,
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
+        param_groups: List[List[str]] = None,
         params: Union[str, List[str]] = ALL_PRUNABLE_TOKEN,
         leave_enabled: bool = True,
         inter_func: str = "cubic",
@@ -1247,16 +1246,16 @@ class StructuredPruningModifier(GMPruningModifier):
             score_type=score_type,
         )
 
-        self._param_group_dependency_map = param_group_dependency_map
+        self._param_groups = param_groups or []
 
     @ModifierProp()
-    def param_group_dependency_map(self) -> Dict[str, List[str]]:
+    def param_groups(self) -> List[List[str]]:
         """
-        :return: mapping of comma separated parameter names that should
-            be pruned together to a list of parameter names whose opposite channels
-            should be updated based on which ones of the group are removed
+        :return: list of list of parameter names that should be pruned together
+            during structured pruning so that their same indices may be removed. May be
+            useful for structures such as residual blocks or grouped convolutions
         """
-        return self._param_group_dependency_map
+        return self._param_groups
 
     @ModifierProp(serializable=False)
     def global_sparsity(self) -> bool:
@@ -1277,20 +1276,18 @@ class StructuredPruningModifier(GMPruningModifier):
         param_group_idxs = []
         added_idxs = set()
 
-        for param_group in self._param_group_dependency_map.keys():
-            param_group = param_group.split(",")  # unwrap CSV
+        for param_group in self._param_groups:
             group_idxs = []
             for param_name in param_group:
                 if param_name not in param_name_to_idx:
                     raise ValueError(
-                        f"param {param_name} from param_group_dependency_map "
+                        f"param {param_name} from param_groups "
                         f"not found in pruning modifier params {full_param_names}"
                     )
                 param_idx = param_name_to_idx[param_name]
                 if param_idx in added_idxs:
                     raise ValueError(
-                        "found repeated param name in param_group_dependency_map "
-                        f"{param_name}"
+                        "found repeated param name in param_groups " f"{param_name}"
                     )
                 group_idxs.append(param_idx)
                 added_idxs.add(param_idx)
@@ -1308,53 +1305,6 @@ class StructuredPruningModifier(GMPruningModifier):
             mask_creator=self._mask_creator,
             global_sparsity=False,
             score_type=self._score_type,
-        )
-
-    def optimizer_post_step(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
-    ):
-        """
-        Reapply the mask after the optimizer step in case the optimizer
-        has momentum that may have moved weights from 0. Not applied for
-        movement pruning to allow weight reintroduction.
-
-        If the module had been pruned on the previous step, then structured
-        pruning compression based on the dependency map will be applied
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch
-            (calculate batch number using this and epoch)
-        """
-        sparsity_was_applied = self._sparsity_applied
-        super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
-        if sparsity_was_applied:
-            self._compress(module, optimizer)
-
-    def finalize(
-        self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
-    ):
-        """
-        Cleans up any remaining hooks
-
-        :param module: The model/module to finalize the modifier for.
-            Marked optional so state can still be cleaned up on delete,
-            but generally should always be passed in.
-        :param reset_loggers: True to remove any currently attached loggers (default),
-            False to keep the loggers attached.
-        :param kwargs: Optional kwargs to support specific arguments
-            for individual modifiers.
-        """
-        super().finalize(module, reset_loggers, **kwargs)
-        self._compress(module)
-
-    def _compress(self, module: Module, optimizer: Optimizer = None):
-        compress_strucure_pruned_module(
-            module,
-            self._param_group_dependency_map,
-            structure_type=self._mask_creator.structure_type,
-            optimizer=optimizer,
         )
 
 

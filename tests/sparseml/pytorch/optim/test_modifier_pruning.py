@@ -717,10 +717,14 @@ def test_global_magnitude_pruning_yaml():
 
 
 def test_structured_pruning_yaml():
-    param_group_dependency_map = {
-        "param1,param2": ["dep_param1", "dep_param2"],
-        "param3": ["dep_param3"],
-    }
+    param_groups = [
+        ["param1", "param2"],
+        [
+            "param3",
+            "param4",
+            "param5",
+        ],
+    ]
     init_sparsity = 0.05
     final_sparsity = 0.8
     start_epoch = 5.0
@@ -731,7 +735,7 @@ def test_structured_pruning_yaml():
     mask_type = "filter"
     yaml_str = f"""
     !StructuredPruningModifier
-        param_group_dependency_map: {param_group_dependency_map}
+        param_groups: {param_groups}
         init_sparsity: {init_sparsity}
         final_sparsity: {final_sparsity}
         start_epoch: {start_epoch}
@@ -746,7 +750,7 @@ def test_structured_pruning_yaml():
         str(yaml_modifier)
     )  # type: StructuredPruningModifier
     obj_modifier = StructuredPruningModifier(
-        param_group_dependency_map=param_group_dependency_map,
+        param_groups=param_groups,
         init_sparsity=init_sparsity,
         final_sparsity=final_sparsity,
         start_epoch=start_epoch,
@@ -762,9 +766,9 @@ def test_structured_pruning_yaml():
         yaml_modifier, serialized_modifier, obj_modifier
     )
     assert (
-        yaml_modifier.param_group_dependency_map
-        == serialized_modifier.param_group_dependency_map
-        == obj_modifier.param_group_dependency_map
+        yaml_modifier.param_groups
+        == serialized_modifier.param_groups
+        == obj_modifier.param_groups
     )
 
 
