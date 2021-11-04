@@ -370,7 +370,8 @@ def fuse_module_conv_bn_relus(
     Performs fusion of Conv2d, BatchNorm2d, and ReLU layers found in the
     given module. To be fused, these layers must appear sequentially in
     module.named_modules() and be in the same submodule.
-    Fuses either Conv2d -> BatchNorm2d or Conv2d -> BatchNorm2d -> ReLU blocks
+    Fuses either Conv2d -> BatchNorm2d, Conv2d -> ReLU, or
+    Conv2d -> BatchNorm2d -> ReLU blocks
 
     If this function does not fuse the model in the desired way, implement an
     in place fusing function for the model.
@@ -402,8 +403,9 @@ def fuse_module_conv_bn_relus(
             and isinstance(layer, BatchNorm2d)
             and submodule_name == current_block_submodule_name
         ) or (
-            len(current_block) == 2  # [Conv2d, BatchNorm2d]
+            len(current_block) in [1, 2]  # [Conv2d] or [Conv2d, BatchNorm2d]
             and isinstance(layer, ReLU)
+            and not isinstance(current_block[-1], ReLU)
             and submodule_name == current_block_submodule_name
         ):
             if isinstance(layer, ReLU_nm):
@@ -433,6 +435,8 @@ def fuse_module_conv_bn_relus(
             if isinstance(layer, Conv2d):
                 current_block.append(name)
                 current_block_submodule_name = submodule_name
+    if len(current_block) > 1:
+        conv_blocks.append(current_block)
     if conv_blocks:
         torch_quantization.fuse_modules(module, conv_blocks, inplace=True)
     return module
