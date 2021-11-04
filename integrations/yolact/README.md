@@ -16,7 +16,7 @@ limitations under the License.
 
 # SparseML YOLACT Integration
 
-This directory combines the [SparseML] recipe-driven approach with the 
+This directory combines the [SparseML](../../) recipe-driven approach with the 
 [dbolya/yolact](https://github.com/dbolya/yolact) repository.
 By integrating the training flows in the `yolact` repository with the SparseML 
 code base,
@@ -74,7 +74,7 @@ converts the model into deployment formats such as [ONNX](https://onnx.ai/).
 The export process is modified such that the quantized and pruned models are 
 corrected and folded properly.
 
-For example, the following command can be run from within the neuralmagic's 
+For example, the following command can be run from within the Neural Magic's 
 yolact repository folder to export a trained/sparsified model's checkpoint:
 ```bash
 python export.py --checkpoint ./quantized-yolact/yolact_darknet53_0_10.pth \
