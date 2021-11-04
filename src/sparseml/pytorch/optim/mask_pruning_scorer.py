@@ -306,7 +306,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         # scale num_grads by number of DDP processes
         if self._is_ddp:
             world_size = dist.get_world_size()
-            if isinstance(self._mfac_options, int):
+            if isinstance(self._mfac_options.num_grads, int):
                 self._mfac_options.num_grads = (
                     self._mfac_options.num_grads // world_size
                 )
