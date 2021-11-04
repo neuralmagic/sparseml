@@ -194,6 +194,16 @@ def test_get_qat_qconfig():
     assert isinstance(get_qat_qconfig(), torch_quantization.QConfig)
 
 
+def _get_fake_conv_relus(num_blocks=1):
+    def _conv_relu():
+        return torch.nn.Sequential(
+            torch.nn.Conv2d(20, 20, 3),
+            torch.nn.ReLU(),
+        )
+
+    return torch.nn.Sequential(*[_conv_relu() for _ in range(num_blocks)])
+
+
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -207,22 +217,38 @@ def test_get_qat_qconfig():
     reason="torch quantization not available",
 )
 @pytest.mark.parametrize(
-    "model_lambda,conv_bn_relus,conv_bns",
-    [(mobilenet, 27, 0), (resnet50, 45, 8)],
+    "model_lambda,conv_bn_relus,conv_bns,conv_relus",
+    [
+        (mobilenet, 27, 0, 0),
+        (resnet50, 45, 8, 0),
+        (lambda: _get_fake_conv_relus(5), 0, 0, 5),
+        (
+            lambda: torch.nn.Sequential(
+                _get_fake_conv_relus(3),
+                resnet50(),
+                _get_fake_conv_relus(6),
+            ),
+            45,
+            8,
+            9,
+        ),
+    ],
 )
-def test_fuse_module_conv_bn_relus(model_lambda, conv_bn_relus, conv_bns):
+def test_fuse_module_conv_bn_relus(model_lambda, conv_bn_relus, conv_bns, conv_relus):
     module = model_lambda()
     conv_bn_relu_class = torch.nn.intrinsic.modules.fused.ConvBnReLU2d
     conv_bn_class = torch.nn.intrinsic.modules.fused.ConvBn2d
+    conv_relu_class = torch.nn.intrinsic.modules.fused.ConvReLU2d
 
     # check model is not already fused
     assert _count_submodule_instances(module, conv_bn_relu_class) == 0
     assert _count_submodule_instances(module, conv_bn_class) == 0
 
-    # fuse module and check expected number of fusions occured
+    # fuse module and check expected number of fusions occurred
     fuse_module_conv_bn_relus(module, inplace=True)
     assert _count_submodule_instances(module, conv_bn_relu_class) == conv_bn_relus
     assert _count_submodule_instances(module, conv_bn_class) == conv_bns
+    assert _count_submodule_instances(module, conv_relu_class) == conv_relus
 
 
 def test_prepare_embeddings_qat():

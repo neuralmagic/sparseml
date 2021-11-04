@@ -110,7 +110,7 @@ def load_recipe_yaml_str(
             )
 
     if variable_overrides:
-        update_recipe_variables(yaml_str, variable_overrides)
+        yaml_str = update_recipe_variables(yaml_str, variable_overrides)
 
     return yaml_str
 
