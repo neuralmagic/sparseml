@@ -30,6 +30,10 @@ update_frequency: &pruning_update_frequency 0.01
 quantization_start_epoch: &quantization_start_epoch 30.0
 qat_freeze_epoch: &qat_freeze_epoch 35.0
 
+# Distillation Hyperparams
+distill_hardness: &distill_hardness 1.0
+distill_temperature: &distill_temperature 2.0
+
 # Modifiers
 training_modifiers:
   - !EpochRangeModifier
@@ -69,7 +73,7 @@ pruning_modifiers:
     leave_enabled: True
     mask_type: [1,4]
     log_types: __ALL__
-    
+
 quantization_modifiers:
   - !QuantizationModifier
       start_epoch: *quantization_start_epoch
@@ -79,6 +83,12 @@ quantization_modifiers:
         - bert.embeddings
         - bert.encoder
         - qa_outputs
+
+distillation_modifiers:
+  - !DistillationModifier
+     hardness: *distill_hardness
+     temperature: *distill_temperature
+     distill_output_keys: [start_logits, end_logits]
 ---
 
 # INT8 Quantized Pruned BERT Mode
@@ -107,8 +117,6 @@ Adjust the training command below with your setup for GPU device, checkpoint sav
 python transformers/examples/pytorch/question-answering/run_qa.py \
   --model_name_or_path bert-base-uncased \
   --distill_teacher $MODEL_DIR/bert-base-12layers \
-  --distill_hardness 1.0 \
-  --distill_temperature 2.0 \
   --dataset_name squad \
   --do_train \
   --do_eval \
