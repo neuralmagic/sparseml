@@ -514,7 +514,7 @@ class ModuleParamPruningMask(object):
                 self._params_grad[idx] is not None
                 and self._params[idx].data.device != self._params_grad[idx].device
             ):
-                self._param_grad[idx] = ModuleParamPruningMask._detach_tens(
+                self._params_grad[idx] = ModuleParamPruningMask._detach_tens(
                     torch.empty_like(self._params[idx].data).copy_(
                         self._params_grad[idx]
                     )
