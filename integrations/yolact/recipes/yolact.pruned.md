@@ -113,32 +113,7 @@ pruning_modifiers:
       - prediction_layers.0.upfeature.0.weight
       - prediction_layers.0.bbox_layer.weight
       - prediction_layers.0.conf_layer.weight
-      - num_epochs: &num_epochs 4
-
-quantization_start_epoch: &quantization_start_epoch 0
-quantization_init_lr: &quantization_init_lr 0.00001
-
-training_modifiers:
-  - !EpochRangeModifier
-    start_epoch: 0.0
-    end_epoch: *num_epochs
-  - !SetLearningRateModifier
-    start_epoch: *quantization_start_epoch
-    learning_rate: *quantization_init_lr
-  - !SetWeightDecayModifier
-    start_epoch: *quantization_start_epoch
-    weight_decay: 0.0
-
-
-pruning_modifiers:
-  - !ConstantPruningModifier
-    start_epoch: 0.0
-    params: __ALL_PRUNABLE__
-
-quantization_modifiers:
-  - !QuantizationModifier
-    start_epoch: *quantization_start_epoch
-prediction_layers.0.mask_layer.weight
+      - prediction_layers.0.mask_layer.weight
       - semantic_seg_conv.weight
 
     init_sparsity: *init_sparsity
@@ -182,15 +157,13 @@ prediction_layers.0.mask_layer.weight
     end_epoch: *pruning_end_epoch
     update_frequency: *pruning_update_frequency
     mask_type: *mask_type
-      
 ---
 
 # YOLACT Pruned
 
-This recipe creates a sparse, [YOLACT](https://github.com/dbolya/yolact) model that achieves [TODO:fill recovery] 
-recovery of its baseline accuracy on the COCO dataset 
-( 50.16, 46.57 mAP@0.5 baseline vs 50.18, 46.80 mAP@0.5 for this recipe for bounding box, mask).
-Training was done using 4 GPUs at half precision with a total batch size of 64 using the [SparseML integration with dbolya/yolact](../).
+This recipe creates a sparse, [YOLACT](https://github.com/dbolya/yolact) model that achieves about 
+98% recovery on the COCO dataset when compared against baseline (  30.61, 28.80 mAp@all baseline vs 29.82, 28.26 mAp@all for this recipe for bounding box, mask).
+Training was done using 4 GPUs with a total batch size of 64 using the [SparseML integration with dbolya/yolact](../).
 When running, adjust hyperparameters based on training environment and dataset.
 
 ## Training
@@ -209,5 +182,5 @@ python train.py \
 --resume=PRETRAINED_WEIGHTS \
 --cuda=True \
 --start_iter=0 \
---batch_size=8
+--batch_size=64
 ```
