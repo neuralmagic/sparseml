@@ -21,4 +21,4 @@ Functionality for working with and sparsifying Models in the ONNX/ONNXRuntime fr
 from .base import *
 from .benchmark import *
 from .framework import detect_framework, framework_info, is_supported
-from .sparsification import sparsification_info
+from .sparsification import ModelInfo, get_analyzer_impls, sparsification_info

@@ -18,7 +18,7 @@ Analyzer class implementations for ONNX
 
 
 import logging
-from typing import Any, Dict, Generator, Optional, Set, Tuple
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import numpy
 from onnx import ModelProto, numpy_helper
@@ -38,6 +38,7 @@ from sparseml.sparsification import (
 __all__ = [
     "PruningLossSensitivityMagnitudeAnalyzer",
     "PruningPerformanceSensitivityAnalyzer",
+    "get_analyzer_impls",
 ]
 
 
@@ -230,6 +231,16 @@ class PruningPerformanceSensitivityAnalyzer(Analyzer):
                         layer["average_run_time_in_ms"] / 1000.0,
                     )
         yield AnalyzerProgress(step=num_steps, total_steps=num_steps), self.result
+
+
+def get_analyzer_impls() -> List[Analyzer]:
+    """
+    :return: list of ONNX Analyzer implementations
+    """
+    return [
+        PruningLossSensitivityMagnitudeAnalyzer,
+        PruningPerformanceSensitivityAnalyzer,
+    ]
 
 
 def _validate_onnx_model_analyzer(

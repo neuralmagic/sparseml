@@ -177,13 +177,13 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
         return recipe_yaml_str
 
     # validate and load remaining variables
-    container, variables = _evaluate_recipe_variables(container)
+    container, variables, non_val_variables = _evaluate_recipe_variables(container)
 
     # update values nested in modifier lists based on the variables
     for key, val in container.items():
         if "modifiers" not in key:
             continue
-        container[key] = _maybe_evaluate_yaml_object(val, variables)
+        container[key] = _maybe_evaluate_yaml_object(val, variables, non_val_variables)
 
     return rewrite_recipe_yaml_string_with_classes(container)
 
@@ -192,15 +192,25 @@ def is_eval_string(val: str) -> bool:
     return val.startswith("eval(") and val.endswith(")")
 
 
+def _is_evaluatable_variable(val: Any):
+    return isinstance(val, (int, float)) or (
+        isinstance(val, str) and is_eval_string(val)
+    )
+
+
 def _maybe_evaluate_recipe_equation(
     val: str,
     variables: Dict[str, Union[int, float]],
+    non_eval_variables: Dict[str, Any],
 ) -> Union[str, float, int]:
     if is_eval_string(val):
         is_eval_str = True
         val = val[5:-1]
     else:
         return val
+
+    if val in non_eval_variables:
+        return non_eval_variables[val]
 
     evaluated_val = restricted_eval(val, variables)
 
@@ -216,6 +226,7 @@ def _evaluate_recipe_variables(
     recipe_dict: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], Dict[str, Union[int, float]]]:
     valid_variables = {}
+    non_evaluatable_variables = {}
     prev_num_variables = -1
 
     while prev_num_variables != len(valid_variables):
@@ -227,13 +238,17 @@ def _evaluate_recipe_variables(
 
             if isinstance(val, (int, float)):
                 valid_variables[name] = val
+                continue
 
-            if not isinstance(val, str):
+            if not _is_evaluatable_variable(val):
                 # only parse string values
+                non_evaluatable_variables[name] = val
                 continue
 
             try:
-                val = _maybe_evaluate_recipe_equation(val, valid_variables)
+                val = _maybe_evaluate_recipe_equation(
+                    val, valid_variables, non_evaluatable_variables
+                )
             except UnknownVariableException:
                 # dependant variables maybe not evaluated yet
                 continue
@@ -251,19 +266,25 @@ def _evaluate_recipe_variables(
                 "variables form a cycle or are not defined"
             )
 
-    return recipe_dict, valid_variables
+    return recipe_dict, valid_variables, non_evaluatable_variables
 
 
 def _maybe_evaluate_yaml_object(
-    obj: Any, variables: Dict[str, Union[int, float]]
+    obj: Any,
+    variables: Dict[str, Union[int, float]],
+    non_eval_variables: Dict[str, Any],
 ) -> Any:
     if isinstance(obj, str):
-        return _maybe_evaluate_recipe_equation(obj, variables)
+        return _maybe_evaluate_recipe_equation(obj, variables, non_eval_variables)
     elif isinstance(obj, list):
-        return [_maybe_evaluate_yaml_object(val, variables) for val in obj]
+        return [
+            _maybe_evaluate_yaml_object(val, variables, non_eval_variables)
+            for val in obj
+        ]
     elif isinstance(obj, dict):
         return {
-            key: _maybe_evaluate_yaml_object(val, variables) for key, val in obj.items()
+            key: _maybe_evaluate_yaml_object(val, variables, non_eval_variables)
+            for key, val in obj.items()
         }
     else:
         return obj

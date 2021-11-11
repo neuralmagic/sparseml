@@ -19,17 +19,23 @@ implementations
 
 
 import textwrap
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Type, Union
 
 import yaml
 
 from sparseml.optim import BaseModifier, ModifierProp
+from sparseml.sparsification.model_info import ModelInfo
+from sparseml.sparsification.modifier_epoch import EpochRangeModifier
+from sparseml.sparsification.modifier_lr import SetLearningRateModifier
+from sparseml.sparsification.modifier_pruning import GMPruningModifier
 from sparseml.utils import create_parent_dirs
 
 
 __all__ = [
     "ModifierYAMLBuilder",
     "RecipeYAMLBuilder",
+    "PruningRecipeBuilder",
     "to_yaml_str",
 ]
 
@@ -92,6 +98,14 @@ class ModifierYAMLBuilder(object):
                 f"{self.__class__.__name__} of {self._modifier_class.__name__} has no "
                 f"property {key}"
             )
+
+    def copy(self) -> "ModifierYAMLBuilder":
+        """
+        :return: newly constructed ModifierYAMLBuilder with the same base class and
+            properties
+        """
+        properties = deepcopy(self._properties)
+        return self.__class__(self.modifier_class, **properties)
 
     @property
     def modifier_class(self) -> Type[BaseModifier]:
@@ -318,6 +332,134 @@ class RecipeYAMLBuilder(object):
                     )
 
 
+class PruningRecipeBuilder(RecipeYAMLBuilder):
+    """
+    Builds a basic, editable pruning recipe based on a given model info
+    standardized variables may be modified by constructor, or later on
+
+    | Sample yaml:
+    |   num_epochs: 100
+    |   init_lr: 0.0001
+    |   pruning_start_target: 0.0
+    |   pruning_end_target: 0.6
+    |   pruning_update_frequency: 0.5
+    |   base_target_sparsity: 0.8
+    |   mask_type: unstructured
+    |
+    |   training_modifiers:
+    |     - !EpochRangeModifier
+    |       start_epoch: 0.0
+    |       end_epoch: eval(num_epochs)
+    |
+    |     - !SetLearningRateModifier
+    |       start_epoch: 0.0
+    |       learning_rate: eval(init_lr)
+    |
+    |   pruning_modifiers:
+    |     - !GMPruningModifier
+    |       params:
+    |         - ...  # based on prunable param names found in ModelInfo
+    |       init_sparsity: 0.0
+    |       final_sparsity: eval(base_target_sparsity)
+    |       start_epoch: eval(pruning_start_target * num_epochs)
+    |       end_epoch: eval(pruning_end_target * num_epochs)
+    |       update_frequency: eval(pruning_update_frequency)
+    |       mask_type: eval(mask_type)
+
+    :param model_info: model info object to extract layer information from
+    :param num_epochs: total number of epochs the recipe should run for. Default is 100
+    :param init_lr: initial learning rate value. Default is 0.0001
+    :param pruning_start_target: epoch that pruning should begin. this value
+        should be in range [0.0,1.0] representing the fraction of num_epochs
+        that the start epoch should be. (start_epoch=pruning_start_target*num_epochs).
+        Default is 0.0
+    :param pruning_end_target: epoch that pruning should complete. this value
+        should be in range [0.0,1.0] representing the fraction of num_epochs
+        that the end epoch should be. (end_epoch=pruning_end_target*num_epochs).
+        Default is 0.6
+    :param base_target_sparsity: target sparsity for pruning layers to. Default is 0.8
+    :param pruning_update_frequency: udpate frequency for pruning modifier.
+        Default is 0.5
+    :param mask_type: mask type to set the pruning modifier to. Default is unstructured
+    """
+
+    def __init__(
+        self,
+        model_info: ModelInfo,
+        num_epochs: float = 100.0,
+        init_lr: float = 0.0001,
+        pruning_start_target: float = 0.0,
+        pruning_end_target: float = 0.6,
+        base_target_sparsity: float = 0.8,
+        pruning_update_frequency: float = 0.5,
+        mask_type: str = "unstructured",
+    ):
+        self.num_epochs = num_epochs
+        self.init_lr = init_lr
+        self.pruning_start_target = pruning_start_target
+        self.pruning_end_target = pruning_end_target
+        self.pruning_update_frequency = pruning_update_frequency
+        self.base_target_sparsity = base_target_sparsity
+        self.mask_type = mask_type
+
+        super().__init__(
+            variables=dict(
+                num_epochs=self.num_epochs,
+                init_lr=self.init_lr,
+                pruning_start_target=self.pruning_start_target,
+                pruning_end_target=self.pruning_end_target,
+                pruning_update_frequency=self.pruning_update_frequency,
+                base_target_sparsity=self.base_target_sparsity,
+                mask_type=self.mask_type,
+            ),
+            modifier_groups=dict(
+                training_modifiers=self._base_training_modifiers(),
+                pruning_modifiers=self._base_pruning_modifiers(model_info),
+            ),
+        )
+
+    def __setattr__(self, key: str, value: Any):
+        # allow updates to base variables to propagate to the internal vars dict
+        if key in dir(self) and self.has_variable(key):
+            self.set_variable(key, value)
+        super().__setattr__(key, value)
+
+    @staticmethod
+    def _base_training_modifiers() -> List[ModifierYAMLBuilder]:
+        epoch_modifier = ModifierYAMLBuilder(
+            EpochRangeModifier, start_epoch=0.0, end_epoch="eval(num_epochs)"
+        )
+        init_lr_modifier = ModifierYAMLBuilder(
+            SetLearningRateModifier,
+            learning_rate="eval(init_lr)",
+        )
+        return [epoch_modifier, init_lr_modifier]
+
+    @staticmethod
+    def _base_pruning_modifiers(model_info: ModelInfo) -> List[ModifierYAMLBuilder]:
+        pruning_modifier = ModifierYAMLBuilder(
+            GMPruningModifier,
+            params=list(model_info.get_prunable_param_names()),
+            init_sparsity=0.0,
+            final_sparsity="eval(base_target_sparsity)",
+            start_epoch="eval(pruning_start_target * num_epochs)",
+            end_epoch="eval(pruning_end_target * num_epochs)",
+            update_frequency="eval(pruning_update_frequency)",
+            mask_type="eval(mask_type)",
+        )
+        return [pruning_modifier]
+
+    def build_yaml_str(self) -> str:
+        """
+        :return: yaml string representation of this recipe in standard format
+        """
+        for pruning_modifier in self.get_modifier_builders(GMPruningModifier):
+            params = pruning_modifier.params
+            if isinstance(params, list):
+                pruning_modifier.params = list(sorted(params))
+        return super().build_yaml_str()
+
+
 def to_yaml_str(val: Any) -> str:
     """
     :param val: value to get yaml str value of
@@ -327,4 +469,7 @@ def to_yaml_str(val: Any) -> str:
     if isinstance(val, (str, int, float, bool)):
         return str(val)
     else:
-        return yaml.dump(val).strip()
+        yaml_str = yaml.dump(val).strip()
+        if isinstance(val, (Dict, List)):
+            yaml_str = "\n" + yaml_str
+        return yaml_str
