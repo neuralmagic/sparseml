@@ -13,8 +13,7 @@
 # limitations under the License.
 
 """
-Classes for creating SparseML recipes through a series of edits based on model
-structure and analysis
+Sparsification oracle functions for generating SparseML recipes from models
 """
 
 
@@ -38,6 +37,15 @@ def create_pruning_recipe(
     save_path: Optional[str] = None,
     analyzer_kwargs: Optional[Dict[str, Any]] = None,
 ) -> Optional[str]:
+    """
+
+    :param model: loaded framework model or model file path of a model to create
+        a recipe for
+    :param save_path: optional path to save the created recipe to
+    :param analyzer_kwargs: keyword arguments to be passed to the available()
+        and run() functions of analyzer objects
+    :return: string of the created recipe if None is provided
+    """
     frameworks = detect_frameworks(model)
     framework = Framework.onnx if Framework.onnx in frameworks else frameworks[0]
     if framework is Framework.unknown:
