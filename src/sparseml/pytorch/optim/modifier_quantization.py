@@ -373,10 +373,11 @@ class QuantizationModifier(ScheduledModifier):
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
             add_quant_dequant(quant_module)
-            # set model to QAT mode
-            torch_quantization.prepare_qat(quant_module, inplace=True)
-            if self._quantize_embeddings:
-                prepare_embeddings_qat(quant_module)
+
+        # set modules with proper qconfigs to QAT mode
+        torch_quantization.prepare_qat(module, inplace=True)
+        if self._quantize_embeddings:
+            prepare_embeddings_qat(module)
         self._qat_enabled = True
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
