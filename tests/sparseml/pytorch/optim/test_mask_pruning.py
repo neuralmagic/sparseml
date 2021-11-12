@@ -84,6 +84,11 @@ def _test_constructor(layer, param_name, mask_creator):
             "weight",
             FourBlockMaskCreator(),
         ),
+        (
+            Conv2d(in_channels=3, out_channels=63, kernel_size=3),
+            "weight",
+            FourBlockMaskCreator(),
+        ),
     ],
 )
 def test_constructor(layer, param_name, mask_creator):

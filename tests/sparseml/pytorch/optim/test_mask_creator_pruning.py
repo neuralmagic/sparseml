@@ -64,7 +64,8 @@ def _test_grouped_masks(masks, mask_creator):
         ([[128, 128, 3, 3]], BlockPruningMaskCreator([2, 2])),
         ([[128, 128, 3, 3]], BlockPruningMaskCreator([-1, 1])),
         ([[64, 513]], FourBlockMaskCreator()),
-        ([[64, 513, 3, 3]], FourBlockMaskCreator()),
+        ([[64, 512, 3, 3]], FourBlockMaskCreator()),
+        ([[63, 513, 3, 3]], FourBlockMaskCreator()),
     ],
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])

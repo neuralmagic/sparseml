@@ -20,6 +20,7 @@ import random
 from abc import ABC, abstractmethod
 from typing import Iterable, List, Union
 
+import numpy
 import torch
 from torch import Tensor
 
@@ -605,12 +606,10 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
 class FourBlockMaskCreator(GroupedPruningMaskCreator):
     """
     semi-structured sparsity mask creator that groups sparsity blocks in groups of four
-    along the input-channel dimension (assumed to be dimension 1 for pytorch). The
-    total number of elements in each input tensor must be divisible by four.
+    along the input-channel dimension (assumed to be dimension 1 for pytorch)
 
     Equivalent to BlockPruningMaskCreator([1, 4]) without restrictions on number
-    of dimensions, and the 4-divisibility restriction loosened to the total number
-    of elements in tensors instead of the second dimension.
+    of dimensions, or divisibility
 
     :param grouping_fn_name: The name of the torch grouping function to reduce
         dimensions by
@@ -628,18 +627,25 @@ class FourBlockMaskCreator(GroupedPruningMaskCreator):
         :return: The mean values of the tensor grouped by blocks of shape
             self._block_shape
         """
-        if tensor.numel() % 4 != 0:
-            raise RuntimeError(
-                f"{self.__class__.__name__} requires tensors with number of elements "
-                "that are divisible by 4 to create masks. received tensor of shape "
-                f"{tensor.shape} with {tensor.numel()} elements"
-            )
         if tensor.dim() > 2:
             # permute input channel dim to last dimension
             permute_val = list(range(tensor.dim()))
             del permute_val[1]
             permute_val.append(1)
             tensor = tensor.permute(*permute_val)
+
+        remainder = tensor.numel() % 4
+        if remainder != 0:
+            # pad with zeros to make masks add to 4
+            pad_num = 4 - remainder
+            padded_tensor = torch.ones(
+                tensor.numel() + pad_num, device=tensor.device
+            ).type(tensor.dtype)
+            padded_tensor[:-pad_num] = tensor.reshape(-1)
+            remainder_avg = torch.mean(tensor.reshape(-1)[-remainder:]).item()
+            padded_tensor[-pad_num:] = remainder_avg
+            tensor = padded_tensor
+
         blocked_tensor = tensor.reshape(-1, 4)
         reduced_blocks = GroupedPruningMaskCreator.reduce_tensor(
             blocked_tensor, 1, self._grouping_fn_name
@@ -660,6 +666,13 @@ class FourBlockMaskCreator(GroupedPruningMaskCreator):
         """
         # expand so every element has a corresponding value in the original tensor
         block_mask = grouped_mask.expand(-1, 4).contiguous()
+
+        # remove padding if necessary
+        numel_orig = numpy.prod(original_tensor_shape)
+        remainder = numel_orig % 4
+        if remainder != 0:
+            pad_num = 4 - remainder
+            block_mask = block_mask.reshape(-1)[:-pad_num]
 
         # adjust for permuted shape if necessary
         if len(original_tensor_shape) > 2:
