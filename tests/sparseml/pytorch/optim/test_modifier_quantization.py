@@ -15,7 +15,6 @@
 import os
 
 import pytest
-import torch
 from torch.nn import Conv2d, Linear
 
 from sparseml.pytorch.optim import QuantizationModifier
@@ -42,7 +41,10 @@ QUANTIZATION_MODIFIERS = [
         freeze_bn_stats_epoch=3.0,
     ),
     lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq"]),
-    lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq"]),
+    lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq.fc1"]),
+    lambda: QuantizationModifier(
+        start_epoch=2.0, submodules=["seq.fc1", "seq.block1.fc2"]
+    ),
 ]
 
 
@@ -53,13 +55,22 @@ def _is_valid_submodule(module_name, submodule_names):
 
 
 def _is_quantiable_module(module):
-    if isinstance(module, torch.quantization.FakeQuantize):
-        return False
-    return (
-        len(list(module.children())) > 0
-        or isinstance(module, Conv2d)
-        or isinstance(module, Linear)
-    )
+    return isinstance(module, (Conv2d, Linear))
+
+
+def _test_quantizable_module(module, qat_expected):
+    if qat_expected:
+        assert hasattr(module, "qconfig") and module.qconfig is not None
+        assert hasattr(module, "weight_fake_quant") and (
+            module.weight_fake_quant is not None
+        )
+        assert hasattr(module, "activation_post_process") and (
+            module.activation_post_process is not None
+        )
+    else:
+        assert not hasattr(module, "qconfig") or module.qconfig is None
+        assert not hasattr(module, "weight_fake_quant")
+        assert not hasattr(module, "activation_post_process")
 
 
 def _test_qat_applied(modifier, model):
@@ -69,14 +80,14 @@ def _test_qat_applied(modifier, model):
         submodules = [""]
         for module in model.modules():
             if _is_quantiable_module(module):
-                assert hasattr(module, "qconfig") and module.qconfig == model.qconfig
+                _test_quantizable_module(module, True)
     else:
         assert not hasattr(model, "qconfig") or model.qconfig is None
         submodules = modifier.submodules
     # check qconfig propagation
     for name, module in model.named_modules():
-        if _is_valid_submodule(name, submodules) and _is_quantiable_module(module):
-            assert hasattr(module, "qconfig") and module.qconfig is not None
+        if _is_quantiable_module(module):
+            _test_quantizable_module(module, _is_valid_submodule(name, submodules))
 
 
 @pytest.mark.skipif(
