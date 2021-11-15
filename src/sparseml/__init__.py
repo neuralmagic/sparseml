@@ -44,7 +44,6 @@ from .sparsification import (
     load_sparsification_info,
 )
 
-<<<<<<< HEAD
 try:
     from sparsezoo.package import check_package_version as _check_package_version
 
@@ -57,12 +56,3 @@ except Exception as err:
     print(
         f"Need sparsezoo version above 0.9.0 to run Neural Magic's latest-version check\n{err}"
     )
-=======
-
-from sparsezoo.package import check_package_version as _check_package_version
-
-_check_package_version(
-    package_name=__name__ if is_release else f"{__name__}-nightly",
-    package_version=version_base,
-)
->>>>>>> 8e346f43c7f4fe3c508159eb44d16105664d4ddc
