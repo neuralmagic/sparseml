@@ -217,10 +217,12 @@ class ModelInfo(ABC):
     analysis results
 
     :param model: framework specific model object to extract info for
+    :param metadata: optional dict of string metadata attributes to value. Default
+        is empty dict
     """
 
-    def __init__(self, model: Any, metadata: Dict[str, Any]):
-        self.metadata = metadata
+    def __init__(self, model: Any, metadata: Optional[Dict[str, Any]] = None):
+        self.metadata = metadata or {}
 
         if _is_layer_info_dict(model):
             self._layer_info = model
