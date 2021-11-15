@@ -21,7 +21,8 @@ import json
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from enum import Enum
+from typing import Any, Dict, List, Optional, Set, Union
 
 import numpy
 from pydantic import BaseModel, Field, root_validator
@@ -33,6 +34,8 @@ __all__ = [
     "LayerInfo",
     "Result",
     "ModelResult",
+    "PruningSensitivityResult",
+    "PruningSensitivityResultTypes",
     "ModelInfo",
 ]
 
@@ -211,6 +214,81 @@ class ModelResult(Result):
     )
 
 
+class PruningSensitivityResultTypes(Enum):
+    """
+    Types of pruning sensitivity results standardized by SparseML, used as
+    ModelResult.analysis_type
+    """
+
+    LOSS = "pruning_sensitivity_loss"
+    PERF = "pruning_sensitivity_perf"
+
+
+class PruningSensitivityResult(ModelResult):
+    """
+    Helper class for creating and updating results of pruning sensitivity analyses
+
+    :param analysis_type: PruningSensitivityResultTypes Enum value
+        of type of analysis this is
+    :param kwargs: optional args to be passed into model result constructor
+    """
+
+    def __init__(
+        self,
+        analysis_type: PruningSensitivityResultTypes,
+        **kwargs,
+    ):
+        # validate result type
+        analysis_type = PruningSensitivityResultTypes(analysis_type)
+        super().__init__(analysis_type=analysis_type.value, **kwargs)
+
+    def add_layer_sparsity_result(self, layer_name: str, sparsity: float, value: Any):
+        """
+        Adds a result of the given value for a given sparsity to the given layer name
+        :param layer_name: layer param name to add result for
+        :param sparsity: sparsity of the layer at which the sensitivity was measured
+        :param value: sensitivity value
+        """
+
+        sparsity = str(sparsity)
+
+        if layer_name not in self.layer_results:
+            self.layer_results[layer_name] = Result(value={})
+
+        self.layer_results[layer_name].value[sparsity] = value
+
+    def add_model_sparsity_result(self, sparsity: float, value: Any):
+        """
+        Adds a model result of the given value for a given sparsity
+        :param sparsity: sparsity of model at which the sensitivity was measured
+        :param value: sensitivity value
+        """
+
+        sparsity = str(sparsity)
+
+        if self.value is None:
+            self.value = {}
+        self.value[sparsity] = value
+
+
+_ANALYSIS_TYPE_TO_CLASS = {
+    PruningSensitivityResultTypes.LOSS.value: PruningSensitivityResult,
+    PruningSensitivityResultTypes.PERF.value: PruningSensitivityResult,
+}
+
+
+def _model_result_from_dict(model_result_dict: Dict[str, Any]) -> ModelResult:
+    if "analysis_type" not in model_result_dict:
+        raise ValueError(
+            "'analysis_type' must be a dict key of a ModelResult dict found keys: "
+            f"{list(model_result_dict.keys())}"
+        )
+    result_class = _ANALYSIS_TYPE_TO_CLASS.get(
+        model_result_dict["analysis_type"], ModelResult
+    )
+    return result_class.parse_obj(model_result_dict)
+
+
 class ModelInfo(ABC):
     """
     Base class for extracting and serializing model metadata, layers info, and
@@ -252,7 +330,7 @@ class ModelInfo(ABC):
 
         results = dictionary.get("analysis_results", [])
         for result in results:
-            model_result = ModelResult.parse_obj(result)
+            model_result = _model_result_from_dict(result)
             model_info.add_analysis_result(model_result)
 
         return model_info
@@ -309,6 +387,16 @@ class ModelInfo(ABC):
             for result in self._analysis_results
             if result.analysis_type == analysis_type
         ]
+
+    def get_prunable_param_names(self) -> Set[str]:
+        """
+        :return: set of parameter names of all prunable layers in this ModelInfo
+        """
+        return {
+            layer_name
+            for layer_name, layer_info in self.layer_info.items()
+            if layer_info.prunable
+        }
 
     def to_dict(self) -> Dict[str, Any]:
         """
