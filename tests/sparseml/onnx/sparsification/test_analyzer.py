@@ -17,6 +17,7 @@ import json
 import os
 
 import onnx
+import pytest
 
 from flaky import flaky
 from sparseml.onnx.sparsification import (
@@ -29,6 +30,12 @@ from tests.sparseml.onnx.helpers import GENERATE_TEST_FILES, OnnxRepoModelFixtur
 
 
 from tests.sparseml.onnx.helpers import onnx_repo_models  # noqa isort: skip
+
+
+try:
+    import deepsparse
+except Exception:
+    deepsparse = None
 
 
 RELATIVE_PATH = os.path.dirname(os.path.realpath(__file__))
@@ -107,6 +114,7 @@ def test_pruning_loss_sensitivity_magnitude_analyzer(
     _test_pruning_sensitivity_results(results, expected_results)
 
 
+@pytest.mark.skipif(deepsparse is None, reason="unable to import deepsparse")
 @flaky(max_runs=2, min_passes=1)
 def test_pruning_performance_sensitivity_analyzer(
     onnx_repo_models: OnnxRepoModelFixture,  # noqa: F811
