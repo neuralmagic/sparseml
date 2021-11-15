@@ -47,5 +47,5 @@ from .sparsification import (
 from sparsezoo.package import check_package_version as _check_package_version
 
 _check_package_version(
-    package_name=__name__, package_integration="Null", package_version=version_base
+    package_name=__name__, package_integration=None, package_version=version_base
 )
