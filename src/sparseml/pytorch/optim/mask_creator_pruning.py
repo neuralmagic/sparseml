@@ -20,7 +20,6 @@ import random
 from abc import ABC, abstractmethod
 from typing import Iterable, List, Union
 
-import numpy
 import torch
 from torch import Tensor
 
@@ -634,16 +633,23 @@ class FourBlockMaskCreator(GroupedPruningMaskCreator):
             permute_val.append(1)
             tensor = tensor.permute(*permute_val)
 
-        remainder = tensor.numel() % 4
+        remainder = tensor.size(-1) % 4
         if remainder != 0:
             # pad with zeros to make masks add to 4
             pad_num = 4 - remainder
-            padded_tensor = torch.ones(
-                tensor.numel() + pad_num, device=tensor.device
-            ).type(tensor.dtype)
-            padded_tensor[:-pad_num] = tensor.reshape(-1)
-            remainder_avg = torch.mean(tensor.reshape(-1)[-remainder:]).item()
-            padded_tensor[-pad_num:] = remainder_avg
+            padded_tensor = torch.zeros(
+                *tensor.shape[:-1],
+                tensor.size(-1) + pad_num,
+                device=tensor.device,
+                dtype=tensor.dtype,
+            )
+            padded_tensor[..., :-pad_num] = tensor
+            padded_tensor[..., -pad_num:] = torch.mean(
+                # mean of remainder input channel dims
+                tensor[..., -remainder:],
+                dim=-1,
+                keepdim=True,
+            )
             tensor = padded_tensor
 
         blocked_tensor = tensor.reshape(-1, 4)
@@ -667,21 +673,24 @@ class FourBlockMaskCreator(GroupedPruningMaskCreator):
         # expand so every element has a corresponding value in the original tensor
         block_mask = grouped_mask.expand(-1, 4).contiguous()
 
-        # remove padding if necessary
-        numel_orig = numpy.prod(original_tensor_shape)
-        remainder = numel_orig % 4
-        if remainder != 0:
-            pad_num = 4 - remainder
-            block_mask = block_mask.reshape(-1)[:-pad_num]
-
         # adjust for permuted shape if necessary
+        original_tensor_shape = list(original_tensor_shape)
         if len(original_tensor_shape) > 2:
-            original_tensor_shape = list(original_tensor_shape)
             original_tensor_shape.append(original_tensor_shape[1])
             del original_tensor_shape[1]
 
+        # adjust for padding if necessary
+        remainder = original_tensor_shape[-1] % 4
+        if remainder != 0:
+            original_tensor_shape[-1] += 4 - remainder
+
         # set to original shape
         block_mask = block_mask.reshape(original_tensor_shape)
+
+        # remove padding if necessary
+        if remainder != 0:
+            pad_num = 4 - remainder
+            block_mask = block_mask[..., :-pad_num]
 
         # repermute mask if necessary
         if len(original_tensor_shape) > 2:
