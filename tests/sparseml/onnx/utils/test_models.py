@@ -150,7 +150,7 @@ def test_nm_analyze_model_runner(
     dataloader = DataLoader.from_model_random(model, 5, 0, 10)
     model_runner = DeepSparseAnalyzeModelRunner(model, batch_size=5)
     outputs, _ = model_runner.run(dataloader, max_steps=5)
-    fields = ["num_threads", "num_sockets", "average_total_time", "iteration_times"]
+    fields = ["num_threads", "average_total_time", "iteration_times"]
     layer_fields = [
         "name",
         "canonical_name",
