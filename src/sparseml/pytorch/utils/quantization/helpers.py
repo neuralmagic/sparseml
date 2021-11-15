@@ -299,21 +299,28 @@ def configure_module_default_qconfigs(module: Module):
             submodule.configure_qconfig()
 
 
-def add_quant_dequant(module):
+def add_quant_dequant(module, name=None, parent_module=None):
     """
     Wraps all Conv and Linear submodule with a qconfig with a QuantWrapper
     :param module: the module to modify
+    :param name: name of the module to modify; default to None
+    :param parent_module: parent module containing the module to modify; default to None
+    :return: the modified module
     """
+    named_children = module.named_children()
     if (
         type(module) in _QUANTIZABLE_MODULE_TYPES
         and hasattr(module, "qconfig")
         and module.qconfig
     ):
-        return torch_quantization.QuantWrapper(module)
-
-    for name, child in module.named_children():
-        setattr(module, name, add_quant_dequant(child))
-
+        if parent_module is not None and len(list(named_children)) <= 0:
+            module = torch_quantization.QuantWrapper(module)
+            setattr(parent_module, name, module)
+        else:
+            module = torch_quantization.QuantWrapper(module)
+    else:
+        for name, child in named_children:
+            setattr(module, name, add_quant_dequant(child))
     return module
 
 
