@@ -35,6 +35,7 @@ __all__ = [
 
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
 
 class Framework(Enum):
@@ -106,7 +107,8 @@ def detect_frameworks(item: Any) -> List[Framework]:
                 detected = _execute_sparseml_package_function(
                     test, "detect_framework", item
                 )
-                frameworks.append(detected)
+                if detected != Framework.unknown:
+                    frameworks.append(detected)
             except Exception as err:
                 # errors are expected if the framework is not installed, log as debug
                 _LOGGER.debug(
