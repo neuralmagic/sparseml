@@ -22,6 +22,7 @@ from torch.nn import Conv2d, Linear
 from sparseml.pytorch.optim import (
     BlockPruningMaskCreator,
     DimensionSparsityMaskCreator,
+    FourBlockMaskCreator,
     GroupedPruningMaskCreator,
     ModuleParamPruningMask,
     UnstructuredPruningMaskCreator,
@@ -78,6 +79,16 @@ def _test_constructor(layer, param_name, mask_creator):
             "weight",
             BlockPruningMaskCreator([4, 1]),
         ),
+        (
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            "weight",
+            FourBlockMaskCreator(),
+        ),
+        (
+            Conv2d(in_channels=3, out_channels=63, kernel_size=3),
+            "weight",
+            FourBlockMaskCreator(),
+        ),
     ],
 )
 def test_constructor(layer, param_name, mask_creator):
@@ -110,6 +121,11 @@ def test_constructor(layer, param_name, mask_creator):
             Conv2d(in_channels=3, out_channels=64, kernel_size=3),
             "weight",
             BlockPruningMaskCreator([4, 1]),
+        ),
+        (
+            Conv2d(in_channels=3, out_channels=64, kernel_size=3),
+            "weight",
+            FourBlockMaskCreator(),
         ),
     ],
 )
@@ -362,6 +378,14 @@ def _test_set_param_mask_from_abs_threshold(
             BlockPruningMaskCreator([1, 4]),
         ),
         (
+            Linear(in_features=256 * 256, out_features=32),
+            "weight",
+            torch.randn(32, 256 * 256),
+            1.5,
+            0.9809,
+            FourBlockMaskCreator(),
+        ),
+        (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
             torch.randn(512, 256, 3, 3),
@@ -400,6 +424,14 @@ def _test_set_param_mask_from_abs_threshold(
             2.0,
             0.9995,
             BlockPruningMaskCreator([1, 4]),
+        ),
+        (
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            "weight",
+            torch.randn(512, 256, 3, 3),
+            2.0,
+            0.9995,
+            FourBlockMaskCreator(),
         ),
     ],
 )
@@ -464,6 +496,14 @@ def test_set_param_mask_from_abs_threshold(
             BlockPruningMaskCreator([1, 4]),
         ),
         (
+            Linear(in_features=256 * 256, out_features=32),
+            "weight",
+            torch.randn(32, 256 * 256),
+            1.5,
+            0.9809,
+            FourBlockMaskCreator(),
+        ),
+        (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
             torch.randn(512, 256, 3, 3),
@@ -502,6 +542,14 @@ def test_set_param_mask_from_abs_threshold(
             2.0,
             0.9995,
             BlockPruningMaskCreator([1, 4]),
+        ),
+        (
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            "weight",
+            torch.randn(512, 256, 3, 3),
+            2.0,
+            0.9995,
+            FourBlockMaskCreator(),
         ),
     ],
 )
@@ -571,6 +619,13 @@ def _test_set_param_mask_from_sparsity(
             BlockPruningMaskCreator([1, 4]),
         ),
         (
+            Linear(in_features=256, out_features=512),
+            "weight",
+            torch.randn(512, 256),
+            0.6,
+            FourBlockMaskCreator(),
+        ),
+        (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
             torch.randn(512, 256, 3, 3),
@@ -604,6 +659,13 @@ def _test_set_param_mask_from_sparsity(
             torch.randn(512, 256, 3, 3),
             0.99,
             BlockPruningMaskCreator([1, 4]),
+        ),
+        (
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            "weight",
+            torch.randn(512, 256, 3, 3),
+            0.99,
+            FourBlockMaskCreator(),
         ),
     ],
 )
@@ -654,6 +716,13 @@ def test_set_param_mask_from_sparsity(layer, param_name, param, sparsity, mask_c
             BlockPruningMaskCreator([1, 4]),
         ),
         (
+            Linear(in_features=256, out_features=512),
+            "weight",
+            torch.randn(512, 256),
+            0.6,
+            BlockPruningMaskCreator([1, 4]),
+        ),
+        (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
             torch.randn(512, 256, 3, 3),
@@ -687,6 +756,13 @@ def test_set_param_mask_from_sparsity(layer, param_name, param, sparsity, mask_c
             torch.randn(512, 256, 3, 3),
             0.99,
             BlockPruningMaskCreator([1, 4]),
+        ),
+        (
+            Conv2d(in_channels=256, out_channels=512, kernel_size=3),
+            "weight",
+            torch.randn(512, 256, 3, 3),
+            0.99,
+            FourBlockMaskCreator(),
         ),
     ],
 )

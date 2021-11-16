@@ -30,6 +30,7 @@ __all__ = [
     "GroupedPruningMaskCreator",
     "DimensionSparsityMaskCreator",
     "BlockPruningMaskCreator",
+    "FourBlockMaskCreator",
     "load_mask_creator",
 ]
 
@@ -765,10 +766,116 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         return str(self)
 
 
+class FourBlockMaskCreator(GroupedPruningMaskCreator):
+    """
+    semi-structured sparsity mask creator that groups sparsity blocks in groups of four
+    along the input-channel dimension (assumed to be dimension 1 for pytorch)
+
+    Equivalent to BlockPruningMaskCreator([1, 4]) without restrictions on number
+    of dimensions, or divisibility
+
+    :param grouping_fn_name: The name of the torch grouping function to reduce
+        dimensions by
+    """
+
+    def __init__(
+        self,
+        grouping_fn_name: str = "mean",
+    ):
+        self._grouping_fn_name = grouping_fn_name
+
+    def group_tensor(self, tensor: Tensor) -> Tensor:
+        """
+        :param tensor: The tensor to transform
+        :return: The mean values of the tensor grouped by blocks of shape
+            self._block_shape
+        """
+        if tensor.dim() > 2:
+            # permute input channel dim to last dimension
+            permute_val = list(range(tensor.dim()))
+            del permute_val[1]
+            permute_val.append(1)
+            tensor = tensor.permute(*permute_val)
+
+        remainder = tensor.size(-1) % 4
+        if remainder != 0:
+            # pad with zeros to make masks add to 4
+            pad_num = 4 - remainder
+            padded_tensor = torch.zeros(
+                *tensor.shape[:-1],
+                tensor.size(-1) + pad_num,
+                device=tensor.device,
+                dtype=tensor.dtype,
+            )
+            padded_tensor[..., :-pad_num] = tensor
+            padded_tensor[..., -pad_num:] = torch.mean(
+                # mean of remainder input channel dims
+                tensor[..., -remainder:],
+                dim=-1,
+                keepdim=True,
+            )
+            tensor = padded_tensor
+
+        blocked_tensor = tensor.reshape(-1, 4)
+        reduced_blocks = GroupedPruningMaskCreator.reduce_tensor(
+            blocked_tensor, 1, self._grouping_fn_name
+        )
+        return reduced_blocks.type(tensor.type())
+
+    def _map_mask_to_tensor(
+        self,
+        grouped_mask: Tensor,
+        original_tensor_shape: torch.Size,
+    ) -> Tensor:
+        """
+        :param grouped_mask: A binary mask the size of a tensor from group_tensor
+        :param original_tensor_shape: Shape of the original tensor grouped_mask
+            derives from
+        :return: The values from grouped_mask mapped to a tensor of size
+            original_tensor_shape
+        """
+        # expand so every element has a corresponding value in the original tensor
+        block_mask = grouped_mask.expand(-1, 4).contiguous()
+
+        # adjust for permuted shape if necessary
+        original_tensor_shape = list(original_tensor_shape)
+        if len(original_tensor_shape) > 2:
+            original_tensor_shape.append(original_tensor_shape[1])
+            del original_tensor_shape[1]
+
+        # adjust for padding if necessary
+        remainder = original_tensor_shape[-1] % 4
+        if remainder != 0:
+            original_tensor_shape[-1] += 4 - remainder
+
+        # set to original shape
+        block_mask = block_mask.reshape(original_tensor_shape)
+
+        # remove padding if necessary
+        if remainder != 0:
+            pad_num = 4 - remainder
+            block_mask = block_mask[..., :-pad_num]
+
+        # repermute mask if necessary
+        if len(original_tensor_shape) > 2:
+            permute_val = list(range(len(original_tensor_shape)))
+            del permute_val[-1]
+            permute_val.insert(1, len(permute_val))
+            block_mask = block_mask.permute(*permute_val)
+        return block_mask
+
+    def __str__(self):
+        return "block"
+
+    def __repr__(self):
+        return str(self)
+
+
 mask_creator_name_to_constructor_lambda = {
     "unstructured": lambda: UnstructuredPruningMaskCreator(),
     "channel": lambda: DimensionSparsityMaskCreator("channel"),
     "filter": lambda: DimensionSparsityMaskCreator("filter"),
+    "block": lambda: FourBlockMaskCreator(),
 }
 
 
