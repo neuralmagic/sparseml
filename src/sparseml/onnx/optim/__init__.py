@@ -21,3 +21,4 @@ Handles things like model pruning.
 
 from .analyzer_model import *
 from .sensitivity_pruning import *
+from .structured_pruning import *

@@ -18,7 +18,7 @@ Classes for defining sparsity masks based on model parameters.
 
 import random
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Union
+from typing import Iterable, List, Optional, Union
 
 import torch
 from torch import Tensor
@@ -30,6 +30,7 @@ __all__ = [
     "GroupedPruningMaskCreator",
     "DimensionSparsityMaskCreator",
     "BlockPruningMaskCreator",
+    "FourBlockMaskCreator",
     "load_mask_creator",
 ]
 
@@ -275,11 +276,14 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         :param tensor: the tensor to reduce
         :param dim: dimension or list of dimension to reduce along
         :param reduce_fn_name: function name to reduce tensor with. valid options
-            are 'mean', 'max', 'min'
+            are 'l2', 'mean', 'max', 'min'
         :param keepdim: preserves the reduced dimension(s) in returned tensor shape
             as shape 1. default is True
         :return: Tensor reduced along the given dimension(s)
         """
+        reduce_fn_name = reduce_fn_name.lower()
+        if reduce_fn_name == "l2":
+            return torch.linalg.norm(input=tensor, dim=dim, keepdim=keepdim)
         if reduce_fn_name == "mean":
             return torch.mean(input=tensor, dim=dim, keepdim=keepdim)
         if reduce_fn_name == "max":
@@ -304,11 +308,14 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         self,
         grouped_mask: Tensor,
         original_tensor_shape: torch.Size,
+        tensor_idx: Optional[int] = None,
     ) -> Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
         :param original_tensor_shape: Shape of the original tensor grouped_mask
             derives from
+        :param tensor_idx: optional index this tensor was passed into a tensor
+            list for mask creation
         :return: The values from grouped_mask mapped to a tensor of size
             original_tensor_shape
         """
@@ -321,12 +328,12 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
             the group_tensor function.
         """
         masks = []
-        for tensor in tensors:
-            grouped_tensor = self.group_tensor(tensor)
+        grouped_tensors = self._group_tensors(tensors)
+        for idx, (tensor, grouped_tensor) in enumerate(zip(tensors, grouped_tensors)):
             grouped_mask = super().create_sparsity_masks_from_tensor([grouped_tensor])[
                 0
             ]
-            masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape))
+            masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape, idx))
         return masks
 
     def create_sparsity_masks_from_threshold(
@@ -340,12 +347,12 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         :return: list of masks derived from the tensors and the grouped threshold
         """
         masks = []
-        for tensor in tensors:
-            grouped_tensor = self.group_tensor(tensor)
+        grouped_tensors = self._group_tensors(tensors)
+        for idx, (tensor, grouped_tensor) in enumerate(zip(tensors, grouped_tensors)):
             grouped_mask = super().create_sparsity_masks_from_threshold(
                 [grouped_tensor], threshold
             )[0]
-            masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape))
+            masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape, idx))
         return masks
 
     def create_sparsity_masks(
@@ -371,16 +378,19 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
             matches the sparsity and all values mapped to the same group have the same
             value
         """
-        grouped_tensors = [self.group_tensor(tensor) for tensor in tensors]
+        grouped_tensors = self._group_tensors(tensors)
         grouped_masks = super().create_sparsity_masks(
             grouped_tensors, sparsity, global_sparsity
         )
         masks = [
-            self._map_mask_to_tensor(grouped_mask, tensor.shape)
-            for grouped_mask, tensor in zip(grouped_masks, tensors)
+            self._map_mask_to_tensor(grouped_mask, tensor.shape, idx)
+            for idx, (grouped_mask, tensor) in enumerate(zip(grouped_masks, tensors))
         ]
 
         return masks
+
+    def _group_tensors(self, tensors: List[Tensor]) -> List[Tensor]:
+        return [self.group_tensor(tensor) for tensor in tensors]
 
 
 class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
@@ -391,30 +401,55 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
     :param dim: The index or list of indices of dimensions to group the mask by or
         the type of dims to prune (['channel', 'filter'])
     :param grouping_fn_name: The name of the torch grouping function to reduce
-        dimensions by
+        dimensions by. Default is 'l2'
+    :param tensor_group_idxs: list of lists of input tensor idxs whose given dimensions
+        should be scored together. If set, all idxs in the range of provided tensors
+        must be included in exactly one group (tensors in their own group should be a
+        list of length 1).  If None, no tensor groups will be used
     """
 
     def __init__(
         self,
         dim: Union[str, int, List[int]],
-        grouping_fn_name: str = "mean",
+        grouping_fn_name: str = "l2",
+        tensor_group_idxs: Optional[List[List[int]]] = None,
     ):
-        if isinstance(dim, int):
-            dim = [dim]
-        self._dim_name = None
         self._grouping_fn_name = grouping_fn_name
-        if isinstance(dim, str):
+        self._tensor_group_idxs = tensor_group_idxs
+
+        if isinstance(dim, (int, List)):
+            if isinstance(dim, int):
+                dim = [dim]
+            if dim not in [[0], [1]]:
+                raise ValueError(
+                    f"Invalid dimension {dim}, valid dimensions: {[0], [1]}"
+                )
+            dim_name = "channel" if dim == 1 else "filter"
+        elif isinstance(dim, str):
             valid_dim_names = ["channel", "filter"]
             if dim in valid_dim_names:
-                self._dim_name = dim
-                self._dim = [1] if dim == "channel" else [0, 1]
+                dim_name = dim
+                dim = [1] if dim == "channel" else [0]
             else:
                 raise ValueError(
-                    "Invalid Dimension name: {}, valid names: {}".format(
-                        dim, valid_dim_names
-                    )
+                    f"Invalid Dimension name: {dim}, valid names: {valid_dim_names}"
                 )
-        self._dim = dim  # List[int]
+        else:
+            raise ValueError(
+                f"Unknown dim type {type(dim)} expected (str, int, List[int])"
+            )
+
+        self._dim = dim
+        self._dim_name = dim_name
+        self._stride_grouped_tensors = {}  # Dict[int, int]: tensor_idx -> stride
+
+    @property
+    def structure_type(self) -> str:
+        """
+        :return: the type of structure pruned masks this mask creator produces must
+            be either 'channel' or 'filter'
+        """
+        return self._dim_name
 
     def create_sparsity_masks(
         self,
@@ -449,30 +484,157 @@ class DimensionSparsityMaskCreator(GroupedPruningMaskCreator):
         :return: The mean values of the tensor grouped by the dimension(s) in self._dim
         """
         n_dims = len(tensor.shape)
-        if n_dims < 3 and self._dim_name == "channel":
-            raise ValueError(
-                "Channel pruning not supported for fewer than 3 dimensions."
-                " Received tensor with shape {}".format(tensor.shape)
-            )
         reduced_dims = [idx for idx in range(n_dims) if idx not in self._dim]
         reduced_tensor = GroupedPruningMaskCreator.reduce_tensor(
             tensor, reduced_dims, self._grouping_fn_name
         )
         return reduced_tensor.type(tensor.type())
 
+    def set_tensor_group_idxs(self, tensor_group_idxs: Optional[List[List[int]]]):
+        """
+        :param tensor_group_idxs: list of lists of input tensor idxs whose given
+            dimensions should be scored together. If set, all idxs in the range of
+            provided tensors must be included in exactly one group (tensors in their
+            own group should be a list of length 1).  If None, no tensor groups will
+            be used
+        """
+        self._tensor_group_idxs = tensor_group_idxs
+
+    def _group_tensors(self, tensors: List[Tensor]) -> List[Tensor]:
+        grouped_tensors = [self.group_tensor(tensor) for tensor in tensors]
+
+        if self._tensor_group_idxs is None:
+            return grouped_tensors
+
+        self._validate_tensor_group_idxs(len(tensors))
+
+        for idx_group in self._tensor_group_idxs:
+            if not idx_group:
+                continue
+
+            # bypass DW Convs in group
+            idx_group = [
+                idx
+                for idx in idx_group
+                if not all(grouped_tensors[idx].size(dim) == 1 for dim in self._dim)
+            ]
+
+            if not idx_group:
+                # all non-prunable along target dim
+                continue
+
+            # validate tensors have the same number of dimension elements
+            group_tensors_numel = [grouped_tensors[idx].numel() for idx in idx_group]
+            group_base_numel = min(group_tensors_numel)
+            for group_tensor_idx, numel in zip(idx_group, group_tensors_numel):
+                if numel == group_base_numel:
+                    # expected number of channels
+                    continue
+                elif numel % group_base_numel == 0:
+                    # strided conv layer
+                    stride = numel // group_base_numel
+                    grouped_tensor = grouped_tensors[group_tensor_idx]
+                    stride_reduced_shape = [
+                        dim // stride if dim != 1 else 1 for dim in grouped_tensor.shape
+                    ]
+                    stride_grouped_tensor = torch.zeros(
+                        stride_reduced_shape,
+                        dtype=grouped_tensor.dtype,
+                        device=grouped_tensor.device,
+                    )
+                    stride_grouped_tensor.reshape(-1).copy_(
+                        grouped_tensor.reshape(-1, stride).mean(axis=1).reshape(-1)
+                    )
+                    grouped_tensors[group_tensor_idx] = stride_grouped_tensor
+                    self._stride_grouped_tensors[group_tensor_idx] = stride
+                else:
+                    raise ValueError(
+                        "Found parameter with {numel} target dimensions in group with "
+                        f"a parameter with {group_base_numel}. All parameters in a "
+                        "group must have a number of elements in the target dimension "
+                        "divisible by the smallest such dimension in the group"
+                    )
+
+            # calculate the group score
+            tensors_in_group_flat = [
+                grouped_tensors[idx].reshape(-1) for idx in idx_group
+            ]
+            group_score = torch.sum(torch.stack(tensors_in_group_flat), axis=0)
+
+            # set all tensors in group to the group score
+            for idx in idx_group:
+                grouped_tensors[idx].view(-1).copy_(group_score)
+        return grouped_tensors
+
     def _map_mask_to_tensor(
         self,
         grouped_mask: Tensor,
         original_tensor_shape: torch.Size,
+        tensor_idx: Optional[int] = None,
     ) -> Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
         :param original_tensor_shape: Shape of the original tensor grouped_mask
             derives from
+        :param tensor_idx: optional index this tensor was passed into a tensor
+            list for mask creation
         :return: The values from grouped_mask mapped to a tensor of size
             original_tensor_shape
         """
+        if all(grouped_mask.size(dim) == 1 for dim in self._dim):
+            # DW Conv
+            return torch.ones(
+                original_tensor_shape,
+                dtype=grouped_mask.dtype,
+                device=grouped_mask.device,
+            )
+        if tensor_idx and tensor_idx in self._stride_grouped_tensors:
+            stride = self._stride_grouped_tensors[tensor_idx]
+            unstrided_mask_shape = [
+                dim * stride if dim != 1 else 1 for dim in grouped_mask.shape
+            ]
+            unstrided_mask = torch.zeros(
+                unstrided_mask_shape,
+                dtype=grouped_mask.dtype,
+                device=grouped_mask.device,
+            )
+            unstrided_mask.reshape(-1).copy_(
+                grouped_mask.reshape(-1, 1).expand(-1, stride).reshape(-1)
+            )
+            grouped_mask = unstrided_mask
+            del self._stride_grouped_tensors[tensor_idx]
+
         return grouped_mask.expand(original_tensor_shape)
+
+    def _validate_tensor_group_idxs(self, num_tensors: int):
+        included_idxs = [
+            idx for idx_group in self._tensor_group_idxs for idx in idx_group
+        ]
+
+        if not all(isinstance(idx, int) for idx in included_idxs):
+            types = [type(idx) for idx in included_idxs]
+            raise RuntimeError(
+                f"all indices in tensor_group_idxs must be ints found {types}"
+            )
+
+        if len(included_idxs) != len(set(included_idxs)):
+            raise RuntimeError(
+                "indices may not be repeated in tensor_group_idxs. Found indices "
+                f"{included_idxs}"
+            )
+
+        if len(included_idxs) != num_tensors:
+            raise RuntimeError(
+                f"Expected {num_tensors} indices in tensor_group_idxs for "
+                f"{num_tensors}. Found {len(included_idxs)}"
+            )
+
+        expected_idxs = set(range(num_tensors))
+        if any(idx not in expected_idxs for idx in included_idxs):
+            raise RuntimeError(
+                "tensor_group_idxs must include indices in range [0, num_tensors] "
+                f" found indices: {list(sorted(included_idxs))}"
+            )
 
     def __str__(self):
         if self._dim_name is not None:
@@ -537,11 +699,14 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         self,
         grouped_mask: Tensor,
         original_tensor_shape: torch.Size,
+        tensor_idx: Optional[int] = None,
     ) -> Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
         :param original_tensor_shape: Shape of the original tensor grouped_mask
             derives from
+        :param tensor_idx: optional index this tensor was passed into a tensor
+            list for mask creation
         :return: The values from grouped_mask mapped to a tensor of size
             original_tensor_shape
         """
@@ -601,10 +766,116 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         return str(self)
 
 
+class FourBlockMaskCreator(GroupedPruningMaskCreator):
+    """
+    semi-structured sparsity mask creator that groups sparsity blocks in groups of four
+    along the input-channel dimension (assumed to be dimension 1 for pytorch)
+
+    Equivalent to BlockPruningMaskCreator([1, 4]) without restrictions on number
+    of dimensions, or divisibility
+
+    :param grouping_fn_name: The name of the torch grouping function to reduce
+        dimensions by
+    """
+
+    def __init__(
+        self,
+        grouping_fn_name: str = "mean",
+    ):
+        self._grouping_fn_name = grouping_fn_name
+
+    def group_tensor(self, tensor: Tensor) -> Tensor:
+        """
+        :param tensor: The tensor to transform
+        :return: The mean values of the tensor grouped by blocks of shape
+            self._block_shape
+        """
+        if tensor.dim() > 2:
+            # permute input channel dim to last dimension
+            permute_val = list(range(tensor.dim()))
+            del permute_val[1]
+            permute_val.append(1)
+            tensor = tensor.permute(*permute_val)
+
+        remainder = tensor.size(-1) % 4
+        if remainder != 0:
+            # pad with zeros to make masks add to 4
+            pad_num = 4 - remainder
+            padded_tensor = torch.zeros(
+                *tensor.shape[:-1],
+                tensor.size(-1) + pad_num,
+                device=tensor.device,
+                dtype=tensor.dtype,
+            )
+            padded_tensor[..., :-pad_num] = tensor
+            padded_tensor[..., -pad_num:] = torch.mean(
+                # mean of remainder input channel dims
+                tensor[..., -remainder:],
+                dim=-1,
+                keepdim=True,
+            )
+            tensor = padded_tensor
+
+        blocked_tensor = tensor.reshape(-1, 4)
+        reduced_blocks = GroupedPruningMaskCreator.reduce_tensor(
+            blocked_tensor, 1, self._grouping_fn_name
+        )
+        return reduced_blocks.type(tensor.type())
+
+    def _map_mask_to_tensor(
+        self,
+        grouped_mask: Tensor,
+        original_tensor_shape: torch.Size,
+    ) -> Tensor:
+        """
+        :param grouped_mask: A binary mask the size of a tensor from group_tensor
+        :param original_tensor_shape: Shape of the original tensor grouped_mask
+            derives from
+        :return: The values from grouped_mask mapped to a tensor of size
+            original_tensor_shape
+        """
+        # expand so every element has a corresponding value in the original tensor
+        block_mask = grouped_mask.expand(-1, 4).contiguous()
+
+        # adjust for permuted shape if necessary
+        original_tensor_shape = list(original_tensor_shape)
+        if len(original_tensor_shape) > 2:
+            original_tensor_shape.append(original_tensor_shape[1])
+            del original_tensor_shape[1]
+
+        # adjust for padding if necessary
+        remainder = original_tensor_shape[-1] % 4
+        if remainder != 0:
+            original_tensor_shape[-1] += 4 - remainder
+
+        # set to original shape
+        block_mask = block_mask.reshape(original_tensor_shape)
+
+        # remove padding if necessary
+        if remainder != 0:
+            pad_num = 4 - remainder
+            block_mask = block_mask[..., :-pad_num]
+
+        # repermute mask if necessary
+        if len(original_tensor_shape) > 2:
+            permute_val = list(range(len(original_tensor_shape)))
+            del permute_val[-1]
+            permute_val.insert(1, len(permute_val))
+            block_mask = block_mask.permute(*permute_val)
+        return block_mask
+
+    def __str__(self):
+        return "block"
+
+    def __repr__(self):
+        return str(self)
+
+
 mask_creator_name_to_constructor_lambda = {
     "unstructured": lambda: UnstructuredPruningMaskCreator(),
     "channel": lambda: DimensionSparsityMaskCreator("channel"),
     "filter": lambda: DimensionSparsityMaskCreator("filter"),
+    "block": lambda: FourBlockMaskCreator(),
 }
 
 
