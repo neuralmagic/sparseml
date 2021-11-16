@@ -96,9 +96,12 @@ class ModuleParamPruningMask(object):
         self._gradient_hooks = [None] * len(self._layers)
 
         self._params = []  # type: List[Parameter]
+        self._param_orig_sizes = []  # type: List[int]
         for layer, param_name in zip(self._layers, self._param_names):
             try:
-                self._params.append(layer.__getattr__(param_name))
+                layer_param = layer.__getattr__(param_name)
+                self._params.append(layer_param)
+                self._param_orig_sizes.append(layer_param.numel())
             except Exception as err:
                 raise RuntimeError(
                     f"Error occurred while trying to get param {param_name} "
@@ -111,6 +114,7 @@ class ModuleParamPruningMask(object):
         self._params_unmasked = [None] * len(self._layers)  # type: List[Tensor]
         self._params_grad = [None] * len(self._layers)  # type: List[Tensor]
         self._params_movement = [None] * len(self._layers)  # type: List[Tensor]
+        self._params_applied_thinning = [0.0] * len(self._layers)  # type: List[float]
 
         # create scorer
         self._scorer = create_pruning_param_scorer(self._params, score_type)
@@ -341,8 +345,7 @@ class ModuleParamPruningMask(object):
         """
         Convenience function to set the parameter masks such that the
         mask is 1 if a parameter value is non zero and 0 otherwise,
-        unless otherwise defined by this object's mask_creator.
-
+        unless otherwise defined by this object's mask_creator
         """
         masks = self._mask_creator.create_sparsity_masks_from_tensor(
             [param.data for param in self._params]
@@ -380,6 +383,21 @@ class ModuleParamPruningMask(object):
             list must be the same
         """
         param_scores = self._scorer.score_parameters()
+
+        if isinstance(sparsity, float):
+            sparsity = [sparsity] * len(self._params)
+        for idx, sparsity_val in enumerate(sparsity):
+            applied_thinning = self._params_applied_thinning[idx]
+            if applied_thinning > 0.0:
+                # adjust sparsity for thinned (compressed) layer param
+                # derived from:
+                # remaining_num_els * (1 - adjusted_sparsity) = \
+                #   orig_num_els * (1 - sparsity)
+                # with applied_thinning = 1 - (remaining_num_els / orig_num_els)
+                sparsity[idx] = (sparsity_val - applied_thinning) / (
+                    1 - applied_thinning
+                )
+
         masks = self._mask_creator.create_sparsity_masks(
             param_scores, sparsity, global_sparsity=self._global_sparsity
         )
@@ -458,6 +476,13 @@ class ModuleParamPruningMask(object):
         indices = range(len(self._params)) if param_idx is None else [param_idx]
 
         for idx in indices:
+            if self._params[idx].data.numel() < self._param_masks[idx].numel():
+                self._params_applied_thinning[idx] = 1 - (
+                    self._params[idx].data.numel() / self._param_orig_sizes[idx]
+                )
+                self._param_masks[idx] = ModuleParamPruningMask._detach_tens(
+                    torch.ones_like(self._params[idx].data)
+                )
             if self._params[idx].data.device != self._param_masks[idx].device:
                 self._param_masks[idx] = ModuleParamPruningMask._detach_tens(
                     torch.empty_like(self._params[idx].data).copy_(

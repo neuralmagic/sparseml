@@ -295,9 +295,16 @@ def test_set_param_mask_cuda(layer, param_name, param_mask):
     _test_set_param_data(layer, param_name, param_mask)
 
 
+def _tensor_val_eq_err(tensor, val, max_err=1e-3):
+    return torch.abs(tensor - val) < max_err
+
+
 def _test_grouped_sparsity_mask_output(mask_creator, mask):
     grouped_mask = mask_creator.group_tensor(mask)
-    mask_vals_are_grouped = torch.all((grouped_mask == 0.0) | (grouped_mask == 1.0))
+    grouped_mask /= max(torch.max(grouped_mask).item(), 1.0)
+    mask_vals_are_grouped = torch.all(
+        _tensor_val_eq_err(grouped_mask, 0.0) | _tensor_val_eq_err(grouped_mask, 1.0)
+    )
     assert mask_vals_are_grouped
 
 
@@ -317,6 +324,7 @@ def _test_set_param_mask_from_abs_threshold(
     mask.set_param_data(param, 0)
     mask.set_param_masks_from_abs_threshold(threshold)
     sparsity = tensor_sparsity(mask.param_masks[0])
+
     assert (sparsity - expected_sparsity).abs() < 0.01
     if isinstance(mask_creator, GroupedPruningMaskCreator):
         _test_grouped_sparsity_mask_output(mask_creator, mask.param_masks[0])
@@ -357,8 +365,8 @@ def _test_set_param_mask_from_abs_threshold(
             Linear(in_features=256 * 256, out_features=32),
             "weight",
             torch.randn(32, 256 * 256),
-            0.8,
-            0.5188,
+            6.0,
+            0.7120,
             DimensionSparsityMaskCreator(1),
         ),
         (
@@ -405,9 +413,9 @@ def _test_set_param_mask_from_abs_threshold(
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
             torch.randn(512, 256, 3, 3),
-            1.0,
-            0.8428,
-            DimensionSparsityMaskCreator([0, 1]),
+            50.0,
+            0.9980,
+            DimensionSparsityMaskCreator([0]),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -475,8 +483,8 @@ def test_set_param_mask_from_abs_threshold(
             Linear(in_features=256 * 256, out_features=32),
             "weight",
             torch.randn(32, 256 * 256),
-            0.8,
-            0.5188,
+            6.0,
+            0.7120,
             DimensionSparsityMaskCreator(1),
         ),
         (
@@ -523,9 +531,9 @@ def test_set_param_mask_from_abs_threshold(
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
             "weight",
             torch.randn(512, 256, 3, 3),
-            1.0,
-            0.8428,
-            DimensionSparsityMaskCreator([0, 1]),
+            50.0,
+            0.9980,
+            DimensionSparsityMaskCreator([0]),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -643,7 +651,7 @@ def _test_set_param_mask_from_sparsity(
             "weight",
             torch.randn(512, 256, 3, 3),
             0.6,
-            DimensionSparsityMaskCreator([0, 1]),
+            DimensionSparsityMaskCreator([0]),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),
@@ -740,7 +748,7 @@ def test_set_param_mask_from_sparsity(layer, param_name, param, sparsity, mask_c
             "weight",
             torch.randn(512, 256, 3, 3),
             0.6,
-            DimensionSparsityMaskCreator([0, 1]),
+            DimensionSparsityMaskCreator([0]),
         ),
         (
             Conv2d(in_channels=256, out_channels=512, kernel_size=3),

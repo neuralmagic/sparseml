@@ -47,6 +47,7 @@ def _test_grouped_masks(masks, mask_creator):
     # an absolte mean to each grouping
     for mask in masks:
         grouped_mask = mask_creator.group_tensor(mask)
+        grouped_mask /= max(torch.max(grouped_mask).item(), 1.0)
         mask_vals_are_grouped = torch.all((grouped_mask == 0.0) | (grouped_mask == 1.0))
         assert mask_vals_are_grouped
 
@@ -58,7 +59,7 @@ def _test_grouped_masks(masks, mask_creator):
         ([[64, 64, 3, 3], [64, 64]], UnstructuredPruningMaskCreator()),
         ([[64, 512], [64, 512], [64, 512]], DimensionSparsityMaskCreator(1)),
         ([[64, 512, 3, 3]], DimensionSparsityMaskCreator(1)),
-        ([[64, 64, 3, 3]], DimensionSparsityMaskCreator([0, 1])),
+        ([[64, 64, 3, 3]], DimensionSparsityMaskCreator([0])),
         ([[64, 512]], BlockPruningMaskCreator([1, 4])),
         ([[64, 512, 3, 3]], BlockPruningMaskCreator([1, 4])),
         ([[128, 128, 3, 3]], BlockPruningMaskCreator([2, 2])),
@@ -77,7 +78,7 @@ def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
     ("tensor_shape,mask_creator"),
     [
         ([[64, 64, 3, 3]], UnstructuredPruningMaskCreator()),
-        ([[64, 64, 3, 3]], DimensionSparsityMaskCreator([0, 1])),
+        ([[64, 64, 3, 3]], DimensionSparsityMaskCreator([0])),
         ([[128, 128, 3, 3]], BlockPruningMaskCreator([2, 2])),
         ([[64, 512, 3, 3]], FourBlockMaskCreator()),
     ],
