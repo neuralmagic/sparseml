@@ -35,7 +35,6 @@ __all__ = [
 
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.DEBUG)
 
 
 class Framework(Enum):
