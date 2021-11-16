@@ -79,6 +79,7 @@ _dev_deps = [
     "sphinx-pydantic>=0.1.0",
     "sphinx-rtd-theme>=0.5.0",
     "wheel>=0.36.2",
+    "protobuf==3.13.0",
     "pytest>=6.0.0",
     "pytest-mock>=3.6.1",
     "flaky>=3.0.0",
