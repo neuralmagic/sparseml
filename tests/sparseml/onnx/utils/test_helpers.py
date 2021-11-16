@@ -116,7 +116,7 @@ def foldable_onnx_model():
 def get_prunable_onnx_model():
     X = make_tensor_value_info("A", TensorProto.FLOAT, [3, 2])
 
-    Z = make_tensor_value_info("B", TensorProto.FLOAT, [4])
+    Z = make_tensor_value_info("Z", TensorProto.FLOAT, [4])
 
     node_defs = [
         make_node("Conv", ["A", "node1.weight", "node1.bias"], ["B"], name="node1"),

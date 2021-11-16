@@ -17,7 +17,7 @@ Classes for describing models and layers in ONNX models.
 """
 
 from collections import OrderedDict
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import numpy
 import onnx
@@ -51,6 +51,9 @@ class ModelInfo(BaseModelInfo):
         graph = ONNXGraph(model)
         graph.sort_nodes_topologically()  # for execution order
 
+        first_prunable_nodes = _get_model_first_prunable_nodes(model)
+        last_prunable_nodes = _get_model_last_prunable_nodes(model)
+
         for node in graph.nodes:
             layer_info = None
             if node.op_type == "Conv":
@@ -65,6 +68,10 @@ class ModelInfo(BaseModelInfo):
                     layer_info.attributes["node_name"] = node.name
                 if node.output:
                     layer_info.attributes["node_output_id"] = node.output[0]
+                if node in first_prunable_nodes:
+                    layer_info.attributes["first_prunable_layer"] = True
+                if node in last_prunable_nodes:
+                    layer_info.attributes["last_prunable_layer"] = True
                 layers[layer_info.name] = layer_info
 
         return layers
@@ -156,16 +163,63 @@ class ModelInfo(BaseModelInfo):
             return None
         return numpy_helper.to_array(param)
 
-    def _validate_model(self, model: Union[ModelProto, str]):
+    @staticmethod
+    def validate_model(model: Union[ModelProto, str]):
         # validate model type and load from file if necessary
         if not isinstance(model, (ModelProto, str)):
             raise ValueError(
-                f"{self.__class__.__name__} must be instantiated with a ModelProto "
+                f"{ModelInfo.__name__} must be instantiated with a ModelProto "
                 f"object or string file path to one. Received: {type(model)}"
             )
         if isinstance(model, str):
             model = onnx.load(model)
         return model
+
+
+def _get_model_first_prunable_nodes(model: ModelProto) -> List[NodeProto]:
+    graph = ONNXGraph(model)
+    input_names = {tens.name for tens in model.graph.input}
+    stack = [
+        node
+        for node in model.graph.node
+        if any(inp in input_names for inp in node.input)
+    ]
+    seen_node_ids = {output_id for node in stack for output_id in node.output}
+    first_prunable_nodes = []
+    while stack:
+        node = stack.pop()
+        if node.op_type in ["Gemm", "MatMul", "Conv"]:
+            first_prunable_nodes.append(node)
+            continue
+        for child in graph.get_node_children(node):
+            if any(output_id in seen_node_ids for output_id in child.output):
+                continue
+            stack.append(child)
+            seen_node_ids.update(set(child.output))
+    return first_prunable_nodes
+
+
+def _get_model_last_prunable_nodes(model: ModelProto) -> List[NodeProto]:
+    graph = ONNXGraph(model)
+    output_names = {tens.name for tens in model.graph.output}
+    stack = [
+        node
+        for node in model.graph.node
+        if any(out in output_names for out in node.output)
+    ]
+    seen_node_ids = {output_id for node in stack for output_id in node.output}
+    last_prunable_nodes = []
+    while stack:
+        node = stack.pop()
+        if node.op_type in ["Gemm", "MatMul", "Conv"]:
+            last_prunable_nodes.append(node)
+            continue
+        for parent in graph.get_node_parents(node):
+            if any(output_id in seen_node_ids for output_id in parent.output):
+                continue
+            stack.append(parent)
+            seen_node_ids.update(set(parent.output))
+    return last_prunable_nodes
 
 
 def _param_sparsity(param: numpy.ndarray) -> float:

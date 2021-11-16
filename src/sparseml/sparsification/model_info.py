@@ -270,6 +270,41 @@ class PruningSensitivityResult(ModelResult):
             self.value = {}
         self.value[sparsity] = value
 
+    def get_available_layer_sparsities(self) -> List[float]:
+        """
+        :return: list of sparsity values available for all model layers
+        """
+        available_sparsities = None
+
+        for result in self.layer_results.values():
+            sparsities = set(result.value.keys())
+            if available_sparsities is None:
+                available_sparsities = sparsities
+            else:
+                available_sparsities = available_sparsities.intersection(sparsities)
+        return [float(sparsity) for sparsity in sorted(available_sparsities)]
+
+    def get_layer_sparsity_score(self, layer_name: str, sparsity: float) -> float:
+        """
+        :param layer_name: name of layer to get sparsity score for
+        :param sparsity: sparsity to measure score at
+        :return: sparsity score at the given sparsity such that higher scores correlate
+            to a less prunable layer
+        """
+        result = self.layer_results[layer_name].value
+
+        sparsity = str(sparsity)
+        if sparsity not in result:
+            raise ValueError(f"No result for sparsity {sparsity} in layer {layer_name}")
+
+        baseline_sparsity = str(0.0 if 0.0 in result else min(result))
+
+        return (
+            result[sparsity]
+            if self.analysis_type is PruningSensitivityResultTypes.PERF
+            else result[sparsity] - result[baseline_sparsity]
+        )
+
 
 _ANALYSIS_TYPE_TO_CLASS = {
     PruningSensitivityResultTypes.LOSS.value: PruningSensitivityResult,
@@ -305,7 +340,7 @@ class ModelInfo(ABC):
         if _is_layer_info_dict(model):
             self._layer_info = model
         else:
-            model = self._validate_model(model)
+            model = self.validate_model(model)
             self._layer_info = self.extract_layer_info(model)
 
         self._analysis_results = []  # type: List[ModelResult]
@@ -421,7 +456,7 @@ class ModelInfo(ABC):
             json.dump(self.to_dict(), file)
 
     @staticmethod
-    def _validate_model(model: Any) -> Any:
+    def validate_model(model: Any) -> Any:
         # perform any validation, unwrapping, pre-processing of model
         return model
 
