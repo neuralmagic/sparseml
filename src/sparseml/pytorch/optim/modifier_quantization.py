@@ -19,7 +19,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 """
 
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -48,6 +48,10 @@ from sparseml.pytorch.utils.quantization import (
 __all__ = [
     "QuantizationModifier",
 ]
+
+_ModuleToQuantize = NamedTuple(
+    "_ModuleToQuantize", [("name", Optional[str]), ("module", Module)]
+)
 
 
 @PyTorchModifierYAML()
@@ -256,7 +260,7 @@ class QuantizationModifier(ScheduledModifier):
             found_submodules = []
             for name, submodule in module.named_modules():
                 if name in self._submodules:
-                    self._modules_to_quantize.append(submodule)
+                    self._modules_to_quantize.append(_ModuleToQuantize(name, submodule))
                     found_submodules.append(name)
             if not len(found_submodules) == len(self._submodules):
                 raise RuntimeError(
@@ -266,7 +270,7 @@ class QuantizationModifier(ScheduledModifier):
                     )
                 )
         else:
-            self._modules_to_quantize.append(module)
+            self._modules_to_quantize.append(_ModuleToQuantize(None, module))
 
         self._check_quantization_update(module, epoch, steps_per_epoch=0)
 
@@ -334,12 +338,12 @@ class QuantizationModifier(ScheduledModifier):
             self._enable_module_qat(module)
 
         if self._disable_quantization_observer_update_ready(epoch):
-            for quant_module in self._modules_to_quantize:
+            for _, quant_module in self._modules_to_quantize:
                 quant_module.apply(torch_quantization.disable_observer)
             self._quantization_observer_disabled = True
 
         if self._freeze_bn_stats_update_ready(epoch):
-            for quant_module in self._modules_to_quantize:
+            for _, quant_module in self._modules_to_quantize:
                 quant_module.apply(torch_intrinsic.qat.freeze_bn_stats)
             self._bn_stats_frozen = True
 
@@ -364,7 +368,7 @@ class QuantizationModifier(ScheduledModifier):
 
         # prepare each module / submodule for quantization
         qconfig = get_qat_qconfig()
-        for quant_module in self._modules_to_quantize:
+        for name, quant_module in self._modules_to_quantize:
             # wrap any modules with wrap_qat set to True as QATWrapper(s)
             configure_module_qat_wrappers(quant_module)
             # set quantization config (asymmetric activations, symmetric weights)
@@ -372,11 +376,13 @@ class QuantizationModifier(ScheduledModifier):
             # wrap all conv / linear blocks in with quantization observers
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
-            add_quant_dequant(quant_module)
-            # set model to QAT mode
-            torch_quantization.prepare_qat(quant_module, inplace=True)
-            if self._quantize_embeddings:
-                prepare_embeddings_qat(quant_module)
+
+            add_quant_dequant(quant_module, name, module)
+
+        # set modules with proper qconfigs to QAT mode
+        torch_quantization.prepare_qat(module, inplace=True)
+        if self._quantize_embeddings:
+            prepare_embeddings_qat(module)
         self._qat_enabled = True
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:

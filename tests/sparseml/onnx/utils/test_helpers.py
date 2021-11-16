@@ -113,8 +113,7 @@ def foldable_onnx_model():
     return model_def
 
 
-@pytest.fixture
-def prunable_onnx_model():
+def get_prunable_onnx_model():
     X = make_tensor_value_info("A", TensorProto.FLOAT, [3, 2])
 
     Z = make_tensor_value_info("B", TensorProto.FLOAT, [4])
@@ -122,7 +121,7 @@ def prunable_onnx_model():
     node_defs = [
         make_node("Conv", ["A", "node1.weight", "node1.bias"], ["B"], name="node1"),
         make_node("Gemm", ["B", "node2.weight"], ["C"], name="node2"),
-        make_node("MatMul", ["node3.weight", "C"], ["D"], name="node3"),
+        make_node("MatMul", ["C", "node3.weight"], ["D"], name="node3"),
         make_node("ReLU", ["D"], ["Z"], name="node4"),
     ]
 
@@ -135,7 +134,7 @@ def prunable_onnx_model():
             numpy_helper.from_array(
                 numpy.random.randn(2, 3, 3, 3), name="node1.weight"
             ),
-            numpy_helper.from_array(numpy.random.randn(3), name="node1.bias"),
+            numpy_helper.from_array(numpy.random.randn(2), name="node1.bias"),
             numpy_helper.from_array(numpy.random.randn(12, 3), name="node2.weight"),
             numpy_helper.from_array(numpy.random.randn(3, 4), name="node3.weight"),
         ],
@@ -143,6 +142,11 @@ def prunable_onnx_model():
 
     model_def = make_model(graph_def)
     return model_def
+
+
+@pytest.fixture
+def prunable_onnx_model():
+    return get_prunable_onnx_model()
 
 
 def test_check_load_model(onnx_repo_models):  # noqa: F811
@@ -312,7 +316,7 @@ def test_conv_node_params(prunable_onnx_model):
     )
     params = conv_node_params(prunable_onnx_model, conv_node)
     assert params[0][1].shape == (2, 3, 3, 3)
-    assert params[1][1].shape == (3,)
+    assert params[1][1].shape == (2,)
 
 
 def test_gemm_node_params(prunable_onnx_model):

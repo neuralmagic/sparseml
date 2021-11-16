@@ -1094,12 +1094,14 @@ def _cleanup_unused_quants(model: ModelProto):
     graph = ONNXGraph(model)
     nodes_to_delete = []
     quant_nodes = [n for n in model.graph.node if n.op_type == "QuantizeLinear"]
+    output_names = [out.name for out in model.graph.output]
     for quant_node in quant_nodes:
         dequant_node = graph.get_node_single_child(quant_node)
         if not dequant_node or dequant_node.op_type != "DequantizeLinear":
             continue
-
-        removable = True
+        removable = not any(
+            output_id in output_names for output_id in dequant_node.output
+        )
         dequant_children = graph.get_node_children(dequant_node)
         for child in dequant_children:
             if isinstance(child, onnx.NodeProto) and child.op_type in _QLINEAR_OP_NAMES:

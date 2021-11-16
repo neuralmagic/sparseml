@@ -158,6 +158,16 @@ class ModuleExporter(object):
             sample_originals=sample_originals,
         )
 
+    @classmethod
+    def get_output_names(cls, out: Any):
+        """
+        Get name of output tensors. Derived exporters specific to frameworks
+        could override this method
+        :param out: outputs of the model
+        :return: list of names
+        """
+        return _get_output_names(out)
+
     def export_onnx(
         self,
         sample_batch: Any,
@@ -192,6 +202,17 @@ class ModuleExporter(object):
             See more on the torch.onnx.export api spec in the PyTorch docs:
             https://pytorch.org/docs/stable/onnx.html
         """
+        if not export_kwargs:
+            export_kwargs = {}
+        if "output_names" not in export_kwargs:
+            sample_batch = tensors_to_device(sample_batch, "cpu")
+            module = deepcopy(self._module).cpu()
+            module.eval()
+            with torch.no_grad():
+                out = tensors_module_forward(
+                    sample_batch, module, check_feat_lab_inp=False
+                )
+                export_kwargs["output_names"] = self.get_output_names(out)
         export_onnx(
             module=self._module,
             sample_batch=sample_batch,
