@@ -16,23 +16,23 @@ limitations under the License.
 
 ---
 # General Hyperparams
-num_epochs: &num_epochs 60
+num_epochs: 60
 
 # Pruning Hyperparams
-init_sparsity: &init_sparsity 0.2
-pruning_start_epoch: &pruning_start_epoch 0
-pruning_end_epoch: &pruning_end_epoch 30
-update_frequency: &pruning_update_frequency 0.2
-mask_type: &mask_type [1, 4]
-prune_none_target_sparsity: &prune_none_target_sparsity 0.6
-prune_low_target_sparsity: &prune_low_target_sparsity 0.7
-prune_mid_target_sparsity: &prune_mid_target_sparsity 0.8
-prune_high_target_sparsity: &prune_high_target_sparsity 0.85
+init_sparsity: 0.2
+pruning_start_target: 0
+pruning_end_target: 0.5
+pruning_update_frequency: 0.2
+mask_type: [1, 4]
+prune_none_target_sparsity: 0.6
+prune_low_target_sparsity: 0.7
+prune_mid_target_sparsity: 0.8
+prune_high_target_sparsity: 0.85
 
 training_modifiers:
   - !EpochRangeModifier
     start_epoch: 0
-    end_epoch: *num_epochs
+    end_epoch: eval(num_epochs)
 
 pruning_modifiers:
   - !GMPruningModifier
@@ -45,12 +45,12 @@ pruning_modifiers:
     - backbone.layers.1.2.conv1.0.weight
     - backbone.layers.1.2.conv2.0.weight
 
-    init_sparsity: *init_sparsity
-    final_sparsity: *prune_none_target_sparsity
-    start_epoch: *pruning_start_epoch
-    end_epoch: *pruning_end_epoch
-    update_frequency: *pruning_update_frequency
-    mask_type: *mask_type
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: eval(prune_none_target_sparsity)
+    start_epoch: eval(pruning_start_target * num_epochs)
+    end_epoch: eval(pruning_end_target * num_epochs)
+    update_frequency: eval(pruning_update_frequency)
+    mask_type: eval(mask_type)
 
   - !GMPruningModifier
     params:
@@ -71,12 +71,12 @@ pruning_modifiers:
       - backbone.layers.2.7.conv2.0.weight
       - backbone.layers.2.8.conv1.0.weight
       - backbone.layers.2.8.conv2.0.weight
-    init_sparsity: *init_sparsity
-    final_sparsity: *prune_low_target_sparsity
-    start_epoch: *pruning_start_epoch
-    end_epoch: *pruning_end_epoch
-    update_frequency: *pruning_update_frequency
-    mask_type: *mask_type
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: eval(prune_low_target_sparsity)
+    start_epoch: eval(pruning_start_target * num_epochs)
+    end_epoch: eval(pruning_end_target * num_epochs)
+    update_frequency: eval(pruning_update_frequency)
+    mask_type: eval(mask_type)
 
   - !GMPruningModifier
     params:
@@ -116,12 +116,12 @@ pruning_modifiers:
       - prediction_layers.0.mask_layer.weight
       - semantic_seg_conv.weight
 
-    init_sparsity: *init_sparsity
-    final_sparsity: *prune_mid_target_sparsity
-    start_epoch: *pruning_start_epoch
-    end_epoch: *pruning_end_epoch
-    update_frequency: *pruning_update_frequency
-    mask_type: *mask_type
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: eval(prune_mid_target_sparsity)
+    start_epoch: eval(pruning_start_target * num_epochs)
+    end_epoch: eval(pruning_start_target * num_epochs)
+    update_frequency: eval(pruning_update_frequency)
+    mask_type: eval(mask_type)
 
   - !GMPruningModifier
     params:
@@ -151,12 +151,12 @@ pruning_modifiers:
       - backbone.layers.4.3.conv2.0.weight
       - backbone.layers.4.4.conv1.0.weight
       - backbone.layers.4.4.conv2.0.weight
-    init_sparsity: *init_sparsity
-    final_sparsity: *prune_high_target_sparsity
-    start_epoch: *pruning_start_epoch
-    end_epoch: *pruning_end_epoch
-    update_frequency: *pruning_update_frequency
-    mask_type: *mask_type
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: eval(prune_high_target_sparsity)
+    start_epoch: eval(pruning_start_target * num_epochs)
+    end_epoch: eval(pruning_end_target * num_epochs)
+    update_frequency: eval(pruning_update_frequency)
+    mask_type: eval(mask_type)
 ---
 
 # YOLACT Pruned

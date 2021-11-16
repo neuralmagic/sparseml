@@ -15,24 +15,25 @@ limitations under the License.
 -->
 
 ---
-# General Hyperparams
-num_epochs: &num_epochs 4
-
-# Quantization Hyperparams
-quantization_start_epoch: &quantization_start_epoch 0
-quantization_init_lr: &quantization_init_lr 0.00001
-
+num_epochs: 2
+quantization_start_target: 0
+quantization_end_target: 1
+quantization_observer_end_target: 0.5
 training_modifiers:
   - !EpochRangeModifier
     start_epoch: 0.0
-    end_epoch: *num_epochs
-  - !SetLearningRateModifier
-    start_epoch: *quantization_start_epoch
-    learning_rate: *quantization_init_lr
+    end_epoch: eval(num_epochs)
+
   - !SetWeightDecayModifier
-    start_epoch: *quantization_start_epoch
+    start_epoch: eval(quantization_start_target * num_epochs)
     weight_decay: 0.0
 
+  - !LearningRateFunctionModifier
+    start_epoch: 0
+    end_epoch: eval(quantization_end_target * num_epochs)
+    lr_func: linear
+    init_lr: 0.00001
+    final_lr: 0.000001
 
 pruning_modifiers:
   - !ConstantPruningModifier
@@ -41,9 +42,12 @@ pruning_modifiers:
 
 quantization_modifiers:
   - !QuantizationModifier
-    start_epoch: *quantization_start_epoch
+    start_epoch: eval(quantization_start_target * num_epochs)
+    disable_quantization_observer_epoch: eval(quantization_observer_end_target * num_epochs)
+    freeze_bn_stats_epoch: eval(quantization_observer_end_target * num_epochs)
 ---
-# YOLACT Pruned
+
+# YOLACT Quant
 
 This recipe quantizes a [YOLACT](https://github.com/dbolya/yolact) model.
 Training was done using 4 GPUs at half precision with a total batch size of 64 using the 
@@ -66,5 +70,5 @@ python train.py \
 --resume=PRETRAINED_WEIGHTS \
 --cuda=True \
 --start_iter=0 \
---batch_size=8
+--batch_size=64
 ```
