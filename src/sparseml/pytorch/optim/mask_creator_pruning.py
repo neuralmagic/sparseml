@@ -826,11 +826,14 @@ class FourBlockMaskCreator(GroupedPruningMaskCreator):
         self,
         grouped_mask: Tensor,
         original_tensor_shape: torch.Size,
+        tensor_idx: Optional[int] = None,
     ) -> Tensor:
         """
         :param grouped_mask: A binary mask the size of a tensor from group_tensor
         :param original_tensor_shape: Shape of the original tensor grouped_mask
             derives from
+        :param tensor_idx: optional index this tensor was passed into a tensor
+            list for mask creation
         :return: The values from grouped_mask mapped to a tensor of size
             original_tensor_shape
         """
