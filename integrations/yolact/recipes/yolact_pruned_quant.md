@@ -16,7 +16,11 @@ limitations under the License.
 
 ---
 # General Hyperparams
-num_epochs: 60
+num_epochs: 62
+init_lr: 0.001
+num_quantization_epochs: 2
+num_pruning_epochs: eval(num_epochs - num_quantization_epochs)
+quantization_observer_end_target: 0.5
 
 # Pruning Hyperparams
 init_sparsity: 0.2
@@ -29,10 +33,35 @@ prune_low_target_sparsity: 0.7
 prune_mid_target_sparsity: 0.8
 prune_high_target_sparsity: 0.85
 
+# quantization hyperparams
+
 training_modifiers:
   - !EpochRangeModifier
     start_epoch: 0
     end_epoch: eval(num_epochs)
+
+  # pruning
+  - !SetWeightDecayModifier
+    start_epoch: eval(pruning_start_target * num_pruning_epochs)
+    weight_decay: 0.0005
+
+  - !LearningRateFunctionModifier
+    start_epoch: eval(pruning_start_target * num_pruning_epochs)
+    end_epoch: eval(pruning_end_target * num_pruning_epochs)
+    lr_func: linear
+    init_lr: eval(init_lr)
+    final_lr: eval(0.01 * init_lr)
+  # quantization
+  - !SetWeightDecayModifier
+    start_epoch: eval(num_epochs - num_quantization_epochs)
+    weight_decay: 0.0
+
+  - !LearningRateFunctionModifier
+    start_epoch: eval(num_epochs - num_quantization_epochs)
+    end_epoch: eval(num_epochs)
+    lr_func: linear
+    init_lr: eval(0.01 * init_lr)
+    final_lr: eval(0.001 * init_lr)
 
 pruning_modifiers:
   - !GMPruningModifier
@@ -47,8 +76,8 @@ pruning_modifiers:
 
     init_sparsity: eval(init_sparsity)
     final_sparsity: eval(prune_none_target_sparsity)
-    start_epoch: eval(pruning_start_target * num_epochs)
-    end_epoch: eval(pruning_end_target * num_epochs)
+    start_epoch: eval(pruning_start_target * num_pruning_epochs)
+    end_epoch: eval(pruning_end_target * num_pruning_epochs)
     update_frequency: eval(pruning_update_frequency)
     mask_type: eval(mask_type)
 
@@ -73,8 +102,8 @@ pruning_modifiers:
       - backbone.layers.2.8.conv2.0.weight
     init_sparsity: eval(init_sparsity)
     final_sparsity: eval(prune_low_target_sparsity)
-    start_epoch: eval(pruning_start_target * num_epochs)
-    end_epoch: eval(pruning_end_target * num_epochs)
+    start_epoch: eval(pruning_start_target * num_pruning_epochs)
+    end_epoch: eval(pruning_end_target * num_pruning_epochs)
     update_frequency: eval(pruning_update_frequency)
     mask_type: eval(mask_type)
 
@@ -118,8 +147,8 @@ pruning_modifiers:
 
     init_sparsity: eval(init_sparsity)
     final_sparsity: eval(prune_mid_target_sparsity)
-    start_epoch: eval(pruning_start_target * num_epochs)
-    end_epoch: eval(pruning_start_target * num_epochs)
+    start_epoch: eval(pruning_start_target * num_pruning_epochs)
+    end_epoch: eval(pruning_start_target * num_pruning_epochs)
     update_frequency: eval(pruning_update_frequency)
     mask_type: eval(mask_type)
 
@@ -153,15 +182,21 @@ pruning_modifiers:
       - backbone.layers.4.4.conv2.0.weight
     init_sparsity: eval(init_sparsity)
     final_sparsity: eval(prune_high_target_sparsity)
-    start_epoch: eval(pruning_start_target * num_epochs)
-    end_epoch: eval(pruning_end_target * num_epochs)
+    start_epoch: eval(pruning_start_target * num_pruning_epochs)
+    end_epoch: eval(pruning_end_target * num_pruning_epochs)
     update_frequency: eval(pruning_update_frequency)
     mask_type: eval(mask_type)
+
+quantization_modifiers:
+  - !QuantizationModifier
+    start_epoch: eval(num_epochs - num_quantization_epochs)
+    disable_quantization_observer_epoch: eval(num_epochs - (quantization_observer_end_target * num_quantization_epochs))
+    freeze_bn_stats_epoch: eval(num_epochs - (quantization_observer_end_target * num_quantization_epochs))
 ---
 
 # YOLACT Pruned
 
-This recipe creates a sparse, [YOLACT](https://github.com/dbolya/yolact) model that achieves about 
+This recipe creates a sparse quantized, [YOLACT](https://github.com/dbolya/yolact) model that achieves about 
 98% recovery on the COCO dataset when compared against baseline (  30.61, 28.80 mAp@all baseline vs 29.82, 28.26 mAp@all for this recipe for bounding box, mask).
 Training was done using 4 GPUs with a total batch size of 64 using the [SparseML integration with dbolya/yolact](../).
 When running, adjust hyperparameters based on training environment and dataset.

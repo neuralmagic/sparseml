@@ -22,7 +22,7 @@ num_epochs: 60
 init_sparsity: 0.35
 pruning_start_target: 0
 pruning_end_target: 0.5
-update_frequency: 0.2
+pruning_update_frequency: 0.2
 mask_type: unstructured
 prune_none_target_sparsity: 0.75
 prune_low_target_sparsity: 0.83
@@ -32,7 +32,7 @@ prune_high_target_sparsity: 0.92
 training_modifiers:
   - !EpochRangeModifier
     start_epoch: 0
-    end_epoch: eval(pruning_end_target * num_epochs)
+    end_epoch: eval(num_epochs)
 
 pruning_modifiers:
   - !GMPruningModifier
