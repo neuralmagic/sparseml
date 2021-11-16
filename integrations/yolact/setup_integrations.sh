@@ -8,4 +8,5 @@
 
 git clone https://github.com/neuralmagic/yolact.git
 cd yolact
+git checkout release/0.9
 pip install -r requirements.txt
