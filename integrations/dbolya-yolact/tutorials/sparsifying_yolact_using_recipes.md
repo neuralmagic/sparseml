@@ -93,7 +93,7 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
 ### Training the Model
 
 The training command will take multiple hours to complete since it is training from scratch. 
-Afterward, you will have a model that achieves roughly on the COCO dataset ready for sparsifying.
+Afterward, you will have a model that achieves roughly 28.7 mAP on the COCO dataset ready for sparsifying.
 
 (You can also download a pre-trained model with a DarkNet-53 backbone from the YOLACT repository; in that case skip step 1.)
 
