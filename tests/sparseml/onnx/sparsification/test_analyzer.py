@@ -25,7 +25,10 @@ from sparseml.onnx.sparsification import (
     PruningLossSensitivityMagnitudeAnalyzer,
     PruningPerformanceSensitivityAnalyzer,
 )
-from sparseml.sparsification import PruningSensitivityResult
+from sparseml.sparsification import (
+    PruningSensitivityResult,
+    PruningSensitivityResultTypes,
+)
 from tests.sparseml.onnx.helpers import GENERATE_TEST_FILES, OnnxRepoModelFixture
 
 
@@ -80,9 +83,6 @@ def _test_pruning_sensitivity_results(results, expected_results):
         assert isinstance(results.value, dict)
         assert set(results.value.keys()) == set(expected_results.value.keys())
 
-        for key, value in results.value.items():
-            assert abs(value - expected_results.value[key]) < 5e-3
-
     # model layer results
     assert set(results.layer_results.keys()) == set(
         expected_results.layer_results.keys()
@@ -91,6 +91,9 @@ def _test_pruning_sensitivity_results(results, expected_results):
         layer_results = layer_results.value
         expected_layer_results = expected_results.layer_results[layer].value
         assert set(layer_results.keys()) == set(expected_layer_results.keys())
+        if results.analysis_type == PruningSensitivityResultTypes.PERF.value:
+            # skip perf comparisons since tests may be run across systems
+            continue
         for sparsity, sensitivity in layer_results.items():
             assert abs(sensitivity - expected_layer_results[sparsity]) < 5e-4
 
