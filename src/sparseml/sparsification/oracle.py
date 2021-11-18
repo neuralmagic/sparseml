@@ -18,10 +18,11 @@ Sparsification oracle functions for generating SparseML recipes from models
 
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Type
 
 from sparseml import Framework, execute_in_sparseml_framework
 from sparseml.base import detect_frameworks
+from sparseml.sparsification.analyzer import Analyzer
 from sparseml.sparsification.recipe_builder import PruningRecipeBuilder
 from sparseml.sparsification.recipe_editor import run_avaialble_recipe_editors
 
@@ -36,6 +37,7 @@ def create_pruning_recipe(
     model: Any,
     save_path: Optional[str] = None,
     analyzer_kwargs: Optional[Dict[str, Any]] = None,
+    skip_analyzer_types: Optional[List[Type[Analyzer]]] = None,
 ) -> Optional[str]:
     """
 
@@ -44,6 +46,8 @@ def create_pruning_recipe(
     :param save_path: optional path to save the created recipe to
     :param analyzer_kwargs: keyword arguments to be passed to the available()
         and run() functions of analyzer objects
+    :param skip_analyzer_types: list of Analyzer class types not to run even
+        if available
     :return: string of the created recipe if None is provided
     """
     frameworks = detect_frameworks(model)
@@ -65,6 +69,14 @@ def create_pruning_recipe(
         analyzer_kwargs["show_progress"] = True
 
     for analyzer_impl in analyzer_impls:
+        if skip_analyzer_types and (
+            analyzer_impl in skip_analyzer_types or
+            issubclass(analyzer_impl, tuple(skip_analyzer_types))
+        ):
+            _LOGGER.debug(
+                "skipping analyzer %s due to skip_analyzer_types",
+                analyzer_impl.__name__
+            )
         if not analyzer_impl.available(model_info, **analyzer_kwargs):
             _LOGGER.debug("analyzer %s unavailable", analyzer_impl.__name__)
             continue
