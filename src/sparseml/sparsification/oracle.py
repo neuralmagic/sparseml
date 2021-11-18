@@ -70,12 +70,12 @@ def create_pruning_recipe(
 
     for analyzer_impl in analyzer_impls:
         if skip_analyzer_types and (
-            analyzer_impl in skip_analyzer_types or
-            issubclass(analyzer_impl, tuple(skip_analyzer_types))
+            analyzer_impl in skip_analyzer_types
+            or issubclass(analyzer_impl, tuple(skip_analyzer_types))
         ):
             _LOGGER.debug(
                 "skipping analyzer %s due to skip_analyzer_types",
-                analyzer_impl.__name__
+                analyzer_impl.__name__,
             )
         if not analyzer_impl.available(model_info, **analyzer_kwargs):
             _LOGGER.debug("analyzer %s unavailable", analyzer_impl.__name__)
