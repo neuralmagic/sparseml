@@ -361,9 +361,11 @@ def _convert_quantizable_conv(
         output_quantize_node.input[2],  # y_zero_point
     ]
 
+    conv_keep_params = None
     if len(conv_node.input) > 2:
         bias = get_init_by_name(model, conv_node.input[2])
         if bias is not None:
+            conv_keep_params = [conv_node.input[2]]
             # quantize bias and add it to the qconv inputs
             bias = numpy_helper.to_array(bias)
             input_quantize_params = get_quantization_params(
@@ -393,7 +395,7 @@ def _convert_quantizable_conv(
     model.graph.node.append(qconv_node)
 
     # delete original conv and folded quantization ops
-    remove_node_and_params_from_graph(model, conv_node)
+    remove_node_and_params_from_graph(model, conv_node, keep_params=conv_keep_params)
     delete_quant_node(model, weight_dequantize_node, keep_params=False)
     delete_quant_node(model, weight_quantize_node, keep_params=True, keep_weight=True)
     if fold_input_quant and len(get_node_output_nodes(model, input_quantize_node)) <= 1:
