@@ -16,8 +16,6 @@
 Helper functions for base Modifier and Manger utilities
 """
 
-
-import logging
 import re
 from typing import Any, Dict, Tuple, Union
 
@@ -35,8 +33,6 @@ __all__ = [
     "update_recipe_variables",
     "evaluate_recipe_yaml_str_equations",
 ]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 def load_recipe_yaml_str(
@@ -155,10 +151,10 @@ def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> 
 
     for key in variables:
         if key not in container:
-            _LOGGER.warning(
+            raise ValueError(
                 f"updating recipe variable {key} but {key} is not currently "
-                "set in existing recipe. This change may have no impact on the recipe "
-                "modifiers"
+                "set in existing recipe. Set the variable in the recipe in order "
+                "to overwrite it."
             )
 
     container.update(variables)
