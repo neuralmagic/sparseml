@@ -91,7 +91,7 @@ def _test_pruning_sensitivity_results(results, expected_results):
         layer_results = layer_results.value
         expected_layer_results = expected_results.layer_results[layer].value
         assert set(layer_results.keys()) == set(expected_layer_results.keys())
-        if results.analysis_type is PruningSensitivityResultTypes.PERF:
+        if results.analysis_type == PruningSensitivityResultTypes.PERF.value:
             # skip perf comparisons since tests may be run across systems
             continue
         for sparsity, sensitivity in layer_results.items():
