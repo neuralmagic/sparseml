@@ -77,6 +77,7 @@ def create_pruning_recipe(
                 "skipping analyzer %s due to skip_analyzer_types",
                 analyzer_impl.__name__,
             )
+            continue
         if not analyzer_impl.available(model_info, **analyzer_kwargs):
             _LOGGER.debug("analyzer %s unavailable", analyzer_impl.__name__)
             continue
