@@ -26,5 +26,6 @@ from .modifier_epoch import *
 from .modifier_lr import *
 from .modifier_params import *
 from .modifier_pruning import *
+from .oracle import *
 from .recipe_builder import *
 from .recipe_editor import *

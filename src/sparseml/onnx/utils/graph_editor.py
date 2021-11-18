@@ -55,6 +55,13 @@ class ONNXGraph(object):
 
         self.update()
 
+    @property
+    def nodes(self) -> Iterable[NodeProto]:
+        """
+        :return: ordered collection of nodes in this graph
+        """
+        return self._model.graph.node
+
     def update(self, model: Optional[ModelProto] = None):
         """
         Update the graph state based on the model this graph represents or
@@ -75,13 +82,22 @@ class ONNXGraph(object):
             init.name: init for init in self._model.graph.initializer
         }
 
-    def get_init_by_name(self, name: str) -> Optional[TensorProto]:
+    def get_init_by_name(
+        self,
+        name: str,
+        allow_optional: bool = True,
+    ) -> Optional[TensorProto]:
         """
         :param name: name of initializer
+        :param allow_optional: if True and the given name is not found as an
+            initializer, None will be returned. Otherwise a KeyError will be raised
         :return: tensor of initializer with given name, returns None if the name does
             not exist in the cached graph
         """
-        return self._name_to_initializer.get(name)
+        init = self._name_to_initializer.get(name, None)
+        if not allow_optional and init is None:
+            raise KeyError(f"Unable to find initializer {name} in ONNX model")
+        return init
 
     def get_node_by_output_id(self, id: str) -> Optional[TensorProto]:
         """

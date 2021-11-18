@@ -53,29 +53,23 @@ def test_modifier_builder_setters_getters(modifier_class):
         found_prop = True
 
         if prop.serializable:
-            assert hasattr(builder, f"set_{attr}")
-            assert hasattr(builder, f"get_{attr}")
-
-            setter = getattr(builder, f"set_{attr}")
-            getter = getattr(builder, f"get_{attr}")
-            assert callable(setter)
-            assert callable(getter)
-
-            assert getter() is None  # property should not have been set yet
+            # check set and get supported
+            assert getattr(builder, attr) is None
             random_val = random.random()
-            setter(random_val)
-            assert getter() == random_val
+            setattr(builder, attr, random_val)
+            assert getattr(builder, attr) == random_val
         else:
-            assert not hasattr(builder, f"set_{attr}")
-            assert not hasattr(builder, f"get_{attr}")
+            # check set and get not supported
+            with pytest.raises(ValueError):
+                getattr(builder, attr)
+            with pytest.raises(ValueError):
+                setattr(builder, attr, random.random())
 
     assert found_prop  # ensure that modifier class is well formed and tests ran
 
 
 def _create_fake_modifier_builder(prop_one, prop_two):
-    return (
-        ModifierYAMLBuilder(FakeModifier).set_prop_one(prop_one).set_prop_two(prop_two)
-    )
+    return ModifierYAMLBuilder(FakeModifier, prop_one=prop_one, prop_two=prop_two)
 
 
 def _expected_fake_modifier_yaml_str(prop_one, prop_two):
