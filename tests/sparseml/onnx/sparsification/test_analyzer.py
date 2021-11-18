@@ -80,9 +80,6 @@ def _test_pruning_sensitivity_results(results, expected_results):
         assert isinstance(results.value, dict)
         assert set(results.value.keys()) == set(expected_results.value.keys())
 
-        for key, value in results.value.items():
-            assert abs(value - expected_results.value[key]) < 5e-3
-
     # model layer results
     assert set(results.layer_results.keys()) == set(
         expected_results.layer_results.keys()
