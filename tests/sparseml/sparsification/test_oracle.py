@@ -18,6 +18,7 @@ from typing import NamedTuple
 
 import pytest
 
+from sparseml.onnx.sparsification import PruningPerformanceSensitivityAnalyzer
 from sparseml.sparsification import create_pruning_recipe
 from sparsezoo.models.classification import mobilenet_v1, resnet_18
 
@@ -51,7 +52,10 @@ OracleTestFixture = NamedTuple(
 def oracle_test_params(request) -> OracleTestFixture:
     zoo_model, expected_recipe_name, model_lambda = request.param
     onnx_path = zoo_model.onnx_file.downloaded_path()
-    generated_recipe = create_pruning_recipe(onnx_path).strip()
+    generated_recipe = create_pruning_recipe(
+        onnx_path,
+        skip_analyzer_types=[PruningPerformanceSensitivityAnalyzer],
+    ).strip()
 
     if GENERATE_TEST_FILES:
         with open(os.path.join(RECIPES_PATH, expected_recipe_name), "w") as new_file:
