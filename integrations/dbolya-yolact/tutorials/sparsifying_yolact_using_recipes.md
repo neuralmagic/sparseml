@@ -64,9 +64,9 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
     ```bash
     bash data/scripts/COCO.sh
     ```
-2. Download and validation of the COCO dataset will begin and takes around 10 minutes to finish(Based on the speed of your Internet Connection).
+2. Download and validation of the COCO dataset will begin and takes around 10 minutes to finish (based on the speed of your internet connection).
     The script downloads the COCO dataset into a `coco` folder under the data directory.
-    Notice that, once completed, the data is ready for training with the folder structure in the following state(Only directories shown for brevity):
+    Notice that once completed, the data is ready for training with the folder structure in the following state (only directories are shown for brevity):
     ```
    └── yolact
     ├── data
@@ -93,9 +93,9 @@ Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found 
 ### Training the Model
 
 The training command will take multiple hours to complete since it is training from scratch. 
-Afterward, you will have a model that achieves roughly  on the COCO dataset ready for sparsifying.
+Afterward, you will have a model that achieves roughly 28.7 mAP on the COCO dataset ready for sparsifying.
 
-(You can also download a pretrained model with a darkent53 backbone from the YOLACT repository, in that case skip step 1)
+(You can also download a pre-trained model with a DarkNet-53 backbone from the YOLACT repository; in that case skip step 1.)
 
 1. The training command for training from scratch, with a default batch_size of 8:
    
@@ -106,7 +106,7 @@ Afterward, you will have a model that achieves roughly  on the COCO dataset read
     convention
 
 2. Validate that the training commands completed successfully by checking under the `./weights` directory for the trained weights.
-   Upon success, the results directory should look like the following (A few directories are missing content for brevity):
+   Upon success, the results directory should look like the following (a few directories are missing content for brevity):
 ```
 └── yolact
     ├── data
@@ -227,3 +227,13 @@ In this tutorial, you created a pre-trained model to establish a baseline, appli
 Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/yolact) for an example for benchmarking and deploying YOLACT models with DeepSparse.
 
 For Neural Magic Support, sign up or log in to get help with your questions in our **Tutorials channel**: [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). 
+
+## Citation
+```bibtex
+@inproceedings{yolact-iccv2019,
+  author    = {Daniel Bolya and Chong Zhou and Fanyi Xiao and Yong Jae Lee},
+  title     = {YOLACT: {Real-time} Instance Segmentation},
+  booktitle = {ICCV},
+  year      = {2019},
+}
+```
