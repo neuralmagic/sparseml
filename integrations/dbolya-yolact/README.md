@@ -27,7 +27,7 @@ The techniques include, but are not limited to:
 
 - Pruning
 - Quantization
-- Pruning + Quantization
+- Pruning and Quantization
 - Sparse Transfer Learning
 
 ## Installation
@@ -62,7 +62,7 @@ The following table lays out the root-level files and folders along with a descr
 | Folder/File Name     | Description                                                                                                           |
 |----------------------|-----------------------------------------------------------------------------------------------------------------------|
 | recipes              | Typical recipes for sparsifying YOLOv5 models along with any downloaded recipes from the SparseZoo.                   |
-| yolact               | Integration repository folder used to train and sparsify YOLACT models (setup_integration.sh must run first).         |
+| yolact               | Integration repository folder used to train and sparsify YOLACT models (`setup_integration.sh` must run first).         |
 | README.md            | Readme file.                                                                                                          |
 | setup_integration.sh | Setup file for the integration run from the command line.                                                             |
 
@@ -75,7 +75,7 @@ The export process is modified such that the quantized and pruned models are
 corrected and folded properly.
 
 For example, the following command can be run from within the Neural Magic's 
-yolact repository folder to export a trained/sparsified model's checkpoint:
+`yolact` repository folder to export a trained/sparsified model's checkpoint:
 ```bash
 python export.py --checkpoint ./quantized-yolact/yolact_darknet53_0_10.pth \
     --recipe ./recipes/yolact.quantized.md \
@@ -85,7 +85,7 @@ python export.py --checkpoint ./quantized-yolact/yolact_darknet53_0_10.pth \
     --config yolact_darknet53_config
 ```
 
-To prevent conversion of a QAT(Quantization Aware Training) Graph to a
+To prevent conversion of a QAT (Quantization-Aware Training) Graph to a
 Quantized Graph, pass in the `--no-qat` flag:
 
 ```bash
@@ -100,6 +100,16 @@ python export.py --checkpoint ./quantized-yolact/yolact_darknet53_0_10.pth \
 
 ### DeepSparse
 
-The [DeepSparse](https://github.com/neuralmagic/deepsparse) Engine accepts ONNX 
+The [DeepSparse Engine](https://github.com/neuralmagic/deepsparse) accepts ONNX 
 formats and is engineered to significantly speed up inference on CPUs for 
 the sparsified models from this integration. [Example](https://github.com/neuralmagic/deepsparse/tree/main/examples/yolact) scripts can be found in the DeepSparse repository.
+
+## Citation
+```bibtex
+@inproceedings{yolact-iccv2019,
+  author    = {Daniel Bolya and Chong Zhou and Fanyi Xiao and Yong Jae Lee},
+  title     = {YOLACT: {Real-time} Instance Segmentation},
+  booktitle = {ICCV},
+  year      = {2019},
+}
+```
