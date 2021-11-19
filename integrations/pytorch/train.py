@@ -366,7 +366,7 @@ class TrainingArguments:
             "epoch completes until the end of training"
         },
     )
-    save_epochs: int = field(
+    save_epochs: List[int] = field(
         default_factory=lambda: [], metadata={"help": "epochs to save checkpoints at"}
     )
 
