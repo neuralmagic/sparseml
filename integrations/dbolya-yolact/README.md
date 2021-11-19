@@ -69,7 +69,7 @@ The following table lays out the root-level files and folders along with a descr
 ### Exporting for Inference
 
 After sparsifying a model, the 
-[`export.py` script](https://github.com/neuralmagic//blob/master/export.py)
+[`export.py` script](https://github.com/neuralmagic/yolact/blob/master/export.py)
 converts the model into deployment formats such as [ONNX](https://onnx.ai/).
 The export process is modified such that the quantized and pruned models are 
 corrected and folded properly.
@@ -102,7 +102,7 @@ python export.py --checkpoint ./quantized-yolact/yolact_darknet53_0_10.pth \
 
 The [DeepSparse Engine](https://github.com/neuralmagic/deepsparse) accepts ONNX 
 formats and is engineered to significantly speed up inference on CPUs for 
-the sparsified models from this integration. [Example](https://github.com/neuralmagic/deepsparse/tree/main/examples/yolact) scripts can be found in the DeepSparse repository.
+the sparsified models from this integration. [Example](https://github.com/neuralmagic/deepsparse/tree/main/examples/dbolya-yolact) scripts can be found in the DeepSparse repository.
 
 ## Citation
 ```bibtex

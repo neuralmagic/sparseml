@@ -56,7 +56,7 @@ Your goal after this is to create a smaller, faster model that recovers to the p
 Creating a pre-trained model involves two steps: 1) setting up the data and 2) training the model.
 
 **Note**: If using your custom data, the [YOLACT](https://github.com/dbolya/yolact) repo mentions a post for [training custom data](https://github.com/dbolya/yolact/issues/70#issuecomment-504283008). 
-Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found under the [yolact/data/scripts path](https://github.com/dbolya/yolact/tree/main/data/scripts).
+Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found under the [yolact/data/scripts path](https://github.com/neuralmagic/yolact/tree/master/data/scripts).
 
 ### Setting Up the Data
 
@@ -156,7 +156,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
     - If your hardware does support quantized networks, we recommend using the `pruned quantized` recipe. The recipe to use depends on how long you are willing to train and how crucial full recovery is. Consult the table for this comparison.
     - When running quantized models, the memory footprint for training will significantly increase (roughly 3x). It is recommended to train at a high batch size at first. This will fail with an out-of-memory exception once quantization starts. Once this happens, use the `last.pt` weights from that run to resume training with a lower batch size.
 
-3. To begin applying one of the recipes, use the `--recipe` argument within the YOLACT [train script](https://github.com/neuralmagic/yolact/blob/main/train.py).
+3. To begin applying one of the recipes, use the `--recipe` argument within the YOLACT [train script](https://github.com/neuralmagic/yolact/blob/master/train.py).
    The recipe argument is combined with our previous training command and COCO pre-trained weights to run the recipes over the model. For example, a command for YOLACT would look like this:
 ```bash
 python train.py \
@@ -205,7 +205,7 @@ When you applied a recipe in the previous step, the sparsification run created a
 These weights under `./dense-quantized` can be loaded into the `train.py` and `export.py` scripts now. 
 However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
 
-The [`export.py` script](https://github.com/neuralmagic/yolact/blob/main/models/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
+The [`export.py` script](https://github.com/neuralmagic/yolact/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
 
 1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
 
@@ -217,14 +217,14 @@ The [`export.py` script](https://github.com/neuralmagic/yolact/blob/main/models/
 
 2. Now you can run the `.onnx` file through a compression algorithm to reduce its deployment size and run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
    The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in inference performance. 
-   An example for benchmarking and deploying YOLACT models with DeepSparse can be found [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/yolact).
+   An example for benchmarking and deploying YOLACT models with DeepSparse can be found [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/dbolya-yolact).
 
 ## Wrap-Up
 
 Neural Magic recipes simplify the sparsification process by encoding the hyperparameters and instructions needed to create highly accurate pruned and pruned-quantized YOLACT models for image segmentation tasks. 
 In this tutorial, you created a pre-trained model to establish a baseline, applied a Neural Magic recipe for sparsification, and exported to ONNX to run through an inference engine.
 
-Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/yolact) for an example for benchmarking and deploying YOLACT models with DeepSparse.
+Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/dbolya-yolact) for an example for benchmarking and deploying YOLACT models with DeepSparse.
 
 For Neural Magic Support, sign up or log in to get help with your questions in our **Tutorials channel**: [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). 
 
