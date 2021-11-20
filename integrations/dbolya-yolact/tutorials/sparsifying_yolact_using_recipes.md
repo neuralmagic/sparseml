@@ -135,7 +135,7 @@ Afterward, you will have a model that achieves roughly 28.7 mAP on the COCO data
  ```
 
 You are ready to use the weights at `yolact/weights/yolact_darknet53_54_800000.pth` with the Neural Magic recipes to create a sparsified model.
-You can also download directly this pre-trained weight from [here](https://drive.google.com/file/d/1dukLrTzZQEuhzitGkHaGjphlmRJOjVnP/view)
+You can also download this baseline, pre-trained checkpoint directly from the [SparseZoo UI](https://staging-sparsezoo.neuralmagic.com/models/cv%2Fsegmentation%2Fyolact-darknet53%2Fpytorch%2Fdbolya%2Fcoco%2Fbase-none).
 ## Applying a Recipe
 
 In general, recipes trade off the amount of recovery to the baseline training performance with the amount of sparsification for inference performance.
