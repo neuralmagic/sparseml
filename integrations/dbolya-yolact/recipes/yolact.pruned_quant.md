@@ -194,10 +194,10 @@ quantization_modifiers:
     freeze_bn_stats_epoch: eval(num_epochs - (quantization_observer_end_target * num_quantization_epochs))
 ---
 
-# YOLACT Pruned
+# YOLACT Pruned Quantized
 
 This recipe creates a sparse quantized, [YOLACT](https://github.com/dbolya/yolact) model that achieves about 
-98% recovery on the COCO dataset when compared against baseline (  30.61, 28.80 mAp@all baseline vs 29.82, 28.26 mAp@all for this recipe for bounding box, mask).
+98% recovery on the COCO dataset when compared against baseline ( 30.61, 28.80 mAp@all baseline vs 29.82, 28.26 mAp@all for this recipe for bounding box, mask).
 Training was done using 4 GPUs with a total batch size of 64 using the [SparseML integration with dbolya/yolact](../).
 When running, adjust hyperparameters based on training environment and dataset.
 
@@ -213,7 +213,7 @@ YOLACT supports DDP. Currently this repo only supports YOLACT models with a dark
 ```
 python train.py \
 --config=yolact_darknet53_config \
---recipe=./recipes/yolact.pruned.md \
+--recipe=./recipes/yolact.pruned_quant.md \
 --resume=PRETRAINED_WEIGHTS \
 --cuda=True \
 --start_iter=0 \

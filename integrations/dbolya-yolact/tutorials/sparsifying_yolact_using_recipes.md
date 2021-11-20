@@ -139,9 +139,11 @@ The [`recipes` folder](../recipes) contains multiple files, each offering certai
 The table below compares these tradeoffs and shows how to run them on the COCO dataset.
 1. Review this table, which lists recipes, commands, and results.
 
-    | Recipe Name                                                                                                                                              | Description                                                                                                                     | Train Command                                                                                                                                                                               | COCO mAP@0.5 box/mask | Size on Disk | DeepSparse Performance** |
-    |----------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|--------------|--------------------------|
-    | YOLACT Baseline                                                                                                                                         | The baseline, YOLACT image segmentation model used as the starting point for sparsification.                                     | ```python train.py --config yolact_darknet53_config```                                                                              |  30.61/28.80 |              |             |
+    | Sparsification Type | Description                                                                       | COCO mAP@all | Size on Disk | DeepSparse Performance** |
+    |---------------------|-----------------------------------------------------------------------------------|--------------|--------------|--------------------------|
+    | Baseline            | The baseline, pretrained model on the COCO dataset.                               | 0.288        | 170 MB       | -- img/sec               |
+    | Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | 0.286        | 30.1 MB      | -- img/sec               |
+    | Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | 0.282        | 9.7 MB       | -- img/sec               |
     
     ** DeepSparse Performance measured on an AWS C5 instance with 24 cores, batch size 64, and 550 x 550 input with version 1.6 of the DeepSparse Engine.
 
@@ -229,6 +231,7 @@ Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/d
 For Neural Magic Support, sign up or log in to get help with your questions in our **Tutorials channel**: [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). 
 
 ## Citation
+
 ```bibtex
 @inproceedings{yolact-iccv2019,
   author    = {Daniel Bolya and Chong Zhou and Fanyi Xiao and Yong Jae Lee},
