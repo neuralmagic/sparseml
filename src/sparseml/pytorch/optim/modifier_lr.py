@@ -273,6 +273,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         final_lr: float,
         start_epoch: float,
         end_epoch: float,
+        cycle_epochs: float = -1.0,
         param_groups: Optional[List[int]] = None,
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
@@ -287,6 +288,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         self._lr_func = lr_func
         self._init_lr = init_lr
         self._final_lr = final_lr
+        self._cycle_epochs = cycle_epochs
         self._param_groups = param_groups
         self._learning_rate = None
         self._last_applied_lr = None
@@ -340,6 +342,15 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         self.validate()
 
     @ModifierProp()
+    def cycle_epochs(self) -> float:
+        return self._cycle_epochs
+
+    @cycle_epochs.setter
+    def cycle_epochs(self, value: float):
+        self._cycle_epochs = value
+        self.validate()
+
+    @ModifierProp()
     def param_groups(self) -> Optional[List[int]]:
         """
         :return: The param group indices to set the lr for within the optimizer,
@@ -370,7 +381,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
         lambad_func = getattr(LearningRateFunctionModifier, f"_{self._lr_func}")
-        self._learning_rate = lambad_func(self, epoch)
+        self._learning_rate = lambad_func(self, epoch, steps_per_epoch=steps_per_epoch)
         set_optim_learning_rate(optimizer, self._learning_rate, self.param_groups)
 
     def log_update(
@@ -413,7 +424,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         """
         Validate the values of the params for the current instance are valid
         """
-        lr_funcs = ["linear", "cosine"]
+        lr_funcs = ["linear", "cosine", "cyclic_linear"]
         if self.lr_func not in lr_funcs:
             raise ValueError(f"lr_func must be one of {lr_funcs}")
 
@@ -444,7 +455,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         if self.update_frequency != -1.0:
             raise ValueError("update_frequency must be kept at -1.0")
 
-    def _linear(self, epoch: float) -> float:
+    def _linear(self, epoch: float, steps_per_epoch: int) -> float:
         # y = y1 + ((x – x1) / (x2 – x1)) * (y2 – y1)
         start = self.start_epoch if self.start_epoch > 0 else 0.0
         end = self.end_epoch
@@ -453,7 +464,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             self.final_lr - self.init_lr
         )
 
-    def _cosine(self, epoch: float) -> float:
+    def _cosine(self, epoch: float, steps_per_epoch: int) -> float:
         start = self.start_epoch if self.start_epoch > 0 else 0.0
         end = self.end_epoch
 
@@ -473,6 +484,19 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         return (
             math.cos(x_norm * math.pi + x_shift) * y_range / 2 + y_range / 2 + y_shift
         )
+
+    def _cyclic_linear(self, epoch: float, steps_per_epoch: int):
+        end_step = self.end_epoch * steps_per_epoch
+        start_step = self.start_epoch * steps_per_epoch
+        cycle_steps = self.cycle_epochs * steps_per_epoch
+        current_step = (epoch - self.start_epoch) * steps_per_epoch
+        if current_step > int((end_step - start_step) / cycle_steps) * cycle_steps:
+            cycle_steps = (end_step - start_step) % cycle_steps
+        adjusted_step = current_step % cycle_steps
+        lr = self.init_lr - (adjusted_step / (cycle_steps - 1)) * (
+            self.init_lr - self.final_lr
+        )
+        return lr
 
 
 @PyTorchModifierYAML()
