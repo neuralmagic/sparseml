@@ -97,13 +97,16 @@ Afterward, you will have a model that achieves roughly 28.7 mAP on the COCO data
 
 (You can also download a pre-trained model with a DarkNet-53 backbone from the YOLACT repository; in that case skip step 1.)
 
-1. The training command for training from scratch, with a default batch_size of 8:
-   
-   ```bash
-   python train.py --config yolact_darknet53_config 
-   ```    
-    The weights are stored in the `./weights` directory by default and use `<config>_<epoch>_<iter>.pth` naming 
-    convention
+1. Training YOLACT from scratch requires a pretrained-backbone model, to train with a default `batch_size` of `8` and a `DarkNet-53` backbone do the following.
+   - Download ImageNet-pre-trained `DarkNet-53` backbone and put it in `./weights`.
+   Get `darknet53.pth` from [here](https://drive.google.com/file/d/17Y431j4sagFpSReuPNoFcj9h7azDTZFf/view?usp=sharing).
+     
+   - Run the following command to kickstart traininig
+     ```bash
+      python train.py --config yolact_darknet53_config 
+     ```    
+       The weights are stored in the `./weights` directory by default and use the `<config>_<epoch>_<iter>.pth` naming 
+       convention
 
 2. Validate that the training commands completed successfully by checking under the `./weights` directory for the trained weights.
    Upon success, the results directory should look like the following (a few directories are missing content for brevity):
@@ -127,11 +130,12 @@ Afterward, you will have a model that achieves roughly 28.7 mAP on the COCO data
     │   ├── dets
     │   └── scripts
     └── weights
+        ├── darknet53.pth
         └── yolact_darknet53_54_800000.pth
  ```
 
 You are ready to use the weights at `yolact/weights/yolact_darknet53_54_800000.pth` with the Neural Magic recipes to create a sparsified model.
-
+You can also download this baseline, pre-trained checkpoint directly from the [SparseZoo UI](https://staging-sparsezoo.neuralmagic.com/models/cv%2Fsegmentation%2Fyolact-darknet53%2Fpytorch%2Fdbolya%2Fcoco%2Fbase-none).
 ## Applying a Recipe
 
 In general, recipes trade off the amount of recovery to the baseline training performance with the amount of sparsification for inference performance.
