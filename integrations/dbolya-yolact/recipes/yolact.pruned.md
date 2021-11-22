@@ -164,7 +164,7 @@ pruning_modifiers:
 
 This recipe creates a sparse, [YOLACT](https://github.com/dbolya/yolact) model that achieves [TODO:fill recovery] 
 recovery of its baseline accuracy on the COCO dataset 
-( 50.16, 46.57 mAP@0.5 baseline vs 49.36, 46.37 mAP@0.5 for this recipe for bounding box, mask).
+(50.16, 46.57 mAP@0.5 baseline vs 49.36, 46.37 mAP@0.5 for this recipe for bounding box, mask).
 Training was done using 4 GPUs at half precision with a total batch size of 64 using the [SparseML integration with dbolya/yolact](../).
 When running, adjust hyperparameters based on training environment and dataset.
 
@@ -180,7 +180,7 @@ YOLACT supports DDP. Currently this repo only supports YOLACT models with a dark
 ```
 python train.py \
 --config=yolact_darknet53_config \
---recipe=./recipes/yolact.pruned.perf.md \
+--recipe=./recipes/yolact.pruned.md \
 --resume=PRETRAINED_WEIGHTS \
 --cuda=True \
 --start_iter=0 \

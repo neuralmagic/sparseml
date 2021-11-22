@@ -47,7 +47,7 @@ quantization_modifiers:
     freeze_bn_stats_epoch: eval(quantization_observer_end_target * num_epochs)
 ---
 
-# YOLACT Quant
+# YOLACT Quantized
 
 This recipe quantizes a [YOLACT](https://github.com/dbolya/yolact) model.
 Training was done using 4 GPUs at half precision with a total batch size of 64 using the 
@@ -66,7 +66,7 @@ YOLACT supports DDP. Currently this repo only supports YOLACT models with a dark
 ```
 python train.py \
 --config=yolact_darknet53_config \
---recipe=./recipes/yolact.quantize.md \
+--recipe=./recipes/yolact.quantized.md \
 --resume=PRETRAINED_WEIGHTS \
 --cuda=True \
 --start_iter=0 \

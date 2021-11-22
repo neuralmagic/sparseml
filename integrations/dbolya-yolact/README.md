@@ -51,9 +51,16 @@ This integration adds a `--recipe` argument to the
 The argument loads an appropriate recipe while preserving the rest of the training pipeline.
 Popular recipes used with this argument are found in the [`recipes` folder](./recipes).
 Otherwise, all other arguments and functionality remain the same as the original repository.
+
 ### SparseZoo
 
-SparseZoo models are coming soon!
+| Sparsification Type | Description                                                                       | Zoo Stub                                                                     | COCO mAP@all | Size on Disk | DeepSparse Performance** |
+|---------------------|-----------------------------------------------------------------------------------|------------------------------------------------------------------------------|--------------|--------------|--------------------------|
+| Baseline            | The baseline, pretrained model on the COCO dataset.                               | zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none           | 0.288        | 170 MB       | -- img/sec               |
+| Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/pruned90-none       | 0.286        | 30.1 MB      | -- img/sec               |
+| Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/pruned82_quant-none | 0.282        | 9.7 MB       | -- img/sec               |
+
+These models can also be viewed on the [SparseZoo Website](https://staging-sparsezoo.neuralmagic.com/?domain=cv&sub_domain=segmentation&page=1).
 
 ### Structure
 
