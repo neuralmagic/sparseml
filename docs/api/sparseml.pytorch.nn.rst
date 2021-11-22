@@ -35,6 +35,14 @@ sparseml.pytorch.nn.fatrelu module
    :undoc-members:
    :show-inheritance:
 
+sparseml.pytorch.nn.identity module
+-----------------------------------
+
+.. automodule:: sparseml.pytorch.nn.identity
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 sparseml.pytorch.nn.se module
 -----------------------------
 

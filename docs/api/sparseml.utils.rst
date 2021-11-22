@@ -43,6 +43,14 @@ sparseml.utils.helpers module
    :undoc-members:
    :show-inheritance:
 
+sparseml.utils.restricted\_eval module
+--------------------------------------
+
+.. automodule:: sparseml.utils.restricted_eval
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 sparseml.utils.singleton module
 -------------------------------
 
