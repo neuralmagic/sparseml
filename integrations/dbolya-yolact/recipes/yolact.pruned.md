@@ -162,6 +162,7 @@ pruning_modifiers:
 
 # YOLACT Pruned
 
+
 This recipe creates a sparse, [YOLACT](https://github.com/dbolya/yolact) model 
 that recovers to 99.37% of its baseline accuracy on the COCO dataset 
 (50.16, 46.57 mAP@0.5 baseline Vs 49.36, 46.37 mAP@0.5 for this recipe for bounding box, mask).
@@ -173,12 +174,14 @@ When running, adjust hyper-parameters based on the training environment and data
 To set up the training environment, follow the instructions on the [integration README](../README.md).
 Using the given training script from the `yolact` directory the following command can be used to launch this recipe. 
 Adjust the script command for your GPU device setup. 
+
 YOLACT supports DDP. Currently, this repo only supports YOLACT models with a DarkNet53 backbone.
+
 
 *script command:*
 
 ```
 python train.py \
 --recipe=../recipes/yolact.pruned.md \
---resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none \
+--resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none
 ```

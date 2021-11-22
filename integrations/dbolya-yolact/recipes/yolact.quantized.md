@@ -66,5 +66,5 @@ YOLACT supports DDP. Currently, this repo only supports YOLACT models with a Dar
 ```
 python train.py \
 --recipe=../recipes/yolact.quantized.md \
---resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none \
+--resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none
 ```
