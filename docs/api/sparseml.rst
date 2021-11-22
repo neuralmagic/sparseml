@@ -22,6 +22,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   sparseml.benchmark
    sparseml.deepsparse
    sparseml.framework
    sparseml.keras

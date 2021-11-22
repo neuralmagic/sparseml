@@ -67,6 +67,14 @@ sparseml.pytorch.optim.mask\_pruning module
    :undoc-members:
    :show-inheritance:
 
+sparseml.pytorch.optim.mask\_pruning\_scorer module
+---------------------------------------------------
+
+.. automodule:: sparseml.pytorch.optim.mask_pruning_scorer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 sparseml.pytorch.optim.modifier module
 --------------------------------------
 
@@ -79,6 +87,14 @@ sparseml.pytorch.optim.modifier\_as module
 ------------------------------------------
 
 .. automodule:: sparseml.pytorch.optim.modifier_as
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.pytorch.optim.modifier\_distillation module
+----------------------------------------------------
+
+.. automodule:: sparseml.pytorch.optim.modifier_distillation
    :members:
    :undoc-members:
    :show-inheritance:
@@ -127,6 +143,14 @@ sparseml.pytorch.optim.modifier\_regularizer module
 ---------------------------------------------------
 
 .. automodule:: sparseml.pytorch.optim.modifier_regularizer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.pytorch.optim.modifier\_thinning module
+------------------------------------------------
+
+.. automodule:: sparseml.pytorch.optim.modifier_thinning
    :members:
    :undoc-members:
    :show-inheritance:
