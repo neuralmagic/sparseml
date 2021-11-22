@@ -35,6 +35,7 @@ The techniques include, but are not limited to:
 We recommend using a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your project dependencies isolated.
 A virtual environment can be created using the following commands:
 
+Note: This integration needs `python>=3.7,<3.10` for it's requirements
 ```bash
 python3 -m venv venv # create a venv virtual environment
 source venv/bin/activate # activate venv
