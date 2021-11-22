@@ -50,25 +50,21 @@ quantization_modifiers:
 # YOLACT Quantized
 
 This recipe quantizes a [YOLACT](https://github.com/dbolya/yolact) model.
-Training was done using 4 GPUs at half precision with a total batch size of 64 using the 
+Training was done using 4 GPUs with a total batch size of 64 using the 
 [SparseML integration with dbolya/yolact](../).
-When running, adjust hyperparameters based on training environment and dataset.
+When running, adjust hyper-parameters based on the training environment and dataset.
 
 ## Training
 
 To set up the training environment, follow the instructions on the [integration README](../README.md).
 Using the given training script from the `yolact` directory the following command can be used to launch this recipe. 
 Adjust the script command for your GPU device setup. 
-YOLACT supports DDP. Currently this repo only supports YOLACT models with a darknet53 backbone.
+YOLACT supports DDP. Currently, this repo only supports YOLACT models with a DarkNet53 backbone.
 
 *script command:*
 
 ```
 python train.py \
---config=yolact_darknet53_config \
---recipe=./recipes/yolact.quantized.md \
---resume=PRETRAINED_WEIGHTS \
---cuda=True \
---start_iter=0 \
---batch_size=64
+--recipe=../recipes/yolact.quantized.md \
+--resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none
 ```
