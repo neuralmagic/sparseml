@@ -52,11 +52,15 @@ For Neural Magic Support, sign up or log in to get help with your questions in o
 Before applying one of the recipes, you must first create the pre-trained model to sparsify further. 
 The pre-trained model enables pruning and other algorithms to remove the correct redundant information in place of random information. 
 Your goal after this is to create a smaller, faster model that recovers to the pre-trained baseline.
-
+ 
 Creating a pre-trained model involves three steps: 
-1) Setting up the data. 
+1) Setting up the data.
 2) Fetching a model backbone. 
 3) Training the model.
+
+If training with COCO, skip steps 2 and 3 and use the following baseline SparseZoo stub,
+`zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none` with the `--resume` argument
+in the [`train.py` script](https://github.com/neuralmagic/yolact/blob/master/train.py)
 
 **Note**: If using your custom data, the [YOLACT](https://github.com/dbolya/yolact) repo mentions a post for [training custom data](https://github.com/dbolya/yolact/issues/70#issuecomment-504283008). 
 Otherwise, setup scripts for [COCO](https://cocodataset.org/#home) can be found under the [yolact/data/scripts path](https://github.com/neuralmagic/yolact/tree/master/data/scripts).
@@ -166,12 +170,11 @@ The [`recipes` folder](../recipes) contains multiple files, each offering certai
 The table below compares these tradeoffs and shows how to run them on the COCO dataset.
 1. Review this table, which lists recipes, commands, and results.
 
-    | Sparsification Type | Description                                                                       | COCO mAP@all | Size on Disk | DeepSparse Performance** |
-    |---------------------|-----------------------------------------------------------------------------------|--------------|--------------|--------------------------|
-    | Baseline            | The baseline, pretrained model on the COCO dataset.                               | 0.288        | 170 MB       | -- img/sec               |
-    | Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | 0.286        | 30.1 MB      | -- img/sec               |
-    | Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | 0.282        | 9.7 MB       | -- img/sec               |
-    
+| Sparsification Type |                                    Description                                    | COCO mAP@all | Size on Disk | DeepSparse Performance** |                                        Commands                                        |
+|:-------------------:|:---------------------------------------------------------------------------------:|:------------:|:------------:|:------------------------:|:--------------------------------------------------------------------------------------:|
+| Baseline            | The baseline, pretrained model on the COCO dataset.                               | 0.288        | 170 MB       | -- img/sec               | `python train.py`                                                                      |
+| Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | 0.286        | 30.1 MB      | -- img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned.md`       |
+| Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | 0.282        | 9.7 MB       | -- img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned_quant.md` |
     ** DeepSparse Performance measured on an AWS C5 instance with 24 cores, batch size 64, and 550 x 550 input with version 1.6 of the DeepSparse Engine.
 
 2. Select a recipe to use on top of the pre-trained model you created.
@@ -189,9 +192,9 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
    The recipe argument is combined with our previous training command and COCO pre-trained weights to run the recipes over the model. For example, a command for YOLACT would look like this:
 ```bash
 python train.py \
---recipe=./recipes/yolact.quant.yaml \
---resume=./weights/yolact_darknet53_54_800000.pth \
---save_folder=./dense-quantized 
+--recipe=../recipes/yolact.pruned.yaml \
+--resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none \
+--save_folder=./pruned 
 ```
 After applying a recipe, you are ready to export for inference.
 
@@ -200,7 +203,7 @@ After applying a recipe, you are ready to export for inference.
 This step loads a checkpoint file along with the recipe used if any and converts it into the more common inference formats. 
 Then, you can run the file through a compression algorithm to reduce its deployment size and run it in an inference engine such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
 
-When you applied a recipe in the previous step, the sparsification run created a new `./dense-quantized` directory under the `yolact` directory:
+When you applied a recipe in the previous step, the sparsification run created a new `./pruned` directory under the `yolact` directory:
 
 ```
 └── yolact
@@ -209,7 +212,7 @@ When you applied a recipe in the previous step, the sparsification run created a
     │   │   ├── annotations
     │   │   └── images
     │   └── scripts
-    ├── dense-quantized
+    ├── pruned
     │    └── yolact_darknet53_3_29316.pth 
     ├── external
     │   └── DCNv2
@@ -227,7 +230,7 @@ When you applied a recipe in the previous step, the sparsification run created a
         └── yolact_darknet53_54_800000.pth
 ```
 
-These weights under `./dense-quantized` can be loaded into the `train.py` and `export.py` scripts now. 
+These weights under `./pruned` can be loaded into the `train.py` and `export.py` scripts now. 
 However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
 
 The [`export.py` script](https://github.com/neuralmagic/yolact/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
@@ -235,7 +238,7 @@ The [`export.py` script](https://github.com/neuralmagic/yolact/blob/master/expor
 1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
 
     ```bash
-    python export.py --weights PATH_TO_SPARSIFIED_WEIGHTS --recipe PATH_TO_RECIPE_IF_USED
+    python export.py --weights PATH_TO_SPARSIFIED_WEIGHTS
     ```
     
     The result is a new file added next to the sparsified checkpoint with a `.onnx` extension:
