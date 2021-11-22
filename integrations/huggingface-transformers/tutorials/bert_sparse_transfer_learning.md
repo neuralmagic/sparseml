@@ -68,9 +68,69 @@ Once you have selected a use case and dataset, you are ready to create a teacher
 
 ## Creating a Dense Teacher
 
+Distillation works very well for BERT and NLP in general to create highly sparse and accurate models for deployment.
+Following along with this sentiment, we walk through first creating a dense teacher model before applying sparse transfer learning.
+Note, the sparse models can be transferred without using distillation from the dense teacher; however, the end models accuracy will be lower.
+
+The training commands for the dense teacher are listed below for each use case.
+The batch size may need to be lowered depending on the available GPU memory. 
+If you run into an out of memory issue or initial crash, try to lower the batch size to remedy the issue.
+
+| Use Case                   | Dataset                                                                       | Training Command                                                                                                                                                                                                                                                                                                                                       |
+|----------------------------|-------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Question and Answering     | [SQuAD](https://rajpurkar.github.io/SQuAD-explorer/)                          | `python transformers/examples/pytorch/question-answering/run_qa.py --model_name_or_path bert-base-uncased --dataset_name squad --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 16 --learning_rate 5e-5 --max_seq_length 384 --doc_stride 128 --output_dir models/teacher --num_train_epochs 2 --seed 2021`              |
+| Binary Classification      | [QQP](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs) | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path bert-base-uncased --task_name qqp --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --max_seq_length 128 --output_dir models/teacher --num_train_epochs 2 --seed 2021`                                 |
+| Multi-Class Classification | [MNLI](https://cims.nyu.edu/~sbowman/multinli/)                               | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path bert-base-uncased --task_name mnli --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --max_seq_length 128 --output_dir models/teacher --num_train_epochs 2 --seed 2021`                                |
+| Named Entity Recognition   | [CoNNL2003](https://www.clips.uantwerpen.be/conll2003/ner/)                   | `python transformers/examples/pytorch/token-classification/run_ner.py --model_name_or_path bert-base-uncased --dataset_name conll2003 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --output_dir models/teacher --preprocessing_num_workers 16 --num_train_epochs 5 --seed 2021`              |
+| Sentiment Analysis         | [SST2](https://nlp.stanford.edu/sentiment/)                                   | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path bert-base-uncased --task_name sst2 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --max_seq_length 128 --output_dir models/teacher --preprocessing_num_workers 16 --num_train_epochs 2 --seed 2021` |
+
+Select the training command that applies to your use case and then run in your training environment.
+The time to execute the training commands will differ according to dataset and training environment, but generally they should run to completion in less than 12 hours.
+Once the command has completed, you will have a dense teacher model in the following directory structure:
+
+```
+|-- exp
+   |   |-- weights
+   |   |   |-- best.pt
+   |   |   |-- best.onnx
+   |   |   `-- last.pt
+   `-- ...
+```
+
 You are ready to transfer learn the model.
 
 ## Transfer Learning the Model
+
+With the dense teacher now trained to convergence, we will begin the sparse transfer learning with distillation with a recipe.
+The dense teacher will distill knowledge into the sparse architecture therefore increasing its performance while ideally converging to the dense solution's accuracy.
+The recipe encodes the hyperparameters necessary for transfer learning the sparse architecture.
+Specifically it ensures that the sparsity is preserved through the training process.
+The available recipes for the sparse BERT model we are using are visible on the [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fbert-base%2Fpytorch%2Fhuggingface%2Fbookcorpus_wikitext%2F12layer_pruned80-none) along with recipes for the other models.
+
+The transfer training commands are listed below for each use case.
+Like with training the teacher, the batch size may need to be lowered depending on the available GPU memory.
+If you run into an out of memory issue or initial crash, try to lower the batch size to remedy the issue.
+
+| Use Case                   | Dataset                                                                       | Transfer Training Command                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+|----------------------------|-------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Question and Answering     | [SQuAD](https://rajpurkar.github.io/SQuAD-explorer/)                          | `python transformers/examples/pytorch/question-answering/run_qa.py --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none --distill_teacher models/teacher --dataset_name squad --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 16 --learning_rate 5e-5 --max_seq_length 384 --doc_stride 128 --preprocessing_num_workers 16 --output_dir models/12layer_pruned80-none --fp16 --seed 27942 --num_train_epochs 5 --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none?recipe_type=transfer-SQuAD --save_strategy epoch --save_total_limit 2` |
+| Binary Classification      | [QQP](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs) | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none --distill_teacher models/teacher --task_name qqp --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --warmup_steps 11000 --output_dir models/12layer_pruned80-none --fp16 --seed 11712 --num_train_epochs 5 --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none?recipe_type=transfer-QQP --save_strategy epoch --save_total_limit 2`                                                     |
+| Multi-Class Classification | [MNLI](https://cims.nyu.edu/~sbowman/multinli/)                               | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path bert-base-uncased --task_name mnli --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --max_seq_length 128 --output_dir models/teacher --num_train_epochs 2 --seed 2021`                                                                                                                                                                                                                                                                                                                                                                                        |
+| Named Entity Recognition   | [CoNNL2003](https://www.clips.uantwerpen.be/conll2003/ner/)                   | `python transformers/examples/pytorch/token-classification/run_ner.py --model_name_or_path bert-base-uncased --dataset_name conll2003 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --output_dir models/teacher --preprocessing_num_workers 16 --num_train_epochs 5 --seed 2021`                                                                                                                                                                                                                                                                                                                                                                      |
+| Sentiment Analysis         | [SST2](https://nlp.stanford.edu/sentiment/)                                   | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path bert-base-uncased --task_name sst2 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --max_seq_length 128 --output_dir models/teacher --preprocessing_num_workers 16 --num_train_epochs 2 --seed 2021`                                                                                                                                                                                                                                                                                                                                                         |
+
+Select the transfer training command that applies to your use case and then run in your training environment.
+Again the time to execute the training commands will differ according to dataset and training environment, but generally they should run to completion in less than 12 hours.
+Once the command has completed, you will have a deployable sparse model in the following directory structure:
+
+```
+|-- exp
+   |   |-- weights
+   |   |   |-- best.pt
+   |   |   |-- best.onnx
+   |   |   `-- last.pt
+   `-- ...
+```
 
 You are ready to export for inference.
 
