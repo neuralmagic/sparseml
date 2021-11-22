@@ -32,12 +32,22 @@ The techniques include, but are not limited to:
 
 ## Installation
 
+We recommend using a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your project dependencies isolated.
+A virtual environment can be created using the following commands:
+
+```bash
+python3 -m venv venv # create a venv virtual environment
+source venv/bin/activate # activate venv
+pip install --upgrade pip # upgrade pip
+```
 To begin, run the following command in the root directory of this integration 
 (`cd integrations/dbolya-yolact`):
-
 ```bash
 bash setup_integration.sh
 ```
+
+The `setup_integration.sh` file will clone the yolact-sparseml integration repository. After the repo has successfully cloned, all dependencies from the `yolact/requirements.txt` file will install in your current environment.
+
 
 ## Quick Tour
 
