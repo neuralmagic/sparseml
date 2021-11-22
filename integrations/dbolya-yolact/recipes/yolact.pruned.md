@@ -175,7 +175,7 @@ To set up the training environment, follow the instructions on the [integration 
 Using the given training script from the `yolact` directory the following command can be used to launch this recipe. 
 Adjust the script command for your GPU device setup. 
 
-YOLACT supports DDP. Currently, this repo only supports YOLACT models with a DarkNet53 backbone.
+YOLACT supports DataParallel. Currently, this repo only supports YOLACT models with a DarkNet53 backbone.
 
 
 *script command:*
