@@ -148,7 +148,7 @@ pruning_modifiers:
     init_sparsity: eval(init_sparsity)
     final_sparsity: eval(prune_mid_target_sparsity)
     start_epoch: eval(pruning_start_target * num_pruning_epochs)
-    end_epoch: eval(pruning_start_target * num_pruning_epochs)
+    end_epoch: eval(pruning_end_target * num_pruning_epochs)
     update_frequency: eval(pruning_update_frequency)
     mask_type: eval(mask_type)
 
