@@ -39,6 +39,8 @@ To begin, run the following command in the root directory of this integration
 bash setup_integration.sh
 ```
 
+The setup_integration.sh file will clone the yolact-sparseml integration repository. After the repo has successfully cloned, all dependencies from the yolact/requirements.txt file will install in your current environment.
+
 ## Quick Tour
 
 ### Recipes
