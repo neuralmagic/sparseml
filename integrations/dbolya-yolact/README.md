@@ -98,7 +98,6 @@ For example, the following command can be run from within the Neural Magic's
 
 ```bash
 python export.py --checkpoint ./quantized-yolact/model.pth \
-    --recipe ../recipes/yolact.quantized.md \
     --name quantized-yolact.onnx
 ```
 
@@ -107,7 +106,6 @@ Quantized Graph, pass in the `--no-qat` flag:
 
 ```bash
 python export.py --checkpoint ./quantized-yolact/model.pth \
-    --recipe ../recipes/yolact.quantized.yaml \
     --name qat-yolact.onnx \
     --no-qat
 ```

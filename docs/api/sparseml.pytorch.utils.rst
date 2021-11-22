@@ -75,6 +75,14 @@ sparseml.pytorch.utils.loss module
    :undoc-members:
    :show-inheritance:
 
+sparseml.pytorch.utils.mfac\_helpers module
+-------------------------------------------
+
+.. automodule:: sparseml.pytorch.utils.mfac_helpers
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 sparseml.pytorch.utils.model module
 -----------------------------------
 

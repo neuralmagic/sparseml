@@ -19,10 +19,82 @@ sparseml.sparsification package
 Submodules
 ----------
 
+sparseml.sparsification.analyzer module
+---------------------------------------
+
+.. automodule:: sparseml.sparsification.analyzer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 sparseml.sparsification.info module
 -----------------------------------
 
 .. automodule:: sparseml.sparsification.info
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.sparsification.model\_info module
+------------------------------------------
+
+.. automodule:: sparseml.sparsification.model_info
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.sparsification.modifier\_epoch module
+----------------------------------------------
+
+.. automodule:: sparseml.sparsification.modifier_epoch
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.sparsification.modifier\_lr module
+-------------------------------------------
+
+.. automodule:: sparseml.sparsification.modifier_lr
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.sparsification.modifier\_params module
+-----------------------------------------------
+
+.. automodule:: sparseml.sparsification.modifier_params
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.sparsification.modifier\_pruning module
+------------------------------------------------
+
+.. automodule:: sparseml.sparsification.modifier_pruning
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.sparsification.oracle module
+-------------------------------------
+
+.. automodule:: sparseml.sparsification.oracle
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.sparsification.recipe\_builder module
+----------------------------------------------
+
+.. automodule:: sparseml.sparsification.recipe_builder
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.sparsification.recipe\_editor module
+---------------------------------------------
+
+.. automodule:: sparseml.sparsification.recipe_editor
    :members:
    :undoc-members:
    :show-inheritance:

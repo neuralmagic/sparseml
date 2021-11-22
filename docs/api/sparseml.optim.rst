@@ -27,10 +27,10 @@ sparseml.optim.analyzer module
    :undoc-members:
    :show-inheritance:
 
-sparseml.optim.learning\_rate module
-------------------------------------
+sparseml.optim.helpers module
+-----------------------------
 
-.. automodule:: sparseml.optim.learning_rate
+.. automodule:: sparseml.optim.helpers
    :members:
    :undoc-members:
    :show-inheritance:
