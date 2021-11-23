@@ -226,6 +226,15 @@ def save_model(
     if optimizer:
         save_dict["optimizer"] = optimizer.state_dict()
 
+        # save recipe from manager if exists
+        if hasattr(optimizer, "manager") or hasattr(optimizer, "wrapped_manager"):
+            manager = (
+                optimizer.manager
+                if hasattr(optimizer, "manager")
+                else optimizer.wrapped_manager
+            )
+            save_dict["recipe"] = str(manager)
+
     if epoch:
         save_dict["epoch"] = epoch
 
