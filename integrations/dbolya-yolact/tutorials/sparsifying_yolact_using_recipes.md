@@ -175,7 +175,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 | Baseline            | The baseline, pretrained model on the COCO dataset.                               | 0.288        | 170 MB       | 8.22 img/sec               | `python train.py`                                                                      |
 | Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | 0.286        | 30.1 MB      | 11.56 img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned.md`       |
 | Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | 0.282        | 9.7 MB       | 15.47 img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned_quant.md` |
-    ** DeepSparse Performance measured on an AWS C5 instance with 24 cores, batch size 1, and 550 x 550 input with version 1.6 of the DeepSparse Engine.
+    ** DeepSparse Performance measured on an AWS C5 instance with 24 cores, batch size 1, and 550 x 550 input.
 
 2. Select a recipe to use on top of the pre-trained model you created.
 
