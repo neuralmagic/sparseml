@@ -189,7 +189,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
     - When running quantized models, the memory footprint for training will significantly increase (roughly 3x). It is recommended to train at a high batch size at first. This will fail with an out-of-memory exception once quantization starts. Once this happens, use the weights from that run to resume training with lower batch size.
 
 3. To begin applying one of the recipes, use the `--recipe` argument within the YOLACT [train script](https://github.com/neuralmagic/yolact/blob/master/train.py).
-   The recipe argument is combined with our previous training command and COCO pre-trained weights to run the recipes over the model. For example, a command for YOLACT would look like this:
+   The recipe argument is combined with our previous training command and COCO pre-trained weights to run the recipes over the model. For example, a command for pruning YOLACT would look like this:
 ```bash
 python train.py \
 --recipe=../recipes/yolact.pruned.yaml \

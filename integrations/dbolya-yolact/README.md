@@ -35,7 +35,6 @@ The techniques include, but are not limited to:
 We recommend using a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your project dependencies isolated.
 A virtual environment can be created using the following commands:
 
-Note: This integration needs `python>=3.7,<3.10` for it's requirements
 ```bash
 python3 -m venv venv # create a venv virtual environment
 source venv/bin/activate # activate venv
@@ -48,6 +47,8 @@ bash setup_integration.sh
 ```
 
 The `setup_integration.sh` file will clone the yolact-sparseml integration repository. After the repo has successfully cloned, all dependencies from the `yolact/requirements.txt` file will install in your current environment.
+
+Note: This integration requires `python>=3.7,<3.10`
 
 
 ## Quick Tour
@@ -101,14 +102,6 @@ python export.py --checkpoint ./quantized-yolact/model.pth \
     --name quantized-yolact.onnx
 ```
 
-To prevent the conversion of a QAT (Quantization-Aware Training) Graph to a
-Quantized Graph, pass in the `--no-qat` flag:
-
-```bash
-python export.py --checkpoint ./quantized-yolact/model.pth \
-    --name qat-yolact.onnx \
-    --skip-qat-convert
-```
 
 ### DeepSparse
 
