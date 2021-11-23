@@ -102,14 +102,6 @@ python export.py --checkpoint ./quantized-yolact/model.pth \
     --name quantized-yolact.onnx
 ```
 
-To prevent the conversion of a QAT (Quantization-Aware Training) Graph to a
-Quantized Graph, pass in the `--skip-qat-convert` flag:
-
-```bash
-python export.py --checkpoint ./quantized-yolact/model.pth \
-    --name qat-yolact.onnx \
-    --skip-qat-convert
-```
 
 ### DeepSparse
 
