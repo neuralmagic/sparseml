@@ -102,7 +102,7 @@ python export.py --checkpoint ./quantized-yolact/model.pth \
 ```
 
 To prevent the conversion of a QAT (Quantization-Aware Training) Graph to a
-Quantized Graph, pass in the `--no-qat` flag:
+Quantized Graph, pass in the `--skip-qat-convert` flag:
 
 ```bash
 python export.py --checkpoint ./quantized-yolact/model.pth \
