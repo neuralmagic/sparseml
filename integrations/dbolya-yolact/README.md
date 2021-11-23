@@ -107,7 +107,7 @@ Quantized Graph, pass in the `--no-qat` flag:
 ```bash
 python export.py --checkpoint ./quantized-yolact/model.pth \
     --name qat-yolact.onnx \
-    --no-qat
+    --skip-qat-convert
 ```
 
 ### DeepSparse
