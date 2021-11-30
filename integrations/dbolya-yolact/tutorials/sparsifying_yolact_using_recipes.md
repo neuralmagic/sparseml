@@ -237,7 +237,7 @@ The [`export.py` script](https://github.com/neuralmagic/yolact/blob/master/expor
 1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
 
     ```bash
-    python export.py --weights PATH_TO_SPARSIFIED_WEIGHTS
+    python export.py --checkpoint PATH_TO_SPARSIFIED_WEIGHTS
     ```
     
     The result is a new file added next to the sparsified checkpoint with a `.onnx` extension:
