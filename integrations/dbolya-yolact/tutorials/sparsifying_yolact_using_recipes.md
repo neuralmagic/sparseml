@@ -175,7 +175,6 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 | Baseline            | The baseline, pretrained model on the COCO dataset.                               | 0.288        | 170 MB       | -- img/sec               | `python train.py`                                                                      |
 | Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | 0.286        | 30.1 MB      | -- img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned.md`       |
 | Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | 0.282        | 9.7 MB       | -- img/sec               | `python train.py --resume weights/model.pth --recipe ../recipe/yolact.pruned_quant.md` |
-    ** DeepSparse Performance measured on an AWS C5 instance with 24 cores, batch size 64, and 550 x 550 input with version 1.6 of the DeepSparse Engine.
 
 2. Select a recipe to use on top of the pre-trained model you created.
 
@@ -192,7 +191,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
    The recipe argument is combined with our previous training command and COCO pre-trained weights to run the recipes over the model. For example, a command for pruning YOLACT would look like this:
 ```bash
 python train.py \
---recipe=../recipes/yolact.pruned.yaml \
+--recipe=../recipes/yolact.pruned.md \
 --resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none \
 --save_folder=./pruned 
 ```
@@ -238,7 +237,7 @@ The [`export.py` script](https://github.com/neuralmagic/yolact/blob/master/expor
 1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
 
     ```bash
-    python export.py --weights PATH_TO_SPARSIFIED_WEIGHTS
+    python export.py --checkpoint PATH_TO_SPARSIFIED_WEIGHTS
     ```
     
     The result is a new file added next to the sparsified checkpoint with a `.onnx` extension:
