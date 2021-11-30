@@ -745,7 +745,9 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
             continue
         if output_quantize_node.op_type != "QuantizeLinear":
             continue
-        bias_initializer = get_init_by_name(model, bias_add_node.input[1])
+        bias_initializer = get_init_by_name(model, bias_add_node.input[1]) or (
+            get_init_by_name(model, bias_add_node.input[0])
+        )
         if bias_initializer is None:
             continue
 
