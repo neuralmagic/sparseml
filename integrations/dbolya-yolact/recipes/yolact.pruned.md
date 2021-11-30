@@ -81,23 +81,6 @@ pruning_modifiers:
 
   - !GMPruningModifier
     params:
-      - backbone.layers.3.0.0.weight
-      - backbone.layers.3.1.conv1.0.weight
-      - backbone.layers.3.1.conv2.0.weight
-      - backbone.layers.3.2.conv1.0.weight
-      - backbone.layers.3.2.conv2.0.weight
-      - backbone.layers.3.3.conv1.0.weight
-      - backbone.layers.3.3.conv2.0.weight
-      - backbone.layers.3.4.conv1.0.weight
-      - backbone.layers.3.4.conv2.0.weight
-      - backbone.layers.3.5.conv1.0.weight
-      - backbone.layers.3.5.conv2.0.weight
-      - backbone.layers.3.6.conv1.0.weight
-      - backbone.layers.3.6.conv2.0.weight
-      - backbone.layers.3.7.conv1.0.weight
-      - backbone.layers.3.7.conv2.0.weight
-      - backbone.layers.3.8.conv1.0.weight
-      - backbone.layers.3.8.conv2.0.weight
       - proto_net.0.weight
       - proto_net.2.weight
       - proto_net.4.weight
