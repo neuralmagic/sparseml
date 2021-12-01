@@ -50,7 +50,7 @@ Additional BERT models, including ones with higher sparsity and fewer layers, ar
 
 ## Selecting a Dataset Use Case
 
-Results and examples are given for 5 common use cases with popular datasets in this tutorial. 
+Results and examples are given for five common use cases with popular datasets in this tutorial. 
 If you would like to apply these approaches to your own dataset, Hugging Face has additional information for setup of custom datasets [here](https://huggingface.co/transformers/custom_datasets.html).
 Once you have successfully converted your dataset into Hugging Face's format, it can be safely plugged into these flows and used for sparse transfer learning from the pre-sparsified models.
 
