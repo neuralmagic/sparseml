@@ -111,7 +111,7 @@ If you run out of memory or experience an initial crash, try to lower the batch 
 | Sentiment Analysis         | [SST2](https://nlp.stanford.edu/sentiment/)                                   | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none --distill_teacher models/teacher --task_name sst2 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --warmup_steps 2000 --max_seq_length 128 --preprocessing_num_workers 16 --output_dir models/12layer_pruned80-none --fp16 --seed 5922 --num_train_epochs 5 --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none?recipe_type=transfer-SST2 --save_strategy epoch --save_total_limit 2` |
 
 Select the transfer training command that applies to your use case and then run in your training environment.
-Again the time to execute the training commands will differ according to dataset and training environment, but generally they should run to completion in less than 12 hours.
+The time to execute the training commands will differ according to dataset and training environment, but generally they should run to completion in less than 12 hours.
 Once the command has completed, you will have a sparse checkpoint located in `models/12layer_pruned80-none`.
 
 You are ready to export for inference.
