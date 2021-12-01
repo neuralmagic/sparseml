@@ -92,7 +92,7 @@ You are ready to transfer learn the model.
 
 ## Transfer Learning the Model
 
-With the dense teacher now trained to convergence, we will begin the sparse transfer learning with distillation with a recipe.
+With the dense teacher now trained to convergence, you will begin the sparse transfer learning with distillation with a recipe.
 The dense teacher will distill knowledge into the sparse architecture therefore increasing its performance while ideally converging to the dense solution's accuracy.
 The recipe encodes the hyperparameters necessary for transfer learning the sparse architecture.
 Specifically it ensures that the sparsity is preserved through the training process.
