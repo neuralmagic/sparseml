@@ -74,7 +74,7 @@ Note, the sparse models can be transferred without using distillation from the d
 
 The training commands for the dense teacher are listed below for each use case.
 The batch size may need to be lowered depending on the available GPU memory. 
-If you run into an out of memory issue or initial crash, try to lower the batch size to remedy the issue.
+If you run out of memory or experience an initial crash, try to lower the batch size to remedy the issue.
 
 | Use Case                   | Dataset                                                                       | Training Command                                                                                                                                                                                                                                                                                                                                       |
 |----------------------------|-------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
