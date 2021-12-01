@@ -70,7 +70,7 @@ Once you have selected a use case and dataset, you are ready to create a teacher
 
 Distillation works very well for BERT and NLP in general to create highly sparse and accurate models for deployment.
 Following this sentiment, you will create a dense teacher model before applying sparse transfer learning.
-Note, the sparse models can be transferred without using distillation from the dense teacher; however, the end models accuracy will be lower.
+Note, the sparse models can be transferred without using distillation from the dense teacher; however, the end model's accuracy will be lower.
 
 The training commands for the dense teacher are listed below for each use case.
 The batch size may need to be lowered depending on the available GPU memory. 
