@@ -86,16 +86,7 @@ If you run into an out of memory issue or initial crash, try to lower the batch 
 
 Select the training command that applies to your use case and then run in your training environment.
 The time to execute the training commands will differ according to dataset and training environment, but generally they should run to completion in less than 12 hours.
-Once the command has completed, you will have a dense teacher model in the following directory structure:
-
-```
-|-- exp
-   |   |-- weights
-   |   |   |-- best.pt
-   |   |   |-- best.onnx
-   |   |   `-- last.pt
-   `-- ...
-```
+Once the command has completed, you will have a deployable sparse model located in `models/teacher`.
 
 You are ready to transfer learn the model.
 
@@ -115,52 +106,38 @@ If you run into an out of memory issue or initial crash, try to lower the batch 
 |----------------------------|-------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Question and Answering     | [SQuAD](https://rajpurkar.github.io/SQuAD-explorer/)                          | `python transformers/examples/pytorch/question-answering/run_qa.py --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none --distill_teacher models/teacher --dataset_name squad --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 16 --learning_rate 5e-5 --max_seq_length 384 --doc_stride 128 --preprocessing_num_workers 16 --output_dir models/12layer_pruned80-none --fp16 --seed 27942 --num_train_epochs 5 --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none?recipe_type=transfer-SQuAD --save_strategy epoch --save_total_limit 2` |
 | Binary Classification      | [QQP](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs) | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none --distill_teacher models/teacher --task_name qqp --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --warmup_steps 11000 --output_dir models/12layer_pruned80-none --fp16 --seed 11712 --num_train_epochs 5 --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none?recipe_type=transfer-QQP --save_strategy epoch --save_total_limit 2`                                                     |
-| Multi-Class Classification | [MNLI](https://cims.nyu.edu/~sbowman/multinli/)                               | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path bert-base-uncased --task_name mnli --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --max_seq_length 128 --output_dir models/teacher --num_train_epochs 2 --seed 2021`                                                                                                                                                                                                                                                                                                                                                                                        |
-| Named Entity Recognition   | [CoNNL2003](https://www.clips.uantwerpen.be/conll2003/ner/)                   | `python transformers/examples/pytorch/token-classification/run_ner.py --model_name_or_path bert-base-uncased --dataset_name conll2003 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --output_dir models/teacher --preprocessing_num_workers 16 --num_train_epochs 5 --seed 2021`                                                                                                                                                                                                                                                                                                                                                                      |
-| Sentiment Analysis         | [SST2](https://nlp.stanford.edu/sentiment/)                                   | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path bert-base-uncased --task_name sst2 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --max_seq_length 128 --output_dir models/teacher --preprocessing_num_workers 16 --num_train_epochs 2 --seed 2021`                                                                                                                                                                                                                                                                                                                                                         |
+| Multi-Class Classification | [MNLI](https://cims.nyu.edu/~sbowman/multinli/)                               | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none --distill_teacher models/teacher --task_name mnli --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --warmup_steps 12000 --output_dir models/12layer_pruned80-none --fp16 --seed 27942 --num_train_epochs 5 --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none?recipe_type=transfer-MNLI --save_strategy epoch --save_total_limit 2`                                                   |
+| Named Entity Recognition   | [CoNNL2003](https://www.clips.uantwerpen.be/conll2003/ner/)                   | `python transformers/examples/pytorch/token-classification/run_ner.py --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none --distill_teacher models/teacher --dataset_name conll2003 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --preprocessing_num_workers 16 --output_dir models/12layer_pruned80-none --fp16 --seed 21097 --num_train_epochs 5 --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none?recipe_type=transfer-CoNLL2003 --save_strategy epoch --save_total_limit 2`                            |
+| Sentiment Analysis         | [SST2](https://nlp.stanford.edu/sentiment/)                                   | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none --distill_teacher models/teacher --task_name sst2 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --warmup_steps 2000 --max_seq_length 128 --preprocessing_num_workers 16 --output_dir models/12layer_pruned80-none --fp16 --seed 5922 --num_train_epochs 5 --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none?recipe_type=transfer-SST2 --save_strategy epoch --save_total_limit 2` |
 
 Select the transfer training command that applies to your use case and then run in your training environment.
 Again the time to execute the training commands will differ according to dataset and training environment, but generally they should run to completion in less than 12 hours.
-Once the command has completed, you will have a deployable sparse model in the following directory structure:
-
-```
-|-- exp
-   |   |-- weights
-   |   |   |-- best.pt
-   |   |   |-- best.onnx
-   |   |   `-- last.pt
-   `-- ...
-```
+Once the command has completed, you will have a sparse checkpoint located in `models/12layer_pruned80-none`.
 
 You are ready to export for inference.
 
 ## Exporting for Inference
 
-This step loads a checkpoint file of the best weights measured on the validation set, and converts it into the more common inference formats.
-Then, you can run the file through a compression algorithm to reduce its deployment size and run it in an inference engine such as DeepSparse.
+The sparsification run with the argument `--export_onnx_path` will creates an ONNX model that can be used for deployment. 
+You can export a model as part of the transfer learning process by inserting this argument to the previous transfer commands or after the transfer command has completed.
+To keep the steps succinct, this tutorial runs the export as a separate process.
 
-The `best.pt` file, located in the previous step, contains a checkpoint of the best weights measured on the validation set.
-These weights can be loaded into the `train.py` and `test.py` scripts now.
-However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
+The export commands are listed below for each use case and reference the output from the previously run transfer learning commands.
 
-The [export.py script](https://github.com/neuralmagic/yolov5/blob/master/models/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
+| Use Case                   | Dataset                                                                       | Transfer Training Command                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+|----------------------------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Question and Answering     | [SQuAD](https://rajpurkar.github.io/SQuAD-explorer/)                          | `python transformers/examples/pytorch/question-answering/run_qa.py --model_name_or_path models/12layer_pruned80-none --dataset_name squad --do_eval --per_device_eval_batch_size 64 --max_seq_length 384 --doc_stride 128 --preprocessing_num_workers 16 --output_dir models/12layer_pruned80-none/eval --onnx_export_path models/12layer_pruned80-none/onnx`    |
+| Binary Classification      | [QQP](https://quoradata.quora.com/First-Quora-Dataset-Release-Question-Pairs) | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path models/12layer_pruned80-none --task_name qqp --do_eval --per_device_eval_batch_size 64 --output_dir models/12layer_pruned80-none/eval --preprocessing_num_workers 16 --onnx_export_path models/12layer_pruned80-none/onnx`                                            |
+| Multi-Class Classification | [MNLI](https://cims.nyu.edu/~sbowman/multinli/)                               | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path models/12layer_pruned80-none --task_name mnli --do_eval --per_device_eval_batch_size 64 --output_dir models/12layer_pruned80-none/eval --preprocessing_num_workers 16 --onnx_export_path models/12layer_pruned80-none/onnx`                                           |
+| Named Entity Recognition   | [CoNNL2003](https://www.clips.uantwerpen.be/conll2003/ner/)                   | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path models/12layer_pruned80-none --dataset_name connl2003 --do_eval --per_device_eval_batch_size 64 --output_dir models/12layer_pruned80-none/eval --preprocessing_num_workers 16 --onnx_export_path models/12layer_pruned80-none/onnx`                                   |
+| Sentiment Analysis         | [SST2](https://nlp.stanford.edu/sentiment/)                                   | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path models/12layer_pruned80-none --task_name sst2 --do_eval --per_device_eval_batch_size 64 --output_dir models/12layer_pruned80-none/eval --preprocessing_num_workers 16 --onnx_export_path models/12layer_pruned80-none/onnx`                                           |
 
-1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
-   ```bash
-   python models/export.py --weights PATH_TO_SPARSIFIED_WEIGHTS  --dynamic
-   ```
-   The result is a new file added next to the sparsified checkpoint with a `.onnx` extension:
-   ```
-   |-- exp
-   |   |-- weights
-   |   |   |-- best.pt
-   |   |   |-- best.onnx
-   |   |   `-- last.pt
-   `-- ...
-   ```
-2. Now you can run the `.onnx` file through a compression algorithm to reduce its deployment size and run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
-   The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in inference performance.
-   An example for benchmarking and deploying YOLOv5 models with DeepSparse can be found [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/ultralytics-yolo).
+Select the export command that applies to your use case and then run in your training environment.
+Once the command has completed, you will have a deployable sparse model located in `models/12layer_pruned80-none/onnx`.
+
+Now you can run the `.onnx` file through a compression algorithm to reduce its deployment size and run it in ONNX-compatible inference engines such as [DeepSparse](https://github.com/neuralmagic/deepsparse).
+The DeepSparse Engine is explicitly coded to support running sparsified models for significant improvements in inference performance.
+An example for benchmarking and deploying BERT models with DeepSparse can be found [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers).
 
 ## Wrap-Up
 
