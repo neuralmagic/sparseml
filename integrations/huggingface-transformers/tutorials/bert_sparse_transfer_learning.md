@@ -99,7 +99,7 @@ Specifically, it ensures that the sparsity is preserved through the training pro
 The available recipes for the sparse BERT model you are using are visible on the [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fbert-base%2Fpytorch%2Fhuggingface%2Fbookcorpus_wikitext%2F12layer_pruned80-none) along with recipes for the other models.
 
 The transfer training commands are listed below for each use case.
-Like with training the teacher, the batch size may need to be lowered depending on the available GPU memory.
+As with training the teacher, the batch size may need to be lowered depending on the available GPU memory.
 If you run into an out of memory issue or initial crash, try to lower the batch size to remedy the issue.
 
 | Use Case                   | Dataset                                                                       | Transfer Training Command                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
