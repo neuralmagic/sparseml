@@ -32,7 +32,7 @@ Working through this tutorial, you will experience how Neural Magic recipes simp
 - Applying a sparse transfer learning recipe.
 - Exporting an inference graph to reduce its deployment size and run it in an inference engine such as DeepSparse.
 
-Before diving in, be sure to go through setup as listed out in the [README](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/README.md) for this integration.
+Before diving in, be sure to set up as listed in the [README](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/README.md) for this integration.
 Additionally, all commands are intended to be run from the root of the `transformers` repository folder (`cd integrations/huggingface-transformers/transformers`).
 
 ## Need Help?
