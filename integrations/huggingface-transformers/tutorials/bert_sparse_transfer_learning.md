@@ -70,9 +70,10 @@ Once you have selected a use case and dataset, you are ready to create a teacher
 
 Distillation works very well for BERT and NLP in general to create highly sparse and accurate models for deployment.
 Following this sentiment, you will create a dense teacher model before applying sparse transfer learning.
-Note, the sparse models can be transferred without using distillation from the dense teacher; however, the end model's accuracy will be lower.
+Note, the sparse models can be transferred without using distillation from the teacher; however, the end model's accuracy will be lower.
+Additionally, if you have a dense model already, that can be used in place of the teacher to skip this step altogether.
 
-The training commands for the dense teacher are listed below for each use case.
+The training commands for the teacher are listed below for each use case.
 The batch size may need to be lowered depending on the available GPU memory. 
 If you run out of memory or experience an initial crash, try to lower the batch size to remedy the issue.
 
@@ -93,7 +94,7 @@ You are ready to transfer learn the model.
 ## Transfer Learning the Model
 
 With the dense teacher now trained to convergence, you will begin the sparse transfer learning with distillation with a recipe.
-The dense teacher will distill knowledge into the sparse architecture, therefore increasing its performance while ideally converging to the dense solution's accuracy.
+The teacher will distill knowledge into the sparse architecture, therefore increasing its performance while ideally converging to the dense solution's accuracy.
 The recipe encodes the hyperparameters necessary for transfer learning the sparse architecture.
 Specifically, it ensures that the sparsity is preserved through the training process.
 The available recipes for the sparse BERT model you are using are visible on the [SparseZoo](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fbert-base%2Fpytorch%2Fhuggingface%2Fbookcorpus_wikitext%2F12layer_pruned80-none) along with recipes for the other models.
