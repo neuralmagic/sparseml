@@ -85,7 +85,7 @@ If you run out of memory or experience an initial crash, try to lower the batch 
 | Sentiment Analysis         | [SST2](https://nlp.stanford.edu/sentiment/)                                   | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path bert-base-uncased --task_name sst2 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --max_seq_length 128 --output_dir models/teacher --preprocessing_num_workers 16 --num_train_epochs 2 --seed 2021` |
 
 Select the training command that applies to your use case and then run it in your training environment.
-The time to execute the training commands will differ according to dataset and training environment, but generally they should run to completion in less than 12 hours.
+The time to execute the training commands will differ according to dataset and training environment, but generally, they should run to completion in less than 12 hours.
 Once the command has completed, you will have a deployable sparse model located in `models/teacher`.
 
 You are ready to transfer learn the model.
