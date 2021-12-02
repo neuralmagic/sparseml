@@ -32,12 +32,24 @@ The techniques include, but are not limited to:
 
 ## Installation
 
-To begin, run the following command in the root directory of this integration 
-(`cd integrations/yolact`):
+We recommend using a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your project dependencies isolated.
+A virtual environment can be created using the following commands:
 
+```bash
+python3 -m venv venv # create a venv virtual environment
+source venv/bin/activate # activate venv
+pip install --upgrade pip # upgrade pip
+```
+To begin, run the following command in the root directory of this integration 
+(`cd integrations/dbolya-yolact`):
 ```bash
 bash setup_integration.sh
 ```
+
+The `setup_integration.sh` file will clone the yolact-sparseml integration repository. After the repo has successfully cloned, all dependencies from the `yolact/requirements.txt` file will install in your current environment.
+
+Note: This integration requires `python>=3.7,<3.10`
+
 
 ## Quick Tour
 
@@ -60,18 +72,19 @@ Otherwise, all other arguments and functionality remain the same as the original
 | Pruned              | A highly sparse, FP32 model that recovers close to the baseline model.            | zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/pruned90-none       | 0.286        | 30.1 MB      | -- img/sec               |
 | Pruned Quantized    | A highly sparse, INT8 model that recovers reasonably close to the baseline model. | zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/pruned82_quant-none | 0.282        | 9.7 MB       | -- img/sec               |
 
-These models can also be viewed on the [SparseZoo Website](https://staging-sparsezoo.neuralmagic.com/?domain=cv&sub_domain=segmentation&page=1).
+These models can also be viewed on the [SparseZoo Website](https://sparsezoo.neuralmagic.com/?domain=cv&sub_domain=segmentation&page=1).
 
 ### Structure
 
 The following table lays out the root-level files and folders along with a description for each.
 
-| Folder/File Name     | Description                                                                                                           |
-|----------------------|-----------------------------------------------------------------------------------------------------------------------|
-| recipes              | Typical recipes for sparsifying YOLOv5 models along with any downloaded recipes from the SparseZoo.                   |
-| yolact               | Integration repository folder used to train and sparsify YOLACT models (`setup_integration.sh` must run first).         |
-| README.md            | Readme file.                                                                                                          |
-| setup_integration.sh | Setup file for the integration run from the command line.                                                             |
+| Folder/File Name                                | Description                                                                                                           |
+|-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| [recipes](./recipes)                            | Typical recipes for sparsifying YOLACT models along with any downloaded recipes from the SparseZoo.                   |
+| [yolact](./yolact)                              | Integration repository folder used to train and sparsify YOLACT models (`setup_integration.sh` must run first).       |
+| [README.md](./README.md)                        | Readme file.                                                                                                          |
+| [setup_integration.sh](./setup_integrations.sh) | Setup file for the integration run from the command line.                                                             |
+| [tutorials](./tutorials)                        | Easy to follow sparsification tutorials for YOLACT  models.                                                            |
 
 ### Exporting for Inference
 
@@ -83,27 +96,12 @@ corrected and folded properly.
 
 For example, the following command can be run from within the Neural Magic's 
 `yolact` repository folder to export a trained/sparsified model's checkpoint:
-```bash
-python export.py --checkpoint ./quantized-yolact/yolact_darknet53_0_10.pth \
-    --recipe ./recipes/yolact.quantized.md \
-    --save-dir ./exported-test \
-    --name quantized-yolact --batch-size 1 \
-    --image-shape 3 550 550 \
-    --config yolact_darknet53_config
-```
-
-To prevent conversion of a QAT (Quantization-Aware Training) Graph to a
-Quantized Graph, pass in the `--no-qat` flag:
 
 ```bash
-python export.py --checkpoint ./quantized-yolact/yolact_darknet53_0_10.pth \
-    --recipe ./recipes/yolact.quantized.yaml \
-    --save-dir ./exported-test \
-    --name qat-yolact --batch-size 1 \
-    --image-shape 3 550 550 \
-    --config yolact_darknet53_config \
-    --no-qat
+python export.py --checkpoint ./quantized-yolact/model.pth \
+    --name quantized-yolact.onnx
 ```
+
 
 ### DeepSparse
 

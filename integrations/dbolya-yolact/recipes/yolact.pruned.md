@@ -81,23 +81,6 @@ pruning_modifiers:
 
   - !GMPruningModifier
     params:
-      - backbone.layers.3.0.0.weight
-      - backbone.layers.3.1.conv1.0.weight
-      - backbone.layers.3.1.conv2.0.weight
-      - backbone.layers.3.2.conv1.0.weight
-      - backbone.layers.3.2.conv2.0.weight
-      - backbone.layers.3.3.conv1.0.weight
-      - backbone.layers.3.3.conv2.0.weight
-      - backbone.layers.3.4.conv1.0.weight
-      - backbone.layers.3.4.conv2.0.weight
-      - backbone.layers.3.5.conv1.0.weight
-      - backbone.layers.3.5.conv2.0.weight
-      - backbone.layers.3.6.conv1.0.weight
-      - backbone.layers.3.6.conv2.0.weight
-      - backbone.layers.3.7.conv1.0.weight
-      - backbone.layers.3.7.conv2.0.weight
-      - backbone.layers.3.8.conv1.0.weight
-      - backbone.layers.3.8.conv2.0.weight
       - proto_net.0.weight
       - proto_net.2.weight
       - proto_net.4.weight
@@ -162,27 +145,26 @@ pruning_modifiers:
 
 # YOLACT Pruned
 
-This recipe creates a sparse, [YOLACT](https://github.com/dbolya/yolact) model that achieves [TODO:fill recovery] 
-recovery of its baseline accuracy on the COCO dataset 
-(50.16, 46.57 mAP@0.5 baseline vs 49.36, 46.37 mAP@0.5 for this recipe for bounding box, mask).
-Training was done using 4 GPUs at half precision with a total batch size of 64 using the [SparseML integration with dbolya/yolact](../).
-When running, adjust hyperparameters based on training environment and dataset.
+
+This recipe creates a sparse, [YOLACT](https://github.com/dbolya/yolact) model 
+that recovers to 99.37% of its baseline accuracy on the COCO dataset 
+(50.16, 46.57 mAP@0.5 baseline Vs 49.36, 46.37 mAP@0.5 for this recipe for bounding box, mask).
+Training was done using 4 GPUs with a total batch size of 64 using the [SparseML integration with dbolya/yolact](../).
+When running, adjust hyper-parameters based on the training environment and dataset.
 
 ## Training
 
 To set up the training environment, follow the instructions on the [integration README](../README.md).
 Using the given training script from the `yolact` directory the following command can be used to launch this recipe. 
 Adjust the script command for your GPU device setup. 
-YOLACT supports DDP. Currently this repo only supports YOLACT models with a darknet53 backbone.
+
+YOLACT supports DataParallel. Currently, this repo only supports YOLACT models with a DarkNet53 backbone.
+
 
 *script command:*
 
 ```
 python train.py \
---config=yolact_darknet53_config \
---recipe=./recipes/yolact.pruned.md \
---resume=PRETRAINED_WEIGHTS \
---cuda=True \
---start_iter=0 \
---batch_size=8
+--recipe=../recipes/yolact.pruned.md \
+--resume=zoo:cv/segmentation/yolact-darknet53/pytorch/dbolya/coco/base-none
 ```

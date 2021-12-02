@@ -22,6 +22,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   sparseml.onnx.benchmark
    sparseml.onnx.framework
    sparseml.onnx.optim
    sparseml.onnx.sparsification

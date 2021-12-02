@@ -13,40 +13,16 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 
-sparseml.onnx.optim package
-===========================
-
-Subpackages
------------
-
-.. toctree::
-   :maxdepth: 4
-
-   sparseml.onnx.optim.quantization
+sparseml.onnx.benchmark package
+===============================
 
 Submodules
 ----------
 
-sparseml.onnx.optim.analyzer\_model module
-------------------------------------------
+sparseml.onnx.benchmark.info module
+-----------------------------------
 
-.. automodule:: sparseml.onnx.optim.analyzer_model
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-sparseml.onnx.optim.sensitivity\_pruning module
------------------------------------------------
-
-.. automodule:: sparseml.onnx.optim.sensitivity_pruning
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-sparseml.onnx.optim.structured\_pruning module
-----------------------------------------------
-
-.. automodule:: sparseml.onnx.optim.structured_pruning
+.. automodule:: sparseml.onnx.benchmark.info
    :members:
    :undoc-members:
    :show-inheritance:
@@ -54,7 +30,7 @@ sparseml.onnx.optim.structured\_pruning module
 Module contents
 ---------------
 
-.. automodule:: sparseml.onnx.optim
+.. automodule:: sparseml.onnx.benchmark
    :members:
    :undoc-members:
    :show-inheritance:

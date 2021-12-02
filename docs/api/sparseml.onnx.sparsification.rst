@@ -19,10 +19,26 @@ sparseml.onnx.sparsification package
 Submodules
 ----------
 
+sparseml.onnx.sparsification.analyzer module
+--------------------------------------------
+
+.. automodule:: sparseml.onnx.sparsification.analyzer
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 sparseml.onnx.sparsification.info module
 ----------------------------------------
 
 .. automodule:: sparseml.onnx.sparsification.info
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sparseml.onnx.sparsification.model\_info module
+-----------------------------------------------
+
+.. automodule:: sparseml.onnx.sparsification.model_info
    :members:
    :undoc-members:
    :show-inheritance:

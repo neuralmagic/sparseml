@@ -24,9 +24,13 @@ https://www.neuralmagic.com/legal
 
 Package dependencies are defined in the Python setup.py file in this repository's top-level directory and have their own Apache-compatible licenses and terms.
 
+Hugging Face Transformers License https://github.com/huggingface/transformers/blob/master/LICENSE
+
 PyTorch License https://github.com/pytorch/pytorch/blob/master/LICENSE
 
 PyTorch torchvision and models License https://github.com/pytorch/vision/blob/master/LICENSE
+
+Pytorch Image Models (timm) License https://github.com/rwightman/pytorch-image-models/blob/master/LICENSE
 
 TensorFlow License https://github.com/tensorflow/tensorflow/blob/master/LICENSE
 
@@ -34,9 +38,7 @@ Ultralytics YOLOv3 License https://github.com/ultralytics/yolov3/blob/master/LIC
 
 Ultralytics YOLOv5 License https://github.com/ultralytics/yolov5/blob/master/LICENSE
 
-Hugging Face Transformers License https://github.com/huggingface/transformers/blob/master/LICENSE
-
-Pytorch Image Models (timm) License https://github.com/rwightman/pytorch-image-models/blob/master/LICENSE
+YOLACT License https://github.com/dbolya/yolact/blob/master/LICENSE
 
 Some APIs and classes in SparseML make use of fast.ai's 
 Imagenette / Imagewoof dataset https://github.com/fastai/imagenette 
