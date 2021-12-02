@@ -84,7 +84,7 @@ If you run out of memory or experience an initial crash, try to lower the batch 
 | Named Entity Recognition   | [CoNNL2003](https://www.clips.uantwerpen.be/conll2003/ner/)                   | `python transformers/examples/pytorch/token-classification/run_ner.py --model_name_or_path bert-base-uncased --dataset_name conll2003 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --output_dir models/teacher --preprocessing_num_workers 16 --num_train_epochs 5 --seed 2021`              |
 | Sentiment Analysis         | [SST2](https://nlp.stanford.edu/sentiment/)                                   | `python transformers/examples/pytorch/text-classification/run_glue.py --model_name_or_path bert-base-uncased --task_name sst2 --do_train --do_eval --evaluation_strategy epoch --per_device_train_batch_size 32 --learning_rate 5e-5 --max_seq_length 128 --output_dir models/teacher --preprocessing_num_workers 16 --num_train_epochs 2 --seed 2021` |
 
-Select the training command that applies to your use case and then run in your training environment.
+Select the training command that applies to your use case and then run it in your training environment.
 The time to execute the training commands will differ according to dataset and training environment, but generally they should run to completion in less than 12 hours.
 Once the command has completed, you will have a deployable sparse model located in `models/teacher`.
 
