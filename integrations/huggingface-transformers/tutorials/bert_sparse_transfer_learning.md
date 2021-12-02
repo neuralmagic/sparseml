@@ -142,7 +142,7 @@ An example for benchmarking and deploying BERT models with DeepSparse can be fou
 ## Wrap-Up
 
 Neural Magic sparse models and recipes simplify the sparsification process by enabling sparse transfer learning to create highly accurate pruned BERT models.
-In this tutorial, you selected a pre-sparsified model, applied a Neural Magic recipe for sparse transfer learning, and exported to ONNX to run through an inference engine.
+In this tutorial, you selected a pre-sparsified model, applied a Neural Magic recipe for sparse transfer learning, and exported it to ONNX to run through an inference engine.
 
 Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers) for an example for benchmarking and deploying BERT models with DeepSparse.
 
