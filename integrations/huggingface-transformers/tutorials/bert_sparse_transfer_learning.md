@@ -43,7 +43,7 @@ For Neural Magic Support, sign up or log in to get help with your questions in o
 
 For this tutorial, you will use a 12-layer BERT model sparsified to 80% on the Wikitext and BookCorpus dataset. 
 As a good tradeoff between inference performance and accuracy, 
-This 12 layer model gives 3.9x better throughput while recovering close to the dense baseline for most transfer tasks.
+This 12-layer model gives 3.9x better throughput while recovering close to the dense baseline for most transfer tasks.
 
 The SparseZoo stub for this model is `zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/12layer_pruned80-none` and will be used to select the model in the training commands used later. 
 Additional BERT models, including ones with higher sparsity and fewer layers, are found on the [SparseZoo](https://sparsezoo.neuralmagic.com/?page=1&domain=nlp&sub_domain=masked_language_modeling) and can be subbed in place of the 12-layer 80% sparse model for better performance or recovery.
