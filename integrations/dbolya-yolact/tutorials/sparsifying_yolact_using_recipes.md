@@ -161,7 +161,7 @@ convention
  ```
 
 You are ready to use the weights at `yolact/weights/yolact_darknet53_54_800000.pth` with the Neural Magic recipes to create a sparsified model.
-You can also download this baseline, pre-trained checkpoint directly from the [SparseZoo UI](https://staging-sparsezoo.neuralmagic.com/models/cv%2Fsegmentation%2Fyolact-darknet53%2Fpytorch%2Fdbolya%2Fcoco%2Fbase-none),
+You can also download this baseline, pre-trained checkpoint directly from the [SparseZoo UI](https://sparsezoo.neuralmagic.com/models/cv%2Fsegmentation%2Fyolact-darknet53%2Fpytorch%2Fdbolya%2Fcoco%2Fbase-none),
 or pass its model stub directly to the `--resume` argument while invoking the training script.
 ## Applying a Recipe
 
