@@ -41,7 +41,7 @@ For Neural Magic Support, sign up or log in to get help with your questions in o
 
 ## Selecting a Pre-sparsified Model
 
-For this tutorial, you will use a 12-layer BERT model sparsified to 80% on the Wikitext and BookCorpus dataset. 
+For this tutorial, you will use a 12-layer BERT model sparsified to 80% on the Wikitext and BookCorpus datasets. 
 As a good tradeoff between inference performance and accuracy, 
 This 12-layer model gives 3.9x better throughput while recovering close to the dense baseline for most transfer tasks.
 
