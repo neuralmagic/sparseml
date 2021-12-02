@@ -118,7 +118,7 @@ You are ready to export for inference.
 
 ## Exporting for Inference
 
-The sparsification run with the argument `--export_onnx_path` will creates an ONNX model that can be used for deployment. 
+The sparsification run with the argument `--export_onnx_path` will create an ONNX model that can be used for deployment. 
 You can export a model as part of the transfer learning process by inserting this argument to the previous transfer commands or after the transfer command has completed.
 To keep the steps succinct, this tutorial runs the export as a separate process.
 
