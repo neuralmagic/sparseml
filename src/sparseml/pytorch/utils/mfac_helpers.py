@@ -49,6 +49,7 @@ __all__ = [
     "FisherInverseFast",
     "FisherInverseFastBlock",
     "FisherInverseFastPageSwap",
+    "FisherInverseFastSmallBlocks",
     "compute_hessian_inv",
 ]
 
@@ -612,6 +613,159 @@ class FisherInverseFastPageSwap(FisherInverse):
             page_offset : (self._samples_per_page + page_offset), :
         ] = fisher_inv_buf_gpu.to("cpu")
         del fisher_inv_buf_gpu
+
+
+class FisherInverseFastSmallBlocks(FisherInverse):
+    """
+    Implementation of computing the inverse Fisher matrix values based on the
+    M-FAC paper that is optimized for speed for small block sizes
+
+    :param grads: tensor of gradient samples to compute the inverse Fisher product
+        with. Dimension should be (num_samples, num_parameters)
+    :param block_size: size of blocks to form along diagonal of the Fisher matrix
+    :param damp: the dampening factor. Default is 1e-5
+    :param devices: list of GPU device ids to use for computation. Default is to use cpu
+    :param alpha: alpha value for add step
+    """
+
+    def __init__(
+        self,
+        grads: Tensor,
+        block_size: int,
+        damp: float = 1e-5,
+        devices: List[torch.device] = None,
+        alpha: float = 0.0,
+    ):
+        self._dtype = grads.dtype
+        self._block_size = block_size
+        self._devices = devices or ["cpu"]
+        self._alpha = alpha
+
+        self._num_samples, self._num_params = grads.shape
+        self._num_blocks = math.ceil(self._num_params / block_size)
+
+        num_devices = len(self._devices)
+        target_blocks_per_device = math.ceil(self._num_blocks / num_devices)
+        self._num_blocks_per_device = [target_blocks_per_device] * (num_devices - 1)
+        self._num_blocks_per_device.append(
+            # add remainding blocks to last devices
+            self._num_blocks
+            - sum(self._num_blocks_per_device)
+        )
+
+        # initialize H_invs on each device
+        self._hinvs = [
+            self._init_hinv(num_blocks, damp, self._devices[idx], grads.dtype)
+            for idx, num_blocks in enumerate(self._num_blocks_per_device)
+        ]
+
+        # build hinv_g values from grad samples
+        for sample_idx in range(self._num_samples):
+            self._hinvs = self._add(grads[sample_idx, :].to(self._devices[0]))
+
+    def diag(self) -> Tensor:
+        """
+        :return: the entries along the diagonal entries of the inverse Fisher matrix
+        """
+        diag_slices = [
+            torch.diagonal(self._hinvs[idx], dim1=1, dim2=2)
+            .reshape(-1)
+            .to(self._devices[0])  # move all to same device after computation
+            for idx in range(len(self._devices))
+        ]
+        return torch.cat(diag_slices)[: self._num_params]
+
+    def mul(self, x: Tensor) -> Tensor:
+        """
+        :param x: tensor to multiply with the inverse Fisher matrix
+        :return: the matrix multiplied value of x and the inverse Fisher matrix
+        """
+        x = self._pad(x).reshape((-1, self._block_size)).unsqueeze(2)
+        mul_slices = []
+        for idx, device in enumerate(self._devices):
+            x_slice = x[
+                int(
+                    torch.sum(torch.tensor(self._num_blocks_per_device[:idx])).item()
+                ) : int(
+                    torch.sum(
+                        torch.tensor(self._num_blocks_per_device[: idx + 1])
+                    ).item()
+                )
+            ].to(device)
+            mul_slice = (
+                torch.bmm(self._hinvs[idx], x_slice)
+                .reshape(-1)
+                .to(self._devices[0])  # move all to same device after computation
+            )
+            mul_slices.append(mul_slice)
+        return torch.cat(mul_slices)[: self._num_params]
+
+    def _init_hinv(
+        self,
+        num_blocks: int,
+        damp: float,
+        device: torch.device,
+        dtype: torch.dtype,
+    ):
+        # initialize hinv to num_blocks diagonal blocks of size blocksize
+        base_block = torch.diag(
+            torch.full([self._block_size], 1.0 / damp, dtype=dtype, device=device)
+        )
+        return torch.repeat_interleave(base_block.unsqueeze(0), num_blocks, 0)
+
+    def _add(self, grad_sample: Tensor):
+        # add gradient sample into H_invs
+        num_params_per_device = [
+            num_blocks_device * self._block_size
+            for num_blocks_device in self._num_blocks_per_device
+        ]
+
+        for idx, device in enumerate(self._devices):
+            grad_sample_slice = grad_sample[
+                int(torch.sum(torch.tensor(num_params_per_device[:idx])).item()) : int(
+                    torch.sum(torch.tensor(num_params_per_device[: idx + 1])).item()
+                )
+            ]
+            if len(grad_sample_slice) % self._block_size != 0:
+                # pad to block size
+                pad_vals = torch.zeros(
+                    self._block_size - len(grad_sample_slice) % self._block_size
+                )
+                grad_sample_slice = torch.cat(
+                    [grad_sample_slice, pad_vals.to(grad_sample.device)]
+                )
+            grads_blocked_device = grad_sample_slice.to(device).reshape(
+                (-1, self._block_size)
+            )
+
+            hinv_g_slice = torch.bmm(
+                self._hinvs[idx], grads_blocked_device.unsqueeze(2)
+            )
+
+            denom = (
+                self._num_samples
+                + torch.bmm(grads_blocked_device.unsqueeze(1), hinv_g_slice)
+            ).squeeze(2)
+
+            hinv_g_slice = hinv_g_slice.reshape(-1, self._block_size)
+
+            for idx_block in range(self._block_size):
+                # update h_inv calculation across block dims
+                self._hinvs[idx][:, idx_block, :] -= hinv_g_slice * (
+                    hinv_g_slice[:, idx_block].unsqueeze(1) / denom
+                )
+
+        return self._hinvs
+
+    def _pad(self, x: Tensor):
+        # pad 1-d tensor to num_blocks * block_size
+        padded_x = torch.zeros(
+            self._num_blocks * self._block_size,
+            dtype=self._hinvs[0].dtype,
+            device=self._hinvs[0].device,
+        )
+        padded_x[: x.size(0)] = x
+        return padded_x
 
 
 def compute_hessian_inv(
