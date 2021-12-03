@@ -39,8 +39,6 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.parallel.parallel_apply import parallel_apply
 
-from sparseml.pytorch.utils import tensors_module_forward
-
 
 __all__ = [
     "GradSampler",
