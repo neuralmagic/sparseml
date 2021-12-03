@@ -296,6 +296,9 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
     def __init__(self, params: List[Parameter], mfac_options: MFACOptions = None):
         super().__init__(params)
 
+        # control when to do live gradient buffering, enabled by default
+        self.buffer_grads = True
+
         self._mfac_options = mfac_options or MFACOptions()
         self._unpruned_idxs = [None] * len(self._params)  # type: List[Tensor]
         self._grad_buffer = None  # type: Tensor
@@ -395,7 +398,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         :param masks: latest masks that are applied to these parameters
         """
 
-        if any(param.grad is None for param in self._params):
+        if not self.buffer_grads or any(param.grad is None for param in self._params):
             # only update buffer if all gradients are computed
             return
 

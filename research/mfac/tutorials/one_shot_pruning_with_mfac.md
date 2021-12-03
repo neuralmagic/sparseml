@@ -106,6 +106,19 @@ to extract gradients from the model to prune with. The code block below
 creates a `GradSampler` that has a data loader that loads the MNIST dataset to the correct
 device at batch size 16 and has a cross entropy loss function.
 
+The data loader must yield tuples of 
+`(forward_args: List, forward_kwargs: Dict, loss_targets: Any)`
+so that the forward and backwards passes may be run with the loss function as:
+```python
+forward_args, forward_kwargs, loss_targets = next(data_loader)
+
+forward_outputs = module(*forward_args, **forward_kwargs)
+loss = loss_fn(forward_outputs, loss_targets)
+loss.backwards()
+```
+
+Run the code below to create the grad sampler:
+
 ```python
 from torch.utils.data import DataLoader
 from sparseml.pytorch.datasets import MNISTDataset
@@ -118,11 +131,12 @@ data_loader = DataLoader(dataset, shuffle=True, batch_size=16)
 # wrap data loader to send data to correct device 
 def device_data_loader():
     for sample in data_loader:
-        yield [t.to(device) if isinstance(t, torch.Tensor) else t for t in sample]
+        img, target = [t.to(device) if isinstance(t, torch.Tensor) else t for t in sample]
+        yield [img], {}, target
 
 # wrap cross entropy loss function to use correct output
-def loss_function(x, y):
-    return torch.nn.functional.cross_entropy(x[0], y)
+def loss_function(model_outputs, loss_target):
+    return torch.nn.functional.cross_entropy(model_outputs[0], loss_target)
 
 # create grad sampler with the created data laoder and loss function
 grad_sampler = GradSampler(device_data_loader(), loss_function)

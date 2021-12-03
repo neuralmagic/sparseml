@@ -1149,6 +1149,7 @@ class MFACPruningModifier(_GMPruningModifier):
             score_type="MFAC",
         )
         self._mfac_options = mfac_options or {}
+        self._grad_sampler = None
 
     @ModifierProp(serializable=False)
     def score_type(self) -> str:
@@ -1169,13 +1170,50 @@ class MFACPruningModifier(_GMPruningModifier):
         """
         return self._mfac_options
 
+    def initialize(
+        self,
+        module: Module,
+        epoch: float = 0,
+        loggers: Optional[List[BaseLogger]] = None,
+        **kwargs,
+    ):
+        """
+        Grab the layers and apply if epoch in range to control pruning for.
+        If `grad_sampler: GradSampler` is present in kwargs, then will add
+        it to this class and use the sampler instead of live gradient buffering
+
+        :param module: the PyTorch model/module to modify
+        :param epoch: The epoch to initialize the modifier and module at.
+            Defaults to 0 (start of the training process)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers.
+        """
+        if "grad_sampler" in kwargs:
+            # set grad sampler, must be done before initialize in case pruning step
+            # occurs on initialize epoch
+            grad_sampler = kwargs["grad_sampler"]
+            if not isinstance(grad_sampler, GradSampler):
+                raise ValueError(
+                    "grad_sampler must be an instance of the GradSampler class"
+                )
+            self._grad_sampler = grad_sampler
+
+        super().initialize(module, epoch, loggers, **kwargs)
+
+        if self._grad_sampler is not None:
+            # disable gradient buffering until sampler is invoked
+            self.module_masks.scorer.buffer_grads = False
+
     def _check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
     ):
         # create grads for pne-shot pruning
-        if "grad_sampler" in kwargs:
+        if self._grad_sampler is not None:
+            self.module_masks.scorer.buffer_grads = True  # enable buffering
             self._collect_grad_samples(module, kwargs["grad_sampler"])
             self._pre_step_completed = True
+            self.module_masks.scorer.buffer_grads = False  # re-disable buffering
 
         super()._check_mask_update(module, epoch, steps_per_epoch, **kwargs)
 

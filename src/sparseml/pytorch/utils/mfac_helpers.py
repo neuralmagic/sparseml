@@ -60,16 +60,18 @@ class GradSampler:
     loss function.
 
     :param data_loader: iterator of data samples to use as model inputs and their loss
-        targets. Samples can either be single tensors as model input or a list of
-        inputs and should be iterated in tuples with their targets
+        targets. items must be tuples of
+        (forward_args: List, forward_kwargs: Dict, loss_targets: Any)
+        where the forward pass will be outputs = model(*forward_args, **forward_kwargs)
+        and loss will be loss = loss_fn(outputs, loss_targets)
     :param loss_fn: function to be called on model outputs to compute the loss at
         each step
     """
 
     def __init__(
         self,
-        data_loader: Iterator[Tuple[Union[Tensor, List[Tensor]], Any]],
-        loss_fn: Callable[[Tensor], Tensor],
+        data_loader: Iterator[Tuple[List[Any], Dict[str, Any], Any]],
+        loss_fn: Callable[[Any], Any],
     ):
         if not isinstance(data_loader, Iterable):
             raise ValueError(
@@ -85,33 +87,10 @@ class GradSampler:
         self._data_loader = data_loader
         self._loss_fn = loss_fn
 
-    def module_forward(self, module: Module, data: Union[Tensor, List[Tensor]]) -> Any:
-        """
-        :param module: module to perform forward pass with
-        :param data: single data sample to pass to module
-        :return: output(s) of the module forward pass
-        """
-        if isinstance(data, Tensor):
-            data = [data]
-
-        return tensors_module_forward(*data, module)
-
-    def module_backward(self, module_outputs: Any, targets: Any):
-        """
-        Computes module loss based on the given module outputs, target data and loss
-        function
-
-        :param module_outputs: outputs of a forward pass from a module
-        :param targets: target outputs for the module to be used for the loss function
-        """
-        loss = self._loss_fn(module_outputs, targets)
-        loss.backward()
-
     def iter_module_backwards(
         self, module: Module, num_grads: int
     ) -> Generator[int, None, None]:
         """
-
         :param module: module to compute gradients for
         :param num_grads: number of gradient samples to compute
         :return: generator that yields after every gradient is computed with the index
@@ -120,10 +99,12 @@ class GradSampler:
         computed_grads = 0
 
         while computed_grads < num_grads:
-            for sample, target in self._data_loader:
+            for forward_args, forward_kwargs, loss_target in self._data_loader:
+                module.zero_grad()
                 # run sample forward and backwards pass
-                model_outputs = self.module_forward(module, sample)
-                self.module_backward(model_outputs, target)
+                model_outputs = module(*forward_args, **forward_kwargs)
+                loss = self._loss_fn(model_outputs, loss_target)
+                loss.backward()
 
                 # yield so gradients can be collected
                 computed_grads += 1
@@ -131,7 +112,7 @@ class GradSampler:
 
                 if computed_grads >= num_grads:
                     break
-                module.zero_grad()
+        module.zero_grad()
 
 
 @dataclass
