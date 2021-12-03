@@ -782,7 +782,13 @@ def compute_hessian_inv(
     if not mfac_options:
         mfac_options = MFACOptions()
     if mfac_options.fisher_block_size:
-        return FisherInverseFastBlock(
+        block_fisher_class = (
+            FisherInverseFastSmallBlocks
+            if mfac_options.fisher_block_size <= 512
+            and (mfac_options.fisher_block_size <= mfac_options.num_grads)
+            else FisherInverseFastBlock
+        )
+        return block_fisher_class(
             grads,
             mfac_options.fisher_block_size,
             damp=mfac_options.damp,
