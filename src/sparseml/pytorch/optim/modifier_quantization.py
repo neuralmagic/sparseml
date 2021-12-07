@@ -22,6 +22,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 import logging
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
+import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
@@ -416,11 +417,17 @@ class QuantizationModifier(ScheduledModifier):
         if not self._calibration_dataloader or not self._qat_enabled:
             return
 
-        _LOGGER.info("Calibrating module for static quantization")
+        _LOGGER.info("Running quantization calibration using calibration_dataloader")
+
+        module_training = module.training
         module.eval()
-        module.apply(torch_intrinsic.qat.freeze_bn_stats)
+
         for batch in self._calibration_dataloader:
-            tensors_module_forward(batch, module)
+            with torch.no_grad():
+                tensors_module_forward(batch, module)
+
+        if module_training:
+            module.train()
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
         return (
