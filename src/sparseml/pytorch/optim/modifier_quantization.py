@@ -20,7 +20,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 
 
 import logging
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Union
 
 import torch
 from torch.nn import Module
