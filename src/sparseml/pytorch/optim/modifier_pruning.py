@@ -1211,7 +1211,7 @@ class MFACPruningModifier(_GMPruningModifier):
         # create grads for pne-shot pruning
         if self._grad_sampler is not None:
             self.module_masks.scorer.buffer_grads = True  # enable buffering
-            self._collect_grad_samples(module, kwargs["grad_sampler"])
+            self._collect_grad_samples(module, self._grad_sampler)
             self._pre_step_completed = True
             self.module_masks.scorer.buffer_grads = False  # re-disable buffering
 
