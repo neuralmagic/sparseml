@@ -348,6 +348,22 @@ def add_quant_dequant(module, name=None, parent_module=None):
     return module
 
 
+class WeightMinMaxObserver(torch_quantization.MinMaxObserver):
+    """
+    Support for resetting observed quantization range values on every check for MinMax
+    observer. Equivalent to memoryless kwarg added to MinMaxObserver on 11/2021,
+    implemented here for backwards compatibility
+    """
+
+    def forward(self, x_orig):
+        if x_orig.numel() == 0:
+            return x_orig
+        self.min_val.copy_(torch.tensor(float("inf")))
+        self.max_val.copy_(torch.tensor(float("-inf")))
+        import pdb; pdb.set_trace()
+        return super().forward(x_orig)
+
+
 def get_qat_qconfig(
     symmetric_activations: bool = False,
     symmetric_weights: bool = True,
@@ -383,7 +399,7 @@ def get_qat_qconfig(
         torch.per_tensor_symmetric if symmetric_weights else torch.per_tensor_affine
     )
     weight_observer = torch_quantization.FakeQuantize.with_args(
-        observer=torch_quantization.MovingAverageMinMaxObserver,
+        observer=WeightMinMaxObserver,
         quant_min=-128,
         quant_max=127,
         dtype=torch.qint8,
@@ -534,3 +550,4 @@ def _wrap_bn_sub_class(bn_subclass, override_forward=True):
         batch_norm.forward = bn_subclass.forward
     del bn_subclass
     return batch_norm
+

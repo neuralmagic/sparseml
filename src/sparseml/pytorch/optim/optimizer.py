@@ -17,7 +17,7 @@ Optimizer wrapper for enforcing Modifiers on the training process of a Module.
 """
 
 import warnings
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
 from torch import Tensor
 from torch.nn import Module
@@ -68,7 +68,8 @@ class ScheduledOptimizer(Optimizer):
         when not using can result in irregularities
     :param loggers: loggers to log important info to within the modifiers;
         ex tensorboard or to the console
-
+    :param initialize_kwargs: key word arguments and values to be passed to
+        the recipe manager initialize function
     """
 
     def __init__(
@@ -78,6 +79,7 @@ class ScheduledOptimizer(Optimizer):
         manager: ScheduledModifierManager,
         steps_per_epoch: int,
         loggers: Union[List[BaseLogger], None] = None,
+        initialize_kwargs: Dict[str, Any] = None,
     ):
         # do not call into super since this instance is not passing all calls to
         # the nested optimizer
@@ -87,7 +89,8 @@ class ScheduledOptimizer(Optimizer):
         #     UserWarning,
         # )  TODO: uncomment in next release once docs are ready
 
-        manager.initialize(module, epoch=0.0, loggers=loggers)
+        initialize_kwargs = initialize_kwargs or {}
+        manager.initialize(module, epoch=0.0, loggers=loggers, **initialize_kwargs)
         self._wrapper = RecipeManagerStepWrapper(
             optimizer,
             optimizer,
@@ -186,3 +189,4 @@ class ScheduledOptimizer(Optimizer):
             "Please replace with manager.initialize and manager.modify",
             UserWarning,
         )
+
