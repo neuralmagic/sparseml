@@ -703,6 +703,13 @@ class GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
             # have changed (optimizer with momentum, not masking gradient)
             self._module_masks.apply()
 
+        optim_state_dict = optimizer.state_dict()
+        if self.phased and self._sparsity_applied and "state" in optim_state_dict:
+            # zero out optimizer momentum buffers on phase changes
+            for param_buffers in optim_state_dict["state"].values():
+                if "momentum_buffer" in param_buffers:
+                    param_buffers["momentum_buffer"].mul_(0.0)
+
         self._sparsity_applied = False
 
     def _check_mask_update(
