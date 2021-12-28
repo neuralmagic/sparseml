@@ -138,12 +138,11 @@ def _test_analysis_comparison(
     is_perf: bool,
 ):
     expected_layers_by_id = {layer["id"]: layer for layer in expected_layers}
-    layer_pairs = []  # List[(expected_layer, actual_layer)]
-    for actual_layer in actual_layers:
-        if actual_layer["id"] in expected_layers_by_id:
-            layer_pairs.append(
-                (expected_layers_by_id[actual_layer["id"]], actual_layer)
-            )
+    layer_pairs = [
+        (expected_layers_by_id[actual_layer["id"]], actual_layer)
+        for actual_layer in actual_layers
+        if actual_layer["id"] in expected_layers_by_id
+    ]  # List[(expected_layer, actual_layer)]
 
     if is_perf:
         # check that enough layers have a match that we can test engine perf groupings
