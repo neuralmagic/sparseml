@@ -147,6 +147,8 @@ def _test_analysis_comparison(
     if is_perf:
         # check that enough layers have a match that we can test engine perf groupings
         # may change between releases so may not always be able to line up all layers
+        # consider updating golden files if these checks fail and perf results look as
+        # expected
         assert len(layer_pairs) / len(actual_layers) >= 0.9
         assert abs(len(actual_layers) - len(expected_layers)) <= 5
     else:
