@@ -133,8 +133,28 @@ def _create_sensitivity_ks_data(
 
 
 def _test_analysis_comparison(
-    expected_layers: Dict[str, Any], actual_layers: Dict[str, Any]
+    expected_layers: List[Dict[str, Any]],
+    actual_layers: List[Dict[str, Any]],
+    is_perf: bool,
 ):
+    expected_layers_by_id = {layer["id"]: layer for layer in expected_layers}
+    layer_pairs = [
+        (expected_layers_by_id[actual_layer["id"]], actual_layer)
+        for actual_layer in actual_layers
+        if actual_layer["id"] in expected_layers_by_id
+    ]  # List[(expected_layer, actual_layer)]
+
+    if is_perf:
+        # check that enough layers have a match that we can test engine perf groupings
+        # may change between releases so may not always be able to line up all layers
+        # consider updating golden files if these checks fail and perf results look as
+        # expected
+        assert len(layer_pairs) / len(actual_layers) >= 0.9
+        assert abs(len(actual_layers) - len(expected_layers)) <= 5
+    else:
+        # check that all layers have a match
+        assert len(layer_pairs) == len(actual_layers) == len(expected_layers)
+
     exact_equal_fields = ["id", "baseline_measurement_index", "has_baseline"]
     approximate_equal_fields = [
         ("baseline_average", 5e-3),
@@ -142,7 +162,10 @@ def _test_analysis_comparison(
         ("sparse_integral", 5e-3),
         ("sparse_comparison", 5e-3),
     ]
-    for expected_layer, actual_layer in zip(expected_layers, actual_layers):
+
+    for expected_layer, actual_layer in layer_pairs:
+        if actual_layer["id"] is None:
+            continue  # cannot match None id
         for key in exact_equal_fields:
             if key not in expected_layer and key not in actual_layer:
                 continue
@@ -183,7 +206,7 @@ def test_approx_ks_loss_sensitivity(
         expected_analysis.dict()["results"], key=lambda x: x["index"]
     )
     actual_layers = sorted(analysis.dict()["results"], key=lambda x: x["index"])
-    _test_analysis_comparison(expected_layers, actual_layers)
+    _test_analysis_comparison(expected_layers, actual_layers, False)
 
 
 @flaky(max_runs=2, min_passes=1)
@@ -215,7 +238,7 @@ def test_one_shot_ks_loss_sensitivity(
         key=lambda x: x["index"],
     )
 
-    _test_analysis_comparison(expected_layers, actual_layers)
+    _test_analysis_comparison(expected_layers, actual_layers, False)
 
 
 @pytest.mark.skipif(
@@ -253,4 +276,4 @@ def test_one_shot_ks_perf_sensitivity(
         key=lambda x: x["index"],
     )
 
-    _test_analysis_comparison(expected_layers, actual_layers)
+    _test_analysis_comparison(expected_layers, actual_layers, True)
