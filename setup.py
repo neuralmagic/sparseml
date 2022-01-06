@@ -127,7 +127,7 @@ def _setup_extras() -> Dict:
 
 
 _transformers_entry_point_template = (
-    "sparseml.transformers.train.{task}=" "sparseml.transformers.train.{task}:main"
+    "sparseml.transformers.train.{task}=sparseml.transformers.train.{task}:main"
 )
 
 
