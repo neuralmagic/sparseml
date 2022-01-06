@@ -18,25 +18,9 @@ Tools for integrating SparseML with transformers training flows
 
 # flake8: noqa
 
-try:
-    import transformers as _transformers
-
-    transformers_import_error = None
-except Exception as transformers_import_err:
-    transformers_import_error = transformers_import_err
-
-
-def _check_transformers_install():
-    if transformers_import_error is None:
-        return
-    raise ImportError(
-        "No installation of transformers found. It is recommended to use the "
-        "sparseml fork of transformers which can be installed under "
-        "sparseml[transformers] or git+https://github.com/neuralmagic/transformers.git"
-    )
-
-
-_check_transformers_install()
-
-from .utils.helpers import *
-from .utils.trainer import *
+from .helpers import *
+from .language_modeling import *
+from .question_answering import *
+from .text_classification import *
+from .token_classification import *
+from .trainer import *

@@ -21,7 +21,7 @@ import json
 import logging
 import math
 import os
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 from transformers import (
@@ -36,7 +36,7 @@ from sparseml.pytorch.optim import LayerPruningModifier, QuantizationModifier
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.optim.optimizer import ScheduledOptimizer
 from sparseml.pytorch.utils import logger
-from sparseml.transformers.helpers import RECIPE_NAME
+from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
 __all__ = [
@@ -45,7 +45,7 @@ __all__ = [
 ]
 
 
-_LOGGER = logging.get_logger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 class SparseMLTrainer:
@@ -58,38 +58,52 @@ class SparseMLTrainer:
 
     i.e. class MyCustomTrainer(SparseMLTrainer, Trainer)
 
-    :param recipe: recipe for model sparsification
-    :param teacher: teacher model for distillation
-    :param distill_hardness: ratio of loss by teacher targets (between 0 and 1)
-    :param distill_temperature: temperature for distillation
+    :param model_name_or_path: path to model directory to be trained
+    :param recipes: list of paths to recipes for model sparsification or string
+        recipes for sparsification. Can also be single string path or recipe
+    :param teacher: teacher model for distillation. Default is None
+    :param recipe_args: Dictionary of recipe variables to override or json
+        loadable string of those args. Default is None
+    :param teacher_input_keys: keywords of inputs to select from student inputs dict
+        to also be passed to a the teacher model. Can be useful to avoid extra
+        computation in forward pass that is not necessary for distillation. Defaults
+        to passing all student inputs to teacher
     :param args: arguments passed into parent class
     :param kwargs: key word arguments passed to the parent class
     """
 
     def __init__(
         self,
-        model_name_or_path,
-        recipes,
-        teacher=None,
-        recipe_args=None,
+        model_name_or_path: str,
+        recipes: Union[str, List[str]],
+        teacher: Optional[torch.nn.Module] = None,
+        recipe_args: Union[Dict[str, Any], str] = None,
+        teacher_input_keys: Optional[List[str]] = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.model_name_or_path = str(model_name_or_path)
-        self.recipes = [recipe for recipe in recipes if recipe]
+        self.recipes = (
+            [recipes]
+            if isinstance(recipes, str)
+            else [recipe for recipe in recipes if recipe]
+        )
         self.teacher = teacher
         if self.teacher is not None:
             self.teacher.eval()
+        self.teacher_input_keys = teacher_input_keys
         self.criterion = torch.nn.CrossEntropyLoss()
 
         if recipe_args is not None:
-            recipe_args = json.loads(recipe_args)
+            if isinstance(recipe_args, str):
+                recipe_args = json.loads(recipe_args)
             if not isinstance(recipe_args, Dict):
                 raise ValueError("Cannot convert recipe arguments into dictionary")
         else:
             recipe_args = {}
 
+        # combine all recipes into single manager
         manager = None
         modifiers = []
         for recipe in self.recipes:
@@ -218,6 +232,12 @@ class SparseMLTrainer:
         student_outputs = model(**inputs)
         loss = student_outputs["loss"]
 
+        teacher_inputs = (
+            inputs
+            if not self.teacher_input_keys
+            else {k: inputs[k] for k in self.teacher_input_keys}
+        )
+
         steps_in_epoch = -1  # Unused
         loss = self.manager.loss_update(
             loss,
@@ -227,7 +247,7 @@ class SparseMLTrainer:
             steps_in_epoch,
             global_step=self.state.global_step,
             student_outputs=student_outputs,
-            teacher_inputs=inputs,
+            teacher_inputs=teacher_inputs,
         )
         return (loss, student_outputs) if return_outputs else loss
 
@@ -283,6 +303,10 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         Event called at the beginning of an epoch. Disables
         """
         super().on_epoch_begin(args, state, control, **kwargs)
-        if self._trainer.scaler._enabled and self._trainer.qat_active(state.epoch):
+        if (
+            hasattr(self._trainer, "scaler")
+            and self._trainer.scaler._enabled
+            and (self._trainer.qat_active(state.epoch))
+        ):
             _LOGGER.info("entering QAT phase, disabling FP16 training")
             self.scaler._enabled = False

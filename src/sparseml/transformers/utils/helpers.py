@@ -19,6 +19,7 @@ flows
 
 
 import os
+from typing import Any, Dict
 
 import torch
 from transformers.file_utils import WEIGHTS_NAME
@@ -36,11 +37,12 @@ __all__ = [
 RECIPE_NAME = "recipe.yaml"
 
 
-def load_recipe(pretrained_model_name_or_path):
+def load_recipe(pretrained_model_name_or_path: str) -> str:
     """
-    Load recipe from the model directory
+    Get path to recipe from the model directory
 
-    :param pretrained_model_name_or_path: name or path to model
+    :param pretrained_model_name_or_path: path to model directory
+    :return: path to recipe
     """
     recipe = None
     if pretrained_model_name_or_path is not None:
@@ -51,7 +53,7 @@ def load_recipe(pretrained_model_name_or_path):
     return recipe
 
 
-def preprocess_state_dict(pretrained_model_name_or_path: str):
+def preprocess_state_dict(pretrained_model_name_or_path: str) -> Dict[str, Any]:
     """
     Restore original parameter names that were changed by QAT process
 

@@ -30,6 +30,12 @@ version_nm_deps = f"{version_major_minor}.0"
 
 _PACKAGE_NAME = "sparseml" if is_release else "sparseml-nightly"
 
+transformers_branch = "master" if not is_release else f"release/{version_major_minor}"
+transformers_requirement = (
+    "transformers @ git+https://github.com/neuralmagic/transformers.git"
+    f"@{transformers_branch}"
+)
+
 _deps = [
     "jupyter>=1.0.0",
     "ipywidgets>=7.0.0",
@@ -63,6 +69,13 @@ _tensorflow_v1_gpu_deps = [
     "tf2onnx>=1.0.0,<1.6",
 ]
 _keras_deps = ["tensorflow~=2.2.0", "keras2onnx>=1.0.0"]
+_transformers_deps = [
+    "torch>=1.1.0,<1.9.0",
+    transformers_requirement,
+    "datasets",
+    "sklearn",
+    "seqeval",
+] + _pytorch_deps[1:]
 
 _dev_deps = [
     "beautifulsoup4==4.9.3",
@@ -109,7 +122,13 @@ def _setup_extras() -> Dict:
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
+        "transformers": _transformers_deps,
     }
+
+
+_transformers_entry_point_template = (
+    "sparseml.transformers.train.{task}=" "sparseml.transformers.train.{task}:main"
+)
 
 
 def _setup_entry_points() -> Dict:
@@ -118,6 +137,10 @@ def _setup_entry_points() -> Dict:
             "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
+            _transformers_entry_point_template.format(task="question_answering"),
+            _transformers_entry_point_template.format(task="text_classification"),
+            _transformers_entry_point_template.format(task="token_classification"),
+            _transformers_entry_point_template.format(task="language_modeling"),
         ]
     }
 
