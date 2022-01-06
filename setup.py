@@ -141,6 +141,7 @@ def _setup_entry_points() -> Dict:
             _transformers_entry_point_template.format(task="text_classification"),
             _transformers_entry_point_template.format(task="token_classification"),
             _transformers_entry_point_template.format(task="language_modeling"),
+            "sparseml.transformers.export_onnx=sparseml.transformers.utils.export:main",
         ]
     }
 
