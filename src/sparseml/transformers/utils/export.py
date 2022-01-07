@@ -178,7 +178,7 @@ def export_transformer_to_onnx(
     return onnx_file_path
 
 
-def parse_args() -> argparse.ArgumentParser:
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Export a trained transformers model to an ONNX file"
     )
@@ -187,7 +187,7 @@ def parse_args() -> argparse.ArgumentParser:
         "--task",
         type=str,
         required=True,
-        help="task to create the model for. i.e. mlm, qa, glue, ner",
+        help="Task to create the model for. i.e. mlm, qa, glue, ner",
     )
     parser.add_argument(
         "--model_path",
@@ -217,7 +217,7 @@ def parse_args() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help=(
-            "optional finetuning task for text classification and token "
+            "Optional finetuning task for text classification and token "
             "classification exports"
         ),
     )
@@ -226,7 +226,7 @@ def parse_args() -> argparse.ArgumentParser:
         type=str,
         default="model.onnx",
         help=(
-            "name for exported ONNX file in the model directory. "
+            "Name for exported ONNX file in the model directory. "
             "Default and reccomended value for pipeline compatibility is 'model.onnx'"
         ),
     )
@@ -235,7 +235,7 @@ def parse_args() -> argparse.ArgumentParser:
 
 
 def main():
-    args = parse_args()
+    args = _parse_args()
     _LOGGER.info(f"Exporting {args.model_path} to ONNX")
     onnx_path = export_transformer_to_onnx(
         task=args.task,
