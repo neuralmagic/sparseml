@@ -175,7 +175,6 @@ from sparseml.pytorch.utils import (
     tensor_sparsity,
 )
 
-
 CURRENT_TASK = utils.Tasks.TRAIN
 LOGGER = get_main_logger()
 
@@ -249,23 +248,27 @@ class TrainingArguments:
     :param loader_pin_memory: bool to use pinned memory for data loading,
         default=True.
     """
-
+    # quick hack to run the code without inputting arguments
     train_batch_size: int = field(
+        default=4,
         metadata={"help": "The batch size to use while training"}
     )
 
     test_batch_size: int = field(
+        default=4,
         metadata={"help": "The batch size to use while testing"}
     )
     arch_key: str = field(
+        default = "resnet50",
         metadata={
             "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
-            "put as help to see the full list (will raise an exception"
-            "with the list)",
+                    "put as help to see the full list (will raise an exception"
+                    "with the list)",
         }
     )
 
     dataset: str = field(
+        default = "imagenette",
         metadata={
             "help": "The dataset to use for training, "
             "ex: imagenet, imagenette, cifar10, etc. "
@@ -276,6 +279,7 @@ class TrainingArguments:
     )
 
     dataset_path: str = field(
+        default = "~/datasets/imagenette",
         metadata={
             "help": "The root path to where the dataset is stored",
         }
@@ -321,7 +325,7 @@ class TrainingArguments:
     )
 
     recipe_path: str = field(
-        default=None,
+        default="/Users/damian/Code/nm/sparseml/integrations/pytorch/original.md",
         metadata={
             "help": "The path to the yaml file containing the modifiers and "
             "schedule to apply them with. Can also provide a "
@@ -454,6 +458,14 @@ class TrainingArguments:
         default=True, metadata={"help": "Use pinned memory for data loading"}
     )
 
+    alpha: float = field(
+        default=0.0,
+        metadata={
+            "help": "Label smoothing parameter alpha. If alpha = 0.0, there is no label smoothing."
+                    "If alpha = 1.0, the labels are smoothed out completely "
+                    "resulting uniform distribution"
+        },
+    )
     def __post_init__(self):
         # add ddp args
         env_world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -513,10 +525,12 @@ def train(
     :param loggers: List of loggers to use during training process
     """
     # loss setup
-    val_loss = utils.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
+
+    val_loss = utils.get_loss_wrapper(arch_key=train_args.arch_key, alpha=train_args.alpha,
+                                      training=False)  # potential bug?
     LOGGER.info(f"created loss for validation: {val_loss}")
 
-    train_loss = utils.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
+    train_loss = utils.get_loss_wrapper(arch_key=train_args.arch_key, alpha=train_args.alpha, training=True)
     LOGGER.info(f"created loss for training: {train_loss}")
 
     # training setup

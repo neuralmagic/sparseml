@@ -22,6 +22,7 @@ from typing import Any, List, Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from torch.nn import functional as torch_functional
+from sparseml.pytorch.utils.cross_entropies import CrossEntropyLoss
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
@@ -282,7 +283,7 @@ def infer_num_classes(args: Any, train_dataset, val_dataset):
 
 
 def get_loss_wrapper(
-    arch_key: str, training: bool = False, task: Optional[Tasks] = None
+    arch_key: str, alpha: float, training: bool = False, task: Optional[Tasks] = None
 ):
     """
     :param arch_key: The model architecture
@@ -294,14 +295,14 @@ def get_loss_wrapper(
     if "yolo" in arch_key.lower():
         return YoloLossWrapper()
 
-    extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
+    extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5), "alpha": alpha} # hacky way to inject alpha into the engine
     if task == Tasks.TRAIN:
         return (
             CrossEntropyLossWrapper(extras)
             if training and "inception" not in arch_key
             else InceptionCrossEntropyLossWrapper(extras)
         )
-    return LossWrapper(loss_fn=torch_functional.cross_entropy, extras=extras)
+    return LossWrapper(loss_fn=CrossEntropyLoss(smooth_eps=alpha), extras=extras)
 
 
 #  optimizer helper

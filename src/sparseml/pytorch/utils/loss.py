@@ -1,3 +1,4 @@
+# TODO Smoothing of labels supported in pytorch 1.10
 # Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +27,7 @@ import torch.nn.functional as TF
 from torch import Tensor
 from torch.nn import Module
 
+from sparseml.pytorch.utils.cross_entropies import CrossEntropyLoss, BCEWithLogitsLoss
 from sparseml.pytorch.utils.helpers import tensors_module_forward
 from sparseml.pytorch.utils.yolo_helpers import (
     box_giou,
@@ -76,6 +78,7 @@ class LossWrapper(object):
     ):
         super(LossWrapper, self).__init__()
         self._loss_fn = loss_fn
+        del extras["alpha"]
         self._extras = extras
         self._deconstruct_tensors = deconstruct_tensors
 
@@ -197,7 +200,7 @@ class BinaryCrossEntropyLossWrapper(LossWrapper):
         extras: Union[None, Dict] = None,
     ):
         super().__init__(
-            TF.binary_cross_entropy_with_logits,
+            BCEWithLogitsLoss(smooth_eps=extras["alpha"]),
             extras,
         )
 
@@ -215,7 +218,7 @@ class CrossEntropyLossWrapper(LossWrapper):
         self,
         extras: Union[None, Dict] = None,
     ):
-        super().__init__(TF.cross_entropy, extras)
+        super().__init__(CrossEntropyLoss(smooth_eps=extras['alpha']), extras)
 
 
 class InceptionCrossEntropyLossWrapper(LossWrapper):
@@ -242,12 +245,13 @@ class InceptionCrossEntropyLossWrapper(LossWrapper):
         if extras is None:
             extras = {}
 
-        extras["cross_entropy"] = TF.cross_entropy
+        extras["cross_entropy"] = CrossEntropyLoss(smooth_eps=extras["alpha"])
         self._aux_weight = aux_weight
 
         super().__init__(self.loss, extras)
 
     def loss(self, preds: Tuple[Tensor, Tensor], labels: Tensor):
+        # TODO: Change this function like the LossWrapper
         """
         Loss function for inception to combine the overall outputs from the model
         along with the the auxiliary loss from an earlier point in the model
@@ -256,7 +260,6 @@ class InceptionCrossEntropyLossWrapper(LossWrapper):
         :param labels: the labels to compare to
         :return: the combined cross entropy value
         """
-
         aux_loss = TF.cross_entropy(preds[0], labels)
         loss = TF.cross_entropy(preds[1], labels)
 
