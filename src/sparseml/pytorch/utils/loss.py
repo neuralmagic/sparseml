@@ -263,7 +263,7 @@ class CrossEntropyLossWrapper(LossWrapper):
 
     def __init__(
             self,
-            loss_params=Dict,
+            loss_params: Dict,
             extras: Union[None, Dict] = None,
 
     ):
