@@ -1,4 +1,3 @@
-# TODO Smoothing of labels supported in pytorch 1.10
 # Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +26,6 @@ import torch.nn.functional as TF
 from torch import Tensor
 from torch.nn import Module
 
-from sparseml.pytorch.utils.cross_entropies import CrossEntropyLoss, BCEWithLogitsLoss
 from sparseml.pytorch.utils.helpers import tensors_module_forward
 from sparseml.pytorch.utils.yolo_helpers import (
     box_giou,
@@ -78,7 +76,6 @@ class LossWrapper(object):
     ):
         super(LossWrapper, self).__init__()
         self._loss_fn = loss_fn
-        del extras["alpha"]
         self._extras = extras
         self._deconstruct_tensors = deconstruct_tensors
 
@@ -186,41 +183,175 @@ class LossWrapper(object):
         )
 
 
+def label_smoothing(target: Tensor, alpha: float) -> Tensor:
+    """
+    Label smoothing mechanism.
+    We mix original target distribution with a uniform distribution in proportions
+    (1-alpha) to alpha.
+    When alpha = 0.0: identity function w.r.t target.
+    When alpha = 1.0: target becomes a uniform distribution
+    Note: Smoothing of labels now supported in pytorch 1.10, this could be refactored once we upgrade the library.
+
+    :param target: tensor which contains targets/labels
+    :param alpha: smoothing coefficient
+    :return: smoothed target
+    """
+    if not (1.0 >= alpha >= 0.0):
+        raise ValueError(f"Alpha must be between 0.0 and 1.0, but is {alpha}!")
+    B, K = target.size()
+    target = target.float()
+    target = (1 - alpha) * target + alpha / K
+    return target
+
+
 class BinaryCrossEntropyLossWrapper(LossWrapper):
     """
-    Convenience class for doing binary cross entropy loss calculations,
-    ie the default loss function is TF.binary_cross_entropy_with_logits.
-
-    :param extras: extras representing other metrics that should be calculated
-        in addition to the loss
+    Convenience class for doing binary cross entropy loss calculations.
+    The default loss function is TF.binary_cross_entropy_with_logits.
+    This wrapper also includes the label smoothing functionality.
+    :param loss_params: arguments to the loss function
+    :param extras: extras representing other metrics that should be calculated in addition to the loss
     """
 
     def __init__(
-        self,
-        extras: Union[None, Dict] = None,
+            self,
+            loss_params: Dict,
+            extras: Union[None, Dict] = None,
     ):
-        super().__init__(
-            BCEWithLogitsLoss(smooth_eps=extras["alpha"]),
-            extras,
-        )
+        self.alpha = loss_params["alpha"]
+        self.BCE_loss = TF.binary_cross_entropy_with_logits
+        super().__init__(self.loss, extras)
+
+    def loss(self, preds: Tensor, labels: Tensor):
+        """
+        Calculates the binary cross entropy.
+        :param preds: tensor of predicted values
+        :param labels: tensor of labels.
+        :return: cross entropy loss
+        """
+        if self.alpha > 0.0:
+            labels = label_smoothing(labels, alpha=self.alpha)
+        return self.BCE_loss(preds, labels)
+
+    def forward(self, data: Tensor, pred: Tensor) -> Dict[str, Tensor]:
+        """
+        :param data: the input data to the model, expected to contain the labels
+        :param pred: the predicted output from the model
+        :return: a dictionary containing all calculated losses and metrics with
+                the loss from the loss_fn at DEFAULT_LOSS_KEY
+        """
+        calculated = {DEFAULT_LOSS_KEY: self.loss(pred, data)}
+        return calculated
+
+    def get_preds(self, data: Any, pred: Any, name: str) -> Any:
+        return pred[1]  # logits
+
+    def get_labels(self, data: Any, pred: Any, name: str) -> Any:
+        return data[1]  # labels
 
 
 class CrossEntropyLossWrapper(LossWrapper):
     """
-    Convenience class for doing cross entropy loss calculations,
-    ie the default loss function is TF.cross_entropy.
-
-    :param extras: extras representing other metrics that should be calculated
-        in addition to the loss
+    Convenience class for doing cross entropy loss calculations.
+    The default loss function is TF.cross_entropy_with_logits.
+    This wrapper also includes following functionalities:
+        - cross entropy loss when targets are class probabilities (floats) not ints.
+        - label smoothing
+    :param loss_params: arguments to the loss function
+    :param extras: extras representing other metrics that should be calculated in addition to the loss
     """
 
     def __init__(
-        self,
-        extras: Union[None, Dict] = None,
+            self,
+            loss_params=Dict,
+            extras: Union[None, Dict] = None,
+
     ):
-        super().__init__(CrossEntropyLoss(smooth_eps=extras['alpha']), extras)
+        self.alpha = loss_params["alpha"]
+        self.CE_loss = TF.cross_entropy
+        # keeping additional arguments just for completeness. Those can be changed using 'loss_params' in the future.
+        self.weight = None
+        self.reduction = 'mean'
+        super().__init__(self.loss, extras)
+
+    @staticmethod
+    def _is_long(x: Tensor) -> bool:
+        """
+        Check whether the tensor has type torch.LongTensor
+        :param x: inspected tensor
+        :return: boolean information
+        """
+        if hasattr(x, 'data'):
+            x = x.data
+        return isinstance(x, torch.LongTensor) or isinstance(x, torch.cuda.LongTensor)
+
+    def loss(self, preds: Tensor, labels: Tensor) -> Tensor:
+        """
+        Calculates the cross entropy loss for three scenarios:
+            - Scenario 1: our labels express class indices and no label smoothing has been applied.
+            - Scenario 2: our labels express class indices and label smoothing has been applied.
+            - Scenario 2: our labels express class probabilities and have same shape as preds.
+
+        :param preds: tensor of predicted values
+        :param labels: label with class indices or class probabilities.
+        :return: cross entropy loss
+        """
+
+        B, K = preds.size()
+        if self.alpha > 0.0:
+            if self._is_long(labels):
+                # Scenario 2
+                labels = TF.one_hot(labels, num_classes=K)
+            labels = label_smoothing(labels, alpha=self.alpha)
+
+        if self._is_long(labels):
+            # Scenario 1
+            return self.CE_loss(preds, labels)
+        else:
+            # Scenario 3
+            cum_losses = preds.new_zeros(B)
+            """
+            Simulate cross entropy from Pytorch 1.10.0 using a 'for' loop,
+            calculating the loss contributed by each class and accumulating the results.
+            Inspiration: https://github.com/snorkel-team/snorkel/blob/master/snorkel/classification/loss.py
+            """
+            for y in range(K):
+                labels_temp = preds.new_full((B,), y, dtype=torch.long)
+                y_loss = self.CE_loss(preds, labels_temp, reduction="none")
+
+                if self.weight is not None:
+                    y_loss = y_loss * self.weight[y]
+
+                cum_losses += labels[:, y].float() * y_loss
+
+            if self.reduction == "none":
+                return cum_losses
+            elif self.reduction == "mean":
+                return cum_losses.mean()
+            elif self.reduction == "sum":
+                return cum_losses.sum()
+            else:
+                raise ValueError("Keyword 'reduction' must be one of ['none', 'mean', 'sum']")
+
+    def forward(self, data: Tensor, pred: Tensor) -> Dict[str, Tensor]:
+        """
+        :param data: the input data to the model, expected to contain the labels
+        :param pred: the predicted output from the model
+        :return: a dictionary containing all calculated losses and metrics with
+                the loss from the loss_fn at DEFAULT_LOSS_KEY
+        """
+        calculated = {DEFAULT_LOSS_KEY: self.loss(preds=self.get_preds(data, pred, DEFAULT_LOSS_KEY),
+                                                  labels=self.get_labels(data, pred, DEFAULT_LOSS_KEY))}
+        return calculated
+
+    def get_preds(self, data: Any, pred: Any, name: str) -> Any:
+        return pred[1]  # logits
+
+    def get_labels(self, data: Any, pred: Any, name: str) -> Any:
+        return data[1]  # labels
 
 
+# TODO: Once we are done with BCE and CE I will look into Inception loss.
 class InceptionCrossEntropyLossWrapper(LossWrapper):
     """
     Loss wrapper for training an inception model that has an aux output
@@ -245,13 +376,12 @@ class InceptionCrossEntropyLossWrapper(LossWrapper):
         if extras is None:
             extras = {}
 
-        extras["cross_entropy"] = CrossEntropyLoss(smooth_eps=extras["alpha"])
+        extras["cross_entropy"] = TF.cross_entropy
         self._aux_weight = aux_weight
 
         super().__init__(self.loss, extras)
 
     def loss(self, preds: Tuple[Tensor, Tensor], labels: Tensor):
-        # TODO: Change this function like the LossWrapper
         """
         Loss function for inception to combine the overall outputs from the model
         along with the the auxiliary loss from an earlier point in the model

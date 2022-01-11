@@ -17,12 +17,10 @@ Helper methods for image classification/detection based tasks
 """
 import os
 from enum import Enum, auto, unique
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, Dict
 
 import torch
 from torch.nn import Module
-from torch.nn import functional as torch_functional
-from sparseml.pytorch.utils.cross_entropies import CrossEntropyLoss
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
@@ -37,7 +35,6 @@ from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     CrossEntropyLossWrapper,
     InceptionCrossEntropyLossWrapper,
-    LossWrapper,
     ModuleExporter,
     ModuleRunResults,
     PythonLogger,
@@ -49,7 +46,6 @@ from sparseml.pytorch.utils import (
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
-from sparsezoo import Zoo
 
 
 @unique
@@ -283,10 +279,11 @@ def infer_num_classes(args: Any, train_dataset, val_dataset):
 
 
 def get_loss_wrapper(
-    arch_key: str, alpha: float, training: bool = False, task: Optional[Tasks] = None
+        arch_key: str, loss_params: Dict, training: bool = False, task: Optional[Tasks] = None
 ):
     """
     :param arch_key: The model architecture
+    :param loss_params: Arguments to the loss function
     :param training: True if training task started else False
     :param task: current task being executed
     """
@@ -295,14 +292,14 @@ def get_loss_wrapper(
     if "yolo" in arch_key.lower():
         return YoloLossWrapper()
 
-    extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5), "alpha": alpha} # hacky way to inject alpha into the engine
+    extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
     if task == Tasks.TRAIN:
         return (
-            CrossEntropyLossWrapper(extras)
+            CrossEntropyLossWrapper(loss_params, extras)
             if training and "inception" not in arch_key
             else InceptionCrossEntropyLossWrapper(extras)
         )
-    return LossWrapper(loss_fn=CrossEntropyLoss(smooth_eps=alpha), extras=extras)
+    return CrossEntropyLossWrapper(loss_params, extras)
 
 
 #  optimizer helper
