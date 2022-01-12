@@ -575,7 +575,10 @@ def train(
             LOGGER.info("adjusting ScheduledOptimizer to restore point")
             optim.adjust_current_step(epoch, 0)
 
-        best_loss = None
+        target_metric = (
+            "top1acc" if "top1acc" in tester.loss.available_losses else DEFAULT_LOSS_KEY
+        )
+        best_metric = None
         val_res = None
 
         while epoch < manager.max_epochs:
@@ -600,10 +603,10 @@ def train(
                 val_res = tester.run_epoch(
                     val_loader, epoch, max_steps=train_args.debug_steps
                 )
-                val_loss = val_res.result_mean(DEFAULT_LOSS_KEY).item()
+                val_metric = val_res.result_mean(target_metric).item()
 
                 if epoch >= train_args.save_best_after and (
-                    best_loss is None or val_loss <= best_loss
+                    best_metric is None or val_metric <= best_metric
                 ):
                     utils.save_model_training(
                         model,
@@ -614,7 +617,7 @@ def train(
                         epoch,
                         val_res,
                     )
-                    best_loss = val_loss
+                    best_metric = val_metric
 
             # save checkpoints
             _save_epoch = (
@@ -627,7 +630,7 @@ def train(
                     model,
                     optim,
                     input_shape,
-                    f"checkpoint-{epoch:04d}-{val_loss:.04f}",
+                    f"checkpoint-{epoch:04d}-{val_metric:.04f}",
                     save_dir,
                     epoch,
                     val_res,
