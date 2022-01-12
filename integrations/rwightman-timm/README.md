@@ -67,7 +67,7 @@ documentation, or export one with [Sparsify](https://github.com/neuralmagic/spar
 
 ViT recipes are not yet available on SparseZoo, but are in progress.
 
-Using a local recipe and checkpoint, a pruning a model can be done by running the following command from within the root of this integration's folder
+Using a local recipe and checkpoint, pruning a model can be done by running the following command from within the root of this integration's folder
 ```bash
 python integrations/timm/train.py \
   /PATH/TO/DATASET/imagenet/ \
