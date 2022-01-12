@@ -94,12 +94,19 @@ class QATWrapper(Module):
         QConfig for each output. Instead of a QConfig objects, the string 'asymmetric'
         or 'symmetric' may be used to use default UINT8 asymmetric and symmetric
         quantization respectively
+    :param reduce_range: if True, the quantization range will be reduced by one bit.
+        This may prevent overflow issues with model execution on certain hardware
+        Default is False
     """
 
     @staticmethod
-    def from_module(module: Module) -> "QATWrapper":
+    def from_module(module: Module, reduce_range: bool = None) -> "QATWrapper":
         """
         :param module: torch Module to create a QATWrapper for
+        :param reduce_range: if True, the quantization range will be reduced by one
+            bit. This may prevent overflow issues with model execution on certain
+            hardware. Default is None, will only override qat_wrapper_kwargs if set
+            to a bool value
         :return: QATWrapper object created using the given Module as the forward
             function. Will attempt to find any other named parameter of the QATWrapper
             constructor from the attributes of the given Module
@@ -108,6 +115,12 @@ class QATWrapper(Module):
             module.qat_wrapper_kwargs or {}
             if hasattr(module, "qat_wrapper_kwargs")
             else {}
+        )
+
+        qat_wrapper_kwargs["reduce_range"] = (
+            reduce_range or False
+            if "reduce_range" not in qat_wrapper_kwargs
+            else reduce_range or qat_wrapper_kwargs["reduce_range"]
         )
 
         return QATWrapper(forward_fn=module, **qat_wrapper_kwargs)
@@ -124,6 +137,7 @@ class QATWrapper(Module):
         output_qconfigs: Union[
             "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
         ] = "asymmetric",
+        reduce_range: bool = False,
     ):
         super().__init__()
 
@@ -143,11 +157,12 @@ class QATWrapper(Module):
         num_input_quant_stubs = num_inputs + len(self.kwarg_input_names)
 
         self.forward_fn = forward_fn
+        self._reduce_range = reduce_range
         self.input_qconfigs = self._load_qconfigs(
-            "input_qconfigs", num_input_quant_stubs, input_qconfigs
+            "input_qconfigs", num_input_quant_stubs, input_qconfigs, self._reduce_range
         )
         self.output_qconfigs = self._load_qconfigs(
-            "output_qconfigs", num_outputs, output_qconfigs
+            "output_qconfigs", num_outputs, output_qconfigs, self._reduce_range
         )
 
         self.input_quant_stubs = torch.nn.ModuleList(
@@ -231,6 +246,7 @@ class QATWrapper(Module):
         name: str,
         expected_len: int,
         qconfigs: Union["QConfig", str, List["QConfig"]],  # noqa: F821
+        redcuce_range: bool = False,
     ):
         if not isinstance(qconfigs, (str, torch_quantization.QConfig, List)):
             raise ValueError(
@@ -261,13 +277,14 @@ class QATWrapper(Module):
                 )
 
             qconfigs[idx] = get_qat_qconfig(
-                symmetric_activations=(qconfig == "symmetric")
+                symmetric_activations=(qconfig == "symmetric"),
+                reduce_range=redcuce_range,
             )
 
         return qconfigs
 
 
-def configure_module_qat_wrappers(module: Module):
+def configure_module_qat_wrappers(module: Module, reduce_range: bool = False):
     """
     if any submodule of the given module has the attribute wrap_qat == True,
     then it will be replaced by a QATWrapper of it created by QATWrapper.from_module.
@@ -275,13 +292,20 @@ def configure_module_qat_wrappers(module: Module):
     under an attributed named `qat_wrapper_kwargs`
 
     :param module: module to potentially wrap the submodules of
+    :param reduce_range: if True, the quantization range will be reduced by one bit.
+        This may prevent overflow issues with model execution on certain hardware
+        Default is False
     """
     # wrap any children of the given module as a QATWrapper if required
     for child_name, child_module in module.named_children():
         if hasattr(child_module, "wrap_qat") and child_module.wrap_qat:
-            setattr(module, child_name, QATWrapper.from_module(child_module))
+            setattr(
+                module,
+                child_name,
+                QATWrapper.from_module(child_module, reduce_range=reduce_range),
+            )
         # recurse on child module
-        configure_module_qat_wrappers(child_module)
+        configure_module_qat_wrappers(child_module, reduce_range=reduce_range)
 
 
 def configure_module_default_qconfigs(module: Module):
@@ -327,6 +351,7 @@ def add_quant_dequant(module, name=None, parent_module=None):
 def get_qat_qconfig(
     symmetric_activations: bool = False,
     symmetric_weights: bool = True,
+    reduce_range: bool = False,
 ) -> "torch.quantization.QConfig":
     """
     :param symmetric_activations: if True, activations will have a symmetric
@@ -335,6 +360,9 @@ def get_qat_qconfig(
     :param symmetric_weights: if True, weights will have a symmetric
         INT8 quantization range with zero point set to 0. Otherwise activations
         will use asymmetric quantization with any zero point. Default is True
+    :param reduce_range: if True, the quantization range will be reduced by one bit.
+        This may prevent overflow issues with model execution on certain hardware
+        Default is False
     :return: A QAT fake quantization config for symmetric weight quantization and
         asymmetric activation quantization.  The difference between this and
         torch.quantization.default_qat_qconfig is that the activation observer
@@ -349,7 +377,7 @@ def get_qat_qconfig(
         quant_max=255,
         dtype=torch.quint8,
         qscheme=activation_qscheme,
-        reduce_range=False,
+        reduce_range=reduce_range,
     )
     weight_qscheme = (
         torch.per_tensor_symmetric if symmetric_weights else torch.per_tensor_affine
@@ -360,7 +388,7 @@ def get_qat_qconfig(
         quant_max=127,
         dtype=torch.qint8,
         qscheme=weight_qscheme,
-        reduce_range=False,
+        reduce_range=reduce_range,
     )
     return torch_quantization.QConfig(
         activation=activation_observer,
@@ -452,6 +480,7 @@ def fuse_module_conv_bn_relus(
 def prepare_embeddings_qat(
     module: Module,
     qconfig: "torch.quantization.QConfig" = None,
+    reduce_range: bool = False,
 ):
     """
     adds a fake quantize call to the weights of any Embedding modules in the given
@@ -460,9 +489,12 @@ def prepare_embeddings_qat(
     :param module: module to run QAT for the embeddings of
     :param qconfig: qconfig to generate the fake quantize ops from. Default uses INT8
         asymmetric range
+    :param reduce_range: if True, the quantization range will be reduced by one bit.
+        This may prevent overflow issues with model execution on certain hardware.
+        Default is False
     """
     if qconfig is None:
-        qconfig = get_qat_qconfig(symmetric_weights=False)
+        qconfig = get_qat_qconfig(symmetric_weights=False, reduce_range=reduce_range)
     for submodule in module.modules():
         if type(submodule) is Embedding:
             _prepare_qat_embedding(submodule, qconfig)

@@ -68,6 +68,7 @@ class QuantizationModifier(ScheduledModifier):
     |       model_fuse_fn_name: 'fuse_module'
     |       disable_quantization_observer_epoch: 2.0
     |       freeze_bn_stats_epoch: 3.0
+    |       reduce_range: False
 
     :param start_epoch: The epoch to start the modifier at
     :param submodules: List of submodule names to perform QAT on. Leave None to quantize
@@ -89,6 +90,9 @@ class QuantizationModifier(ScheduledModifier):
         using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
         quantize embedding weights. Default is True. Models without embedding layers
         will be unaffected
+    :param reduce_range: if True, the quantization range will be reduced by one bit.
+        This may prevent overflow issues with model execution on certain hardware
+        Default is False
     """
 
     def __init__(
@@ -101,6 +105,7 @@ class QuantizationModifier(ScheduledModifier):
         end_epoch: float = -1,
         model_fuse_fn_kwargs: Dict[str, Any] = None,
         quantize_embeddings: bool = True,
+        reduce_range: bool = False,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -123,6 +128,7 @@ class QuantizationModifier(ScheduledModifier):
         self._disable_quantization_observer_epoch = disable_quantization_observer_epoch
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
         self._quantize_embeddings = quantize_embeddings
+        self._reduce_range = reduce_range
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -236,6 +242,14 @@ class QuantizationModifier(ScheduledModifier):
             quantize embedding weights
         """
         self._quantize_embeddings = value
+
+    @ModifierProp()
+    def reduce_range(self) -> bool:
+        """
+        :return: if True, the quantization range will be reduced by one
+            This may prevent overflow issues with model execution on certain hardware
+        """
+        return self._reduce_range
 
     def initialize(
         self,
@@ -367,10 +381,10 @@ class QuantizationModifier(ScheduledModifier):
             fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
 
         # prepare each module / submodule for quantization
-        qconfig = get_qat_qconfig()
+        qconfig = get_qat_qconfig(reduce_range=self._reduce_range)
         for name, quant_module in self._modules_to_quantize:
             # wrap any modules with wrap_qat set to True as QATWrapper(s)
-            configure_module_qat_wrappers(quant_module)
+            configure_module_qat_wrappers(quant_module, reduce_range=self._reduce_range)
             # set quantization config (asymmetric activations, symmetric weights)
             quant_module.qconfig = qconfig
             # wrap all conv / linear blocks in with quantization observers
@@ -382,7 +396,7 @@ class QuantizationModifier(ScheduledModifier):
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)
         if self._quantize_embeddings:
-            prepare_embeddings_qat(module)
+            prepare_embeddings_qat(module, reduce_range=self._reduce_range)
         self._qat_enabled = True
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:

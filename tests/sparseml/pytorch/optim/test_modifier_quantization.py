@@ -45,6 +45,11 @@ QUANTIZATION_MODIFIERS = [
     lambda: QuantizationModifier(
         start_epoch=2.0, submodules=["seq.fc1", "seq.block1.fc2"]
     ),
+    lambda: QuantizationModifier(
+        start_epoch=2.0,
+        submodules=["seq.fc1", "seq.block1.fc2"],
+        reduce_range=True,
+    ),
 ]
 
 
@@ -58,7 +63,7 @@ def _is_quantiable_module(module):
     return isinstance(module, (Conv2d, Linear))
 
 
-def _test_quantizable_module(module, qat_expected):
+def _test_quantizable_module(module, qat_expected, reduce_range):
     if qat_expected:
         assert hasattr(module, "qconfig") and module.qconfig is not None
         assert hasattr(module, "weight_fake_quant") and (
@@ -67,6 +72,7 @@ def _test_quantizable_module(module, qat_expected):
         assert hasattr(module, "activation_post_process") and (
             module.activation_post_process is not None
         )
+        assert module.qconfig.activation.p.keywords["reduce_range"] == reduce_range
     else:
         assert not hasattr(module, "qconfig") or module.qconfig is None
         assert not hasattr(module, "weight_fake_quant")
@@ -80,14 +86,16 @@ def _test_qat_applied(modifier, model):
         submodules = [""]
         for module in model.modules():
             if _is_quantiable_module(module):
-                _test_quantizable_module(module, True)
+                _test_quantizable_module(module, True, modifier.reduce_range)
     else:
         assert not hasattr(model, "qconfig") or model.qconfig is None
         submodules = modifier.submodules
     # check qconfig propagation
     for name, module in model.named_modules():
         if _is_quantiable_module(module):
-            _test_quantizable_module(module, _is_valid_submodule(name, submodules))
+            _test_quantizable_module(
+                module, _is_valid_submodule(name, submodules), modifier.reduce_range
+            )
 
 
 @pytest.mark.skipif(
@@ -178,6 +186,7 @@ def test_quantization_modifier_yaml():
     disable_quantization_observer_epoch = 2.0
     freeze_bn_stats_epoch = 3.0
     quantize_embeddings = False
+    reduce_range = True
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
@@ -186,6 +195,7 @@ def test_quantization_modifier_yaml():
             disable_quantization_observer_epoch: {disable_quantization_observer_epoch}
             freeze_bn_stats_epoch: {freeze_bn_stats_epoch}
             quantize_embeddings: {quantize_embeddings}
+            reduce_range: {reduce_range}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -200,6 +210,7 @@ def test_quantization_modifier_yaml():
         disable_quantization_observer_epoch=disable_quantization_observer_epoch,
         freeze_bn_stats_epoch=freeze_bn_stats_epoch,
         quantize_embeddings=quantize_embeddings,
+        reduce_range=reduce_range,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -232,4 +243,9 @@ def test_quantization_modifier_yaml():
         yaml_modifier.quantize_embeddings
         == serialized_modifier.quantize_embeddings
         == obj_modifier.quantize_embeddings
+    )
+    assert (
+        yaml_modifier.reduce_range
+        == serialized_modifier.reduce_range
+        == obj_modifier.reduce_range
     )
