@@ -316,6 +316,84 @@ class TestLearningRateFunctionModifierCosineImpl(ScheduledUpdateModifierTest):
                 ), f"Failed at epoch:{epoch} step:{step}"
 
 
+@pytest.mark.parametrize(
+    "modifier_lambda",
+    [
+        lambda: LearningRateFunctionModifier(
+            lr_func="cyclic_linear",
+            init_lr=0.1,
+            final_lr=0.05,
+            start_epoch=0.0,
+            end_epoch=10.0,
+            cycle_epochs=2,
+        ),
+    ],
+    scope="function",
+)
+@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize(
+    "optim_lambda",
+    [
+        lambda model: SGD(model.parameters(), INIT_LR),
+        lambda model: Adam(model.parameters(), INIT_LR),
+    ],
+    scope="function",
+)
+class TestLearningRateFunctionModifierCyclicLinearImpl(ScheduledUpdateModifierTest):
+    def test_lifecycle(
+        self,
+        modifier_lambda,
+        model_lambda,
+        optim_lambda,
+        test_steps_per_epoch,  # noqa: F811
+    ):
+        modifier = modifier_lambda()
+        model = model_lambda()
+        optimizer = optim_lambda(model)
+        self.initialize_helper(modifier, model)
+        assert get_optim_learning_rate(optimizer) == INIT_LR
+        last = modifier.final_lr
+
+        for epoch in range(int(modifier.end_epoch)):
+            for step in range(test_steps_per_epoch):
+                epoch_test = float(epoch) + float(step) / float(test_steps_per_epoch)
+                if epoch_test < modifier.start_epoch:
+                    expected = INIT_LR
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+                elif epoch_test <= modifier.end_epoch:
+                    end_step = modifier.end_epoch * test_steps_per_epoch
+                    start_step = modifier.start_epoch * test_steps_per_epoch
+                    cycle_steps = modifier.cycle_epochs * test_steps_per_epoch
+                    current_step = (
+                        epoch_test - modifier.start_epoch
+                    ) * test_steps_per_epoch
+                    if (
+                        current_step
+                        > int((end_step - start_step) / cycle_steps) * cycle_steps
+                    ):
+                        cycle_steps = (end_step - start_step) % cycle_steps
+                    adjusted_step = current_step % cycle_steps
+                    expected = modifier.init_lr - (
+                        adjusted_step / (cycle_steps - 1)
+                    ) * (modifier.init_lr - modifier.final_lr)
+
+                    assert modifier.update_ready(epoch_test, test_steps_per_epoch)
+                    modifier.scheduled_update(
+                        model, optimizer, epoch_test, test_steps_per_epoch
+                    )
+                    assert (
+                        expected == modifier.init_lr or expected <= last
+                    ), f"Failed at epoch:{epoch} step:{step}"
+                    last = expected
+                else:
+                    expected = modifier.final_lr
+                    assert not modifier.update_ready(epoch_test, test_steps_per_epoch)
+
+                assert (
+                    abs(get_optim_learning_rate(optimizer) - expected) < EPSILON
+                ), f"Failed at epoch:{epoch} step:{step}"
+
+
 def test_lr_function_modifier_yaml():
     lr_func = "linear"
     start_epoch = 10.0
