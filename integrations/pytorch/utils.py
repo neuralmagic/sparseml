@@ -398,10 +398,12 @@ def save_model_training(
     :param val_res: results from validation run
     :param convert_qat: True if model is to be quantized before saving
     """
+    has_top1 = "top1acc" in val_res.results
+    metric_name = "top-1 accuracy" if has_top1 else "val_loss"
+    metric = val_res.result_mean("top1acc" if has_top1 else DEFAULT_LOSS_KEY).item()
     print(
-        f"Saving model for epoch {epoch} and val_loss "
-        f"{val_res.result_mean(DEFAULT_LOSS_KEY).item()} to {save_dir} for"
-        f" {save_name}"
+        f"Saving model for epoch {epoch} and {metric_name} "
+        f"{metric} to {save_dir} for {save_name}"
     )
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(optim, epoch, f"{save_name}.pth")
