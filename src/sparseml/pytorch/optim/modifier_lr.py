@@ -257,6 +257,8 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         (set to -1.0 so it starts immediately)
     :param end_epoch: The epoch to end the modifier at,
         (set to -1.0 so it doesn't end)
+    :param cycle_epochs: The number of epochs between two consecutive LR rewinding;
+        used for cyclic_linear schedule only.
     :param_groups: The param group indices to set the lr for within the optimizer,
         if not set will set the lr for all param groups
     :param update_frequency: unused and should not be set
@@ -273,7 +275,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         final_lr: float,
         start_epoch: float,
         end_epoch: float,
-        cycle_epochs: float = -1.0,
+        cycle_epochs: float = 1.0,
         param_groups: Optional[List[int]] = None,
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
@@ -427,6 +429,11 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         lr_funcs = ["linear", "cosine", "cyclic_linear"]
         if self.lr_func not in lr_funcs:
             raise ValueError(f"lr_func must be one of {lr_funcs}")
+
+        if lr_funcs == "cyclic_linear" and self.cycle_epochs <= 0.0:
+            raise ValueError(
+                "cycle_epochs in the cyclic_linear schedule must be positive"
+            )
 
         if isinstance(self.init_lr, str):
             self.init_lr = float(self.init_lr)
