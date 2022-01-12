@@ -57,7 +57,7 @@ nest-asyncio==1.5.1
 networkx==2.5.1
 nltk==3.6.5
 notebook==6.4.1
-numpy==1.20.3
+numpy==1.21.0
 onnx==1.7.0
 onnxruntime==1.8.0
 packaging==20.9
