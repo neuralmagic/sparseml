@@ -55,7 +55,7 @@ The modifiers can range from pruning and quantization to learning rate and weigh
 When appropriately combined, it becomes possible to create highly sparse and accurate models.
 
 This integration adds a `--recipe` argument to the 
-[`train.py` script](https://github.com/neuralmagic/yolact/blob/master/train.py).
+[`train.py` script](https://github.com/neuralmagic/pytorch-image-models/blob/master/train.py).
 The argument loads an appropriate recipe while preserving the rest of the training pipeline.
 Popular recipes used with this argument are found in the [`recipes` folder](./recipes).
 Otherwise, all other arguments and functionality remain the same as the original repository.
@@ -97,7 +97,8 @@ The following table lays out the root-level files and folders along with a descr
 
 ### Exporting for Inference
 
-After sparsifying a model, the `export.py` script can be run to convert the model into an [ONNX](https://onnx.ai/) deployment format.
+After sparsifying a model, to convert the model into an [ONNX](https://onnx.ai/) deployment format run `export.py`(https://github.com/neuralmagic/pytorch-image-models/blob/master/train.py).
+
 The export process is modified such that the quantized and pruned models are corrected and folded properly.
 
 For example, the following command can be run from within the integration's folder to export a trained/sparsified model's checkpoint:
