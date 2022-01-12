@@ -43,7 +43,7 @@ To begin, run the following command in the root directory of this integration (`
 bash setup_integration.sh
 ```
 
-The `setup_integration.sh` file will clone the pytorch-image-models repository with the SparseML integration as a subfolder.
+The `setup_integration.sh` file will clone the [pytorch-image-models](https://github.com/neuralmagic/pytorch-image-models.git) repository with the SparseML integration as a subfolder.
 After the repo has successfully cloned, pytorch-image-models will be installed along with any necessary dependencies.
 
 This integration requires `python>=3.7,<3.10`
@@ -67,7 +67,7 @@ documentation, or export one with [Sparsify](https://github.com/neuralmagic/spar
 
 ViT recipes are not yet available on SparseZoo, but are in progress.
 
-Using a local recipe and checkpoint, a pruning a model can be done by running the following command from within the root of this integration's folder
+Using a local recipe and checkpoint, pruning a model can be done by running the following command from within the root of this integration's folder
 ```bash
 python integrations/timm/train.py \
   /PATH/TO/DATASET/imagenet/ \
