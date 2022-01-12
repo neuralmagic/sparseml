@@ -43,7 +43,7 @@ To begin, run the following command in the root directory of this integration (`
 bash setup_integration.sh
 ```
 
-The `setup_integration.sh` file will clone the pytorch-image-models repository with the SparseML integration as a subfolder.
+The `setup_integration.sh` file will clone the [pytorch-image-models](https://github.com/neuralmagic/pytorch-image-models.git) repository with the SparseML integration as a subfolder.
 After the repo has successfully cloned, pytorch-image-models will be installed along with any necessary dependencies.
 
 This integration requires `python>=3.7,<3.10`
