@@ -1,0 +1,185 @@
+version: 1.1.0
+
+num_epochs: &num_epochs 200
+init_sparsity: &init_sparsity 0.4
+pruning_start_epoch: &pruning_start_epoch 4
+pruning_end_epoch: &pruning_end_epoch 60
+update_frequency: &pruning_update_frequency 0.5
+prune_none_target_sparsity: &prune_none_target_sparsity 0.6
+prune_low_target_sparsity: &prune_low_target_sparsity 0.7
+prune_mid_target_sparsity: &prune_mid_target_sparsity 0.8
+prune_high_target_sparsity: &prune_high_target_sparsity 0.85
+
+
+modifiers:
+    - !GMPruningModifier
+        end_epoch: *pruning_end_epoch
+        final_sparsity: *prune_none_target_sparsity
+        global_sparsity: False
+        init_sparsity: *init_sparsity
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: 
+            - module.blocks.0.mlp_channels.fc1.weight
+            - module.blocks.0.mlp_channels.gate.proj.weight
+            - module.blocks.0.mlp_channels.fc2.weight
+            - module.blocks.1.mlp_channels.fc1.weight
+            - module.blocks.1.mlp_channels.gate.proj.weight
+            - module.blocks.1.mlp_channels.fc2.weight
+        phased: False
+        score_type: magnitude
+        start_epoch: *pruning_start_epoch
+        update_frequency: 0.1
+
+    - !GMPruningModifier
+        end_epoch: *pruning_end_epoch
+        final_sparsity: *prune_low_target_sparsity
+        global_sparsity: False
+        init_sparsity: 0.1
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: 
+            - module.blocks.2.mlp_channels.fc1.weight
+            - module.blocks.2.mlp_channels.gate.proj.weight
+            - module.blocks.2.mlp_channels.fc2.weight
+            - module.blocks.3.mlp_channels.fc1.weight
+            - module.blocks.3.mlp_channels.gate.proj.weight
+            - module.blocks.3.mlp_channels.fc2.weight
+            - module.blocks.4.mlp_channels.fc1.weight
+            - module.blocks.4.mlp_channels.gate.proj.weight
+            - module.blocks.4.mlp_channels.fc2.weight
+            - module.blocks.5.mlp_channels.fc1.weight
+            - module.blocks.5.mlp_channels.gate.proj.weight
+            - module.blocks.5.mlp_channels.fc2.weight
+            - module.blocks.6.mlp_channels.fc1.weight
+            - module.blocks.6.mlp_channels.gate.proj.weight
+            - module.blocks.6.mlp_channels.fc2.weight
+            - module.blocks.7.mlp_channels.fc1.weight
+            - module.blocks.7.mlp_channels.gate.proj.weight
+            - module.blocks.7.mlp_channels.fc2.weight
+        phased: False
+        score_type: magnitude
+        start_epoch: *pruning_start_epoch
+        update_frequency: 0.1
+
+
+    - !GMPruningModifier
+        end_epoch: *pruning_end_epoch
+        final_sparsity: *prune_mid_target_sparsity
+        global_sparsity: False
+        init_sparsity: *init_sparsity
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: 
+            - module.blocks.8.mlp_channels.fc1.weight
+            - module.blocks.8.mlp_channels.gate.proj.weight
+            - module.blocks.8.mlp_channels.fc2.weight
+            - module.blocks.9.mlp_channels.fc1.weight
+            - module.blocks.9.mlp_channels.gate.proj.weight
+            - module.blocks.9.mlp_channels.fc2.weight
+            - module.blocks.10.mlp_channels.fc1.weight
+            - module.blocks.10.mlp_channels.gate.proj.weight
+            - module.blocks.10.mlp_channels.fc2.weight
+            - module.blocks.11.mlp_channels.fc1.weight
+            - module.blocks.11.mlp_channels.gate.proj.weight
+            - module.blocks.11.mlp_channels.fc2.weight
+            - module.blocks.12.mlp_channels.fc1.weight
+            - module.blocks.12.mlp_channels.gate.proj.weight
+            - module.blocks.12.mlp_channels.fc2.weight
+            - module.blocks.13.mlp_channels.fc1.weight
+            - module.blocks.13.mlp_channels.gate.proj.weight
+            - module.blocks.13.mlp_channels.fc2.weight
+            - module.blocks.14.mlp_channels.fc1.weight
+            - module.blocks.14.mlp_channels.gate.proj.weight
+            - module.blocks.14.mlp_channels.fc2.weight
+            - module.blocks.15.mlp_channels.fc1.weight
+            - module.blocks.15.mlp_channels.gate.proj.weight
+            - module.blocks.15.mlp_channels.fc2.weight
+        phased: False
+        score_type: magnitude
+        start_epoch: *pruning_start_epoch
+        update_frequency: 0.1
+
+    - !GMPruningModifier
+        end_epoch: *pruning_end_epoch
+        final_sparsity: *prune_mid_target_sparsity
+        global_sparsity: False
+        init_sparsity: *init_sparsity
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: 
+            - module.blocks.16.mlp_channels.fc1.weight
+            - module.blocks.16.mlp_channels.gate.proj.weight
+            - module.blocks.16.mlp_channels.fc2.weight
+            - module.blocks.17.mlp_channels.fc1.weight
+            - module.blocks.17.mlp_channels.gate.proj.weight
+            - module.blocks.17.mlp_channels.fc2.weight
+            - module.blocks.18.mlp_channels.fc1.weight
+            - module.blocks.18.mlp_channels.gate.proj.weight
+            - module.blocks.18.mlp_channels.fc2.weight
+            - module.blocks.19.mlp_channels.fc1.weight
+            - module.blocks.19.mlp_channels.gate.proj.weight
+            - module.blocks.19.mlp_channels.fc2.weight
+            - module.blocks.20.mlp_channels.fc1.weight
+            - module.blocks.20.mlp_channels.gate.proj.weight
+            - module.blocks.20.mlp_channels.fc2.weight
+            - module.blocks.21.mlp_channels.fc1.weight
+            - module.blocks.21.mlp_channels.gate.proj.weight
+            - module.blocks.21.mlp_channels.fc2.weight
+            - module.blocks.22.mlp_channels.fc1.weight
+            - module.blocks.22.mlp_channels.gate.proj.weight
+            - module.blocks.22.mlp_channels.fc2.weight
+            - module.blocks.23.mlp_channels.fc1.weight
+            - module.blocks.23.mlp_channels.gate.proj.weight
+            - module.blocks.23.mlp_channels.fc2.weight
+            - module.blocks.24.mlp_channels.fc1.weight
+            - module.blocks.24.mlp_channels.gate.proj.weight
+            - module.blocks.24.mlp_channels.fc2.weight
+            - module.blocks.25.mlp_channels.fc1.weight
+            - module.blocks.25.mlp_channels.gate.proj.weight
+            - module.blocks.25.mlp_channels.fc2.weight
+            - module.blocks.26.mlp_channels.fc1.weight
+            - module.blocks.26.mlp_channels.gate.proj.weight
+            - module.blocks.26.mlp_channels.fc2.weight
+            - module.blocks.27.mlp_channels.fc1.weight
+            - module.blocks.27.mlp_channels.gate.proj.weight
+            - module.blocks.27.mlp_channels.fc2.weight
+            - module.blocks.28.mlp_channels.fc1.weight
+            - module.blocks.28.mlp_channels.gate.proj.weight
+            - module.blocks.28.mlp_channels.fc2.weight
+            - module.blocks.29.mlp_channels.fc1.weight
+            - module.blocks.29.mlp_channels.gate.proj.weight
+            - module.blocks.29.mlp_channels.fc2.weight
+        phased: False
+        score_type: magnitude
+        start_epoch: *pruning_start_epoch
+        update_frequency: 0.1
+
+
+
+
+    - !EpochRangeModifier
+        end_epoch: *num_epochs
+        start_epoch: 0.0
+
+    - !SetLearningRateModifier
+        constant_logging: False
+        end_epoch: *pruning_end_epoch
+        learning_rate: 0.0001
+        log_types: __ALL__
+        start_epoch: 0.0
+
+    - !LearningRateFunctionModifier
+        start_epoch: *pruning_end_epoch
+        end_epoch: *num_epochs
+        lr_func: cosine
+        init_lr: 0.0001
+        final_lr: 0.00001
