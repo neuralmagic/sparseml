@@ -6,4 +6,5 @@
 
 git clone https://github.com/neuralmagic/pytorch-image-models.git
 cd pytorch-image-models
+git checkout release/0.10
 pip install -r requirements.txt
