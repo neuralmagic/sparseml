@@ -745,7 +745,7 @@ def main():
     # Initialize our Trainer
     trainer = SparseMLQATrainer(
         model_args.model_name_or_path,
-        new_recipe,
+        recipe=new_recipe,
         checkpoint_recipes=[existing_recipe],
         teacher=teacher_model,
         model=model,

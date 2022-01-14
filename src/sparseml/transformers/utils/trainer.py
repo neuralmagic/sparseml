@@ -118,7 +118,7 @@ class SparseMLTrainer:
             kwargs["args"].num_train_epochs = self.manager.max_epochs
 
         self.loggers = None
-        if self.recipes is not None:
+        if self.recipe is not None:
             loggers = []
             if "wandb" in self.args.report_to:
                 loggers.append(logger.WANDBLogger())
@@ -177,7 +177,7 @@ class SparseMLTrainer:
         Create optimizer customized using SparseML
         """
         super().create_optimizer()
-        if not self.recipes:
+        if not self.recipe:
             return
         steps_per_epoch = math.ceil(
             len(self.train_dataset)
@@ -232,7 +232,7 @@ class SparseMLTrainer:
         """
         Computing loss using teacher/student distillation
         """
-        if not self.recipes or self.teacher is None:
+        if not self.recipe or self.teacher is None:
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         student_outputs = model(**inputs)
