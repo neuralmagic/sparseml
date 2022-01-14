@@ -183,7 +183,6 @@ class SparseMLTrainer:
             len(self.train_dataset)
             / (self.args.per_device_train_batch_size * self.args._n_gpu)
         )
-        self.args.num_train_epochs = float(self.manager.max_epochs)
         if hasattr(self, "scaler"):
             self.scaler = self.manager.modify(
                 self.model,
