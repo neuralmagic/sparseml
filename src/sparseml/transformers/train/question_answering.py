@@ -396,11 +396,14 @@ def main():
         if data_args.test_file is not None:
             data_files["test"] = data_args.test_file
             extension = data_args.test_file.split(".")[-1]
+
+        # unwrap data from json
+        load_kwargs = {"field": "data"} if extension == "json" else {}
         datasets = load_dataset(
             extension,
             data_files=data_files,
-            field="data",
             cache_dir=model_args.cache_dir,
+            **load_kwargs,
         )
     # See more about loading any type of standard or custom dataset
     # (from files, python dict, pandas DataFrame, etc) at
@@ -742,7 +745,8 @@ def main():
     # Initialize our Trainer
     trainer = SparseMLQATrainer(
         model_args.model_name_or_path,
-        [existing_recipe, new_recipe],
+        new_recipe,
+        checkpoint_recipes=[existing_recipe],
         teacher=teacher_model,
         model=model,
         args=training_args,

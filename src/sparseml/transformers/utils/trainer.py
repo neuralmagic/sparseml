@@ -59,8 +59,11 @@ class SparseMLTrainer:
     i.e. class MyCustomTrainer(SparseMLTrainer, Trainer)
 
     :param model_name_or_path: path to model directory to be trained
-    :param recipes: list of paths to recipes for model sparsification or string
-        recipes for sparsification. Can also be single string path or recipe
+    :param recipe: path to recipe for model sparsification
+    :param checkpoint_recipes: list of paths to recipes used to train the
+        starting checkpoint for this training run. Will be applied to the model
+        on call to `apply_recipes` so that model state can be reproduced for
+        weight loading
     :param teacher: teacher model for distillation. Default is None
     :param recipe_args: Dictionary of recipe variables to override or json
         loadable string of those args. Default is None
@@ -75,7 +78,8 @@ class SparseMLTrainer:
     def __init__(
         self,
         model_name_or_path: str,
-        recipes: Union[str, List[str]],
+        recipe: str,
+        checkpoint_recipes: Union[str, List[str]] = None,
         teacher: Optional[torch.nn.Module] = None,
         recipe_args: Union[Dict[str, Any], str] = None,
         teacher_input_keys: Optional[List[str]] = None,
@@ -84,11 +88,12 @@ class SparseMLTrainer:
     ):
         super().__init__(*args, **kwargs)
         self.model_name_or_path = str(model_name_or_path)
-        self.recipes = (
-            [recipes]
-            if isinstance(recipes, str)
-            else [recipe for recipe in recipes if recipe]
-        )
+        self.recipe = recipe
+        self.checkpoint_recipes = list(
+            [checkpoint_recipes]
+            if isinstance(checkpoint_recipes, str)
+            else checkpoint_recipes or []
+        )  # List[str]
         self.teacher = teacher
         if self.teacher is not None:
             self.teacher.eval()
@@ -103,15 +108,14 @@ class SparseMLTrainer:
         else:
             recipe_args = {}
 
-        # combine all recipes into single manager
-        manager = None
-        modifiers = []
-        for recipe in self.recipes:
-            manager = ScheduledModifierManager.from_yaml(
-                recipe, modifiers, **recipe_args
-            )
-            modifiers = manager.modifiers
-        self.manager = manager
+        # initialize manager and override num epochs if available
+        self.manager = ScheduledModifierManager.from_yaml(recipe, **recipe_args)
+        if (
+            self.manager.max_epochs
+            and "args" in kwargs
+            and (hasattr(kwargs["args"], "num_train_epochs"))
+        ):
+            kwargs["args"].num_train_epochs = self.manager.max_epochs
 
         self.loggers = None
         if self.recipes is not None:
@@ -125,9 +129,11 @@ class SparseMLTrainer:
 
     def apply_recipes(self, epoch=0.0):
         """
-        Apply architecture changing modifiers and sparsification related parameters
-        to the model
+        Applies all recipes from checkpoint_recipes. Runs architecture changing
+        modifiers to prepare model for state dict loading
         """
+        for checkpoint_recipe in self.checkpoint_recipes:
+            ScheduledModifierManager.from_yaml(checkpoint_recipe).apply(self.model)
         if self.manager is not None:
             org_state_dict = self.model.state_dict()
             self.manager.initialize(

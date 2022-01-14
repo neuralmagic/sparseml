@@ -624,7 +624,8 @@ def main():
     # Initialize our Trainer
     trainer = SparseMLGLUETrainer(
         model_args.model_name_or_path,
-        [existing_recipe, new_recipe],
+        new_recipe,
+        checkpoint_recipes=[existing_recipe],
         teacher=teacher_model,
         model=model,
         args=training_args,
