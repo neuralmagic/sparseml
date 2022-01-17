@@ -133,7 +133,8 @@ class SparseMLTrainer:
         modifiers to prepare model for state dict loading
         """
         for checkpoint_recipe in self.checkpoint_recipes:
-            ScheduledModifierManager.from_yaml(checkpoint_recipe).apply(self.model)
+            if checkpoint_recipe is not None:
+                ScheduledModifierManager.from_yaml(checkpoint_recipe).apply(self.model)
         if self.manager is not None:
             org_state_dict = self.model.state_dict()
             self.manager.initialize(
