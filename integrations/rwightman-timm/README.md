@@ -69,16 +69,15 @@ ViT recipes are not yet available on SparseZoo, but are in progress.
 
 Using a local recipe and checkpoint, pruning a model can be done by running the following command from within the root of this integration's folder
 ```bash
-python integrations/timm/train.py \
+python train.py \
   /PATH/TO/DATASET/imagenet/ \
-  --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
-  --initial-checkpoint PATH/TO/CHECKPOINT/model.pth \
+  --recipe ../recipes/vit_base.85.recal.config.yaml \
   --dataset imagenet \
   --batch-size 64 \
-  --remode pixel --reprob 0.6 --smoothing 0.1 \
+  --remode pixel --reprob 0.0 --smoothing 0.1 --mixup 0.5 --mixup 0.5 \
   --output models/optimized \
-  --model resnet50 \
-  --workers 8 \
+  --model vit_base_patch16_224 \
+  --workers 8 
 ```  
 
 Documentation on the original script can be found
@@ -90,27 +89,27 @@ The following table lays out the root-level files and folders along with a descr
 
 | Folder/File Name     | Description                                                                                                           |
 |----------------------|-----------------------------------------------------------------------------------------------------------------------|
-| recipes              | Typical recipes for sparsifying ViT models along with any downloaded recipes from the SparseZoo (WIP).                      |
-| tutorials            | Tutorial walkthroughs for how to sparsify ViT models using recipes (WIP).                                                   |          |
-| README.md            | Readme file.                                                                                                        |
-| setup_integration.sh | Setup file for the integration run from the command line.   
+| [recipes](./recipes)              | Typical recipes for sparsifying ViT models along with any downloaded recipes from the SparseZoo.                      |
+| tutorials            | Tutorial walkthroughs for how to sparsify ViT models using recipes (Coming Soon).                                                   |          |
+| [README.md](./README.md)            | Readme file.                                                                                                        |
+| [setup_integration.sh](./setup_integration.sh) | Setup file for the integration run from the command line.   
 
 ### Exporting for Inference
 
-After sparsifying a model, to convert the model into an [ONNX](https://onnx.ai/) deployment format run `export.py`(https://github.com/neuralmagic/pytorch-image-models/blob/master/train.py).
+After sparsifying a model, to convert the model into an [ONNX](https://onnx.ai/) deployment format run the `export.py script`(https://github.com/neuralmagic/pytorch-image-models/blob/master/export.py).
 
 The export process is modified such that the quantized and pruned models are corrected and folded properly.
 
 For example, the following command can be run from within the integration's folder to export a trained/sparsified model's checkpoint:
 ```bash
 python export.py 
-    --checkpoint ./quantized-checkpoint/vit_base_patch32_224-224_pruned.pth.tar \
-    --recipe ./recipes/vit_base.85.quant.config.yaml \
+    --checkpoint ./path/to/checkpoint \
+    --recipe ./recipes/vit_base.85.recal.config.yaml \
     --save-dir ./exported-models \
-    --name vit_base_patch32_224-224 \
+    --name vit_base_patch16_224 \
     --batch-size 1 \
     --image-shape 3 550 550 \
-    --config ./quantized-checkpoint/args.yaml
+    --config ./path/to/checkpoint/args.yaml
 ```
 
 The DeepSparse Engine [accepts ONNX formats](https://docs.neuralmagic.com/sparseml/source/onnx_export.html) and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
