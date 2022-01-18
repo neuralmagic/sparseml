@@ -69,7 +69,7 @@ ViT recipes are not yet available on SparseZoo, but are in progress.
 
 Using a local recipe and checkpoint, pruning a model can be done by running the following command from within the root of this integration's folder
 ```bash
-python integrations/timm/train.py \
+python train.py \
   /PATH/TO/DATASET/imagenet/ \
   --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
   --initial-checkpoint PATH/TO/CHECKPOINT/model.pth \
@@ -90,14 +90,14 @@ The following table lays out the root-level files and folders along with a descr
 
 | Folder/File Name     | Description                                                                                                           |
 |----------------------|-----------------------------------------------------------------------------------------------------------------------|
-| recipes              | Typical recipes for sparsifying ViT models along with any downloaded recipes from the SparseZoo (WIP).                      |
-| tutorials            | Tutorial walkthroughs for how to sparsify ViT models using recipes (WIP).                                                   |          |
-| README.md            | Readme file.                                                                                                        |
-| setup_integration.sh | Setup file for the integration run from the command line.   
+| [recipes](./recipes)              | Typical recipes for sparsifying ViT models along with any downloaded recipes from the SparseZoo.                      |
+| tutorials            | Tutorial walkthroughs for how to sparsify ViT models using recipes (Coming Soon).                                                   |          |
+| [README.md](./README.md)            | Readme file.                                                                                                        |
+| [setup_integration.sh](./setup_integration.sh) | Setup file for the integration run from the command line.   
 
 ### Exporting for Inference
 
-After sparsifying a model, to convert the model into an [ONNX](https://onnx.ai/) deployment format run `export.py`(https://github.com/neuralmagic/pytorch-image-models/blob/master/train.py).
+After sparsifying a model, to convert the model into an [ONNX](https://onnx.ai/) deployment format run the `export.py script`(https://github.com/neuralmagic/pytorch-image-models/blob/master/export.py).
 
 The export process is modified such that the quantized and pruned models are corrected and folded properly.
 
