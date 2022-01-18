@@ -109,7 +109,7 @@ python export.py
     --name vit_base_patch16_224 \
     --batch-size 1 \
     --image-shape 3 550 550 \
-    --config ./quantized-checkpoint/args.yaml
+    --config ./path/to/checkpoint/args.yaml
 ```
 
 The DeepSparse Engine [accepts ONNX formats](https://docs.neuralmagic.com/sparseml/source/onnx_export.html) and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
