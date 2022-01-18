@@ -71,14 +71,13 @@ Using a local recipe and checkpoint, pruning a model can be done by running the 
 ```bash
 python train.py \
   /PATH/TO/DATASET/imagenet/ \
-  --sparseml-recipe /PATH/TO/RECIPE/recipe.yaml \
-  --initial-checkpoint PATH/TO/CHECKPOINT/model.pth \
+  --recipe ../recipes/vit_base.85.recal.config.yaml \
   --dataset imagenet \
   --batch-size 64 \
-  --remode pixel --reprob 0.6 --smoothing 0.1 \
+  --remode pixel --reprob 0.0 --smoothing 0.1 --mixup 0.5 --mixup 0.5 \
   --output models/optimized \
-  --model resnet50 \
-  --workers 8 \
+  --model vit_base_patch16_224 \
+  --workers 8 
 ```  
 
 Documentation on the original script can be found
@@ -104,10 +103,10 @@ The export process is modified such that the quantized and pruned models are cor
 For example, the following command can be run from within the integration's folder to export a trained/sparsified model's checkpoint:
 ```bash
 python export.py 
-    --checkpoint ./quantized-checkpoint/vit_base_patch32_224-224_pruned.pth.tar \
-    --recipe ./recipes/vit_base.85.quant.config.yaml \
+    --checkpoint ./path/to/checkpoint \
+    --recipe ./recipes/vit_base.85.recal.config.yaml \
     --save-dir ./exported-models \
-    --name vit_base_patch32_224-224 \
+    --name vit_base_patch16_224 \
     --batch-size 1 \
     --image-shape 3 550 550 \
     --config ./quantized-checkpoint/args.yaml
