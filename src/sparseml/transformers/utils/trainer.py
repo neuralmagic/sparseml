@@ -279,7 +279,7 @@ class SparseMLTrainer:
             if isinstance(mod, QuantizationModifier)
             or isinstance(mod, LayerPruningModifier)
         ]
-        if saved_mods:
+        if saved_mods and os.path.exists(output_recipe_file):
             with open(output_recipe_file, "a") as yaml_file:
                 for mod in saved_mods:
                     yaml_file.write(str(mod) + "\n\n")
