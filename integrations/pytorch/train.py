@@ -606,7 +606,12 @@ def train(
                 val_metric = val_res.result_mean(target_metric).item()
 
                 if epoch >= train_args.save_best_after and (
-                    best_metric is None or val_metric <= best_metric
+                    best_metric is None
+                    or (
+                        val_metric <= best_metric
+                        if target_metric != "top1acc"
+                        else val_metric >= best_metric
+                    )
                 ):
                     utils.save_model_training(
                         model,
