@@ -19,6 +19,7 @@ Common functions for interfacing with python primitives and directories/files.
 
 import errno
 import fnmatch
+import json
 import logging
 import os
 import sys
@@ -57,6 +58,7 @@ __all__ = [
     "tensor_export",
     "tensors_export",
     "parse_optimization_str",
+    "json_to_jsonl",
 ]
 
 
@@ -778,3 +780,34 @@ def parse_optimization_str(optim_full_name: str) -> Tuple[str, str, Any]:
         optim_split_name.append(optim_defaults[len(optim_split_name)])
     sparse_name, sparse_category, sparse_target = optim_split_name[:3]
     return sparse_name, sparse_category, sparse_target
+
+
+def json_to_jsonl(json_file_path: str, overwrite: bool = True):
+    """
+    Converts a json list file to jsonl file format (used for sharding efficienty)
+        e.x.
+            [{"a": 1}, {"a": 1}]
+        would convert to:
+            {"a": 1}
+            {"a": 1}
+    :param json_file_path: file path to a json file path containing a json list
+        of objects
+    :param overwrite: If True, the existing json file will be overwritten, if False,
+        the file will have the same name but with a .jsonl extension
+    """
+    if not json_file_path.endswith(".json"):
+        raise ValueError("json file must have .json extension")
+    with open(json_file_path) as json_file:
+        json_data = json.load(json_file)
+
+    if not isinstance(json_data, List):
+        raise ValueError(
+            "Json data must be a list to conver to jsonl format. "
+            f"found {type(json_data)}"
+        )
+
+    jsonl_file_path = json_file_path + ("" if overwrite else "l")
+    with open(jsonl_file_path, "w") as jsonl_file:
+        for json_line in json_data:
+            json.dump(json_line, jsonl_file)  # append json line
+            jsonl_file.write("\n")  # newline
