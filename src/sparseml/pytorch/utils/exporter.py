@@ -514,6 +514,8 @@ def _get_output_names(out: Any):
     output_names = None
     if isinstance(out, Tensor):
         output_names = ["output"]
+    elif hasattr(out, "keys") and callable(out.keys):
+        output_names = list(out.keys())
     elif isinstance(out, Iterable):
         output_names = ["output_{}".format(index) for index, _ in enumerate(iter(out))]
     return output_names
