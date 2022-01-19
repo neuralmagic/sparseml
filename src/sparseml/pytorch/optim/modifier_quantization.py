@@ -111,6 +111,10 @@ class QuantizationModifier(ScheduledModifier):
         model_fuse_fn_kwargs: Dict[str, Any] = None,
         quantize_embeddings: bool = True,
         reduce_range: bool = False,
+        # Tuan: begin
+        weight_observer_cls_name: str = "MovingAverageMinMaxObserver",
+        quantize_stand_alone_matmul: bool = True
+        # Tuan: end
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -134,6 +138,9 @@ class QuantizationModifier(ScheduledModifier):
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
         self._quantize_embeddings = quantize_embeddings
         self._reduce_range = reduce_range
+
+        self.weight_observer_cls_name = weight_observer_cls_name
+        self._quantize_stand_alone_matmul = quantize_stand_alone_matmul
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -392,10 +399,17 @@ class QuantizationModifier(ScheduledModifier):
             fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
 
         # prepare each module / submodule for quantization
-        qconfig = get_qat_qconfig(reduce_range=self._reduce_range)
+        qconfig = get_qat_qconfig(
+            reduce_range=self._reduce_range,
+            weight_observer_cls_name=self.weight_observer_cls_name
+        )
         for name, quant_module in self._modules_to_quantize:
             # wrap any modules with wrap_qat set to True as QATWrapper(s)
-            configure_module_qat_wrappers(quant_module, reduce_range=self._reduce_range)
+            configure_module_qat_wrappers(
+                quant_module,
+                quantize_stand_alone_matmul=self._quantize_stand_alone_matmul,
+                reduce_range=self._reduce_range,
+            )
             # set quantization config (asymmetric activations, symmetric weights)
             quant_module.qconfig = qconfig
             # wrap all conv / linear blocks in with quantization observers
@@ -465,3 +479,5 @@ class QuantizationModifier(ScheduledModifier):
                     self._freeze_bn_stats_epoch, self._start_epoch
                 )
             )
+
+        assert self.weight_observer_cls_name in ["MovingAverageMinMaxObserver","WeightMinMaxObserver", "MinMaxObserver"]
