@@ -342,6 +342,18 @@ def create_scheduled_optimizer(
     else:
         epoch = 0
 
+    def loader(imagenet_path="/home/dan/ILSVRC", num_samples=1000, batch_size=16):
+        from sparseml.pytorch.datasets import ImageNetDataset
+        from torch.utils.data import DataLoader
+
+        data = DataLoader(ImageNetDataset(imagenet_path), batch_size=batch_size, shuffle=True)
+        for idx, sample in enumerate(data):
+            yield sample[0].cuda()
+            if idx%100 == 0:
+                print(f"sample {idx}")
+            if idx >= num_samples:
+                break
+
     # modifier setup
     add_mods = (
         ConstantPruningModifier.from_sparse_model(model)
@@ -357,6 +369,7 @@ def create_scheduled_optimizer(
         manager,
         steps_per_epoch=len(train_loader),
         loggers=loggers,
+        initialize_kwargs=dict(calibration_dataloader=loader(num_samples=1000)),
     )
     print(f"created manager: {manager}")
     return epoch, optim, manager
