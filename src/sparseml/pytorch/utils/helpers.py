@@ -722,11 +722,7 @@ def get_conv_layers(module: Module) -> Dict[str, Module]:
     :param module: the module to grab all conv layers for
     :return: a list of all the conv layers in the module
     """
-    convs = {}
-
-    for name, mod in module.named_modules():
-        if isinstance(mod, _ConvNd):
-            convs[name] = mod
+    convs = {name: mod for (name, mod) in module.named_modules() if isinstance(mod, _ConvNd)}
 
     return convs
 
