@@ -21,19 +21,59 @@ Tools for integrating SparseML with transformers training flows
 try:
     import transformers as _transformers
 
-    transformers_import_error = None
-except Exception as transformers_import_err:
-    transformers_import_error = transformers_import_err
+    _transformers_import_error = None
+except Exception as _transformers_import_err:
+    _transformers_import_error = _transformers_import_err
+
+
+def _install_transformers_and_deps():
+    import logging as _logging
+
+    import pip as _pip
+    import sparseml as _sparseml
+
+    logger = _logging.getLogger(__name__)
+
+    logger.info(
+        "No installation of transformers found. Installing sparseml-transformers "
+        "dependencies"
+    )
+    transformers_branch = (
+        "master"
+        if not _sparseml.is_release
+        else f"release/{_sparseml.version_major_minor}"
+    )
+    transformers_requirement = (
+        "transformers @ git+https://github.com/neuralmagic/transformers.git"
+        f"@{transformers_branch}"
+    )
+
+    _pip.main(
+        [
+            "install",
+            transformers_requirement,
+            "datasets",
+            "sklearn",
+            "seqeval",
+        ]
+    )
+
+    try:
+        import transformers as _transformers
+
+        logger.info("sparseml-transformers and dependencies successfully installed")
+    except Exception:
+        raise ValueError(
+            "Unable to install sparseml-transformers dependencies try installing "
+            f"via `pip install git+https://github.com/neuralmagic/transformers.git"
+        )
 
 
 def _check_transformers_install():
-    if transformers_import_error is None:
+    if _transformers_import_error is None:
         return
-    raise ImportError(
-        "No installation of transformers found. It is recommended to use the "
-        "sparseml fork of transformers which can be installed under "
-        "sparseml[transformers] or git+https://github.com/neuralmagic/transformers.git"
-    )
+    else:
+        _install_transformers_and_deps()
 
 
 _check_transformers_install()
