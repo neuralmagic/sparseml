@@ -35,6 +35,7 @@ from sparseml.pytorch.nn import ReLU as ReLU_nm
 
 __all__ = [
     "QATWrapper",
+    "remove_linear_activation_quant",
     "configure_module_qat_wrappers",
     "configure_module_default_qconfigs",
     "add_quant_dequant",
@@ -336,6 +337,10 @@ def configure_module_default_qconfigs(module: Module):
         ):
             submodule.configure_qconfig()
 
+def remove_linear_activation_quant(module: Module):
+    for submodule in module.modules():
+        if submodule.__class__.__name__ == "Linear":
+            submodule.qconfig = get_qat_qconfig(quantized_activations=False)
 
 def add_quant_dequant(module, name=None, parent_module=None):
     """
@@ -379,6 +384,7 @@ class WeightMinMaxObserver(torch_quantization.MinMaxObserver):
 
 def get_qat_qconfig(
     symmetric_activations: bool = False,
+    quantized_activations: bool = True,
     symmetric_weights: bool = True,
     reduce_range: bool = False,
     weight_observer_cls_name: str = "MovingAverageMinMaxObserver"
@@ -398,17 +404,21 @@ def get_qat_qconfig(
         torch.quantization.default_qat_qconfig is that the activation observer
         will not have reduce_range enabled.
     """
-    activation_qscheme = (
-        torch.per_tensor_symmetric if symmetric_activations else torch.per_tensor_affine
-    )
-    activation_observer = torch_quantization.FakeQuantize.with_args(
-        observer=torch_quantization.MovingAverageMinMaxObserver,
-        quant_min=0,
-        quant_max=255,
-        dtype=torch.quint8,
-        qscheme=activation_qscheme,
-        reduce_range=reduce_range,
-    )
+    if quantized_activations:
+        activation_qscheme = (
+            torch.per_tensor_symmetric if symmetric_activations else torch.per_tensor_affine
+        )
+        activation_observer = torch_quantization.FakeQuantize.with_args(
+            observer=torch_quantization.MovingAverageMinMaxObserver,
+            quant_min=0,
+            quant_max=255,
+            dtype=torch.quint8,
+            qscheme=activation_qscheme,
+            reduce_range=reduce_range,
+        )
+    else:
+        activation_observer = torch.nn.Identity
+
     weight_qscheme = (
         torch.per_tensor_symmetric if symmetric_weights else torch.per_tensor_affine
     )
