@@ -419,11 +419,11 @@ class QuantizationModifier(ScheduledModifier):
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
 
+            add_quant_dequant(quant_module, name, module)
             # Tuan: begin
             if not self._quantize_linear_activations:
                 remove_linear_activation_quant(quant_module)
             # Tuan: end
-            add_quant_dequant(quant_module, name, module)
 
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)
