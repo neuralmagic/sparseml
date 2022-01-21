@@ -404,7 +404,7 @@ class QuantizationModifier(ScheduledModifier):
         # prepare each module / submodule for quantization
         qconfig = get_qat_qconfig(
             reduce_range=self._reduce_range,
-            weight_observer_cls_name=self.weight_observer_cls_name
+            weight_observer_cls_name=self._weight_observer_cls_name
         )
         for name, quant_module in self._modules_to_quantize:
             # wrap any modules with wrap_qat set to True as QATWrapper(s)
