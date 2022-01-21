@@ -37,10 +37,6 @@ def _install_transformers_and_deps():
     import pip as _pip
     import sparseml as _sparseml
 
-    _LOGGER.info(
-        "No installation of transformers found. Installing sparseml-transformers "
-        "dependencies"
-    )
     transformers_branch = (
         "master"
         if not _sparseml.is_release
@@ -74,7 +70,21 @@ def _install_transformers_and_deps():
 
 def _check_transformers_install():
     if _transformers_import_error is not None:
-        _install_transformers_and_deps()
+        import os
+
+        if os.getenv("SPARSEML_NO_AUTOINSTALL_TRANSFORMERS", False):
+            _LOGGER.warning(
+                "Unable to import transformers, skipping auto installation "
+                "due to SPARSEML_NO_AUTOINSTALL_TRANSFORMERS"
+            )
+            # skip any further checks
+            return
+        else:
+            _LOGGER.info(
+                "No installation of transformers found. Installing sparseml-transformers "
+                "dependencies"
+            )
+            _install_transformers_and_deps()
 
     # check sparseml fork installed with QATMatMul available
     try:
