@@ -123,12 +123,13 @@ def export_transformer_to_onnx(
         pipeline, it will look only for 'model.onnx'
     :return: path to the exported ONNX file
     """
-    if task.lower() not in _TASK_TO_CONSTRUCTOR:
+    task = "-".join(task.lower().split("_"))
+    if task not in _TASK_TO_CONSTRUCTOR:
         raise ValueError(
             f"task {task} unsupported for export_transformer_to_onnx. Supported "
             f"tasks include {list(_TASK_TO_CONSTRUCTOR.keys())}"
         )
-    auto_model_constructor = _TASK_TO_CONSTRUCTOR[task.lower()]
+    auto_model_constructor = _TASK_TO_CONSTRUCTOR[task]
 
     if not os.path.isdir(model_path):
         raise ValueError(

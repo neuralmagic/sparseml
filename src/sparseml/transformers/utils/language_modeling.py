@@ -32,8 +32,11 @@ class SparseMLMLMTrainer(SparseMLTrainer, Trainer):
     Trainer for running sparsification recipes with MLM training
 
     :param model_name_or_path: path to model directory to be trained
-    :param recipes: list of paths to recipes for model sparsification or string
-        recipes for sparsification. Can also be single string path or recipe
+    :param recipe: path to recipe for model sparsification
+    :param checkpoint_recipes: list of paths to recipes used to train the
+        starting checkpoint for this training run. Will be applied to the model
+        on call to `apply_recipes` so that model state can be reproduced for
+        weight loading
     :param teacher: teacher model for distillation. Default is None
     :param recipe_args: Dictionary of recipe variables to override or json
         loadable string of those args. Default is None
@@ -44,7 +47,8 @@ class SparseMLMLMTrainer(SparseMLTrainer, Trainer):
     def __init__(
         self,
         model_name_or_path: str,
-        recipes: Union[str, List[str]],
+        recipe: str,
+        checkpoint_recipes: Union[str, List[str]] = None,
         teacher: Optional[torch.nn.Module] = None,
         recipe_args: Union[Dict[str, Any], str] = None,
         *args,
@@ -52,7 +56,8 @@ class SparseMLMLMTrainer(SparseMLTrainer, Trainer):
     ):
         super().__init__(
             model_name_or_path=model_name_or_path,
-            recipes=recipes,
+            recipe=recipe,
+            checkpoint_recipes=checkpoint_recipes,
             teacher=teacher,
             recipe_args=recipe_args,
             teacher_input_keys=None,
