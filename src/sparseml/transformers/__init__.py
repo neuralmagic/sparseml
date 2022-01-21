@@ -47,24 +47,25 @@ def _install_transformers_and_deps():
         f"@{transformers_branch}"
     )
 
-    _pip.main(
-        [
-            "install",
-            transformers_requirement,
-            "datasets",
-            "sklearn",
-            "seqeval",
-        ]
-    )
-
     try:
+        _pip.main(
+            [
+                "install",
+                transformers_requirement,
+                "datasets",
+                "sklearn",
+                "seqeval",
+            ]
+        )
+
         import transformers as _transformers
 
         _LOGGER.info("sparseml-transformers and dependencies successfully installed")
     except Exception:
         raise ValueError(
-            "Unable to install sparseml-transformers dependencies try installing "
-            f"via `pip install git+https://github.com/neuralmagic/transformers.git`"
+            "Unable to install and import sparseml-transformers dependencies check "
+            "that transformers is installed, if not, install via "
+            "`pip install git+https://github.com/neuralmagic/transformers.git`"
         )
 
 
