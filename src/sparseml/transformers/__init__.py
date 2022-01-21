@@ -73,10 +73,10 @@ def _check_transformers_install():
     if _transformers_import_error is not None:
         import os
 
-        if os.getenv("SPARSEML_NO_AUTOINSTALL_TRANSFORMERS", False):
+        if os.getenv("NM_NO_AUTOINSTALL_TRANSFORMERS", False):
             _LOGGER.warning(
                 "Unable to import transformers, skipping auto installation "
-                "due to SPARSEML_NO_AUTOINSTALL_TRANSFORMERS"
+                "due to NM_NO_AUTOINSTALL_TRANSFORMERS"
             )
             # skip any further checks
             return
@@ -87,7 +87,7 @@ def _check_transformers_install():
             )
             _install_transformers_and_deps()
 
-    # check sparseml fork installed with QATMatMul available
+    # check NM fork installed with QATMatMul available
     try:
         import transformers as _transformers
 
@@ -95,8 +95,9 @@ def _check_transformers_install():
     except Exception:
         _LOGGER.warning(
             "transformers.models.bert.modeling_bert.QATMatMul not availalbe. the"
-            "sparseml fork of transformers may not be installed. it can be installed "
-            "via `pip install git+https://github.com/neuralmagic/transformers.git`"
+            "neuralmagic fork of transformers may not be installed. it can be "
+            "installed via "
+            "`pip install git+https://github.com/neuralmagic/transformers.git`"
         )
 
 
