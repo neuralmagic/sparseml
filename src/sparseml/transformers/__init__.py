@@ -18,6 +18,9 @@ Tools for integrating SparseML with transformers training flows
 
 # flake8: noqa
 
+import logging as _logging
+
+
 try:
     import transformers as _transformers
 
@@ -26,15 +29,15 @@ except Exception as _transformers_import_err:
     _transformers_import_error = _transformers_import_err
 
 
+_LOGGER = _logging.getLogger(__name__)
+
+
 def _install_transformers_and_deps():
-    import logging as _logging
 
     import pip as _pip
     import sparseml as _sparseml
 
-    logger = _logging.getLogger(__name__)
-
-    logger.info(
+    _LOGGER.info(
         "No installation of transformers found. Installing sparseml-transformers "
         "dependencies"
     )
@@ -61,19 +64,29 @@ def _install_transformers_and_deps():
     try:
         import transformers as _transformers
 
-        logger.info("sparseml-transformers and dependencies successfully installed")
+        _LOGGER.info("sparseml-transformers and dependencies successfully installed")
     except Exception:
         raise ValueError(
             "Unable to install sparseml-transformers dependencies try installing "
-            f"via `pip install git+https://github.com/neuralmagic/transformers.git"
+            f"via `pip install git+https://github.com/neuralmagic/transformers.git`"
         )
 
 
 def _check_transformers_install():
-    if _transformers_import_error is None:
-        return
-    else:
+    if _transformers_import_error is not None:
         _install_transformers_and_deps()
+
+    # check sparseml fork installed with QATMatMul available
+    try:
+        import transformers as _transformers
+
+        _transformers.models.bert.modeling_bert.QATMatMul
+    except Exception:
+        _LOGGER.warning(
+            "transformers.models.bert.modeling_bert.QATMatMul not availalbe. the"
+            "sparseml fork of transformers may not be installed. it can be installed "
+            "via `pip install git+https://github.com/neuralmagic/transformers.git`"
+        )
 
 
 _check_transformers_install()
