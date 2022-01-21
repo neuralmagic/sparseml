@@ -159,7 +159,8 @@ def export_transformer_to_onnx(
         _LOGGER.warning(f"recipe not found under {recipe_path}")
 
     # load weights
-    state_dict = torch.load(os.path.join(model_path, WEIGHTS_NAME))
+    load_kwargs = {} if torch.cuda.is_available() else {"map_location": "cpu"}
+    state_dict = torch.load(os.path.join(model_path, WEIGHTS_NAME), **load_kwargs)
     model.load_state_dict(state_dict)
 
     # create fake model input
