@@ -42,6 +42,7 @@ from sparseml.pytorch.utils.quantization import (
     fuse_module_conv_bn_relus,
     get_qat_qconfig,
     prepare_embeddings_qat,
+    remove_activation_qat_by_layer_name,
 )
 
 
@@ -93,6 +94,11 @@ class QuantizationModifier(ScheduledModifier):
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware
         Default is False
+    :param quantize_linear_activations: if False, FakeQuantize ops will not be run
+        for activations of fully connected layers. this is important for quantizing
+        transformer based models such as BERT where the quantized MatMul outputs
+        are kept at 32 bits of precision and fake quantizing the outputs harm training
+        recovery. Default is True
     """
 
     def __init__(
@@ -106,6 +112,7 @@ class QuantizationModifier(ScheduledModifier):
         model_fuse_fn_kwargs: Dict[str, Any] = None,
         quantize_embeddings: bool = True,
         reduce_range: bool = False,
+        quantize_linear_activations: bool = True,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -129,6 +136,7 @@ class QuantizationModifier(ScheduledModifier):
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
         self._quantize_embeddings = quantize_embeddings
         self._reduce_range = reduce_range
+        self._quantize_linear_activations = quantize_linear_activations
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -250,6 +258,17 @@ class QuantizationModifier(ScheduledModifier):
             This may prevent overflow issues with model execution on certain hardware
         """
         return self._reduce_range
+
+    @ModifierProp()
+    def quantize_linear_activations(self) -> bool:
+        """
+        :return: if False, FakeQuantize ops will not be run
+            for activations of fully connected layers. this is important for quantizing
+            transformer based models such as BERT where the quantized MatMul outputs
+            are kept at 32 bits of precision and fake quantizing the outputs harm
+            training recovery
+        """
+        return self._quantize_linear_activations
 
     def initialize(
         self,
@@ -392,6 +411,9 @@ class QuantizationModifier(ScheduledModifier):
             configure_module_default_qconfigs(quant_module)
 
             add_quant_dequant(quant_module, name, module)
+
+            if not self._quantize_linear_activations:
+                remove_activation_qat_by_layer_name(quant_module, ["Linear"])
 
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)

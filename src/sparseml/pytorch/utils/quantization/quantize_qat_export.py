@@ -667,9 +667,9 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
     |                     |
     |                    Add (with constant bias)
     |                     |
-    |               QuantizeLinear
+    |               QuantizeLinear (Optional)
     |                     |
-    |              DequantizeLinear
+    |              DequantizeLinear (Optional)
     |                     |
     |                  OUTPUT
     | We end up converting to:
@@ -718,19 +718,26 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         bias_add_node = graph.get_node_single_child(matmul_node)
         if not bias_add_node or bias_add_node.op_type != "Add":
             continue
+
+        # Optionally find output QDQ block which will be deleted
         output_quantize_node = graph.get_node_single_child(bias_add_node)
         if (
             not output_quantize_node
             or output_quantize_node.op_type not in _QUANTIZE_OP_NAMES
         ):
-            continue
+            output_quantize_node = None
 
-        output_dequantize_node = graph.get_node_single_child(output_quantize_node)
+        output_dequantize_node = (
+            graph.get_node_single_child(output_quantize_node)
+            if output_quantize_node
+            else None
+        )
         if (
             not output_dequantize_node
             or output_dequantize_node.op_type not in _QUANTIZE_OP_NAMES
         ):
-            continue
+            output_quantize_node = None
+            output_dequantize_node = None
 
         input_quantize_params = get_quantization_params(
             model, input_quantize_node, include_target=False
@@ -743,7 +750,7 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
             continue
         if input_quantize_node.op_type != "DequantizeLinear":
             continue
-        if output_quantize_node.op_type != "QuantizeLinear":
+        if output_quantize_node and output_quantize_node.op_type != "QuantizeLinear":
             continue
         bias_initializer = get_init_by_name(model, bias_add_node.input[1]) or (
             get_init_by_name(model, bias_add_node.input[0])
@@ -822,8 +829,13 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
             matmul_integer_output,  # MatMul integer outputs (INT32)
             quantized_bias_name,  # Quantized bias (INT32)
         ]
-        quant_add_output = output_quantize_node.output[0]
+
         quant_add_name = "{}_quant".format(bias_add_node.name)
+        quant_add_output = (
+            output_quantize_node.output[0]
+            if output_quantize_node
+            else f"{quant_add_name}_output"
+        )
 
         # create Add node and add it to graph
         qadd_node = onnx.helper.make_node(
@@ -852,10 +864,15 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
             quantized_bias_scale_name,  # b -> rescale factor
         ]
         mul_node_name = "{}_rescale_mul".format(bias_add_node.name)
+        mul_node_output = (
+            output_dequantize_node.output[0]
+            if output_dequantize_node
+            else bias_add_node.output[0]
+        )
         mul_node = onnx.helper.make_node(
             "Mul",
             mul_node_inputs,
-            [output_dequantize_node.output[0]],
+            [mul_node_output],
             mul_node_name,
         )
         model.graph.node.append(mul_node)
@@ -865,9 +882,15 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
         delete_quant_node(model, weight_dequantize_node, keep_params=False)
         delete_quant_node(model, weight_quantize_node, keep_params=True)
         remove_node_and_params_from_graph(model, weight_transpose_node)
-        delete_quant_node(model, input_quantize_node, keep_params=True)
-        delete_quant_node(model, output_quantize_node, keep_params=True)
-        delete_quant_node(model, output_dequantize_node, keep_params=True)
+
+        # only delete input node if the matmul is the only child
+        current_graph = ONNXGraph(model)
+        if len(current_graph.get_node_children(input_quantize_node)) == 1:
+            delete_quant_node(model, input_quantize_node, keep_params=True)
+        if output_quantize_node:
+            delete_quant_node(model, output_quantize_node, keep_params=True)
+        if output_dequantize_node:
+            delete_quant_node(model, output_dequantize_node, keep_params=True)
 
         # delete original Gemm node
         remove_node_and_params_from_graph(model, matmul_node, keep_params=None)
