@@ -50,7 +50,7 @@ def _install_transformers_and_deps():
     nm_transformers_release = (
         "nightly"
         if not _sparseml.is_release
-        else f"release/v{_sparseml.version_major_minor}.0"
+        else f"v{_sparseml.version_major_minor}"
     )
     transformers_requirement = _NM_TRANSFORMERS_TAR_TEMPLATE.format(
         version=nm_transformers_release
