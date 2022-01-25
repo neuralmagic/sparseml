@@ -38,6 +38,7 @@ __all__ = [
     "configure_module_qat_wrappers",
     "configure_module_default_qconfigs",
     "add_quant_dequant",
+    "remove_activation_qat_by_layer_name",
     "get_qat_qconfig",
     "fuse_module_conv_bn_relus",
     "prepare_embeddings_qat",
@@ -346,6 +347,25 @@ def add_quant_dequant(module, name=None, parent_module=None):
         for name, child in named_children:
             setattr(module, name, add_quant_dequant(child))
     return module
+
+
+def remove_activation_qat_by_layer_name(module: Module, layer_class_names: List[str]):
+    """
+    Disables fake quantization of activations for all submodules of the given module
+    with class name layer_class_names
+
+    :param module: module to remove activation fake quantization for certain layers
+    :param layer_class_names: list of layer class names that should be affected.
+        e.x. ["Linear"]
+    """
+    for submodule in module.modules():
+        if submodule.__class__.__name__ in layer_class_names and (
+            hasattr(submodule, "qconfig")
+        ):
+            submodule.qconfig = torch_quantization.QConfig(
+                activation=torch.nn.Identity,
+                weight=submodule.qconfig.weight,
+            )
 
 
 def get_qat_qconfig(

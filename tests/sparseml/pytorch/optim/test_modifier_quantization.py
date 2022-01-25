@@ -15,7 +15,7 @@
 import os
 
 import pytest
-from torch.nn import Conv2d, Linear
+from torch.nn import Conv2d, Identity, Linear
 
 from sparseml.pytorch.optim import QuantizationModifier
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
@@ -50,6 +50,10 @@ QUANTIZATION_MODIFIERS = [
         submodules=["seq.fc1", "seq.block1.fc2"],
         reduce_range=True,
     ),
+    lambda: QuantizationModifier(
+        start_epoch=0.0,
+        quantize_linear_activations=False,
+    ),
 ]
 
 
@@ -63,7 +67,9 @@ def _is_quantiable_module(module):
     return isinstance(module, (Conv2d, Linear))
 
 
-def _test_quantizable_module(module, qat_expected, reduce_range):
+def _test_quantizable_module(
+    module, qat_expected, reduce_range, quantize_linear_activations
+):
     if qat_expected:
         assert hasattr(module, "qconfig") and module.qconfig is not None
         assert hasattr(module, "weight_fake_quant") and (
@@ -72,7 +78,12 @@ def _test_quantizable_module(module, qat_expected, reduce_range):
         assert hasattr(module, "activation_post_process") and (
             module.activation_post_process is not None
         )
-        assert module.qconfig.activation.p.keywords["reduce_range"] == reduce_range
+        if module.qconfig.activation is not Identity:
+            assert module.qconfig.activation.p.keywords["reduce_range"] == reduce_range
+        if isinstance(module, Linear):
+            assert isinstance(module.activation_post_process, Identity) == (
+                not quantize_linear_activations
+            )
     else:
         assert not hasattr(module, "qconfig") or module.qconfig is None
         assert not hasattr(module, "weight_fake_quant")
@@ -86,7 +97,12 @@ def _test_qat_applied(modifier, model):
         submodules = [""]
         for module in model.modules():
             if _is_quantiable_module(module):
-                _test_quantizable_module(module, True, modifier.reduce_range)
+                _test_quantizable_module(
+                    module,
+                    True,
+                    modifier.reduce_range,
+                    modifier.quantize_linear_activations,
+                )
     else:
         assert not hasattr(model, "qconfig") or model.qconfig is None
         submodules = modifier.submodules
@@ -94,7 +110,10 @@ def _test_qat_applied(modifier, model):
     for name, module in model.named_modules():
         if _is_quantiable_module(module):
             _test_quantizable_module(
-                module, _is_valid_submodule(name, submodules), modifier.reduce_range
+                module,
+                _is_valid_submodule(name, submodules),
+                modifier.reduce_range,
+                modifier.quantize_linear_activations,
             )
 
 
@@ -187,6 +206,7 @@ def test_quantization_modifier_yaml():
     freeze_bn_stats_epoch = 3.0
     quantize_embeddings = False
     reduce_range = True
+    quantize_linear_activations = False
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
@@ -196,6 +216,7 @@ def test_quantization_modifier_yaml():
             freeze_bn_stats_epoch: {freeze_bn_stats_epoch}
             quantize_embeddings: {quantize_embeddings}
             reduce_range: {reduce_range}
+            quantize_linear_activations: {quantize_linear_activations}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -211,6 +232,7 @@ def test_quantization_modifier_yaml():
         freeze_bn_stats_epoch=freeze_bn_stats_epoch,
         quantize_embeddings=quantize_embeddings,
         reduce_range=reduce_range,
+        quantize_linear_activations=quantize_linear_activations,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -248,4 +270,9 @@ def test_quantization_modifier_yaml():
         yaml_modifier.reduce_range
         == serialized_modifier.reduce_range
         == obj_modifier.reduce_range
+    )
+    assert (
+        yaml_modifier.quantize_linear_activations
+        == serialized_modifier.quantize_linear_activations
+        == obj_modifier.quantize_linear_activations
     )
