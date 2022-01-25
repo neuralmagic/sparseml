@@ -29,7 +29,7 @@ Export a trained transformers model to an ONNX file
 
 optional arguments:
   -h, --help            show this help message and exit
-  --task TASK           task to create the model for. i.e. mlm, qa, glue, ner
+  --task TASK           Task to create the model for. i.e. mlm, qa, glue, ner
   --model_path MODEL_PATH
                         Path to directory where model files for weights, config,
                         and tokenizer are stored
@@ -37,13 +37,13 @@ optional arguments:
                         Sequence length to use. Default is 384. Can be overwritten
                         later
   --convert_qat CONVERT_QAT
-                        Set True to convert QAT graph exports to fully quantized.
-                        Default is True
+                        Set flag to not perform QAT to fully quantized conversion
+                        after export
   --finetuning_task FINETUNING_TASK
                         optional finetuning task for text classification and token
                         classification exports
   --onnx_file_name ONNX_FILE_NAME
-                        name for exported ONNX file in the model directory. Default
+                        Name for exported ONNX file in the model directory. Default
                         and reccomended value for pipeline compatibility is
                         'model.onnx'
 
@@ -159,7 +159,8 @@ def export_transformer_to_onnx(
         _LOGGER.warning(f"recipe not found under {recipe_path}")
 
     # load weights
-    state_dict = torch.load(os.path.join(model_path, WEIGHTS_NAME))
+    load_kwargs = {} if torch.cuda.is_available() else {"map_location": "cpu"}
+    state_dict = torch.load(os.path.join(model_path, WEIGHTS_NAME), **load_kwargs)
     model.load_state_dict(state_dict)
 
     # create fake model input
@@ -206,12 +207,9 @@ def _parse_args() -> argparse.Namespace:
         help="Sequence length to use. Default is 384. Can be overwritten later",
     )
     parser.add_argument(
-        "--convert_qat",
-        type=bool,
-        default=True,
-        help=(
-            "Set True to convert QAT graph exports to fully quantized. Default is True"
-        ),
+        "--no_convert_qat",
+        action="store_false",
+        help=("Set flag to not perform QAT to fully quantized conversion after export"),
     )
     parser.add_argument(
         "--finetuning_task",
