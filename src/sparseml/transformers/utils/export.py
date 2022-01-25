@@ -242,7 +242,7 @@ def main():
         task=args.task,
         model_path=args.model_path,
         sequence_length=args.sequence_length,
-        convert_qat=args.convert_qat,
+        convert_qat=args.no_convert_qat,  # False if flagged
         finetuning_task=args.finetuning_task,
         onnx_file_name=args.onnx_file_name,
     )
