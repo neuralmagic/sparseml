@@ -19,6 +19,7 @@ Tools for integrating SparseML with transformers training flows
 # flake8: noqa
 
 import logging as _logging
+import sys
 
 
 try:
@@ -41,7 +42,9 @@ _NM_TRANSFORMERS_NIGHTLY = _NM_TRANSFORMERS_TAR_TEMPLATE.format(version="nightly
 
 def _install_transformers_and_deps():
 
-    import pip as _pip
+    import subprocess as _subprocess
+    import sys as _sys
+
     import sparseml as _sparseml
 
     nm_transformers_release = (
@@ -53,8 +56,11 @@ def _install_transformers_and_deps():
         version=nm_transformers_release
     )
     try:
-        _pip.main(
+        _subprocess.check_call(
             [
+                sys.executable,
+                "-m",
+                "pip",
                 "install",
                 transformers_requirement,
                 "datasets<1.18.0",
