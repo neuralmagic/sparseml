@@ -42,6 +42,12 @@ from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.nn import ReLU
 
 
+try:
+    from torch.nn.quantized import FloatFunctional
+except Exception:
+    FloatFunctional = None
+
+
 __all__ = [
     "ResNetSectionSettings",
     "ResNet",
@@ -157,7 +163,12 @@ class _BasicBlock(Module):
             if _IdentityModifier.required(in_channels, out_channels, stride)
             else None
         )
-        self.act_out = ReLU(num_channels=out_channels, inplace=True)
+
+        self.add_relu = (
+            FloatFunctional()
+            if FloatFunctional is not None
+            else ReLU(num_channels=out_channels, inplace=True)
+        )
 
         self.initialize()
 
@@ -169,13 +180,13 @@ class _BasicBlock(Module):
         out = self.conv2(out)
         out = self.bn2(out)
 
-        if self.identity is not None:
-            identity = self.identity(inp)
-            out += identity
-        else:
-            out += inp
+        identity_val = self.identity(inp) if self.identity is not None else inp
 
-        out = self.act_out(out)
+        if isinstance(self.add_relu, FloatFunctional):
+            out = self.add_relu.add_relu(out, identity_val)
+        else:
+            out += identity_val
+            out = self.add_relu(out)
 
         return out
 
@@ -218,7 +229,12 @@ class _BottleneckBlock(Module):
             if _IdentityModifier.required(in_channels, out_channels, stride)
             else None
         )
-        self.act_out = ReLU(num_channels=out_channels, inplace=True)
+
+        self.add_relu = (
+            FloatFunctional()
+            if FloatFunctional is not None
+            else ReLU(num_channels=out_channels, inplace=True)
+        )
 
         self.initialize()
 
@@ -234,13 +250,13 @@ class _BottleneckBlock(Module):
         out = self.conv3(out)
         out = self.bn3(out)
 
-        if self.identity is not None:
-            identity = self.identity(inp)
-            out += identity
-        else:
-            out += inp
+        identity_val = self.identity(inp) if self.identity is not None else inp
 
-        out = self.act_out(out)
+        if isinstance(self.add_relu, FloatFunctional):
+            out = self.add_relu.add_relu(out, identity_val)
+        else:
+            out += identity_val
+            out = self.add_relu(out)
 
         return out
 

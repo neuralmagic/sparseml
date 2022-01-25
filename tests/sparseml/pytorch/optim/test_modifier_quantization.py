@@ -67,7 +67,7 @@ def _is_valid_submodule(module_name, submodule_names):
     )
 
 
-def _is_quantiable_module(module):
+def _is_quantizable_module(module):
     return isinstance(module, (Conv2d, Linear))
 
 
@@ -104,14 +104,14 @@ def _test_qat_applied(modifier, model):
         assert hasattr(model, "qconfig") and model.qconfig is not None
         submodules = [""]
         for module in model.modules():
-            if _is_quantiable_module(module):
+            if _is_quantizable_module(module):
                 _test_quantizable_module(module, True, modifier)
     else:
         assert not hasattr(model, "qconfig") or model.qconfig is None
         submodules = modifier.submodules
     # check qconfig propagation
     for name, module in model.named_modules():
-        if _is_quantiable_module(module):
+        if _is_quantizable_module(module):
             _test_quantizable_module(
                 module,
                 _is_valid_submodule(name, submodules),
