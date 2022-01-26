@@ -102,7 +102,7 @@ The export process is modified such that the quantized and pruned models are cor
 
 For example, the following command can be run from within the integration's folder to export a trained/sparsified model's checkpoint:
 ```bash
-python export.py 
+python export.py \
     --checkpoint ./path/to/checkpoint/model.pth.tar \
     --recipe ../recipes/vit_base.85.recal.config.yaml \
     --save-dir ./exported-models \
