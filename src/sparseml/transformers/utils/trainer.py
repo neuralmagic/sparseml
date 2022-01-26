@@ -109,9 +109,14 @@ class SparseMLTrainer:
             recipe_args = {}
 
         # initialize manager and override num epochs if available
-        self.manager = ScheduledModifierManager.from_yaml(recipe, **recipe_args)
+        self.manager = (
+            ScheduledModifierManager.from_yaml(recipe, **recipe_args)
+            if recipe
+            else None
+        )
         if (
-            self.manager.max_epochs
+            self.manager
+            and self.manager.max_epochs
             and "args" in kwargs
             and (hasattr(kwargs["args"], "num_train_epochs"))
         ):
@@ -178,7 +183,7 @@ class SparseMLTrainer:
         Create optimizer customized using SparseML
         """
         super().create_optimizer()
-        if not self.recipe:
+        if not self.recipe or not self.manager:
             return
         total_batch_size = (
             self.args.per_device_train_batch_size
@@ -234,7 +239,7 @@ class SparseMLTrainer:
         """
         Computing loss using teacher/student distillation
         """
-        if not self.recipe or self.teacher is None:
+        if not self.recipe or self.manager is None or self.teacher is None:
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         student_outputs = model(**inputs)
@@ -273,6 +278,9 @@ class SparseMLTrainer:
         Save modifiers that change the model's architecture, which is to be applied
         later on whenever the model is loaded
         """
+        if not self.manager:
+            return
+
         output_dir = output_dir if output_dir is not None else self.args.output_dir
         output_recipe_file = os.path.join(output_dir, RECIPE_NAME)
         saved_mods = [
