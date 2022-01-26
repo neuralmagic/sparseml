@@ -19,7 +19,6 @@ Tools for integrating SparseML with transformers training flows
 # flake8: noqa
 
 import logging as _logging
-import sys
 
 
 try:
@@ -56,7 +55,7 @@ def _install_transformers_and_deps():
     try:
         _subprocess.check_call(
             [
-                sys.executable,
+                _sys.executable,
                 "-m",
                 "pip",
                 "install",
