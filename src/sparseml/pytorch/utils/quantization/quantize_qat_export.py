@@ -652,6 +652,262 @@ def _convert_quantizable_matmul(model: ModelProto):
         )
 
 
+def _add_quantized_matmul_add_ops(
+    model: ModelProto,
+    matmul_node: NodeProto,
+    input_quantize_node: NodeProto,
+    weight_quantize_node: NodeProto,
+    input_quantize_params: QuantizationParams,
+    weight_quantize_params: QuantizationParams,
+    bias_initializer: onnx.TensorProto,
+    bias_add_name: str,
+    target_output: str,
+    transpose_weight: bool,
+    output_quantize_node: Optional[NodeProto] = None,
+    output_dequantize_node: Optional[NodeProto] = None,
+):
+    # helper function for conversion of qat parameterized gemms/matmuls to
+    # matmul integer add blocks. Adds new quantized ops to graph, does not
+    # perform any checks or deletions (should be called by the operator main
+    # conversion function
+
+    # quantize weight
+    quantized_weight = _quantize_array(
+        weight_quantize_params.target,
+        weight_quantize_params.scale,
+        weight_quantize_params.zero_point,
+    )
+    if transpose_weight:
+        quantized_weight = quantized_weight.transpose()
+    quantized_weight_name = "{}.weight_quantized".format(matmul_node.name)
+    quantized_weight_initializer = numpy_helper.from_array(
+        quantized_weight, name=quantized_weight_name
+    )
+    model.graph.initializer.append(quantized_weight_initializer)
+
+    # MatMulInteger
+    # get matmulinteger inputs and outputs
+    matmul_integer_inputs = [
+        input_quantize_node.input[0],  # A matrix (replaces previous dequant node)
+        quantized_weight_name,  # B matrix (quantized weight)
+        input_quantize_node.input[2],  # a_zero_point
+        weight_quantize_node.input[2],  # b_zero_point
+    ]
+    matmul_integer_output = "{}_quant".format(matmul_node.output[0])
+    matmul_integer_name = "{}_quant".format(matmul_node.name)
+
+    # create qmatmul node and add it to graph
+    matmul_integer_node = onnx.helper.make_node(
+        "MatMulInteger",
+        matmul_integer_inputs,
+        [matmul_integer_output],
+        matmul_integer_name,
+    )
+    model.graph.node.append(matmul_integer_node)
+
+    # Add bias + zero point correction
+    # quantize bias
+    bias_initializer = numpy_helper.to_array(bias_initializer)
+    bias_scale = input_quantize_params.scale * weight_quantize_params.scale
+    bias_zero_point = 0
+    quantized_bias = _quantize_array(
+        bias_initializer, bias_scale, bias_zero_point, dtype=numpy.int32
+    )
+
+    quantized_bias_name = "{}.bias_quantized".format(bias_add_name)
+    quantized_bias_initializer = numpy_helper.from_array(
+        quantized_bias, name=quantized_bias_name
+    )
+    model.graph.initializer.append(quantized_bias_initializer)
+    quantized_bias_scale_name = "{}.scale".format(quantized_bias_name)
+    model.graph.initializer.append(
+        numpy_helper.from_array(
+            numpy.asarray(bias_scale), name=quantized_bias_scale_name
+        )
+    )
+    quantized_bias_zero_point_name = "{}.zero_point".format(quantized_bias_name)
+    model.graph.initializer.append(
+        numpy_helper.from_array(
+            numpy.asarray(bias_zero_point, dtype=numpy.uint8),
+            name=quantized_bias_zero_point_name,
+        )
+    )
+
+    # get INT32 Add inputs and outputs
+    quant_add_inputs = [
+        matmul_integer_output,  # MatMul integer outputs (INT32)
+        quantized_bias_name,  # Quantized bias (INT32)
+    ]
+
+    quant_add_name = "{}_bias_add_quant".format(matmul_node.name)
+    quant_add_output = (
+        output_quantize_node.output[0]
+        if output_quantize_node
+        else f"{quant_add_name}_output"
+    )
+
+    # create Add node and add it to graph
+    qadd_node = onnx.helper.make_node(
+        "Add",
+        quant_add_inputs,
+        [quant_add_output],
+        quant_add_name,
+    )
+    model.graph.node.append(qadd_node)
+
+    # create Cast node and add it to graph
+    cast_node_name = "{}_cast".format(quant_add_name)
+    cast_node_output = "{}_cast".format(quant_add_output)
+    cast_node = onnx.helper.make_node(
+        "Cast",
+        [quant_add_output],
+        [cast_node_output],
+        cast_node_name,
+        to=getattr(onnx.TensorProto, "FLOAT"),  # get Float32 enum id
+    )
+    model.graph.node.append(cast_node)
+
+    # create Mul node for rescale
+    mul_node_inputs = [
+        cast_node_output,  # a
+        quantized_bias_scale_name,  # b -> rescale factor
+    ]
+    mul_node_name = "{}_rescale_mul".format(quant_add_name)
+    mul_node = onnx.helper.make_node(
+        "Mul",
+        mul_node_inputs,
+        [target_output],
+        mul_node_name,
+    )
+    model.graph.node.append(mul_node)
+
+
+def _convert_quantizable_gemm_no_activations(model: ModelProto):
+    """
+    A pass for converting a Gemm op with kernel whose activations
+    are not necessarily quantized into a MatMulInteger followed by
+    a bias add and cast to FP32
+
+    | Starting with:
+    |          INPUT         QuantizeLinear (with constant kernel)
+    |            |               |
+    |     QuantizeLinear     DequantizeLinear
+    |            |               |
+    |     DequantizeLinear      |
+    |                  |      |
+    |                   Gemm (with bias)
+    |                     |
+    |                  OUTPUT
+    | We end up converting to:
+    |       INPUT
+    |         |
+    |     QuantizeLinear
+    |         |
+    |     MatMulInteger (with constant uint8 kernel)
+    |         |
+    |     Add (constant bias + zero point correction)
+    |         |
+    |     Cast (INT32 -> FP32)
+    |         |
+    |     Mul (Rescale from bias scale)
+    |         |
+    |       OUTPUT
+    """
+
+    conversion_count = 0
+    gemm_nodes = [n for n in model.graph.node if n.op_type in ["Gemm"]]
+    for gemm_node in gemm_nodes:
+        if len(gemm_node.input) != 3:
+            # this function currently only converts Gemm nodes with bias add
+            continue
+        gemm_attributes = get_node_attributes(gemm_node)
+        if (
+            gemm_attributes.get("alpha", 1.0) != 1.0
+            or (gemm_attributes.get("beta", 1.0) != 1.0)
+            or gemm_attributes.get("transA", False)
+        ):
+            # we do not currently handle Gemms with transposed A, or scalar multiples
+            continue
+        transpose_weight = bool(gemm_attributes.get("transB"))
+
+        graph = ONNXGraph(model)
+
+        #############
+        # Matching
+        #############
+        weight_dequantize_node = graph.get_node_single_parent(gemm_node, 1)
+        if (
+            not weight_dequantize_node
+            or weight_dequantize_node.op_type != "DequantizeLinear"
+        ):
+            continue
+        weight_quantize_node = graph.get_node_single_parent(weight_dequantize_node, 0)
+        if not weight_quantize_node or weight_quantize_node.op_type != "QuantizeLinear":
+            continue
+
+        input_quantize_node = graph.get_node_single_parent(gemm_node, 0)
+        if (
+            not input_quantize_node
+            or input_quantize_node.op_type not in _QUANTIZE_OP_NAMES
+        ):
+            continue
+
+        input_quantize_params = get_quantization_params(
+            model, input_quantize_node, include_target=False
+        )
+        weight_quantize_params = get_quantization_params(
+            model, weight_quantize_node, include_target=True
+        )
+        if weight_quantize_params.target is None:
+            # weight initializer not included
+            continue
+        if input_quantize_node.op_type != "DequantizeLinear":
+            continue
+
+        bias_initializer = graph.get_init_by_name(gemm_node.input[2])
+        if bias_initializer is None:
+            continue
+
+        _LOGGER.debug(f"Matched quantizable Gemm weight and bias: {gemm_node.name}")
+
+        # Conversion
+        _add_quantized_matmul_add_ops(
+            model=model,
+            matmul_node=gemm_node,
+            input_quantize_node=input_quantize_node,
+            weight_quantize_node=weight_quantize_node,
+            input_quantize_params=input_quantize_params,
+            weight_quantize_params=weight_quantize_params,
+            bias_initializer=bias_initializer,
+            bias_add_name="{}_bias_add".format(gemm_node.name),
+            target_output=gemm_node.output[0],
+            transpose_weight=transpose_weight,
+        )
+
+        # Cleanup
+        # delete folded quantization ops
+        delete_quant_node(model, weight_dequantize_node, keep_params=False)
+        delete_quant_node(model, weight_quantize_node, keep_params=True)
+
+        # only delete input node if the matmul is the only child
+        current_graph = ONNXGraph(model)
+        if len(current_graph.get_node_children(input_quantize_node)) == 1:
+            delete_quant_node(model, input_quantize_node, keep_params=True)
+
+        # delete original Gemm node
+        remove_node_and_params_from_graph(model, gemm_node, keep_params=None)
+
+        conversion_count += 1
+
+    if gemm_nodes:
+        _LOGGER.info(
+            f"Converted {conversion_count} quantizable Gemm ops with weight and bias "
+            "to MatMulInteger and Add"
+        )
+        graph = ONNXGraph(model)
+        graph.delete_unused_initializers()
+
+
 def _convert_quantizable_matmul_and_add(model: ModelProto):
     """
     A pass for converting a MatMul with kernel and bias into a quantized representation
@@ -760,122 +1016,25 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
 
         _LOGGER.debug(f"Matched quantizable MatMul weight and bias: {matmul_node.name}")
 
-        #############
         # Conversion
-        #############
-        # quantize weight
-        quantized_weight = _quantize_array(
-            weight_quantize_params.target,
-            weight_quantize_params.scale,
-            weight_quantize_params.zero_point,
+        _add_quantized_matmul_add_ops(
+            model=model,
+            matmul_node=matmul_node,
+            input_quantize_node=input_quantize_node,
+            weight_quantize_node=weight_quantize_node,
+            input_quantize_params=input_quantize_params,
+            weight_quantize_params=weight_quantize_params,
+            bias_initializer=bias_initializer,
+            bias_add_name=bias_add_node.name,
+            target_output=(
+                output_dequantize_node.output[0]
+                if output_dequantize_node
+                else bias_add_node.output[0]
+            ),
+            transpose_weight=True,
+            output_quantize_node=output_quantize_node,
+            output_dequantize_node=output_dequantize_node,
         )
-        quantized_weight = quantized_weight.transpose()  # Gemm has implicit transpose
-        quantized_weight_name = "{}.weight_quantized".format(matmul_node.name)
-        quantized_weight_initializer = numpy_helper.from_array(
-            quantized_weight, name=quantized_weight_name
-        )
-        model.graph.initializer.append(quantized_weight_initializer)
-
-        # MatMulInteger
-        # get matmulinteger inputs and outputs
-        matmul_integer_inputs = [
-            input_quantize_node.input[0],  # A matrix (replaces previous dequant node)
-            quantized_weight_name,  # B matrix (quantized weight)
-            input_quantize_node.input[2],  # a_zero_point
-            weight_quantize_node.input[2],  # b_zero_point
-        ]
-        matmul_integer_output = matmul_node.output[0]
-        matmul_integer_name = "{}_quant".format(matmul_node.name)
-
-        # create qmatmul node and add it to graph
-        matmul_integer_node = onnx.helper.make_node(
-            "MatMulInteger",
-            matmul_integer_inputs,
-            [matmul_integer_output],
-            matmul_integer_name,
-        )
-        model.graph.node.append(matmul_integer_node)
-
-        # Add bias + zero point correction
-        # quantize bias
-        bias_initializer = numpy_helper.to_array(bias_initializer)
-        bias_scale = input_quantize_params.scale * weight_quantize_params.scale
-        bias_zero_point = 0
-        quantized_bias = _quantize_array(
-            bias_initializer, bias_scale, bias_zero_point, dtype=numpy.int32
-        )
-
-        quantized_bias_name = "{}.bias_quantized".format(bias_add_node.name)
-        quantized_bias_initializer = numpy_helper.from_array(
-            quantized_bias, name=quantized_bias_name
-        )
-        model.graph.initializer.append(quantized_bias_initializer)
-        quantized_bias_scale_name = "{}.scale".format(quantized_bias_name)
-        model.graph.initializer.append(
-            numpy_helper.from_array(
-                numpy.asarray(bias_scale), name=quantized_bias_scale_name
-            )
-        )
-        quantized_bias_zero_point_name = "{}.zero_point".format(quantized_bias_name)
-        model.graph.initializer.append(
-            numpy_helper.from_array(
-                numpy.asarray(bias_zero_point, dtype=numpy.uint8),
-                name=quantized_bias_zero_point_name,
-            )
-        )
-
-        # get INT32 Add inputs and outputs
-        quant_add_inputs = [
-            matmul_integer_output,  # MatMul integer outputs (INT32)
-            quantized_bias_name,  # Quantized bias (INT32)
-        ]
-
-        quant_add_name = "{}_quant".format(bias_add_node.name)
-        quant_add_output = (
-            output_quantize_node.output[0]
-            if output_quantize_node
-            else f"{quant_add_name}_output"
-        )
-
-        # create Add node and add it to graph
-        qadd_node = onnx.helper.make_node(
-            "Add",
-            quant_add_inputs,
-            [quant_add_output],
-            quant_add_name,
-        )
-        model.graph.node.append(qadd_node)
-
-        # create Cast node and add it to graph
-        cast_node_name = "{}_cast".format(bias_add_node.name)
-        cast_node_output = "{}_cast".format(quant_add_output)
-        cast_node = onnx.helper.make_node(
-            "Cast",
-            [quant_add_output],
-            [cast_node_output],
-            cast_node_name,
-            to=getattr(onnx.TensorProto, "FLOAT"),  # get Float32 enum id
-        )
-        model.graph.node.append(cast_node)
-
-        # create Mul node for rescale
-        mul_node_inputs = [
-            cast_node_output,  # a
-            quantized_bias_scale_name,  # b -> rescale factor
-        ]
-        mul_node_name = "{}_rescale_mul".format(bias_add_node.name)
-        mul_node_output = (
-            output_dequantize_node.output[0]
-            if output_dequantize_node
-            else bias_add_node.output[0]
-        )
-        mul_node = onnx.helper.make_node(
-            "Mul",
-            mul_node_inputs,
-            [mul_node_output],
-            mul_node_name,
-        )
-        model.graph.node.append(mul_node)
 
         # Cleanup
         # delete folded quantization ops
@@ -902,7 +1061,7 @@ def _convert_quantizable_matmul_and_add(model: ModelProto):
     if matmul_nodes:
         _LOGGER.info(
             f"Converted {conversion_count} quantizable MatMul ops with weight and bias "
-            "to QLinearMatMul and QLinearAdd"
+            "to MatMulInteger and Add"
         )
         graph = ONNXGraph(model)
         graph.delete_unused_initializers()
@@ -1175,6 +1334,7 @@ def quantize_torch_qat_export(
     _convert_quantizable_matmul(model)
     _convert_quantizable_matmul_and_add(model)
     _convert_quantizable_ops(model)
+    _convert_quantizable_gemm_no_activations(model)
     _quantize_qat_embedding(model)
     quantize_resnet_identity_add_inputs(model)
     quantized_residual_add_optim(model)
