@@ -25,7 +25,7 @@ try:
     import transformers as _transformers
 
     # triggers error if neuralmagic/transformers is not installed
-    _transformers.models.bert.modeling_bert.QATMatMul
+    assert _transformers.NM_INTEGRATED
     _transformers_import_error = None
 except Exception as _transformers_import_err:
     _transformers_import_error = _transformers_import_err
@@ -101,11 +101,10 @@ def _check_transformers_install():
     try:
         import transformers as _transformers
 
-        _transformers.models.bert.modeling_bert.QATMatMul
+        assert _transformers.NM_INTEGRATED
     except Exception:
         _LOGGER.warning(
-            "transformers.models.bert.modeling_bert.QATMatMul not availalbe. the"
-            "neuralmagic fork of transformers may not be installed. it can be "
+            "the neuralmagic fork of transformers may not be installed. it can be "
             "installed via "
             f"`pip install {_NM_TRANSFORMERS_NIGHTLY}`"
         )
