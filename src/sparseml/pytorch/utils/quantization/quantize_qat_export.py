@@ -1307,13 +1307,6 @@ def _cleanup_unused_quants(model: ModelProto):
         delete_quant_node(model, n)
 
 
-"""
-from sparseml.pytorch.utils.quantization import quantize_torch_qat_export
-import onnx
-m = quantize_torch_qat_export("/home/benjamin/tmp-models/bert-glue-qat-tuan_test.onnx")
-"""
-
-
 def quantize_torch_qat_export(
     model: Union[ModelProto, str],
     output_file_path: Union[str, None] = None,
