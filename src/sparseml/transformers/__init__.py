@@ -19,14 +19,13 @@ Tools for integrating SparseML with transformers training flows
 # flake8: noqa
 
 import logging as _logging
-import sys
 
 
 try:
     import transformers as _transformers
 
     # triggers error if neuralmagic/transformers is not installed
-    _transformers.models.bert.modeling_bert.QATMatMul
+    assert _transformers.NM_INTEGRATED
     _transformers_import_error = None
 except Exception as _transformers_import_err:
     _transformers_import_error = _transformers_import_err
@@ -35,7 +34,7 @@ except Exception as _transformers_import_err:
 _LOGGER = _logging.getLogger(__name__)
 _NM_TRANSFORMERS_TAR_TEMPLATE = (
     "https://github.com/neuralmagic/transformers/releases/download/"
-    "{version}/transformers-4.7.0.dev0.tar.gz"
+    "{version}/transformers-4.7.0.dev0-py3-none-any.whl"
 )
 _NM_TRANSFORMERS_NIGHTLY = _NM_TRANSFORMERS_TAR_TEMPLATE.format(version="nightly")
 
@@ -56,7 +55,7 @@ def _install_transformers_and_deps():
     try:
         _subprocess.check_call(
             [
-                sys.executable,
+                _sys.executable,
                 "-m",
                 "pip",
                 "install",
@@ -102,11 +101,10 @@ def _check_transformers_install():
     try:
         import transformers as _transformers
 
-        _transformers.models.bert.modeling_bert.QATMatMul
+        assert _transformers.NM_INTEGRATED
     except Exception:
         _LOGGER.warning(
-            "transformers.models.bert.modeling_bert.QATMatMul not availalbe. the"
-            "neuralmagic fork of transformers may not be installed. it can be "
+            "the neuralmagic fork of transformers may not be installed. it can be "
             "installed via "
             f"`pip install {_NM_TRANSFORMERS_NIGHTLY}`"
         )
