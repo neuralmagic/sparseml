@@ -53,7 +53,8 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 
-from sparseml.transformers.utils import SparseMLMLMTrainer, load_recipe
+from sparseml.transformers.sparsfiication import Trainer
+from sparseml.transformers.utils import SparseAutoModel
 
 
 # Will error if the minimal version of Transformers is not installed.
@@ -445,33 +446,24 @@ def main():
             "supported by this script. You can do it from another script, save "
             "it, and load it from here, using --tokenizer_name."
         )
-    if model_args.model_name_or_path:
-        model = AutoModelForMaskedLM.from_pretrained(
-            model_args.model_name_or_path,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
-    else:
-        _LOGGER.info("Training new model from scratch")
-        model = AutoModelForMaskedLM.from_config(config)
+
+    model, teacher = SparseAutoModel.masked_language_modeling_from_pretrained_distil(
+        model_name_or_path=model_args.model_name_or_path,
+        model_kwargs={
+            "config": config,
+            "cache_dir": model_args.cache_dir,
+            "revision": model_args.model_revision,
+            "use_auth_token": True if model_args.use_auth_token else None,
+        },
+        teacher_name_or_path=model_args.distill_teacher,
+        teacher_kwars={
+            "cache_dir": model_args.cache_dir,
+            "use_auth_token": True if model_args.use_auth_token else None,
+        },
+        logger=_LOGGER,
+    )
 
     model.resize_token_embeddings(len(tokenizer))
-
-    teacher_model = None
-    if model_args.distill_teacher is not None:
-        teacher_model = AutoModelForMaskedLM.from_pretrained(
-            model_args.distill_teacher,
-            from_tf=bool(".ckpt" in model_args.distill_teacher),
-            cache_dir=model_args.cache_dir,
-        )
-        teacher_model_parameters = filter(
-            lambda p: p.requires_grad, teacher_model.parameters()
-        )
-        params = sum([numpy.prod(p.size()) for p in teacher_model_parameters])
-        _LOGGER.info("Teacher Model has %s parameters", params)
 
     # Preprocessing the datasets.
     # First we tokenize all the texts.
@@ -607,31 +599,23 @@ def main():
         pad_to_multiple_of=8 if pad_to_multiple_of_8 else None,
     )
 
-    # Load possible existing recipe and new one passed in through command argument
-    existing_recipe = load_recipe(model_args.model_name_or_path)
-    new_recipe = data_args.recipe
-
     compute_metrics = None
+
     # Initialize our Trainer
-    trainer = SparseMLMLMTrainer(
-        model_args.model_name_or_path,
-        new_recipe,
-        checkpoint_recipes=[existing_recipe],
-        teacher=teacher_model,
+    trainer = Trainer(
         model=model,
+        model_state_path=model_args.model_name_or_path,
+        recipe=data_args.recipe,
+        recipe_args=data_args.recipe_args,
+        teacher=teacher,
+        logger=_LOGGER,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
-        recipe_args=data_args.recipe_args,
     )
-
-    # Apply recipes to the model. This is necessary given that
-    # sparsification methods such as QAT modified the model graph with their own
-    # learnable parameters. They are also restored/loaded to the model.
-    trainer.apply_recipes()
 
     # Training
     if training_args.do_train:

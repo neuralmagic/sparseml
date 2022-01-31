@@ -25,8 +25,9 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.optim import Optimizer
 
-from sparseml.optim import ModifierProp
+from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
+from sparseml.sparsification import SparsificationTypes
 
 
 __all__ = [
@@ -94,6 +95,13 @@ class LayerThinningModifier(ScheduledModifier):
         self._last_thinning_epoch = float("-inf")
         self._strict = strict
         self._validate()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.pruning, SparsificationTypes.structured]
 
     def _validate(self):
         if self._structure_type not in ["filter", "channel"]:

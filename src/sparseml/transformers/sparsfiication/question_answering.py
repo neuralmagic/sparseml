@@ -28,11 +28,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
+from torch.nn import Module
 from tqdm.auto import tqdm
 from transformers import Trainer, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
 
-from sparseml.transformers.utils.trainer import SparseMLTrainer
+from sparseml.transformers.sparsfiication.trainer import TrainerInterface
 
 
 if is_torch_tpu_available():
@@ -41,7 +42,7 @@ if is_torch_tpu_available():
 
 
 __all__ = [
-    "SparseMLQATrainer",
+    "QuestionAnsweringTrainer",
     "postprocess_qa_predictions",
 ]
 
@@ -144,7 +145,7 @@ class _QuestionAnsweringTrainer(Trainer):
         )
 
 
-class SparseMLQATrainer(SparseMLTrainer, _QuestionAnsweringTrainer):
+class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
     """
     Trainer for running sparsification recipes with Question Answering training
 
@@ -163,22 +164,21 @@ class SparseMLQATrainer(SparseMLTrainer, _QuestionAnsweringTrainer):
 
     def __init__(
         self,
-        model_name_or_path: str,
+        model: Module,
+        model_state_path: str,
         recipe: str,
-        checkpoint_recipes: Union[str, List[str]] = None,
-        teacher: Optional[torch.nn.Module] = None,
-        recipe_args: Union[Dict[str, Any], str] = None,
-        *args,
+        recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        teacher: Optional[Module] = None,
+        logger: logging.Logger = None,
         **kwargs,
     ):
         super().__init__(
-            model_name_or_path=model_name_or_path,
+            model=model,
+            model_state_path=model_state_path,
             recipe=recipe,
-            checkpoint_recipes=checkpoint_recipes,
-            teacher=teacher,
             recipe_args=recipe_args,
-            teacher_input_keys=["input_ids", "token_type_ids", "attention_mask"],
-            *args,
+            teacher=teacher,
+            logger=logger,
             **kwargs,
         )
 

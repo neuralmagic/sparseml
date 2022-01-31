@@ -25,6 +25,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+from sparseml.optim import BaseModifier
 from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.mask_creator_pruning import (
@@ -54,6 +55,7 @@ from sparseml.sparsification import (
     ConstantPruningModifier as BaseConstantPruningModifier,
 )
 from sparseml.sparsification import GMPruningModifier as BaseGMPruningModifier
+from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import (
     ALL_PRUNABLE_TOKEN,
     ALL_TOKEN,
@@ -1248,6 +1250,13 @@ class StructuredPruningModifier(GMPruningModifier):
 
         self._param_groups = param_groups or []
 
+    @BaseGMPruningModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.pruning, SparsificationTypes.structured]
+
     @ModifierProp()
     def param_groups(self) -> List[List[str]]:
         """
@@ -1617,6 +1626,13 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         self._layers_replaced = False
         self._last_logged_epoch = None
         self._last_logged_layers_replaced = None
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.pruning, SparsificationTypes.structured]
 
     @ModifierProp()
     def layers(self) -> Union[str, List[str]]:

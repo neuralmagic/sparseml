@@ -22,12 +22,8 @@ import math
 from functools import cmp_to_key
 from typing import List
 
-from sparseml.optim.modifier import (
-    BaseModifier,
-    BaseObject,
-    BaseScheduled,
-    ModifierProp,
-)
+from sparseml.optim.modifier import BaseModifier, BaseObject, ModifierProp
+from sparseml.sparsification.types import SparsificationTypes
 from sparseml.utils import clean_path, create_parent_dirs
 
 
@@ -42,7 +38,7 @@ class BaseManager(BaseObject):
     :param modifiers: the modifiers to wrap
     """
 
-    def __init__(self, modifiers: List[BaseScheduled], **kwargs):
+    def __init__(self, modifiers: List[BaseModifier], **kwargs):
         super().__init__(**kwargs)
         # sort modifiers by when they start and end so that later modifiers
         # can overwrite in a deterministic order such as when initializing
@@ -57,44 +53,87 @@ class BaseManager(BaseObject):
     def __str__(self) -> str:
         return "\n".join(self.to_string_lines())
 
+    def __eq__(self, compare: object) -> bool:
+        return str(self) == str(compare)
+
     @ModifierProp(serializable=False)
-    def modifiers(self) -> List[BaseScheduled]:
+    def modifiers(self) -> List[BaseModifier]:
         """
         :return: list of all SparseML modifiers in the managed recipe
         """
         return self._modifiers
 
     @ModifierProp(serializable=False)
-    def epoch_modifiers(self) -> List[BaseScheduled]:
+    def epoch_modifiers(self) -> List[BaseModifier]:
         """
         :return: list of all SparseML modifiers in the managed recipe that modify the
             epoch range
         """
-        return [mod for mod in self._modifiers if "Epoch" in str(type(mod))]
+        return [
+            mod
+            for mod in self._modifiers
+            if SparsificationTypes.epoch in mod.sparsification_types
+        ]
 
     @ModifierProp(serializable=False)
-    def learning_rate_modifiers(self) -> List[BaseScheduled]:
+    def learning_rate_modifiers(self) -> List[BaseModifier]:
         """
         :return: list of all SparseML modifiers in the managed recipe that modify the
             LearningRate schedule
         """
-        return [mod for mod in self._modifiers if "LearningRate" in str(type(mod))]
+        return [
+            mod
+            for mod in self._modifiers
+            if SparsificationTypes.learning_rate in mod.sparsification_types
+        ]
 
     @ModifierProp(serializable=False)
-    def pruning_modifiers(self) -> List[BaseScheduled]:
+    def pruning_modifiers(self) -> List[BaseModifier]:
         """
         :return: list of all SparseML modifiers in the managed recipe that manage
             model sparsity
         """
-        return [mod for mod in self._modifiers if "Pruning" in str(type(mod))]
+        return [
+            mod
+            for mod in self._modifiers
+            if SparsificationTypes.pruning in mod.sparsification_types
+        ]
 
     @ModifierProp(serializable=False)
-    def quantization_modifiers(self) -> List[BaseScheduled]:
+    def quantization_modifiers(self) -> List[BaseModifier]:
         """
         :return: list of all SparseML modifiers in the managed recipe that manage
             model quantization
         """
-        return [mod for mod in self._modifiers if "Quantization" in str(type(mod))]
+        return [
+            mod
+            for mod in self._modifiers
+            if SparsificationTypes.quantization in mod.sparsification_types
+        ]
+
+    @ModifierProp(serializable=False)
+    def distillation_modifiers(self) -> List[BaseModifier]:
+        """
+        :return: list of all SparseML modifiers in the managed recipe that manage
+            Distillation
+        """
+        return [
+            mod
+            for mod in self._modifiers
+            if SparsificationTypes.distillation in mod.sparsification_types
+        ]
+
+    @ModifierProp(serializable=False)
+    def structured_modifiers(self) -> List[BaseModifier]:
+        """
+        :return: list of all SparseML modifiers in the managed recipe that manage
+            Distillation
+        """
+        return [
+            mod
+            for mod in self._modifiers
+            if SparsificationTypes.structured in mod.sparsification_types
+        ]
 
     @ModifierProp(serializable=False)
     def min_epochs(self) -> int:
@@ -154,7 +193,7 @@ class BaseManager(BaseObject):
 
         return yaml_str_lines
 
-    def modifiers_to_string_lines(self, modifiers: List[BaseScheduled]) -> List[str]:
+    def modifiers_to_string_lines(self, modifiers: List[BaseModifier]) -> List[str]:
         """
         :param modifiers: the modifiers to convert into string / yaml representation
             for within the manage
@@ -176,3 +215,18 @@ class BaseManager(BaseObject):
             yaml_str_lines.append("")
 
         return yaml_str_lines
+
+    def qat_active(self, epoch: float) -> bool:
+        """
+        :param epoch: the epoch to check if quantization aware training will be
+            active during
+        :return: True if quantization aware training will be active at the start
+            of or within the given epoch, False otherwise
+        """
+        quant_modifiers = self.quantization_modifiers
+
+        return (
+            min([mod.start_epoch for mod in quant_modifiers]) < epoch + 1
+            if quant_modifiers
+            else False
+        )

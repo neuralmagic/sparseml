@@ -112,22 +112,28 @@ def _setup_extras() -> Dict:
     }
 
 
-_transformers_entry_point_template = (
-    "sparseml.transformers.train.{task}=sparseml.transformers.train.{task}:main"
+_transformers_task_entry_point = (
+    "sparseml.transformers.{task}=sparseml.transformers.{task}:main"
 )
 
 
 def _setup_entry_points() -> Dict:
     return {
         "console_scripts": [
+            # sparsification
             "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
-            _transformers_entry_point_template.format(task="question_answering"),
-            _transformers_entry_point_template.format(task="text_classification"),
-            _transformers_entry_point_template.format(task="token_classification"),
-            _transformers_entry_point_template.format(task="language_modeling"),
-            "sparseml.transformers.export_onnx=sparseml.transformers.utils.export:main",
+
+            # transformers integration
+            _transformers_task_entry_point.format(task="question_answering"),
+            _transformers_task_entry_point.format(task="text_classification"),
+            _transformers_task_entry_point.format(task="train.text_classification"),
+            _transformers_task_entry_point.format(task="token_classification"),
+            _transformers_task_entry_point.format(task="train.token_classification"),
+            _transformers_task_entry_point.format(task="language_modeling"),
+            _transformers_task_entry_point.format(task="train.language_modeling"),
+            "sparseml.transformers.export_onnx=sparseml.transformers.export:main",
         ]
     }
 
