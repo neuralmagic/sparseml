@@ -226,7 +226,7 @@ class BaseManager(BaseObject):
         quant_modifiers = self.quantization_modifiers
 
         return (
-            min([mod.start_epoch for mod in quant_modifiers]) < epoch + 1
+            min(mod.start_epoch for mod in quant_modifiers) < epoch + 1
             if quant_modifiers
             else False
         )
