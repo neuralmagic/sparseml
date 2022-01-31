@@ -81,7 +81,6 @@ class RecipeManagerTrainerInterface:
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         teacher: Optional[Union[Module, str]] = None,
         teacher_input_keys: Optional[List[str]] = None,
-        logger: logging.Logger = None,
         **kwargs,
     ):
         # instantiate necessary state, like managers, so we can override args
@@ -100,7 +99,6 @@ class RecipeManagerTrainerInterface:
             else kwargs["args"].report_to
         )
         self.manager_loggers = [WANDBLogger()] if "wandb" in report_to else None
-        self.python_logger = logger
 
         # remove arch_managers once recipe stages are supported
         self.manager, self.arch_managers = self._setup_manager(kwargs)
@@ -111,10 +109,12 @@ class RecipeManagerTrainerInterface:
 
         super().__init__(model=model, **kwargs)
         self.criterion = torch.nn.CrossEntropyLoss()
-        self.qat_check_callback = DisableHalfPrecisionCallback(self)
-        self.callback_handler.add_callback(self.qat_check_callback)
+        self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
+        self.callback_handler.add_callback(self.callback_disable_fp16)
 
-    def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
+    def apply_manager(
+        self, epoch: float, checkpoint: Optional[str], apply_all: bool = False
+    ) -> bool:
         if (not self.arch_managers and self.manager is None) or self.manager_applied:
             return False
 
@@ -122,16 +122,30 @@ class RecipeManagerTrainerInterface:
 
         # apply architecture changes to prep for reload of weights to handle
         # things like layer dropping and quantization which changes param names
-        for arch_manager in self.arch_managers:
-            arch_manager.apply_structure(self.model, epoch=math.inf, finalize=True)
+        if self.arch_managers:
+            for arch_manager in self.arch_managers:
+                arch_manager.apply_structure(self.model, epoch=math.inf, finalize=True)
+            _LOGGER.info(
+                f"Applied structure from {len(self.arch_managers)} "
+                "SparseML recipes to model and finalized "
+                "(recipes saved with model_path)"
+            )
 
         if self.manager is not None:
             self.manager.apply_structure(self.model, epoch=epoch)
+            _LOGGER.info(
+                "Applied structure from SparseML recipe argument to model at "
+                f"epoch {epoch}"
+            )
 
         # reload the state dict for the model now that architecture matches expected
         load_path = checkpoint or self.model_state_path
         self._reload_model_state(load_path, orig_state_dict)
         self.manager_applied = True
+        _LOGGER.info(
+            "Reloaded model state after SparseML recipe structure modifications "
+            f"from {load_path}"
+        )
 
         return True
 
@@ -144,6 +158,8 @@ class RecipeManagerTrainerInterface:
             return False
 
         self.manager.finalize(self.model)
+        self.manager_finalized = True
+        _LOGGER.info("Finalized SparseML recipe argument applied to the model")
 
         return True
 
@@ -174,13 +190,17 @@ class RecipeManagerTrainerInterface:
                 optimizer=self.optimizer,
                 steps_per_epoch=self.manager_steps_per_epoch,
                 wrap_optim=getattr(self, wrap_optim_key),
-                epoch=0.0,
                 allow_parallel_module=False,
                 loggers=self.manager_loggers,
                 distillation_teacher=self.teacher,
             ),
         )
         self.manager_initialized = True
+        _LOGGER.info(
+            f"Modified the {wrap_optim_key} from the recipe for training with "
+            f"total_batch_size: {total_batch_size} and "
+            f"steps_per_epoch: {self.manager_steps_per_epoch}"
+        )
 
     def create_scheduler(self, num_training_steps: int):
         """
@@ -201,6 +221,7 @@ class RecipeManagerTrainerInterface:
         self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer, lambda _: 1.0, -1
         )
+        _LOGGER.warning("Overrode the lr_scheduler from SparseML recipe")
 
     def compute_loss(
         self, model: Module, inputs: Dict[str, Any], return_outputs: bool = False
@@ -210,7 +231,12 @@ class RecipeManagerTrainerInterface:
         """
         self._check_super_defined("compute_loss")
 
-        if self.manager is None or not self.manager.distillation_modifiers:
+        if (
+            self.manager is None
+            or not self.manager.initialized
+            or not self.manager.enabled
+            or not self.manager.distillation_modifiers
+        ):
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         student_outputs = model(**inputs)
@@ -246,6 +272,7 @@ class RecipeManagerTrainerInterface:
             output_dir, RECIPE_TEMPLATE.format(f"_{index:02d}" if index > 0 else "")
         )
         self.manager.save(recipe_path)
+        _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
     def _check_super_defined(self, func: str):
         if not hasattr(super(), func):
@@ -256,27 +283,35 @@ class RecipeManagerTrainerInterface:
     def _setup_manager(
         self, kwargs
     ) -> Tuple[Optional[ScheduledModifierManager], List[ScheduledModifierManager]]:
-        manager = (
-            ScheduledModifierManager.from_yaml(
+        manager = None
+        arch_managers = []
+
+        if self.recipe is not None:
+            manager = ScheduledModifierManager.from_yaml(
                 self.recipe, recipe_variables=self.recipe_args
             )
-            if self.recipe is not None
-            else None
-        )
-        arch_managers = (
-            [
-                ScheduledModifierManager.from_yaml(path)
-                for path in glob.glob(os.path.join(self.model_state_path, RECIPE_REGEX))
-            ]
-            if self.model_state_path
-            else []
-        )
+            _LOGGER.info(
+                "Loaded SparseML recipe variable into manager for recipe: "
+                f"{self.recipe} and recipe_variables: {self.recipe_args}"
+            )
+
+        arch_recipe_paths = glob.glob(os.path.join(self.model_state_path, RECIPE_REGEX))
+        if arch_recipe_paths:
+            arch_managers = [ScheduledModifierManager.from_yaml(path) for path in arch_recipe_paths]
+            _LOGGER.info(
+                f"Loaded SparseML {len(arch_recipe_paths)} recipes into architecture "
+                f"managers from {arch_recipe_paths}"
+            )
 
         if manager is not None and manager in arch_managers:
             # new recipe and the one stored with model are the same,
             # keep manager and remove from arch_managers to keep from applying twice.
             # remove this logic once recipe stages land
             arch_managers.remove(manager)
+            _LOGGER.info(
+                "Removed duplicate SparseML recipe from arch_managers that matched "
+                "the recipe variable to prevent double application"
+            )
 
         if (
             manager is not None
@@ -284,7 +319,7 @@ class RecipeManagerTrainerInterface:
             and "args" in kwargs
             and (hasattr(kwargs["args"], "num_train_epochs"))
         ):
-            self.python_logger.warning(
+            _LOGGER.warning(
                 f"Overriding num_train_epochs from Recipe to {manager.max_epochs}"
             )
             kwargs["args"].num_train_epochs = manager.max_epochs
@@ -297,7 +332,7 @@ class RecipeManagerTrainerInterface:
             or not os.path.isdir(load_path)
             or not os.path.isfile(os.path.join(load_path, WEIGHTS_NAME))
         ):
-            self.python_logger.warning(
+            _LOGGER.warning(
                 "Model state was not reloaded for SparseML: "
                 f"could not find model wieghts for model_path {load_path}"
             )
@@ -318,13 +353,13 @@ class RecipeManagerTrainerInterface:
         )
 
         if missing:
-            self.python_logger.warning(
+            _LOGGER.warning(
                 "Missing keys found when reloading model state for SparseML recipe:"
                 f"{missing}"
             )
 
         if unexpected:
-            self.python_logger.warning(
+            _LOGGER.warning(
                 f"Unexpected keys found when reloading model state for SparseML recipe:"
                 f"{unexpected}"
             )
@@ -338,7 +373,6 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         recipe: str,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         teacher: Optional[Module] = None,
-        logger: logging.Logger = None,
         **kwargs,
     ):
         super().__init__(
@@ -347,13 +381,13 @@ class TrainerInterface(RecipeManagerTrainerInterface):
             recipe=recipe,
             recipe_args=recipe_args,
             teacher=teacher,
-            logger=logger,
             **kwargs,
         )
 
     def train(self, *args, **kwargs):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch, checkpoint)
+        self.callback_disable_fp16.check_disable(epoch, force=True)
         output = super().train(*args, **kwargs)
         if applied:
             self.finalize_manager()
@@ -381,7 +415,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         epoch = 0.0
 
         if not kwargs or "resume_from_checkpoint" not in kwargs:
-            self.python_logger.warning(
+            _LOGGER.warning(
                 "resume_from_checkpoint not passed into SparseMLTrainer.train. "
                 "This will cause issues with restoring recipes when "
                 "running from a checkpoint."
@@ -409,7 +443,6 @@ class Trainer(TrainerInterface, TransformersTrainer):
         recipe: str,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         teacher: Optional[Module] = None,
-        logger: logging.Logger = None,
         **kwargs,
     ):
         super().__init__(
@@ -418,7 +451,6 @@ class Trainer(TrainerInterface, TransformersTrainer):
             recipe=recipe,
             recipe_args=recipe_args,
             teacher=teacher,
-            logger=logger,
             **kwargs,
         )
 
@@ -435,11 +467,29 @@ class DisableHalfPrecisionCallback(TrainerCallback):
     def __init__(self, trainer: RecipeManagerTrainerInterface, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.trainer = trainer
+        self.on_begin_called = False
+
+    def check_disable(self, epoch: float, force: bool = False):
+        if (
+            force or hasattr(self.trainer, "scaler") and self.trainer.scaler._enabled
+        ) and self.qat_active(epoch):
+            self.disable_amp(epoch)
 
     def qat_active(self, epoch: float) -> bool:
         return (self.trainer.manager and self.trainer.manager.qat_active(epoch)) or any(
             bool(man.quantization_modifiers) for man in self.trainer.arch_managers
         )
+
+    def disable_amp(self, epoch: float):
+        if not self.on_begin_called:
+            # disable if training loops haven't started so we don't load
+            # the empty scaler state dict and instead disable it from the start
+            self.trainer.use_amp = False
+
+        if hasattr(self.trainer, "scaler"):
+            self.trainer.scaler._enabled = False
+
+        _LOGGER.info(f"entering QAT phase at epoch {epoch}, disabling FP16 training")
 
     def on_epoch_begin(
         self,
@@ -452,15 +502,5 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         Event called at the beginning of an epoch. Disables
         """
         super().on_epoch_begin(args, state, control, **kwargs)
-
-        if (
-            not hasattr(self.trainer, "scaler")
-            or not self.trainer.scaler._enabled
-            or not self.qat_active(state.epoch)
-        ):
-            return
-
-        _LOGGER.info(
-            f"entering QAT phase at epoch {state.epoch}, disabling FP16 training"
-        )
-        self.trainer.scaler._enabled = False
+        self.on_begin_called = True
+        self.check_disable(state.epoch)

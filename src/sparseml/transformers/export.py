@@ -103,14 +103,12 @@ def _load_task_model(task: str, model_path: str, config: Any) -> Module:
         return SparseAutoModel.masked_language_modeling_from_pretrained(
             model_name_or_path=model_path,
             config=config,
-            logger=_LOGGER,
         )
 
     if task == "question-answering" or task == "qa":
         return SparseAutoModel.question_answering_from_pretrained(
             model_name_or_path=model_path,
             config=config,
-            logger=_LOGGER,
         )
 
     if (
@@ -122,14 +120,12 @@ def _load_task_model(task: str, model_path: str, config: Any) -> Module:
         return SparseAutoModel.sequence_classification_from_pretrained(
             model_name_or_path=model_path,
             config=config,
-            logger=_LOGGER,
         )
 
     if task == "token-classification" or task == "ner":
         return SparseAutoModel.token_classification_from_pretrained(
             model_name_or_path=model_path,
             config=config,
-            logger=_LOGGER,
         )
 
     raise ValueError(f"unrecognized task given of {task}")
@@ -185,7 +181,6 @@ def export_transformer_to_onnx(
         model_state_path=model_path,
         recipe=None,
         teacher="disable",
-        logger=_LOGGER,
     )
     applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
 

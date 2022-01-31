@@ -168,7 +168,6 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
         recipe: str,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         teacher: Optional[Module] = None,
-        logger: logging.Logger = None,
         **kwargs,
     ):
         super().__init__(
@@ -177,7 +176,6 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
             recipe=recipe,
             recipe_args=recipe_args,
             teacher=teacher,
-            logger=logger,
             **kwargs,
         )
 

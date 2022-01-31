@@ -31,16 +31,18 @@ from transformers.file_utils import WEIGHTS_NAME
 __all__ = ["SparseAutoModel"]
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
 class SparseAutoModel:
     @staticmethod
     def masked_language_modeling_from_pretrained(
         model_name_or_path: str,
         config: Any,
-        logger: Optional[logging.Logger],
         **kwargs,
     ) -> Module:
         if not model_name_or_path:
-            logger.info("Training new model from scratch")
+            _LOGGER.info("Training new model from scratch")
             return AutoModelForMaskedLM.from_config(config)
 
         SparseAutoModel._check_tf(model_name_or_path)
@@ -49,7 +51,7 @@ class SparseAutoModel:
         kwargs["from_tf"] = False
         if "state_dict" not in kwargs:
             kwargs["state_dict"] = SparseAutoModel.loadable_state_dict(
-                model_name_or_path, logger
+                model_name_or_path
             )
 
         return AutoModelForSequenceClassification.from_pretrained(
@@ -63,27 +65,25 @@ class SparseAutoModel:
         teacher_name_or_path: Optional[str],
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
-        logger: Optional[logging.Logger],
     ) -> Tuple[Module, Optional[Union[Module, str]]]:
         model = SparseAutoModel.masked_language_modeling_from_pretrained(
-            model_name_or_path, model_kwargs["config"], logger, **model_kwargs
+            model_name_or_path, model_kwargs["config"], **model_kwargs
         )
         teacher = (
             SparseAutoModel.masked_language_modeling_from_pretrained(
-                teacher_name_or_path, None, logger, **teacher_kwars
+                teacher_name_or_path, None, **teacher_kwars
             )
             if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
             else teacher_name_or_path
         )
         if isinstance(teacher, Module):
-            SparseAutoModel._log_distillation_teacher_load(teacher, logger)
+            SparseAutoModel._log_distillation_teacher_load(teacher)
 
         return model, teacher
 
     @staticmethod
     def question_answering_from_pretrained(
         model_name_or_path: str,
-        logger: Optional[logging.Logger],
         **kwargs,
     ) -> Module:
         SparseAutoModel._check_tf(model_name_or_path)
@@ -92,7 +92,7 @@ class SparseAutoModel:
         kwargs["from_tf"] = False
         if "state_dict" not in kwargs:
             kwargs["state_dict"] = SparseAutoModel.loadable_state_dict(
-                model_name_or_path, logger
+                model_name_or_path
             )
 
         return AutoModelForQuestionAnswering.from_pretrained(
@@ -106,27 +106,25 @@ class SparseAutoModel:
         teacher_name_or_path: Optional[str],
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
-        logger: Optional[logging.Logger],
     ) -> Tuple[Module, Optional[Union[Module, str]]]:
         model = SparseAutoModel.question_answering_from_pretrained(
-            model_name_or_path, logger, **model_kwargs
+            model_name_or_path, **model_kwargs
         )
         teacher = (
             SparseAutoModel.question_answering_from_pretrained(
-                teacher_name_or_path, logger, **teacher_kwars
+                teacher_name_or_path, **teacher_kwars
             )
             if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
             else teacher_name_or_path
         )
         if isinstance(teacher, Module):
-            SparseAutoModel._log_distillation_teacher_load(teacher, logger)
+            SparseAutoModel._log_distillation_teacher_load(teacher)
 
         return model, teacher
 
     @staticmethod
     def sequence_classification_from_pretrained(
         model_name_or_path: str,
-        logger: Optional[logging.Logger],
         **kwargs,
     ) -> Module:
         SparseAutoModel._check_tf(model_name_or_path)
@@ -135,7 +133,7 @@ class SparseAutoModel:
         kwargs["from_tf"] = False
         if "state_dict" not in kwargs:
             kwargs["state_dict"] = SparseAutoModel.loadable_state_dict(
-                model_name_or_path, logger
+                model_name_or_path
             )
 
         return AutoModelForSequenceClassification.from_pretrained(
@@ -149,27 +147,25 @@ class SparseAutoModel:
         teacher_name_or_path: Optional[str],
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
-        logger: Optional[logging.Logger],
     ) -> Tuple[Module, Optional[Module]]:
         model = SparseAutoModel.sequence_classification_from_pretrained(
-            model_name_or_path, logger, **model_kwargs
+            model_name_or_path, **model_kwargs
         )
         teacher = (
             SparseAutoModel.sequence_classification_from_pretrained(
-                teacher_name_or_path, logger, **teacher_kwars
+                teacher_name_or_path, **teacher_kwars
             )
             if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
             else teacher_name_or_path
         )
         if isinstance(teacher, Module):
-            SparseAutoModel._log_distillation_teacher_load(teacher, logger)
+            SparseAutoModel._log_distillation_teacher_load(teacher)
 
         return model, teacher
 
     @staticmethod
     def token_classification_from_pretrained(
         model_name_or_path: str,
-        logger: Optional[logging.Logger],
         **kwargs,
     ) -> Module:
         SparseAutoModel._check_tf(model_name_or_path)
@@ -178,7 +174,7 @@ class SparseAutoModel:
         kwargs["from_tf"] = False
         if "state_dict" not in kwargs:
             kwargs["state_dict"] = SparseAutoModel.loadable_state_dict(
-                model_name_or_path, logger
+                model_name_or_path
             )
 
         return AutoModelForTokenClassification.from_pretrained(
@@ -192,27 +188,24 @@ class SparseAutoModel:
         teacher_name_or_path: Optional[str],
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
-        logger: Optional[logging.Logger],
     ) -> Tuple[Module, Optional[Module]]:
         model = SparseAutoModel.token_classification_from_pretrained(
-            model_name_or_path, logger, **model_kwargs
+            model_name_or_path, **model_kwargs
         )
         teacher = (
             SparseAutoModel.token_classification_from_pretrained(
-                teacher_name_or_path, logger, **teacher_kwars
+                teacher_name_or_path, **teacher_kwars
             )
             if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
             else teacher_name_or_path
         )
         if isinstance(teacher, Module):
-            SparseAutoModel._log_distillation_teacher_load(teacher, logger)
+            SparseAutoModel._log_distillation_teacher_load(teacher)
 
         return model, teacher
 
     @staticmethod
-    def loadable_state_dict(
-        model_name_or_path: str, logger: Optional[logging.Logger]
-    ) -> Optional[Dict[str, Any]]:
+    def loadable_state_dict(model_name_or_path: str) -> Optional[Dict[str, Any]]:
         if not model_name_or_path or not os.path.isfile(
             os.path.join(model_name_or_path, WEIGHTS_NAME)
         ):
@@ -229,7 +222,7 @@ class SparseAutoModel:
         )
 
         if is_qat_state:
-            logger.warning(
+            _LOGGER.warning(
                 "QAT state detected, ignore any loading errors, weights will reload "
                 f"after SparseML recipes have been applied {model_name_or_path}"
             )
@@ -247,12 +240,10 @@ class SparseAutoModel:
             )
 
     @staticmethod
-    def _log_distillation_teacher_load(
-        teacher: Module, logger: Optional[logging.Logger]
-    ):
-        if teacher is None or logger is None:
+    def _log_distillation_teacher_load(teacher: Module):
+        if teacher is None or _LOGGER is None:
             return
 
         teacher_params = filter(lambda p: p.requires_grad, teacher.parameters())
         params = sum(numpy.prod(p.size()) for p in teacher_params)
-        logger.info("Loaded distillation teacher with %s parameters", params)
+        _LOGGER.info("Loaded distillation teacher with %s parameters", params)

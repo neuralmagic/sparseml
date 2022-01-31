@@ -223,8 +223,10 @@ class DistillationModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         :return: True if the modifier is pending an update and update() should be called
         """
-        return self._distillation_enabled and super().update_ready(
-            epoch, steps_per_epoch
+        return (
+            self._distillation_enabled
+            and self._enabled
+            and super().update_ready(epoch, steps_per_epoch)
         )
 
     def loss_update(

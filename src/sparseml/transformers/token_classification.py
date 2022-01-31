@@ -402,7 +402,6 @@ def main():
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
-        logger=_LOGGER,
     )
 
     # Tokenizer check: this script requires a fast tokenizer.
@@ -544,7 +543,6 @@ def main():
         recipe=data_args.recipe,
         recipe_args=data_args.recipe_args,
         teacher=teacher,
-        logger=_LOGGER,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
