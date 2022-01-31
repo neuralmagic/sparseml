@@ -32,7 +32,7 @@ from tqdm.auto import tqdm
 from transformers import Trainer, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
 
-from sparseml.transformers.sparsfiication.trainer import TrainerInterface
+from sparseml.transformers.sparsification.trainer import TrainerInterface
 
 
 if is_torch_tpu_available():

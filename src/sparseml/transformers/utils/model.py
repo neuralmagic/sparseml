@@ -228,15 +228,13 @@ class SparseAutoModel:
             ]
         )
 
-        if not is_qat_state:
-            return None
+        if is_qat_state:
+            logger.warning(
+                "QAT state detected, ignore any loading errors, weights will reload "
+                f"after SparseML recipes have been applied {model_name_or_path}"
+            )
 
-        logger.warning(
-            "QAT state detected, skipping load of state_dict for model until after "
-            f"SparseML recipes have been applied {model_name_or_path}"
-        )
-
-        return {}
+        return None
 
     @staticmethod
     def _check_tf(model_name_or_path: str):

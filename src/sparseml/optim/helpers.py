@@ -18,10 +18,10 @@ Helper functions for base Modifier and Manger utilities
 
 import json
 import re
+from contextlib import suppress
 from typing import Any, Dict, Optional, Tuple, Union
 
 import yaml
-from contextlib import suppress
 
 from sparseml.utils import UnknownVariableException, restricted_eval
 from sparsezoo import Zoo

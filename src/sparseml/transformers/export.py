@@ -72,7 +72,7 @@ from transformers import (
 from transformers.tokenization_utils_base import PaddingStrategy
 
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers.sparsfiication import RecipeManagerTrainerInterface
+from sparseml.transformers.sparsification import RecipeManagerTrainerInterface
 from sparseml.transformers.utils import SparseAutoModel
 
 

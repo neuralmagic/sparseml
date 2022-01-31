@@ -111,7 +111,8 @@ class RecipeManagerTrainerInterface:
 
         super().__init__(model=model, **kwargs)
         self.criterion = torch.nn.CrossEntropyLoss()
-        self.callback_handler.add_callback(DisableHalfPrecisionCallback(self))
+        self.qat_check_callback = DisableHalfPrecisionCallback(self)
+        self.callback_handler.add_callback(self.qat_check_callback)
 
     def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
         if (not self.arch_managers and self.manager is None) or self.manager_applied:
@@ -435,6 +436,11 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         super().__init__(*args, **kwargs)
         self.trainer = trainer
 
+    def qat_active(self, epoch: float) -> bool:
+        return (self.trainer.manager and self.trainer.manager.qat_active(epoch)) or any(
+            bool(man.quantization_modifiers) for man in self.trainer.arch_managers
+        )
+
     def on_epoch_begin(
         self,
         args: TrainingArguments,
@@ -450,7 +456,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         if (
             not hasattr(self.trainer, "scaler")
             or not self.trainer.scaler._enabled
-            or not self.trainer.manager.qat_active(state.epoch)
+            or not self.qat_active(state.epoch)
         ):
             return
 
