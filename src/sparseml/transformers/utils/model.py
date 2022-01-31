@@ -256,5 +256,5 @@ class SparseAutoModel:
             return
 
         teacher_params = filter(lambda p: p.requires_grad, teacher.parameters())
-        params = sum([numpy.prod(p.size()) for p in teacher_params])
+        params = sum(numpy.prod(p.size()) for p in teacher_params)
         logger.info("Loaded distillation teacher with %s parameters", params)
