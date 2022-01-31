@@ -21,6 +21,7 @@ import re
 from typing import Any, Dict, Optional, Tuple, Union
 
 import yaml
+from contextlib import suppress
 
 from sparseml.utils import UnknownVariableException, restricted_eval
 from sparsezoo import Zoo
@@ -154,12 +155,9 @@ def parse_recipe_variables(
         )
 
     # assume json first, try and parse
-    try:
+    with suppress(Exception):
         recipe_variables = json.loads(recipe_variables)
-
         return recipe_variables
-    except Exception:
-        pass
 
     # assume csv, and standardize to format key=val
     orig_recipe_variables = recipe_variables
@@ -179,11 +177,9 @@ def parse_recipe_variables(
                 f"{key} in {orig_recipe_variables}"
             )
         val = vals[1].strip()
-        try:
+        with suppress(Exception):
             # check if val should be a number, otherwise fall back on string
             val = float(val)
-        except Exception:
-            pass
         recipe_variables[key] = val
 
     return recipe_variables

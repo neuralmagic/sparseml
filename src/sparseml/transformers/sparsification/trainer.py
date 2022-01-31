@@ -353,21 +353,27 @@ class TrainerInterface(RecipeManagerTrainerInterface):
     def train(self, *args, **kwargs):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch, checkpoint)
-        super().train(*args, **kwargs)
+        output = super().train(*args, **kwargs)
         if applied:
             self.finalize_manager()
+
+        return output
 
     def evaluate(self, *args, **kwargs):
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
-        super().evaluate(*args, **kwargs)
+        output = super().evaluate(*args, **kwargs)
         if applied:
             self.finalize_manager()
 
+        return output
+
     def predict(self, *args, **kwargs):
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
-        super().predict(*args, **kwargs)
+        output = super().predict(*args, **kwargs)
         if applied:
             self.finalize_manager()
+
+        return output
 
     def _generate_apply_manager_params(self, kwargs) -> Tuple[Optional[str], float]:
         checkpoint = None

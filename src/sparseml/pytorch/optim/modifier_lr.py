@@ -42,11 +42,11 @@ from sparseml.pytorch.utils import (
     get_optim_groups_learning_rates,
     set_optim_learning_rate,
 )
-from sparseml.sparsification import LearningRateModifier as BaseLearningRateModifier
 from sparseml.sparsification import (
+LearningRateModifier as BaseLearningRateModifier,
     SetLearningRateModifier as BaseSetLearningRateModifier,
+SparsificationTypes
 )
-from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, convert_to_bool
 
 
