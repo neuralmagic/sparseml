@@ -80,6 +80,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         temperature: float = 2.0,
         distill_output_keys: List[Any] = None,
         teacher_input_keys: List[Any] = None,
+        update_frequency: float = -1.0,
     ):
         super().__init__(
             start_epoch=start_epoch,

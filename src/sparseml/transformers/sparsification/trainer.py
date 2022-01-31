@@ -80,7 +80,6 @@ class RecipeManagerTrainerInterface:
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         teacher: Optional[Union[Module, str]] = None,
-        teacher_input_keys: Optional[List[str]] = None,
         **kwargs,
     ):
         # instantiate necessary state, like managers, so we can override args
@@ -89,7 +88,6 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher.eval() if teacher is not None else None
-        self.teacher_input_keys = teacher_input_keys
 
         report_to = (
             ""
@@ -297,7 +295,9 @@ class RecipeManagerTrainerInterface:
 
         arch_recipe_paths = glob.glob(os.path.join(self.model_state_path, RECIPE_REGEX))
         if arch_recipe_paths:
-            arch_managers = [ScheduledModifierManager.from_yaml(path) for path in arch_recipe_paths]
+            arch_managers = [
+                ScheduledModifierManager.from_yaml(path) for path in arch_recipe_paths
+            ]
             _LOGGER.info(
                 f"Loaded SparseML {len(arch_recipe_paths)} recipes into architecture "
                 f"managers from {arch_recipe_paths}"
@@ -370,7 +370,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         self,
         model: Module,
         model_state_path: str,
-        recipe: str,
+        recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         teacher: Optional[Module] = None,
         **kwargs,
@@ -440,7 +440,7 @@ class Trainer(TrainerInterface, TransformersTrainer):
         self,
         model: Module,
         model_state_path: str,
-        recipe: str,
+        recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         teacher: Optional[Module] = None,
         **kwargs,

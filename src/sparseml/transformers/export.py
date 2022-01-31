@@ -72,7 +72,7 @@ from transformers import (
 from transformers.tokenization_utils_base import PaddingStrategy
 
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers.sparsification import RecipeManagerTrainerInterface
+from sparseml.transformers.sparsification import RecipeManagerTrainerInterface, Trainer
 from sparseml.transformers.utils import SparseAutoModel
 
 
@@ -176,11 +176,12 @@ def export_transformer_to_onnx(
     model = _load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
-    trainer = RecipeManagerTrainerInterface(
+    trainer = Trainer(
         model=model,
         model_state_path=model_path,
         recipe=None,
-        teacher="disable",
+        recipe_args=None,
+        teacher=None,
     )
     applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
 
