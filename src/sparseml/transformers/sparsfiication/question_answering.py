@@ -24,10 +24,9 @@ import collections
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
-import torch
 from torch.nn import Module
 from tqdm.auto import tqdm
 from transformers import Trainer, is_torch_tpu_available

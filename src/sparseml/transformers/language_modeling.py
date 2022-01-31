@@ -36,14 +36,12 @@ import sys
 from dataclasses import dataclass, field
 from typing import Optional
 
-import numpy
 import transformers
 from datasets import concatenate_datasets, load_dataset
 from transformers import (
     CONFIG_MAPPING,
     MODEL_FOR_MASKED_LM_MAPPING,
     AutoConfig,
-    AutoModelForMaskedLM,
     AutoTokenizer,
     DataCollatorForLanguageModeling,
     HfArgumentParser,

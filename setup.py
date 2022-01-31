@@ -124,7 +124,6 @@ def _setup_entry_points() -> Dict:
             "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
-
             # transformers integration
             _transformers_task_entry_point.format(task="question_answering"),
             _transformers_task_entry_point.format(task="text_classification"),

@@ -34,7 +34,6 @@ import transformers
 from datasets import ClassLabel, load_dataset, load_metric
 from transformers import (
     AutoConfig,
-    AutoModelForTokenClassification,
     AutoTokenizer,
     DataCollatorForTokenClassification,
     HfArgumentParser,

@@ -182,7 +182,7 @@ def parse_recipe_variables(
         try:
             # check if val should be a number, otherwise fall back on string
             val = float(val)
-        except:
+        except Exception:
             pass
         recipe_variables[key] = val
 

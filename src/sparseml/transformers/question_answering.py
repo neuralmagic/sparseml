@@ -30,12 +30,10 @@ import sys
 from dataclasses import dataclass, field
 from typing import Optional
 
-import numpy
 import transformers
 from datasets import load_dataset, load_metric
 from transformers import (
     AutoConfig,
-    AutoModelForQuestionAnswering,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,

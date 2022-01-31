@@ -26,21 +26,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from transformers import Trainer as TransformersTrainer
-from transformers import (
-    TrainerCallback,
-    TrainerControl,
-    TrainingArguments,
-)
+from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import WANDBLogger
-from sparseml.transformers.utils.helpers import (
-    RECIPE_REGEX,
-    RECIPE_TEMPLATE,
-)
+from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
 
 
 __all__ = [
@@ -84,9 +77,9 @@ class RecipeManagerTrainerInterface:
         self,
         model: Module,
         model_state_path: str,
-        recipe: str,
+        recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        teacher: Optional[Module] = None,
+        teacher: Optional[Union[Module, str]] = None,
         teacher_input_keys: Optional[List[str]] = None,
         logger: logging.Logger = None,
         **kwargs,

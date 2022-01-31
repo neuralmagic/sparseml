@@ -36,7 +36,6 @@ import transformers
 from datasets import load_dataset, load_metric
 from transformers import (
     AutoConfig,
-    AutoModelForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,

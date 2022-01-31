@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy
 import torch
@@ -38,7 +38,7 @@ class SparseAutoModel:
         config: Any,
         logger: Optional[logging.Logger],
         **kwargs,
-    ) -> Tuple[Module, Optional[Module]]:
+    ) -> Module:
         if not model_name_or_path:
             logger.info("Training new model from scratch")
             return AutoModelForMaskedLM.from_config(config)
@@ -64,7 +64,7 @@ class SparseAutoModel:
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
         logger: Optional[logging.Logger],
-    ) -> Tuple[Module, Optional[Module]]:
+    ) -> Tuple[Module, Optional[Union[Module, str]]]:
         model = SparseAutoModel.masked_language_modeling_from_pretrained(
             model_name_or_path, model_kwargs["config"], logger, **model_kwargs
         )
@@ -72,10 +72,11 @@ class SparseAutoModel:
             SparseAutoModel.masked_language_modeling_from_pretrained(
                 teacher_name_or_path, None, logger, **teacher_kwars
             )
-            if teacher_name_or_path
-            else None
+            if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
+            else teacher_name_or_path
         )
-        SparseAutoModel._log_distillation_teacher_load(teacher, logger)
+        if isinstance(teacher, Module):
+            SparseAutoModel._log_distillation_teacher_load(teacher, logger)
 
         return model, teacher
 
@@ -84,7 +85,7 @@ class SparseAutoModel:
         model_name_or_path: str,
         logger: Optional[logging.Logger],
         **kwargs,
-    ) -> Tuple[Module, Optional[Module]]:
+    ) -> Module:
         SparseAutoModel._check_tf(model_name_or_path)
         if not kwargs:
             kwargs = {}
@@ -106,7 +107,7 @@ class SparseAutoModel:
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
         logger: Optional[logging.Logger],
-    ) -> Tuple[Module, Optional[Module]]:
+    ) -> Tuple[Module, Optional[Union[Module, str]]]:
         model = SparseAutoModel.question_answering_from_pretrained(
             model_name_or_path, logger, **model_kwargs
         )
@@ -114,10 +115,11 @@ class SparseAutoModel:
             SparseAutoModel.question_answering_from_pretrained(
                 teacher_name_or_path, logger, **teacher_kwars
             )
-            if teacher_name_or_path
-            else None
+            if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
+            else teacher_name_or_path
         )
-        SparseAutoModel._log_distillation_teacher_load(teacher, logger)
+        if isinstance(teacher, Module):
+            SparseAutoModel._log_distillation_teacher_load(teacher, logger)
 
         return model, teacher
 
@@ -126,7 +128,7 @@ class SparseAutoModel:
         model_name_or_path: str,
         logger: Optional[logging.Logger],
         **kwargs,
-    ) -> Tuple[Module, Optional[Module]]:
+    ) -> Module:
         SparseAutoModel._check_tf(model_name_or_path)
         if not kwargs:
             kwargs = {}
@@ -156,10 +158,11 @@ class SparseAutoModel:
             SparseAutoModel.sequence_classification_from_pretrained(
                 teacher_name_or_path, logger, **teacher_kwars
             )
-            if teacher_name_or_path
-            else None
+            if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
+            else teacher_name_or_path
         )
-        SparseAutoModel._log_distillation_teacher_load(teacher, logger)
+        if isinstance(teacher, Module):
+            SparseAutoModel._log_distillation_teacher_load(teacher, logger)
 
         return model, teacher
 
@@ -168,7 +171,7 @@ class SparseAutoModel:
         model_name_or_path: str,
         logger: Optional[logging.Logger],
         **kwargs,
-    ) -> Tuple[Module, Optional[Module]]:
+    ) -> Module:
         SparseAutoModel._check_tf(model_name_or_path)
         if not kwargs:
             kwargs = {}
@@ -198,10 +201,11 @@ class SparseAutoModel:
             SparseAutoModel.token_classification_from_pretrained(
                 teacher_name_or_path, logger, **teacher_kwars
             )
-            if teacher_name_or_path
-            else None
+            if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
+            else teacher_name_or_path
         )
-        SparseAutoModel._log_distillation_teacher_load(teacher, logger)
+        if isinstance(teacher, Module):
+            SparseAutoModel._log_distillation_teacher_load(teacher, logger)
 
         return model, teacher
 
