@@ -66,22 +66,22 @@ _keras_deps = ["tensorflow~=2.2.0", "keras2onnx>=1.0.0"]
 
 _dev_deps = [
     "beautifulsoup4==4.9.3",
-    "black>=20.8b1",
-    "flake8>=3.8.3",
-    "isort>=5.7.0",
+    "black==21.5b2",
+    "flake8==3.9.2",
+    "isort==5.8.0",
     "m2r2~=0.2.7",
     "myst-parser~=0.14.0",
-    "rinohtype>=0.4.2",
-    "sphinx>=3.4.0",
-    "sphinx-copybutton>=0.3.0",
-    "sphinx-markdown-tables>=0.0.15",
-    "sphinx-multiversion==0.2.4",
-    "sphinx-pydantic>=0.1.0",
-    "sphinx-rtd-theme>=0.5.0",
+    "rinohtype~=0.4.2",
+    "sphinx~=3.5.0",
+    "sphinx-copybutton~=0.3.0",
+    "sphinx-markdown-tables~=0.0.15",
+    "sphinx-multiversion~=0.2.4",
+    "sphinx-pydantic~=0.1.0",
+    "sphinx-rtd-theme~=0.5.0",
     "wheel>=0.36.2",
-    "pytest>=6.0.0",
-    "pytest-mock>=3.6.1",
-    "flaky>=3.0.0",
+    "pytest~=6.2.0",
+    "pytest-mock~=3.7.0",
+    "flaky~=3.7.0",
     "sphinx-rtd-theme",
 ]
 
@@ -112,29 +112,35 @@ def _setup_extras() -> Dict:
     }
 
 
-_transformers_task_entry_point = (
-    "sparseml.transformers.{task}=sparseml.transformers.{task}:main"
-)
-
-
 def _setup_entry_points() -> Dict:
-    return {
+    entry_points = {
         "console_scripts": [
             # sparsification
             "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
-            # transformers integration
-            _transformers_task_entry_point.format(task="question_answering"),
-            _transformers_task_entry_point.format(task="text_classification"),
-            _transformers_task_entry_point.format(task="train.text_classification"),
-            _transformers_task_entry_point.format(task="token_classification"),
-            _transformers_task_entry_point.format(task="train.token_classification"),
-            _transformers_task_entry_point.format(task="language_modeling"),
-            _transformers_task_entry_point.format(task="train.language_modeling"),
-            "sparseml.transformers.export_onnx=sparseml.transformers.export:main",
         ]
     }
+
+    # transformers integration
+    for task in [
+        "question_answering",
+        "text_classification",
+        "token_classification",
+        "language_modeling",
+    ]:
+        entry_points["console_scripts"].extend(
+            [
+                f"sparseml.transformers.{task}=sparseml.transformers.{task}:main",
+                f"sparseml.transformers.train.{task}=sparseml.transformers.{task}:main",
+            ]
+        )
+
+    entry_points["console_scripts"].append(
+        "sparseml.transformers.export_onnx=sparseml.transformers.export:main"
+    )
+
+    return entry_points
 
 
 def _setup_long_description() -> Tuple[str, str]:

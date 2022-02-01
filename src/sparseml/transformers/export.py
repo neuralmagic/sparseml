@@ -61,18 +61,11 @@ import os
 from typing import Any, Optional
 
 from torch.nn import Module
-from transformers import (
-    AutoConfig,
-    AutoModelForMaskedLM,
-    AutoModelForQuestionAnswering,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    AutoTokenizer,
-)
+from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers.sparsification import RecipeManagerTrainerInterface, Trainer
+from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
 
 
@@ -80,22 +73,6 @@ __all__ = ["export_transformer_to_onnx"]
 
 
 _LOGGER = logging.getLogger(__name__)
-_TASK_TO_CONSTRUCTOR = {
-    # language modeling
-    "mlm": AutoModelForMaskedLM,
-    "masked-language-modeling": AutoModelForMaskedLM,
-    # question answering
-    "qa": AutoModelForQuestionAnswering,
-    "question-answering": AutoModelForQuestionAnswering,
-    # GLUE
-    "glue": AutoModelForSequenceClassification,
-    "sequence-classification": AutoModelForSequenceClassification,
-    "sentiment-analysis": AutoModelForSequenceClassification,
-    "text-classification": AutoModelForSequenceClassification,
-    # token classification
-    "ner": AutoModelForTokenClassification,
-    "token-classification": AutoModelForTokenClassification,
-}
 
 
 def _load_task_model(task: str, model_path: str, config: Any) -> Module:

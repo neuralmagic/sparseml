@@ -87,7 +87,7 @@ class RecipeManagerTrainerInterface:
         self.model_state_path = str(model_state_path)
         self.recipe = recipe
         self.recipe_args = recipe_args
-        self.teacher = teacher.eval() if teacher is not None else None
+        self.teacher = teacher
 
         report_to = (
             ""
@@ -110,9 +110,7 @@ class RecipeManagerTrainerInterface:
         self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
         self.callback_handler.add_callback(self.callback_disable_fp16)
 
-    def apply_manager(
-        self, epoch: float, checkpoint: Optional[str], apply_all: bool = False
-    ) -> bool:
+    def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
         if (not self.arch_managers and self.manager is None) or self.manager_applied:
             return False
 
@@ -352,17 +350,17 @@ class RecipeManagerTrainerInterface:
             self.model, load_state_dict, load_path, _fast_init=False
         )
 
-        if missing:
+        if missing or unexpected:
             _LOGGER.warning(
                 "Missing keys found when reloading model state for SparseML recipe:"
                 f"{missing}"
             )
-
-        if unexpected:
             _LOGGER.warning(
                 f"Unexpected keys found when reloading model state for SparseML recipe:"
                 f"{unexpected}"
             )
+        else:
+            _LOGGER.info(f"Reloaded model weights for SparseML Recipe from {load_path}")
 
 
 class TrainerInterface(RecipeManagerTrainerInterface):
@@ -372,7 +370,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        teacher: Optional[Module] = None,
+        teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
         super().__init__(
@@ -386,7 +384,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
 
     def train(self, *args, **kwargs):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
-        applied = self.apply_manager(epoch, checkpoint)
+        applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
         output = super().train(*args, **kwargs)
         if applied:
@@ -442,7 +440,7 @@ class Trainer(TrainerInterface, TransformersTrainer):
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        teacher: Optional[Module] = None,
+        teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
         super().__init__(

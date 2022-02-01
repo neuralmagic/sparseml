@@ -18,14 +18,14 @@ grouping modifiers and running them together.
 Also handles loading modifiers from yaml files
 """
 
-from typing import List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from tensorflow import Tensor
 
 from sparseml.keras.optim.modifier import Modifier, ScheduledModifier
 from sparseml.keras.utils.compat import keras
 from sparseml.keras.utils.logger import KerasLogger
-from sparseml.optim import BaseManager, load_recipe_yaml_str
+from sparseml.optim import BaseManager, load_recipe_yaml_str, parse_recipe_variables
 from sparsezoo.objects import Recipe
 
 
@@ -41,7 +41,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
     def from_yaml(
         file_path: Union[str, Recipe],
         add_modifiers: List[Modifier] = None,
-        **recipe_variables,
+        recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
     ):
         """
         Convenience function used to create the manager of multiple modifiers from a
@@ -59,6 +59,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
             with (i.e. num_epochs, init_lr)
         :return: ScheduledModifierManager() created from the recipe file
         """
+        recipe_variables = parse_recipe_variables(recipe_variables)
         yaml_str = load_recipe_yaml_str(file_path, **recipe_variables)
         modifiers = Modifier.load_list(yaml_str)
         if add_modifiers:
