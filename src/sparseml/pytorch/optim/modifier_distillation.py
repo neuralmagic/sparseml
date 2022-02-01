@@ -271,6 +271,8 @@ class DistillationModifier(ScheduledUpdateModifier):
             if not self._teacher_input_keys
             else {key: student_inputs[key] for key in self._teacher_input_keys}
         )
+        # copy to keep from updating student's inputs
+        teacher_inputs = deepcopy(teacher_inputs)
 
         if self._teacher == "self":
             _LOGGER.info("Copying current models state for self distillation")
