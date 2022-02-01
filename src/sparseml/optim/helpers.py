@@ -143,6 +143,16 @@ def rewrite_recipe_yaml_string_with_classes(recipe_contianer: Any) -> str:
 def parse_recipe_variables(
     recipe_variables: Optional[Union[Dict[str, Any], str]] = None
 ) -> Dict[str, Any]:
+    """
+    Parse input recipe_variables into a dictionary that can be used to overload
+    variables at the root of a recipe.
+    Supports dictionaries as well as parsing a string in either json or
+    csv key=value format
+
+    :param recipe_variables: the recipe_variables string or dictionary to parse
+        for variables used with overloading recipes
+    :return: the parsed recipe variables
+    """
     if not recipe_variables:
         return {}
 

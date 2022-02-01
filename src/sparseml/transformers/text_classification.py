@@ -431,7 +431,7 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    model, teacher = SparseAutoModel.sequence_classification_from_pretrained_distil(
+    model, teacher = SparseAutoModel.text_classification_from_pretrained_distil(
         model_name_or_path=(
             model_args.tokenizer_name
             if model_args.tokenizer_name

@@ -52,21 +52,39 @@ def _get_fake_batch(model_lambda):
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
 class TestDistillationModifierImpl(ScheduledModifierTest):
+    def test_update_ready(
+        self,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: int,
+    ):
+        super().test_update_ready(
+            modifier_lambda,
+            model_lambda,
+            optim_lambda,
+            test_epoch,
+            test_steps_per_epoch,
+            distillation_teacher=model_lambda(),
+        )
 
-
-    def test_update_ready(self, modifier_lambda: Callable[[], ScheduledModifier],
-                          model_lambda: Callable[[], Module],
-                          optim_lambda: Callable[[Module], Optimizer],
-                          test_epoch: float, test_steps_per_epoch: int):
-        super().test_update_ready(modifier_lambda, model_lambda, optim_lambda,
-                                  test_epoch, test_steps_per_epoch, distillation_teacher=model_lambda())
-
-    def test_scheduled_update(self, modifier_lambda: Callable[[], ScheduledModifier],
-                              model_lambda: Callable[[], Module],
-                              optim_lambda: Callable[[Module], Optimizer],
-                              test_epoch: float, test_steps_per_epoch: int):
-        super().test_scheduled_update(modifier_lambda, model_lambda, optim_lambda,
-                                      test_epoch, test_steps_per_epoch, distillation_teacher=model_lambda())
+    def test_scheduled_update(
+        self,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,
+        test_steps_per_epoch: int,
+    ):
+        super().test_scheduled_update(
+            modifier_lambda,
+            model_lambda,
+            optim_lambda,
+            test_epoch,
+            test_steps_per_epoch,
+            distillation_teacher=model_lambda(),
+        )
 
     def test_lifecycle(
         self,

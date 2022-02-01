@@ -227,9 +227,8 @@ class DistillationModifier(ScheduledUpdateModifier):
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
 
-        return (
-            self._distillation_enabled
-            and super().update_ready(epoch, steps_per_epoch)
+        return self._distillation_enabled and super().update_ready(
+            epoch, steps_per_epoch
         )
 
     def loss_update(
@@ -347,6 +346,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         """
         super().finalize(module, reset_loggers, **kwargs)
         self._teacher = None
+        self._distillation_enabled = False
 
     def _calc_distill_loss(self, student_val: Tensor, teacher_val: Tensor) -> Tensor:
         return (

@@ -148,16 +148,16 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
     """
     Trainer for running sparsification recipes with Question Answering training
 
-    :param model_name_or_path: path to model directory to be trained
-    :param recipe: path to recipe for model sparsification
-    :param checkpoint_recipes: list of paths to recipes used to train the
-        starting checkpoint for this training run. Will be applied to the model
-        on call to `apply_recipes` so that model state can be reproduced for
-        weight loading
-    :param teacher: teacher model for distillation. Default is None
-    :param recipe_args: Dictionary of recipe variables to override or json
-        loadable string of those args. Default is None
-    :param args: arguments passed into parent class
+    :param model: the model to use with the trainer and apply sparsification to
+    :param model_state_path: the state path to the model,
+        used to load config and tokenizer settings
+    :param recipe: the recipe, if any, to apply to the modle and training
+        process
+    :param recipe_args: A json string, csv key=value string, or dictionary containing
+        arguments to override the root arguments within the recipe such as
+        learning rate or num epochs
+    :param teacher: teacher model for distillation. Set to 'self' to distill
+        from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
     """
 

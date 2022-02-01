@@ -94,7 +94,7 @@ def _load_task_model(task: str, model_path: str, config: Any) -> Module:
         or task == "sentiment-analysis"
         or task == "text-classification"
     ):
-        return SparseAutoModel.sequence_classification_from_pretrained(
+        return SparseAutoModel.text_classification_from_pretrained(
             model_name_or_path=model_path,
             config=config,
         )

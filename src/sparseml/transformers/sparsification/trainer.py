@@ -13,7 +13,8 @@
 # limitations under the License.
 
 """
-SparseML transformers trainer class to be plugged in with existing HF trainer flows
+SparseML transformers trainer classes and interfaces to be plugged in with existing
+or similiar HF trainer flows
 """
 
 
@@ -50,26 +51,34 @@ TRAINER_STATE_NAME = "trainer_state.json"
 
 class RecipeManagerTrainerInterface:
     """
-    Trainer for running sparsification recipes with transformers Trainer flows.
+    Training base interface for running sparsification recipes with transformers flows.
+    Defines it's own lifecycle that is compatible with transformers flows.
+    Can additionally be used outside of transformers flows provided
+    they match reasonably closely.
 
     Should be instantiated with multi-inheretance with a custom trainer class.
-    SparesMLTrainer must be provided before Trainer for proper class dependency.
-    i.e. class MyCustomTrainer(SparseMLTrainer, Trainer)
+    RecipeManagerTrainerInterface must be provided
+    before Trainer for proper class dependency.
+    i.e. class MyCustomTrainer(RecipeManagerTrainerInterface, Trainer)
 
-    :param model_name_or_path: path to model directory to be trained
-    :param recipe: path to recipe for model sparsification
-    :param checkpoint_recipes: list of paths to recipes used to train the
-        starting checkpoint for this training run. Will be applied to the model
-        on call to `apply_recipes` so that model state can be reproduced for
-        weight loading
-    :param teacher: teacher model for distillation. Default is None
-    :param recipe_args: Dictionary of recipe variables to override or json
-        loadable string of those args. Default is None
-    :param teacher_input_keys: keywords of inputs to select from student inputs dict
-        to also be passed to a the teacher model. Can be useful to avoid extra
-        computation in forward pass that is not necessary for distillation. Defaults
-        to passing all student inputs to teacher
-    :param args: arguments passed into parent class
+    Expected lifecycle:
+    1. apply_manager
+    2. create_optimizer (only for training)
+    3. create_scheduler (only for training)
+    4. compute_loss (only for training, called before each step)
+    5. save_model (only for training)
+    6. finalize_manager
+
+    :param model: the model to use with the trainer and apply sparsification to
+    :param model_state_path: the state path to the model,
+        used to load config and tokenizer settings
+    :param recipe: the recipe, if any, to apply to the modle and training
+        process
+    :param recipe_args: A json string, csv key=value string, or dictionary containing
+        arguments to override the root arguments within the recipe such as
+        learning rate or num epochs
+    :param teacher: teacher model for distillation. Set to 'self' to distill
+        from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
     """
 
@@ -111,6 +120,16 @@ class RecipeManagerTrainerInterface:
         self.callback_handler.add_callback(self.callback_disable_fp16)
 
     def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
+        """
+        Apply the recipe(s) to the model and training/validation process.
+
+        :param epoch: the training epoch to apply the recipe(s) at.
+            If loading after training, set epoch=math.inf
+        :param checkpoint: the optional checkpoint to use to reload model state
+            from after the model's architecture has been modified.
+            If not supplied, falls back to self.model_state_path
+        :return: True if recipes were applied, Flase otherwise
+        """
         if (not self.arch_managers and self.manager is None) or self.manager_applied:
             return False
 
@@ -146,6 +165,11 @@ class RecipeManagerTrainerInterface:
         return True
 
     def finalize_manager(self) -> bool:
+        """
+        Finalize the current recipes to wrap up any held state.
+
+        :return: True if recipes were finalized, False otherwise
+        """
         if (
             self.manager is None
             or not self.manager_initialized
@@ -161,7 +185,10 @@ class RecipeManagerTrainerInterface:
 
     def create_optimizer(self):
         """
-        Create optimizer customized using SparseML
+        Override the optimizer to apply and update the recipe while training.
+        create_optimizer must exist in the parent class and should set
+        self.optimizer to the optimizer state and optionally set self.scaler
+        if using amp.
         """
         self._check_super_defined("create_optimizer")
         super().create_optimizer()
@@ -200,8 +227,13 @@ class RecipeManagerTrainerInterface:
 
     def create_scheduler(self, num_training_steps: int):
         """
-        Override LR scheduler if the SparseML manager has LR modifiers, otherwise
-        set default scheduler
+        Create an LR scheduler to work with the applied recipes.
+        If the recipe specifies LR modifiers, then will set lr_scheduler
+        to a placeholder lr scheduler.
+        Expects create_scheduler to be defined in the super class.
+        Additionally expects self.lr_scheduler argument to be available.
+
+        :param num_training_steps: the total number of training steps
         """
         self._check_super_defined("create_scheduler")
 
@@ -221,9 +253,19 @@ class RecipeManagerTrainerInterface:
 
     def compute_loss(
         self, model: Module, inputs: Dict[str, Any], return_outputs: bool = False
-    ):
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, Any]]:
         """
-        Computing loss using teacher/student distillation
+        Override for the compute_loss to factor in distillation modifiers.
+        If distillation modifiers are present in the recipe, then will
+        add the distillation loss to the normal loss function.
+        Expects compute_loss to be defined in the suepr class.
+
+        :param model: the model to compute the loss for
+        :param inputs: the inputs to pass through the model for calculating the loss
+        :param return_outputs: True to return the outputs with the loss,
+            False otherwise
+        :return: the resulting loss if not return_outputs, otherwise a tuple
+            containing the loss and the model's outputs
         """
         self._check_super_defined("compute_loss")
 
@@ -250,6 +292,13 @@ class RecipeManagerTrainerInterface:
         return (loss, student_outputs) if return_outputs else loss
 
     def save_model(self, output_dir: Optional[str] = None):
+        """
+        Override of the save_model function and expects it to exist in the parent.
+        Calls into super() to save the model and additionally saves any recipes
+        that were used with the model within the model folder.
+
+        :param output_dir: the path to save the recipes into
+        """
         """
         Save model during or after training. Modifiers that change the model
         architecture will also be saved
@@ -364,6 +413,27 @@ class RecipeManagerTrainerInterface:
 
 
 class TrainerInterface(RecipeManagerTrainerInterface):
+    """
+    Training interface for running sparsification recipes with transformers flows.
+    Mimics the lifecycle of transformers Trainer classes.
+
+    Should be instantiated with multi-inheretance with a custom trainer class.
+    TrainerInterface must be provided before Trainer for proper class dependency.
+    i.e. class MyCustomTrainer(TrainerInterface, Trainer)
+
+    :param model: the model to use with the trainer and apply sparsification to
+    :param model_state_path: the state path to the model,
+        used to load config and tokenizer settings
+    :param recipe: the recipe, if any, to apply to the modle and training
+        process
+    :param recipe_args: A json string, csv key=value string, or dictionary containing
+        arguments to override the root arguments within the recipe such as
+        learning rate or num epochs
+    :param teacher: teacher model for distillation. Set to 'self' to distill
+        from the loaded model or 'disable' to turn of distillation
+    :param kwargs: key word arguments passed to the parent class
+    """
+
     def __init__(
         self,
         model: Module,
@@ -383,6 +453,15 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         )
 
     def train(self, *args, **kwargs):
+        """
+        Run a sparsification training cycle.
+        Calls into apply_manager before super().train()
+        and calls finalize_manager, if applied, after super().train().
+
+        :param args: positional args to pass to super().train()
+        :param kwargs: keyword args to pass to super().train()
+        :return: the output from super.train()
+        """
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
@@ -393,6 +472,15 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         return output
 
     def evaluate(self, *args, **kwargs):
+        """
+        Run a sparsification evaluation cycle.
+        Calls into apply_manager before super().evaluate()
+        and calls finalize_manager, if applied, after super().evaluate().
+
+        :param args: positional args to pass to super().evaluate()
+        :param kwargs: keyword args to pass to super().evaluate()
+        :return: the output from super.evaluate()
+        """
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
         output = super().evaluate(*args, **kwargs)
         if applied:
@@ -401,6 +489,15 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         return output
 
     def predict(self, *args, **kwargs):
+        """
+        Run a sparsification prediction cycle.
+        Calls into apply_manager before super().predict()
+        and calls finalize_manager, if applied, after super().predict().
+
+        :param args: positional args to pass to super().predict()
+        :param kwargs: keyword args to pass to super().predict()
+        :return: the output from super.predict()
+        """
         applied = self.apply_manager(epoch=math.inf, checkpoint=None)
         output = super().predict(*args, **kwargs)
         if applied:
@@ -434,6 +531,22 @@ class TrainerInterface(RecipeManagerTrainerInterface):
 
 
 class Trainer(TrainerInterface, TransformersTrainer):
+    """
+    Training implementation for running sparsification recipes with transformers flows.
+
+    :param model: the model to use with the trainer and apply sparsification to
+    :param model_state_path: the state path to the model,
+        used to load config and tokenizer settings
+    :param recipe: the recipe, if any, to apply to the modle and training
+        process
+    :param recipe_args: A json string, csv key=value string, or dictionary containing
+        arguments to override the root arguments within the recipe such as
+        learning rate or num epochs
+    :param teacher: teacher model for distillation. Set to 'self' to distill
+        from the loaded model or 'disable' to turn of distillation
+    :param kwargs: key word arguments passed to the parent class
+    """
+
     def __init__(
         self,
         model: Module,
@@ -455,7 +568,7 @@ class Trainer(TrainerInterface, TransformersTrainer):
 
 class DisableHalfPrecisionCallback(TrainerCallback):
     """
-    TrainerCallback for disabling FP16 training when QAT training begins
+    TrainerCallback for disabling FP16 training before QAT training begins
 
     :param sparseml_trainer: SparseML trainer that will call back into this object
     :param args: args to be passed to base TrainerCallback

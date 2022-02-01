@@ -35,12 +35,22 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class SparseAutoModel:
+    """
+    Factory class for creating sparse models using transformers AutoModel classes
+    """
+
     @staticmethod
     def masked_language_modeling_from_pretrained(
         model_name_or_path: str,
         config: Any,
         **kwargs,
     ) -> Module:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param config: the config for the model describing pipeline
+        :param kwargs: keyword arguments to pass through to the AutoModel call
+        :return: the created model for masked language modeling
+        """
         if not model_name_or_path:
             _LOGGER.info("Training new model from scratch")
             return AutoModelForMaskedLM.from_config(config)
@@ -50,7 +60,7 @@ class SparseAutoModel:
             kwargs = {}
         kwargs["from_tf"] = False
         if "state_dict" not in kwargs:
-            kwargs["state_dict"] = SparseAutoModel.loadable_state_dict(
+            kwargs["state_dict"] = SparseAutoModel._loadable_state_dict(
                 model_name_or_path
             )
 
@@ -66,6 +76,16 @@ class SparseAutoModel:
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
     ) -> Tuple[Module, Optional[Union[Module, str]]]:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param teacher_name_or_path: the name of or path to the teacher to load,
+            None or one of ['self', 'disable'] will not create a teacher and
+            instead return the value passed in
+        :param model_kwargs: the keyword args to pass into the AutoModel for model
+        :param teacher_kwars: the keyword args to pass into the AutoModel for teacher
+        :return: a tuple containing the model and distillation teacher (optional)
+            for masked language modeling
+        """
         model = SparseAutoModel.masked_language_modeling_from_pretrained(
             model_name_or_path, model_kwargs["config"], **model_kwargs
         )
@@ -86,12 +106,17 @@ class SparseAutoModel:
         model_name_or_path: str,
         **kwargs,
     ) -> Module:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param kwargs: keyword arguments to pass through to the AutoModel call
+        :return: the created model for question answering
+        """
         SparseAutoModel._check_tf(model_name_or_path)
         if not kwargs:
             kwargs = {}
         kwargs["from_tf"] = False
         if "state_dict" not in kwargs:
-            kwargs["state_dict"] = SparseAutoModel.loadable_state_dict(
+            kwargs["state_dict"] = SparseAutoModel._loadable_state_dict(
                 model_name_or_path
             )
 
@@ -107,6 +132,16 @@ class SparseAutoModel:
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
     ) -> Tuple[Module, Optional[Union[Module, str]]]:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param teacher_name_or_path: the name of or path to the teacher to load,
+            None or one of ['self', 'disable'] will not create a teacher and
+            instead return the value passed in
+        :param model_kwargs: the keyword args to pass into the AutoModel for model
+        :param teacher_kwars: the keyword args to pass into the AutoModel for teacher
+        :return: a tuple containing the model and distillation teacher (optional)
+            for question answering
+        """
         model = SparseAutoModel.question_answering_from_pretrained(
             model_name_or_path, **model_kwargs
         )
@@ -123,16 +158,21 @@ class SparseAutoModel:
         return model, teacher
 
     @staticmethod
-    def sequence_classification_from_pretrained(
+    def text_classification_from_pretrained(
         model_name_or_path: str,
         **kwargs,
     ) -> Module:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param kwargs: keyword arguments to pass through to the AutoModel call
+        :return: the created model for text classification
+        """
         SparseAutoModel._check_tf(model_name_or_path)
         if not kwargs:
             kwargs = {}
         kwargs["from_tf"] = False
         if "state_dict" not in kwargs:
-            kwargs["state_dict"] = SparseAutoModel.loadable_state_dict(
+            kwargs["state_dict"] = SparseAutoModel._loadable_state_dict(
                 model_name_or_path
             )
 
@@ -142,17 +182,27 @@ class SparseAutoModel:
         )
 
     @staticmethod
-    def sequence_classification_from_pretrained_distil(
+    def text_classification_from_pretrained_distil(
         model_name_or_path: str,
         teacher_name_or_path: Optional[str],
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
     ) -> Tuple[Module, Optional[Module]]:
-        model = SparseAutoModel.sequence_classification_from_pretrained(
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param teacher_name_or_path: the name of or path to the teacher to load,
+            None or one of ['self', 'disable'] will not create a teacher and
+            instead return the value passed in
+        :param model_kwargs: the keyword args to pass into the AutoModel for model
+        :param teacher_kwars: the keyword args to pass into the AutoModel for teacher
+        :return: a tuple containing the model and distillation teacher (optional)
+            for sequence/text classification
+        """
+        model = SparseAutoModel.text_classification_from_pretrained(
             model_name_or_path, **model_kwargs
         )
         teacher = (
-            SparseAutoModel.sequence_classification_from_pretrained(
+            SparseAutoModel.text_classification_from_pretrained(
                 teacher_name_or_path, **teacher_kwars
             )
             if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
@@ -168,12 +218,17 @@ class SparseAutoModel:
         model_name_or_path: str,
         **kwargs,
     ) -> Module:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param kwargs: keyword arguments to pass through to the AutoModel call
+        :return: the created model for token classification
+        """
         SparseAutoModel._check_tf(model_name_or_path)
         if not kwargs:
             kwargs = {}
         kwargs["from_tf"] = False
         if "state_dict" not in kwargs:
-            kwargs["state_dict"] = SparseAutoModel.loadable_state_dict(
+            kwargs["state_dict"] = SparseAutoModel._loadable_state_dict(
                 model_name_or_path
             )
 
@@ -189,6 +244,16 @@ class SparseAutoModel:
         model_kwargs: Dict[str, Any],
         teacher_kwars: Dict[str, Any],
     ) -> Tuple[Module, Optional[Module]]:
+        """
+        :param model_name_or_path: the name of or path to the model to load
+        :param teacher_name_or_path: the name of or path to the teacher to load,
+            None or one of ['self', 'disable'] will not create a teacher and
+            instead return the value passed in
+        :param model_kwargs: the keyword args to pass into the AutoModel for model
+        :param teacher_kwars: the keyword args to pass into the AutoModel for teacher
+        :return: a tuple containing the model and distillation teacher (optional)
+            for token classification
+        """
         model = SparseAutoModel.token_classification_from_pretrained(
             model_name_or_path, **model_kwargs
         )
@@ -205,7 +270,7 @@ class SparseAutoModel:
         return model, teacher
 
     @staticmethod
-    def loadable_state_dict(model_name_or_path: str) -> Optional[Dict[str, Any]]:
+    def _loadable_state_dict(model_name_or_path: str) -> Optional[Dict[str, Any]]:
         if not model_name_or_path or not os.path.isfile(
             os.path.join(model_name_or_path, WEIGHTS_NAME)
         ):

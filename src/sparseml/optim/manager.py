@@ -127,7 +127,8 @@ class BaseManager(BaseObject):
     def structured_modifiers(self) -> List[BaseModifier]:
         """
         :return: list of all SparseML modifiers in the managed recipe that manage
-            Distillation
+            structure changes to a model such as layer pruning, fitler pruning,
+            and quantization
         """
         return [
             mod
