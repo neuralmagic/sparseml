@@ -411,7 +411,7 @@ class RecipeManagerTrainerInterface:
                 f"{unexpected}"
             )
 
-        total_loaded = len(current_state_dict) - len(missing)
+        total_loaded = len(current_state_dict) - (len(missing) if len(missing) else 0)
         _LOGGER.info(
             f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
         )

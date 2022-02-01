@@ -176,7 +176,11 @@ def export_transformer_to_onnx(
     inputs = tokenizer(
         "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
     ).data  # Dict[Tensor]
-    _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs}")
+    inputs_shapes = {
+        key: f"{type(val)}({val.shape if hasattr(val, 'shape') else 'unknown'})"
+        for key, val in inputs
+    }
+    _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 
     # run export
     onnx_file_path = os.path.join(model_path, onnx_file_name)
