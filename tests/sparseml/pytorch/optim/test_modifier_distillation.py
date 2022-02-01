@@ -21,7 +21,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 
-from sparseml.pytorch.optim import DistillationModifier, Modifier
+from sparseml.pytorch.optim import DistillationModifier, Modifier, ScheduledModifier
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
 
@@ -38,6 +38,12 @@ DISTILLATION_MODIFIERS = [
 ]
 
 
+def _get_fake_batch(model_lambda):
+    batch_size = 5
+    input_shape = model_lambda.layer_descs()[0].input_size
+    return torch.randn(batch_size, *input_shape)
+
+
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -46,6 +52,40 @@ DISTILLATION_MODIFIERS = [
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
 class TestDistillationModifierImpl(ScheduledModifierTest):
+    def test_update_ready(
+        self,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
+    ):
+        super().test_update_ready(
+            modifier_lambda,
+            model_lambda,
+            optim_lambda,
+            test_epoch,
+            test_steps_per_epoch,
+            distillation_teacher=model_lambda(),
+        )
+
+    def test_scheduled_update(
+        self,
+        modifier_lambda: Callable[[], ScheduledModifier],
+        model_lambda: Callable[[], Module],
+        optim_lambda: Callable[[Module], Optimizer],
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
+    ):
+        super().test_scheduled_update(
+            modifier_lambda,
+            model_lambda,
+            optim_lambda,
+            test_epoch,
+            test_steps_per_epoch,
+            distillation_teacher=model_lambda(),
+        )
+
     def test_lifecycle(
         self,
         modifier_lambda,
@@ -57,36 +97,15 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
 
-        self.initialize_helper(modifier, model)
+        self.initialize_helper(modifier, model, distillation_teacher=model_lambda())
 
         for epoch in range(int(modifier.start_epoch)):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
 
         assert modifier.update_ready(modifier.start_epoch, test_steps_per_epoch)
-
         modifier.scheduled_update(
             model, optimizer, modifier.start_epoch, test_steps_per_epoch
         )
-
-        # test distillation has been applied
-        # fake forward pass
-        student_inputs = self._get_fake_batch(model_lambda)
-        student_outputs = model(student_inputs)
-        teacher_outputs = student_outputs + 0.5  # fake teacher model's outputs
-        fake_loss = student_outputs.mean()
-        updated_loss = modifier.loss_update(
-            fake_loss,
-            model,
-            optimizer,
-            -1,
-            test_steps_per_epoch,
-            student_outputs,
-            teacher_outputs,
-        )
-
-        assert isinstance(updated_loss, torch.Tensor)
-        assert updated_loss.shape == fake_loss.shape
-        assert fake_loss.item() != updated_loss.item()
 
         if modifier.end_epoch > modifier.start_epoch:
             assert not modifier.update_ready(
@@ -107,27 +126,26 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
 
-        self.initialize_helper(modifier, model)
+        self.initialize_helper(modifier, model, distillation_teacher=model_lambda())
 
-        # run fake forward pass and try updating the loss
-        inputs = self._get_fake_batch(model_lambda)
-        student_outputs = model(inputs)
-        new_loss = modifier.loss_update(
-            test_loss,
+        # test distillation has been applied
+        # fake forward pass
+        student_inputs = _get_fake_batch(model_lambda)
+        student_outputs = model(student_inputs)
+        fake_loss = student_outputs.mean()
+        updated_loss = modifier.loss_update(
+            fake_loss,
             model,
             optimizer,
-            test_epoch,
+            modifier.start_epoch,
             test_steps_per_epoch,
             student_outputs,
-            inputs,
+            student_inputs,
         )
 
-        assert isinstance(new_loss, Tensor)
-
-    def _get_fake_batch(self, model_lambda):
-        batch_size = 5
-        input_shape = model_lambda.layer_descs()[0].input_size
-        return torch.randn(batch_size, *input_shape)
+        assert isinstance(updated_loss, torch.Tensor)
+        assert updated_loss.shape == fake_loss.shape
+        assert fake_loss.item() != updated_loss.item()
 
 
 @pytest.mark.skipif(

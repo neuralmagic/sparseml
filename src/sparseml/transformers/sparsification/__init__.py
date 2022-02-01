@@ -13,7 +13,11 @@
 # limitations under the License.
 
 """
-Scripts for training various transformers NLP tasks
+Objects, classes, and methods for applying sparsification algorithms to
+Hugging Face transformers flows
 """
 
 # flake8: noqa
+
+from .question_answering import *
+from .trainer import *
