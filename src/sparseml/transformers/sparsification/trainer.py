@@ -399,17 +399,22 @@ class RecipeManagerTrainerInterface:
             self.model, load_state_dict, load_path, _fast_init=False
         )
 
-        if missing or unexpected:
+        if missing:
             _LOGGER.warning(
                 "Missing keys found when reloading model state for SparseML recipe:"
                 f"{missing}"
             )
+
+        if unexpected:
             _LOGGER.warning(
                 f"Unexpected keys found when reloading model state for SparseML recipe:"
                 f"{unexpected}"
             )
-        else:
-            _LOGGER.info(f"Reloaded model weights for SparseML Recipe from {load_path}")
+
+        total_loaded = len(current_state_dict) - len(missing)
+        _LOGGER.info(
+            f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
+        )
 
 
 class TrainerInterface(RecipeManagerTrainerInterface):
