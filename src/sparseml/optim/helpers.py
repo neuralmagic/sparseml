@@ -16,8 +16,10 @@
 Helper functions for base Modifier and Manger utilities
 """
 
+import json
 import re
-from typing import Any, Dict, Tuple, Union
+from contextlib import suppress
+from typing import Any, Dict, Optional, Tuple, Union
 
 import yaml
 
@@ -32,6 +34,7 @@ __all__ = [
     "rewrite_recipe_yaml_string_with_classes",
     "update_recipe_variables",
     "evaluate_recipe_yaml_str_equations",
+    "parse_recipe_variables",
 ]
 
 
@@ -135,6 +138,61 @@ def rewrite_recipe_yaml_string_with_classes(recipe_contianer: Any) -> str:
         r"OBJECT\.(?P<class_name>(?!.*\.)[a-zA-Z_][a-zA-Z^._0-9]+):( null)?"
     )
     return pattern.sub(r"!\g<class_name>", updated_yaml_str)
+
+
+def parse_recipe_variables(
+    recipe_variables: Optional[Union[Dict[str, Any], str]] = None
+) -> Dict[str, Any]:
+    """
+    Parse input recipe_variables into a dictionary that can be used to overload
+    variables at the root of a recipe.
+    Supports dictionaries as well as parsing a string in either json or
+    csv key=value format
+
+    :param recipe_variables: the recipe_variables string or dictionary to parse
+        for variables used with overloading recipes
+    :return: the parsed recipe variables
+    """
+    if not recipe_variables:
+        return {}
+
+    if isinstance(recipe_variables, Dict):
+        return recipe_variables
+
+    if not isinstance(recipe_variables, str):
+        raise ValueError(
+            f"recipe_args must be a string for parsing, given {recipe_variables}"
+        )
+
+    # assume json first, try and parse
+    with suppress(Exception):
+        recipe_variables = json.loads(recipe_variables)
+        return recipe_variables
+
+    # assume csv, and standardize to format key=val
+    orig_recipe_variables = recipe_variables
+    recipe_vars_str = recipe_variables.replace(":", "=")
+    recipe_variables = {}
+    for arg_val in recipe_vars_str.split(","):
+        vals = arg_val.split("=")
+        if len(vals) != 2:
+            raise ValueError(
+                "Improper key=val given in csv for recipe variables with value "
+                f"{arg_val} in {orig_recipe_variables}"
+            )
+        key = vals[0].strip()
+        if any(char in key for char in ["{", "!", "=", "}"]):
+            raise ValueError(
+                "Improper key given in csv for recipe variables with value "
+                f"{key} in {orig_recipe_variables}"
+            )
+        val = vals[1].strip()
+        with suppress(Exception):
+            # check if val should be a number, otherwise fall back on string
+            val = float(val)
+        recipe_variables[key] = val
+
+    return recipe_variables
 
 
 def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> str:

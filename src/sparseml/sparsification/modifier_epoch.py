@@ -17,7 +17,10 @@ Base class for modifiers related to controlling the training epochs while traini
 model
 """
 
+from typing import List
+
 from sparseml.optim.modifier import BaseModifier, BaseScheduled
+from sparseml.sparsification.types import SparsificationTypes
 
 
 __all__ = ["EpochRangeModifier"]
@@ -49,3 +52,10 @@ class EpochRangeModifier(BaseModifier, BaseScheduled):
         super(EpochRangeModifier, self).__init__(
             start_epoch=start_epoch, end_epoch=end_epoch, **kwargs
         )
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.general, SparsificationTypes.epoch]

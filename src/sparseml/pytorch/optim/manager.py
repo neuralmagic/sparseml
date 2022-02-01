@@ -25,7 +25,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import BaseManager, load_recipe_yaml_str
+from sparseml.optim import BaseManager, load_recipe_yaml_str, parse_recipe_variables
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, is_parallel_model
 from sparsezoo.objects import Recipe
@@ -250,8 +250,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
     @staticmethod
     def from_yaml(
         file_path: Union[str, Recipe],
-        add_modifiers: List[Modifier] = None,
-        **recipe_variables,
+        add_modifiers: Optional[List[Modifier]] = None,
+        recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
     ):
         """
         Convenience function used to create the manager of multiple modifiers from a
@@ -266,10 +266,11 @@ class ScheduledModifierManager(BaseManager, Modifier):
              yaml str is also supported in place of a file path.
         :param add_modifiers: additional modifiers that should be added to the
             returned manager alongside the ones loaded from the recipe file
-        :param recipe_variables: additional variable values to override the recipe
-            with (i.e. num_epochs, init_lr)
+        :param recipe_variables: additional arguments to override any root variables
+            in the recipe with (i.e. num_epochs, init_lr)
         :return: ScheduledModifierManager() created from the recipe file
         """
+        recipe_variables = parse_recipe_variables(recipe_variables)
         yaml_str = load_recipe_yaml_str(file_path, **recipe_variables)
         modifiers = Modifier.load_list(yaml_str)
 
@@ -325,6 +326,32 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
             modifiers_index[key].load_state_dict(val)
 
+    def apply_structure(
+        self,
+        module: Module,
+        epoch: float = 0.0,
+        loggers: Optional[List[BaseLogger]] = None,
+        finalize: bool = False,
+        **kwargs,
+    ):
+        """
+        Initialize/apply the modifier for a given model/module at the given epoch
+        if the modifier affects the structure of the module such as
+        quantization, layer pruning, or filter pruning.
+        Calls into initialize(module, epoch, loggers, **kwargs) if structured.
+
+        :param module: the PyTorch model/module to modify
+        :param epoch: the epoch to apply the modifier at, defaults to 0.0 (start)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param finalize: True to invoke finalize after initialize, False otherwise.
+            Set finalize to True and epoch to math.inf for one shot application.
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers (passed to initialize and finalize).
+        """
+        self._initialize_epoch = epoch
+        for mod in self._modifiers:
+            mod.apply_structure(module, epoch, loggers, finalize, **kwargs)
+
     def initialize(
         self,
         module: Module,
@@ -349,6 +376,10 @@ class ScheduledModifierManager(BaseManager, Modifier):
         self._initialize_epoch = epoch
 
         for mod in self._modifiers:
+            if mod.initialized:
+                # check in case modifier was initialized from apply_structure
+                continue
+
             mod.initialize(module, epoch, loggers, **kwargs)
 
     def initialize_loggers(self, loggers: Union[None, List[BaseLogger]]):
@@ -371,6 +402,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         wrap_optim: Any = None,
         epoch: float = None,
         allow_parallel_module: bool = True,
+        **kwargs,
     ) -> RecipeManagerStepWrapper:
         """
         Modify the given module and optimizer for training aware algorithms such as
@@ -393,6 +425,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
             module.module. This is useful so a recipe may reference the base module
             parameters instead of the wrapped distributed ones. Set to True to not
             unwrap the distributed module. Default is True
+        :param kwargs: Key word arguments that are passed to the intialize call
+            if initilaize has not been called yet
         :return: A wrapped optimizer object. The wrapped object makes all the
             original properties for the wrapped object available so it can be
             used without any additional code changes.
@@ -414,7 +448,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 module = module.module  # unwrap parallel module
 
         if not self.initialized:
-            self.initialize(module, epoch)
+            self.initialize(module, epoch, **kwargs)
 
         if wrap_optim is None:
             wrap_optim = optimizer

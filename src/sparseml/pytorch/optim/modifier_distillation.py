@@ -27,9 +27,10 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 
-from sparseml.optim import ModifierProp
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
+from sparseml.optim import BaseModifier, ModifierProp
+from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledUpdateModifier
 from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
+from sparseml.sparsification import SparsificationTypes
 
 
 __all__ = [
@@ -41,7 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @PyTorchModifierYAML()
-class DistillationModifier(ScheduledModifier):
+class DistillationModifier(ScheduledUpdateModifier):
     """
     Adds a knowledge distillation loss based on a teacher model during the
     loss_update phase of the SparseML lifecycle. A distillation_teacher
@@ -63,9 +64,12 @@ class DistillationModifier(ScheduledModifier):
         Default is 0.5
     :param temperature: temperature applied to teacher and student softmax for
         distillation
-    :param distill_output_keys: list of keys to of module outputs to use for
-        distillation if multiple outputs are present. No or empty list defaults
+    :param distill_output_keys: list of keys for the module outputs to use for
+        distillation if multiple outputs are present. None or empty list defaults
         to using all available outputs
+    :param teacher_input_keys: list of keys to filter the inputs by before
+        passing into the teacher. None or empty list defaults to using
+        all available inputs
     """
 
     def __init__(
@@ -75,6 +79,8 @@ class DistillationModifier(ScheduledModifier):
         hardness: float = 0.5,
         temperature: float = 2.0,
         distill_output_keys: List[Any] = None,
+        teacher_input_keys: List[Any] = None,
+        update_frequency: float = -1.0,
     ):
         super().__init__(
             start_epoch=start_epoch,
@@ -83,14 +89,18 @@ class DistillationModifier(ScheduledModifier):
         )
         self._hardness = hardness
         self._temperature = temperature
-        self._distill_output_keys = distill_output_keys or []
+        self._distill_output_keys = distill_output_keys
+        self._teacher_input_keys = teacher_input_keys
 
         self._teacher = None
         self._distillation_enabled = False
-        self._track_student_hook = None
-        self._student_inputs = None  # last forward inputs to student module
-        self._student_outputs = None  # last forward outputs of student module
-        self._disable_distillation = False
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.distillation]
 
     @ModifierProp()
     def hardness(self) -> float:
@@ -125,29 +135,47 @@ class DistillationModifier(ScheduledModifier):
         self._temperature = value
 
     @ModifierProp()
-    def distill_output_keys(self) -> List[Any]:
+    def distill_output_keys(self) -> Optional[List[Any]]:
         """
-        :return: list of keys to of module outputs to use for distillation
-            if multiple outputs are present. No or empty list defaults
+        :return: list of keys for the module outputs to use for
+            distillation if multiple outputs are present. None or empty list defaults
             to using all available outputs
         """
         return self._distill_output_keys
 
     @distill_output_keys.setter
-    def distill_output_keys(self, value: List[Any]):
+    def distill_output_keys(self, value: Optional[List[Any]]):
         """
-        :params value: list of keys to of module outputs to use for distillation
-            if multiple outputs are present. No or empty list defaults
+        :params value: list of keys for the module outputs to use for
+            distillation if multiple outputs are present. None or empty list defaults
             to using all available outputs
         """
         self._distill_output_keys = value
+
+    @ModifierProp()
+    def teacher_input_keys(self) -> Optional[List[Any]]:
+        """
+        :return: list of keys to filter the inputs by before
+            passing into the teacher. None or empty list defaults to using
+            all available inputs
+        """
+        return self._teacher_input_keys
+
+    @teacher_input_keys.setter
+    def teacher_input_keys(self, value: Optional[List[Any]]):
+        """
+        :params value: list of keys to filter the inputs by before
+            passing into the teacher. None or empty list defaults to using
+            all available inputs
+        """
+        self._teacher_input_keys = value
 
     def initialize(
         self,
         module: Module,
         epoch: float = 0,
         loggers: Optional[List[BaseLogger]] = None,
-        distillation_teacher: Module = None,
+        distillation_teacher: Module = "disable",
         **kwargs,
     ):
         """
@@ -167,35 +195,30 @@ class DistillationModifier(ScheduledModifier):
         """
         super().initialize(module, epoch, loggers, **kwargs)
 
-        self._disable_distillation = distillation_teacher == "disable"
-        if distillation_teacher is not None:
-            _LOGGER.info(
-                "Setting teacher module for distillation to distillation_teacher object"
+        if distillation_teacher == "disable":
+            _LOGGER.warning(
+                "distillation_teacher set to disable, disabling distillation modifier"
             )
+            self._distillation_enabled = False
+        elif distillation_teacher == "self":
+            self._distillation_enabled = True
+            _LOGGER.info(
+                "distillation_teacher set to self attention, "
+                "instantiating self distillation at start_epoch"
+            )
+        elif callable(distillation_teacher):
             self._teacher = distillation_teacher
-
-        self._check_distillation_update(module, epoch, steps_per_epoch=0)
-
-    def update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
-    ):
-        """
-        If start_pending(), sets a hook for tracking student module inputs and outputs
-        for distillation
-        If end_pending(), removes hook for distillation tracking
-
-        :param module: module to modify
-        :param optimizer: optimizer to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch
-            (calculate batch number using this and epoch)
-        """
-        super().update(module, optimizer, epoch, steps_per_epoch)
-        self._check_distillation_update(module, epoch, steps_per_epoch)
+            self._distillation_enabled = True
+            _LOGGER.info("distillation modifier using distillation_teacher object")
+        else:
+            raise ValueError(
+                "unrecognized value for distillation_modifier given of "
+                f"{distillation_teacher}. "
+                "To disable set to 'disable' and for self attention set to 'self'"
+            )
 
     def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
         """
-
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
@@ -204,16 +227,9 @@ class DistillationModifier(ScheduledModifier):
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
 
-        if not self._enabled or self._disable_distillation:
-            return False
-
-        pending = (
-            self.start_pending(epoch, steps_per_epoch)
-            or self.end_pending(epoch, steps_per_epoch)
-            or (not self._distillation_enabled and self._is_distillation_epoch(epoch))
+        return self._distillation_enabled and super().update_ready(
+            epoch, steps_per_epoch
         )
-
-        return pending
 
     def loss_update(
         self,
@@ -223,11 +239,11 @@ class DistillationModifier(ScheduledModifier):
         epoch: float,
         steps_per_epoch: int,
         student_outputs: Union[Tensor, Dict, Iterable] = None,
-        teacher_inputs: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]] = None,
+        student_inputs: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]] = None,
         **kwargs,
     ) -> Tensor:
         """
-        Updates the bass loss with the distillation loss
+        Updates the loss with the distillation loss
 
         :param loss: The calculated loss tensor
         :param module: module to modify
@@ -241,19 +257,39 @@ class DistillationModifier(ScheduledModifier):
             loss, module, optimizer, epoch, steps_per_epoch, **kwargs
         )
 
-        if not self._distillation_enabled or self._disable_distillation:
+        if not self.update_ready(epoch, steps_per_epoch):
             return loss
 
-        if student_outputs is None or teacher_inputs is None:
+        if student_outputs is None or student_inputs is None:
             raise ValueError(
                 "Student outputs and teacher inputs are required for "
                 "distillation loss update"
             )
 
+        teacher_inputs = (
+            student_inputs
+            if not self._teacher_input_keys
+            else {key: student_inputs[key] for key in self._teacher_input_keys}
+        )
+        # copy to keep from updating student's inputs
+        teacher_inputs = deepcopy(teacher_inputs)
+
+        if self._teacher == "self":
+            _LOGGER.info("Copying current models state for self distillation")
+            self._teacher = deepcopy(module)
+
         # ensure that teacher model is in eval mode and on correct device
         self._teacher.eval()
-        target_device = device_of(teacher_inputs)
-        self._teacher.to(target_device)
+        teacher_device = next(self._teacher.parameters()).device
+        inputs_device = device_of(teacher_inputs)
+
+        if teacher_device != inputs_device:
+            _LOGGER.info(
+                f"Teacher device {teacher_device} does not match "
+                f"inputs device {inputs_device}, moving teacher to correct device"
+            )
+            self._teacher.to(device_of(teacher_inputs))
+
         with torch.no_grad():
             teacher_outputs = tensors_module_forward(
                 teacher_inputs, self._teacher, check_feat_lab_inp=False
@@ -261,7 +297,8 @@ class DistillationModifier(ScheduledModifier):
 
         if type(student_outputs) != type(teacher_outputs):
             raise ValueError(
-                "Student and teacher models must have the same output type"
+                f"Student output type of {type(student_outputs)} must match "
+                f"teacher output type of {type(teacher_outputs)}"
             )
 
         distill_losses = []
@@ -285,9 +322,14 @@ class DistillationModifier(ScheduledModifier):
         distillation_loss = ((1.0 - self._hardness) * loss) + (
             self._hardness * teacher_loss
         )
-        global_step = kwargs.get("global_step")
-        global_step = epoch * steps_per_epoch if global_step is None else global_step
-        _log_losses(self.loggers, global_step, loss, teacher_loss, distillation_loss)
+        _log_losses(
+            self.loggers,
+            round(epoch * steps_per_epoch),
+            loss,
+            teacher_loss,
+            distillation_loss,
+        )
+
         return distillation_loss
 
     def finalize(
@@ -306,7 +348,7 @@ class DistillationModifier(ScheduledModifier):
         """
         super().finalize(module, reset_loggers, **kwargs)
         self._teacher = None
-        self._disable_student_hook()
+        self._distillation_enabled = False
 
     def _calc_distill_loss(self, student_val: Tensor, teacher_val: Tensor) -> Tensor:
         return (
@@ -317,28 +359,6 @@ class DistillationModifier(ScheduledModifier):
             )
             * (self._temperature ** 2)
         )
-
-    def _check_distillation_update(
-        self, module: Module, epoch: float, steps_per_epoch: int
-    ):
-        if self._disable_distillation:
-            _LOGGER.info("Distillation disabled, using default loss")
-            return
-        if self.start_pending(epoch, steps_per_epoch) or (
-            not self._distillation_enabled and self._is_distillation_epoch(epoch)
-        ):
-            if self._teacher is None:
-                _LOGGER.info(
-                    "Using self distillation with copy of the module's current state"
-                )
-                self._teacher = deepcopy(module)
-            self._distillation_enabled = True
-
-        if self.end_pending(epoch, steps_per_epoch):
-            self._distillation_enabled = False
-
-    def _is_distillation_epoch(self, epoch):
-        return self.start_epoch <= epoch < self.end_epoch
 
 
 def _log_losses(

@@ -32,7 +32,7 @@ except Exception:
     torch_quantization = None
     torch_intrinsic = None
 
-from sparseml.optim import ModifierProp
+from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger
 from sparseml.pytorch.utils.quantization import (
@@ -44,6 +44,7 @@ from sparseml.pytorch.utils.quantization import (
     prepare_embeddings_qat,
     remove_activation_qat_by_layer_name,
 )
+from sparseml.sparsification import SparsificationTypes
 
 
 __all__ = [
@@ -152,6 +153,13 @@ class QuantizationModifier(ScheduledModifier):
             self._submodules = set(self._submodules)
 
         self._validate_params()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.quantization, SparsificationTypes.structured]
 
     @ModifierProp()
     def submodules(self) -> Union[List[str], None]:

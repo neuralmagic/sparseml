@@ -22,9 +22,10 @@ from typing import List, Union
 from torch.nn import Module
 from torch.optim import Optimizer
 
-from sparseml.optim import ModifierProp
+from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger
+from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, convert_to_bool
 
 
@@ -82,6 +83,13 @@ class SetWeightDecayModifier(ScheduledModifier):
         self._param_groups = param_groups
         self._constant_logging = convert_to_bool(constant_logging)
         self._update_since_last_log = False
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.regularization]
 
     @ModifierProp()
     def weight_decay(self) -> float:

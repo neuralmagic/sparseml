@@ -34,6 +34,7 @@ from sparseml.optim import (
     ModifierYAML,
 )
 from sparseml.pytorch.utils import BaseLogger
+from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, PYTORCH_FRAMEWORK
 
 
@@ -170,6 +171,36 @@ class Modifier(BaseModifier):
             for individual modifiers (passed to initialize and finalize).
         """
         self.initialize(module, epoch=epoch, loggers=loggers, **kwargs)
+
+        if finalize:
+            self.finalize(module, **kwargs)
+
+    def apply_structure(
+        self,
+        module: Module,
+        epoch: float = 0.0,
+        loggers: Optional[List[BaseLogger]] = None,
+        finalize: bool = False,
+        **kwargs,
+    ):
+        """
+        Initialize/apply the modifier for a given model/module at the given epoch
+        if the modifier affects the structure of the module such as
+        quantization, layer pruning, or filter pruning.
+        Calls into initialize(module, epoch, loggers, **kwargs) if structured.
+
+        :param module: the PyTorch model/module to modify
+        :param epoch: the epoch to apply the modifier at, defaults to 0.0 (start)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param finalize: True to invoke finalize after initialize, False otherwise.
+            Set finalize to True and epoch to math.inf for one shot application.
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers (passed to initialize and finalize).
+        """
+        if SparsificationTypes.structured not in self.sparsification_types:
+            return
+
+        self.initialize(module, epoch, loggers, **kwargs)
 
         if finalize:
             self.finalize(module, **kwargs)
