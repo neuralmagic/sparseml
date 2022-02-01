@@ -159,7 +159,7 @@ class DistillationModifier(ScheduledUpdateModifier):
             passing into the teacher. None or empty list defaults to using
             all available inputs
         """
-        return self._distill_output_keys
+        return self._teacher_input_keys
 
     @teacher_input_keys.setter
     def teacher_input_keys(self, value: Optional[List[Any]]):
