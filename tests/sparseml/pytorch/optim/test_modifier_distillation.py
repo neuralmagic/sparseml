@@ -38,6 +38,12 @@ DISTILLATION_MODIFIERS = [
 ]
 
 
+def _get_fake_batch(model_lambda):
+    batch_size = 5
+    input_shape = model_lambda.layer_descs()[0].input_size
+    return torch.randn(batch_size, *input_shape)
+
+
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -57,7 +63,7 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
 
-        self.initialize_helper(modifier, model)
+        self.initialize_helper(modifier, model, distillation_teacher=model_lambda())
 
         for epoch in range(int(modifier.start_epoch)):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
@@ -67,26 +73,6 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
         modifier.scheduled_update(
             model, optimizer, modifier.start_epoch, test_steps_per_epoch
         )
-
-        # test distillation has been applied
-        # fake forward pass
-        student_inputs = self._get_fake_batch(model_lambda)
-        student_outputs = model(student_inputs)
-        teacher_outputs = student_outputs + 0.5  # fake teacher model's outputs
-        fake_loss = student_outputs.mean()
-        updated_loss = modifier.loss_update(
-            fake_loss,
-            model,
-            optimizer,
-            -1,
-            test_steps_per_epoch,
-            student_outputs,
-            teacher_outputs,
-        )
-
-        assert isinstance(updated_loss, torch.Tensor)
-        assert updated_loss.shape == fake_loss.shape
-        assert fake_loss.item() != updated_loss.item()
 
         if modifier.end_epoch > modifier.start_epoch:
             assert not modifier.update_ready(
@@ -107,27 +93,26 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
 
-        self.initialize_helper(modifier, model)
+        self.initialize_helper(modifier, model, distillation_teacher=model_lambda())
 
-        # run fake forward pass and try updating the loss
-        inputs = self._get_fake_batch(model_lambda)
-        student_outputs = model(inputs)
-        new_loss = modifier.loss_update(
-            test_loss,
+        # test distillation has been applied
+        # fake forward pass
+        student_inputs = _get_fake_batch(model_lambda)
+        student_outputs = model(student_inputs)
+        fake_loss = student_outputs.mean()
+        updated_loss = modifier.loss_update(
+            fake_loss,
             model,
             optimizer,
-            test_epoch,
+            modifier.start_epoch,
             test_steps_per_epoch,
             student_outputs,
-            inputs,
+            student_inputs,
         )
 
-        assert isinstance(new_loss, Tensor)
-
-    def _get_fake_batch(self, model_lambda):
-        batch_size = 5
-        input_shape = model_lambda.layer_descs()[0].input_size
-        return torch.randn(batch_size, *input_shape)
+        assert isinstance(updated_loss, torch.Tensor)
+        assert updated_loss.shape == fake_loss.shape
+        assert fake_loss.item() != updated_loss.item()
 
 
 @pytest.mark.skipif(

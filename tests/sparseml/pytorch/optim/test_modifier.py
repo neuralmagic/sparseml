@@ -67,8 +67,9 @@ class ModifierTest(BaseModifierTest):
         model: Module = None,
         epoch: float = 0.0,
         log_initialize: bool = True,
+        **kwargs,
     ):
-        modifier.initialize(model, epoch)
+        modifier.initialize(model, epoch, **kwargs)
 
         if log_initialize:
             modifier.initialize_loggers([PythonLogger()])
