@@ -69,7 +69,6 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
 
         assert modifier.update_ready(modifier.start_epoch, test_steps_per_epoch)
-
         modifier.scheduled_update(
             model, optimizer, modifier.start_epoch, test_steps_per_epoch
         )
