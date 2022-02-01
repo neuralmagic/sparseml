@@ -57,8 +57,8 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
         modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: int,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         super().test_update_ready(
             modifier_lambda,
@@ -74,8 +74,8 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
         modifier_lambda: Callable[[], ScheduledModifier],
         model_lambda: Callable[[], Module],
         optim_lambda: Callable[[Module], Optimizer],
-        test_epoch: float,
-        test_steps_per_epoch: int,
+        test_epoch: float,  # noqa: F811
+        test_steps_per_epoch: int,  # noqa: F811
     ):
         super().test_scheduled_update(
             modifier_lambda,
