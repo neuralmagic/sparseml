@@ -175,7 +175,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         module: Module,
         epoch: float = 0,
         loggers: Optional[List[BaseLogger]] = None,
-        distillation_teacher: Module = None,
+        distillation_teacher: Module = "disable",
         **kwargs,
     ):
         """
@@ -224,9 +224,11 @@ class DistillationModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         :return: True if the modifier is pending an update and update() should be called
         """
+        if not self._initialized:
+            raise RuntimeError("modifier must be initialized first")
+
         return (
             self._distillation_enabled
-            and self._enabled
             and super().update_ready(epoch, steps_per_epoch)
         )
 
