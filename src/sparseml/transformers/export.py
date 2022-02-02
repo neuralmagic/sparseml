@@ -177,8 +177,11 @@ def export_transformer_to_onnx(
         "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
     ).data  # Dict[Tensor]
     inputs_shapes = {
-        key: f"{type(val)}({val.shape if hasattr(val, 'shape') else 'unknown'})"
-        for key, val in inputs
+        key: (
+            f"{val.dtype if hasattr(val, 'dtype') else 'unknown'}: "
+            f"{list(val.shape) if hasattr(val, 'shape') else 'unknown'}"
+        )
+        for key, val in inputs.items()
     }
     _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 
