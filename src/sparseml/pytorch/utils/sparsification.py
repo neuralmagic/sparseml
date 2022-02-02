@@ -78,7 +78,10 @@ class ModuleSparsificationInfo:
         """
         :return: total number of sparse (0) trainable parameters in the model
         """
-        return sum(round(tensor_sparsity(param).item() * torch.numel(param)) for param in self.trainable_params)
+        return sum(
+            round(tensor_sparsity(param).item() * torch.numel(param))
+            for param in self.trainable_params
+        )
 
     @property
     def params_sparse_percent(self) -> float:
@@ -121,7 +124,11 @@ class ModuleSparsificationInfo:
         """
         return sum(
             torch.numel(layer.weight)
-            + (torch.numel(layer.bias) if hasattr(layer, "bias") and layer.bias is not None else 0)
+            + (
+                torch.numel(layer.bias)
+                if hasattr(layer, "bias") and layer.bias is not None
+                else 0
+            )
             for (name, layer) in get_quantizable_layers(self.module)
         )
 
