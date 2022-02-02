@@ -333,7 +333,7 @@ class SparseAutoModel:
         )
         model_type = (
             "sparse"
-            if sparsification_info.params_prunable_sparse_percent > 0.05
+            if sparsification_info.params_prunable_sparse_percent > 5
             else "dense"
         )
         _LOGGER.info(

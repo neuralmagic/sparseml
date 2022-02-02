@@ -91,7 +91,7 @@ class ModuleSparsificationInfo:
 
     @property
     def params_quantized_percent(self) -> float:
-        return self.params_quantized / self.params_quantizable
+        return self.params_quantized / float(self.params_quantizable) * 100
 
     @property
     def params_info(self) -> Dict[str, Dict]:
