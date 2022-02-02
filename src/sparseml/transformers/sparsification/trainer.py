@@ -34,6 +34,7 @@ from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
 from sparseml.pytorch.utils import WANDBLogger
+from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
 
 
@@ -414,6 +415,12 @@ class RecipeManagerTrainerInterface:
         total_loaded = len(current_state_dict) - (len(missing) if len(missing) else 0)
         _LOGGER.info(
             f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
+        )
+        SparseAutoModel.log_model_load(
+            self.model,
+            self.model_state_path,
+            model_type="student" if self.teacher else "model",
+            delayed_load=False,
         )
 
 
