@@ -127,7 +127,6 @@ def _setup_entry_points() -> Dict:
         "question_answering",
         "text_classification",
         "token_classification",
-        "language_modeling",
     ]:
         entry_points["console_scripts"].extend(
             [

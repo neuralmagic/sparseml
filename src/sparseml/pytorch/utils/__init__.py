@@ -27,6 +27,7 @@ from .loss import *
 from .mfac_helpers import *
 from .model import *
 from .module import *
+from .sparsification import *
 from .ssd_helpers import *
 from .yolo_helpers import *
 

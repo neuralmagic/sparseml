@@ -437,7 +437,7 @@ def main():
             "use_auth_token": True if model_args.use_auth_token else None,
         },
         teacher_name_or_path=model_args.distill_teacher,
-        teacher_kwars={
+        teacher_kwargs={
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
