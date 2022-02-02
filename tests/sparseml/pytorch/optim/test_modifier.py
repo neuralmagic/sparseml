@@ -67,8 +67,9 @@ class ModifierTest(BaseModifierTest):
         model: Module = None,
         epoch: float = 0.0,
         log_initialize: bool = True,
+        **kwargs,
     ):
-        modifier.initialize(model, epoch)
+        modifier.initialize(model, epoch, **kwargs)
 
         if log_initialize:
             modifier.initialize_loggers([PythonLogger()])
@@ -400,6 +401,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
         test_steps_per_epoch: int,  # noqa: F811
+        **initialize_kwargs,
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -408,7 +410,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.update_ready(0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model)
+        self.initialize_helper(modifier, model, **initialize_kwargs)
         modifier.enabled = False
         assert not modifier.update_ready(modifier.start_epoch, test_steps_per_epoch)
         modifier.enabled = True
@@ -430,6 +432,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
         test_steps_per_epoch: int,  # noqa: F811
+        **initialize_kwargs,
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -438,7 +441,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
         with pytest.raises(RuntimeError):
             modifier.scheduled_update(model, optimizer, 0.0, test_steps_per_epoch)
 
-        self.initialize_helper(modifier, model)
+        self.initialize_helper(modifier, model, **initialize_kwargs)
 
         if modifier.start_epoch <= 0.0:
             modifier.scheduled_update(model, optimizer, 0.0, test_steps_per_epoch)

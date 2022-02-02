@@ -23,13 +23,14 @@ import torch
 from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import ModifierProp
+from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import (
     PyTorchModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import BaseLogger, get_named_layers_and_params_by_regex
+from sparseml.sparsification import SparsificationTypes
 from sparseml.sparsification import (
     TrainableParamsModifier as BaseTrainableParamsModifier,
 )
@@ -195,6 +196,13 @@ class SetParamModifier(ScheduledModifier):
         self._val = val
         self._params_strict = params_strict
         self._module_params = []  # type: List[Parameter]
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.general]
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
@@ -383,6 +391,13 @@ class GradualParamModifier(ScheduledUpdateModifier):
         self._module_params = []  # type: List[Parameter]
 
         self.validate()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.general]
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:

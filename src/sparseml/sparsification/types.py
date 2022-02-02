@@ -12,18 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 """
-Helper variables and functions for integrating SparseML with huggingface/transformers
-flows
+Base classes and implementations for types of sparsification algorithms.
 """
 
-__all__ = [
-    "RECIPE_NAME",
-    "RECIPE_REGEX",
-    "RECIPE_TEMPLATE",
-]
+from enum import Enum
 
 
-RECIPE_NAME = "recipe.yaml"
-RECIPE_REGEX = r"recipe*.yaml"
-RECIPE_TEMPLATE = "recipe{}.yaml"
+__all__ = ["SparsificationTypes"]
+
+
+class SparsificationTypes(Enum):
+    """
+    SparsificationTypes to give context to what a modifier or other parts of the
+    system are and can do when applied to a model for sparsification.
+    """
+
+    general = "general"
+    epoch = "epoch"
+    learning_rate = "learning_rate"
+    activation_sparsity = "activation_sparsity"
+    pruning = "pruning"
+    quantization = "quantization"
+    distillation = "distillation"
+    regularization = "regularization"
+    structured = "structured"

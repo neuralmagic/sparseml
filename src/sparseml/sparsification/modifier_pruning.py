@@ -26,6 +26,7 @@ from sparseml.optim.modifier import (
     BaseUpdate,
     ModifierProp,
 )
+from sparseml.sparsification.types import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
 
@@ -73,6 +74,13 @@ class ConstantPruningModifier(BaseModifier, BaseScheduled):
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)
         )  # type: List[str]
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.pruning]
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
@@ -174,6 +182,13 @@ class GMPruningModifier(BaseModifier, BaseScheduled, BaseUpdate):
         self._leave_enabled = convert_to_bool(leave_enabled)
 
         self.validate()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.pruning]
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:

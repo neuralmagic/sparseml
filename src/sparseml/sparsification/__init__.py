@@ -29,3 +29,4 @@ from .modifier_pruning import *
 from .oracle import *
 from .recipe_builder import *
 from .recipe_editor import *
+from .types import *

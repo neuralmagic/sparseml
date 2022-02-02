@@ -56,46 +56,60 @@ sparseml.transformers.export_onnx \
 
 import argparse
 import logging
+import math
 import os
-from typing import Optional
+from typing import Any, Optional
 
-import torch
-from transformers import (
-    AutoConfig,
-    AutoModelForMaskedLM,
-    AutoModelForQuestionAnswering,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    AutoTokenizer,
-)
-from transformers.file_utils import WEIGHTS_NAME
+from torch.nn import Module
+from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
-from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers.utils.helpers import RECIPE_NAME
+from sparseml.transformers.sparsification import Trainer
+from sparseml.transformers.utils import SparseAutoModel
 
 
 __all__ = ["export_transformer_to_onnx"]
 
 
 _LOGGER = logging.getLogger(__name__)
-_TASK_TO_CONSTRUCTOR = {
-    # language modeling
-    "mlm": AutoModelForMaskedLM,
-    "masked-language-modeling": AutoModelForMaskedLM,
-    # question answering
-    "qa": AutoModelForQuestionAnswering,
-    "question-answering": AutoModelForQuestionAnswering,
-    # GLUE
-    "glue": AutoModelForSequenceClassification,
-    "sequence-classification": AutoModelForSequenceClassification,
-    "sentiment-analysis": AutoModelForSequenceClassification,
-    "text-classification": AutoModelForSequenceClassification,
-    # token classification
-    "ner": AutoModelForTokenClassification,
-    "token-classification": AutoModelForTokenClassification,
-}
+
+
+def _load_task_model(task: str, model_path: str, config: Any) -> Module:
+    if task == "masked-language-modeling" or task == "mlm":
+        return SparseAutoModel.masked_language_modeling_from_pretrained(
+            model_name_or_path=model_path,
+            config=config,
+            model_type="model",
+        )
+
+    if task == "question-answering" or task == "qa":
+        return SparseAutoModel.question_answering_from_pretrained(
+            model_name_or_path=model_path,
+            config=config,
+            model_type="model",
+        )
+
+    if (
+        task == "sequence-classification"
+        or task == "glue"
+        or task == "sentiment-analysis"
+        or task == "text-classification"
+    ):
+        return SparseAutoModel.text_classification_from_pretrained(
+            model_name_or_path=model_path,
+            config=config,
+            model_type="model",
+        )
+
+    if task == "token-classification" or task == "ner":
+        return SparseAutoModel.token_classification_from_pretrained(
+            model_name_or_path=model_path,
+            config=config,
+            model_type="model",
+        )
+
+    raise ValueError(f"unrecognized task given of {task}")
 
 
 def export_transformer_to_onnx(
@@ -123,50 +137,57 @@ def export_transformer_to_onnx(
         pipeline, it will look only for 'model.onnx'
     :return: path to the exported ONNX file
     """
-    task = "-".join(task.lower().split("_"))
-    if task not in _TASK_TO_CONSTRUCTOR:
-        raise ValueError(
-            f"task {task} unsupported for export_transformer_to_onnx. Supported "
-            f"tasks include {list(_TASK_TO_CONSTRUCTOR.keys())}"
-        )
-    auto_model_constructor = _TASK_TO_CONSTRUCTOR[task]
+    task = task.replace("_", "-").replace(" ", "-")
 
-    if not os.path.isdir(model_path):
+    if not os.path.exists(model_path) or not os.path.isdir(model_path):
         raise ValueError(
             "model_path must be a directory that contains the trained transformer "
-            f"files. {model_path} is not a directory"
+            f"files. {model_path} is not a directory or does not exist"
         )
 
-    # load config and tokenizer
+    _LOGGER.info(f"Attempting onnx export for model at {model_path} for task {task}")
     config_args = {"finetuning_task": finetuning_task} if finetuning_task else {}
-    config = AutoConfig.from_pretrained(model_path, **config_args)
+    config = AutoConfig.from_pretrained(
+        model_path,
+        **config_args,
+    )
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
+    model = _load_task_model(task, model_path, config)
+    _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
-    # load model
-    model = auto_model_constructor.from_pretrained(
-        model_path,
-        from_tf=False,
-        config=config,
+    trainer = Trainer(
+        model=model,
+        model_state_path=model_path,
+        recipe=None,
+        recipe_args=None,
+        teacher=None,
     )
+    applied = trainer.apply_manager(epoch=math.inf, checkpoint=None)
 
-    # apply recipe if exists before loading model weights
-    recipe_path = os.path.join(model_path, RECIPE_NAME)
-    if os.path.isfile(recipe_path):
-        ScheduledModifierManager.from_yaml(recipe_path).apply(model)
+    if not applied:
+        _LOGGER.warning(
+            f"No recipes were applied for {model_path}, "
+            "check to make sure recipe(s) are stored in the model_path"
+        )
     else:
-        _LOGGER.warning(f"recipe not found under {recipe_path}")
-
-    # load weights
-    load_kwargs = {} if torch.cuda.is_available() else {"map_location": "cpu"}
-    state_dict = torch.load(os.path.join(model_path, WEIGHTS_NAME), **load_kwargs)
-    model.load_state_dict(state_dict)
+        trainer.finalize_manager()
+        total_recipes = (1 if trainer.manager else 0) + len(trainer.arch_managers)
+        _LOGGER.info(f"Applied {total_recipes} total recipes the model at {model_path}")
 
     # create fake model input
     inputs = tokenizer(
         "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
     ).data  # Dict[Tensor]
+    inputs_shapes = {
+        key: (
+            f"{val.dtype if hasattr(val, 'dtype') else 'unknown'}: "
+            f"{list(val.shape) if hasattr(val, 'shape') else 'unknown'}"
+        )
+        for key, val in inputs.items()
+    }
+    _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 
     # run export
     onnx_file_path = os.path.join(model_path, onnx_file_name)
@@ -176,6 +197,7 @@ def export_transformer_to_onnx(
         onnx_file_path,
         convert_qat=convert_qat,
     )
+    _LOGGER.info(f"ONNX exported to {onnx_file_path}")
 
     return onnx_file_path
 
