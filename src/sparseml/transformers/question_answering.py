@@ -29,6 +29,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
+from functools import partial
 
 import transformers
 from datasets import load_dataset, load_metric
@@ -315,6 +316,9 @@ def main():
         )
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    import torch
+    training_args = torch.load("training_args.bin")
 
     # Detecting last checkpoint.
     last_checkpoint = None
@@ -737,6 +741,40 @@ def main():
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
     )
+
+    # Apply recipes to the model. This is necessary given that
+    # sparsification methods such as QAT modified the model graph with their own
+    # learnable parameters. They are also restored/loaded to the model
+    '''
+    import torch
+    train_dataloader = trainer.get_train_dataloader()
+    inputs = next(iter(train_dataloader))
+    inputs = trainer._prepare_inputs(inputs)
+    '''
+
+    from sparseml.pytorch.utils import GradSampler
+    def device_data_loader(trainer):
+        data_loader = trainer.get_train_dataloader()
+        for idx, sample in enumerate(data_loader):
+            if idx%2 ==0:
+                if trainer.label_smoother is not None and "labels" in sample:
+                    label = sample.pop("labels")
+                else:
+                    label = None
+                sample = trainer._prepare_inputs(sample)
+                yield [], sample, label
+  
+
+    def loss_function(model_outputs, loss_target, trainer):
+        if loss_target is not None:
+            loss = trainer.label_smoother(model_outputs, loss_target)
+        else:
+            loss = model_outputs["loss"] if isinstance(model_outputs, dict) else model_outputs[0]
+        return loss
+
+    grad_sampler = GradSampler(device_data_loader(trainer=trainer), partial(loss_function, trainer=trainer))
+
+    trainer.apply_recipes(grad_sampler=grad_sampler)
 
     # Training
     if training_args.do_train:
