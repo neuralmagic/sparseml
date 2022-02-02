@@ -80,12 +80,14 @@ def _load_task_model(task: str, model_path: str, config: Any) -> Module:
         return SparseAutoModel.masked_language_modeling_from_pretrained(
             model_name_or_path=model_path,
             config=config,
+            model_type="model",
         )
 
     if task == "question-answering" or task == "qa":
         return SparseAutoModel.question_answering_from_pretrained(
             model_name_or_path=model_path,
             config=config,
+            model_type="model",
         )
 
     if (
@@ -97,12 +99,14 @@ def _load_task_model(task: str, model_path: str, config: Any) -> Module:
         return SparseAutoModel.text_classification_from_pretrained(
             model_name_or_path=model_path,
             config=config,
+            model_type="model",
         )
 
     if task == "token-classification" or task == "ner":
         return SparseAutoModel.token_classification_from_pretrained(
             model_name_or_path=model_path,
             config=config,
+            model_type="model",
         )
 
     raise ValueError(f"unrecognized task given of {task}")
@@ -177,8 +181,11 @@ def export_transformer_to_onnx(
         "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
     ).data  # Dict[Tensor]
     inputs_shapes = {
-        key: f"{type(val)}({val.shape if hasattr(val, 'shape') else 'unknown'})"
-        for key, val in inputs
+        key: (
+            f"{val.dtype if hasattr(val, 'dtype') else 'unknown'}: "
+            f"{list(val.shape) if hasattr(val, 'shape') else 'unknown'}"
+        )
+        for key, val in inputs.items()
     }
     _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 

@@ -27,15 +27,23 @@ import numpy
 import torch
 from torch import Tensor
 from torch.nn import Linear, Module, Parameter
-from torch.nn.modules.conv import _ConvNd
+from torch.nn.modules.conv import Conv2d, Conv3d, _ConvNd
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
 
 try:
+    quant_err = None
+    from torch.nn.qat import Conv2d as QATConv2d
+    from torch.nn.qat import Conv3d as QATConv3d
+    from torch.nn.qat import Linear as QATLinear
     from torch.quantization import QuantWrapper
-except Exception:
+except Exception as _err:
+    quant_err = _err
     QuantWrapper = None
+    QATLinear = None
+    QATConv2d = None
+    QATConv3d = None
 
 from sparseml.utils import create_dirs, save_numpy
 
@@ -64,6 +72,7 @@ __all__ = [
     "get_conv_layers",
     "get_linear_layers",
     "get_prunable_layers",
+    "get_quantizable_layers",
     "get_named_layers_and_params_by_regex",
     "any_str_or_regex_matches_param_name",
     "NamedLayerParam",
@@ -751,13 +760,63 @@ def get_prunable_layers(module: Module) -> List[Tuple[str, Module]]:
     :return: a list containing the names and modules of the prunable layers
         (Linear, ConvNd)
     """
-    layers = []
+    return [
+        (name, mod)
+        for (name, mod) in module.named_modules()
+        if (
+            isinstance(mod, Linear)
+            or isinstance(mod, _ConvNd)
+            or (QATLinear and isinstance(mod, QATLinear))
+            or (QATConv2d and isinstance(mod, QATConv2d))
+            or (QATConv3d and isinstance(mod, QATConv3d))
+        )
+    ]
 
-    for name, mod in module.named_modules():
-        if isinstance(mod, Linear) or isinstance(mod, _ConvNd):
-            layers.append((name, mod))
 
-    return layers
+def get_quantizable_layers(module: Module) -> List[Tuple[str, Module]]:
+    """
+    :param module: the module to get the quantizable layers from
+    :return: a list containing the names and modules of the quantizable layers
+        (Linear, Conv2d, Conv3d)
+    """
+    if QATLinear is None:
+        raise ImportError(
+            "PyTorch version is not setup for Quantization. "
+            "Please install a QAT compatible version of PyTorch"
+        )
+
+    return [
+        (name, mod)
+        for (name, mod) in module.named_modules()
+        if (
+            isinstance(mod, Linear)
+            or isinstance(mod, Conv2d)
+            or isinstance(mod, Conv3d)
+        )
+    ]
+
+
+def get_quantized_layers(module: Module) -> List[Tuple[str, Module]]:
+    """
+    :param module: the module to get the quantized layers from
+    :return: a list containing the names and modules of the quantized layers
+        (Linear, Conv2d, Conv3d)
+    """
+    if QATLinear is None:
+        raise ImportError(
+            "PyTorch version is not setup for Quantization. "
+            "Please install a QAT compatible version of PyTorch"
+        )
+
+    return [
+        (name, mod)
+        for (name, mod) in module.named_modules()
+        if (
+            (QATLinear and isinstance(mod, QATLinear))
+            or (QATConv2d and isinstance(mod, QATConv2d))
+            or (QATConv3d and isinstance(mod, QATConv3d))
+        )
+    ]
 
 
 def get_layer_param(param: str, layer: str, module: Module) -> Parameter:
