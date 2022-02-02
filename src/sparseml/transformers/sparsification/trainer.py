@@ -516,6 +516,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         output = super().train(*args, **kwargs)
         if applied:
             self.finalize_manager()
+        self.log_model_sparsification()
 
         return output
 
