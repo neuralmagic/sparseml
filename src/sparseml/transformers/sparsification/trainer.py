@@ -32,7 +32,7 @@ from transformers.file_utils import WEIGHTS_NAME
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
-from sparseml.pytorch.optim.manager import ScheduledModifierManager
+from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleSparsificationInfo, WANDBLogger
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
@@ -205,20 +205,33 @@ class RecipeManagerTrainerInterface:
         self.manager_steps_per_epoch = math.ceil(
             len(self.train_dataset) / total_batch_size
         )
-        wrap_optim_key = "scaler" if hasattr(self, "scaler") else "optimizer"
-        setattr(
-            self,
-            wrap_optim_key,
-            self.manager.modify(
-                module=self.model,
-                optimizer=self.optimizer,
+
+        if hasattr(self, "scaler"):
+            wrap_optim_key = "scaler"
+            self.scaler = self.manager.modify(
+                self.model,
+                self.optimizer,
                 steps_per_epoch=self.manager_steps_per_epoch,
-                wrap_optim=getattr(self, wrap_optim_key),
                 allow_parallel_module=False,
+                wrap_optim=self.scaler,
                 loggers=self.manager_loggers,
                 distillation_teacher=self.teacher,
-            ),
-        )
+            )
+        else:
+            wrap_optim_key = "optimizer"
+            self.optimizer = ScheduledOptimizer(
+                self.optimizer,
+                self.model,
+                self.manager,
+                steps_per_epoch=self.manager_steps_per_epoch,
+                loggers=self.manager_loggers,
+            )
+            if not self.manager.initialized:
+                self.manager.initialize(
+                    self.model,
+                    loggers=self.manager_loggers,
+                    distillation_teacher=self.teacher,
+                )
         self.manager_initialized = True
         _LOGGER.info(
             f"Modified the {wrap_optim_key} from the recipe for training with "
