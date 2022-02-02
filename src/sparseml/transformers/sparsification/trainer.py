@@ -591,6 +591,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         super().__init__(*args, **kwargs)
         self.trainer = trainer
         self.on_begin_called = False
+        self.quant_start_epoch = math.inf
 
     def check_disable(self, epoch: float, force: bool = False):
         if (
@@ -612,6 +613,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         if hasattr(self.trainer, "scaler"):
             self.trainer.scaler._enabled = False
 
+        self.quant_start_epoch = epoch
         _LOGGER.info(f"entering QAT phase at epoch {epoch}, disabling FP16 training")
 
     def on_epoch_begin(
@@ -627,3 +629,6 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         super().on_epoch_begin(args, state, control, **kwargs)
         self.on_begin_called = True
         self.check_disable(state.epoch)
+
+        if state.epoch > self.quant_start_epoch:
+            _LOGGER.info(self.trainer.model)
