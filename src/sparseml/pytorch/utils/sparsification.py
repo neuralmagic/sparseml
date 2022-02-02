@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Helper functions for retrieving information related to model sparsification
+"""
+
 import json
 from typing import Dict
 
@@ -24,6 +28,9 @@ from sparseml.pytorch.utils.helpers import (
     get_quantized_layers,
     tensor_sparsity,
 )
+
+
+__all__ = ["ModuleSparsificationInfo"]
 
 
 class ModuleSparsificationInfo:

@@ -27,7 +27,7 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
-from sparseml.pytorch.utils import get_prunable_layers, tensor_sparsity
+from sparseml.pytorch.utils import ModuleSparsificationInfo
 
 
 __all__ = ["SparseAutoModel"]
@@ -322,34 +322,23 @@ class SparseAutoModel:
             )
             return
 
-        model_params = list(
-            filter(lambda param: param.requires_grad, model.parameters())
-        )
-        total_params = sum(torch.numel(param) for param in model_params)
-        params_info = {
-            f"{name}.weight": {
-                "sparsity": tensor_sparsity(layer.weight).item(),
-                "numel": torch.numel(layer.weight),
-            }
-            for (name, layer) in get_prunable_layers(model)
-        }
-        prunable_sparse_params = sum(
-            round(param["numel"] * param["sparsity"]) for param in params_info.values()
-        )
-        prunable_total_params = sum(
-            round(param["numel"]) for param in params_info.values()
-        )
-        avg_prunable_sparsity = float(prunable_sparse_params) / prunable_total_params
+        sparsification_info = ModuleSparsificationInfo(model)
 
         _LOGGER.info(
             f"Loaded {model_type} from {model_name_or_path} "
-            f"with {total_params} total params. "
-            f"Of those there are {prunable_total_params} prunable params "
-            f"which have {avg_prunable_sparsity} avg sparsity."
+            f"with {sparsification_info.params_total} total params. "
+            f"Of those there are {sparsification_info.params_prunable_total} prunable "
+            f"params which have {sparsification_info.params_prunable_sparse_percent} "
+            "avg sparsity."
+        )
+        model_type = (
+            "sparse"
+            if sparsification_info.params_prunable_sparse_percent > 0.05
+            else "dense"
         )
         _LOGGER.info(
-            f"{'sparse' if avg_prunable_sparsity > 0.05 else 'dense'} model detected, "
-            f"prunable params info: {json.dumps(params_info)}"
+            f"{model_type} model detected, "
+            f"prunable params info: {json.dumps(sparsification_info.params_info)}"
         )
 
     @staticmethod
