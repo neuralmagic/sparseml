@@ -33,9 +33,11 @@ from torch.utils.data import DataLoader
 
 
 try:
-    from torch.nn.qat import QATConv2d, QATConv3d, QATLinear
+    quant_err = None
+    from torch.nn.qat import Conv2d as QATConv2d, Conv3d as QATConv3d, Linear as QATLinear
     from torch.quantization import QuantWrapper
-except Exception:
+except Exception as _err:
+    quant_err = _err
     QuantWrapper = None
     QATLinear = None
     QATConv2d = None

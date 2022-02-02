@@ -33,7 +33,7 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.pytorch.utils import WANDBLogger
+from sparseml.pytorch.utils import ModuleSparsificationInfo, WANDBLogger
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
 
@@ -319,6 +319,29 @@ class RecipeManagerTrainerInterface:
         )
         self.manager.save(recipe_path)
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
+
+    def log_model_sparsification(self):
+        """
+        Log the current model sparsification info including pruned and quantized states
+        """
+        sparsification_info = ModuleSparsificationInfo(self.model)
+
+        _LOGGER.info(
+            f"Sparsification info for {self.model_state_path}: "
+            f"{sparsification_info.params_total} total params. "
+            f"Of those there are {sparsification_info.params_prunable_total} prunable "
+            f"params which have {sparsification_info.params_prunable_sparse_percent} "
+            "avg sparsity."
+        )
+        model_type = (
+            "sparse"
+            if sparsification_info.params_prunable_sparse_percent > 5
+            else "dense"
+        )
+        _LOGGER.info(
+            f"{model_type} model detected, "
+            f"all sparsification info: {sparsification_info}"
+        )
 
     def _check_super_defined(self, func: str):
         if not hasattr(super(), func):

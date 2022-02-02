@@ -49,7 +49,22 @@ class ModuleSparsificationInfo:
         )
 
     def __str__(self):
-        return json.dumps(self.params_info)
+        return json.dumps(
+            {
+                "params_summary": {
+                    "total": self.params_total,
+                    "sparse": self.params_sparse,
+                    "sparsity_percent": self.params_sparse_percent,
+                    "prunable": self.params_prunable_total,
+                    "prunable_sparse": self.params_prunable_sparse,
+                    "prunable_sparsity_percent": self.params_prunable_sparse_percent,
+                    "quantizable": self.params_quantizable,
+                    "quantized": self.params_quantized,
+                    "quantized_percent": self.params_quantized_percent,
+                },
+                "params_info": self.params_info,
+            }
+        )
 
     @property
     def params_total(self) -> int:
@@ -63,7 +78,7 @@ class ModuleSparsificationInfo:
         """
         :return: total number of sparse (0) trainable parameters in the model
         """
-        return sum(tensor_sparsity(param) for param in self.trainable_params)
+        return sum(round(tensor_sparsity(param).item() * torch.numel(param)) for param in self.trainable_params)
 
     @property
     def params_sparse_percent(self) -> float:
@@ -83,12 +98,12 @@ class ModuleSparsificationInfo:
         )
 
     @property
-    def params_pruanble_sparse(self) -> int:
+    def params_prunable_sparse(self) -> int:
         """
         :return: total number of sparse (0) parameters across prunable lauyers
         """
         return sum(
-            tensor_sparsity(layer.weight)
+            round(tensor_sparsity(layer.weight).item() * torch.numel(layer.weight))
             for (name, layer) in get_prunable_layers(self.module)
         )
 
@@ -97,7 +112,7 @@ class ModuleSparsificationInfo:
         """
         :return: percent of prunable parameters that have been pruned
         """
-        return self.params_pruanble_sparse / float(self.params_prunable_total) * 100
+        return self.params_prunable_sparse / float(self.params_prunable_total) * 100
 
     @property
     def params_quantizable(self) -> int:
@@ -106,7 +121,7 @@ class ModuleSparsificationInfo:
         """
         return sum(
             torch.numel(layer.weight)
-            + (torch.numel(layer.bias) if hasattr(layer, "bias") and layer.bias else 0)
+            + (torch.numel(layer.bias) if hasattr(layer, "bias") and layer.bias is not None else 0)
             for (name, layer) in get_quantizable_layers(self.module)
         )
 

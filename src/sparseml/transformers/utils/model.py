@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import logging
 import os
 from typing import Any, Dict, Optional, Tuple, Union
@@ -45,20 +44,19 @@ class SparseAutoModel:
     def masked_language_modeling_from_pretrained(
         model_name_or_path: str,
         model_type: str,
-        config: Any,
         **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
         :param model_type: specify the type of model loaded for logging;
             ex one of [model, student, teacher]
-        :param config: the config for the model describing pipeline
         :param kwargs: keyword arguments to pass through to the AutoModel call
         :return: the created model for masked language modeling
         """
         delayed = False
         if not model_name_or_path:
             _LOGGER.info("Training new model from scratch")
+            config = kwargs["config"]
             model = AutoModelForMaskedLM.from_config(config)
         else:
             SparseAutoModel._check_tf(model_name_or_path)
@@ -98,14 +96,12 @@ class SparseAutoModel:
         model = SparseAutoModel.masked_language_modeling_from_pretrained(
             model_name_or_path,
             model_type="student" if teacher_name_or_path else "model",
-            config=model_kwargs["config"],
             **model_kwargs,
         )
         teacher = (
             SparseAutoModel.masked_language_modeling_from_pretrained(
                 teacher_name_or_path,
                 model_type="teacher",
-                config=None,
                 **teacher_kwargs,
             )
             if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
@@ -257,7 +253,7 @@ class SparseAutoModel:
         kwargs["from_tf"] = False
         delayed = False
         if "state_dict" not in kwargs:
-            kwargs["state_dict"] = SparseAutoModel._loadable_state_dict(
+            kwargs["state_dict"], delayed = SparseAutoModel._loadable_state_dict(
                 model_name_or_path
             )
         model = AutoModelForTokenClassification.from_pretrained(
@@ -338,7 +334,7 @@ class SparseAutoModel:
         )
         _LOGGER.info(
             f"{model_type} model detected, "
-            f"prunable params info: {json.dumps(sparsification_info.params_info)}"
+            f"all sparsification info: {sparsification_info}"
         )
 
     @staticmethod
