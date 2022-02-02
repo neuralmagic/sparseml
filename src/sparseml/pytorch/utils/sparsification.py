@@ -139,7 +139,11 @@ class ModuleSparsificationInfo:
         """
         return sum(
             torch.numel(layer.weight)
-            + (torch.numel(layer.bias) if hasattr(layer, "bias") and layer.bias else 0)
+            + (
+                torch.numel(layer.bias)
+                if hasattr(layer, "bias") and layer.bias is not None
+                else 0
+            )
             for (name, layer) in get_quantized_layers(self.module)
         )
 
