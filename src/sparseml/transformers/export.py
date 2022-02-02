@@ -80,12 +80,14 @@ def _load_task_model(task: str, model_path: str, config: Any) -> Module:
         return SparseAutoModel.masked_language_modeling_from_pretrained(
             model_name_or_path=model_path,
             config=config,
+            model_type="model",
         )
 
     if task == "question-answering" or task == "qa":
         return SparseAutoModel.question_answering_from_pretrained(
             model_name_or_path=model_path,
             config=config,
+            model_type="model",
         )
 
     if (
@@ -97,12 +99,14 @@ def _load_task_model(task: str, model_path: str, config: Any) -> Module:
         return SparseAutoModel.text_classification_from_pretrained(
             model_name_or_path=model_path,
             config=config,
+            model_type="model",
         )
 
     if task == "token-classification" or task == "ner":
         return SparseAutoModel.token_classification_from_pretrained(
             model_name_or_path=model_path,
             config=config,
+            model_type="model",
         )
 
     raise ValueError(f"unrecognized task given of {task}")
