@@ -535,7 +535,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         )
         self._grad_buffer = torch.zeros(
             (num_grads, total_nonzero),
-            device=self._mfac_options.grads_device,
+            device="cpu",
         )
         self._buffer_idx = 0
 

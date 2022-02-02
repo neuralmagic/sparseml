@@ -23,6 +23,7 @@ import logging
 import math
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
+from functools import partial
 
 import torch
 from torch.nn import Module
@@ -35,6 +36,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleSparsificationInfo, WANDBLogger
 from sparseml.transformers.utils import SparseAutoModel
+from sparseml.pytorch.utils import GradSampler
 from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
 
 
@@ -119,6 +121,9 @@ class RecipeManagerTrainerInterface:
         self.criterion = torch.nn.CrossEntropyLoss()
         self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
         self.callback_handler.add_callback(self.callback_disable_fp16)
+
+    
+        self.grad_sampler = GradSampler(self._train_data_loader(), self._mfac_loss_function)
 
     def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
         """
@@ -459,6 +464,24 @@ class RecipeManagerTrainerInterface:
             delayed_load=False,
         )
 
+    def _train_data_loader(self):
+        data_loader = self.get_train_dataloader()
+        for idx, sample in enumerate(data_loader):
+            if idx%2 ==0:
+                if self.label_smoother is not None and "labels" in sample:
+                    label = sample.pop("labels")
+                else:
+                    label = None
+                sample = self._prepare_inputs(sample)
+                yield [], sample, label
+  
+
+    def _mfac_loss_function(self, model_outputs, loss_target):
+        if loss_target is not None:
+            loss = self.label_smoother(model_outputs, loss_target)
+        else:
+            loss = model_outputs["loss"] if isinstance(model_outputs, dict) else model_outputs[0]
+        return loss
 
 class TrainerInterface(RecipeManagerTrainerInterface):
     """
