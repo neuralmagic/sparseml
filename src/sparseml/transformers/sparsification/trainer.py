@@ -32,8 +32,9 @@ from transformers.file_utils import WEIGHTS_NAME
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
-from sparseml.pytorch.optim.manager import ScheduledModifierManager
-from sparseml.pytorch.utils import WANDBLogger
+from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
+from sparseml.pytorch.utils import ModuleSparsificationInfo, WANDBLogger
+from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
 
 
@@ -204,20 +205,33 @@ class RecipeManagerTrainerInterface:
         self.manager_steps_per_epoch = math.ceil(
             len(self.train_dataset) / total_batch_size
         )
-        wrap_optim_key = "scaler" if hasattr(self, "scaler") else "optimizer"
-        setattr(
-            self,
-            wrap_optim_key,
-            self.manager.modify(
-                module=self.model,
-                optimizer=self.optimizer,
+
+        if hasattr(self, "scaler"):
+            wrap_optim_key = "scaler"
+            self.scaler = self.manager.modify(
+                self.model,
+                self.optimizer,
                 steps_per_epoch=self.manager_steps_per_epoch,
-                wrap_optim=getattr(self, wrap_optim_key),
                 allow_parallel_module=False,
+                wrap_optim=self.scaler,
                 loggers=self.manager_loggers,
                 distillation_teacher=self.teacher,
-            ),
-        )
+            )
+        else:
+            wrap_optim_key = "optimizer"
+            self.optimizer = ScheduledOptimizer(
+                self.optimizer,
+                self.model,
+                self.manager,
+                steps_per_epoch=self.manager_steps_per_epoch,
+                loggers=self.manager_loggers,
+            )
+            if not self.manager.initialized:
+                self.manager.initialize(
+                    self.model,
+                    loggers=self.manager_loggers,
+                    distillation_teacher=self.teacher,
+                )
         self.manager_initialized = True
         _LOGGER.info(
             f"Modified the {wrap_optim_key} from the recipe for training with "
@@ -319,6 +333,29 @@ class RecipeManagerTrainerInterface:
         self.manager.save(recipe_path)
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
+    def log_model_sparsification(self):
+        """
+        Log the current model sparsification info including pruned and quantized states
+        """
+        sparsification_info = ModuleSparsificationInfo(self.model)
+
+        _LOGGER.info(
+            f"Sparsification info for {self.model_state_path}: "
+            f"{sparsification_info.params_total} total params. "
+            f"Of those there are {sparsification_info.params_prunable_total} prunable "
+            f"params which have {sparsification_info.params_prunable_sparse_percent} "
+            "avg sparsity."
+        )
+        model_type = (
+            "sparse"
+            if sparsification_info.params_prunable_sparse_percent > 5
+            else "dense"
+        )
+        _LOGGER.info(
+            f"{model_type} model detected, "
+            f"all sparsification info: {sparsification_info}"
+        )
+
     def _check_super_defined(self, func: str):
         if not hasattr(super(), func):
             raise NotImplementedError(
@@ -415,6 +452,12 @@ class RecipeManagerTrainerInterface:
         _LOGGER.info(
             f"Reloaded {total_loaded} model params for SparseML Recipe from {load_path}"
         )
+        SparseAutoModel.log_model_load(
+            self.model,
+            self.model_state_path,
+            model_type="student" if self.teacher else "model",
+            delayed_load=False,
+        )
 
 
 class TrainerInterface(RecipeManagerTrainerInterface):
@@ -473,6 +516,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         output = super().train(*args, **kwargs)
         if applied:
             self.finalize_manager()
+        self.log_model_sparsification()
 
         return output
 
@@ -584,6 +628,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         super().__init__(*args, **kwargs)
         self.trainer = trainer
         self.on_begin_called = False
+        self.quant_start_epoch = math.inf
 
     def check_disable(self, epoch: float, force: bool = False):
         if (
@@ -605,6 +650,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         if hasattr(self.trainer, "scaler"):
             self.trainer.scaler._enabled = False
 
+        self.quant_start_epoch = epoch
         _LOGGER.info(f"entering QAT phase at epoch {epoch}, disabling FP16 training")
 
     def on_epoch_begin(
@@ -620,3 +666,6 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         super().on_epoch_begin(args, state, control, **kwargs)
         self.on_begin_called = True
         self.check_disable(state.epoch)
+
+        if state.epoch > self.quant_start_epoch:
+            _LOGGER.info(self.trainer.model)
