@@ -466,14 +466,13 @@ class RecipeManagerTrainerInterface:
 
     def _train_data_loader(self):
         data_loader = self.get_train_dataloader()
-        for idx, sample in enumerate(data_loader):
-            if idx%2 ==0:
-                if self.label_smoother is not None and "labels" in sample:
-                    label = sample.pop("labels")
-                else:
-                    label = None
-                sample = self._prepare_inputs(sample)
-                yield [], sample, label
+        for sample in data_loader:
+            if self.label_smoother is not None and "labels" in sample:
+                label = sample.pop("labels")
+            else:
+                label = None
+            sample = self._prepare_inputs(sample)
+            yield [], sample, label
   
 
     def _mfac_loss_function(self, model_outputs, loss_target):
