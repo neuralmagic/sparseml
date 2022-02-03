@@ -19,7 +19,6 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 """
 import logging
 import warnings
-from contextlib import suppress
 from itertools import cycle
 from typing import (
     Any,
@@ -115,7 +114,7 @@ class QuantizationModifier(ScheduledModifier):
         transformer based models such as BERT where the quantized MatMul outputs
         are kept at 32 bits of precision and fake quantizing the outputs harm training
         recovery. Default is True
-    :param num_steps: Number of steps to run post training calibration for.
+    :param num_calibration_steps: Number of steps to run post training calibration for.
             When None, the entire calibration_dataloader is used
     """
 
@@ -507,20 +506,16 @@ class QuantizationModifier(ScheduledModifier):
             if self.num_calibration_steps is None
             else cycle(self._calibration_dataloader)
         )
-        with suppress(StopIteration):
-            batch = next(_dataloader)
-            batch_number = 1
-            done = False
-            while not done:
-                batch = tensors_to_device(batch, model_device)
-                with torch.no_grad():
-                    forward_fn(batch, module=module)
-                done = (
-                    self.num_calibration_steps is not None
-                    and batch_number >= self.num_calibration_steps
-                )
-                batch = next(_dataloader)
-                batch_number += 1
+
+        for batch_idx, batch in enumerate(_dataloader):
+            _calibration_completed = (
+                self.num_calibration_steps and batch_idx >= self.num_calibration_steps
+            )
+            if _calibration_completed:
+                break
+            batch = tensors_to_device(batch, model_device)
+            with torch.no_grad():
+                forward_fn(batch, module=module)
 
         if module_training:
             module.train()

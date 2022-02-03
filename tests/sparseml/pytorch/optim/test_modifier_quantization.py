@@ -33,7 +33,6 @@ try:
 except Exception:
     torch_quantization = None
 
-
 QUANTIZATION_MODIFIERS = [
     lambda: QuantizationModifier(
         start_epoch=0.0,
@@ -278,4 +277,9 @@ def test_quantization_modifier_yaml():
         yaml_modifier.quantize_linear_activations
         == serialized_modifier.quantize_linear_activations
         == obj_modifier.quantize_linear_activations
+    )
+    assert (
+        yaml_modifier.num_calibration_steps
+        == serialized_modifier.num_calibration_steps
+        == obj_modifier.num_calibration_steps
     )
