@@ -210,6 +210,7 @@ def test_quantization_modifier_yaml():
     reduce_range = True
     quantize_linear_activations = False
     exclude_module_types = ["LayerNorm", "Tanh"]
+    num_calibration_steps = 2
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
@@ -221,6 +222,7 @@ def test_quantization_modifier_yaml():
             reduce_range: {reduce_range}
             quantize_linear_activations: {quantize_linear_activations}
             exclude_module_types: {exclude_module_types}
+            num_calibration_steps: {num_calibration_steps}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -237,6 +239,7 @@ def test_quantization_modifier_yaml():
         quantize_embeddings=quantize_embeddings,
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
+        num_calibration_steps=num_calibration_steps,
         exclude_module_types=exclude_module_types,
     )
 
