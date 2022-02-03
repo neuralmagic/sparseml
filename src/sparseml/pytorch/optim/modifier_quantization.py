@@ -19,7 +19,6 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 """
 import logging
 import warnings
-from contextlib import suppress
 from itertools import cycle
 from typing import (
     Any,
@@ -115,9 +114,7 @@ class QuantizationModifier(ScheduledModifier):
         transformer based models such as BERT where the quantized MatMul outputs
         are kept at 32 bits of precision and fake quantizing the outputs harm training
         recovery. Default is True
-    :param exclude_module_types: optional list of module class names
-        to not propagate quantization configs to. Default is None
-    :param num_steps: Number of steps to run post training calibration for.
+    :param num_calibration_steps: Number of steps to run post training calibration for.
             When None, the entire calibration_dataloader is used
     """
 
@@ -134,7 +131,6 @@ class QuantizationModifier(ScheduledModifier):
         reduce_range: bool = False,
         quantize_linear_activations: bool = True,
         num_calibration_steps: Optional[int] = None,
-        exclude_module_types: Union[List[str], None] = None,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -159,7 +155,6 @@ class QuantizationModifier(ScheduledModifier):
         self._quantize_embeddings = quantize_embeddings
         self._reduce_range = reduce_range
         self._quantize_linear_activations = quantize_linear_activations
-        self._exclude_module_types = exclude_module_types
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -302,14 +297,6 @@ class QuantizationModifier(ScheduledModifier):
             training recovery
         """
         return self._quantize_linear_activations
-
-    @ModifierProp()
-    def exclude_module_types(self) -> Union[List[str], None]:
-        """
-        :return: optional list of module class names to not propagate
-            quantization configs to. Default is None
-        """
-        return self._exclude_module_types
 
     @ModifierProp()
     def num_calibration_steps(self) -> Optional[int]:
@@ -475,15 +462,10 @@ class QuantizationModifier(ScheduledModifier):
             if not self._quantize_linear_activations:
                 remove_activation_qat_by_layer_name(quant_module, ["Linear"])
 
-        # remove qconfigs for module types in exclude_module_types
-        if self._exclude_module_types:
-            self._strip_excluded_module_qconfigs(module)
-
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)
         if self._quantize_embeddings:
             prepare_embeddings_qat(module, reduce_range=self._reduce_range)
-
         self._qat_enabled = True
         self._calibrate_if_possible(module)
 
@@ -524,20 +506,16 @@ class QuantizationModifier(ScheduledModifier):
             if self.num_calibration_steps is None
             else cycle(self._calibration_dataloader)
         )
-        with suppress(StopIteration):
-            batch = next(_dataloader)
-            batch_number = 1
-            done = False
-            while not done:
-                batch = tensors_to_device(batch, model_device)
-                with torch.no_grad():
-                    forward_fn(batch, module=module)
-                done = (
-                    self.num_calibration_steps is not None
-                    and batch_number >= self.num_calibration_steps
-                )
-                batch = next(_dataloader)
-                batch_number += 1
+
+        for batch_idx, batch in enumerate(_dataloader):
+            _calibration_completed = (
+                self.num_calibration_steps and batch_idx >= self.num_calibration_steps
+            )
+            if _calibration_completed:
+                break
+            batch = tensors_to_device(batch, model_device)
+            with torch.no_grad():
+                forward_fn(batch, module=module)
 
         if module_training:
             module.train()
@@ -555,16 +533,6 @@ class QuantizationModifier(ScheduledModifier):
             and epoch >= self._freeze_bn_stats_epoch
             and not self._bn_stats_frozen
         )
-
-    def _strip_excluded_module_qconfigs(self, module: Module):
-        if not self._exclude_module_types:
-            return
-        excluded_classes = set(self._exclude_module_types)
-        for submodule in module.modules():
-            if submodule.__class__.__name__ in excluded_classes and hasattr(
-                submodule, "qconfig"
-            ):
-                submodule.qconfig = None
 
     def _validate_params(self):
         if (

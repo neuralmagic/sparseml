@@ -33,7 +33,6 @@ try:
 except Exception:
     torch_quantization = None
 
-
 QUANTIZATION_MODIFIERS = [
     lambda: QuantizationModifier(
         start_epoch=0.0,
@@ -54,10 +53,6 @@ QUANTIZATION_MODIFIERS = [
         start_epoch=0.0,
         quantize_linear_activations=False,
     ),
-    lambda: QuantizationModifier(
-        start_epoch=0.0,
-        exclude_module_types=["Linear"],
-    ),
 ]
 
 
@@ -71,13 +66,9 @@ def _is_quantizable_module(module):
     return isinstance(module, (Conv2d, Linear))
 
 
-def _test_quantizable_module(module, qat_expected, modifier):
-    reduce_range = modifier.reduce_range
-    quantize_linear_activations = modifier.quantize_linear_activations
-
-    excluded_types = modifier.exclude_module_types or []
-    qat_expected = qat_expected and module.__class__.__name__ not in excluded_types
-
+def _test_quantizable_module(
+    module, qat_expected, reduce_range, quantize_linear_activations
+):
     if qat_expected:
         assert hasattr(module, "qconfig") and module.qconfig is not None
         assert hasattr(module, "weight_fake_quant") and (
@@ -105,7 +96,12 @@ def _test_qat_applied(modifier, model):
         submodules = [""]
         for module in model.modules():
             if _is_quantizable_module(module):
-                _test_quantizable_module(module, True, modifier)
+                _test_quantizable_module(
+                    module,
+                    True,
+                    modifier.reduce_range,
+                    modifier.quantize_linear_activations,
+                )
     else:
         assert not hasattr(model, "qconfig") or model.qconfig is None
         submodules = modifier.submodules
@@ -115,7 +111,8 @@ def _test_qat_applied(modifier, model):
             _test_quantizable_module(
                 module,
                 _is_valid_submodule(name, submodules),
-                modifier,
+                modifier.reduce_range,
+                modifier.quantize_linear_activations,
             )
 
 
@@ -209,7 +206,6 @@ def test_quantization_modifier_yaml():
     quantize_embeddings = False
     reduce_range = True
     quantize_linear_activations = False
-    exclude_module_types = ["LayerNorm", "Tanh"]
     num_calibration_steps = 2
     yaml_str = f"""
         !QuantizationModifier
@@ -221,7 +217,6 @@ def test_quantization_modifier_yaml():
             quantize_embeddings: {quantize_embeddings}
             reduce_range: {reduce_range}
             quantize_linear_activations: {quantize_linear_activations}
-            exclude_module_types: {exclude_module_types}
             num_calibration_steps: {num_calibration_steps}
         """
     yaml_modifier = QuantizationModifier.load_obj(
@@ -240,7 +235,6 @@ def test_quantization_modifier_yaml():
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
         num_calibration_steps=num_calibration_steps,
-        exclude_module_types=exclude_module_types,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -285,7 +279,7 @@ def test_quantization_modifier_yaml():
         == obj_modifier.quantize_linear_activations
     )
     assert (
-        yaml_modifier.exclude_module_types
-        == serialized_modifier.exclude_module_types
-        == obj_modifier.exclude_module_types
+        yaml_modifier.num_calibration_steps
+        == serialized_modifier.num_calibration_steps
+        == obj_modifier.num_calibration_steps
     )
