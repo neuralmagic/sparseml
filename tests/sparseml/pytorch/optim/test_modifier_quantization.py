@@ -56,6 +56,10 @@ QUANTIZATION_MODIFIERS = [
     ),
     lambda: QuantizationModifier(
         start_epoch=0.0,
+        enable_int4_activations=True,
+    ),
+    lambda: QuantizationModifier(
+        start_epoch=0.0,
         exclude_module_types=["Linear"],
     ),
 ]
@@ -88,6 +92,11 @@ def _test_quantizable_module(module, qat_expected, modifier):
         )
         if module.qconfig.activation is not Identity:
             assert module.qconfig.activation.p.keywords["reduce_range"] == reduce_range
+        assert (
+            module.qconfig.activation.p.keywords["enable_int4_activations"]
+            == enable_int4_activations
+        )
+
         if isinstance(module, Linear):
             assert isinstance(module.activation_post_process, Identity) == (
                 not quantize_linear_activations
@@ -210,6 +219,7 @@ def test_quantization_modifier_yaml():
     reduce_range = True
     quantize_linear_activations = False
     exclude_module_types = ["LayerNorm", "Tanh"]
+    enable_int4_activations = True
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
@@ -221,6 +231,7 @@ def test_quantization_modifier_yaml():
             reduce_range: {reduce_range}
             quantize_linear_activations: {quantize_linear_activations}
             exclude_module_types: {exclude_module_types}
+            enable_int4_activations: {enable_int4_activations}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -237,6 +248,7 @@ def test_quantization_modifier_yaml():
         quantize_embeddings=quantize_embeddings,
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
+        enable_int4_activations=enable_int4_activations,
         exclude_module_types=exclude_module_types,
     )
 
@@ -285,4 +297,9 @@ def test_quantization_modifier_yaml():
         yaml_modifier.exclude_module_types
         == serialized_modifier.exclude_module_types
         == obj_modifier.exclude_module_types
+    )
+    assert (
+        yaml_modifier.enable_int4_activations
+        == serialized_modifier.enable_int4_activations
+        == obj_modifier.enable_int4_activations
     )

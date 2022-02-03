@@ -17,7 +17,7 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
-from typing import Any, Callable, List, Union
+from typing import Any, Callable, Dict, List, Union
 
 import torch
 from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
@@ -43,7 +43,6 @@ __all__ = [
     "fuse_module_conv_bn_relus",
     "prepare_embeddings_qat",
 ]
-
 
 _QUANTIZABLE_MODULE_TYPES = (
     {
@@ -98,16 +97,24 @@ class QATWrapper(Module):
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware
         Default is False
+    :param activation_kwargs: Additional kwargs for quantization of activations.
+        Default is {}
     """
 
     @staticmethod
-    def from_module(module: Module, reduce_range: bool = None) -> "QATWrapper":
+    def from_module(
+        module: Module,
+        reduce_range: bool = None,
+        activation_kwargs: Dict = {},
+    ) -> "QATWrapper":
         """
         :param module: torch Module to create a QATWrapper for
         :param reduce_range: if True, the quantization range will be reduced by one
             bit. This may prevent overflow issues with model execution on certain
             hardware. Default is None, will only override qat_wrapper_kwargs if set
             to a bool value
+        :param activation_kwargs: Additional kwargs for quantization of
+            activations. Default is {}
         :return: QATWrapper object created using the given Module as the forward
             function. Will attempt to find any other named parameter of the QATWrapper
             constructor from the attributes of the given Module
@@ -124,6 +131,11 @@ class QATWrapper(Module):
             else reduce_range or qat_wrapper_kwargs["reduce_range"]
         )
 
+        qat_wrapper_kwargs["activation_kwargs"] = (
+            activation_kwargs
+            if "activation_kwargs" not in qat_wrapper_kwargs
+            else activation_kwargs or qat_wrapper_kwargs["activation_kwargs"]
+        )
         return QATWrapper(forward_fn=module, **qat_wrapper_kwargs)
 
     def __init__(
@@ -139,6 +151,7 @@ class QATWrapper(Module):
             "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
         ] = "asymmetric",
         reduce_range: bool = False,
+        activation_kwargs: Dict[str, Any] = {},
     ):
         super().__init__()
 
@@ -159,11 +172,21 @@ class QATWrapper(Module):
 
         self.forward_fn = forward_fn
         self._reduce_range = reduce_range
+        self._activation_kwargs = activation_kwargs
+
         self.input_qconfigs = self._load_qconfigs(
-            "input_qconfigs", num_input_quant_stubs, input_qconfigs, self._reduce_range
+            name="input_qconfigs",
+            expected_len=num_input_quant_stubs,
+            qconfigs=input_qconfigs,
+            reduce_range=self._reduce_range,
+            activation_kwargs=self._activation_kwargs,
         )
         self.output_qconfigs = self._load_qconfigs(
-            "output_qconfigs", num_outputs, output_qconfigs, self._reduce_range
+            name="output_qconfigs",
+            expected_len=num_outputs,
+            qconfigs=output_qconfigs,
+            reduce_range=self._reduce_range,
+            activation_kwargs=self._activation_kwargs,
         )
 
         self.input_quant_stubs = torch.nn.ModuleList(
@@ -247,7 +270,8 @@ class QATWrapper(Module):
         name: str,
         expected_len: int,
         qconfigs: Union["QConfig", str, List["QConfig"]],  # noqa: F821
-        redcuce_range: bool = False,
+        reduce_range: bool = False,
+        activation_kwargs: Dict[str, Any] = {},
     ):
         if not isinstance(qconfigs, (str, torch_quantization.QConfig, List)):
             raise ValueError(
@@ -279,13 +303,18 @@ class QATWrapper(Module):
 
             qconfigs[idx] = get_qat_qconfig(
                 symmetric_activations=(qconfig == "symmetric"),
-                reduce_range=redcuce_range,
+                reduce_range=reduce_range,
+                activation_kwargs=activation_kwargs,
             )
 
         return qconfigs
 
 
-def configure_module_qat_wrappers(module: Module, reduce_range: bool = False):
+def configure_module_qat_wrappers(
+    module: Module,
+    reduce_range: bool = False,
+    activation_kwargs: Dict[str, Any] = {},
+):
     """
     if any submodule of the given module has the attribute wrap_qat == True,
     then it will be replaced by a QATWrapper of it created by QATWrapper.from_module.
@@ -296,6 +325,8 @@ def configure_module_qat_wrappers(module: Module, reduce_range: bool = False):
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware
         Default is False
+    :param activation_kwargs: Additional kwargs for quantization of
+            activations. Default is {}
     """
     # wrap any children of the given module as a QATWrapper if required
     for child_name, child_module in module.named_children():
@@ -303,10 +334,18 @@ def configure_module_qat_wrappers(module: Module, reduce_range: bool = False):
             setattr(
                 module,
                 child_name,
-                QATWrapper.from_module(child_module, reduce_range=reduce_range),
+                QATWrapper.from_module(
+                    module=child_module,
+                    reduce_range=reduce_range,
+                    activation_kwargs=activation_kwargs,
+                ),
             )
         # recurse on child module
-        configure_module_qat_wrappers(child_module, reduce_range=reduce_range)
+        configure_module_qat_wrappers(
+            module=child_module,
+            reduce_range=reduce_range,
+            activation_kwargs=activation_kwargs,
+        )
 
 
 def configure_module_default_qconfigs(module: Module):
@@ -359,8 +398,8 @@ def remove_activation_qat_by_layer_name(module: Module, layer_class_names: List[
         e.x. ["Linear"]
     """
     for submodule in module.modules():
-        if submodule.__class__.__name__ in layer_class_names and (
-            hasattr(submodule, "qconfig")
+        if submodule.__class__.__name__ in layer_class_names and hasattr(
+            submodule, "qconfig"
         ):
             submodule.qconfig = torch_quantization.QConfig(
                 activation=torch.nn.Identity,
@@ -372,6 +411,7 @@ def get_qat_qconfig(
     symmetric_activations: bool = False,
     symmetric_weights: bool = True,
     reduce_range: bool = False,
+    activation_kwargs: Dict[str, Any] = {},
 ) -> "torch.quantization.QConfig":
     """
     :param symmetric_activations: if True, activations will have a symmetric
@@ -383,6 +423,8 @@ def get_qat_qconfig(
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware
         Default is False
+    :param activation_kwargs: Additional kwargs for quantization of
+            activations. Default is {}
     :return: A QAT fake quantization config for symmetric weight quantization and
         asymmetric activation quantization.  The difference between this and
         torch.quantization.default_qat_qconfig is that the activation observer
@@ -391,7 +433,7 @@ def get_qat_qconfig(
     activation_qscheme = (
         torch.per_tensor_symmetric if symmetric_activations else torch.per_tensor_affine
     )
-    activation_observer = torch_quantization.FakeQuantize.with_args(
+    activation_observer_kwargs = dict(
         observer=torch_quantization.MovingAverageMinMaxObserver,
         quant_min=0,
         quant_max=255,
@@ -399,9 +441,14 @@ def get_qat_qconfig(
         qscheme=activation_qscheme,
         reduce_range=reduce_range,
     )
+    activation_observer_kwargs.update(activation_kwargs)
+    activation_observer = torch_quantization.FakeQuantize.with_args(
+        **activation_observer_kwargs,
+    )
     weight_qscheme = (
         torch.per_tensor_symmetric if symmetric_weights else torch.per_tensor_affine
     )
+
     weight_observer = torch_quantization.FakeQuantize.with_args(
         observer=torch_quantization.MovingAverageMinMaxObserver,
         quant_min=-128,
@@ -501,6 +548,7 @@ def prepare_embeddings_qat(
     module: Module,
     qconfig: "torch.quantization.QConfig" = None,
     reduce_range: bool = False,
+    activation_kwargs: Dict[str, Any] = {},
 ):
     """
     adds a fake quantize call to the weights of any Embedding modules in the given
@@ -509,12 +557,18 @@ def prepare_embeddings_qat(
     :param module: module to run QAT for the embeddings of
     :param qconfig: qconfig to generate the fake quantize ops from. Default uses INT8
         asymmetric range
+    :param activation_kwargs: additional kwargs for quantizing activations.
+        Default is {}.
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware.
         Default is False
     """
     if qconfig is None:
-        qconfig = get_qat_qconfig(symmetric_weights=False, reduce_range=reduce_range)
+        qconfig = get_qat_qconfig(
+            symmetric_weights=False,
+            reduce_range=reduce_range,
+            activation_kwargs=activation_kwargs,
+        )
     for submodule in module.modules():
         if type(submodule) is Embedding:
             _prepare_qat_embedding(submodule, qconfig)

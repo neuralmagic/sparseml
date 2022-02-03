@@ -18,9 +18,9 @@ Modifier for models through quantization aware training.
 PyTorch version must support quantization (>=1.2, ONNX export support introduced in 1.7)
 """
 
-
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
+import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
@@ -71,6 +71,7 @@ class QuantizationModifier(ScheduledModifier):
     |       disable_quantization_observer_epoch: 2.0
     |       freeze_bn_stats_epoch: 3.0
     |       reduce_range: False
+    |       enable_in4_activations: False
 
     :param start_epoch: The epoch to start the modifier at
     :param submodules: List of submodule names to perform QAT on. Leave None to quantize
@@ -95,6 +96,8 @@ class QuantizationModifier(ScheduledModifier):
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware
         Default is False
+    :param enable_in4_activations: if True, will enable 4 bit quantization for
+        activations. Default is False.
     :param quantize_linear_activations: if False, FakeQuantize ops will not be run
         for activations of fully connected layers. this is important for quantizing
         transformer based models such as BERT where the quantized MatMul outputs
@@ -116,6 +119,7 @@ class QuantizationModifier(ScheduledModifier):
         quantize_embeddings: bool = True,
         reduce_range: bool = False,
         quantize_linear_activations: bool = True,
+        enable_int4_activations: bool = False,
         exclude_module_types: Union[List[str], None] = None,
     ):
         if torch_quantization is None or torch_intrinsic is None:
@@ -141,12 +145,16 @@ class QuantizationModifier(ScheduledModifier):
         self._quantize_embeddings = quantize_embeddings
         self._reduce_range = reduce_range
         self._quantize_linear_activations = quantize_linear_activations
+        self._enable_int4_activations = enable_int4_activations
         self._exclude_module_types = exclude_module_types
 
         self._modules_to_quantize = None
         self._qat_enabled = False
         self._quantization_observer_disabled = False
         self._bn_stats_frozen = False
+        self._quant_min = 0
+        self._quant_max = 255
+        self._dtype = torch.quint8
 
         if (
             isinstance(self._model_fuse_fn_name, str)
@@ -155,6 +163,11 @@ class QuantizationModifier(ScheduledModifier):
             self._model_fuse_fn_name = None
         if isinstance(self._submodules, list):
             self._submodules = set(self._submodules)
+
+        if self.enable_int4_activations:
+            self._quant_min = 0
+            self._quant_max = 15
+            self._dtype = torch.quint8
 
         self._validate_params()
 
@@ -290,6 +303,27 @@ class QuantizationModifier(ScheduledModifier):
         """
         return self._exclude_module_types
 
+    @ModifierProp()
+    def enable_int4_activations(self) -> bool:
+        """
+        :return: if True, the quantization range for activations will be
+            reduced to 4 bit integers.
+        """
+        return self._enable_int4_activations
+
+    @ModifierProp()
+    def qconfig_activation_kwargs(self) -> Dict[str, Any]:
+        """
+        :return: Dictionary with correct quant_min, quant_max, and dtype values
+            for activations
+
+        """
+        return dict(
+            quant_min=self._quant_min,
+            quant_max=self._quant_max,
+            dtype=self._dtype,
+        )
+
     def initialize(
         self,
         module: Module,
@@ -420,10 +454,17 @@ class QuantizationModifier(ScheduledModifier):
             fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
 
         # prepare each module / submodule for quantization
-        qconfig = get_qat_qconfig(reduce_range=self._reduce_range)
+        qconfig = get_qat_qconfig(
+            reduce_range=self._reduce_range,
+            activation_kwargs=self.qconfig_activation_kwargs,
+        )
         for name, quant_module in self._modules_to_quantize:
             # wrap any modules with wrap_qat set to True as QATWrapper(s)
-            configure_module_qat_wrappers(quant_module, reduce_range=self._reduce_range)
+            configure_module_qat_wrappers(
+                quant_module,
+                reduce_range=self._reduce_range,
+                activation_kwargs=self.qconfig_activation_kwargs,
+            )
             # set quantization config (asymmetric activations, symmetric weights)
             quant_module.qconfig = qconfig
             # wrap all conv / linear blocks in with quantization observers
@@ -442,8 +483,11 @@ class QuantizationModifier(ScheduledModifier):
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)
         if self._quantize_embeddings:
-            prepare_embeddings_qat(module, reduce_range=self._reduce_range)
-
+            prepare_embeddings_qat(
+                module,
+                reduce_range=self._reduce_range,
+                activation_kwargs=self.qconfig_activation_kwargs,
+            )
         self._qat_enabled = True
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
