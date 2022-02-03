@@ -17,10 +17,19 @@ Modifier for models through quantization aware training.
 
 PyTorch version must support quantization (>=1.2, ONNX export support introduced in 1.7)
 """
-
-
 import logging
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
+from functools import partial
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import torch
 from torch.nn import Module
@@ -36,7 +45,7 @@ except Exception:
 
 from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.utils import BaseLogger
+from sparseml.pytorch.utils import BaseLogger, tensors_module_forward, tensors_to_device
 from sparseml.pytorch.utils.quantization import (
     add_quant_dequant,
     configure_module_default_qconfigs,
@@ -50,7 +59,6 @@ from sparseml.sparsification import SparsificationTypes
 
 
 _LOGGER = logging.getLogger(__name__)
-
 
 __all__ = [
     "QuantizationModifier",
@@ -153,6 +161,7 @@ class QuantizationModifier(ScheduledModifier):
         self._quantization_observer_disabled = False
         self._bn_stats_frozen = False
         self._calibration_dataloader = None
+        self._calibration_function = None
 
         if (
             isinstance(self._model_fuse_fn_name, str)
@@ -302,6 +311,7 @@ class QuantizationModifier(ScheduledModifier):
         epoch: float = 0,
         loggers: Optional[List[BaseLogger]] = None,
         calibration_dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
+        calibration_function: Optional[Callable] = None,
         **kwargs,
     ):
         """
@@ -314,12 +324,15 @@ class QuantizationModifier(ScheduledModifier):
         :param calibration_dataloader: optional dataloader for running post training
             quantization with the given model. if present, calibration will be run
             immediately after quantization is enabled
+        :param calibration_function: optional function to use for calibration of
+            model parameters post training.
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
         super().initialize(module, epoch, loggers, **kwargs)
         self._modules_to_quantize = []
         self._calibration_dataloader = calibration_dataloader
+        self._calibration_function = calibration_function
         if self._submodules is not None:
             found_submodules = []
             for name, submodule in module.named_modules():
@@ -469,10 +482,21 @@ class QuantizationModifier(ScheduledModifier):
         module_training = module.training
         module.eval()
 
-        for args, kwargs in self._calibration_dataloader:
-            with torch.no_grad():
-                module(*args, **kwargs)
+        forward_fn: Callable = (
+            self._calibration_function
+            if self._calibration_function
+            else partial(tensors_module_forward, module=module)
+        )
 
+        model_device = next(module.parameters()).device
+
+        for batch in self._calibration_dataloader:
+            batch = tensors_to_device(batch, model_device)
+            with torch.no_grad():
+                try:
+                    forward_fn(batch)
+                except Exception:
+                    module(batch)
         if module_training:
             module.train()
 

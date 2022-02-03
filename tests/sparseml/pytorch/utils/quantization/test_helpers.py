@@ -204,6 +204,21 @@ def _get_fake_conv_relus(num_blocks=1):
     return torch.nn.Sequential(*[_conv_relu() for _ in range(num_blocks)])
 
 
+def _get_fake_conv_float_functional(num_blocks=1):
+    try:
+        from torch.nn.quantized import FloatFunctional
+    except Exception:
+        FloatFunctional = None
+
+    def _conv_float_functional():
+        return torch.nn.Sequential(
+            torch.nn.Conv2d(20, 20, 3),
+            FloatFunctional(),
+        )
+
+    return torch.nn.Sequential(*[_conv_float_functional() for _ in range(num_blocks)])
+
+
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -220,7 +235,7 @@ def _get_fake_conv_relus(num_blocks=1):
     "model_lambda,conv_bn_relus,conv_bns,conv_relus",
     [
         (mobilenet, 27, 0, 0),
-        (resnet50, 45, 8, 0),
+        (resnet50, 33, 20, 0),
         (lambda: _get_fake_conv_relus(5), 0, 0, 5),
         (
             lambda: torch.nn.Sequential(
@@ -228,10 +243,12 @@ def _get_fake_conv_relus(num_blocks=1):
                 resnet50(),
                 _get_fake_conv_relus(6),
             ),
-            45,
-            8,
+            33,
+            20,
             9,
         ),
+        # should not be fused
+        (lambda: _get_fake_conv_float_functional(5), 0, 0, 0),
     ],
 )
 def test_fuse_module_conv_bn_relus(model_lambda, conv_bn_relus, conv_bns, conv_relus):
