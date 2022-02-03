@@ -18,7 +18,9 @@ Modifier for models through quantization aware training.
 PyTorch version must support quantization (>=1.2, ONNX export support introduced in 1.7)
 """
 import logging
-from functools import partial
+import warnings
+from contextlib import suppress
+from itertools import cycle
 from typing import (
     Any,
     Callable,
@@ -113,6 +115,8 @@ class QuantizationModifier(ScheduledModifier):
         transformer based models such as BERT where the quantized MatMul outputs
         are kept at 32 bits of precision and fake quantizing the outputs harm training
         recovery. Default is True
+    :param num_steps: Number of steps to run post training calibration for.
+            When None, the entire calibration_dataloader is used
     """
 
     def __init__(
@@ -127,6 +131,7 @@ class QuantizationModifier(ScheduledModifier):
         quantize_embeddings: bool = True,
         reduce_range: bool = False,
         quantize_linear_activations: bool = True,
+        num_calibration_steps: Optional[int] = None,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -158,6 +163,7 @@ class QuantizationModifier(ScheduledModifier):
         self._bn_stats_frozen = False
         self._calibration_dataloader = None
         self._calibration_function = None
+        self._num_calibration_steps = num_calibration_steps
 
         if (
             isinstance(self._model_fuse_fn_name, str)
@@ -293,6 +299,14 @@ class QuantizationModifier(ScheduledModifier):
         """
         return self._quantize_linear_activations
 
+    @ModifierProp()
+    def num_calibration_steps(self) -> Optional[int]:
+        """
+        :return: Number of steps to run post training calibration for.
+            When None, the entire calibration_dataloader is used
+        """
+        return self._num_calibration_steps
+
     def initialize(
         self,
         module: Module,
@@ -312,8 +326,10 @@ class QuantizationModifier(ScheduledModifier):
         :param calibration_dataloader: optional dataloader for running post training
             quantization with the given model. if present, calibration will be run
             immediately after quantization is enabled
-        :param calibration_function: optional function to use for calibration of
-            model parameters post training.
+        :param calibration_function: An Optional callable to use for
+            calibration of module parameters post training. Should be able to
+            accept a batch of inputs along with a module.
+            Example: func(batch, module), Defaults to tensors_module_forward
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
@@ -452,14 +468,28 @@ class QuantizationModifier(ScheduledModifier):
         if self._quantize_embeddings:
             prepare_embeddings_qat(module, reduce_range=self._reduce_range)
         self._qat_enabled = True
+        self._calibrate_if_possible(module)
 
-        if self._calibration_dataloader is not None:
+    def _calibrate_if_possible(self, module):
+        if self.num_calibration_steps == 0 and self._calibration_dataloader:
+            warnings.warn(
+                f"num_calibration_steps is {self.num_calibration_steps}."
+                f"Calibration data loader will not be used."
+            )
+        elif self.num_calibration_steps and not self._calibration_dataloader:
+            raise ValueError(
+                f"num_calibration_steps is {self.num_calibration_steps}. "
+                "Calibration data loader is not set. Pass a "
+                "calibration_data_loader with initialize(...) method."
+            )
+
+        elif not self._calibration_dataloader or not self._qat_enabled:
+            return
+
+        elif self._calibration_dataloader:
             self._calibrate(module)
 
     def _calibrate(self, module):
-        if not self._calibration_dataloader or not self._qat_enabled:
-            return
-
         _LOGGER.info("Running quantization calibration using calibration_dataloader")
 
         module_training = module.training
@@ -468,18 +498,30 @@ class QuantizationModifier(ScheduledModifier):
         forward_fn: Callable = (
             self._calibration_function
             if self._calibration_function
-            else partial(tensors_module_forward, module=module)
+            else tensors_module_forward
         )
 
         model_device = next(module.parameters()).device
+        _dataloader = (
+            self._calibration_dataloader
+            if self.num_calibration_steps is None
+            else cycle(self._calibration_dataloader)
+        )
+        with suppress(StopIteration):
+            batch = next(_dataloader)
+            batch_number = 1
+            done = False
+            while not done:
+                batch = tensors_to_device(batch, model_device)
+                with torch.no_grad():
+                    forward_fn(batch, module=module)
+                done = (
+                    self.num_calibration_steps is not None
+                    and batch_number >= self.num_calibration_steps
+                )
+                batch = next(_dataloader)
+                batch_number += 1
 
-        for batch in self._calibration_dataloader:
-            batch = tensors_to_device(batch, model_device)
-            with torch.no_grad():
-                try:
-                    forward_fn(batch)
-                except Exception:
-                    module(batch)
         if module_training:
             module.train()
 

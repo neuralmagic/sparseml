@@ -207,6 +207,7 @@ def test_quantization_modifier_yaml():
     quantize_embeddings = False
     reduce_range = True
     quantize_linear_activations = False
+    num_calibration_steps = 2
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
@@ -217,6 +218,7 @@ def test_quantization_modifier_yaml():
             quantize_embeddings: {quantize_embeddings}
             reduce_range: {reduce_range}
             quantize_linear_activations: {quantize_linear_activations}
+            num_calibration_steps: {num_calibration_steps}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -233,6 +235,7 @@ def test_quantization_modifier_yaml():
         quantize_embeddings=quantize_embeddings,
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
+        num_calibration_steps=num_calibration_steps,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
