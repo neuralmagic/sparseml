@@ -105,7 +105,7 @@ class QATWrapper(Module):
     def from_module(
         module: Module,
         reduce_range: bool = None,
-        activation_kwargs: Dict = {},
+        activation_kwargs: Dict[str, Any] = {},
     ) -> "QATWrapper":
         """
         :param module: torch Module to create a QATWrapper for
