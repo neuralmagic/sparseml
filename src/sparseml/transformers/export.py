@@ -55,6 +55,8 @@ sparseml.transformers.export_onnx \
 """
 
 import argparse
+import collections
+import inspect
 import logging
 import math
 import os
@@ -180,6 +182,17 @@ def export_transformer_to_onnx(
     inputs = tokenizer(
         "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
     ).data  # Dict[Tensor]
+
+    # Rearrange inputs' keys to match those defined by model foward func
+    forward_args_spec = inspect.getfullargspec(model.__class__.forward)
+    inputs = collections.OrderedDict(
+        [
+            (f, inputs[f][0].reshape(1, -1))
+            for f in forward_args_spec.args
+            if f in inputs
+        ]
+    )
+
     inputs_shapes = {
         key: (
             f"{val.dtype if hasattr(val, 'dtype') else 'unknown'}: "
@@ -187,6 +200,7 @@ def export_transformer_to_onnx(
         )
         for key, val in inputs.items()
     }
+
     _LOGGER.info(f"Created sample inputs for the ONNX export process: {inputs_shapes}")
 
     # run export
