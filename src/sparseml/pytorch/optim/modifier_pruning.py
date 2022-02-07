@@ -73,6 +73,7 @@ __all__ = [
     "GlobalMagnitudePruningModifier",
     "LayerPruningModifier",
     "StructuredPruningModifier",
+    "ACDCPruningModifier",
 ]
 
 
@@ -1762,3 +1763,167 @@ class LayerPruningModifier(ScheduledUpdateModifier):
             self._last_logged_epoch != math.floor(epoch)
             or self._last_logged_layers_replaced != self._layers_replaced
         )
+
+
+@PyTorchModifierYAML()
+class ACDCPruningModifier(GMPruningModifier):
+    """
+    Implementation of
+    Alternating Compressed/DeCompressed Training of Deep Neural Networks:
+    https://arxiv.org/pdf/2106.12379.pdf.
+    AC/DC performs co-training of sparse and dense models, and can return both an
+    accurate sparse model, and a dense model.
+    | Sample yaml:
+    |   !ACDCPruningModifier
+    |       compression_sparsity: 0.95
+    |       start_epoch: 0
+    |       end_epoch: 100
+    |       update_frequency: 5
+    |       params: __ALL_PRUNABLE__
+
+    :param compression_sparsity: The sparsity enforced during the compression phase.
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The length (in epochs) of compression/decompression phase.
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers' weights. If a sparsity to param mapping is defined by
+        final_sparsity, then params should be set to []
+    """
+
+    def __init__(
+        self,
+        # because method does not involve any interpolation
+        # compression sparsity is a single float.
+        compression_sparsity: float,
+        start_epoch: float,
+        end_epoch: float,
+        update_frequency: float,
+        params: Union[str, List[str]],
+    ):
+
+        self._compression_sparsity = compression_sparsity
+        self._decompression_sparsity = 0.0  # this is implicitly assumed in paper.
+        self._is_phase_decompression = True
+        self._momentum_buffer_empty = True
+
+        super(ACDCPruningModifier, self).__init__(
+            params=params,
+            init_sparsity=self._decompression_sparsity,
+            final_sparsity=self._compression_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=self._finish_on_decompression(
+                start_epoch, end_epoch, update_frequency
+            ),
+            update_frequency=update_frequency,
+        )
+
+        self.validate()
+
+    @staticmethod
+    def _finish_on_decompression(start_epoch, end_epoch, update_frequency):
+        """
+        This function asserts that training will always
+        end on the last epoch of decompression phase.
+        E.g. if start_epoch = 0, end_epoch = 7 and update_frequency = 2:
+        decompression_phases = [1,1,0,0,1,1,0]
+        Because last epoch is compression phase, end_epoch will be reduced to 6.
+
+        :param start_epoch: The epoch to start the modifier at
+        :param end_epoch: The epoch to end the modifier at
+        :param update_frequency: The length (in epochs) of compression/decompression phase.
+        :return: reduced_end_epoch: (If required) reduced, original end_epoch (reduced_end_epoch <= end_epoch)
+        """
+        decompression_phases = [
+            math.floor(epoch / update_frequency) % 2 == 0.0
+            for epoch in range(start_epoch, end_epoch)
+        ]
+        for decompressed_phase_epoch in reversed(decompression_phases):
+            if decompressed_phase_epoch:
+                # when encounter a decompressed_phase_epoch: break
+                break
+            else:
+                # otherwise, keep subtracting last compression epochs count from the 'end epoch'
+                end_epoch -= 1
+        return end_epoch
+
+    def _check_mask_update(
+        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
+    ):
+        """
+        Check for updating the pruning masks at the given epoch.
+        Called from both initialize and update.
+
+        :param module: module to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        started = self.started
+        if self.start_pending(epoch, steps_per_epoch):
+            self._module_masks.enabled = True
+            started = True
+
+        if not self._pre_step_completed:
+            self._module_masks.pre_optim_step_update()
+            self._pre_step_completed = True
+
+        if started:
+            # set the mask tensors according to decompression sparsity.
+            self._applied_sparsity = self._decompression_sparsity
+
+            if not self.end_pending(epoch, steps_per_epoch):
+                self._num_phase = math.floor(
+                    (epoch - self.start_epoch) / self.update_frequency
+                )
+                if self._num_phase % 2 == 0:
+                    # entering decompression phase
+                    self._is_phase_decompression = True
+                else:
+                    # entering compression phase
+                    self._is_phase_decompression = False
+                    self._applied_sparsity = self._compression_sparsity
+                    # flag denoting that the momentum buffer is non-zero in compression phase.
+                    self._momentum_buffer_empty = False
+
+            self._module_masks.set_param_masks_from_sparsity(self._applied_sparsity)
+            self._sparsity_applied = True
+
+        if self.end_pending(epoch, steps_per_epoch):
+            self._module_masks.pruning_end(self._leave_enabled)
+
+    @staticmethod
+    def _reset_momentum_buffer(optimizer):
+        if "state" in optimizer.state_dict():
+            for param_buffer in optimizer.state_dict()["state"].values():
+                if "momentum_buffer" not in param_buffer:
+                    continue
+                param_buffer["momentum_buffer"].mul_(0.0)
+
+    def optimizer_post_step(
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+    ):
+        """
+        Reapply the mask after the optimizer step in case the optimizer
+        has momentum that may have moved weights from 0. Additionally,
+        reset momentum buffer if new dense phase starts.
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
+
+        # be sure to apply mask again after optimizer update because
+        # weights may have changed (optimizer with momentum, not masking gradient)
+        self._module_masks.apply()
+        if self._is_current_phase_decompression and not self._momentum_buffer_empty:
+            """
+            When entering decompression phase check whether momentum buffer is empty.
+            If not (this happens always before the first epoch of the decompression phase), reset!
+            """
+            self._reset_momentum_buffer(optimizer)
+            self._momentum_buffer_empty = True
