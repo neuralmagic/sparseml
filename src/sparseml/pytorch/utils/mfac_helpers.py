@@ -275,54 +275,16 @@ class FisherInverseFastBlock(FisherInverse):
         self._devices = devices or ["cpu"]
 
         self._fisher_inv_blocks = []
-        lock = threading.Lock()
-
-        # run block computations in parallel across devices
-        threads = [None] * len(self._devices)
-        thread_fisher_inv_blocks = [None] * len(self._devices)
-
-        def _compute_fisher_inv_block(block_start_idx, thread_idx_):
+      
+        for block_start_idx in range(0, grads.shape[1], self._block_size):
             block = (
-                grads[:, block_start_idx : (block_start_idx + self._block_size)]
-                .to(self._devices[thread_idx_])
-                .contiguous()
-            )
-            fisher_inv_block = FisherInverseFast(block, damp=damp)
-            with lock:
-                # ignoring flake8 warning since thread_fisher_inv_blocks is safely
-                # deleted after all calls to _compute_fisher_inv_block
-                thread_fisher_inv_blocks[thread_idx_] = fisher_inv_block  # noqa: F821
-
-        for idx, off in enumerate(range(0, grads.shape[1], self._block_size)):
-            # create thread
-            thread_idx = idx % len(self._devices)
-            threads[thread_idx] = threading.Thread(
-                target=_compute_fisher_inv_block,
-                args=(off, thread_idx),
-            )
-            # run all threads on last iteration or when devices will be full
-            if (
-                thread_idx == len(self._devices) - 1
-                or off + self._block_size >= grads.shape[1]
-            ):
-                for t in threads[: (thread_idx + 1)]:
-                    t.start()
-                for t in threads[: (thread_idx + 1)]:
-                    t.join()
-                self._fisher_inv_blocks.extend(
-                    [
-                        fisher_inv_block.to("cpu")
-                        for fisher_inv_block in thread_fisher_inv_blocks[
-                            : (thread_idx + 1)
-                        ]
-                        if fisher_inv_block is not None
-                    ]
+                    grads[:, block_start_idx : (block_start_idx + self._block_size)]
+                    .to(self._devices[0])
+                    .contiguous()
                 )
-                torch.cuda.empty_cache()
-
-        # free h_inv_blocks from GPU memory
-        del thread_fisher_inv_blocks
-        torch.cuda.empty_cache()
+            fisher_inv_block = FisherInverseFast(block, damp=damp)
+            self._fisher_inv_blocks.append(fisher_inv_block.to("cpu"))
+            del block
 
     def diag(self):
         """
@@ -622,25 +584,47 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
         self._num_samples, self._num_params = grads.shape
         self._num_blocks = math.ceil(self._num_params / block_size)
+        self._num_devices = len(self._devices)
+        self._num_blocks_per_device_call = []
+        self._hinvs = []
 
-        num_devices = len(self._devices)
-        target_blocks_per_device = math.ceil(self._num_blocks / num_devices)
-        self._num_blocks_per_device = [target_blocks_per_device] * (num_devices - 1)
-        self._num_blocks_per_device.append(
-            # add remainding blocks to last devices
-            self._num_blocks
-            - sum(self._num_blocks_per_device)
-        )
+        # Liberal estimate of memory allocated to drivers. To get accurate memory
+        # reading, gputil or similar library should be used
+        static_allocated_memory_frac = .2
+        remaining_blocks = self._num_blocks
+        self._device_calls = 0
+        torch.cuda.empty_cache()
+        while remaining_blocks > 0:
+            for device in devices:
+                free_device_memory = math.floor((torch.cuda.get_device_properties(device=device).total_memory - torch.cuda.memory_allocated(device=device))*(1 - static_allocated_memory_frac))
+                self._num_blocks_per_device_call.append(
+                    min(
+                        remaining_blocks,
+                        math.ceil(free_device_memory / (self._block_size * self._block_size * grads.element_size()))
+                    )
+                )
+                remaining_blocks -= self._num_blocks_per_device_call[-1]
+                if remaining_blocks <= 0:
+                    break
 
-        # initialize H_invs on each device
-        self._hinvs = [
-            self._init_hinv(num_blocks, damp, self._devices[idx], grads.dtype)
-            for idx, num_blocks in enumerate(self._num_blocks_per_device)
-        ]
+            for idx, device in enumerate(devices):
+                call_idx = idx + self._device_calls * self._num_devices
 
-        # build hinv_g values from grad samples
-        for sample_idx in range(self._num_samples):
-            self._hinvs = self._add(grads[sample_idx, :].to(self._devices[0]))
+                # initialize H_invs on each device
+                num_blocks = self._num_blocks_per_device_call[call_idx]
+                try:
+                    self._hinvs.append(self._init_hinv(num_blocks, damp, self._devices[idx], grads.dtype))
+                except:
+                    self._hinvs.append(self._init_hinv(num_blocks//2, damp, self._devices[idx], grads.dtype))
+                    self._num_blocks_per_device_call[call_idx] //= 2
+                    remaining_blocks += self._num_blocks_per_device_call[call_idx]
+
+                # build hinv_g values from grad samples
+                for sample_idx in range(self._num_samples):
+                    self._add(grads[sample_idx, :], device, call_idx)
+                self._hinvs[call_idx] = self._hinvs[call_idx].to("cpu")
+
+            self._device_calls += 1
 
     def diag(self) -> Tensor:
         """
@@ -650,7 +634,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
             torch.diagonal(self._hinvs[idx], dim1=1, dim2=2)
             .reshape(-1)
             .to(self._devices[0])  # move all to same device after computation
-            for idx in range(len(self._devices))
+            for idx in range(len(self._num_blocks_per_device_call))
         ]
         return torch.cat(diag_slices)[: self._num_params]
 
@@ -661,18 +645,19 @@ class FisherInverseFastSmallBlocks(FisherInverse):
         """
         x = self._pad(x).reshape((-1, self._block_size)).unsqueeze(2)
         mul_slices = []
-        for idx, device in enumerate(self._devices):
+        for idx in range(len(self._num_blocks_per_device_call)):
+            device = self._devices[idx % self._num_devices]
             x_slice = x[
                 int(
-                    torch.sum(torch.tensor(self._num_blocks_per_device[:idx])).item()
+                    torch.sum(torch.tensor(self._num_blocks_per_device_call[:idx])).item()
                 ) : int(
                     torch.sum(
-                        torch.tensor(self._num_blocks_per_device[: idx + 1])
+                        torch.tensor(self._num_blocks_per_device_call[: idx + 1])
                     ).item()
                 )
             ].to(device)
             mul_slice = (
-                torch.bmm(self._hinvs[idx], x_slice)
+                torch.bmm(self._hinvs[idx].to(device), x_slice)
                 .reshape(-1)
                 .to(self._devices[0])  # move all to same device after computation
             )
@@ -692,49 +677,46 @@ class FisherInverseFastSmallBlocks(FisherInverse):
         )
         return torch.repeat_interleave(base_block.unsqueeze(0), num_blocks, 0)
 
-    def _add(self, grad_sample: Tensor):
+    def _add(self, grad_sample: Tensor, device, call_idx):
         # add gradient sample into H_invs
         num_params_per_device = [
             num_blocks_device * self._block_size
-            for num_blocks_device in self._num_blocks_per_device
+            for num_blocks_device in self._num_blocks_per_device_call
         ]
 
-        for idx, device in enumerate(self._devices):
-            grad_sample_slice = grad_sample[
-                int(torch.sum(torch.tensor(num_params_per_device[:idx])).item()) : int(
-                    torch.sum(torch.tensor(num_params_per_device[: idx + 1])).item()
-                )
-            ]
-            if len(grad_sample_slice) % self._block_size != 0:
-                # pad to block size
-                pad_vals = torch.zeros(
-                    self._block_size - len(grad_sample_slice) % self._block_size
-                )
-                grad_sample_slice = torch.cat(
-                    [grad_sample_slice, pad_vals.to(grad_sample.device)]
-                )
-            grads_blocked_device = grad_sample_slice.to(device).reshape(
-                (-1, self._block_size)
+        grad_sample_slice = grad_sample[
+            int(torch.sum(torch.tensor(num_params_per_device[:call_idx])).item()) : int(
+                torch.sum(torch.tensor(num_params_per_device[: call_idx + 1])).item()
             )
-
-            hinv_g_slice = torch.bmm(
-                self._hinvs[idx], grads_blocked_device.unsqueeze(2)
+        ]
+        if len(grad_sample_slice) % self._block_size != 0:
+            # pad to block size
+            pad_vals = torch.zeros(
+                self._block_size - len(grad_sample_slice) % self._block_size
             )
+            grad_sample_slice = torch.cat(
+                [grad_sample_slice, pad_vals.to(grad_sample.device)]
+            )
+        grads_blocked_device = grad_sample_slice.to(device).reshape(
+            (-1, self._block_size)
+        )
 
-            denom = (
-                self._num_samples
-                + torch.bmm(grads_blocked_device.unsqueeze(1), hinv_g_slice)
-            ).squeeze(2)
+        hinv_g_slice = torch.bmm(
+            self._hinvs[call_idx], grads_blocked_device.unsqueeze(2)
+        )
 
-            hinv_g_slice = hinv_g_slice.reshape(-1, self._block_size)
+        denom = (
+            self._num_samples
+            + torch.bmm(grads_blocked_device.unsqueeze(1), hinv_g_slice)
+        ).squeeze(2)
 
-            for idx_block in range(self._block_size):
-                # update h_inv calculation across block dims
-                self._hinvs[idx][:, idx_block, :] -= hinv_g_slice * (
-                    hinv_g_slice[:, idx_block].unsqueeze(1) / denom
-                )
+        hinv_g_slice = hinv_g_slice.reshape(-1, self._block_size)
 
-        return self._hinvs
+        for idx_block in range(self._block_size):
+            # update h_inv calculation across block dims
+            self._hinvs[call_idx][:, idx_block, :] -= hinv_g_slice * (
+                hinv_g_slice[:, idx_block].unsqueeze(1) / denom
+            )
 
     def _pad(self, x: Tensor):
         # pad 1-d tensor to num_blocks * block_size
@@ -761,10 +743,23 @@ def compute_hessian_inv(
     if not mfac_options:
         mfac_options = MFACOptions()
     if mfac_options.fisher_block_size:
+        block_mem_size = (
+            (mfac_options.fisher_block_size**2 
+            + 4 * mfac_options.fisher_block_size) 
+            * grads.element_size()
+            )
+        free_device_mem = sum(
+            [
+                torch.cuda.get_device_properties(device=device).total_memory 
+                - torch.cuda.memory_allocated(device=device)
+                for device in mfac_options.available_gpus
+            ]
+        )
+        # FisherInverseFastBlock works only in sequential mode. Unless only one block 
+        # or less can fit on the GPU, FisherInverseFastSmallBlocks should be used
         block_fisher_class = (
             FisherInverseFastSmallBlocks
-            if mfac_options.fisher_block_size <= 512
-            and (mfac_options.fisher_block_size <= mfac_options.num_grads)
+            if block_mem_size * 2 < free_device_mem
             else FisherInverseFastBlock
         )
         return block_fisher_class(
