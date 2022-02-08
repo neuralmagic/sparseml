@@ -22,7 +22,6 @@ import math
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from tkinter import E
 from typing import (
     Any,
     Callable,
