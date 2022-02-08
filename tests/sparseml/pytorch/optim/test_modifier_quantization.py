@@ -76,11 +76,8 @@ def _test_quantizable_module(module, qat_expected, modifier):
     reduce_range = modifier.reduce_range
     quantize_linear_activations = modifier.quantize_linear_activations
 
-    excluded_modules = tuple(
-        getattr(torch.nn, module_name)
-        for module_name in modifier.exclude_module_types or []
-    )
-    qat_expected = qat_expected and not isinstance(module, excluded_modules)
+    excluded_types = modifier.exclude_module_types or []
+    qat_expected = qat_expected and module.__class__.__name__ not in excluded_types
 
     if qat_expected:
         assert hasattr(module, "qconfig") and module.qconfig is not None

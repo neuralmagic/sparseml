@@ -101,7 +101,7 @@ class QuantizationModifier(ScheduledModifier):
         transformer based models such as BERT where the quantized MatMul outputs
         are kept at 32 bits of precision and fake quantizing the outputs harm training
         recovery. Default is True
-    :param exclude_module_types: optional list of module class names from torch.nn
+    :param exclude_module_types: optional list of module class names
         to not propagate quantization configs to. Default is None
     """
 
@@ -286,8 +286,8 @@ class QuantizationModifier(ScheduledModifier):
     @ModifierProp()
     def exclude_module_types(self) -> Union[List[str], None]:
         """
-        :return: optional list of module class names from torch.nn
-        to not propagate quantization configs to. Default is None
+        :return: optional list of module class names to not propagate
+            quantization configs to. Default is None
         """
         return self._exclude_module_types
 
@@ -464,19 +464,9 @@ class QuantizationModifier(ScheduledModifier):
     def _strip_excluded_module_qconfigs(self, module: Module):
         if not self._exclude_module_types:
             return
-        excluded_classes = []
-        for class_name in self._exclude_module_types:
-            try:
-                module_class = getattr(torch.nn, class_name)
-            except Exception:
-                raise RuntimeError(
-                    f"Unable to import {class_name} from torch.nn. "
-                    "Values in exclude_module_types should be importable from torch.nn"
-                )
-            excluded_classes.append(module_class)
-        excluded_classes = tuple(excluded_classes)
+        excluded_classes = set(self._exclude_module_types)
         for submodule in module.modules():
-            if isinstance(submodule, excluded_classes) and hasattr(
+            if submodule.__class__.__name__ in excluded_classes and hasattr(
                 submodule, "qconfig"
             ):
                 submodule.qconfig = None
