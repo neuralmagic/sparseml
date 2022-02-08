@@ -20,7 +20,7 @@ including unstructured and four block
 
 import random
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Optional, Union
+from typing import List, Optional, Union
 
 import torch
 from torch import Tensor

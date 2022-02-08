@@ -20,12 +20,13 @@ Base classes for creating modifiers for pruning algorithms
 import math
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
+from sparseml.optim.modifier import BaseModifier
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.modifier import ModifierProp, ScheduledUpdateModifier
 from sparseml.pytorch.optim.pruning.mask_creator import PruningMaskCreator
@@ -41,7 +42,6 @@ from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import (
     ALL_PRUNABLE_TOKEN,
     ALL_TOKEN,
-    convert_to_bool,
     interpolate,
     validate_str_iterable,
 )
@@ -144,6 +144,13 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         self._applied_sparsity = None
         self._pre_step_completed = False
         self._sparsity_applied = False
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.pruning]
 
     @abstractmethod
     def _get_mask_creator(self) -> PruningMaskCreator:
@@ -344,8 +351,8 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
     ):
         """
         Performs any tracking or updates before the optimizer step is applied. Useful
-        for tracking gradient values between backwards pass and optimizer step if optimizer
-        clips gradients
+        for tracking gradient values between backwards pass and optimizer step if
+        optimizer clips gradients
 
         :param module: module to modify
         :param optimizer: optimizer to modify

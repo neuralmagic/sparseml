@@ -16,6 +16,8 @@
 Pruning modifiers and utilities to support their creation
 """
 
+# flake8: noqa
+
 
 from .mask_creator import *
 from .mask_params import *

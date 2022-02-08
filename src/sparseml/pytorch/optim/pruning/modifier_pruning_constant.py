@@ -17,9 +17,8 @@ Modifiers classes related to holding sparsity level constant for finetuning or
 transfer learning
 """
 
-from typing import Dict, List, Union
+from typing import List, Union
 
-import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 

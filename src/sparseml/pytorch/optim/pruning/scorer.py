@@ -18,9 +18,8 @@ Classes for tracking and scoring model parameters to generate pruning scores
 
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
-import torch
 import torch.distributed as dist
 from torch import Tensor
 from torch.nn import Parameter
