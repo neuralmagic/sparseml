@@ -28,8 +28,8 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Optional
 from functools import partial
+from typing import Optional
 
 import transformers
 from datasets import load_dataset, load_metric
@@ -304,7 +304,6 @@ def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
     parser = HfArgumentParser(
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
@@ -316,9 +315,6 @@ def main():
         )
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
-    import torch
-    training_args = torch.load("training_args.bin")
 
     # Detecting last checkpoint.
     last_checkpoint = None

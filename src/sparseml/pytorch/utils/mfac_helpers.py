@@ -17,10 +17,12 @@ Helper functions for performing Matrix-Free Approximate Curvature (M-FAC)
 pruning.
 """
 
+import logging
 import math
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from tkinter import E
 from typing import (
     Any,
     Callable,
@@ -38,6 +40,10 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.parallel.parallel_apply import parallel_apply
+
+
+_LOGGER = logging.getLogger(__name__)
+BYTES_IN_GIB = 1073741824
 
 
 __all__ = [
@@ -275,13 +281,13 @@ class FisherInverseFastBlock(FisherInverse):
         self._devices = devices or ["cpu"]
 
         self._fisher_inv_blocks = []
-      
+
         for block_start_idx in range(0, grads.shape[1], self._block_size):
             block = (
-                    grads[:, block_start_idx : (block_start_idx + self._block_size)]
-                    .to(self._devices[0])
-                    .contiguous()
-                )
+                grads[:, block_start_idx : (block_start_idx + self._block_size)]
+                .to(self._devices[0])
+                .contiguous()
+            )
             fisher_inv_block = FisherInverseFast(block, damp=damp)
             self._fisher_inv_blocks.append(fisher_inv_block.to("cpu"))
             del block
@@ -590,41 +596,101 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
         # Liberal estimate of memory allocated to drivers. To get accurate memory
         # reading, gputil or similar library should be used
-        static_allocated_memory_frac = .2
+        static_allocated_memory_frac = 0.2
         remaining_blocks = self._num_blocks
-        self._device_calls = 0
+        self._device_suite_calls = 0
+        prev_free_memory = None
         torch.cuda.empty_cache()
+        _LOGGER.debug("Starting FisherInverseFastSmallBlocks")
         while remaining_blocks > 0:
             for device in devices:
-                free_device_memory = math.floor((torch.cuda.get_device_properties(device=device).total_memory - torch.cuda.memory_allocated(device=device))*(1 - static_allocated_memory_frac))
+                free_device_memory = math.floor(
+                    (
+                        torch.cuda.get_device_properties(device=device).total_memory
+                        - torch.cuda.memory_allocated(device=device)
+                    )
+                    * (1 - static_allocated_memory_frac)
+                )
+                prev_free_memory = free_device_memory
+                _LOGGER.debug(f"Free memory on {device} - {free_device_memory}")
+                if free_device_memory < prev_free_memory:
+                    _LOGGER.debug(
+                        f"WARNING - GPU memory not cleanly freed. Found {prev_free_memory - free_device_memory}"
+                        f"less bytes / {prev_free_memory - free_device_memory/BYTES_IN_GIB}"
+                        f"since the last iteration"
+                    )
                 self._num_blocks_per_device_call.append(
                     min(
                         remaining_blocks,
-                        math.ceil(free_device_memory / (self._block_size * self._block_size * grads.element_size()))
+                        math.ceil(
+                            free_device_memory
+                            / (
+                                self._block_size
+                                * self._block_size
+                                * grads.element_size()
+                            )
+                        ),
                     )
                 )
                 remaining_blocks -= self._num_blocks_per_device_call[-1]
+                _LOGGER.debug(
+                    f"Allocating {self._num_blocks_per_device_call[-1]} blocks to"
+                    f"device {device}. {remaining_blocks} blocks remaining"
+                )
                 if remaining_blocks <= 0:
                     break
 
             for idx, device in enumerate(devices):
-                call_idx = idx + self._device_calls * self._num_devices
+                call_idx = idx + self._device_suite_calls * self._num_devices
 
                 # initialize H_invs on each device
                 num_blocks = self._num_blocks_per_device_call[call_idx]
                 try:
-                    self._hinvs.append(self._init_hinv(num_blocks, damp, self._devices[idx], grads.dtype))
-                except:
-                    self._hinvs.append(self._init_hinv(num_blocks//2, damp, self._devices[idx], grads.dtype))
+                    self._hinvs.append(
+                        self._init_hinv(
+                            num_blocks, damp, self._devices[idx], grads.dtype
+                        )
+                    )
+                    _LOGGER.debug(
+                        f"Initialized H^-1 for {num_blocks} blocks on {self._devices[idx]}"
+                    )
+                except Exception as error_msg:
+                    _LOGGER.debug(
+                        f"{error_msg}"
+                        f"Initialization of H^-1 for {num_blocks} blocks on {self._devices[idx]} failed"
+                        f"Retrying with {num_blocks//2} blocks"
+                    )
+                    self._hinvs.append(
+                        self._init_hinv(
+                            num_blocks // 2, damp, self._devices[idx], grads.dtype
+                        )
+                    )
                     self._num_blocks_per_device_call[call_idx] //= 2
                     remaining_blocks += self._num_blocks_per_device_call[call_idx]
+                    _LOGGER.debug(
+                        f"Initialized H^-1 for {num_blocks//2} blocks on {self._devices[idx]}"
+                        f"remaining blocks increased to {remaining_blocks}"
+                    )
 
                 # build hinv_g values from grad samples
+                _LOGGER.debug(
+                    "Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
+                )
                 for sample_idx in range(self._num_samples):
                     self._add(grads[sample_idx, :], device, call_idx)
                 self._hinvs[call_idx] = self._hinvs[call_idx].to("cpu")
+                _LOGGER.debug("Finished H^-1 calculation and moved mat to CPU")
 
-            self._device_calls += 1
+            self._device_suite_calls += 1
+
+        if sum(self._num_blocks_per_device_call) != self._num_blocks:
+            _LOGGER.debug(
+                "WARNING - Number of blocks processed does not equal to total number of"
+                "blocks."
+                f"Total blocks - {self._num_blocks}"
+                f"Processed blocks - {sum(self._num_blocks_per_device_call)}"
+            )
+        _LOGGER.debug("FisherInverseFastSmallBlocks call complete")
 
     def diag(self) -> Tensor:
         """
@@ -649,7 +715,9 @@ class FisherInverseFastSmallBlocks(FisherInverse):
             device = self._devices[idx % self._num_devices]
             x_slice = x[
                 int(
-                    torch.sum(torch.tensor(self._num_blocks_per_device_call[:idx])).item()
+                    torch.sum(
+                        torch.tensor(self._num_blocks_per_device_call[:idx])
+                    ).item()
                 ) : int(
                     torch.sum(
                         torch.tensor(self._num_blocks_per_device_call[: idx + 1])
@@ -741,27 +809,39 @@ def compute_hessian_inv(
         Fisher approximation of the Hessian inverse
     """
     if not mfac_options:
+        _LOGGER.info("No M-FAC options found - using defaults")
         mfac_options = MFACOptions()
     if mfac_options.fisher_block_size:
         block_mem_size = (
-            (mfac_options.fisher_block_size**2 
-            + 4 * mfac_options.fisher_block_size) 
-            * grads.element_size()
-            )
+            mfac_options.fisher_block_size ** 2 + 4 * mfac_options.fisher_block_size
+        ) * grads.element_size()
+        _LOGGER.debug(
+            f"Calculated Fisher block with size {mfac_options.fisher_block_size}"
+            f"to occupy {block_mem_size} bytes/ {block_mem_size/BYTES_IN_GIB} GiB in memory"
+        )
         free_device_mem = sum(
             [
-                torch.cuda.get_device_properties(device=device).total_memory 
+                torch.cuda.get_device_properties(device=device).total_memory
                 - torch.cuda.memory_allocated(device=device)
                 for device in mfac_options.available_gpus
             ]
         )
-        # FisherInverseFastBlock works only in sequential mode. Unless only one block 
-        # or less can fit on the GPU, FisherInverseFastSmallBlocks should be used
-        block_fisher_class = (
-            FisherInverseFastSmallBlocks
-            if block_mem_size * 2 < free_device_mem
-            else FisherInverseFastBlock
+        _LOGGER.debug(
+            f"Total free memory on devices: {mfac_options.available_gpus}"
+            f"found to be {free_device_mem/BYTES_IN_GIB} GiB"
         )
+
+        # FisherInverseFastBlock works only in sequential mode. Unless only one block
+        # or less can fit on the GPU, FisherInverseFastSmallBlocks should be used
+        if block_mem_size * 2 < free_device_mem:
+            _LOGGER.info("Using Small Block Fast Fisher Inverse Implementation")
+            block_fisher_class = FisherInverseFastSmallBlocks
+        else:
+            _LOGGER.info(
+                "Large block size detected - Using Fast Block Fisher Inverse Implementation"
+            )
+            block_fisher_class = FisherInverseFastBlock
+
         return block_fisher_class(
             grads,
             mfac_options.fisher_block_size,

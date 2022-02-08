@@ -16,6 +16,7 @@
 Modifiers for inducing / enforcing kernel sparsity (model pruning)
 on models while pruning.
 """
+import logging
 import math
 from abc import abstractmethod
 from collections import OrderedDict
@@ -59,6 +60,8 @@ from sparseml.utils import (
     validate_str_iterable,
 )
 
+
+_LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "LegacyGMPruningModifier",
@@ -1108,7 +1111,7 @@ class MFACPruningModifier(_GMPruningModifier):
         channels, or a SparsityMaskCreator object. default is 'unstructured'
     :param global_sparsity: set True to enable global pruning. if False, pruning will
         be layer-wise. Default is False
-    :param use_gradient_buffering: Optional bool to use gradient buffering instead of 
+    :param use_gradient_buffering: Optional bool to use gradient buffering instead of
     grad sampling. By default, grad sampling is always used when available
     :param mfac_options: Dictionary of key words specifying arguments for the M-FAC
         pruning run. num_grads controls the number of gradient samples that are kept,
@@ -1193,6 +1196,7 @@ class MFACPruningModifier(_GMPruningModifier):
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
+        _LOGGER.debug("Initializing MFACPruningModifier")
         if "grad_sampler" in kwargs and self._use_gradient_buffering is not True:
             # set grad sampler, must be done before initialize in case pruning step
             # occurs on initialize epoch
@@ -1202,12 +1206,15 @@ class MFACPruningModifier(_GMPruningModifier):
                     "grad_sampler must be an instance of the GradSampler class"
                 )
             self._grad_sampler = grad_sampler
+            _LOGGER.debug("Using provided GradSampler")
 
         elif self._use_gradient_buffering is False:
             raise RuntimeError(
-                    "grad_sampler must be provided when use_gradient_buffering is set" 
-                    "to False"
-                )
+                "grad_sampler must be provided when use_gradient_buffering is set"
+                "to False"
+            )
+        else:
+            _LOGGER.debug("Using gradient buffering")
 
         super().initialize(module, epoch, loggers, **kwargs)
 
@@ -1218,6 +1225,7 @@ class MFACPruningModifier(_GMPruningModifier):
     def _check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
     ):
+        _LOGGER.debug("Running M-FAC Pruning")
         # create grads for pne-shot pruning
         if self._grad_sampler is not None:
             self.module_masks.scorer.buffer_grads = True  # enable buffering
@@ -1253,8 +1261,10 @@ class MFACPruningModifier(_GMPruningModifier):
             self._applied_sparsity or 0.0
         )
 
+        _LOGGER.debug("Starting to collect {num_grads} grads with GradSampler")
         for _ in grad_sampler.iter_module_backwards(module, num_grads):
             self._module_masks.pre_optim_step_update()
+        _LOGGER.debug("GradSampler grad collection complete")
 
 
 @PyTorchModifierYAML()
