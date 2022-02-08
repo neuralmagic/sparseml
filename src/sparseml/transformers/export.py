@@ -183,8 +183,10 @@ def export_transformer_to_onnx(
         "", return_tensors="pt", padding=PaddingStrategy.MAX_LENGTH.value
     ).data  # Dict[Tensor]
 
-    # Rearrange inputs' keys to match those defined by model foward func
+    # Rearrange inputs' keys to match those defined by model foward func, which
+    # seem to define how the order of inputs is determined in the exported model
     forward_args_spec = inspect.getfullargspec(model.__class__.forward)
+    dropped = [f for f in inputs.keys() if f not in forward_args_spec.args]
     inputs = collections.OrderedDict(
         [
             (f, inputs[f][0].reshape(1, -1))
@@ -192,6 +194,11 @@ def export_transformer_to_onnx(
             if f in inputs
         ]
     )
+    if dropped:
+        _LOGGER.warning(
+            "The following inputs were not present in the model forward function "
+            f"and therefore dropped from ONNX export: {dropped}"
+        )
 
     inputs_shapes = {
         key: (
