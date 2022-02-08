@@ -281,15 +281,18 @@ class FisherInverseFastBlock(FisherInverse):
 
         self._fisher_inv_blocks = []
 
+        _LOGGER.debug("Starting FisherInverseFastBlock")
         for block_start_idx in range(0, grads.shape[1], self._block_size):
             block = (
                 grads[:, block_start_idx : (block_start_idx + self._block_size)]
                 .to(self._devices[0])
                 .contiguous()
             )
+            
             fisher_inv_block = FisherInverseFast(block, damp=damp)
             self._fisher_inv_blocks.append(fisher_inv_block.to("cpu"))
             del block
+        _LOGGER.debug("FisherInverseFastBlock H^-1 Calculation Complete")
 
     def diag(self):
         """
