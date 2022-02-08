@@ -28,7 +28,6 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from functools import partial
 from typing import Optional
 
 import transformers
@@ -304,6 +303,7 @@ def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
+    
     parser = HfArgumentParser(
         (ModelArguments, DataTrainingArguments, TrainingArguments)
     )
