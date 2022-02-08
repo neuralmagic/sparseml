@@ -21,6 +21,7 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
+import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
@@ -100,6 +101,8 @@ class QuantizationModifier(ScheduledModifier):
         transformer based models such as BERT where the quantized MatMul outputs
         are kept at 32 bits of precision and fake quantizing the outputs harm training
         recovery. Default is True
+    :param exclude_module_types: optional list of module class names from torch.nn
+        to not propagate quantization configs to. Default is None
     """
 
     def __init__(
@@ -114,6 +117,7 @@ class QuantizationModifier(ScheduledModifier):
         quantize_embeddings: bool = True,
         reduce_range: bool = False,
         quantize_linear_activations: bool = True,
+        exclude_module_types: Union[List[str], None] = None,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -138,6 +142,7 @@ class QuantizationModifier(ScheduledModifier):
         self._quantize_embeddings = quantize_embeddings
         self._reduce_range = reduce_range
         self._quantize_linear_activations = quantize_linear_activations
+        self._exclude_module_types = exclude_module_types
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -277,6 +282,14 @@ class QuantizationModifier(ScheduledModifier):
             training recovery
         """
         return self._quantize_linear_activations
+
+    @ModifierProp()
+    def exclude_module_types(self) -> Union[List[str], None]:
+        """
+        :return: optional list of module class names from torch.nn
+        to not propagate quantization configs to. Default is None
+        """
+        return self._exclude_module_types
 
     def initialize(
         self,
@@ -423,10 +436,15 @@ class QuantizationModifier(ScheduledModifier):
             if not self._quantize_linear_activations:
                 remove_activation_qat_by_layer_name(quant_module, ["Linear"])
 
+        # remove qconfigs for module types in exclude_module_types
+        if self._exclude_module_types:
+            self._strip_excluded_module_qconfigs(module)
+
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)
         if self._quantize_embeddings:
             prepare_embeddings_qat(module, reduce_range=self._reduce_range)
+
         self._qat_enabled = True
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
@@ -442,6 +460,26 @@ class QuantizationModifier(ScheduledModifier):
             and epoch >= self._freeze_bn_stats_epoch
             and not self._bn_stats_frozen
         )
+
+    def _strip_excluded_module_qconfigs(self, module: Module):
+        if not self._exclude_module_types:
+            return
+        excluded_classes = []
+        for class_name in self._exclude_module_types:
+            try:
+                module_class = getattr(torch.nn, class_name)
+            except Exception:
+                raise RuntimeError(
+                    f"Unable to import {class_name} from torch.nn. "
+                    "Values in exclude_module_types should be importable from torch.nn"
+                )
+            excluded_classes.append(module_class)
+        excluded_classes = tuple(excluded_classes)
+        for submodule in module.modules():
+            if isinstance(submodule, excluded_classes) and hasattr(
+                submodule, "qconfig"
+            ):
+                submodule.qconfig = None
 
     def _validate_params(self):
         if (
