@@ -234,6 +234,13 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         """
         return self._allow_reintroduction
 
+    @property
+    def applied_sparsity(self) -> float:
+        """
+        :return: latest sparsity value applied
+        """
+        return self._applied_sparsity
+
     def initialize(
         self,
         module: Module,
@@ -572,7 +579,7 @@ class BaseGradualPruningModifier(BasePruningModifier):
             global_sparsity=global_sparsity,
             allow_reintroduction=allow_reintroduction,
             init_sparsity=init_sparsity,
-            final_sparsity=final_sparsity,
+            final_sparsity=self._final_sparsity,
             inter_func=inter_func,
             **kwargs,
         )
@@ -611,7 +618,7 @@ class BaseGradualPruningModifier(BasePruningModifier):
             )
         )
 
-    @ModifierProp
+    @ModifierProp()
     def init_sparsity(self) -> float:
         """
         :return: initial sparsity value this modifier prunes to

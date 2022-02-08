@@ -38,8 +38,9 @@ from sparseml.utils import ALL_TOKEN
 
 __all__ = [
     "MagnitudePruningParamsScorer",
+    "MagnitudePruningModifier",
     "GMPruningModifier",
-    "GlobalMagnitudeModifier",
+    "GlobalMagnitudePruningModifier",
 ]
 
 
@@ -163,7 +164,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
 
 
 @PyTorchModifierYAML()
-class GlobalMagnitudeModifier(GMPruningModifier):
+class MagnitudePruningModifier(GMPruningModifier):
     """
     Gradually applies kernel sparsity to a given parameter or parameters from
     init_sparsity until final_sparsity is reached over a given amount of time
@@ -172,7 +173,58 @@ class GlobalMagnitudeModifier(GMPruningModifier):
     Applies based on magnitude pruning unless otherwise specified by mask_type.
 
     | Sample yaml:
-    |   !GMPruningModifier
+    |   !MagnutidePruningModifier
+    |       init_sparsity: 0.05
+    |       final_sparsity: 0.8
+    |       start_epoch: 0.0
+    |       end_epoch: 10.0
+    |       update_frequency: 1.0
+    |       params: ["re:.*weight"]
+    |       leave_enabled: True
+    |       inter_func: cubic
+    |       log_types: __ALL__
+    |       mask_type: unstructured
+
+    :param init_sparsity: the initial sparsity for the param to start with at
+        start_epoch
+    :param final_sparsity: the final sparsity for the param to end with at end_epoch.
+        Can also be a Dict of final sparsity values to a list of parameters to apply
+        them to. If given a Dict, then params must be set to [] and the params to
+        be pruned will be read from the final_sparsity Dict
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The number of epochs or fraction of epochs to update at
+        between start and end
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers' weights. If a sparsity to param mapping is defined by
+        final_sparsity, then params should be set to []
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param inter_func: the type of interpolation function to use:
+        [linear, cubic, inverse_cubic]
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
+    :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
+        for unstructured pruning or 'block' for four block pruning
+    """
+    # just an alias for GMPruningModifier
+    pass
+
+
+@PyTorchModifierYAML()
+class GlobalMagnitudePruningModifier(GMPruningModifier):
+    """
+    Gradually applies kernel sparsity to a given parameter or parameters from
+    init_sparsity until final_sparsity is reached over a given amount of time
+    and applied with an interpolated function for each step taken.
+
+    Applies based on magnitude pruning unless otherwise specified by mask_type.
+
+    | Sample yaml:
+    |   !GlobalMagnitudePruningModifier
     |       init_sparsity: 0.05
     |       final_sparsity: 0.8
     |       start_epoch: 0.0
@@ -223,7 +275,7 @@ class GlobalMagnitudeModifier(GMPruningModifier):
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: str = "unstructured",
     ):
-        super(GlobalMagnitudeModifier, self).__init__(
+        super(GlobalMagnitudePruningModifier, self).__init__(
             params=params,
             init_sparsity=init_sparsity,
             final_sparsity=final_sparsity,
