@@ -22,7 +22,6 @@ import glob
 import logging
 import math
 import os
-from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
