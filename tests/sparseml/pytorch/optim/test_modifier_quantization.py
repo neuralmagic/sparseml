@@ -15,7 +15,6 @@
 import os
 
 import pytest
-import torch
 from torch.nn import Conv2d, Identity, Linear
 
 from sparseml.pytorch.optim import QuantizationModifier

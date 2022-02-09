@@ -21,7 +21,6 @@ PyTorch version must support quantization (>=1.2, ONNX export support introduced
 
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
-import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
