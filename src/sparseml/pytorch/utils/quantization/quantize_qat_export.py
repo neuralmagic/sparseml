@@ -264,7 +264,11 @@ def _delete_repeated_qat_blocks(model: ModelProto):
         nodes_to_delete.append(dequant_node_1)
 
     for n in nodes_to_delete:
-        delete_quant_node(model, n)
+        delete_quant_node(model, n, keep_params=True)
+
+    # cleanup graph
+    graph.update()
+    graph.delete_unused_initializers()
 
 
 def _attribute_to_kwarg(attribute: onnx.AttributeProto):
@@ -1214,12 +1218,14 @@ def _quantize_qat_embedding(model: ModelProto):
             qdq_output = False
 
         if qdq_output:
-            # delete unnecessary quantize and dequantize ops
-            delete_quant_node(model, input_quant_node, keep_params=False)
-            delete_quant_node(model, input_dequant_node, keep_params=False)
-            delete_quant_node(model, output_quant_node, keep_params=False)
             # forward gather output to dequant input
             output_dequant_node.input[0] = gather_node.output[0]
+            output_dequant_node.input[1] = input_quant_node.input[1]
+            output_dequant_node.input[2] = input_quant_node.input[2]
+            # delete unnecessary quantize and dequantize ops
+            delete_quant_node(model, input_quant_node, keep_params=True)
+            delete_quant_node(model, input_dequant_node, keep_params=False)
+            delete_quant_node(model, output_quant_node, keep_params=False)
 
         else:
             # use input dequant to dequantize output
@@ -1265,7 +1271,10 @@ def _remove_duplicate_quantize_ops(model: ModelProto):
                 _replace_input_id_model(
                     model, remove_node.output[0], keep_node.output[0]
                 )
-                remove_node_and_params_from_graph(model, remove_node)
+                delete_quant_node(model, remove_node, keep_params=True)
+    # cleanup graph
+    graph.update()
+    graph.delete_unused_initializers()
 
 
 def _cleanup_unused_quants(model: ModelProto):
@@ -1296,15 +1305,18 @@ def _cleanup_unused_quants(model: ModelProto):
             continue
 
         # Forward QuantizeLinear input to DequantizeLinear output
-        for child in dequant_children:
-            _replace_input_id_model(model, dequant_node.output[0], quant_node.input[0])
+        _replace_input_id_model(model, dequant_node.output[0], quant_node.input[0])
 
         # Remove QuantizeLinear->DequantizeLinear block
         nodes_to_delete.append(quant_node)
         nodes_to_delete.append(dequant_node)
 
     for n in nodes_to_delete:
-        delete_quant_node(model, n)
+        delete_quant_node(model, n, keep_params=True)
+
+    # update graph
+    graph.update()
+    graph.delete_unused_initializers()
 
 
 def quantize_torch_qat_export(
