@@ -29,9 +29,9 @@ from torch.optim.optimizer import Optimizer
 from sparseml.optim.modifier import BaseModifier
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.modifier import ModifierProp, ScheduledUpdateModifier
-from sparseml.pytorch.optim.pruning.mask_creator import PruningMaskCreator
-from sparseml.pytorch.optim.pruning.mask_params import ModuleParamPruningMask
-from sparseml.pytorch.optim.pruning.scorer import PruningParamsScorer
+from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
+from sparseml.pytorch.sparsification.pruning.mask_params import ModuleParamPruningMask
+from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
 from sparseml.pytorch.utils import (
     NamedLayerParam,
     get_named_layers_and_params_by_regex,

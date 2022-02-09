@@ -23,15 +23,15 @@ from torch import Tensor
 from torch.nn import Parameter
 
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
-from sparseml.pytorch.optim.pruning.mask_creator import (
+from sparseml.pytorch.sparsification.pruning.mask_creator import (
     FourBlockMaskCreator,
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
 )
-from sparseml.pytorch.optim.pruning.modifier_pruning_base import (
+from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BaseGradualPruningModifier,
 )
-from sparseml.pytorch.optim.pruning.scorer import PruningParamsScorer
+from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
 from sparseml.sparsification import GMPruningModifier as BaseGMPruningModifier
 from sparseml.utils import ALL_TOKEN
 

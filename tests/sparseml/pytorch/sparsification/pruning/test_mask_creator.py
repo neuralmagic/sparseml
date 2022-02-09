@@ -15,7 +15,7 @@
 import pytest
 import torch
 
-from sparseml.pytorch.optim.pruning import (
+from sparseml.pytorch.sparsification.pruning import (
     FourBlockMaskCreator,
     GroupedPruningMaskCreator,
     UnstructuredPruningMaskCreator,

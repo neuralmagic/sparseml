@@ -18,20 +18,20 @@ import pytest
 import torch
 
 from flaky import flaky
-from sparseml.pytorch.optim.pruning import (
+from sparseml.pytorch.sparsification.pruning import (
     GlobalMagnitudePruningModifier,
     GMPruningModifier,
     MagnitudePruningModifier,
 )
 from tests.sparseml.pytorch.helpers import LinearNet
-from tests.sparseml.pytorch.optim.pruning.helpers import (
-    pruning_modifier_serialization_vals_test,
-    state_dict_save_load_test,
-)
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledUpdateModifierTest,
     create_optim_adam,
     create_optim_sgd,
+)
+from tests.sparseml.pytorch.sparsification.pruning.helpers import (
+    pruning_modifier_serialization_vals_test,
+    state_dict_save_load_test,
 )
 
 

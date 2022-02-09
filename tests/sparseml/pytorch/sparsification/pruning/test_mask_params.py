@@ -19,7 +19,7 @@ import pytest
 import torch
 from torch.nn import Conv2d, Linear
 
-from sparseml.pytorch.optim.pruning import (
+from sparseml.pytorch.sparsification.pruning import (
     FourBlockMaskCreator,
     GroupedPruningMaskCreator,
     MagnitudePruningParamsScorer,

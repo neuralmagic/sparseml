@@ -23,12 +23,14 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.optim.pruning.mask_creator import (
+from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
 )
-from sparseml.pytorch.optim.pruning.modifier_pruning_base import BasePruningModifier
-from sparseml.pytorch.optim.pruning.scorer import PruningParamsScorer
+from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
+    BasePruningModifier,
+)
+from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
 from sparseml.pytorch.utils import get_prunable_layers, tensor_sparsity
 from sparseml.sparsification import (
     ConstantPruningModifier as BaseConstantPruningModifier,

@@ -24,8 +24,8 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from sparseml.pytorch.optim.pruning.mask_creator import PruningMaskCreator
-from sparseml.pytorch.optim.pruning.scorer import PruningParamsScorer
+from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
+from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
 from sparseml.pytorch.utils import mask_difference
 
 

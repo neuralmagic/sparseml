@@ -22,3 +22,4 @@ algorithms to models within in the PyTorch framework.
 # flake8: noqa
 
 from .info import *
+from .pruning import *
