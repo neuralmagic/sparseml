@@ -1920,7 +1920,7 @@ class ACDCPruningModifier(GMPruningModifier):
         # be sure to apply mask again after optimizer update because
         # weights may have changed (optimizer with momentum, not masking gradient)
         self._module_masks.apply()
-        if self._is_current_phase_decompression and not self._momentum_buffer_empty:
+        if self._is_phase_decompression and not self._momentum_buffer_empty:
             """
             When entering decompression phase check whether momentum buffer is empty.
             If not (this happens always before the first epoch of the decompression phase), reset!
