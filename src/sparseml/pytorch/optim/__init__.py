@@ -38,6 +38,12 @@ from .modifier_quantization import *
 from .modifier_regularizer import *
 from .modifier_thinning import *
 from .optimizer import *
+from .pruning import (
+    ConstantPruningModifier,
+    GlobalMagnitudePruningModifier,
+    GMPruningModifier,
+    MagnitudePruningModifier,
+)
 from .sensitivity_as import *
 from .sensitivity_lr import *
 from .sensitivity_pruning import *

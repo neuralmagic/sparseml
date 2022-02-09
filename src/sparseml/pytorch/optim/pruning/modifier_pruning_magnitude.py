@@ -210,6 +210,7 @@ class MagnitudePruningModifier(GMPruningModifier):
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block' for four block pruning
     """
+
     # just an alias for GMPruningModifier
     pass
 

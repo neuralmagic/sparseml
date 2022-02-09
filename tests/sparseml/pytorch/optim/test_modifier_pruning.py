@@ -23,8 +23,10 @@ from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim import (
     ConstantPruningModifier,
     GlobalMagnitudePruningModifier,
-    GMPruningModifier,
     LayerPruningModifier,
+)
+from sparseml.pytorch.optim import LegacyGMPruningModifier as GMPruningModifier
+from sparseml.pytorch.optim import (
     MagnitudePruningModifier,
     MFACGlobalPruningModifier,
     MFACPruningModifier,
@@ -296,8 +298,8 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
         self.initialize_helper(modifier, model)
         if modifier.start_epoch > 0:
             assert modifier.applied_sparsity is None
-        assert type(load_mask_creator(modifier._mask_type)) == type(  # noqa: E721
-            modifier._mask_creator
+        assert load_mask_creator(modifier._mask_type).__class__.__name__ == (
+            modifier._mask_creator.__class__.__name__
         )
         assert modifier._mask_creator == modifier._module_masks._mask_creator
 
@@ -334,7 +336,7 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
             if not isinstance(applied_sparsities, list):
                 applied_sparsities = [applied_sparsities]
 
-            if not modifier.phased:
+            if not hasattr(modifier, "phased") or not modifier.phased:
                 assert all(
                     applied_sparsity > last_sparsity
                     for applied_sparsity, last_sparsity in zip(
@@ -551,7 +553,7 @@ def test_gm_pruning_yaml(params, final_sparsity):
     mask_type = "filter"
     global_sparsity = False
     yaml_str = f"""
-    !GMPruningModifier
+    !LegacyGMPruningModifier
         init_sparsity: {init_sparsity}
         final_sparsity: {final_sparsity}
         start_epoch: {start_epoch}
@@ -612,10 +614,10 @@ def test_magnitude_pruning_yaml():
     yaml_modifier = MagnitudePruningModifier.load_obj(
         yaml_str
     )  # type: MagnitudePruningModifier
-    serialized_modifier = GMPruningModifier.load_obj(
+    serialized_modifier = MagnitudePruningModifier.load_obj(
         str(yaml_modifier)
     )  # type: MagnitudePruningModifier
-    obj_modifier = GMPruningModifier(
+    obj_modifier = MagnitudePruningModifier(
         init_sparsity=init_sparsity,
         final_sparsity=final_sparsity,
         start_epoch=start_epoch,

@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 import os
 
 import pytest
 import torch
 
 from flaky import flaky
-from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim.pruning import (
     GlobalMagnitudePruningModifier,
     GMPruningModifier,
@@ -189,14 +187,14 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             _test_final_sparsity_applied()
 
-    def state_dict_save_load_test(
+    def test_state_dict_save_load(
         self,
         modifier_lambda,
         model_lambda,
         optim_lambda,
         test_steps_per_epoch,  # noqa: F811
     ):
-        _test_state_dict_save_load(
+        state_dict_save_load_test(
             self,
             modifier_lambda,
             model_lambda,
