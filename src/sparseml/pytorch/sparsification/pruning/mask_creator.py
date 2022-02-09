@@ -40,39 +40,21 @@ class PruningMaskCreator(ABC):
     Subclasses should define all methods for creating masks
     """
 
-    def create_sparsity_masks_from_tensor(self, tensors: List[Tensor]) -> List[Tensor]:
-        """
-        :param tensors: list of tensors to calculate a masks based on their values
-        :return: list of masks derived from each of the given tensors
-        """
-        return [torch.ne(tensor, 0.0).type(tensor.type()) for tensor in tensors]
-
-    @abstractmethod
-    def create_sparsity_masks_from_threshold(
-        self, tensors: List[Tensor], threshold: Union[float, Tensor]
-    ) -> List[Tensor]:
-        """
-        :param tensors: list of tensors to calculate a masks based on their contained
-            values
-        :param threshold: a threshold to determine cutoff for sparsification
-        :return: list of masks derived from each of the given tensors and the threshold
-        """
-        raise NotImplementedError()
-
     @abstractmethod
     def create_sparsity_masks(
         self,
         tensors: List[Tensor],
-        sparsity: Union[float, List[float]],
+        target: Union[float, List[float]],
         global_sparsity: bool = False,
     ) -> List[Tensor]:
         """
         :param tensors: list of tensors to calculate a masks based on their contained
             values
-        :param sparsity: the desired sparsity to reach within the mask
-            (decimal fraction of zeros) can also be a list where each element is a
-            sparsity for a tensor in the same position in the tensor list. If global
-            sparsity is enabled, all values of the sparsity list must be the same
+        :param target: the desired sparsity (decimal fraction of zeros) to reach
+            within the mask or other float target value to base sparsity masks on.
+            Can also be a list where each element is a
+            target for a tensor in the same position in the tensor list. If global
+            sparsity is enabled, all values of the target list must be the same
         :param global_sparsity: if True, sparsity masks will be created such that the
             average sparsity across all given tensors is the target sparsity with the
             lowest global values masked. If False, each tensor will be masked to the
@@ -92,33 +74,19 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
     by their value.  Each mask will correspond to the given tensor.
     """
 
-    def create_sparsity_masks_from_threshold(
-        self, tensors: List[Tensor], threshold: Union[float, Tensor]
-    ) -> List[Tensor]:
-        """
-        :param tensors: list of tensors to calculate a masks based on their contained
-            values
-        :param threshold: a threshold at which to mask values if they are
-            less than it or equal
-        :return: list of masks (0.0 for values that are masked, 1.0 for values that are
-            unmasked) calculated from the tensors values <= threshold are masked,
-            all others are unmasked
-        """
-        return [(tensor > threshold).type(tensor.type()) for tensor in tensors]
-
     def create_sparsity_masks(
         self,
         tensors: List[Tensor],
-        sparsity: Union[float, List[float]],
+        target: Union[float, List[float]],
         global_sparsity: bool = False,
     ) -> List[Tensor]:
         """
         :param tensors: list of tensors to calculate a mask from based on their
             contained values
-        :param sparsity: the desired sparsity to reach within the mask
-            (decimal fraction of zeros) can also be a list where each element is a
-            sparsity for a tensor in the same position in the tensor list. If global
-            sparsity is enabled, all values of the sparsity list must be the same
+        :param target: the desired sparsity (decimal fraction of zeros) to reach
+            within the mask. Can also be a list where each element is a
+            target for a tensor in the same position in the tensor list. If global
+            sparsity is enabled, all values of the target list must be the same
         :param global_sparsity: if True, sparsity masks will be created such that the
             average sparsity across all given tensors is the target sparsity with the
             lowest global values masked. If False, each tensor will be masked to the
@@ -129,6 +97,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             matches the sparsity.  If there are more zeros than the desired sparsity,
             zeros will be randomly chosen to match the target sparsity
         """
+        sparsity = target  # target should be desired sparsity level
         if isinstance(sparsity, float):
             sparsity = [sparsity] * len(tensors)
         if len(sparsity) != len(tensors):
@@ -314,53 +283,19 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         """
         raise NotImplementedError()
 
-    def create_sparsity_masks_from_tensor(self, tensors: List[Tensor]) -> List[Tensor]:
-        """
-        :param tensors: list of tensors to calculate masks based on their values
-        :return: list of masks derived from the values of the tensors grouped by
-            the group_tensor function.
-        """
-        masks = []
-        grouped_tensors = self._group_tensors(tensors)
-        for idx, (tensor, grouped_tensor) in enumerate(zip(tensors, grouped_tensors)):
-            grouped_mask = super().create_sparsity_masks_from_tensor([grouped_tensor])[
-                0
-            ]
-            masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape, idx))
-        return masks
-
-    def create_sparsity_masks_from_threshold(
-        self, tensors: List[Tensor], threshold: Union[float, Tensor]
-    ) -> List[Tensor]:
-        """
-        :param tensors: list of tensors to calculate masks from based on their contained
-            values
-        :param threshold: a threshold of group_tensor values to determine cutoff
-            for sparsification
-        :return: list of masks derived from the tensors and the grouped threshold
-        """
-        masks = []
-        grouped_tensors = self._group_tensors(tensors)
-        for idx, (tensor, grouped_tensor) in enumerate(zip(tensors, grouped_tensors)):
-            grouped_mask = super().create_sparsity_masks_from_threshold(
-                [grouped_tensor], threshold
-            )[0]
-            masks.append(self._map_mask_to_tensor(grouped_mask, tensor.shape, idx))
-        return masks
-
     def create_sparsity_masks(
         self,
         tensors: List[Tensor],
-        sparsity: Union[float, List[float]],
+        target: Union[float, List[float]],
         global_sparsity: bool = False,
     ) -> List[Tensor]:
         """
         :param tensors: list of tensors to calculate masks from based on their contained
             values
-        :param sparsity: the desired sparsity to reach within the mask
-            (decimal fraction of zeros) can also be a list where each element is a
-            sparsity for a tensor in the same position in the tensor list. If global
-            sparsity is enabled, all values of the sparsity list must be the same
+        :param target: the desired sparsity (decimal fraction of zeros) to reach
+            within the mask. Can also be a list where each element is a
+            target for a tensor in the same position in the tensor list. If global
+            sparsity is enabled, all values of the target list must be the same
         :param global_sparsity: if True, sparsity masks will be created such that the
             average sparsity across all given tensors is the target sparsity with the
             lowest global values masked. If False, each tensor will be masked to the
@@ -371,6 +306,7 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
             matches the sparsity and all values mapped to the same group have the same
             value
         """
+        sparsity = target
         grouped_tensors = self._group_tensors(tensors)
         grouped_masks = super().create_sparsity_masks(
             grouped_tensors, sparsity, global_sparsity

@@ -19,18 +19,15 @@ transfer learning
 
 from typing import List, Union
 
+import torch
 from torch import Tensor
-from torch.nn import Module, Parameter
+from torch.nn import Module
 
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.sparsification.pruning.mask_creator import (
-    PruningMaskCreator,
-    UnstructuredPruningMaskCreator,
-)
+from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BasePruningModifier,
 )
-from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
 from sparseml.pytorch.utils import get_prunable_layers, tensor_sparsity
 from sparseml.sparsification import (
     ConstantPruningModifier as BaseConstantPruningModifier,
@@ -38,22 +35,32 @@ from sparseml.sparsification import (
 from sparseml.utils import ALL_TOKEN
 
 
-__all__ = ["ConstantPruningModifier", "IdentityPruningParamsScorer"]
+__all__ = [
+    "ConstantMaskCreator",
+    "ConstantPruningModifier",
+]
 
 
-class IdentityPruningParamsScorer(PruningParamsScorer):
+class ConstantMaskCreator(PruningMaskCreator):
     """
-    Scores parameters based on their current value
-
-    :param params: list of model Parameters to track and score
+    Class for creating sparsity masks that only mask already pruned parameters.
+    i.e. if the value of a paraemeter is 0 it will be masked, otherwise it will
+        remain unmasked
     """
 
-    def score_parameters(self) -> List[Tensor]:
+    def create_sparsity_masks(
+        self,
+        tensors: List[Tensor],
+        target: Union[float, List[float]],
+        global_sparsity: bool = False,
+    ) -> List[Tensor]:
         """
-        :return: List of Tensors the same shapes as the given Parameters where
-            each Parameter's elements are scored by their magnitude (absolute value)
+        :param tensors: tensors to generate constant masks for
+        :param target: not used for constant pruning
+        :param global_sparsity: not used for constant pruning
+        :return: list of masks derived from pruned values of each of the given tensors
         """
-        return [param.data for param in self._params]
+        return [torch.ne(tensor, 0.0).type(tensor.type()) for tensor in tensors]
 
 
 @PyTorchModifierYAML()
@@ -126,37 +133,16 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
         """
         :return: mask creator object to be used by this pruning algorithm
         """
-        return UnstructuredPruningMaskCreator()
+        return ConstantMaskCreator()
 
-    def _get_scorer(self, params: List[Parameter]) -> PruningParamsScorer:
+    def _get_scorer(self, *args, **kwargs):
         """
-        :param params: list of Parameters for scorer to track
-        :return: param scorer object to be used by this pruning algorithm
+        :return: None, no scorer is used, defaults to using raw parameter values
         """
-        return IdentityPruningParamsScorer(params)
+        return None
 
     def get_applied_sparsity_for_epoch(self, *args, **kwargs):
         """
         :return: None, sparsity is set by the existing levels
         """
         return None
-
-    def check_mask_update(
-        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
-    ):
-        """
-        Override normal pruning update to only update masks on start and end
-        to keep current sparsity level constant
-
-        :param module: module to modify
-        :param epoch: current epoch and progress within the current epoch
-        :param steps_per_epoch: number of steps taken within each epoch
-            (calculate batch number using this and epoch)
-        """
-        if self.start_pending(epoch, steps_per_epoch):
-            self._module_masks.set_param_masks_from_weights()
-            self._module_masks.enabled = True
-
-        if self.end_pending(epoch, steps_per_epoch):
-            self._module_masks.set_param_masks_from_weights()
-            self._module_masks.enabled = False

@@ -25,7 +25,6 @@ from sparseml.pytorch.utils import tensor_sparsity
 
 def _test_sparsity_mask_creator(tensor_shapes, mask_creator, sparsity_val, device):
     tensors = [torch.randn(tensor_shape).to(device) for tensor_shape in tensor_shapes]
-    initial_masks = mask_creator.create_sparsity_masks_from_tensor(tensors)
     update_masks = mask_creator.create_sparsity_masks(tensors, sparsity_val)
 
     if isinstance(sparsity_val, float):
@@ -35,7 +34,7 @@ def _test_sparsity_mask_creator(tensor_shapes, mask_creator, sparsity_val, devic
         assert abs(tensor_sparsity(update_mask) - target_sparsity) < 1e-2
 
     if isinstance(mask_creator, GroupedPruningMaskCreator):
-        _test_grouped_masks(initial_masks + update_masks, mask_creator)
+        _test_grouped_masks(update_masks, mask_creator)
 
 
 def _test_grouped_masks(masks, mask_creator):

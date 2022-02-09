@@ -18,7 +18,7 @@ aka model pruning
 """
 
 from functools import partial
-from typing import List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -26,7 +26,7 @@ from torch.nn import Module, Parameter
 
 from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
-from sparseml.pytorch.utils import mask_difference
+from sparseml.pytorch.utils import mask_difference, tensor_sparsity
 
 
 __all__ = [
@@ -65,7 +65,7 @@ class ModuleParamPruningMask(object):
         self,
         layers: List[Module],
         mask_creator: PruningMaskCreator,
-        scorer: PruningParamsScorer,
+        scorer: Optional[PruningParamsScorer],
         param_names: Union[str, List[str]] = "weight",
         store_init: bool = False,
         store_unmasked: bool = False,
@@ -118,6 +118,10 @@ class ModuleParamPruningMask(object):
         # movement pruning requires weight reintroduction
         self._allow_reintroduction = allow_reintroduction
         self._store_unmasked |= self._allow_reintroduction  # to support reintroduction
+
+        # override to False if using thinning and mask creator target
+        # is not sparsity level
+        self.adjust_target_sparsity_for_thinning = True
 
         self._setup_params_init()
         self._setup_params_unmasked()
@@ -323,74 +327,55 @@ class ModuleParamPruningMask(object):
 
             mask_diffs.append(mask_diff)
 
-        self._scorer.mask_update(masks, mask_diffs)
+        if self._scorer:
+            self._scorer.mask_update(masks, mask_diffs)
 
         if not self._allow_reintroduction:
             self.apply()
 
         return mask_diffs
 
-    def set_param_masks_from_weights(self) -> List[Tensor]:
-        """
-        Convenience function to set the parameter masks such that the
-        mask is 1 if a parameter value is non zero and 0 otherwise,
-        unless otherwise defined by this object's mask_creator
-        """
-        masks = self._mask_creator.create_sparsity_masks_from_tensor(
-            [param.data for param in self._params]
-        )
-
-        return self.set_param_masks(masks)
-
-    def set_param_masks_from_abs_threshold(
-        self, threshold: Union[float, Tensor]
-    ) -> List[Tensor]:
-        """
-        Convenience function to set the parameter masks such that if
-        abs(value) <= threshold the it a value is masked to 0
-
-        :param threshold: the threshold at which all values will be masked to 0
-        """
-        param_scores = self._scorer.score_parameters()
-        masks = self._mask_creator.create_sparsity_masks_from_threshold(
-            param_scores, threshold
-        )
-
-        return self.set_param_masks(masks)
-
-    def set_param_masks_from_sparsity(
-        self, sparsity: Union[float, List[float]]
-    ) -> List[Tensor]:
+    def update_param_masks(self, target: Union[float, List[float]]) -> List[Tensor]:
         """
         Convenience function to set the parameter masks such that each masks have an
         amount of masked values such that the percentage equals the sparsity amount
         given. Masks the absolute smallest values up until sparsity is reached.
 
-        :param sparsity: the decimal sparsity to set the param mask to can also be a
-            list where each element is a sparsity for a tensor in the same position in
-            the tensor list. If global sparsity is enabled, all values of the sparsity
-            list must be the same
+        :param target: the desired sparsity (decimal fraction of zeros) to reach
+            within the mask or other float target value to base sparsity masks on.
+            Can also be a list where each element is a
+            target for a tensor in the same position in the tensor list. If global
+            sparsity is enabled, all values of the target list must be the same
         """
-        param_scores = self._scorer.score_parameters()
+        if self._scorer:
+            param_scores = self._scorer.score_parameters()
+        else:
+            # if scorer is not set, use param data
+            param_scores = self.params_data
 
-        if isinstance(sparsity, float):
-            sparsity = [sparsity] * len(self._params)
-        for idx, sparsity_val in enumerate(sparsity):
-            applied_thinning = self._params_applied_thinning[idx]
-            if applied_thinning > 0.0:
-                # adjust sparsity for thinned (compressed) layer param
-                # derived from:
-                # remaining_num_els * (1 - adjusted_sparsity) = \
-                #   orig_num_els * (1 - sparsity)
-                # with applied_thinning = 1 - (remaining_num_els / orig_num_els)
-                sparsity[idx] = (sparsity_val - applied_thinning) / (
-                    1 - applied_thinning
-                )
+        if not isinstance(target, Iterable):
+            target = [target] * len(self._params)
+        if self.adjust_target_sparsity_for_thinning:
+            for idx, sparsity_val in enumerate(target):
+                applied_thinning = self._params_applied_thinning[idx]
+                if applied_thinning > 0.0:
+                    # adjust sparsity for thinned (compressed) layer param
+                    # derived from:
+                    # remaining_num_els * (1 - adjusted_sparsity) = \
+                    #   orig_num_els * (1 - sparsity)
+                    # with applied_thinning = 1 - (remaining_num_els / orig_num_els)
+                    target[idx] = (sparsity_val - applied_thinning) / (
+                        1 - applied_thinning
+                    )
 
         masks = self._mask_creator.create_sparsity_masks(
-            param_scores, sparsity, global_sparsity=self._global_sparsity
+            param_scores, target=target, global_sparsity=self._global_sparsity
         )
-        self._scorer.update_last_applied_sparsity(sparsity)
+
+        if self._scorer:
+            self._scorer.update_last_applied_sparsity(
+                tensor_sparsity(self.params_data[0])
+            )
 
         return self.set_param_masks(masks)
 
@@ -430,7 +415,8 @@ class ModuleParamPruningMask(object):
         updates scores and buffers that depend on gradients. Should be called
         before Optimizer.step() to grab the latest gradients
         """
-        self._scorer.pre_optim_step_update(self._param_masks)
+        if self._scorer:
+            self._scorer.pre_optim_step_update(self._param_masks)
 
     def pruning_end(self, leave_enabled: bool):
         """
@@ -444,7 +430,8 @@ class ModuleParamPruningMask(object):
             self.enabled = False
         self._allow_reintroduction = False
         self.apply()  # ensure that weights are pruned to final level
-        self._scorer.on_pruning_end()
+        if self._scorer:
+            self._scorer.on_pruning_end()
 
     def disable_reintroduction(self):
         """
@@ -509,7 +496,8 @@ class ModuleParamPruningMask(object):
                     )
                 )
 
-            self._scorer.check_regen_param_vals()
+            if self._scorer:
+                self._scorer.check_regen_param_vals()
 
     def _create_hooks(self):
         for idx, (param, layer) in enumerate(zip(self._params, self._layers)):

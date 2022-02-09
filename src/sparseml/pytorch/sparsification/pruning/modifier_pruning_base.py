@@ -66,7 +66,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         |
         | update()
         |    applied_sparsity   <- get_applied_sparsity_for_epoch()
-        |    module_masks.set_param_masks_from_sparsity(applied_sparsity)
+        |    module_masks.update_param_masks(applied_sparsity)
         |
         | optimizer_pre_step()
         | optimizer.step()
@@ -140,6 +140,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
 
         self._global_sparsity = global_sparsity
         self._allow_reintroduction = allow_reintroduction
+        self._leave_enabled = kwargs.get("leave_enabled", False)
 
         self._applied_sparsity = None
         self._pre_step_completed = False
@@ -327,7 +328,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
                 epoch, steps_per_epoch
             )
 
-            self._module_masks.set_param_masks_from_sparsity(self._applied_sparsity)
+            self._module_masks.update_param_masks(target=self._applied_sparsity)
             self._sparsity_applied = True
 
         if self.end_pending(epoch, steps_per_epoch):
