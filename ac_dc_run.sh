@@ -3,9 +3,9 @@ export CUDA_VISIBLE_DEVICES="4,5"
 python integrations/pytorch/train.py \
     --recipe-path ac_dc_recipy.md \
     --pretrained False \
-    --arch-key /home/dan/ILSVRC \
+    --arch-key mobilenet \
     --dataset imagenet \
-    --dataset-path data \
+    --dataset-path /home/dan/ILSVRC \
     --train-batch-size 256 \
     --test-batch-size 256 \
     --loader-num-workers 0 \
