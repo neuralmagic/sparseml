@@ -221,6 +221,7 @@ class RecipeManagerTrainerInterface:
                 wrap_optim=self.scaler,
                 loggers=self.manager_loggers,
                 distillation_teacher=self.teacher,
+                grad_sampler=self.grad_sampler
             )
         else:
             wrap_optim_key = "optimizer"
