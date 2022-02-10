@@ -23,6 +23,8 @@ from sparseml.pytorch.sparsification.pruning import (
     GMPruningModifier,
     MagnitudePruningModifier,
 )
+from sparseml.pytorch.utils import tensor_sparsity
+from sparseml.utils import FROM_PARAM_TOKEN
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledUpdateModifierTest,
@@ -52,6 +54,15 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     [
         lambda: GMPruningModifier(
             init_sparsity=0.05,
+            final_sparsity=0.95,
+            start_epoch=0.0,
+            end_epoch=15.0,
+            update_frequency=1.0,
+            params=["re:.*weight"],
+            inter_func="linear",
+        ),
+        lambda: GMPruningModifier(
+            init_sparsity=FROM_PARAM_TOKEN,
             final_sparsity=0.95,
             start_epoch=0.0,
             end_epoch=15.0,
@@ -137,12 +148,18 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
         applied_sparsities = modifier.applied_sparsity
         if not isinstance(applied_sparsities, list):
             applied_sparsities = [applied_sparsities]
-        assert all(
-            applied_sparsity == modifier.init_sparsity
-            for applied_sparsity in applied_sparsities
-        )
 
-        last_sparsities = [modifier.init_sparsity]
+        if not isinstance(modifier.init_sparsity, str):
+            assert all(
+                applied_sparsity == modifier.init_sparsity
+                for applied_sparsity in applied_sparsities
+            )
+        else:
+            assert len(modifier._init_sparsity) == len(modifier.module_masks.layers)
+            for idx, param in enumerate(modifier.module_masks.params_data):
+                assert modifier._init_sparsity[idx] == tensor_sparsity(param).item()
+
+        last_sparsities = applied_sparsities
 
         # check forward pass
         input_shape = model_lambda.layer_descs()[0].input_size
@@ -173,13 +190,14 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
         modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
 
         def _test_final_sparsity_applied():
-            if isinstance(modifier.final_sparsity, float):
-                assert modifier.applied_sparsity == modifier.final_sparsity
-            else:
-                assert all(
-                    sparsity in modifier.final_sparsity
-                    for sparsity in modifier.applied_sparsity
-                )
+            final_sparsities = (
+                [modifier.final_sparsity]
+                if isinstance(modifier.final_sparsity, float)
+                else modifier.final_sparsity
+            )
+            assert all(
+                sparsity in final_sparsities for sparsity in modifier.applied_sparsity
+            )
 
         _test_final_sparsity_applied()
 
@@ -205,18 +223,27 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
 
 
 @pytest.mark.parametrize(
-    "params, final_sparsity",
+    "params,init_sparsity,final_sparsity",
     [
-        (["re:.*weight"], 0.8),
-        ([], {0.7: ["param1"], 0.8: ["param2", "param3"], 0.9: ["param4", "param5"]}),
+        (["re:.*weight"], 0.05, 0.8),
+        (
+            [],
+            0.05,
+            {0.7: ["param1"], 0.8: ["param2", "param3"], 0.9: ["param4", "param5"]},
+        ),
+        (["re:.*weight"], FROM_PARAM_TOKEN, 0.8),
+        (
+            [],
+            FROM_PARAM_TOKEN,
+            {0.7: ["param1"], 0.8: ["param2", "param3"], 0.9: ["param4", "param5"]},
+        ),
     ],
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-def test_gm_pruning_yaml(params, final_sparsity):
-    init_sparsity = 0.05
+def test_gm_pruning_yaml(params, init_sparsity, final_sparsity):
     start_epoch = 5.0
     end_epoch = 15.0
     update_frequency = 1.0

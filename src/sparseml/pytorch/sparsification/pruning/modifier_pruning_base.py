@@ -36,12 +36,14 @@ from sparseml.pytorch.utils import (
     NamedLayerParam,
     get_named_layers_and_params_by_regex,
     get_prunable_layers,
+    tensor_sparsity,
 )
 from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import (
     ALL_PRUNABLE_TOKEN,
     ALL_TOKEN,
+    FROM_PARAM_TOKEN,
     interpolate,
     validate_str_iterable,
 )
@@ -63,6 +65,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         |    mask_creator   <- _get_mask_creator()
         |    scorer         <- _get_scorer()
         |    module_masks   <- ModuleParamPruningMask(params, mask_creator, scorer)
+        |    initialize_extras  <- perform any extra initialization steps
         |
         | update()
         |    applied_sparsity   <- get_applied_sparsity_for_epoch()
@@ -284,7 +287,18 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
                 )
             )
 
+        self.initialize_extras(module)
+
         self.check_mask_update(module, epoch, steps_per_epoch=1, **kwargs)
+
+    def initialize_extras(self, module: Module):
+        """
+        Perform any extra setup for pruning modifier after params have been parsed,
+        and mask creator and scorers initialized
+
+        :param module: module to be pruned
+        """
+        pass
 
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -514,8 +528,9 @@ class BaseGradualPruningModifier(BasePruningModifier):
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
         and Linear layers' weights
-    :param init_sparsity: the initial sparsity for the param to start with at
-        start_epoch
+    :param init_sparsity: initial sparsity for each param to start with at
+        start_epoch. __FROM_PARAM__ will set initial sparsity for each param to
+        the existing sparsity level in that param
     :param final_sparsity: the final sparsity for the param to end with at end_epoch.
         Can also be a Dict of final sparsity values to a list of parameters to apply
         them to. If given a Dict, then params must be set to [] and the params to
@@ -547,7 +562,7 @@ class BaseGradualPruningModifier(BasePruningModifier):
     def __init__(
         self,
         params: Union[str, List[str]],
-        init_sparsity: float,
+        init_sparsity: Union[float, str],
         final_sparsity: Union[float, Dict[float, List[str]]],
         inter_func: str = "cubic",
         start_epoch: float = -1.0,
@@ -567,6 +582,10 @@ class BaseGradualPruningModifier(BasePruningModifier):
         params, self._final_sparsity = self._get_params_and_final_sparsity(
             params, final_sparsity
         )
+        self._init_sparsity_orig = init_sparsity
+        self._init_sparsity = init_sparsity
+        self._inter_func = inter_func
+
         super().__init__(
             params=params,
             start_epoch=start_epoch,
@@ -579,13 +598,11 @@ class BaseGradualPruningModifier(BasePruningModifier):
             log_types=log_types,
             global_sparsity=global_sparsity,
             allow_reintroduction=allow_reintroduction,
-            init_sparsity=init_sparsity,
+            init_sparsity=self._init_sparsity_orig,
             final_sparsity=self._final_sparsity,
             inter_func=inter_func,
             **kwargs,
         )
-        self._init_sparsity = init_sparsity
-        self._inter_func = inter_func
 
     def get_applied_sparsity_for_epoch(
         self, epoch: float, steps_per_epoch: int
@@ -596,35 +613,52 @@ class BaseGradualPruningModifier(BasePruningModifier):
         :return: sparsity level that should be applied based on the given interpolation
             function
         """
-        return (
-            [
-                interpolate(
-                    epoch,
-                    self.start_epoch,
-                    self.end_epoch,
-                    self._init_sparsity,
-                    final_sparsity,
-                    self._inter_func,
-                )
-                for final_sparsity in self._final_sparsity
-            ]
+        init_sparsities = (
+            self._init_sparsity
+            if isinstance(self._init_sparsity, List)
+            else [self._init_sparsity] * len(self.module_masks.layers)
+        )
+        final_sparsities = (
+            self._final_sparsity
             if isinstance(self._final_sparsity, List)
-            else interpolate(
+            else [self._final_sparsity] * len(self.module_masks.layers)
+        )
+        return [
+            interpolate(
                 epoch,
                 self.start_epoch,
                 self.end_epoch,
-                self._init_sparsity,
-                self._final_sparsity,
+                init_sparsity,
+                final_sparsity,
                 self._inter_func,
             )
-        )
+            for init_sparsity, final_sparsity in zip(init_sparsities, final_sparsities)
+        ]
 
     @ModifierProp()
-    def init_sparsity(self) -> float:
+    def init_sparsity(self) -> Union[float, str]:
         """
-        :return: initial sparsity value this modifier prunes to
+        :return: initial sparsity for each param to start with at
+            start_epoch. __FROM_PARAM__ will set initial sparsity for each param to
+            the existing sparsity level in that param
         """
-        return self._init_sparsity
+        return self._init_sparsity_orig
+
+    @init_sparsity.setter
+    def init_sparsity(self, value: Union[float, str]):
+        """
+        :param value: initial sparsity for each param to start with at
+            start_epoch. __FROM_PARAM__ will set initial sparsity for each param to
+            the existing sparsity level in that param
+        """
+        if self.initialized:
+            raise RuntimeError(
+                f"init_sparsity may not be set after {self.__class__.__name__} has "
+                "been initialized"
+            )
+        self._init_sparsity_orig = value
+        self._init_sparsity = value
+        self.validate()
 
     @ModifierProp()
     def params(self) -> Union[str, List[str], None]:
@@ -681,6 +715,19 @@ class BaseGradualPruningModifier(BasePruningModifier):
             [linear, cubic, inverse_cubic]
         """
         return self._inter_func
+
+    def initialize_extras(self, module: Module):
+        """
+        Perform any extra setup for pruning modifier after params have been parsed,
+        and mask creator and scorers initialized
+
+        :param module: module to be pruned
+        """
+        super().initialize_extras(module)
+        if self._init_sparsity == FROM_PARAM_TOKEN:
+            self._init_sparsity = [
+                tensor_sparsity(param).item() for param in self.module_masks.params_data
+            ]
 
     def _create_named_layers_and_params(self, module: Module) -> List[NamedLayerParam]:
         if isinstance(self._final_sparsity_orig, float):

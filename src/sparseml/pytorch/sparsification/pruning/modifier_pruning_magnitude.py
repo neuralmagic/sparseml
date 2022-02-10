@@ -81,8 +81,9 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
     |       log_types: __ALL__
     |       mask_type: unstructured
 
-    :param init_sparsity: the initial sparsity for the param to start with at
-        start_epoch
+    :param init_sparsity: initial sparsity for each param to start with at
+        start_epoch. __FROM_PARAM__ will set initial sparsity for each param to
+        the existing sparsity level in that param
     :param final_sparsity: the final sparsity for the param to end with at end_epoch.
         Can also be a Dict of final sparsity values to a list of parameters to apply
         them to. If given a Dict, then params must be set to [] and the params to
@@ -109,7 +110,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
 
     def __init__(
         self,
-        init_sparsity: float,
+        init_sparsity: Union[float, str],
         final_sparsity: Union[float, Dict[float, List[str]]],
         start_epoch: float,
         end_epoch: float,
@@ -185,8 +186,9 @@ class MagnitudePruningModifier(GMPruningModifier):
     |       log_types: __ALL__
     |       mask_type: unstructured
 
-    :param init_sparsity: the initial sparsity for the param to start with at
-        start_epoch
+    :param init_sparsity: initial sparsity for each param to start with at
+        start_epoch. __FROM_PARAM__ will set initial sparsity for each param to
+        the existing sparsity level in that param
     :param final_sparsity: the final sparsity for the param to end with at end_epoch.
         Can also be a Dict of final sparsity values to a list of parameters to apply
         them to. If given a Dict, then params must be set to [] and the params to
@@ -237,8 +239,9 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
     |       log_types: __ALL__
     |       mask_type: unstructured
 
-    :param init_sparsity: the initial sparsity for the param to start with at
-        start_epoch
+    :param init_sparsity: initial sparsity for each param to start with at
+        start_epoch. __FROM_PARAM__ will set initial sparsity for each param to
+        the existing sparsity level in that param
     :param final_sparsity: the final sparsity for the param to end with at end_epoch.
         Can also be a Dict of final sparsity values to a list of parameters to apply
         them to. If given a Dict, then params must be set to [] and the params to
@@ -265,7 +268,7 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
 
     def __init__(
         self,
-        init_sparsity: float,
+        init_sparsity: Union[float, str],
         final_sparsity: Union[float, Dict[float, List[str]]],
         start_epoch: float,
         end_epoch: float,
