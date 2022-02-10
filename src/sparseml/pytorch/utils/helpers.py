@@ -35,7 +35,6 @@ from torch.utils.data import DataLoader
 try:
     quant_err = None
     from torch.nn.qat import Conv2d as QATConv2d
-    from torch.nn.qat import Conv3d as QATConv3d
     from torch.nn.qat import Linear as QATLinear
     from torch.quantization import QuantWrapper
 except Exception as _err:
@@ -43,6 +42,13 @@ except Exception as _err:
     QuantWrapper = None
     QATLinear = None
     QATConv2d = None
+    
+
+try:
+    from torch.nn.qat import Conv3d as QATConv3d
+
+except Exception as _err:
+    quant_conv3d_err = _err 
     QATConv3d = None
 
 from sparseml.utils import create_dirs, save_numpy
