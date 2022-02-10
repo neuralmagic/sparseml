@@ -43,7 +43,6 @@ except Exception as _err:
     QATLinear = None
     QATConv2d = None
 
-
 try:
     from torch.nn.qat import Conv3d as QATConv3d
 except Exception as _err:
