@@ -1,5 +1,3 @@
-# flake8: noqa
-
 # Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,11 +13,15 @@
 # limitations under the License.
 
 """
-Functionality related to applying, describing, and supporting sparsification
-algorithms to models within in the PyTorch framework.
+Pruning modifiers and utilities to support their creation
 """
 
 # flake8: noqa
 
-from .info import *
-from .pruning import *
+
+from .mask_creator import *
+from .mask_params import *
+from .modifier_pruning_base import *
+from .modifier_pruning_constant import *
+from .modifier_pruning_magnitude import *
+from .scorer import *
