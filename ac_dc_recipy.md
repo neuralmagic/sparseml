@@ -41,6 +41,7 @@ pruning_modifiers:
     end_epoch: 85
     update_frequency: 5
     params: ['re:.*conv*', 're:.*.fc.weight'] 
+    global_sparsity: True
   
   - !GMPruningModifier
     init_sparsity: 0.90
@@ -50,6 +51,7 @@ pruning_modifiers:
     update_frequency: 1
     leave_enabled: True
     params: ['re:.*conv*', 're:.*.fc.weight'] 
+    global_sparsity: True
 
 ---
 

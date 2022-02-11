@@ -1801,6 +1801,7 @@ class ACDCPruningModifier(GMPruningModifier):
         end_epoch: float,
         update_frequency: float,
         params: Union[str, List[str]],
+        global_sparsity
     ):
 
         self._compression_sparsity = compression_sparsity
@@ -1817,6 +1818,7 @@ class ACDCPruningModifier(GMPruningModifier):
                 start_epoch, end_epoch, update_frequency
             ),
             update_frequency=update_frequency,
+            global_sparsity=global_sparsity
         )
 
         self.validate()
