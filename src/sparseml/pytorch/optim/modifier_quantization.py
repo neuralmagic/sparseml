@@ -39,6 +39,7 @@ from sparseml.pytorch.utils.quantization import (
     add_quant_dequant,
     configure_module_default_qconfigs,
     configure_module_qat_wrappers,
+    fix_observer_quant_range,
     fuse_module_conv_bn_relus,
     get_qat_qconfig,
     prepare_embeddings_qat,
@@ -488,6 +489,10 @@ class QuantizationModifier(ScheduledModifier):
                 reduce_range=self._reduce_range,
                 activation_kwargs=self.qconfig_activation_kwargs,
             )
+
+        # propagate custom quant min/max range from FakeQuantize to Observer objects
+        fix_observer_quant_range(module)
+
         self._qat_enabled = True
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:

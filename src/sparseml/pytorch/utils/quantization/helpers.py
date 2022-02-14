@@ -40,6 +40,7 @@ __all__ = [
     "add_quant_dequant",
     "remove_activation_qat_by_layer_name",
     "get_qat_qconfig",
+    "fix_observer_quant_range",
     "fuse_module_conv_bn_relus",
     "prepare_embeddings_qat",
 ]
@@ -461,6 +462,39 @@ def get_qat_qconfig(
         activation=activation_observer,
         weight=weight_observer,
     )
+
+
+def fix_observer_quant_range(module: Module):
+    """
+    As of torch 1.10.2 there is a bug in FakeQuantize initialization where
+    quant_min and quant_max of FakeQuantize are not propagated to its
+    activation_post_process observer. This function propagates FakeQuantize quant
+    ranges to their Observer objects
+
+    :param module: Module object to propagate FakeQuantize quant ranges of. Propagates
+        in place
+    """
+    for submodule in module.modules():
+        if isinstance(submodule, torch_quantization.FakeQuantize):
+            fake_quantize = submodule
+        elif hasattr(submodule, "activation_post_process") and isinstance(
+            submodule.activation_post_process, torch_quantization.FakeQuantize
+        ):
+            fake_quantize = submodule.activation_post_process
+        else:
+            continue
+
+        # continue if fake_quantize quant range not set, or observer quant range is set
+        observer = fake_quantize.activation_post_process
+        if (
+            fake_quantize.quant_min is None
+            or fake_quantize.quant_max is None
+            or (observer.quant_min is not None or observer.quant_max is not None)
+        ):
+            continue
+        observer.quant_min = fake_quantize.quant_min
+        observer.quant_max = fake_quantize.quant_max
+        observer.has_customized_qrange = True
 
 
 def fuse_module_conv_bn_relus(
