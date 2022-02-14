@@ -765,7 +765,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
         self._mul_slices = []
         block_mem = _block_memory_size(self._block_size, self._element_size)
         cpu = self._devices[0] == "cpu"
-        self.mul_blocked(tensor=x, block_mem=block_mem, cpu = cpu)
+        self.mul_blocked(tensor=x, block_mem=block_mem, cpu=cpu)
         return torch.cat(self._mul_slices)[: self._num_params]
 
     @block_wise_decorator
@@ -789,7 +789,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
         ].to(device)
 
         # Get the H^-1 values corresponding to the number of blocks used here.
-        # It's clunky compared to torch.cat()[idx], but avoids duplicating 
+        # It's clunky compared to torch.cat()[idx], but avoids duplicating
         # the memory of H^-1
         start_block = sum(self._num_blocks_per_device_call[:call_idx])
         end_block = sum(self._num_blocks_per_device_call[: call_idx + 1])
@@ -802,14 +802,13 @@ class FisherInverseFastSmallBlocks(FisherInverse):
                 continue
             if end_block < tensor_end:
                 t_hinv.append(
-                    tensor[start_block - tensor_start:end_block - tensor_start]
-                    )
+                    tensor[start_block - tensor_start : end_block - tensor_start]
+                )
                 break
             else:
-                t_hinv.append(tensor[start_block - tensor_start:])
+                t_hinv.append(tensor[start_block - tensor_start :])
                 start_block = tensor_end
             tensor_start = tensor_end
-
 
         mul_slice = (
             torch.bmm(torch.cat(t_hinv).to(device), x_slice)
