@@ -28,10 +28,10 @@ from torch.utils.data import DataLoader
 from sparseml.pytorch.datasets import DatasetRegistry, ssd_collate_fn, yolo_collate_fn
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import (
-    ConstantPruningModifier,
     ScheduledModifierManager,
     ScheduledOptimizer,
 )
+from sparseml.pytorch.sparsification import ConstantPruningModifier
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     CrossEntropyLossWrapper,
