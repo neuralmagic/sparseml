@@ -500,7 +500,6 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
 
         # save h_inv and diag for weight update later
         self._latest_h_inv_diag = (h_inv, diag)
-        torch.cuda.empty_cache()  # release GPU memory
 
         return parameter_scores
 

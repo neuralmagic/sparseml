@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
+from torch.utils.data import RandomSampler
 from transformers import Trainer as TransformersTrainer
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
@@ -122,7 +123,7 @@ class RecipeManagerTrainerInterface:
         self.callback_handler.add_callback(self.callback_disable_fp16)
 
         self.grad_sampler = GradSampler(
-            self._train_data_loader(), self._mfac_loss_function
+            self._mfac_data_loader(), self._mfac_loss_function
         )
 
     def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
@@ -204,7 +205,7 @@ class RecipeManagerTrainerInterface:
 
         total_batch_size = (
             self.args.per_device_train_batch_size
-            * self.args._n_gpu
+            * (self.args._n_gpu or 1)
             * self.args.gradient_accumulation_steps
         )
         self.manager_steps_per_epoch = math.ceil(
@@ -231,6 +232,7 @@ class RecipeManagerTrainerInterface:
                 self.manager,
                 steps_per_epoch=self.manager_steps_per_epoch,
                 loggers=self.manager_loggers,
+                grad_sampler=self.grad_sampler
             )
             if not self.manager.initialized:
                 self.manager.initialize(
@@ -465,13 +467,16 @@ class RecipeManagerTrainerInterface:
             delayed_load=False,
         )
 
-    def _train_data_loader(self):
+    def _mfac_data_loader(self):
         data_loader_template = self.get_train_dataloader()
 
         data_loader = torch.utils.data.DataLoader(
             dataset=data_loader_template.dataset,
             batch_size=data_loader_template.batch_size // 2,
-            sampler=data_loader_template.sampler,
+            sampler=RandomSampler(
+                data_loader_template.dataset, 
+                replacement=False
+            ),
             num_workers=data_loader_template.num_workers,
             collate_fn=data_loader_template.collate_fn,
             pin_memory=data_loader_template.pin_memory,
