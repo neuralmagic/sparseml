@@ -13,17 +13,11 @@
 # limitations under the License.
 
 """
-Helper variables and functions for integrating SparseML with huggingface/transformers
-flows
+Objects, classes, and methods for applying sparsification algorithms to
+Hugging Face transformers flows
 """
 
-__all__ = [
-    "RECIPE_NAME",
-    "RECIPE_REGEX",
-    "RECIPE_TEMPLATE",
-]
+# flake8: noqa
 
-
-RECIPE_NAME = "recipe.yaml"
-RECIPE_REGEX = r"recipe*.yaml"
-RECIPE_TEMPLATE = "recipe{}.yaml"
+from .question_answering import *
+from .trainer import *

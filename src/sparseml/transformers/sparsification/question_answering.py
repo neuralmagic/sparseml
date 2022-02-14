@@ -24,15 +24,15 @@ import collections
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
-import torch
+from torch.nn import Module
 from tqdm.auto import tqdm
 from transformers import Trainer, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
 
-from sparseml.transformers.utils.trainer import SparseMLTrainer
+from sparseml.transformers.sparsification.trainer import TrainerInterface
 
 
 if is_torch_tpu_available():
@@ -41,7 +41,7 @@ if is_torch_tpu_available():
 
 
 __all__ = [
-    "SparseMLQATrainer",
+    "QuestionAnsweringTrainer",
     "postprocess_qa_predictions",
 ]
 
@@ -144,41 +144,38 @@ class _QuestionAnsweringTrainer(Trainer):
         )
 
 
-class SparseMLQATrainer(SparseMLTrainer, _QuestionAnsweringTrainer):
+class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
     """
     Trainer for running sparsification recipes with Question Answering training
 
-    :param model_name_or_path: path to model directory to be trained
-    :param recipe: path to recipe for model sparsification
-    :param checkpoint_recipes: list of paths to recipes used to train the
-        starting checkpoint for this training run. Will be applied to the model
-        on call to `apply_recipes` so that model state can be reproduced for
-        weight loading
-    :param teacher: teacher model for distillation. Default is None
-    :param recipe_args: Dictionary of recipe variables to override or json
-        loadable string of those args. Default is None
-    :param args: arguments passed into parent class
+    :param model: the model to use with the trainer and apply sparsification to
+    :param model_state_path: the state path to the model,
+        used to load config and tokenizer settings
+    :param recipe: the recipe, if any, to apply to the modle and training
+        process
+    :param recipe_args: A json string, csv key=value string, or dictionary containing
+        arguments to override the root arguments within the recipe such as
+        learning rate or num epochs
+    :param teacher: teacher model for distillation. Set to 'self' to distill
+        from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
     """
 
     def __init__(
         self,
-        model_name_or_path: str,
+        model: Module,
+        model_state_path: str,
         recipe: str,
-        checkpoint_recipes: Union[str, List[str]] = None,
-        teacher: Optional[torch.nn.Module] = None,
-        recipe_args: Union[Dict[str, Any], str] = None,
-        *args,
+        recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        teacher: Optional[Module] = None,
         **kwargs,
     ):
         super().__init__(
-            model_name_or_path=model_name_or_path,
+            model=model,
+            model_state_path=model_state_path,
             recipe=recipe,
-            checkpoint_recipes=checkpoint_recipes,
-            teacher=teacher,
             recipe_args=recipe_args,
-            teacher_input_keys=["input_ids", "token_type_ids", "attention_mask"],
-            *args,
+            teacher=teacher,
             **kwargs,
         )
 

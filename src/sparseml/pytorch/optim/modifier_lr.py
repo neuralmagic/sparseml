@@ -30,6 +30,7 @@ from torch.optim.lr_scheduler import (
 )
 from torch.optim.optimizer import Optimizer
 
+from sparseml.optim import BaseModifier
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
@@ -45,6 +46,7 @@ from sparseml.sparsification import LearningRateModifier as BaseLearningRateModi
 from sparseml.sparsification import (
     SetLearningRateModifier as BaseSetLearningRateModifier,
 )
+from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, convert_to_bool
 
 
@@ -297,6 +299,13 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         self._last_logged_lr = None
         self._last_logged_epoch = None
         self.validate()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.learning_rate]
 
     @ModifierProp()
     def lr_func(self) -> str:

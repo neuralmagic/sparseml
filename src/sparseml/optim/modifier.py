@@ -25,6 +25,7 @@ from typing import Any, Callable, Dict, List, Union
 import yaml
 
 from sparseml.optim.helpers import evaluate_recipe_yaml_str_equations
+from sparseml.sparsification.types import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, validate_str_iterable
 
 
@@ -465,6 +466,13 @@ class BaseModifier(BaseObject):
             self.__class__.__name__,
             self.props(only_serializable=False, format_repr=True),
         )
+
+    @ModifierProp(serializable=False)
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return []
 
     @ModifierProp(serializable=True)
     def log_types(self) -> Union[None, str, List[str]]:

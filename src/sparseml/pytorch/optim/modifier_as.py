@@ -23,9 +23,11 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+from sparseml.optim import BaseModifier
 from sparseml.pytorch.optim.modifier import ModifierProp, ScheduledModifier
 from sparseml.pytorch.optim.sensitivity_as import ASLayerTracker
 from sparseml.pytorch.utils import BaseLogger, get_layer, get_terminal_layers
+from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
 
@@ -91,6 +93,13 @@ class ASRegModifier(ScheduledModifier):
         self._trackers = []  # type: List[ASLayerTracker]
 
         self.validate()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.activation_sparsity]
 
     @ModifierProp()
     def layers(self) -> Union[str, List[str]]:

@@ -20,6 +20,7 @@ certain update formulas or patterns.
 from typing import List, Union
 
 from sparseml.optim.modifier import BaseModifier, BaseScheduled, ModifierProp
+from sparseml.sparsification.types import SparsificationTypes
 from sparseml.utils import convert_to_bool, validate_str_iterable
 
 
@@ -73,6 +74,13 @@ class TrainableParamsModifier(BaseModifier, BaseScheduled):
         self._params_strict = convert_to_bool(params_strict)
         self._vars_to_trainable_orig = {}
         self.validate()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.general]
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:

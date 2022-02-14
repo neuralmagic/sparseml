@@ -36,7 +36,6 @@ import transformers
 from datasets import load_dataset, load_metric
 from transformers import (
     AutoConfig,
-    AutoModelForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
@@ -49,11 +48,8 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 
-from sparseml.transformers.utils import (
-    SparseMLGLUETrainer,
-    load_recipe,
-    preprocess_state_dict,
-)
+from sparseml.transformers.sparsification import Trainer
+from sparseml.transformers.utils import SparseAutoModel
 
 
 # Will error if the minimal version of Transformers is not installed.
@@ -416,11 +412,6 @@ def main():
     # In distributed training, the .from_pretrained methods guarantee that only one
     # local process can concurrently download model & vocab.
 
-    # Load and preprocess the state dict if the model existed (in this case we continue
-    # to train or evaluate the model). The preprocessing step is to restore names of
-    # parameters changed by QAT process
-    state_dict = preprocess_state_dict(model_args.model_name_or_path)
-
     config = AutoConfig.from_pretrained(
         model_args.config_name
         if model_args.config_name
@@ -440,28 +431,25 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    model = AutoModelForSequenceClassification.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-        state_dict=state_dict,
+    model, teacher = SparseAutoModel.text_classification_from_pretrained_distil(
+        model_name_or_path=(
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else model_args.model_name_or_path
+        ),
+        model_kwargs={
+            "config": config,
+            "cache_dir": model_args.cache_dir,
+            "revision": model_args.model_revision,
+            "use_auth_token": True if model_args.use_auth_token else None,
+        },
+        teacher_name_or_path=model_args.distill_teacher,
+        teacher_kwargs={
+            "cache_dir": model_args.cache_dir,
+            "use_auth_token": True if model_args.use_auth_token else None,
+        },
     )
 
-    teacher_model = None
-    if model_args.distill_teacher is not None:
-        teacher_model = AutoModelForSequenceClassification.from_pretrained(
-            model_args.distill_teacher,
-            from_tf=bool(".ckpt" in model_args.distill_teacher),
-            cache_dir=model_args.cache_dir,
-        )
-        teacher_model_parameters = filter(
-            lambda p: p.requires_grad, teacher_model.parameters()
-        )
-        params = sum([np.prod(p.size()) for p in teacher_model_parameters])
-        _LOGGER.info("Teacher Model has %s parameters", params)
     # Preprocessing the datasets
     if data_args.task_name is not None:
         sentence1_key, sentence2_key = _TASK_TO_KEYS[data_args.task_name]
@@ -617,29 +605,20 @@ def main():
     else:
         data_collator = None
 
-    # Load possible existing recipe and new one passed in through command argument
-    existing_recipe = load_recipe(model_args.model_name_or_path)
-    new_recipe = data_args.recipe
-
     # Initialize our Trainer
-    trainer = SparseMLGLUETrainer(
-        model_args.model_name_or_path,
-        new_recipe,
-        checkpoint_recipes=[existing_recipe],
-        teacher=teacher_model,
+    trainer = Trainer(
         model=model,
+        model_state_path=model_args.model_name_or_path,
+        recipe=data_args.recipe,
+        recipe_args=data_args.recipe_args,
+        teacher=teacher,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
-        recipe_args=data_args.recipe_args,
     )
-    # Apply recipes to the model. This is necessary given that
-    # sparsification methods such as QAT modified the model graph with their own
-    # learnable parameters. They are also restored/loaded to the model.
-    trainer.apply_recipes()
 
     # Training
     if training_args.do_train:
