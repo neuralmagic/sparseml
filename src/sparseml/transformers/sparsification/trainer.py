@@ -34,9 +34,8 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.utils import ModuleSparsificationInfo, WANDBLogger, GradSampler
+from sparseml.pytorch.utils import GradSampler, ModuleSparsificationInfo, WANDBLogger
 from sparseml.transformers.utils import SparseAutoModel
-
 from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
 
 
@@ -222,7 +221,7 @@ class RecipeManagerTrainerInterface:
                 wrap_optim=self.scaler,
                 loggers=self.manager_loggers,
                 distillation_teacher=self.teacher,
-                grad_sampler=self.grad_sampler
+                grad_sampler=self.grad_sampler,
             )
         else:
             wrap_optim_key = "optimizer"
@@ -232,7 +231,7 @@ class RecipeManagerTrainerInterface:
                 self.manager,
                 steps_per_epoch=self.manager_steps_per_epoch,
                 loggers=self.manager_loggers,
-                grad_sampler=self.grad_sampler
+                grad_sampler=self.grad_sampler,
             )
             if not self.manager.initialized:
                 self.manager.initialize(
@@ -473,10 +472,7 @@ class RecipeManagerTrainerInterface:
         data_loader = torch.utils.data.DataLoader(
             dataset=data_loader_template.dataset,
             batch_size=data_loader_template.batch_size // 2,
-            sampler=RandomSampler(
-                data_loader_template.dataset, 
-                replacement=False
-            ),
+            sampler=RandomSampler(data_loader_template.dataset, replacement=False),
             num_workers=data_loader_template.num_workers,
             collate_fn=data_loader_template.collate_fn,
             pin_memory=data_loader_template.pin_memory,

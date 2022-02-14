@@ -13,18 +13,19 @@
 # limitations under the License.
 
 import os
-import sys
+import time
 
-import numpy
 import pytest
 import torch
 
 from sparseml.pytorch.utils import (
-    MFACOptions,
-    FisherInverseFast, 
-    FisherInverseFastBlock, 
+    FisherInverseFast,
+    FisherInverseFastBlock,
     FisherInverseFastSmallBlocks,
 )
+
+# precent-wise precision in terms of the mean of the resulting tensors
+PRECISION = 0.000001
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
@@ -32,26 +33,85 @@ from sparseml.pytorch.utils import (
 )
 def test_fast_small_blocks():
     total_params = 1000
-    block_size = 1000
     num_grads = 32
-    damp = .0000001
+    block_size = total_params
+    damp = 0.0000001
 
     grads1 = torch.rand(num_grads, total_params)
     grads2 = grads1.clone()
+
     fast_hinv = FisherInverseFast(
-        grads = grads1,
-        damp= damp,
+        grads=grads1,
+        damp=damp,
     )
 
     small_blocks_hinv = FisherInverseFastSmallBlocks(
-        grads = grads2,
-        block_size = block_size,
-        damp= damp,
+        grads=grads2,
+        block_size=block_size,
+        damp=damp,
     )
 
     fast_diag = fast_hinv.diag()
     small_blocks_diag = small_blocks_hinv.diag()
-    assert pytest.approx(small_blocks_diag) == fast_diag
+
+    tensor_to_mul = torch.rand(total_params)
+    fast_mul_out = fast_hinv.mul(tensor_to_mul)
+    small_blocks_mul_out = small_blocks_hinv.mul(tensor_to_mul)
+
+
+    assert pytest.approx(
+        fast_diag, 
+        torch.mean(fast_diag).item()*PRECISION
+        ) == small_blocks_diag
+    assert pytest.approx(
+        fast_mul_out,
+        torch.mean(fast_mul_out).item()*PRECISION,
+        ) == small_blocks_mul_out
+
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False) or (torch.cuda.device_count() == 0),
+    reason="Skipping pytorch tests",
+)
+def test_fast_small_blocks():
+    total_params = 1000
+    num_grads = 32
+    block_size = total_params
+    damp = 0.0000001
+
+    grads1 = torch.rand(num_grads, total_params)
+    grads2 = grads1.clone()
+
+    fast_hinv = FisherInverseFast(
+        grads=grads1,
+        damp=damp,
+    )
+
+    small_blocks_hinv = FisherInverseFastSmallBlocks(
+        grads=grads2,
+        block_size=block_size,
+        damp=damp,
+        devices=["cuda:0"]
+    )
+
+    fast_diag = fast_hinv.diag()
+    small_blocks_diag = small_blocks_hinv.diag()
+
+    tensor_to_mul = torch.rand(total_params)
+    fast_mul_out = fast_hinv.mul(tensor_to_mul)
+    small_blocks_mul_out = small_blocks_hinv.mul(tensor_to_mul)
+
+
+    assert pytest.approx(
+        fast_diag, 
+        torch.mean(fast_diag).item()*PRECISION
+        ) == small_blocks_diag
+    assert pytest.approx(
+        fast_mul_out,
+        torch.mean(fast_mul_out).item()*PRECISION,
+        ) == small_blocks_mul_out
+
 
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
@@ -59,23 +119,78 @@ def test_fast_small_blocks():
 )
 def test_fast_large_blocks():
     total_params = 1000
-    block_size = 1000
     num_grads = 32
-    damp = .0000001
+    block_size = total_params
+    damp = 0.0000001
 
     grads1 = torch.rand(num_grads, total_params)
     grads2 = grads1.clone()
+
     fast_hinv = FisherInverseFast(
-        grads = grads1,
-        damp= 1.0 / damp,
+        grads=grads1,
+        damp=damp,
     )
 
-    large_blocks_hinv = FisherInverseFastBlock(
-        grads = grads2,
-        block_size = block_size,
-        damp=1.0 / damp,
+    small_blocks_hinv = FisherInverseFastBlock(
+        grads=grads2,
+        block_size=block_size,
+        damp=damp,
     )
 
     fast_diag = fast_hinv.diag()
-    large_blocks_diag = large_blocks_hinv.diag()
-    assert pytest.approx(large_blocks_diag) == fast_diag
+    small_blocks_diag = small_blocks_hinv.diag()
+
+    tensor_to_mul = torch.rand(total_params)
+    fast_mul_out = fast_hinv.mul(tensor_to_mul)
+    small_blocks_mul_out = small_blocks_hinv.mul(tensor_to_mul)
+
+
+    assert pytest.approx(
+        fast_diag, 
+        torch.mean(fast_diag).item()*PRECISION
+        ) == small_blocks_diag
+    assert pytest.approx(
+        fast_mul_out,
+        torch.mean(fast_mul_out).item()*PRECISION,
+        ) == small_blocks_mul_out
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False) or (torch.cuda.device_count() == 0),
+    reason="Skipping pytorch tests",
+)
+def test_fast_large_blocks_gpu():
+    total_params = 1000
+    num_grads = 32
+    block_size = total_params
+    damp = 0.0000001
+
+    grads1 = torch.rand(num_grads, total_params)
+    grads2 = grads1.clone()
+
+    fast_hinv = FisherInverseFast(
+        grads=grads1,
+        damp=damp,
+    )
+
+    small_blocks_hinv = FisherInverseFastBlock(
+        grads=grads2,
+        block_size=block_size,
+        damp=damp,
+        devices=["cuda:0"]
+    )
+
+    fast_diag = fast_hinv.diag()
+    small_blocks_diag = small_blocks_hinv.diag()
+
+    tensor_to_mul = torch.rand(total_params)
+    fast_mul_out = fast_hinv.mul(tensor_to_mul)
+    small_blocks_mul_out = small_blocks_hinv.mul(tensor_to_mul)
+
+    assert pytest.approx(
+        fast_diag, 
+        torch.mean(fast_diag).item()*PRECISION
+        ) == small_blocks_diag
+    assert pytest.approx(
+        fast_mul_out,
+        torch.mean(fast_mul_out).item()*PRECISION,
+        ) == small_blocks_mul_out

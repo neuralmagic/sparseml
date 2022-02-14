@@ -78,7 +78,7 @@ class ScheduledOptimizer(Optimizer):
         manager: ScheduledModifierManager,
         steps_per_epoch: int,
         loggers: Union[List[BaseLogger], None] = None,
-        **kwargs
+        **kwargs,
     ):
         # do not call into super since this instance is not passing all calls to
         # the nested optimizer
