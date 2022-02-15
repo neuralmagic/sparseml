@@ -508,10 +508,10 @@ class QuantizationModifier(ScheduledModifier):
         )
 
         for batch_idx, batch in enumerate(_dataloader):
-            _calibration_completed = (
-                self.num_calibration_steps and batch_idx >= self.num_calibration_steps
-            )
-            if _calibration_completed:
+            if (
+                    self.num_calibration_steps
+                    and batch_idx >= self.num_calibration_steps
+            ):
                 break
             batch = tensors_to_device(batch, model_device)
             with torch.no_grad():
