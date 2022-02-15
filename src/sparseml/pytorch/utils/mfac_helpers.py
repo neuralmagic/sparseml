@@ -898,6 +898,8 @@ def compute_hessian_inv(
     if not mfac_options:
         _LOGGER.info("No M-FAC options found - using defaults")
         mfac_options = MFACOptions()
+    # The amount of memory required for the computation of one block is the main 
+    # decider in the FisherInverse algorithm to use
     if mfac_options.fisher_block_size:
         block_mem_size = _block_memory_size(
             block_size=mfac_options.fisher_block_size, element_size=grads.element_size()
@@ -922,13 +924,16 @@ def compute_hessian_inv(
             )
         )
 
-        # FisherInverseFastBlock works only in sequential mode. Unless only one block
-        # or less can fit on the GPU, FisherInverseFastSmallBlocks should be used
+        # Determine which of the available gpus have enough free memory to host
+        # the block computation
         available_gpus = [
             gpu
             for i, gpu in enumerate(mfac_options.available_gpus)
             if free_device_mem[i] > block_mem_size / BYTES_IN_MIB
         ]
+
+        # FisherInverseFastBlock works only in sequential mode. Unless only one block
+        # or less can fit on the GPU, FisherInverseFastSmallBlocks should be used
         if len(available_gpus) > 0 or not free_device_mem:
             _LOGGER.info("Using Small Block Fast Fisher Inverse Implementation")
             _LOGGER.debug(

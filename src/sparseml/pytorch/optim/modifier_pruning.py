@@ -1112,7 +1112,7 @@ class MFACPruningModifier(_GMPruningModifier):
     :param global_sparsity: set True to enable global pruning. if False, pruning will
         be layer-wise. Default is False
     :param use_gradient_buffering: Optional bool to use gradient buffering instead of
-    grad sampling. By default, grad sampling is always used when available
+        grad sampling. By default, grad sampling is always used when available
     :param mfac_options: Dictionary of key words specifying arguments for the M-FAC
         pruning run. num_grads controls the number of gradient samples that are kept,
         fisher_block_size specifies the block size to break the M-FAC computation into
@@ -1176,6 +1176,13 @@ class MFACPruningModifier(_GMPruningModifier):
             see the MFACOptions dataclass documentation.
         """
         return self._mfac_options
+
+    @ModifierProp(serializable=False)
+    def use_gradient_buffering(self) -> Optional[bool]:
+        """
+        Return flag indicating force use of gradient buffering over a gradient sampler
+        """
+        return self._use_gradient_buffering
 
     def initialize(
         self,
@@ -1261,7 +1268,7 @@ class MFACPruningModifier(_GMPruningModifier):
             self._applied_sparsity or 0.0
         )
 
-        _LOGGER.debug("Starting to collect {num_grads} grads with GradSampler")
+        _LOGGER.debug(f"Starting to collect {num_grads} grads with GradSampler")
         for _ in grad_sampler.iter_module_backwards(module, num_grads):
             self._module_masks.pre_optim_step_update()
         _LOGGER.debug("GradSampler grad collection complete")
