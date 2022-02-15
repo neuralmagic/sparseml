@@ -522,7 +522,7 @@ class _GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
         )
         self.validate()
 
-    @ModifierProp()
+    @ModifierProp(serializable=False)
     def phased(self) -> bool:
         """
         :return: True to enable a phased approach where pruning will
@@ -564,7 +564,7 @@ class _GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
         """
         return self._global_sparsity
 
-    @ModifierProp()
+    @ModifierProp(serializable=False)
     def score_type(self) -> Union[str, MFACOptions]:
         """
         :return: the the scoring method used for pruning
@@ -577,6 +577,30 @@ class _GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
         :return: the currently applied sparsity level to each of the contained params
         """
         return self._applied_sparsity
+
+    @ModifierProp(serializable=False)
+    def init_sparsity(self) -> float:
+        """
+        :return: the initial sparsity for the param to start with at
+        start_epoch
+        """
+        return self._init_sparsity
+
+    @ModifierProp(serializable=False)
+    def inter_func(self) -> float:
+        """
+        :return: the initial sparsity for the param to start with at
+        start_epoch
+        """
+        return self._inter_func
+
+    @ModifierProp(serializable=False)
+    def log_types(self) -> float:
+        """
+        :return: the initial sparsity for the param to start with at
+        start_epoch
+        """
+        return self._log_types
 
     def optimizer_pre_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -1514,7 +1538,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
 
 
 @PyTorchModifierYAML()
-class ACDCPruningModifier(GMPruningModifier):
+class ACDCPruningModifier(_GMPruningModifier):
     """
     Implementation of
     Alternating Compressed/DeCompressed Training of Deep Neural Networks:
@@ -1530,7 +1554,7 @@ class ACDCPruningModifier(GMPruningModifier):
     |       params: __ALL_PRUNABLE__
     |       global_sparsity: True
 
-    :param compression_sparsity: The sparsity enforced during the compression phase.
+    :param final_sparsity: The sparsity enforced during the compression phase.
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: The length (in epochs) of compression/decompression phase
@@ -1541,6 +1565,12 @@ class ACDCPruningModifier(GMPruningModifier):
         final_sparsity, then params should be set to []
     :param global_sparsity: set True to enable global pruning. if False, pruning will
         be layer-wise. Default is True
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune. Default is True
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'channel', 'filter']), List to define block shape of a parameters in and out
+         channels, or a SparsityMaskCreator object. default is 'unstructured'
     :param momentum_buffer_reset: set True to reset momentum buffer
         before algorithm enters a consecutive decompression phase.
         According to the paper:
@@ -1554,18 +1584,20 @@ class ACDCPruningModifier(GMPruningModifier):
 
     def __init__(
         self,
-        compression_sparsity: float,
+        final_sparsity: float,
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
         params: Union[str, List[str]],
         global_sparsity: bool = True,
+        leave_enabled: bool = True,
+        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         momentum_buffer_reset: bool = True,
     ):
 
         # because method does not involve any interpolation
-        # compression sparsity is a single float.
-        self._compression_sparsity = compression_sparsity
+        # compression sparsity (final sparsity) is a single float.
+        self._final_sparsity = final_sparsity
         self._decompression_sparsity = 0.0  # this is implicitly assumed in paper.
         self._is_phase_decompression = True
         self._momentum_buffer_reset = momentum_buffer_reset
@@ -1575,13 +1607,15 @@ class ACDCPruningModifier(GMPruningModifier):
         super(ACDCPruningModifier, self).__init__(
             params=params,
             init_sparsity=self._decompression_sparsity,
-            final_sparsity=self._compression_sparsity,
+            final_sparsity=self._final_sparsity,
             start_epoch=start_epoch,
-            end_epoch=self._finish_on_decompression(
+            end_epoch=self._finish_on_compression(
                 start_epoch, end_epoch, update_frequency
             ),
             update_frequency=update_frequency,
             global_sparsity=global_sparsity,
+            mask_type=mask_type,
+            leave_enabled=leave_enabled,
         )
 
         self.validate()
@@ -1671,7 +1705,7 @@ class ACDCPruningModifier(GMPruningModifier):
                 else:
                     # entering compression phase
                     self._is_phase_decompression = False
-                    self._applied_sparsity = self._compression_sparsity
+                    self._applied_sparsity = self._final_sparsity
                     # flag denoting that the momentum buffer
                     # is non-zero in compression phase.
                     self._momentum_buffer_empty = False
@@ -1691,13 +1725,16 @@ class ACDCPruningModifier(GMPruningModifier):
                 param_buffer["momentum_buffer"].mul_(0.0)
 
     @staticmethod
-    def _finish_on_decompression(start_epoch, end_epoch, update_frequency):
+    def _finish_on_compression(
+        start_epoch: float, end_epoch: float, update_frequency: float
+    ) -> float:
         """
         This function asserts that training will always
-        end on the last epoch of decompression phase.
-        E.g. if start_epoch = 0, end_epoch = 7 and update_frequency = 2:
-        decompression_phases = [1,1,0,0,1,1,0]
-        Because last epoch is compression phase, end_epoch will be reduced to 6.
+        end on the last epoch of compression phase.
+        E.g. if start_epoch = 0, end_epoch = 9 and update_frequency = 2:
+        compression_phases = [0,0,1,1,0,0,1,1,0]
+        Because last epoch is decompression phase, end_epoch will be reduced to 8.
+        (so that compression_phases = [0,0,1,1,0,0,1,1,0]
 
         :param start_epoch:
             The epoch to start the modifier at
@@ -1708,17 +1745,19 @@ class ACDCPruningModifier(GMPruningModifier):
         :return: reduced_end_epoch:
             (If required) reduced, original end_epoch (reduced_end_epoch <= end_epoch)
         """
-        decompression_phases = [
-            math.floor(epoch / update_frequency) % 2 == 0.0
+        compression_phases = [
+            math.floor(epoch / update_frequency) % 2 == 1.0
             for epoch in range(start_epoch, end_epoch)
         ]
-        for decompressed_phase_epoch in reversed(decompression_phases):
-            if decompressed_phase_epoch:
-                # when decompressed_phase_epoch encountered
+
+        for compressed_phase_epoch in reversed(compression_phases):
+            if compressed_phase_epoch:
+                # when compressed_phase_epoch encountered
                 # this function returns original 'end_epoch'
                 break
             else:
                 # otherwise, keep subtracting last
-                # compression epochs count from the 'end epoch'
+                # decompression epochs count from the 'end epoch'
                 end_epoch -= 1
+
         return end_epoch
