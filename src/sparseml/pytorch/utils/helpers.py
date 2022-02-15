@@ -16,9 +16,9 @@
 Utility / helper functions
 """
 
-import warnings
 import random
 import re
+import warnings
 from collections import OrderedDict, namedtuple
 from contextlib import contextmanager
 from copy import deepcopy
@@ -813,27 +813,23 @@ def get_quantized_layers(module: Module) -> List[Tuple[str, Module]]:
             "Please install a QAT compatible version of PyTorch"
         )
 
-    if any(
-        [
-        (isinstance(mod, QATConv3d) and not QATConv3d)
-        for (name, mod) in module.named_modules()
-        ]
-    ):
-        warnings.warn(
-            "Pytorch version is not setup for Conv3D Quantization. "
-            "Quantization of Conv3D layers will be skipped",
-            UserWarning,
-        )
-
-    return [
-        (name, mod)
-        for (name, mod) in module.named_modules()
+    quantized_layers = []
+    for (name, mod) in module.named_modules():
         if (
             (QATLinear and isinstance(mod, QATLinear))
             or (QATConv2d and isinstance(mod, QATConv2d))
             or (QATConv3d and isinstance(mod, QATConv3d))
-        )
-    ]
+        ):
+            quantized_layers.append((name, mod))
+
+        elif isinstance(mod, QATConv3d) and not QATConv3d:
+            warnings.warn(
+                "Pytorch version is not setup for Conv3D Quantization. "
+                "Quantization of Conv3D layers will be skipped",
+                UserWarning,
+            )
+
+    return quantized_layers
 
 
 def get_layer_param(param: str, layer: str, module: Module) -> Parameter:
