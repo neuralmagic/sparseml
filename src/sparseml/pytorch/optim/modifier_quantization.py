@@ -116,6 +116,8 @@ class QuantizationModifier(ScheduledModifier):
         recovery. Default is True
     :param num_calibration_steps: Number of steps to run post training calibration for.
             When None, the entire calibration_dataloader is used
+    :param exclude_module_types: optional list of module class names
+        to not propagate quantization configs to. Default is None
     """
 
     def __init__(
@@ -131,6 +133,7 @@ class QuantizationModifier(ScheduledModifier):
         reduce_range: bool = False,
         quantize_linear_activations: bool = True,
         num_calibration_steps: Optional[int] = None,
+        exclude_module_types: Union[List[str], None] = None,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -163,7 +166,7 @@ class QuantizationModifier(ScheduledModifier):
         self._calibration_dataloader = None
         self._calibration_function = None
         self._num_calibration_steps = num_calibration_steps
-
+        self._exclude_module_types = exclude_module_types
         if (
             isinstance(self._model_fuse_fn_name, str)
             and self._model_fuse_fn_name.lower() == "none"
@@ -297,6 +300,14 @@ class QuantizationModifier(ScheduledModifier):
             training recovery
         """
         return self._quantize_linear_activations
+
+    @ModifierProp()
+    def exclude_module_types(self) -> Union[List[str], None]:
+        """
+        :return: optional list of module class names to not propagate
+            quantization configs to. Default is None
+        """
+        return self._exclude_module_types
 
     @ModifierProp()
     def num_calibration_steps(self) -> Optional[int]:
@@ -462,10 +473,15 @@ class QuantizationModifier(ScheduledModifier):
             if not self._quantize_linear_activations:
                 remove_activation_qat_by_layer_name(quant_module, ["Linear"])
 
+        # remove qconfigs for module types in exclude_module_types
+        if self._exclude_module_types:
+            self._strip_excluded_module_qconfigs(module)
+
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)
         if self._quantize_embeddings:
             prepare_embeddings_qat(module, reduce_range=self._reduce_range)
+
         self._qat_enabled = True
         self._calibrate_if_possible(module)
 
@@ -530,6 +546,16 @@ class QuantizationModifier(ScheduledModifier):
             and epoch >= self._freeze_bn_stats_epoch
             and not self._bn_stats_frozen
         )
+
+    def _strip_excluded_module_qconfigs(self, module: Module):
+        if not self._exclude_module_types:
+            return
+        excluded_classes = set(self._exclude_module_types)
+        for submodule in module.modules():
+            if submodule.__class__.__name__ in excluded_classes and hasattr(
+                submodule, "qconfig"
+            ):
+                submodule.qconfig = None
 
     def _validate_params(self):
         if (
