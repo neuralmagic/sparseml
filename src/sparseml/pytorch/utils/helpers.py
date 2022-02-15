@@ -16,6 +16,7 @@
 Utility / helper functions
 """
 
+import warnings
 import random
 import re
 from collections import OrderedDict, namedtuple
@@ -795,7 +796,7 @@ def get_quantizable_layers(module: Module) -> List[Tuple[str, Module]]:
         if (
             isinstance(mod, Linear)
             or isinstance(mod, Conv2d)
-            or isinstance(mod, Conv3d)
+            or (QATConv3d and isinstance(mod, Conv3d))
         )
     ]
 
@@ -810,6 +811,18 @@ def get_quantized_layers(module: Module) -> List[Tuple[str, Module]]:
         raise ImportError(
             "PyTorch version is not setup for Quantization. "
             "Please install a QAT compatible version of PyTorch"
+        )
+
+    if any(
+        [
+        (isinstance(mod, QATConv3d) and not QATConv3d)
+        for (name, mod) in module.named_modules()
+        ]
+    ):
+        warnings.warn(
+            "Pytorch version is not setup for Conv3D Quantization. "
+            "Quantization of Conv3D layers will be skipped",
+            UserWarning,
         )
 
     return [
