@@ -158,6 +158,7 @@ class QuantizationModifier(ScheduledModifier):
         self._quantize_embeddings = quantize_embeddings
         self._reduce_range = reduce_range
         self._quantize_linear_activations = quantize_linear_activations
+        self._exclude_module_types = exclude_module_types
 
         self._modules_to_quantize = None
         self._qat_enabled = False
@@ -166,7 +167,6 @@ class QuantizationModifier(ScheduledModifier):
         self._calibration_dataloader = None
         self._calibration_function = None
         self._num_calibration_steps = num_calibration_steps
-        self._exclude_module_types = exclude_module_types
         if (
             isinstance(self._model_fuse_fn_name, str)
             and self._model_fuse_fn_name.lower() == "none"
