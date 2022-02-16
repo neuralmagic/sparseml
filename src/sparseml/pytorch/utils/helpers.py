@@ -18,7 +18,6 @@ Utility / helper functions
 
 import random
 import re
-import warnings
 from collections import OrderedDict, namedtuple
 from contextlib import contextmanager
 from copy import deepcopy
@@ -36,6 +35,7 @@ from torch.utils.data import DataLoader
 try:
     quant_err = None
     from torch.nn.qat import Conv2d as QATConv2d
+    from torch.nn.qat import Conv3d as QATConv3d
     from torch.nn.qat import Linear as QATLinear
     from torch.quantization import QuantWrapper
 except Exception as _err:
@@ -43,11 +43,6 @@ except Exception as _err:
     QuantWrapper = None
     QATLinear = None
     QATConv2d = None
-
-try:
-    from torch.nn.qat import Conv3d as QATConv3d
-except Exception as _err:
-    quant_conv3d_err = _err
     QATConv3d = None
 
 from sparseml.utils import create_dirs, save_numpy
@@ -796,7 +791,7 @@ def get_quantizable_layers(module: Module) -> List[Tuple[str, Module]]:
         if (
             isinstance(mod, Linear)
             or isinstance(mod, Conv2d)
-            or (QATConv3d and isinstance(mod, Conv3d))
+            or isinstance(mod, Conv3d)
         )
     ]
 
@@ -813,23 +808,15 @@ def get_quantized_layers(module: Module) -> List[Tuple[str, Module]]:
             "Please install a QAT compatible version of PyTorch"
         )
 
-    quantized_layers = []
-    for (name, mod) in module.named_modules():
+    return [
+        (name, mod)
+        for (name, mod) in module.named_modules()
         if (
             (QATLinear and isinstance(mod, QATLinear))
             or (QATConv2d and isinstance(mod, QATConv2d))
             or (QATConv3d and isinstance(mod, QATConv3d))
-        ):
-            quantized_layers.append((name, mod))
-
-        elif isinstance(mod, QATConv3d) and not QATConv3d:
-            warnings.warn(
-                "Pytorch version is not setup for Conv3D Quantization. "
-                "Quantization of Conv3D layers will be skipped",
-                UserWarning,
-            )
-
-    return quantized_layers
+        )
+    ]
 
 
 def get_layer_param(param: str, layer: str, module: Module) -> Parameter:

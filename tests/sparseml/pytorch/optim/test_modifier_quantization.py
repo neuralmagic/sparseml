@@ -56,7 +56,7 @@ QUANTIZATION_MODIFIERS = [
     ),
     lambda: QuantizationModifier(
         start_epoch=0.0,
-        enable_int4_activations=True,
+        int4_activations=True,
     ),
     lambda: QuantizationModifier(
         start_epoch=0.0,
@@ -71,13 +71,14 @@ def _is_valid_submodule(module_name, submodule_names):
     )
 
 
-def _is_quantiable_module(module):
+def _is_quantizable_module(module):
     return isinstance(module, (Conv2d, Linear))
 
 
 def _test_quantizable_module(module, qat_expected, modifier):
     reduce_range = modifier.reduce_range
     quantize_linear_activations = modifier.quantize_linear_activations
+    int4_activations = modifier.int4_activations
 
     excluded_types = modifier.exclude_module_types or []
     qat_expected = qat_expected and module.__class__.__name__ not in excluded_types
@@ -92,10 +93,6 @@ def _test_quantizable_module(module, qat_expected, modifier):
         )
         if module.qconfig.activation is not Identity:
             assert module.qconfig.activation.p.keywords["reduce_range"] == reduce_range
-        assert (
-            module.qconfig.activation.p.keywords["enable_int4_activations"]
-            == enable_int4_activations
-        )
 
         if isinstance(module, Linear):
             assert isinstance(module.activation_post_process, Identity) == (
@@ -113,14 +110,14 @@ def _test_qat_applied(modifier, model):
         assert hasattr(model, "qconfig") and model.qconfig is not None
         submodules = [""]
         for module in model.modules():
-            if _is_quantiable_module(module):
+            if _is_quantizable_module(module):
                 _test_quantizable_module(module, True, modifier)
     else:
         assert not hasattr(model, "qconfig") or model.qconfig is None
         submodules = modifier.submodules
     # check qconfig propagation
     for name, module in model.named_modules():
-        if _is_quantiable_module(module):
+        if _is_quantizable_module(module):
             _test_quantizable_module(
                 module,
                 _is_valid_submodule(name, submodules),
@@ -219,7 +216,7 @@ def test_quantization_modifier_yaml():
     reduce_range = True
     quantize_linear_activations = False
     exclude_module_types = ["LayerNorm", "Tanh"]
-    enable_int4_activations = True
+    int4_activations = True
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
@@ -231,7 +228,7 @@ def test_quantization_modifier_yaml():
             reduce_range: {reduce_range}
             quantize_linear_activations: {quantize_linear_activations}
             exclude_module_types: {exclude_module_types}
-            enable_int4_activations: {enable_int4_activations}
+            int4_activations: {int4_activations}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -248,7 +245,7 @@ def test_quantization_modifier_yaml():
         quantize_embeddings=quantize_embeddings,
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
-        enable_int4_activations=enable_int4_activations,
+        int4_activations=int4_activations,
         exclude_module_types=exclude_module_types,
     )
 
@@ -294,12 +291,12 @@ def test_quantization_modifier_yaml():
         == obj_modifier.quantize_linear_activations
     )
     assert (
+        yaml_modifier.int4_activations
+        == serialized_modifier.int4_activations
+        == obj_modifier.int4_activations
+    )
+    assert (
         yaml_modifier.exclude_module_types
         == serialized_modifier.exclude_module_types
         == obj_modifier.exclude_module_types
-    )
-    assert (
-        yaml_modifier.enable_int4_activations
-        == serialized_modifier.enable_int4_activations
-        == obj_modifier.enable_int4_activations
     )
