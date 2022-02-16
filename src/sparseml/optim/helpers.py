@@ -245,6 +245,21 @@ def check_if_staged_recipe(container: Dict) -> Tuple[Dict, bool]:
     or staged recipe file. If the latter case, transforms the container
     to following structure:
 
+    {
+    'global_variables: [{var1: 'foo'}, {var2: 'fizz'}, ...]
+    'stage alpha': {
+        'stage_variables': [{'num_epochs': 100}, {'init_lr': 0.1}]
+        'modifiers': ['OBJECT.EpochRangeModifier': {...},
+                     ['OBJECT.LearningRateFunctonModifier': {...},
+                      ...]
+    'stage beta': {
+        'stage_variables': [{'num_epochs': 50}, {'init_lr': 0.2}]
+        'modifiers': ['OBJECT.EpochRangeModifier': {...},
+                     ['OBJECT.LearningRateFunctonModifier': {...},
+                      ...]
+    ...
+    }
+
     Returns a container dictionary and a boolean (staged recipe or not).
     """
     staged_recipe = True
