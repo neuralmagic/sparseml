@@ -898,7 +898,7 @@ def compute_hessian_inv(
     if not mfac_options:
         _LOGGER.info("No M-FAC options found - using defaults")
         mfac_options = MFACOptions()
-    # The amount of memory required for the computation of one block is the main 
+    # The amount of memory required for the computation of one block is the main
     # decider in the FisherInverse algorithm to use
     if mfac_options.fisher_block_size:
         block_mem_size = _block_memory_size(
