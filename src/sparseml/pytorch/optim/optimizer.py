@@ -78,6 +78,7 @@ class ScheduledOptimizer(Optimizer):
         manager: ScheduledModifierManager,
         steps_per_epoch: int,
         loggers: Union[List[BaseLogger], None] = None,
+        **kwargs,
     ):
         # do not call into super since this instance is not passing all calls to
         # the nested optimizer
@@ -87,7 +88,7 @@ class ScheduledOptimizer(Optimizer):
         #     UserWarning,
         # )  TODO: uncomment in next release once docs are ready
 
-        manager.initialize(module, epoch=0.0, loggers=loggers)
+        manager.initialize(module, epoch=0.0, loggers=loggers, **kwargs)
         self._wrapper = RecipeManagerStepWrapper(
             optimizer,
             optimizer,

@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
+from torch.utils.data import RandomSampler
 from transformers import Trainer as TransformersTrainer
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.file_utils import WEIGHTS_NAME
@@ -33,7 +34,7 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.utils import ModuleSparsificationInfo, WANDBLogger
+from sparseml.pytorch.utils import GradSampler, ModuleSparsificationInfo, WANDBLogger
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
 
@@ -120,6 +121,10 @@ class RecipeManagerTrainerInterface:
         self.callback_disable_fp16 = DisableHalfPrecisionCallback(self)
         self.callback_handler.add_callback(self.callback_disable_fp16)
 
+        self.grad_sampler = GradSampler(
+            self._mfac_data_loader(), self._mfac_loss_function
+        )
+
     def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
         """
         Apply the recipe(s) to the model and training/validation process.
@@ -199,7 +204,7 @@ class RecipeManagerTrainerInterface:
 
         total_batch_size = (
             self.args.per_device_train_batch_size
-            * self.args._n_gpu
+            * (self.args._n_gpu or 1)
             * self.args.gradient_accumulation_steps
         )
         self.manager_steps_per_epoch = math.ceil(
@@ -216,6 +221,7 @@ class RecipeManagerTrainerInterface:
                 wrap_optim=self.scaler,
                 loggers=self.manager_loggers,
                 distillation_teacher=self.teacher,
+                grad_sampler=self.grad_sampler,
             )
         else:
             wrap_optim_key = "optimizer"
@@ -225,6 +231,7 @@ class RecipeManagerTrainerInterface:
                 self.manager,
                 steps_per_epoch=self.manager_steps_per_epoch,
                 loggers=self.manager_loggers,
+                grad_sampler=self.grad_sampler,
             )
             if not self.manager.initialized:
                 self.manager.initialize(
@@ -458,6 +465,43 @@ class RecipeManagerTrainerInterface:
             model_type="student" if self.teacher else "model",
             delayed_load=False,
         )
+
+    def _mfac_data_loader(self):
+        data_loader_template = self.get_train_dataloader()
+
+        data_loader = torch.utils.data.DataLoader(
+            dataset=data_loader_template.dataset,
+            batch_size=data_loader_template.batch_size // 2,
+            sampler=RandomSampler(data_loader_template.dataset, replacement=False),
+            num_workers=data_loader_template.num_workers,
+            collate_fn=data_loader_template.collate_fn,
+            pin_memory=data_loader_template.pin_memory,
+            drop_last=data_loader_template.drop_last,
+            timeout=data_loader_template.timeout,
+            worker_init_fn=data_loader_template.worker_init_fn,
+            generator=data_loader_template.generator,
+            prefetch_factor=data_loader_template.prefetch_factor,
+            persistent_workers=data_loader_template.persistent_workers,
+        )
+
+        for sample in data_loader:
+            if self.label_smoother is not None and "labels" in sample:
+                label = sample.pop("labels")
+            else:
+                label = None
+            sample = self._prepare_inputs(sample)
+            yield [], sample, label
+
+    def _mfac_loss_function(self, model_outputs, loss_target):
+        if loss_target is not None:
+            loss = self.label_smoother(model_outputs, loss_target)
+        else:
+            loss = (
+                model_outputs["loss"]
+                if isinstance(model_outputs, dict)
+                else model_outputs[0]
+            )
+        return loss
 
 
 class TrainerInterface(RecipeManagerTrainerInterface):
