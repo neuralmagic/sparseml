@@ -58,67 +58,10 @@ __all__ = [
     "FisherInverseFastBlock",
     "FisherInverseFastPageSwap",
     "FisherInverseFastSmallBlocks",
-    "MFACOptions",
 ]
 
 _LOGGER = logging.getLogger(__name__)
 BYTES_IN_MIB = 1024 ** 2
-
-@dataclass
-class MFACOptions:
-    """
-    Options for running the Matrix-Free Approxmiate Curvature (M-FAC) algorithm
-
-    :param num_grads: number of gradients to store in buffer for Fisher computation.
-        can be an int where that constant value will be used throughout pruning or a
-        dictionary of float sparsity values to the number of gradients that should be
-        stored when that sparsity level (between 0.0 and 1.0) is reached. If a
-        dictionary, then 0.0 must be included as a key for the base number of gradients
-        to store (i.e. {0: 64, 0.5: 128, 0.75: 256}). Default is 64
-    :param damp: dampening factor, default is 1e-5
-    :param grads_device: device to store the gradient buffer on. Default is "cpu"
-    :param fisher_block_size: optional value to enable blocked computation of the
-        Fisher matrix. Blocks will be formed consecutively along the diagonal. If
-        None, blocked computation is not used. Default is 2000
-    :param num_pages: number of pages to break the gradient samples into for GPU
-        computation. Only available when blocked computation is not enabled.
-        Default is 1
-    :param available_gpus: list of GPU device names to perform computation on. Default
-        is empty
-    """
-
-    num_grads: Union[Dict[float, int], int] = 64
-    damp: float = 1e-5
-    grads_device: Union[str, int] = "cpu"
-    fisher_block_size: Optional[int] = 2000
-    num_pages: int = 1  # break computation into pages when block size is None
-    available_gpus: List[str] = field(default_factory=list)
-
-    def get_num_grads_for_sparsity(self, sparsity: Union[float, List[float]]) -> int:
-        if isinstance(self.num_grads, int):
-            return self.num_grads
-        if isinstance(sparsity, List):
-            sparsity = sum(sparsity) / len(sparsity)
-
-        sparsity_thresholds = list(sorted(self.num_grads, key=lambda key: float(key)))
-        if 0.0 not in sparsity_thresholds:
-            raise ValueError(
-                "Dictionary of sparsity thresholds to number of grads given for "
-                "MFACOptions.num_grads, but 0 not included as a sparsity threshold. "
-                "0.0 must be included as a sparsity threshold. Given thresholds "
-                f"{sparsity_thresholds}"
-            )
-
-        idx = 0
-        while (
-            idx < len(sparsity_thresholds)
-            and float(sparsity_thresholds[idx]) < sparsity
-        ):
-            idx += 1
-        idx = min(idx, len(self.num_grads) - 1)
-        return self.num_grads[sparsity_thresholds[idx]]
-
-
 @PyTorchModifierYAML()
 class MFACPruningModifier(BaseGradualPruningModifier):
     """
@@ -177,13 +120,22 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         be layer-wise. Default is False
     :param use_gradient_buffering: Optional bool to use gradient buffering instead of
     grad sampling. By default, grad sampling is always used when available
-    :param mfac_options: Dictionary of key words specifying arguments for the M-FAC
-        pruning run. num_grads controls the number of gradient samples that are kept,
-        fisher_block_size specifies the block size to break the M-FAC computation into
-        (default is 2000, use None for no blocks), available_gpus specifies a list
-        of device ids that can be used for computation. For a full list of options,
-        see the MFACOptions dataclass documentation. Default configuration uses
-        CPU for computation without blocked computation
+    :param num_grads: number of gradients to store in buffer for Fisher computation.
+        can be an int where that constant value will be used throughout pruning or a
+        dictionary of float sparsity values to the number of gradients that should be
+        stored when that sparsity level (between 0.0 and 1.0) is reached. If a
+        dictionary, then 0.0 must be included as a key for the base number of gradients
+        to store (i.e. {0: 64, 0.5: 128, 0.75: 256}). Default is 64
+    :param damp: dampening factor, default is 1e-5
+    :param grads_device: device to store the gradient buffer on. Default is "cpu"
+    :param fisher_block_size: optional value to enable blocked computation of the
+        Fisher matrix. Blocks will be formed consecutively along the diagonal. If
+        None, blocked computation is not used. Default is 2000
+    :param num_pages: number of pages to break the gradient samples into for GPU
+        computation. Only available when blocked computation is not enabled.
+        Default is 1
+    :param available_gpus: list of GPU device names to perform computation on. Default
+        is empty
     """
 
     def __init__(
@@ -199,7 +151,12 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         log_types: Union[str, List[str]] = ALL_TOKEN,
         global_sparsity: bool = False,
         use_gradient_buffering: Optional[bool] = None,
-        mfac_options: Dict[str, Any] = None,
+        num_grads: Union[Dict[float, int], int] = 64,
+        damp: float = 1e-5,
+        grads_device: Union[str, int] = "cpu",
+        fisher_block_size: Optional[int] = 2000,
+        num_pages: int = 1,  # break computation into pages when block size is None
+        available_gpus: List[str] = field(default_factory=list),
     ):
         super().__init__(
             params=params,
@@ -213,21 +170,14 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             global_sparsity=global_sparsity,
             leave_enabled=leave_enabled,
         )
-        self._mfac_options = mfac_options or {}
         self._grad_sampler = None
         self._use_gradient_buffering = use_gradient_buffering
-
-    @ModifierProp(serializable=True)
-    def mfac_options(self) -> Dict[str, Any]:
-        """
-        :return: Dictionary of key words specifying arguments for the M-FAC
-            pruning run. num_grads controls the number of gradient samples,
-            fisher_block_size is the block size to break the M-FAC computation into
-            (default is 2000, None means no blocks), available_gpus specifies a list
-            of device ids that can be used for computation. For a full list of options,
-            see the MFACOptions dataclass documentation.
-        """
-        return self._mfac_options
+        self._num_grads = num_grads
+        self._damp = damp
+        self._grads_device = grads_device
+        self._fisher_block_size = fisher_block_size
+        self._num_pages = num_pages
+        self._available_gpus = available_gpus
 
     @ModifierProp(serializable=False)
     def use_gradient_buffering(self) -> Optional[bool]:
@@ -235,6 +185,13 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         Return flag indicating force use of gradient buffering over a gradient sampler
         """
         return self._use_gradient_buffering
+
+    @ModifierProp(serializable=False)
+    def num_grads(self) -> Union[Dict[float, int], int]:
+        """
+        Return flag indicating force use of gradient buffering over a gradient sampler
+        """
+        return self._num_grads
 
     def initialize(
         self,
@@ -292,7 +249,15 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         :param params: list of Parameters for scorer to track
         :return: param scorer object to be used by this pruning algorithm
         """
-        return MFACPruningParamsScorer(params, self._mfac_options)
+        return MFACPruningParamsScorer(
+            params = params,
+            num_grads = self._num_grads,
+            damp = self._damp,
+            fisher_block_size = self._fisher_block_size,
+            num_pages = self._num_pages,
+            available_gpus = self._available_gpus, 
+            grad_sampler = self._grad_sampler
+         )
 
     def check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
@@ -300,12 +265,12 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         _LOGGER.debug("Running M-FAC Pruning")
         # create grads for pne-shot pruning
         if self._grad_sampler is not None:
-            self.module_masks.scorer.buffer_grads = True  # enable buffering
+            self._scorer.buffer_grads = True  # enable buffering
             self._collect_grad_samples(module, self._grad_sampler)
             self._pre_step_completed = True
-            self.module_masks.scorer.buffer_grads = False  # re-disable buffering
+            self._scorer.buffer_grads = False  # re-disable buffering
 
-        super()._check_mask_update(module, epoch, steps_per_epoch, **kwargs)
+        super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
 
     def _collect_grad_samples(
         self,
@@ -317,7 +282,8 @@ class MFACPruningModifier(BaseGradualPruningModifier):
                 "One-shot MFAC pruning requires a GradSampler object given by the "
                 f"grad_sampler kwarg. Given an object of type {type(grad_sampler)}"
             )
-        num_grads = MFACOptions(**self._mfac_options).get_num_grads_for_sparsity(
+        num_grads = _get_num_grads_for_sparsity(
+            self._num_grads,
             self._applied_sparsity or 0.0
         )
 
@@ -337,22 +303,43 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
     perturbation: -w_i * H^-1 / H_{i,i} for every newly masked weight w_i.
 
     :param params: list of model Parameters to track and score
-    :param mfac_options: Dictionary of key words specifying arguments for the M-FAC
-        pruning run. num_grads controls the number of gradient samples that are kept,
-        fisher_block_size if given enables block approximations of the Fisher matrix
-        (if not specified, the full matrix is used), available_gpus specifies a list
-        of device ids that can be used for computation. For a full list of options,
-        see the MFACOptions dataclass documentation. Default configuration uses
-        CPU for computation without blocked computation
+    :param num_grads: number of gradients to store in buffer for Fisher computation.
+        can be an int where that constant value will be used throughout pruning or a
+        dictionary of float sparsity values to the number of gradients that should be
+        stored when that sparsity level (between 0.0 and 1.0) is reached. If a
+        dictionary, then 0.0 must be included as a key for the base number of gradients
+        to store (i.e. {0: 64, 0.5: 128, 0.75: 256}). Default is 64
+    :param damp: dampening factor, default is 1e-5
+    :param fisher_block_size: optional value to enable blocked computation of the
+        Fisher matrix. Blocks will be formed consecutively along the diagonal. If
+        None, blocked computation is not used. Default is 2000
+    :param num_pages: number of pages to break the gradient samples into for GPU
+        computation. Only available when blocked computation is not enabled.
+        Default is 1
+    :param available_gpus: list of GPU device names to perform computation on. Default
+        is empty
     """
 
-    def __init__(self, params: List[Parameter], mfac_options: MFACOptions = None):
-        super().__init__(params)
+    def __init__(
+        self, 
+        params: List[Parameter],
+        num_grads: Union[Dict[float, int], int],
+        damp: float,
+        fisher_block_size: Optional[int],
+        num_pages: int,
+        available_gpus: List[str],
+        grad_sampler: Optional[GradSampler] = None, 
+        ):
+        super().__init__(params, grad_sampler)
+        self._num_grads = num_grads
+        self._damp = damp
+        self._fisher_block_size = fisher_block_size
+        self._num_pages = num_pages
+        self._available_gpus = available_gpus
 
         # control when to do live gradient buffering, enabled by default
         self.buffer_grads = True
 
-        self._mfac_options = mfac_options or MFACOptions()
         self._unpruned_idxs = [None] * len(self._params)  # type: List[Tensor]
         self._grad_buffer = None  # type: Tensor
         self._grads = None  # placeholder for all grads across buffers
@@ -362,13 +349,13 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         # scale num_grads by number of DDP processes
         if self._is_ddp:
             world_size = dist.get_world_size()
-            if isinstance(self._mfac_options.num_grads, int):
-                self._mfac_options.num_grads = (
-                    self._mfac_options.num_grads // world_size
+            if isinstance(self._num_grads, int):
+                self.num_grads = (
+                    self._num_grads // world_size
                 )
             else:  # dict
-                self._mfac_options.num_grads = {
-                    k: v // world_size for k, v in self._mfac_options.num_grads.items()
+                self._num_grads = {
+                    k: v // world_size for k, v in self._num_grads.items()
                 }
 
         self._pickle_exclude_params.extend(
@@ -395,7 +382,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             # raise Exception if grad buffer is not full
             raise RuntimeError(
                 "MFAC pruning step called, but not enough gradient samples have been "
-                f"collected. Expected {self._mfac_options.num_grads} samples"
+                f"collected. Expected {self._num_grads} samples"
             )
 
         if self._is_ddp:
@@ -519,7 +506,13 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             weights_idx = next_idx
 
         # inverse hessian approximation
-        h_inv = _compute_hessian_inv(self._grads, self._mfac_options)
+        h_inv = _compute_hessian_inv(
+            grads = self._grads,
+            damp = self._damp,
+            fisher_block_size = self._fisher_block_size,
+            num_pages = self._num_pages,
+            available_gpus = self._available_gpus,
+            )
         diag = h_inv.diag().to(non_pruned_weights.device)
 
         # compute global scores for non-pruned weights
@@ -576,7 +569,8 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             self._unpruned_idxs[idx] = mask.view(-1).nonzero(as_tuple=False).reshape(-1)
             total_nonzero += self._unpruned_idxs[idx].numel()
         # only track nonzero grads
-        num_grads = self._mfac_options.get_num_grads_for_sparsity(
+        num_grads = _get_num_grads_for_sparsity(
+            self._num_grads,
             self._last_applied_sparsity
         )
         self._grad_buffer = torch.zeros(
@@ -1299,41 +1293,50 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
 def _compute_hessian_inv(
     grads: Tensor,
-    mfac_options: Optional[MFACOptions] = None,
+    damp: float,
+    fisher_block_size: Optional[int],
+    num_pages: int, 
+    available_gpus: List[str],
+
 ) -> FisherInverse:
     """
     Determine which FisherInverse algorithm to use.
 
     :param grads: tensor of gradient samples to compute the Hessian inverse
         representation with. Should have shape (num_samples, num_parameters)
-    :param mfac_options: MFACOptions object specifying how to perform the computations
+    :param damp: dampening factor, default is 1e-5
+    :param fisher_block_size: optional value to enable blocked computation of the
+        Fisher matrix. Blocks will be formed consecutively along the diagonal. If
+        None, blocked computation is not used. Default is 2000
+    :param num_pages: number of pages to break the gradient samples into for GPU
+        computation. Only available when blocked computation is not enabled.
+        Default is 1
+    :param available_gpus: list of GPU device names to perform computation on. Default
+        is empty
     :return: FisherInverse object with access to the diagonal multiplication of the
         Fisher approximation of the Hessian inverse
     """
-    if not mfac_options:
-        _LOGGER.info("No M-FAC options found - using defaults")
-        mfac_options = MFACOptions()
     # The amount of memory required for the computation of one block is the main 
     # decider in the FisherInverse algorithm to use
-    if mfac_options.fisher_block_size:
+    if fisher_block_size:
         block_mem_size = _block_memory_size(
-            block_size=mfac_options.fisher_block_size, element_size=grads.element_size()
+            block_size=fisher_block_size, element_size=grads.element_size()
         )
 
         _LOGGER.debug(
-            f"Calculated Fisher block with size {mfac_options.fisher_block_size}"
+            f"Calculated Fisher block with size {fisher_block_size}"
             f"to occupy {block_mem_size} bytes/ {block_mem_size/BYTES_IN_MIB} MiB in memory"
         )
 
         free_device_mem = _get_free_gpu_memory(
-            _cuda_list_to_idx(mfac_options.available_gpus)
+            _cuda_list_to_idx(available_gpus)
         )
 
         _LOGGER.debug(
             "Free memory on devices:"
             + "\n".join(
                 [
-                    f"{mfac_options.available_gpus[i]}: {str(free_device_mem[i]/BYTES_IN_MIB)}"
+                    f"{available_gpus[i]}: {str(free_device_mem[i]/BYTES_IN_MIB)}"
                     for i in range(len(free_device_mem))
                 ]
             )
@@ -1343,7 +1346,7 @@ def _compute_hessian_inv(
         # the block computation
         available_gpus = [
             gpu
-            for i, gpu in enumerate(mfac_options.available_gpus)
+            for i, gpu in enumerate(available_gpus)
             if free_device_mem[i] > block_mem_size / BYTES_IN_MIB
         ]
 
@@ -1354,7 +1357,7 @@ def _compute_hessian_inv(
             _LOGGER.debug(
                 "Using the following devices for M-FAC:" + "\n".join(available_gpus)
             )
-            mfac_options.available_gpus = available_gpus
+            available_gpus = available_gpus
             block_fisher_class = FisherInverseFastSmallBlocks
         else:
             _LOGGER.info(
@@ -1364,19 +1367,47 @@ def _compute_hessian_inv(
 
         return block_fisher_class(
             grads,
-            mfac_options.fisher_block_size,
-            damp=mfac_options.damp,
-            devices=mfac_options.available_gpus,
+            fisher_block_size,
+            damp=damp,
+            devices=available_gpus,
         )
-    elif mfac_options.available_gpus or mfac_options.num_pages > 1:
+    elif available_gpus or num_pages > 1:
         return FisherInverseFastPageSwap(
             grads,
-            damp=mfac_options.damp,
-            num_pages=mfac_options.num_pages,
-            devices=mfac_options.available_gpus,
+            damp=damp,
+            num_pages=num_pages,
+            devices=available_gpus,
         )
     else:
-        return FisherInverseFast(grads, damp=mfac_options.damp)
+        return FisherInverseFast(grads, damp=damp)
+
+def _get_num_grads_for_sparsity(
+    num_grads: Union[Dict[float, int], int], 
+    sparsity: Union[float, List[float]]
+    ) -> int:
+        if isinstance(num_grads, int):
+            return num_grads
+        if isinstance(sparsity, List):
+            sparsity = sum(sparsity) / len(sparsity)
+
+        sparsity_thresholds = list(sorted(num_grads, key=lambda key: float(key)))
+        if 0.0 not in sparsity_thresholds:
+            raise ValueError(
+                "Dictionary of sparsity thresholds to number of grads given for "
+                "num_grads, but 0 not included as a sparsity threshold. "
+                "0.0 must be included as a sparsity threshold. Given thresholds "
+                f"{sparsity_thresholds}"
+            )
+
+        idx = 0
+        while (
+            idx < len(sparsity_thresholds)
+            and float(sparsity_thresholds[idx]) < sparsity
+        ):
+            idx += 1
+        idx = min(idx, len(num_grads) - 1)
+        return num_grads[sparsity_thresholds[idx]]
+
 
 def _get_free_gpu_memory(
     device_idx: List[int] = [], clear_cache: bool = True

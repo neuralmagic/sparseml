@@ -17,7 +17,6 @@ import torch
 
 from sparseml.pytorch.optim import (
     MagnitudePruningParamsScorer,
-    MFACOptions,
     MFACPruningParamsScorer,
     MovementPruningParamsScorer,
     create_pruning_param_scorer,
