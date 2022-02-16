@@ -60,13 +60,16 @@ def test_fast_small_blocks():
     small_blocks_mul_out = small_blocks_hinv.mul(tensor_to_mul)
 
     assert (
-        pytest.approx(fast_diag, torch.mean(fast_diag).item() * PRECISION)
+        pytest.approx(
+            fast_diag,
+            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION,
+        )
         == small_blocks_diag
     )
     assert (
         pytest.approx(
             fast_mul_out,
-            torch.mean(fast_mul_out).item() * PRECISION,
+            torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION,
         )
         == small_blocks_mul_out
     )
@@ -102,13 +105,16 @@ def test_fast_small_blocks_gpu():
     small_blocks_mul_out = small_blocks_hinv.mul(tensor_to_mul)
 
     assert (
-        pytest.approx(fast_diag, torch.mean(fast_diag).item() * PRECISION)
+        pytest.approx(
+            fast_diag,
+            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION,
+        )
         == small_blocks_diag
     )
     assert (
         pytest.approx(
             fast_mul_out,
-            torch.mean(fast_mul_out).item() * PRECISION,
+            torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION,
         )
         == small_blocks_mul_out
     )
@@ -146,13 +152,16 @@ def test_fast_large_blocks():
     small_blocks_mul_out = small_blocks_hinv.mul(tensor_to_mul)
 
     assert (
-        pytest.approx(fast_diag, torch.mean(fast_diag).item() * PRECISION)
+        pytest.approx(
+            fast_diag,
+            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION,
+        )
         == small_blocks_diag
     )
     assert (
         pytest.approx(
             fast_mul_out,
-            torch.mean(fast_mul_out).item() * PRECISION,
+            torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION,
         )
         == small_blocks_mul_out
     )
@@ -188,13 +197,16 @@ def test_fast_large_blocks_gpu():
     small_blocks_mul_out = small_blocks_hinv.mul(tensor_to_mul)
 
     assert (
-        pytest.approx(fast_diag, torch.mean(fast_diag).item() * PRECISION)
+        pytest.approx(
+            fast_diag,
+            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION,
+        )
         == small_blocks_diag
     )
     assert (
         pytest.approx(
             fast_mul_out,
-            torch.mean(fast_mul_out).item() * PRECISION,
+            torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION,
         )
         == small_blocks_mul_out
     )

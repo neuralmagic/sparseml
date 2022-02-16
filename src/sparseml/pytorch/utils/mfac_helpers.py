@@ -660,8 +660,9 @@ class FisherInverseFastSmallBlocks(FisherInverse):
                         )
                         self._remaining_blocks -= self._num_blocks_per_device_call[-1]
                         _LOGGER.debug(
-                            f"Allocating {self._num_blocks_per_device_call[-1]} blocks to"
-                            f"device {device}. {self._remaining_blocks} blocks remaining"
+                            f"Allocating {self._num_blocks_per_device_call[-1]} blocks"
+                            f"to device {device}. {self._remaining_blocks} blocks"
+                            "remaining"
                         )
                         if self._remaining_blocks <= 0:
                             break
@@ -675,7 +676,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
                     self._device_suite_calls += 1
 
-                    # At the end of each iteration the net free memory change should be 0
+                    # At the end of each iteration the net memory change should be 0
                     # If the free memory decreases, throw a warning in debug mode
                     prev_free_memory = free_device_memory
                     free_device_memory = _get_free_gpu_memory(
@@ -683,16 +684,19 @@ class FisherInverseFastSmallBlocks(FisherInverse):
                     )
                     for i in range(len(free_device_memory)):
                         if free_device_memory[i] < prev_free_memory[i]:
+                            memory_diff = (
+                                prev_free_memory[i] - free_device_memory[i]
+                            ) / BYTES_IN_MIB
                             _LOGGER.debug(
                                 f"WARNING - GPU memory not cleanly freed."
-                                f"Found {(prev_free_memory[i] - free_device_memory[i])/BYTES_IN_MIB} less MiB"
+                                f"Found {memory_diff} less MiB"
                                 f"since the last iteration"
                             )
 
                 if sum(self._num_blocks_per_device_call) != self._num_blocks:
                     _LOGGER.debug(
-                        "WARNING - Number of blocks processed does not equal to total number of"
-                        "blocks."
+                        "WARNING - Number of blocks processed does not equal to total"
+                        "numver of blocks."
                         f"Total blocks - {self._num_blocks}"
                         f"Processed blocks - {sum(self._num_blocks_per_device_call)}"
                     )
@@ -907,7 +911,8 @@ def compute_hessian_inv(
 
         _LOGGER.debug(
             f"Calculated Fisher block with size {mfac_options.fisher_block_size}"
-            f"to occupy {block_mem_size} bytes/ {block_mem_size/BYTES_IN_MIB} MiB in memory"
+            f"to occupy {block_mem_size} bytes/ {block_mem_size/BYTES_IN_MIB}"
+            "MiB in memory"
         )
 
         free_device_mem = _get_free_gpu_memory(
@@ -918,7 +923,8 @@ def compute_hessian_inv(
             "Free memory on devices:"
             + "\n".join(
                 [
-                    f"{mfac_options.available_gpus[i]}: {str(free_device_mem[i]/BYTES_IN_MIB)}"
+                    f"{mfac_options.available_gpus[i]}: "
+                    f"{str(free_device_mem[i]/BYTES_IN_MIB)}"
                     for i in range(len(free_device_mem))
                 ]
             )
@@ -943,7 +949,8 @@ def compute_hessian_inv(
             block_fisher_class = FisherInverseFastSmallBlocks
         else:
             _LOGGER.info(
-                "Large block size detected - Using Fast Block Fisher Inverse Implementation"
+                "Large block size detected - Using Fast Block Fisher Inverse "
+                "Implementation"
             )
             block_fisher_class = FisherInverseFastBlock
 
