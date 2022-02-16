@@ -138,8 +138,12 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
             parent_class_kwarg_names=["init_sparsity", "final_sparsity", "params"],
         )
 
-    def _get_mask_creator(self) -> PruningMaskCreator:
+    def _get_mask_creator(
+        self, param_names: List[str], params: List[Parameter]
+    ) -> PruningMaskCreator:
         """
+        :param names: full names of parameters to be pruned
+        :param params: list of Parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
         if self.mask_type == "unstructured":
