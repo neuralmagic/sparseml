@@ -30,7 +30,6 @@ from sparseml.optim import BaseModifier
 from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.mask_creator_pruning import (
-    DimensionSparsityMaskCreator,
     PruningMaskCreator,
     load_mask_creator,
 )
