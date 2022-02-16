@@ -23,16 +23,22 @@ from typing import (
     Optional,
     Union,
 )
+import os
 import logging
+import math
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
+from functools import wraps
+import GPUtil
 
 import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 import torch.distributed as dist
+from torch.nn.parallel.parallel_apply import parallel_apply
 
 from sparseml.pytorch.utils.logger import BaseLogger
+from sparseml.pytorch.utils import GradSampler
 from sparseml.pytorch.optim.modifier import ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
@@ -45,10 +51,18 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
 )
 from sparseml.utils import ALL_TOKEN
 __all__ = [
-    "MFACPruningModifier"
+    "MFACPruningModifier",
+    "MFACPruningParamsScorer",
+    "FisherInverse",
+    "FisherInverseFast",
+    "FisherInverseFastBlock",
+    "FisherInverseFastPageSwap",
+    "FisherInverseFastSmallBlocks",
+    "MFACOptions",
 ]
 
 _LOGGER = logging.getLogger(__name__)
+BYTES_IN_MIB = 1024 ** 2
 
 @dataclass
 class MFACOptions:
@@ -505,7 +519,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             weights_idx = next_idx
 
         # inverse hessian approximation
-        h_inv = compute_hessian_inv(self._grads, self._mfac_options)
+        h_inv = _compute_hessian_inv(self._grads, self._mfac_options)
         diag = h_inv.diag().to(non_pruned_weights.device)
 
         # compute global scores for non-pruned weights
@@ -691,7 +705,7 @@ class FisherInverseFastBlock(FisherInverse):
                 .to(self._devices[0])
                 .contiguous()
             )
-            
+
             fisher_inv_block = FisherInverseFast(block, damp=damp)
             self._fisher_inv_blocks.append(fisher_inv_block.to("cpu"))
             del block
@@ -989,122 +1003,170 @@ class FisherInverseFastSmallBlocks(FisherInverse):
         alpha: float = 0.0,
     ):
         self._dtype = grads.dtype
+        self._element_size = grads.element_size()
         self._block_size = block_size
         self._devices = devices or ["cpu"]
         self._alpha = alpha
+        self._damp = damp
 
         self._num_samples, self._num_params = grads.shape
         self._num_blocks = math.ceil(self._num_params / block_size)
         self._num_devices = len(self._devices)
-        self._num_blocks_per_device_call = []
         self._hinvs = []
+        block_mem = _block_memory_size(self._block_size, self._element_size)
 
-        # Liberal estimate of memory allocated to drivers. To get accurate memory
-        # reading, gputil or similar library should be used
-        static_allocated_memory_frac = 0.2
-        remaining_blocks = self._num_blocks
-        self._device_suite_calls = 0
-        prev_free_memory = None
-        torch.cuda.empty_cache()
-        _LOGGER.debug("Starting FisherInverseFastSmallBlocks")
-        while remaining_blocks > 0:
-            for device in devices:
-                free_device_memory = math.floor(
-                    (
-                        torch.cuda.get_device_properties(device=device).total_memory
-                        - torch.cuda.memory_allocated(device=device)
-                    )
-                    * (1 - static_allocated_memory_frac)
+        cpu = self._devices[0] == "cpu"
+        self.hinv(tensor=grads, block_mem=block_mem, cpu=cpu)
+
+    def block_wise_decorator(func):
+        @wraps(func)
+        def wrapper_blocked(
+            self,
+            tensor: Tensor,
+            block_mem: int,
+            safety_margin: float = 0.1,
+            cpu: bool = False,
+        ):
+            """
+            Wraps the most memory intensive Fisher computations in a memory-aware block
+            allocation function. The decorator will allocate a number of blocks which
+            will maximize GPU memory utilization (if GPUs are utilized) with a safety
+            margin
+
+            Note: currently each device is called in sequence. There is no clear benefit
+            to this regime over simply re-using one device, but it may lend to easier
+            parallelization in the future and it upholds the M-FAC "available_devices"
+            parameter expected behavior.
+
+            :param tensor: The input tensor for func, the fisher computation function
+            :param block_mem: The amount of memory needed (in bytes) for the
+            computation of one block
+            :param safety_margin: The total number of blocks allocated per device is
+            (1 - safety_margin)*max_blocks, where max_blocks is the maximum that could
+            fit on the device at this time
+            :param cpu: When true all computation is done on the CPU, without the
+            memory-aware logic
+            """
+            if cpu:
+                self._num_blocks_per_device_call = [self._num_blocks]
+                func(self, tensor, 0, "cpu")  # Process all the blocks in one call
+            else:
+                self._num_blocks_per_device_call = []
+                self._remaining_blocks = self._num_blocks
+                self._device_suite_calls = 0  # Number of calls to the full set of gpus
+                # Calculate free memory available on each device
+                free_device_memory = _get_free_gpu_memory(
+                    _cuda_list_to_idx(self._devices)
                 )
-                prev_free_memory = free_device_memory
-                _LOGGER.debug(f"Free memory on {device} - {free_device_memory}")
-                if free_device_memory < prev_free_memory:
-                    _LOGGER.debug(
-                        f"WARNING - GPU memory not cleanly freed. Found {prev_free_memory - free_device_memory}"
-                        f"less bytes / {prev_free_memory - free_device_memory/BYTES_IN_GIB}"
-                        f"since the last iteration"
-                    )
-                self._num_blocks_per_device_call.append(
-                    min(
-                        remaining_blocks,
-                        math.ceil(
-                            free_device_memory
-                            / (
-                                self._block_size
-                                * self._block_size
-                                * grads.element_size()
+                while self._remaining_blocks > 0:
+                    # Allocate blocks based on device memory, until either all blocks
+                    # are allocated or all gpus have been assigned for this iteration
+                    for idx, device in enumerate(self._devices):
+                        self._num_blocks_per_device_call.append(
+                            min(
+                                self._remaining_blocks,
+                                math.floor(
+                                    (1 - safety_margin)
+                                    * free_device_memory[idx]
+                                    * BYTES_IN_MIB
+                                    / block_mem
+                                ),
                             )
-                        ),
-                    )
-                )
-                remaining_blocks -= self._num_blocks_per_device_call[-1]
-                _LOGGER.debug(
-                    f"Allocating {self._num_blocks_per_device_call[-1]} blocks to"
-                    f"device {device}. {remaining_blocks} blocks remaining"
-                )
-                if remaining_blocks <= 0:
-                    break
-
-            for idx, device in enumerate(devices):
-                call_idx = idx + self._device_suite_calls * self._num_devices
-
-                # initialize H_invs on each device
-                num_blocks = self._num_blocks_per_device_call[call_idx]
-                try:
-                    self._hinvs.append(
-                        self._init_hinv(
-                            num_blocks, damp, self._devices[idx], grads.dtype
                         )
-                    )
-                    _LOGGER.debug(
-                        f"Initialized H^-1 for {num_blocks} blocks on {self._devices[idx]}"
-                    )
-                except Exception as error_msg:
-                    _LOGGER.debug(
-                        f"{error_msg}"
-                        f"Initialization of H^-1 for {num_blocks} blocks on {self._devices[idx]} failed"
-                        f"Retrying with {num_blocks//2} blocks"
-                    )
-                    self._hinvs.append(
-                        self._init_hinv(
-                            num_blocks // 2, damp, self._devices[idx], grads.dtype
+                        self._remaining_blocks -= self._num_blocks_per_device_call[-1]
+                        _LOGGER.debug(
+                            f"Allocating {self._num_blocks_per_device_call[-1]} blocks to"
+                            f"device {device}. {self._remaining_blocks} blocks remaining"
                         )
+                        if self._remaining_blocks <= 0:
+                            break
+
+                    # Iterate through each device and perform computation
+                    for idx, device in enumerate(self._devices):
+                        call_idx = idx + self._device_suite_calls * self._num_devices
+                        if call_idx >= len(self._num_blocks_per_device_call):
+                            break
+                        func(self, tensor, call_idx, device)
+
+                    self._device_suite_calls += 1
+
+                    # At the end of each iteration the net free memory change should be 0
+                    # If the free memory decreases, throw a warning in debug mode
+                    prev_free_memory = free_device_memory
+                    free_device_memory = _get_free_gpu_memory(
+                        _cuda_list_to_idx(self._devices)
                     )
-                    self._num_blocks_per_device_call[call_idx] //= 2
-                    remaining_blocks += self._num_blocks_per_device_call[call_idx]
+                    for i in range(len(free_device_memory)):
+                        if free_device_memory[i] < prev_free_memory[i]:
+                            _LOGGER.debug(
+                                f"WARNING - GPU memory not cleanly freed."
+                                f"Found {(prev_free_memory[i] - free_device_memory[i])/BYTES_IN_MIB} less MiB"
+                                f"since the last iteration"
+                            )
+
+                if sum(self._num_blocks_per_device_call) != self._num_blocks:
                     _LOGGER.debug(
-                        f"Initialized H^-1 for {num_blocks//2} blocks on {self._devices[idx]}"
-                        f"remaining blocks increased to {remaining_blocks}"
+                        "WARNING - Number of blocks processed does not equal to total number of"
+                        "blocks."
+                        f"Total blocks - {self._num_blocks}"
+                        f"Processed blocks - {sum(self._num_blocks_per_device_call)}"
                     )
 
-                # build hinv_g values from grad samples
-                _LOGGER.debug(
-                    "Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
-                )
-                for sample_idx in range(self._num_samples):
-                    self._add(grads[sample_idx, :], device, call_idx)
-                self._hinvs[call_idx] = self._hinvs[call_idx].to("cpu")
-                _LOGGER.debug("Finished H^-1 calculation and moved mat to CPU")
+        return wrapper_blocked
 
-            self._device_suite_calls += 1
+    @block_wise_decorator
+    def hinv(self, grads: Tensor, call_idx: int, device: str):
+        """
+        Initialize the H^-1 and compute its result for the given device.
 
-        if sum(self._num_blocks_per_device_call) != self._num_blocks:
-            _LOGGER.debug(
-                "WARNING - Number of blocks processed does not equal to total number of"
-                "blocks."
-                f"Total blocks - {self._num_blocks}"
-                f"Processed blocks - {sum(self._num_blocks_per_device_call)}"
+        :param grads: The sampled gradients used for H^-1 computation
+        :param call_idx: The index of the number of single-device calls
+        :param device: the device on which to perform the computations
+        """
+        # initialize H_invs on each device
+        num_blocks = self._num_blocks_per_device_call[call_idx]
+        try:
+            self._hinvs.append(
+                self._init_hinv(num_blocks, self._damp, device, self._dtype)
             )
-        _LOGGER.debug("FisherInverseFastSmallBlocks call complete")
+            _LOGGER.debug(f"Initialized H^-1 for {num_blocks} blocks on {device}")
+        # As a failsafe for a memory issue, try again with half the number of blocks
+        # This condition has not been encountered in testing as of yet
+        except Exception as error_msg:
+            _LOGGER.debug(
+                f"{error_msg}"
+                f"Initialization of H^-1 for {num_blocks} blocks on {device} failed"
+                f"Retrying with {num_blocks//2} blocks"
+            )
+            self._hinvs.append(
+                self._init_hinv(num_blocks // 2, self._damp, device, self._dtype)
+            )
+            self._num_blocks_per_device_call[call_idx] //= 2
+            self._remaining_blocks += self._num_blocks_per_device_call[call_idx]
+            _LOGGER.debug(
+                f"Initialized H^-1 for {num_blocks//2} blocks on {device}"
+                f"remaining blocks increased to {self._remaining_blocks}"
+            )
+
+        # build hinv_g values from grad samples
+        _LOGGER.debug(
+            "Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
+        )
+        for sample_idx in range(self._num_samples):
+            self._add(grads[sample_idx, :], device, call_idx)
+        self._hinvs[call_idx] = self._hinvs[call_idx].to("cpu")
+        _LOGGER.debug("Finished H^-1 calculation and moved mat to CPU")
+
+        return None
 
     def diag(self) -> Tensor:
         """
         :return: the entries along the diagonal entries of the inverse Fisher matrix
         """
         diag_slices = [
-            torch.diagonal(self._hinvs[idx], dim1=1, dim2=2)
-            .reshape(-1)
-            .to(self._devices[0])  # move all to same device after computation
+            torch.diagonal(self._hinvs[idx], dim1=1, dim2=2).reshape(
+                -1
+            )  # move all to same device after computation
             for idx in range(len(self._num_blocks_per_device_call))
         ]
         return torch.cat(diag_slices)[: self._num_params]
@@ -1115,27 +1177,60 @@ class FisherInverseFastSmallBlocks(FisherInverse):
         :return: the matrix multiplied value of x and the inverse Fisher matrix
         """
         x = self._pad(x).reshape((-1, self._block_size)).unsqueeze(2)
-        mul_slices = []
-        for idx in range(len(self._num_blocks_per_device_call)):
-            device = self._devices[idx % self._num_devices]
-            x_slice = x[
-                int(
-                    torch.sum(
-                        torch.tensor(self._num_blocks_per_device_call[:idx])
-                    ).item()
-                ) : int(
-                    torch.sum(
-                        torch.tensor(self._num_blocks_per_device_call[: idx + 1])
-                    ).item()
-                )
-            ].to(device)
-            mul_slice = (
-                torch.bmm(self._hinvs[idx].to(device), x_slice)
-                .reshape(-1)
-                .to(self._devices[0])  # move all to same device after computation
+        self._mul_slices = []
+        block_mem = _block_memory_size(self._block_size, self._element_size)
+        cpu = self._devices[0] == "cpu"
+        self.mul_blocked(tensor=x, block_mem=block_mem, cpu=cpu)
+        return torch.cat(self._mul_slices)[: self._num_params]
+
+    @block_wise_decorator
+    def mul_blocked(self, x: Tensor, call_idx: int, device: str) -> Tensor:
+        """
+        :param x: tensor to multiply with the inverse Fisher matrix
+        :param call_idx: The index of the number of single-device calls
+        :param device: the device on which to perform the computations
+        :return: the matrix multiplied value of x and the inverse Fisher matrix
+        """
+        x_slice = x[
+            int(
+                torch.sum(
+                    torch.tensor(self._num_blocks_per_device_call[:call_idx])
+                ).item()
+            ) : int(
+                torch.sum(
+                    torch.tensor(self._num_blocks_per_device_call[: call_idx + 1])
+                ).item()
             )
-            mul_slices.append(mul_slice)
-        return torch.cat(mul_slices)[: self._num_params]
+        ].to(device)
+
+        # Get the H^-1 values corresponding to the number of blocks used here.
+        # It's clunky compared to torch.cat()[idx], but avoids duplicating
+        # the memory of H^-1
+        start_block = sum(self._num_blocks_per_device_call[:call_idx])
+        end_block = sum(self._num_blocks_per_device_call[: call_idx + 1])
+        t_hinv = []
+        tensor_start = 0
+        tensor_end = 0
+        for tensor in self._hinvs:
+            tensor_end += len(tensor)
+            if start_block > tensor_end:
+                continue
+            if end_block < tensor_end:
+                t_hinv.append(
+                    tensor[start_block - tensor_start : end_block - tensor_start]
+                )
+                break
+            else:
+                t_hinv.append(tensor[start_block - tensor_start :])
+                start_block = tensor_end
+            tensor_start = tensor_end
+
+        mul_slice = (
+            torch.bmm(torch.cat(t_hinv).to(device), x_slice)
+            .reshape(-1)
+            .to("cpu")  # move all to same device after computation
+        )
+        self._mul_slices.append(mul_slice)
 
     def _init_hinv(
         self,
@@ -1202,11 +1297,13 @@ class FisherInverseFastSmallBlocks(FisherInverse):
         return padded_x
 
 
-def compute_hessian_inv(
+def _compute_hessian_inv(
     grads: Tensor,
     mfac_options: Optional[MFACOptions] = None,
 ) -> FisherInverse:
     """
+    Determine which FisherInverse algorithm to use.
+
     :param grads: tensor of gradient samples to compute the Hessian inverse
         representation with. Should have shape (num_samples, num_parameters)
     :param mfac_options: MFACOptions object specifying how to perform the computations
@@ -1216,30 +1313,48 @@ def compute_hessian_inv(
     if not mfac_options:
         _LOGGER.info("No M-FAC options found - using defaults")
         mfac_options = MFACOptions()
+    # The amount of memory required for the computation of one block is the main 
+    # decider in the FisherInverse algorithm to use
     if mfac_options.fisher_block_size:
-        block_mem_size = (
-            mfac_options.fisher_block_size ** 2 + 4 * mfac_options.fisher_block_size
-        ) * grads.element_size()
+        block_mem_size = _block_memory_size(
+            block_size=mfac_options.fisher_block_size, element_size=grads.element_size()
+        )
+
         _LOGGER.debug(
             f"Calculated Fisher block with size {mfac_options.fisher_block_size}"
-            f"to occupy {block_mem_size} bytes/ {block_mem_size/BYTES_IN_GIB} GiB in memory"
+            f"to occupy {block_mem_size} bytes/ {block_mem_size/BYTES_IN_MIB} MiB in memory"
         )
-        free_device_mem = sum(
-            [
-                torch.cuda.get_device_properties(device=device).total_memory
-                - torch.cuda.memory_allocated(device=device)
-                for device in mfac_options.available_gpus
-            ]
+
+        free_device_mem = _get_free_gpu_memory(
+            _cuda_list_to_idx(mfac_options.available_gpus)
         )
+
         _LOGGER.debug(
-            f"Total free memory on devices: {mfac_options.available_gpus}"
-            f"found to be {free_device_mem/BYTES_IN_GIB} GiB"
+            "Free memory on devices:"
+            + "\n".join(
+                [
+                    f"{mfac_options.available_gpus[i]}: {str(free_device_mem[i]/BYTES_IN_MIB)}"
+                    for i in range(len(free_device_mem))
+                ]
+            )
         )
+
+        # Determine which of the available gpus have enough free memory to host
+        # the block computation
+        available_gpus = [
+            gpu
+            for i, gpu in enumerate(mfac_options.available_gpus)
+            if free_device_mem[i] > block_mem_size / BYTES_IN_MIB
+        ]
 
         # FisherInverseFastBlock works only in sequential mode. Unless only one block
         # or less can fit on the GPU, FisherInverseFastSmallBlocks should be used
-        if block_mem_size * 2 < free_device_mem:
+        if len(available_gpus) > 0 or not free_device_mem:
             _LOGGER.info("Using Small Block Fast Fisher Inverse Implementation")
+            _LOGGER.debug(
+                "Using the following devices for M-FAC:" + "\n".join(available_gpus)
+            )
+            mfac_options.available_gpus = available_gpus
             block_fisher_class = FisherInverseFastSmallBlocks
         else:
             _LOGGER.info(
@@ -1262,3 +1377,62 @@ def compute_hessian_inv(
         )
     else:
         return FisherInverseFast(grads, damp=mfac_options.damp)
+
+def _get_free_gpu_memory(
+    device_idx: List[int] = [], clear_cache: bool = True
+) -> List[float]:
+    """
+    Get free memory available on device(s)
+
+    Note: GPUtil and PyTorch may see different devices and device orders depending on
+    the value of CUDA_VISIBLE_DEVICES. This function honors the PyTorch device view.
+
+    :param device_idx: Devices to retrieve free memory for. If empty, will use
+    all visible devices
+    :param clear_cache: Whether to clear pytorch reserved memory before retrieving free
+    memory. Leaving this flag on will result in a larger (and more accurate) free memory
+    reading, but comes at a (small) cost to pytorch tensor allocation speed. In the case
+    of very high frequency calls, it may be better to turn clear_cache off.
+    """
+
+    if not device_idx:
+        device_idx = list(range(torch.cuda.device_count()))
+    if not device_idx:
+        return []  # An empty list signals to use cpu
+    if "CUDA_VISIBLE_DEVICES" in os.environ:
+        if not os.environ["CUDA_VISIBLE_DEVICES"]:
+            raise ValueError(
+                "GPU device specified for M-FAC, but no GPUs"
+                "were found in CUDA_VISIBLE_DEVICES"
+            )
+        gpu_idx_all = [
+            int(idx) for idx in os.environ["CUDA_VISIBLE_DEVICES"].split(",")
+        ]
+        gpu_idx = [gpu_idx_all[idx] for idx in device_idx]
+
+    else:
+        gpu_idx = device_idx
+
+    if clear_cache:
+        torch.cuda.empty_cache()
+    gpus_all = GPUtil.getGPUs()
+    return [gpus_all[idx].memoryFree for idx in gpu_idx]
+
+
+def _cuda_list_to_idx(cuda_device_list: List[str]) -> List[int]:
+    """
+    Convert list of cuda device string names to indices.
+    e.g. "cuda:0" -> 0
+    """
+    return [
+        int("".join(filter(str.isdigit, device_str))) for device_str in cuda_device_list
+    ]
+
+
+def _block_memory_size(block_size: int, element_size: int) -> int:
+    """
+    Calculate memory needed for H^-1 calculations of one block.
+    """
+    # B^2 * e_size - memory required for H^-1
+    # 4*B * e_size - memory required for additional comp vectors
+    return (block_size ** 2 + 4 * block_size) * element_size

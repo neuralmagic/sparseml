@@ -42,7 +42,6 @@ from sparseml.pytorch.optim.modifier import (
 )
 from sparseml.pytorch.utils import (
     GradSampler,
-    MFACOptions,
     NamedLayerParam,
     get_layer,
     get_named_layers_and_params_by_regex,
@@ -65,8 +64,6 @@ _LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "LegacyGMPruningModifier",
-    "MFACPruningModifier",
-    "MFACGlobalPruningModifier",
     "MovementPruningModifier",
     "LayerPruningModifier",
     "StructuredPruningModifier",
@@ -435,7 +432,7 @@ class _GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         global_sparsity: bool = False,
-        score_type: Union[str, MFACOptions] = "magnitude",
+        score_type: str = "magnitude",
     ):
         self._final_sparsity_orig = final_sparsity
         self._params_orig = params
@@ -567,7 +564,7 @@ class _GMPruningModifier(_PruningParamsModifier, BaseGMPruningModifier):
         return self._global_sparsity
 
     @ModifierProp()
-    def score_type(self) -> Union[str, MFACOptions]:
+    def score_type(self) -> str:
         """
         :return: the the scoring method used for pruning
         """
@@ -957,7 +954,7 @@ class StructuredPruningModifier(_GMPruningModifier):
         phased: bool = False,
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, DimensionSparsityMaskCreator] = "filter",
-        score_type: Union[str, MFACOptions] = "magnitude",
+        score_type: str = "magnitude",
     ):
         if not isinstance(mask_type, DimensionSparsityMaskCreator) and (
             mask_type not in ["channel", "filter"]
@@ -1050,336 +1047,6 @@ class StructuredPruningModifier(_GMPruningModifier):
             global_sparsity=False,
             score_type=self._score_type,
         )
-
-
-@PyTorchModifierYAML()
-class MFACPruningModifier(_GMPruningModifier):
-    """
-    Gradually applies kernel sparsity to a given parameter or parameters from
-    init_sparsity until final_sparsity is reached over a given amount of time
-    and applied with an interpolated function for each step taken.
-
-    Uses the Matrix-Free Approxmiate Curvature (M-FAC) algorithm for solving
-    for optimal pruning updates by estimating the inverse Hessian matrix to the
-    loss over time under the Optimal Brain Surgeon (OBS) framework.
-    A link to the paper will be included here in an upcoming update.
-
-    | Sample yaml:
-    |   !MFACPruningModifier
-    |       init_sparsity: 0.05
-    |       final_sparsity: 0.8
-    |       start_epoch: 0.0
-    |       end_epoch: 10.0
-    |       update_frequency: 1.0
-    |       params: ["re:.*weight"]
-    |       leave_enabled: True
-    |       inter_func: cubic
-    |       log_types: __ALL__
-    |       mask_type: unstructured
-    |       mfac_options:
-    |           num_grads: {0.0: 64, 0.5: 128, 0.75: 256, 0.85: 512}
-    |           fisher_block_size: 10000
-    |           available_gpus: ["cuda:0"]
-
-    :param init_sparsity: the initial sparsity for the param to start with at
-        start_epoch
-    :param final_sparsity: the final sparsity for the param to end with at end_epoch.
-        Can also be a Dict of final sparsity values to a list of parameters to apply
-        them to. If given a Dict, then params must be set to [] and the params to
-        be pruned will be read from the final_sparsity Dict
-    :param start_epoch: The epoch to start the modifier at
-    :param end_epoch: The epoch to end the modifier at
-    :param update_frequency: The number of epochs or fraction of epochs to update at
-        between start and end
-    :param params: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-        and Linear layers' weights. If a sparsity to param mapping is defined by
-        final_sparsity, then params should be set to []
-    :param leave_enabled: True to continue masking the weights after end_epoch,
-        False to stop masking. Should be set to False if exporting the result
-        immediately after or doing some other prune
-    :param inter_func: the type of interpolation function to use:
-        [linear, cubic, inverse_cubic]
-    :param phased: True to enable a phased approach where pruning will
-        turn on and off with the update_frequency. Starts with pruning on
-        at start_epoch, off at start_epoch + update_frequency, and so on.
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param mask_type: String to define type of sparsity (options: ['unstructured',
-        'channel', 'filter']), List to define block shape of a parameters in and out
-        channels, or a SparsityMaskCreator object. default is 'unstructured'
-    :param global_sparsity: set True to enable global pruning. if False, pruning will
-        be layer-wise. Default is False
-    :param use_gradient_buffering: Optional bool to use gradient buffering instead of
-        grad sampling. By default, grad sampling is always used when available
-    :param mfac_options: Dictionary of key words specifying arguments for the M-FAC
-        pruning run. num_grads controls the number of gradient samples that are kept,
-        fisher_block_size specifies the block size to break the M-FAC computation into
-        (default is 2000, use None for no blocks), available_gpus specifies a list
-        of device ids that can be used for computation. For a full list of options,
-        see the MFACOptions dataclass documentation. Default configuration uses
-        CPU for computation without blocked computation
-    """
-
-    def __init__(
-        self,
-        init_sparsity: float,
-        final_sparsity: Union[float, Dict[float, List[str]]],
-        start_epoch: float,
-        end_epoch: float,
-        update_frequency: float,
-        params: Union[str, List[str]],
-        leave_enabled: bool = True,
-        inter_func: str = "cubic",
-        phased: bool = False,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
-        global_sparsity: bool = False,
-        use_gradient_buffering: Optional[bool] = None,
-        mfac_options: Dict[str, Any] = None,
-    ):
-        super().__init__(
-            init_sparsity=init_sparsity,
-            final_sparsity=final_sparsity,
-            start_epoch=start_epoch,
-            end_epoch=end_epoch,
-            update_frequency=update_frequency,
-            params=params,
-            leave_enabled=leave_enabled,
-            inter_func=inter_func,
-            phased=phased,
-            log_types=log_types,
-            mask_type=mask_type,
-            global_sparsity=global_sparsity,
-            score_type="MFAC",
-        )
-        self._mfac_options = mfac_options or {}
-        self._grad_sampler = None
-        self._use_gradient_buffering = use_gradient_buffering
-
-    @ModifierProp(serializable=False)
-    def score_type(self) -> str:
-        """
-        :return: the the scoring method used for pruning
-        """
-        return self._score_type
-
-    @ModifierProp(serializable=True)
-    def mfac_options(self) -> Dict[str, Any]:
-        """
-        :return: Dictionary of key words specifying arguments for the M-FAC
-            pruning run. num_grads controls the number of gradient samples,
-            fisher_block_size is the block size to break the M-FAC computation into
-            (default is 2000, None means no blocks), available_gpus specifies a list
-            of device ids that can be used for computation. For a full list of options,
-            see the MFACOptions dataclass documentation.
-        """
-        return self._mfac_options
-
-    @ModifierProp(serializable=False)
-    def use_gradient_buffering(self) -> Optional[bool]:
-        """
-        Return flag indicating force use of gradient buffering over a gradient sampler
-        """
-        return self._use_gradient_buffering
-
-    def initialize(
-        self,
-        module: Module,
-        epoch: float = 0,
-        loggers: Optional[List[BaseLogger]] = None,
-        **kwargs,
-    ):
-        """
-        Grab the layers and apply if epoch in range to control pruning for.
-        If `grad_sampler: GradSampler` is present in kwargs, then will add
-        it to this class and use the sampler instead of live gradient buffering
-
-        :param module: the PyTorch model/module to modify
-        :param epoch: The epoch to initialize the modifier and module at.
-            Defaults to 0 (start of the training process)
-        :param loggers: Optional list of loggers to log the modification process to
-        :param kwargs: Optional kwargs to support specific arguments
-            for individual modifiers.
-        """
-        _LOGGER.debug("Initializing MFACPruningModifier")
-        if "grad_sampler" in kwargs and self._use_gradient_buffering is not True:
-            # set grad sampler, must be done before initialize in case pruning step
-            # occurs on initialize epoch
-            grad_sampler = kwargs["grad_sampler"]
-            if not isinstance(grad_sampler, GradSampler):
-                raise ValueError(
-                    "grad_sampler must be an instance of the GradSampler class"
-                )
-            self._grad_sampler = grad_sampler
-            _LOGGER.debug("Using provided GradSampler")
-
-        elif self._use_gradient_buffering is False:
-            raise RuntimeError(
-                "grad_sampler must be provided when use_gradient_buffering is set"
-                "to False"
-            )
-        else:
-            _LOGGER.debug("Using gradient buffering")
-
-        super().initialize(module, epoch, loggers, **kwargs)
-
-        if self._grad_sampler is not None:
-            # disable gradient buffering until sampler is invoked
-            self.module_masks.scorer.buffer_grads = False
-
-    def _check_mask_update(
-        self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
-    ):
-        _LOGGER.debug("Running M-FAC Pruning")
-        # create grads for pne-shot pruning
-        if self._grad_sampler is not None:
-            self.module_masks.scorer.buffer_grads = True  # enable buffering
-            self._collect_grad_samples(module, self._grad_sampler)
-            self._pre_step_completed = True
-            self.module_masks.scorer.buffer_grads = False  # re-disable buffering
-
-        super()._check_mask_update(module, epoch, steps_per_epoch, **kwargs)
-
-    def _create_pruning_mask(
-        self, layers: List[Module], layer_names: List[str], param_names: List[str]
-    ) -> ModuleParamPruningMask:
-        return ModuleParamPruningMask(
-            layers,
-            param_names,
-            layer_names=layer_names,
-            mask_creator=self._mask_creator,
-            global_sparsity=self._global_sparsity,
-            score_type=MFACOptions(**self._mfac_options),
-        )
-
-    def _collect_grad_samples(
-        self,
-        module: Module,
-        grad_sampler: GradSampler,
-    ):
-        if not isinstance(grad_sampler, GradSampler):
-            raise ValueError(
-                "One-shot MFAC pruning requires a GradSampler object given by the "
-                f"grad_sampler kwarg. Given an object of type {type(grad_sampler)}"
-            )
-        num_grads = MFACOptions(**self._mfac_options).get_num_grads_for_sparsity(
-            self._applied_sparsity or 0.0
-        )
-
-        _LOGGER.debug(f"Starting to collect {num_grads} grads with GradSampler")
-        for _ in grad_sampler.iter_module_backwards(module, num_grads):
-            self._module_masks.pre_optim_step_update()
-        _LOGGER.debug("GradSampler grad collection complete")
-
-
-@PyTorchModifierYAML()
-class MFACGlobalPruningModifier(MFACPruningModifier):
-    """
-    Gradually applies kernel sparsity to a given parameter or parameters from
-    init_sparsity until final_sparsity is reached over a given amount of time
-    and applied with an interpolated function for each step taken.
-
-    Uses the Matrix-Free Approxmiate Curvature (M-FAC) algorithm for solving
-    for optimal pruning updates by estimating the inverse Hessian matrix to the
-    loss over time under the Optimal Brain Surgeon (OBS) framework.
-    A link to the paper will be included here in an upcoming update.
-
-    | Sample yaml:
-    |   !MFACPruningModifier
-    |       init_sparsity: 0.05
-    |       final_sparsity: 0.8
-    |       start_epoch: 0.0
-    |       end_epoch: 10.0
-    |       update_frequency: 1.0
-    |       params: ["re:.*weight"]
-    |       leave_enabled: True
-    |       inter_func: cubic
-    |       log_types: __ALL__
-    |       mask_type: unstructured
-    |       mfac_options:
-    |           num_grads: {0.0: 64, 0.5: 128, 0.75: 256, 0.85: 512}
-    |           fisher_block_size: 10000
-    |           available_gpus: ["cuda:0"]
-
-    :param init_sparsity: the initial sparsity for the param to start with at
-        start_epoch
-    :param final_sparsity: the final sparsity for the param to end with at end_epoch.
-        Can also be a Dict of final sparsity values to a list of parameters to apply
-        them to. If given a Dict, then params must be set to [] and the params to
-        be pruned will be read from the final_sparsity Dict
-    :param start_epoch: The epoch to start the modifier at
-    :param end_epoch: The epoch to end the modifier at
-    :param update_frequency: The number of epochs or fraction of epochs to update at
-        between start and end
-    :param params: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-        and Linear layers' weights. If a sparsity to param mapping is defined by
-        final_sparsity, then params should be set to []
-    :param leave_enabled: True to continue masking the weights after end_epoch,
-        False to stop masking. Should be set to False if exporting the result
-        immediately after or doing some other prune
-    :param inter_func: the type of interpolation function to use:
-        [linear, cubic, inverse_cubic]
-    :param phased: True to enable a phased approach where pruning will
-        turn on and off with the update_frequency. Starts with pruning on
-        at start_epoch, off at start_epoch + update_frequency, and so on.
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param mask_type: String to define type of sparsity (options: ['unstructured',
-        'channel', 'filter']), List to define block shape of a parameters in and out
-        channels, or a SparsityMaskCreator object. default is 'unstructured'
-    :param mfac_options: Dictionary of key words specifying arguments for the M-FAC
-        pruning run. num_grads controls the number of gradient samples that are kept,
-        fisher_block_size specifies the block size to break the M-FAC computation into
-        (default is 2000, use None for no blocks), available_gpus specifies a list
-        of device ids that can be used for computation. For a full list of options,
-        see the MFACOptions dataclass documentation. Default configuration uses
-        CPU for computation without blocked computation
-    """
-
-    def __init__(
-        self,
-        init_sparsity: float,
-        final_sparsity: Union[float, Dict[float, List[str]]],
-        start_epoch: float,
-        end_epoch: float,
-        update_frequency: float,
-        params: Union[str, List[str]],
-        leave_enabled: bool = True,
-        inter_func: str = "cubic",
-        phased: bool = False,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
-        mfac_options: Dict[str, Any] = None,
-    ):
-        super().__init__(
-            init_sparsity=init_sparsity,
-            final_sparsity=final_sparsity,
-            start_epoch=start_epoch,
-            end_epoch=end_epoch,
-            update_frequency=update_frequency,
-            params=params,
-            leave_enabled=leave_enabled,
-            inter_func=inter_func,
-            phased=phased,
-            log_types=log_types,
-            mask_type=mask_type,
-            global_sparsity=True,
-            mfac_options=mfac_options,
-        )
-        self._mfac_options = mfac_options or {}
-
-    @ModifierProp(serializable=False)
-    def global_sparsity(self) -> bool:
-        """
-        :return: True if global pruning is enabled, False otherwise
-        """
-        return self._global_sparsity
-
-
 @PyTorchModifierYAML()
 class LayerPruningModifier(ScheduledUpdateModifier):
     """
