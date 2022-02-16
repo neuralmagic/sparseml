@@ -24,6 +24,7 @@ import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+
 try:
     from torch import quantization as torch_quantization
     from torch.nn import intrinsic as torch_intrinsic
@@ -32,8 +33,7 @@ except Exception:
     torch_intrinsic = None
 
 from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, \
-    ScheduledModifier
+from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger
 from sparseml.pytorch.utils.quantization import (
     add_quant_dequant,
@@ -46,6 +46,7 @@ from sparseml.pytorch.utils.quantization import (
     remove_activation_qat_by_layer_name,
 )
 from sparseml.sparsification import SparsificationTypes
+
 
 __all__ = [
     "QuantizationModifier",
@@ -71,7 +72,7 @@ class QuantizationModifier(ScheduledModifier):
     |       disable_quantization_observer_epoch: 2.0
     |       freeze_bn_stats_epoch: 3.0
     |       reduce_range: False
-    |       int4_activations: False
+    |       activation_bits: False
 
     :param start_epoch: The epoch to start the modifier at
     :param submodules: List of submodule names to perform QAT on. Leave None to quantize
@@ -96,8 +97,8 @@ class QuantizationModifier(ScheduledModifier):
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware
         Default is False
-    :param int4_activations: if True, will enable 4 bit quantization for
-        activations. Default is False.
+    :param activation_bits: Number of bits to use for setting quant min/max values for
+            activations. Default is None, which will quantize activations to 8 bits.
     :param quantize_linear_activations: if False, FakeQuantize ops will not be run
         for activations of fully connected layers. this is important for quantizing
         transformer based models such as BERT where the quantized MatMul outputs
@@ -108,21 +109,21 @@ class QuantizationModifier(ScheduledModifier):
     """
 
     def __init__(
-            self,
-            start_epoch: float = -1.0,
-            submodules: Union[List[str], None] = None,
-            model_fuse_fn_name: Union[str, None] = None,
-            disable_quantization_observer_epoch: Union[float, None] = None,
-            freeze_bn_stats_epoch: Union[float, None] = None,
-            end_epoch: float = -1,
-            model_fuse_fn_kwargs: Dict[str, Any] = None,
-            quantize_embeddings: bool = True,
-            reduce_range: bool = False,
-            quantize_linear_activations: bool = True,
-            int4_activations: bool = False,
-            exclude_module_types: Union[List[str], None] = None,
-            activation_qconfig_kwargs: Dict[str, Any] = {},
-            weight_qconfig_kwargs: Dict[str, Any] = {},
+        self,
+        start_epoch: float = -1.0,
+        submodules: Union[List[str], None] = None,
+        model_fuse_fn_name: Union[str, None] = None,
+        disable_quantization_observer_epoch: Union[float, None] = None,
+        freeze_bn_stats_epoch: Union[float, None] = None,
+        end_epoch: float = -1,
+        model_fuse_fn_kwargs: Dict[str, Any] = None,
+        quantize_embeddings: bool = True,
+        reduce_range: bool = False,
+        quantize_linear_activations: bool = True,
+        activation_bits: Optional[int] = None,
+        exclude_module_types: Union[List[str], None] = None,
+        activation_qconfig_kwargs: Dict[str, Any] = {},
+        weight_qconfig_kwargs: Dict[str, Any] = {},
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -136,8 +137,7 @@ class QuantizationModifier(ScheduledModifier):
                 " -1. Given {}".format(end_epoch)
             )
 
-        super().__init__(start_epoch=start_epoch, end_epoch=-1.0,
-                         end_comparator=-1)
+        super().__init__(start_epoch=start_epoch, end_epoch=-1.0, end_comparator=-1)
 
         self._start_epoch = start_epoch
         self._submodules = submodules
@@ -148,7 +148,7 @@ class QuantizationModifier(ScheduledModifier):
         self._quantize_embeddings = quantize_embeddings
         self._reduce_range = reduce_range
         self._quantize_linear_activations = quantize_linear_activations
-        self._int4_activations = int4_activations
+        self._activation_bits = activation_bits
         self._exclude_module_types = exclude_module_types
 
         self._modules_to_quantize = None
@@ -159,8 +159,8 @@ class QuantizationModifier(ScheduledModifier):
         self._weight_qconfig_kwargs = weight_qconfig_kwargs
 
         if (
-                isinstance(self._model_fuse_fn_name, str)
-                and self._model_fuse_fn_name.lower() == "none"
+            isinstance(self._model_fuse_fn_name, str)
+            and self._model_fuse_fn_name.lower() == "none"
         ):
             self._model_fuse_fn_name = None
         if isinstance(self._submodules, list):
@@ -173,8 +173,7 @@ class QuantizationModifier(ScheduledModifier):
         """
         :return: the sparsification types this modifier instance will apply
         """
-        return [SparsificationTypes.quantization,
-                SparsificationTypes.structured]
+        return [SparsificationTypes.quantization, SparsificationTypes.structured]
 
     @ModifierProp()
     def submodules(self) -> Union[List[str], None]:
@@ -214,8 +213,8 @@ class QuantizationModifier(ScheduledModifier):
         """
         self._model_fuse_fn_name = value
         if (
-                isinstance(self._model_fuse_fn_name, str)
-                and self._model_fuse_fn_name.lower() == "none"
+            isinstance(self._model_fuse_fn_name, str)
+            and self._model_fuse_fn_name.lower() == "none"
         ):
             self._model_fuse_fn_name = None
         self._validate_params()
@@ -302,12 +301,12 @@ class QuantizationModifier(ScheduledModifier):
         return self._exclude_module_types
 
     @ModifierProp()
-    def int4_activations(self) -> bool:
+    def activation_bits(self) -> Optional[int]:
         """
-        :return: if True, the quantization range for activations will be
-            reduced to 4 bit integers.
+        :return: Number of bits to be use for setting quant min/max values for
+            activations. Default is None, which will quantize activations to 8 bits.
         """
-        return self._int4_activations
+        return self._activation_bits
 
     @ModifierProp()
     def activation_qconfig_kwargs(self) -> Dict[str, Any]:
@@ -328,11 +327,11 @@ class QuantizationModifier(ScheduledModifier):
         return self._weight_qconfig_kwargs
 
     def initialize(
-            self,
-            module: Module,
-            epoch: float = 0,
-            loggers: Optional[List[BaseLogger]] = None,
-            **kwargs,
+        self,
+        module: Module,
+        epoch: float = 0,
+        loggers: Optional[List[BaseLogger]] = None,
+        **kwargs,
     ):
         """
         Grab the module / submodule to perform QAT on
@@ -350,8 +349,7 @@ class QuantizationModifier(ScheduledModifier):
             found_submodules = []
             for name, submodule in module.named_modules():
                 if name in self._submodules:
-                    self._modules_to_quantize.append(
-                        _ModuleToQuantize(name, submodule))
+                    self._modules_to_quantize.append(_ModuleToQuantize(name, submodule))
                     found_submodules.append(name)
             if not len(found_submodules) == len(self._submodules):
                 raise RuntimeError(
@@ -366,8 +364,7 @@ class QuantizationModifier(ScheduledModifier):
         self._check_quantization_update(module, epoch, steps_per_epoch=0)
 
     def finalize(
-            self, module: Optional[Module] = None, reset_loggers: bool = True,
-            **kwargs
+        self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
     ):
         """
         Cleans up any state
@@ -384,8 +381,7 @@ class QuantizationModifier(ScheduledModifier):
         self._modules_to_quantize = None
 
     def update(
-            self, module: Module, optimizer: Optimizer, epoch: float,
-            steps_per_epoch: int
+        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
         If start_pending(), fuses the model, sets the model quantization config,
@@ -417,15 +413,15 @@ class QuantizationModifier(ScheduledModifier):
             return False
 
         pending = (
-                self.start_pending(epoch, steps_per_epoch)
-                or self._disable_quantization_observer_update_ready(epoch)
-                or self._freeze_bn_stats_update_ready(epoch)
+            self.start_pending(epoch, steps_per_epoch)
+            or self._disable_quantization_observer_update_ready(epoch)
+            or self._freeze_bn_stats_update_ready(epoch)
         )
 
         return pending
 
     def _check_quantization_update(
-            self, module: Module, epoch: float, steps_per_epoch: int
+        self, module: Module, epoch: float, steps_per_epoch: int
     ):
         if self.start_pending(epoch, steps_per_epoch) and not self._qat_enabled:
             self._enable_module_qat(module)
@@ -443,8 +439,8 @@ class QuantizationModifier(ScheduledModifier):
     def _enable_module_qat(self, module: Module):
         # fuse module Conv-BNs
         if (
-                self._model_fuse_fn_name is not None
-                and self._model_fuse_fn_name != "no_fuse"
+            self._model_fuse_fn_name is not None
+            and self._model_fuse_fn_name != "no_fuse"
         ):  # module class fn
             module_fuse_fn = getattr(module, self._model_fuse_fn_name, None)
             if module_fuse_fn is None or not callable(module_fuse_fn):
@@ -507,21 +503,22 @@ class QuantizationModifier(ScheduledModifier):
 
     def _get_updated_activation_qconfig_kwargs(self):
         # update qconfig_kwargs
-        if self.int4_activations and (
-                self.activation_qconfig_kwargs.get("quant_min")
-                or self.activation_qconfig_kwargs.get("quant_max")
+        if self.activation_bits and (
+            self.activation_qconfig_kwargs.get("quant_min")
+            or self.activation_qconfig_kwargs.get("quant_max")
         ):
             raise ValueError(
-                "Cannot override quant_max and quant_min with int4_activations enabled")
+                "Cannot override quant_max and quant_min with activation_bits enabled"
+            )
 
         activation_qconfig_kwargs = self.activation_qconfig_kwargs.copy()
         quant_min = activation_qconfig_kwargs.get("quant_min", 0)
-        quant_max = activation_qconfig_kwargs.get("quant_max", 255)
+        quant_max = activation_qconfig_kwargs.get("quant_max", 2 ** 8 - 1)
         dtype = activation_qconfig_kwargs.get("dtype", torch.quint8)
 
-        if self._int4_activations:
+        if self.activation_bits:
             quant_min = 0
-            quant_max = 15
+            quant_max = 2 ** self.activation_bits - 1
 
         activation_qconfig_kwargs.update(
             dict(
@@ -534,16 +531,16 @@ class QuantizationModifier(ScheduledModifier):
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
         return (
-                self._disable_quantization_observer_epoch is not None
-                and epoch >= self._disable_quantization_observer_epoch
-                and not self._quantization_observer_disabled
+            self._disable_quantization_observer_epoch is not None
+            and epoch >= self._disable_quantization_observer_epoch
+            and not self._quantization_observer_disabled
         )
 
     def _freeze_bn_stats_update_ready(self, epoch: float) -> bool:
         return (
-                self._freeze_bn_stats_epoch is not None
-                and epoch >= self._freeze_bn_stats_epoch
-                and not self._bn_stats_frozen
+            self._freeze_bn_stats_epoch is not None
+            and epoch >= self._freeze_bn_stats_epoch
+            and not self._bn_stats_frozen
         )
 
     def _strip_excluded_module_qconfigs(self, module: Module):
@@ -552,14 +549,14 @@ class QuantizationModifier(ScheduledModifier):
         excluded_classes = set(self._exclude_module_types)
         for submodule in module.modules():
             if submodule.__class__.__name__ in excluded_classes and hasattr(
-                    submodule, "qconfig"
+                submodule, "qconfig"
             ):
                 submodule.qconfig = None
 
     def _validate_params(self):
         if (
-                self._disable_quantization_observer_epoch is not None
-                and self._disable_quantization_observer_epoch < self._start_epoch
+            self._disable_quantization_observer_epoch is not None
+            and self._disable_quantization_observer_epoch < self._start_epoch
         ):
             raise ValueError(
                 f"disable_quantization_observer_epoch may not be greater than "
@@ -569,8 +566,8 @@ class QuantizationModifier(ScheduledModifier):
             )
 
         if (
-                self._freeze_bn_stats_epoch is not None
-                and self._freeze_bn_stats_epoch < self._start_epoch
+            self._freeze_bn_stats_epoch is not None
+            and self._freeze_bn_stats_epoch < self._start_epoch
         ):
             raise ValueError(
                 "freeze_bn_stats_epoch may not be greater than start_epoch"

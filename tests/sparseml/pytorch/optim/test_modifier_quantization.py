@@ -56,7 +56,7 @@ QUANTIZATION_MODIFIERS = [
     ),
     lambda: QuantizationModifier(
         start_epoch=0.0,
-        int4_activations=True,
+        activation_bits=4,
     ),
     lambda: QuantizationModifier(
         start_epoch=0.0,
@@ -78,7 +78,6 @@ def _is_quantizable_module(module):
 def _test_quantizable_module(module, qat_expected, modifier):
     reduce_range = modifier.reduce_range
     quantize_linear_activations = modifier.quantize_linear_activations
-    int4_activations = modifier.int4_activations
 
     excluded_types = modifier.exclude_module_types or []
     qat_expected = qat_expected and module.__class__.__name__ not in excluded_types
@@ -216,7 +215,7 @@ def test_quantization_modifier_yaml():
     reduce_range = True
     quantize_linear_activations = False
     exclude_module_types = ["LayerNorm", "Tanh"]
-    int4_activations = True
+    activation_bits = 4
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
@@ -228,7 +227,7 @@ def test_quantization_modifier_yaml():
             reduce_range: {reduce_range}
             quantize_linear_activations: {quantize_linear_activations}
             exclude_module_types: {exclude_module_types}
-            int4_activations: {int4_activations}
+            activation_bits: {activation_bits}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -245,7 +244,7 @@ def test_quantization_modifier_yaml():
         quantize_embeddings=quantize_embeddings,
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
-        int4_activations=int4_activations,
+        activation_bits=activation_bits,
         exclude_module_types=exclude_module_types,
     )
 
@@ -291,9 +290,9 @@ def test_quantization_modifier_yaml():
         == obj_modifier.quantize_linear_activations
     )
     assert (
-        yaml_modifier.int4_activations
-        == serialized_modifier.int4_activations
-        == obj_modifier.int4_activations
+        yaml_modifier.activation_bits
+        == serialized_modifier.activation_bits
+        == obj_modifier.activation_bits
     )
     assert (
         yaml_modifier.exclude_module_types
