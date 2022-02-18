@@ -33,7 +33,6 @@ try:
 except Exception:
     torch_quantization = None
 
-
 QUANTIZATION_MODIFIERS = [
     lambda: QuantizationModifier(
         start_epoch=0.0,
@@ -81,7 +80,6 @@ def _test_quantizable_module(module, qat_expected, modifier):
 
     excluded_types = modifier.exclude_module_types or []
     qat_expected = qat_expected and module.__class__.__name__ not in excluded_types
-
     if qat_expected:
         assert hasattr(module, "qconfig") and module.qconfig is not None
         assert hasattr(module, "weight_fake_quant") and (
@@ -117,6 +115,7 @@ def _test_qat_applied(modifier, model):
         for module in model.modules():
             if _is_quantizable_module(module):
                 _test_quantizable_module(module, True, modifier)
+
     else:
         assert not hasattr(model, "qconfig") or model.qconfig is None
         submodules = modifier.submodules
@@ -124,9 +123,7 @@ def _test_qat_applied(modifier, model):
     for name, module in model.named_modules():
         if _is_quantizable_module(module):
             _test_quantizable_module(
-                module,
-                _is_valid_submodule(name, submodules),
-                modifier,
+                module, _is_valid_submodule(name, submodules), modifier
             )
 
 
@@ -220,6 +217,7 @@ def test_quantization_modifier_yaml():
     quantize_embeddings = False
     reduce_range = True
     quantize_linear_activations = False
+    num_calibration_steps = 2
     exclude_module_types = ["LayerNorm", "Tanh"]
     activation_bits = 4
     yaml_str = f"""
@@ -232,6 +230,7 @@ def test_quantization_modifier_yaml():
             quantize_embeddings: {quantize_embeddings}
             reduce_range: {reduce_range}
             quantize_linear_activations: {quantize_linear_activations}
+            num_calibration_steps: {num_calibration_steps}
             exclude_module_types: {exclude_module_types}
             activation_bits: {activation_bits}
         """
@@ -251,6 +250,7 @@ def test_quantization_modifier_yaml():
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
         activation_bits=activation_bits,
+        num_calibration_steps=num_calibration_steps,
         exclude_module_types=exclude_module_types,
     )
 
@@ -299,6 +299,11 @@ def test_quantization_modifier_yaml():
         yaml_modifier.activation_bits
         == serialized_modifier.activation_bits
         == obj_modifier.activation_bits
+    )
+    assert (
+        yaml_modifier.num_calibration_steps
+        == serialized_modifier.num_calibration_steps
+        == obj_modifier.num_calibration_steps
     )
     assert (
         yaml_modifier.exclude_module_types
