@@ -86,7 +86,7 @@ class QuantizationModifier(ScheduledModifier):
     |       disable_quantization_observer_epoch: 2.0
     |       freeze_bn_stats_epoch: 3.0
     |       reduce_range: False
-    |       activation_bits: False
+    |       activation_bits: 4
 
     :param start_epoch: The epoch to start the modifier at
     :param submodules: List of submodule names to perform QAT on. Leave None to quantize
@@ -117,7 +117,7 @@ class QuantizationModifier(ScheduledModifier):
         are kept at 32 bits of precision and fake quantizing the outputs harm training
         recovery. Default is True
     :param activation_bits: Number of bits to use for setting quant min/max values for
-            activations. Default is None, which will quantize activations to 8 bits.
+            activations. Default is  8 bits.
     :param num_calibration_steps: Number of steps to run post training calibration for.
             When None, the entire calibration_dataloader is used
     :param exclude_module_types: optional list of module class names
@@ -140,7 +140,7 @@ class QuantizationModifier(ScheduledModifier):
         quantize_embeddings: bool = True,
         reduce_range: bool = False,
         quantize_linear_activations: bool = True,
-        activation_bits: Optional[int] = None,
+        activation_bits: int = 8,
         num_calibration_steps: Optional[int] = None,
         exclude_module_types: Union[List[str], None] = None,
         activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
@@ -599,6 +599,12 @@ class QuantizationModifier(ScheduledModifier):
             if self.activation_qconfig_kwargs
             else {}
         )
+
+        if not isinstance(self.activation_bits, int) or self.activation_bits < 0:
+            raise ValueError(
+                f"activation_bits must be a positive integer, "
+                f"but got {self.activation_bits}"
+            )
 
         # update qconfig_kwargs for activation_bits
         if self.activation_bits and (
