@@ -13,46 +13,57 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
 ---
+start_epoch: &start_epoch 0
+start_epoch_ac_dc: &start_epoch_ac_dc 5
+end_epoch: &end_epoch 100
+learning_rate: &learning_rate 0.256
+compression_sparsity: &compression_sparsity 0.9
+global_sparsity: &global_sparsity True
+params: &params ['re:.*conv*', 're:.*fc.weight*']
+
 training_modifiers:
   - !EpochRangeModifier
-    start_epoch: 0
-    end_epoch: 100
+    start_epoch: *start_epoch
+    end_epoch: *end_epoch
   
   - !LearningRateFunctionModifier
-    start_epoch: 0
-    end_epoch: 5
+    start_epoch: *start_epoch
+    end_epoch: *start_epoch_ac_dc
     lr_func: linear
     init_lr: 0.0512
-    final_lr: 0.256
+    final_lr: *learning_rate
 
   - !LearningRateFunctionModifier
-    start_epoch: 5
-    end_epoch: 100
+    start_epoch: *start_epoch_ac_dc
+    end_epoch: *end_epoch
     lr_func: cosine
-    init_lr: 0.256
+    init_lr: *learning_rate
     final_lr: 0.0
   
 pruning_modifiers:
-
-  - !LegacyGMPruningModifier
-       init_sparsity: 0.9
-       final_sparsity: 0.9
+  - !LegacyGMPruningModifier 
+       init_sparsity: *compression_sparsity
+       final_sparsity: *compression_sparsity
        start_epoch: 85
-       end_epoch: 100
+       end_epoch: *end_epoch
        update_frequency: 1
-       params: ['re:.*conv*', 're:.*fc.weight*']
-       global_sparsity: True
+       params: *params
+       global_sparsity: *global_sparsity
 
   - !ACDCPruningModifier
-      compression_sparsity: 0.9
-      start_epoch: 5
+      compression_sparsity: *compression_sparsity
+      start_epoch: *start_epoch_ac_dc
       end_epoch: 75
       update_frequency: 5
-      params: ['re:.*conv*', 're:.*fc.weight*']
-      global_sparsity: True
-    
-    
+      params: *params
+      global_sparsity: *global_sparsity
 ---
+```
+Can we use something better than LegacyGMPruningModifier
+for final sparse fine-tuning?
+Something like ConstantPruningModifier, but the one which
+enforces its own applied_sparsity (instead of holding previous
+sparsity level).
+```
 
