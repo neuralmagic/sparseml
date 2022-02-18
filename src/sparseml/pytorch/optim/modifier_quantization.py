@@ -97,15 +97,19 @@ class QuantizationModifier(ScheduledModifier):
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware
         Default is False
-    :param activation_bits: Number of bits to use for setting quant min/max values for
-            activations. Default is None, which will quantize activations to 8 bits.
     :param quantize_linear_activations: if False, FakeQuantize ops will not be run
         for activations of fully connected layers. this is important for quantizing
         transformer based models such as BERT where the quantized MatMul outputs
         are kept at 32 bits of precision and fake quantizing the outputs harm training
         recovery. Default is True
+    :param activation_bits: Number of bits to use for setting quant min/max values for
+            activations. Default is None, which will quantize activations to 8 bits.
     :param exclude_module_types: optional list of module class names
         to not propagate quantization configs to. Default is None
+    :param activation_qconfig_kwargs: Additional kwargs for quantization of
+            activations.
+    :param weight_qconfig_kwargs: Additional kwargs for quantization of
+            weights.
     """
 
     def __init__(
@@ -122,8 +126,8 @@ class QuantizationModifier(ScheduledModifier):
         quantize_linear_activations: bool = True,
         activation_bits: Optional[int] = None,
         exclude_module_types: Union[List[str], None] = None,
-        activation_qconfig_kwargs: Dict[str, Any] = {},
-        weight_qconfig_kwargs: Dict[str, Any] = {},
+        activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
+        weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -502,31 +506,29 @@ class QuantizationModifier(ScheduledModifier):
         self._qat_enabled = True
 
     def _get_updated_activation_qconfig_kwargs(self):
-        # update qconfig_kwargs
+        activation_qconfig_kwargs = self.activation_qconfig_kwargs.copy() \
+            if self.activation_qconfig_kwargs else {}
+
+        # update qconfig_kwargs for activation_bits
         if self.activation_bits and (
-            self.activation_qconfig_kwargs.get("quant_min")
-            or self.activation_qconfig_kwargs.get("quant_max")
+            activation_qconfig_kwargs.get("quant_min")
+            or activation_qconfig_kwargs.get("quant_max")
         ):
             raise ValueError(
                 "Cannot override quant_max and quant_min with activation_bits enabled"
             )
 
-        activation_qconfig_kwargs = self.activation_qconfig_kwargs.copy()
-        quant_min = activation_qconfig_kwargs.get("quant_min", 0)
-        quant_max = activation_qconfig_kwargs.get("quant_max", 2 ** 8 - 1)
-        dtype = activation_qconfig_kwargs.get("dtype", torch.quint8)
-
         if self.activation_bits:
             quant_min = 0
             quant_max = 2 ** self.activation_bits - 1
-
-        activation_qconfig_kwargs.update(
-            dict(
-                quant_min=quant_min,
-                quant_max=quant_max,
-                dtype=dtype,
+            dtype = torch.quint8
+            activation_qconfig_kwargs.update(
+                dict(
+                    quant_min=quant_min,
+                    quant_max=quant_max,
+                    dtype=dtype,
+                )
             )
-        )
         return activation_qconfig_kwargs
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:

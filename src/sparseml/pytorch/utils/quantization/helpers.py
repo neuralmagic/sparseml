@@ -17,7 +17,7 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Union, Optional
 
 import torch
 from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
@@ -436,8 +436,8 @@ def get_qat_qconfig(
     symmetric_activations: bool = False,
     symmetric_weights: bool = True,
     reduce_range: bool = False,
-    activation_qconfig_kwargs: Dict[str, Any] = {},
-    weight_qconfig_kwargs: Dict[str, Any] = {},
+    activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
+    weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
 ) -> "torch.quantization.QConfig":
     """
     :param symmetric_activations: if True, activations will have a symmetric
@@ -450,9 +450,9 @@ def get_qat_qconfig(
         This may prevent overflow issues with model execution on certain hardware
         Default is False
     :param activation_qconfig_kwargs: Additional kwargs for quantization of
-            activations. Default is {}
+            activations.
     :param weight_qconfig_kwargs: Additional kwargs for quantization of
-            weights. Default is {}
+            weights.
     :return: A QAT fake quantization config for symmetric weight quantization and
         asymmetric activation quantization.  The difference between this and
         torch.quantization.default_qat_qconfig is that the activation observer
@@ -469,7 +469,7 @@ def get_qat_qconfig(
         qscheme=activation_qscheme,
         reduce_range=reduce_range,
     )
-    activation_observer_kwargs.update(activation_qconfig_kwargs)
+    activation_observer_kwargs.update(activation_qconfig_kwargs or {})
     activation_observer = torch_quantization.FakeQuantize.with_args(
         **activation_observer_kwargs,
     )
@@ -485,7 +485,7 @@ def get_qat_qconfig(
         reduce_range=reduce_range,
     )
 
-    weight_observer_kwargs.update(weight_qconfig_kwargs)
+    weight_observer_kwargs.update(weight_qconfig_kwargs or {})
     weight_observer = torch_quantization.FakeQuantize.with_args(
         **weight_observer_kwargs,
     )
