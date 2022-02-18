@@ -224,6 +224,10 @@ def test_quantization_modifier_yaml():
     num_calibration_steps = 2
     exclude_module_types = ["LayerNorm", "Tanh"]
     activation_bits = 4
+    averaging_constant = 0.05
+    activation_qconfig_kwargs = dict(
+        averaging_constant=averaging_constant,
+    )
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
@@ -237,6 +241,7 @@ def test_quantization_modifier_yaml():
             num_calibration_steps: {num_calibration_steps}
             exclude_module_types: {exclude_module_types}
             activation_bits: {activation_bits}
+            activation_qconfig_kwargs: {activation_qconfig_kwargs}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -256,6 +261,7 @@ def test_quantization_modifier_yaml():
         activation_bits=activation_bits,
         num_calibration_steps=num_calibration_steps,
         exclude_module_types=exclude_module_types,
+        activation_qconfig_kwargs=activation_qconfig_kwargs,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -313,4 +319,9 @@ def test_quantization_modifier_yaml():
         yaml_modifier.exclude_module_types
         == serialized_modifier.exclude_module_types
         == obj_modifier.exclude_module_types
+    )
+    assert (
+        yaml_modifier.activation_qconfig_kwargs
+        == serialized_modifier.activation_qconfig_kwargs
+        == obj_modifier.activation_qconfig_kwargs
     )
