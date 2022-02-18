@@ -32,7 +32,6 @@ from typing import (
     Union,
 )
 
-
 import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
@@ -350,7 +349,7 @@ class QuantizationModifier(ScheduledModifier):
 
         """
         return self._weight_qconfig_kwargs
-    
+
     @ModifierProp()
     def num_calibration_steps(self) -> Optional[int]:
         """
@@ -595,8 +594,11 @@ class QuantizationModifier(ScheduledModifier):
             module.train()
 
     def _get_updated_activation_qconfig_kwargs(self):
-        activation_qconfig_kwargs = self.activation_qconfig_kwargs.copy() \
-            if self.activation_qconfig_kwargs else {}
+        activation_qconfig_kwargs = (
+            self.activation_qconfig_kwargs.copy()
+            if self.activation_qconfig_kwargs
+            else {}
+        )
 
         # update qconfig_kwargs for activation_bits
         if self.activation_bits and (

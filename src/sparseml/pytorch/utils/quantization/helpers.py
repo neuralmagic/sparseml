@@ -17,7 +17,7 @@ Helper functions for performing quantization aware training with PyTorch
 """
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Union, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
 from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
