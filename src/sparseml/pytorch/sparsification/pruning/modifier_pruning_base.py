@@ -121,7 +121,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         **kwargs,
     ):
         super().__init__(
-            params=params,
             log_types=log_types,
             start_epoch=start_epoch,
             min_start=min_start,
