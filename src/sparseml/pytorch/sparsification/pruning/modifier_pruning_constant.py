@@ -117,6 +117,7 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
+        leave_enabled: float = False,
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(ConstantPruningModifier, self).__init__(
@@ -127,6 +128,7 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
             update_frequency=-1,
             log_types=log_types,
             allow_reintroduction=False,
+            leave_enabled=leave_enabled,
         )
 
     def _get_mask_creator(self) -> PruningMaskCreator:

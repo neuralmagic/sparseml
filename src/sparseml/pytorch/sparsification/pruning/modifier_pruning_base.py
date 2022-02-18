@@ -117,6 +117,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
+        leave_enabled: bool = False,
         **kwargs,
     ):
         super().__init__(
@@ -143,7 +144,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
 
         self._global_sparsity = global_sparsity
         self._allow_reintroduction = allow_reintroduction
-        self._leave_enabled = kwargs.get("leave_enabled", False)
+        self._leave_enabled = leave_enabled
 
         self._applied_sparsity = None
         self._pre_step_completed = False
@@ -586,6 +587,8 @@ class BaseGradualPruningModifier(BasePruningModifier):
         self._init_sparsity = init_sparsity
         self._inter_func = inter_func
 
+        self.init_sparsity = self._init_sparsity
+
         super().__init__(
             params=params,
             start_epoch=start_epoch,
@@ -598,9 +601,6 @@ class BaseGradualPruningModifier(BasePruningModifier):
             log_types=log_types,
             global_sparsity=global_sparsity,
             allow_reintroduction=allow_reintroduction,
-            init_sparsity=self._init_sparsity_orig,
-            final_sparsity=self._final_sparsity,
-            inter_func=inter_func,
             **kwargs,
         )
 
