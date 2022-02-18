@@ -27,7 +27,6 @@ from sparseml.pytorch.optim import (
     MFACPruningModifier,
     MovementPruningModifier,
     StructuredPruningModifier,
-    ACDCPruningModifier,
     load_mask_creator,
 )
 from sparseml.pytorch.utils import get_layer
@@ -668,45 +667,4 @@ def test_global_mfac_pruning_yaml():
         yaml_modifier.mfac_options
         == serialized_modifier.mfac_options
         == obj_modifier.mfac_options
-    )
-
-def test_ac_dc_pruning_yaml():
-    compression_sparsity = 0.9
-    start_epoch = 0
-    end_epoch = 15
-    update_frequency = 3
-    params = "__ALL_PRUNABLE__"
-    global_sparsity = True
-    momentum_buffer_reset = True
-    yaml_str = f"""
-    !ACDCPruningModifier
-        compression_sparsity: {compression_sparsity}
-        start_epoch: {start_epoch}
-        end_epoch: {end_epoch}
-        update_frequency: {update_frequency}
-        params: {params}
-        global_sparsity: {global_sparsity}
-        momentum_buffer_reset: {momentum_buffer_reset}
-    """
-    yaml_modifier = ACDCPruningModifier.load_obj(
-        yaml_str
-    )  # type: ACDCPruningModifier
-    print(yaml_modifier)
-    serialized_modifier = ACDCPruningModifier.load_obj(
-        str(yaml_modifier)
-    )  # type: ACDCPruningModifier
-
-    obj_modifier = ACDCPruningModifier(
-        compression_sparsity=compression_sparsity,
-        start_epoch = start_epoch,
-        end_epoch = end_epoch,
-        update_frequency = update_frequency,
-        params = params,
-        global_sparsity = global_sparsity,
-        momentum_buffer_reset = momentum_buffer_reset
-    )
-
-    assert isinstance(yaml_modifier, ACDCPruningModifier)
-    _test_pruning_modifier_serialization_vals(
-        yaml_modifier, serialized_modifier, obj_modifier
     )
