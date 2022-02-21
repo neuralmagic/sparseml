@@ -60,9 +60,13 @@ import inspect
 import logging
 import math
 import os
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
+import numpy
+import onnxruntime
+from torch import Tensor
 from torch.nn import Module
+from torch.utils.data.dataloader import DataLoader
 from transformers import AutoConfig, AutoTokenizer
 from transformers.tokenization_utils_base import PaddingStrategy
 
@@ -71,7 +75,7 @@ from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
 
 
-__all__ = ["export_transformer_to_onnx"]
+__all__ = ["export_transformer_to_onnx", "export_transformer_to_onnx_with_samples"]
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -274,6 +278,63 @@ def _parse_args() -> argparse.Namespace:
     )
 
     return parser.parse_args()
+
+
+def export_transformer_to_onnx_with_samples(
+    model: Module,
+    dataloader: DataLoader,
+    onnx_export_path: str,
+    convert_qat: bool = True,
+    num_exported_samples: int = 20,
+):
+    sample_inputs = os.path.join(onnx_export_path, "sample-inputs")
+    sample_outputs = os.path.join(onnx_export_path, "sample-outputs")
+    os.makedirs(sample_inputs, exist_ok=True)
+    os.makedirs(sample_outputs, exist_ok=True)
+
+    num_samples = 0
+    sess = None
+    for _, sample_batch in enumerate(dataloader):
+        sample_batch.pop("labels", None)
+        if sess is None:
+            forward_args_spec = inspect.getfullargspec(model.__class__.forward)
+            one_sample_input = collections.OrderedDict(
+                [
+                    (f, sample_batch[f][0].reshape(1, -1))
+                    for f in forward_args_spec.args
+                    if f in sample_batch
+                ]
+            )
+            onnx_file_path = os.path.join(onnx_export_path, "model.onnx")
+            try:
+                export_onnx(
+                    model,
+                    one_sample_input,
+                    onnx_file_path,
+                    convert_qat=convert_qat,
+                )
+            except Exception:
+                raise RuntimeError("Error exporting ONNX models and/or inputs/outputs")
+
+            sess = onnxruntime.InferenceSession(onnx_file_path)
+
+        input_names = list(sample_batch.keys())
+        output_names = [o.name for o in sess.get_outputs()]
+
+        for input_vals in zip(*sample_batch.values()):
+            input_feed = {k: v.numpy() for k, v in zip(input_names, input_vals)}
+            output_vals = sess.run(
+                output_names, {k: input_feed[k].reshape(1, -1) for k in input_feed}
+            )
+            output_dict = {
+                name: numpy.squeeze(val) for name, val in zip(output_names, output_vals)
+            }
+            file_idx = f"{num_samples}".zfill(4)
+            numpy.savez(f"{sample_inputs}/inp-{file_idx}.npz", **input_feed)
+            numpy.savez(f"{sample_outputs}/out-{file_idx}.npz", **output_dict)
+            num_samples += 1
+            if num_samples >= num_exported_samples:
+                return
 
 
 def main():

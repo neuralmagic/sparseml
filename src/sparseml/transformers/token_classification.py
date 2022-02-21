@@ -24,6 +24,7 @@ Fine-tuning the library models for token classification.
 # Pointers for this are left as comments
 
 import logging
+import math
 import os
 import sys
 from dataclasses import dataclass, field
@@ -44,6 +45,7 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 
+from sparseml.transformers import export_transformer_to_onnx_with_samples
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
 
@@ -124,6 +126,15 @@ class DataTrainingArguments:
     recipe_args: Optional[str] = field(
         default=None,
         metadata={"help": "Recipe arguments to be overwritten"},
+    )
+    onnx_export_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The filename and path which will be where onnx model is outputed"
+        },
+    )
+    num_exported_samples: Optional[int] = field(
+        default=20, metadata={"help": "Number of exported samples, default to 20"}
     )
     task_name: Optional[str] = field(
         default="ner", metadata={"help": "The name of the task (ner, pos...)."}
@@ -415,7 +426,11 @@ def main():
 
     # Preprocessing the dataset
     # Padding strategy
-    padding = "max_length" if data_args.pad_to_max_length else False
+    padding = (
+        "max_length"
+        if data_args.pad_to_max_length or data_args.onnx_export_path is not None
+        else False
+    )
 
     # Tokenize all texts and align the labels with them.
     def tokenize_and_align_labels(examples):
@@ -467,9 +482,11 @@ def main():
             load_from_cache_file=not data_args.overwrite_cache,
         )
 
-    if training_args.do_eval:
+    if training_args.do_eval or data_args.onnx_export_path is not None:
         if "validation" not in datasets:
-            raise ValueError("--do_eval requires a validation dataset")
+            raise ValueError(
+                "--do_eval or --onnx_export_path requires a validation dataset"
+            )
         eval_dataset = datasets["validation"]
         if data_args.max_eval_samples is not None:
             eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
@@ -632,6 +649,24 @@ def main():
                 kwargs["dataset"] = data_args.dataset_name
 
         trainer.push_to_hub(**kwargs)
+
+    if data_args.onnx_export_path:
+        model_path = (
+            training_args.output_dir
+            if training_args.do_train
+            else model_args.model_name_or_path
+        )
+        _LOGGER.info(f"*** Export to ONNX the model: {model_path} ***")
+        dataloader = trainer.get_eval_dataloader(eval_dataset)
+        if not trainer.manager_applied:
+            trainer.apply_manager(epoch=math.inf, checkpoint=None)
+        export_transformer_to_onnx_with_samples(
+            trainer.model,
+            dataloader,
+            data_args.onnx_export_path,
+            convert_qat=True,
+            num_exported_samples=data_args.num_exported_samples,
+        )
 
 
 def _mp_fn(index):

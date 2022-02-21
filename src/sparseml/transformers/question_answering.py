@@ -25,6 +25,7 @@ Fine-tuning the library models for question answering integrated with sparseml
 # Pointers for this are left as comments.
 
 import logging
+import math
 import os
 import sys
 from dataclasses import dataclass, field
@@ -46,6 +47,7 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 
+from sparseml.transformers import export_transformer_to_onnx_with_samples
 from sparseml.transformers.sparsification import (
     QuestionAnsweringTrainer,
     postprocess_qa_predictions,
@@ -139,6 +141,15 @@ class DataTrainingArguments:
         metadata={
             "help": "Recipe arguments to be overwritten",
         },
+    )
+    onnx_export_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The filename and path which will be where onnx model is outputed"
+        },
+    )
+    num_exported_samples: Optional[int] = field(
+        default=20, metadata={"help": "Number of exported samples, default to 20"}
     )
     dataset_name: Optional[str] = field(
         default=None,
@@ -629,9 +640,11 @@ def main():
 
         return tokenized_examples
 
-    if training_args.do_eval:
+    if training_args.do_eval or data_args.onnx_export_path is not None:
         if "validation" not in datasets:
-            raise ValueError("--do_eval requires a validation dataset")
+            raise ValueError(
+                "--do_eval or --onnx_export_path requires a validation dataset"
+            )
         eval_examples = datasets["validation"]
         if data_args.max_eval_samples is not None:
             # We will select sample from whole data
@@ -807,6 +820,24 @@ def main():
                 kwargs["dataset"] = data_args.dataset_name
 
         trainer.push_to_hub(**kwargs)
+
+    if data_args.onnx_export_path:
+        model_path = (
+            training_args.output_dir
+            if training_args.do_train
+            else model_args.model_name_or_path
+        )
+        _LOGGER.info(f"*** Export to ONNX the model: {model_path} ***")
+        dataloader = trainer.get_eval_dataloader(eval_dataset)
+        if not trainer.manager_applied:
+            trainer.apply_manager(epoch=math.inf, checkpoint=None)
+        export_transformer_to_onnx_with_samples(
+            trainer.model,
+            dataloader,
+            data_args.onnx_export_path,
+            convert_qat=True,
+            num_exported_samples=data_args.num_exported_samples,
+        )
 
 
 def _mp_fn(index):

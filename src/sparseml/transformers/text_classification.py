@@ -25,6 +25,7 @@ Finetuning the library models for sequence classification on GLUE
 # Pointers for this are left as comments.
 
 import logging
+import math
 import os
 import random
 import sys
@@ -48,6 +49,7 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 
+from sparseml.transformers import export_transformer_to_onnx_with_samples
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
 
@@ -94,6 +96,15 @@ class DataTrainingArguments:
     recipe_args: Optional[str] = field(
         default=None,
         metadata={"help": "Recipe arguments to be overwritten"},
+    )
+    onnx_export_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The filename and path which will be where onnx model is outputed"
+        },
+    )
+    num_exported_samples: Optional[int] = field(
+        default=20, metadata={"help": "Number of exported samples, default to 20"}
     )
     task_name: Optional[str] = field(
         default=None,
@@ -543,9 +554,11 @@ def main():
         if data_args.max_train_samples is not None:
             train_dataset = train_dataset.select(range(data_args.max_train_samples))
 
-    if training_args.do_eval:
+    if training_args.do_eval or data_args.onnx_export_path is not None:
         if "validation" not in datasets and "validation_matched" not in datasets:
-            raise ValueError("--do_eval requires a validation dataset")
+            raise ValueError(
+                "--do_eval or --onnx_export_path requires a validation dataset"
+            )
         eval_dataset = datasets[
             "validation_matched" if data_args.task_name == "mnli" else "validation"
         ]
@@ -715,6 +728,24 @@ def main():
             kwargs["dataset"] = f"GLUE {data_args.task_name.upper()}"
 
         trainer.push_to_hub(**kwargs)
+
+    if data_args.onnx_export_path:
+        model_path = (
+            training_args.output_dir
+            if training_args.do_train
+            else model_args.model_name_or_path
+        )
+        _LOGGER.info(f"*** Export to ONNX the model: {model_path} ***")
+        dataloader = trainer.get_eval_dataloader(eval_dataset)
+        if not trainer.manager_applied:
+            trainer.apply_manager(epoch=math.inf, checkpoint=None)
+        export_transformer_to_onnx_with_samples(
+            trainer.model,
+            dataloader,
+            data_args.onnx_export_path,
+            convert_qat=True,
+            num_exported_samples=data_args.num_exported_samples,
+        )
 
 
 def _mp_fn(index):
