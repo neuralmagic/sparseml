@@ -15,9 +15,6 @@
 import math
 from typing import List, Union
 
-from torch.nn import Module, Parameter
-from torch.optim.optimizer import Optimizer
-
 from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     FourBlockMaskCreator,
@@ -31,7 +28,8 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     MagnitudePruningParamsScorer,
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
-
+from torch.nn import Module, Parameter
+from torch.optim.optimizer import Optimizer
 
 __all__ = ["ACDCPruningModifier"]
 
@@ -82,18 +80,17 @@ class ACDCPruningModifier(BasePruningModifier):
     """
 
     def __init__(
-        self,
-        compression_sparsity: float,
-        start_epoch: float,
-        end_epoch: float,
-        update_frequency: float,
-        params: Union[str, List[str]],
-        global_sparsity: bool = True,
-        leave_enabled: bool = True,
-        momentum_buffer_reset: bool = True,
-        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+            self,
+            compression_sparsity: float,
+            start_epoch: float,
+            end_epoch: float,
+            update_frequency: float,
+            params: Union[str, List[str]],
+            global_sparsity: bool = True,
+            leave_enabled: bool = True,
+            momentum_buffer_reset: bool = True,
+            mask_type: str = "unstructured",
     ):
-
         # because method does not involve any interpolation
         # compression sparsity (final sparsity) is a single float.
         self._compression_sparsity = compression_sparsity
@@ -101,22 +98,23 @@ class ACDCPruningModifier(BasePruningModifier):
         self._is_phase_decompression = True
         self._momentum_buffer_reset = momentum_buffer_reset
         self._mask_type = mask_type
+        self._momentum_buffer_empty = True
+
+        self._compression_phases, end_epoch = self._compute_compression_phases(start_epoch, end_epoch, update_frequency)
+        self._phase_idx = 0
 
         super(ACDCPruningModifier, self).__init__(
             start_epoch=start_epoch,
-            end_epoch=self._finish_on_compression(
-                start_epoch, end_epoch, update_frequency
-            ),
+            end_epoch=end_epoch,
             update_frequency=update_frequency,
             global_sparsity=global_sparsity,
             params=params,
             leave_enabled=leave_enabled,
         )
 
-        self._momentum_buffer_empty = True
 
     def optimizer_post_step(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+            self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
         """
         Reapply the mask after the optimizer step in case the optimizer
@@ -134,11 +132,10 @@ class ACDCPruningModifier(BasePruningModifier):
         # be sure to apply mask again after optimizer update because
         # weights may have changed (optimizer with momentum, not masking gradient)
 
-        self._module_masks.apply()
         if (
-            self._momentum_buffer_reset
-            and self._is_phase_decompression
-            and not self._momentum_buffer_empty
+                self._momentum_buffer_reset
+                and self._is_phase_decompression
+                and not self._momentum_buffer_empty
         ):
             """
             This condition is only evaluated when `momentum_buffer_reset`
@@ -150,10 +147,8 @@ class ACDCPruningModifier(BasePruningModifier):
             self._reset_momentum_buffer(optimizer)
             self._momentum_buffer_empty = True
 
-        self._sparsity_applied = False  # damian: is this necessary?
-
     def get_applied_sparsity_for_epoch(
-        self, epoch: float, steps_per_epoch: int
+            self, epoch: float, steps_per_epoch: int
     ) -> Union[float, List[float]]:
         """
         :param epoch: curent epoch
@@ -162,8 +157,8 @@ class ACDCPruningModifier(BasePruningModifier):
             should be set to different sparsities, should return a list of those values
             in the order the parameters appear in the mask manager for this object
         """
-        self._num_phase = math.floor((epoch - self.start_epoch) / self.update_frequency)
-        if self._num_phase % 2 == 0:
+
+        if not self._compression_phases[int(epoch - self.start_epoch)]:
             # entering decompression phase
             self._is_phase_decompression = True
             applied_sparsity = self._decompression_sparsity
@@ -223,39 +218,18 @@ class ACDCPruningModifier(BasePruningModifier):
                 param_buffer["momentum_buffer"].mul_(0.0)
 
     @staticmethod
-    def _finish_on_compression(
-        start_epoch: float, end_epoch: float, update_frequency: float
+    def _compute_compression_phases(
+            start_epoch: float, end_epoch: float, update_frequency: float
     ) -> float:
-        """
-        This function asserts that training will always
-        end on the last epoch of compression phase.
-        E.g. if start_epoch = 0, end_epoch = 9 and update_frequency = 2:
-        compression_phases = [0,0,1,1,0,0,1,1,0]
-        Because last epoch is decompression phase, end_epoch will be reduced to 8.
-        (so that compression_phases = [0,0,1,1,0,0,1,1,0]
+        num_phases = (end_epoch - start_epoch) // update_frequency
+        if num_phases % 2 != 0:
+            num_phases -= 1
+        compression_phases = []
+        current_phase = [False] * update_frequency
+        for phase in range(num_phases):
+            compression_phases += current_phase
+            current_phase = [not x for x in current_phase]
 
-        :param start_epoch:
-            The epoch to start the modifier at
-        :param end_epoch:
-            The epoch to end the modifier at
-        :param update_frequency:
-            The length (in epochs) of each and every compression/decompression phase.
-        :return: reduced_end_epoch:
-            (If required) reduced, original end_epoch (reduced_end_epoch <= end_epoch)
-        """
-        compression_phases = [
-            math.floor(epoch / update_frequency) % 2 == 0.0
-            for epoch in range(start_epoch, end_epoch)
-        ]
 
-        for compressed_phase_epoch in reversed(compression_phases):
-            if compressed_phase_epoch:
-                # when compressed_phase_epoch encountered
-                # this function returns original 'end_epoch'
-                break
-            else:
-                # otherwise, keep subtracting last
-                # decompression epochs count from the 'end epoch'
-                end_epoch -= 1
 
-        return end_epoch
+        return compression_phases, start_epoch + len(compression_phases)
