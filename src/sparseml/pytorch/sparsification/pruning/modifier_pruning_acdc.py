@@ -157,7 +157,6 @@ class ACDCPruningModifier(BasePruningModifier):
             should be set to different sparsities, should return a list of those values
             in the order the parameters appear in the mask manager for this object
         """
-
         if not self._compression_phases[int(epoch - self.start_epoch)]:
             # entering decompression phase
             self._is_phase_decompression = True
