@@ -104,6 +104,9 @@ class TestACDCPruningModifier(ScheduledModifierTest):
         optimizer = optim_lambda(model)
         self.initialize_helper(modifier, model)
 
+        def _test_compression_sparsity_applied():
+            assert modifier._compression_sparsity == modifier.applied_sparsity
+
         # assert that until modifier is activated, `applied_sparsity` remains None
         if modifier.start_epoch > 0:
             assert modifier.applied_sparsity is None
@@ -130,12 +133,12 @@ class TestACDCPruningModifier(ScheduledModifierTest):
                     is_previous_phase_decompression
                     is not modifier._is_phase_decompression
                 )
+                if not modifier._is_phase_decompression:
+                    _test_compression_sparsity_applied()
+
             is_previous_phase_decompression = modifier._is_phase_decompression
 
         # check whether modifier terminates correctly on compression phase
-        def _test_compression_sparsity_applied():
-            assert modifier._compression_sparsity == modifier.applied_sparsity
-
         _test_compression_sparsity_applied()
 
         for epoch in range(int(modifier.end_epoch) + 1, int(modifier.end_epoch) + 6):
