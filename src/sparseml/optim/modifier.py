@@ -288,8 +288,32 @@ class BaseModifier(BaseObject):
         """
         :param yaml_str: a string representation of the yaml syntax to load modifiers
         :param framework: the framework to load the modifiers for
-        :return: the loaded modifiers list
+        :return: the loaded modifiers list or dictionary of stage name to stage
+            modifiers list if given a yaml string of a staged recipe
         """
+
+        def _load_stage_modifiers(stage_container):
+            stage_modifiers = []  # type: List[BaseModifier]
+            for name, item in stage_container.items():
+                if "modifiers" in name and isinstance(item, List):
+                    stage_modifiers.extend(item)
+                elif isinstance(item, BaseModifier):
+                    stage_modifiers.append(item)
+                elif isinstance(item, List) and any(
+                    isinstance(element, BaseModifier) for element in item
+                ):
+                    # invalid modifier group name
+                    modifier_type = type(
+                        [mod for mod in item if isinstance(mod, BaseModifier)][0]
+                    )
+                    raise ValueError(
+                        "Invalid modifier location. Grouped modifiers in recipes must "
+                        "be listed in lists with 'modifiers' in its name. A modifier "
+                        f"of type {modifier_type} was found in recipe list {name}"
+                    )
+            return stage_modifiers
+
+        # evaluate recipe equations and load into yaml container object
         yaml_str = evaluate_recipe_yaml_str_equations(yaml_str)
         yaml_str = BaseModifier._convert_to_framework_modifiers(yaml_str, framework)
         container = yaml.safe_load(yaml_str)
@@ -299,23 +323,18 @@ class BaseModifier(BaseObject):
         elif isinstance(container, List):
             modifiers = container
         else:  # Dict
-            modifiers = []
-            for name, item in container.items():
-                if "modifiers" in name and isinstance(item, List):
-                    modifiers.extend(item)
-                elif isinstance(item, BaseModifier):
-                    modifiers.append(item)
-                elif isinstance(item, List) and any(
-                    isinstance(element, BaseModifier) for element in item
-                ):
-                    modifier_type = type(
-                        [mod for mod in item if isinstance(mod, BaseModifier)][0]
-                    )
-                    raise ValueError(
-                        "Invalid modifier location. Grouped modifiers in recipes must "
-                        "be listed in lists with 'modifiers' in its name. A modifier "
-                        f"of type {modifier_type} was found in recipe list {name}"
-                    )
+            if any("modifiers" in key for key in container):
+                # non-staged recipe, treat entire recipe as stage
+                modifiers = _load_stage_modifiers(container)
+                pass
+            else:
+                # staged recipe, return dict of stage_name -> modifiers
+                modifiers = {}
+                for stage_name, stage_item in container.items():
+                    if not isinstance(stage_item, Dict):
+                        pass  # stages must be represented as a Dict
+                    if any("modifiers" in key for key in stage_item):
+                        modifiers[stage_name] = _load_stage_modifiers(stage_item)
 
         return modifiers
 
