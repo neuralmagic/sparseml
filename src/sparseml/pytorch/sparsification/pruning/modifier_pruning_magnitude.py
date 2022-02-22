@@ -135,7 +135,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
             end_comparator=-1,
             global_sparsity=self._use_global_sparsity,
             allow_reintroduction=False,
-            explicit_kwargs=[
+            parent_class_kwarg_names=[
                 "init_sparsity",
                 "final_sparsity",
                 "params",
