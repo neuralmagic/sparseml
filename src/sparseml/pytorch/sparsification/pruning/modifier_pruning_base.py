@@ -586,6 +586,8 @@ class BaseGradualPruningModifier(BasePruningModifier):
         self._init_sparsity = init_sparsity
         self._inter_func = inter_func
 
+        self.init_sparsity = self._init_sparsity
+
         super().__init__(
             params=params,
             start_epoch=start_epoch,
