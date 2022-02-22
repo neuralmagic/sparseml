@@ -102,6 +102,13 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
         between forward passes. Default is False
+    :param explicit_kwargs: a list of args which indicates the subset of kwargs to pass
+        to super.__init__. Resulting kwargs will be the set intersect of
+        explicit_kwargs and the initial kwargs.  A value of None will preserve the
+        original kwargs, whereas an empty list will yield empty kwargs.
+        This param is included to avoid collisions between multiple inheritance
+        requirements and SparaseML requirements to not pass kwargs to the BaseObject
+        class.
     """
 
     def __init__(
@@ -117,7 +124,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
-        explicit_kwargs: Optional[List[str]] = ["params"],
+        explicit_kwargs: Optional[List[str]] = None,
         **kwargs,
     ):
         if explicit_kwargs is not None:
