@@ -68,6 +68,8 @@ class ACDCPruningModifier(BasePruningModifier):
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune. Default is True
+    :param log_types: The loggers to allow the learning rate to be logged to,
+        default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameters in and out
          channels, or a SparsityMaskCreator object. default is 'unstructured'
