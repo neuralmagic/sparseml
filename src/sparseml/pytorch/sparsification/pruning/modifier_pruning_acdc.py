@@ -31,6 +31,7 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     MagnitudePruningParamsScorer,
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
+from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["ACDCPruningModifier"]
@@ -92,6 +93,7 @@ class ACDCPruningModifier(BasePruningModifier):
         leave_enabled: bool = True,
         momentum_buffer_reset: bool = True,
         mask_type: str = "unstructured",
+        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
 
         # because method does not involve any interpolation
@@ -112,6 +114,7 @@ class ACDCPruningModifier(BasePruningModifier):
             global_sparsity=global_sparsity,
             params=params,
             leave_enabled=leave_enabled,
+            log_types=log_types,
         )
 
         self._momentum_buffer_empty = True
