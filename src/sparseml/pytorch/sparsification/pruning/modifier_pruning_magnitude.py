@@ -139,6 +139,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
                 "init_sparsity",
                 "final_sparsity",
                 "params",
+                "leave_enabled",
             ],
         )
 

@@ -117,7 +117,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
-        leave_enabled: bool = False,
         explicit_kwargs: Optional[List[str]] = ["params"],
         **kwargs,
     ):
