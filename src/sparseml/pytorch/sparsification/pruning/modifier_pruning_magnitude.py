@@ -138,8 +138,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
             parent_class_kwarg_names=[
                 "init_sparsity",
                 "final_sparsity",
-                "params",
-                "leave_enabled",
+                "params"
             ],
         )
 

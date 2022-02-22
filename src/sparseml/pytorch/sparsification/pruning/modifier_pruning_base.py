@@ -161,7 +161,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
 
         self._global_sparsity = global_sparsity
         self._allow_reintroduction = allow_reintroduction
-        self._leave_enabled = leave_enabled
+        self._leave_enabled = kwargs.get("leave_enabled", False)
 
         self._applied_sparsity = None
         self._pre_step_completed = False
