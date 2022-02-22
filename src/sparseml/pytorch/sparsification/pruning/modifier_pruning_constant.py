@@ -127,7 +127,7 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
             update_frequency=-1,
             log_types=log_types,
             allow_reintroduction=False,
-            parent_class_kwarg_names=["params"]
+            parent_class_kwarg_names=["params"],
         )
 
     def _get_mask_creator(self) -> PruningMaskCreator:

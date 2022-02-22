@@ -102,10 +102,10 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
         between forward passes. Default is False
-    :param parent_class_kwarg_names: a list of args which indicates the subset of kwargs to pass
-        to super.__init__. Resulting kwargs will be the set intersect of
-        parent_class_kwarg_names and the initial kwargs.  A value of None will preserve the
-        original kwargs, whereas an empty list will yield empty kwargs.
+    :param parent_class_kwarg_names: a list of args which indicates the subset of kwargs
+        to pass to super.__init__. Resulting kwargs will be the set intersect of
+        parent_class_kwarg_names and the initial kwargs. A value of None will preserve
+        the original kwargs, whereas an empty list will yield empty kwargs.
         This param is included to avoid collisions between multiple inheritance
         requirements and SparaseML requirements to not pass kwargs to the BaseObject
         class.
@@ -570,10 +570,10 @@ class BaseGradualPruningModifier(BasePruningModifier):
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
         between forward passes. Default is False
-    :param parent_class_kwarg_names: a list of args which indicates the subset of kwargs to pass
-        to super.__init__. Resulting kwargs will be the set intersect of
-        parent_class_kwarg_names and the initial kwargs.  A value of None will preserve the
-        original kwargs, whereas an empty list will yield empty kwargs.
+    :param parent_class_kwarg_names: a list of args which indicates the subset of kwargs
+        to pass to super.__init__. Resulting kwargs will be the set intersect of
+        parent_class_kwarg_names and the initial kwargs. A value of None will preserve
+        the original kwargs, whereas an empty list will yield empty kwargs.
         This param is included to avoid collisions between multiple inheritance
         requirements and SparaseML requirements to not pass kwargs to the BaseObject
         class.
