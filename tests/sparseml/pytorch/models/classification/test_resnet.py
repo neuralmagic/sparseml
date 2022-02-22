@@ -85,7 +85,7 @@ from tests.sparseml.pytorch.models.utils import compare_model
         ("resnext152", False, True, resnext152),
     ],
 )
-def test_resnsets(
+def test_resnets(
     key: str, pretrained: Union[bool, str], test_input: bool, match_const: Callable
 ):
     model = ModelRegistry.create(key, pretrained)

@@ -260,8 +260,9 @@ class RecipeManagerTrainerInterface:
             return
 
         # allow SparseML to manage LR and set a dummy scheduler
-        self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.optimizer, lambda _: 1.0, -1
+        self.lr_scheduler = torch.optim.lr_scheduler.MultiplicativeLR(
+            self.optimizer,
+            lambda _: 1.0,
         )
         _LOGGER.warning("Overrode the lr_scheduler from SparseML recipe")
 
