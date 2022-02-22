@@ -102,6 +102,13 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
         between forward passes. Default is False
+    :param parent_class_kwarg_names: a list of args which indicates the subset of kwargs
+        to pass to super.__init__. Resulting kwargs will be the set intersect of
+        parent_class_kwarg_names and the initial kwargs. A value of None will preserve
+        the original kwargs, whereas an empty list will yield empty kwargs.
+        This param is included to avoid collisions between multiple inheritance
+        requirements and SparaseML requirements to not pass kwargs to the BaseObject
+        class.
     """
 
     def __init__(
@@ -117,10 +124,16 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
+        parent_class_kwarg_names: Optional[List[str]] = None,
         **kwargs,
     ):
+        if parent_class_kwarg_names is not None:
+            # filter kwargs only for ones that should be propagated
+            # parent_class_kwarg_names = ["params", "init_sparsity", "iterpolation",...]
+            kwargs = {k: v for k, v in kwargs.items() if k in parent_class_kwarg_names}
+            if "params" in parent_class_kwarg_names:
+                kwargs["params"] = params
         super().__init__(
-            params=params,
             log_types=log_types,
             start_epoch=start_epoch,
             min_start=min_start,
@@ -557,6 +570,13 @@ class BaseGradualPruningModifier(BasePruningModifier):
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
         between forward passes. Default is False
+    :param parent_class_kwarg_names: a list of args which indicates the subset of kwargs
+        to pass to super.__init__. Resulting kwargs will be the set intersect of
+        parent_class_kwarg_names and the initial kwargs. A value of None will preserve
+        the original kwargs, whereas an empty list will yield empty kwargs.
+        This param is included to avoid collisions between multiple inheritance
+        requirements and SparaseML requirements to not pass kwargs to the BaseObject
+        class.
     """
 
     def __init__(
@@ -575,6 +595,7 @@ class BaseGradualPruningModifier(BasePruningModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
+        parent_class_kwarg_names: Optional[List[str]] = None,
         **kwargs,
     ):
         self._final_sparsity_orig = final_sparsity
@@ -598,9 +619,10 @@ class BaseGradualPruningModifier(BasePruningModifier):
             log_types=log_types,
             global_sparsity=global_sparsity,
             allow_reintroduction=allow_reintroduction,
-            init_sparsity=self._init_sparsity_orig,
+            init_sparsity=self._init_sparsity,
             final_sparsity=self._final_sparsity,
             inter_func=inter_func,
+            parent_class_kwarg_names=parent_class_kwarg_names,
             **kwargs,
         )
 
