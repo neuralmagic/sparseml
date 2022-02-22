@@ -118,7 +118,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
         leave_enabled: bool = False,
-        explicit_kwargs: Optional[List[str]] = None,
+        explicit_kwargs: Optional[List[str]] = ["params"],
         **kwargs,
     ):
         if explicit_kwargs is not None:
