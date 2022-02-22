@@ -91,7 +91,7 @@ class ACDCPruningModifier(BasePruningModifier):
         global_sparsity: bool = True,
         leave_enabled: bool = True,
         momentum_buffer_reset: bool = True,
-        mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
+        mask_type: str = "unstructured",
     ):
 
         # because method does not involve any interpolation
