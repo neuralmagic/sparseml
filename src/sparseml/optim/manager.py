@@ -20,7 +20,7 @@ ex to perform model pruning.
 
 import math
 from functools import cmp_to_key
-from typing import List
+from typing import Dict, Generator, List, Union
 
 from sparseml.optim.modifier import BaseModifier, BaseObject, ModifierProp
 from sparseml.sparsification.types import SparsificationTypes
@@ -38,14 +38,40 @@ class BaseManager(BaseObject):
     :param modifiers: the modifiers to wrap
     """
 
-    def __init__(self, modifiers: List[BaseModifier], **kwargs):
+    def __init__(
+        self,
+        modifiers: Union[List[BaseModifier], Dict[str, List[BaseModifier]]],
+        **kwargs,
+    ):
         super().__init__(**kwargs)
-        # sort modifiers by when they start and end so that later modifiers
-        # can overwrite in a deterministic order such as when initializing
-        self._modifiers = sorted(modifiers, key=cmp_to_key(BaseModifier.comparator))
+
+        if isinstance(modifiers, List):
+            # sort modifiers by when they start and end so that later modifiers
+            # can overwrite in a deterministic order such as when initializing
+            self._modifiers = _sort_modifiers_list(modifiers)
+        elif isinstance(modifiers, Dict):
+            # staged recipe
+            # sort modifiers of each stage by start/end as above then sort stages
+            # by their modifiers
+            modifiers = {
+                stage: _sort_modifiers_list(stage_modifiers)
+                for stage, stage_modifiers in modifiers.items()
+            }
+            self._modifiers = dict(
+                sorted(
+                    modifiers.items(),
+                    key=lambda item: cmp_to_key(BaseModifier.comparator_lists(item[1])),
+                )
+            )
+
+        else:
+            raise ValueError(
+                "modifiers type must be List[BaseModifier] or "
+                f"Dict[str, List[BaseModifier]] found {type(modifiers)}"
+            )
 
     def __del__(self):
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             del mod
 
         self._modifiers.clear()
@@ -57,9 +83,10 @@ class BaseManager(BaseObject):
         return str(self) == str(compare)
 
     @ModifierProp(serializable=False)
-    def modifiers(self) -> List[BaseModifier]:
+    def modifiers(self) -> Union[List[BaseModifier], Dict[str, List[BaseModifier]]]:
         """
-        :return: list of all SparseML modifiers in the managed recipe
+        :return: list of all SparseML modifiers in the managed recipe or dictionary
+            of modifier stages to list of those modifiers
         """
         return self._modifiers
 
@@ -71,7 +98,7 @@ class BaseManager(BaseObject):
         """
         return [
             mod
-            for mod in self._modifiers
+            for mod in self.iter_modifiers()
             if SparsificationTypes.epoch in mod.sparsification_types
         ]
 
@@ -83,7 +110,7 @@ class BaseManager(BaseObject):
         """
         return [
             mod
-            for mod in self._modifiers
+            for mod in self.iter_modifiers()
             if SparsificationTypes.learning_rate in mod.sparsification_types
         ]
 
@@ -95,7 +122,7 @@ class BaseManager(BaseObject):
         """
         return [
             mod
-            for mod in self._modifiers
+            for mod in self.iter_modifiers()
             if SparsificationTypes.pruning in mod.sparsification_types
         ]
 
@@ -107,7 +134,7 @@ class BaseManager(BaseObject):
         """
         return [
             mod
-            for mod in self._modifiers
+            for mod in self.iter_modifiers()
             if SparsificationTypes.quantization in mod.sparsification_types
         ]
 
@@ -119,7 +146,7 @@ class BaseManager(BaseObject):
         """
         return [
             mod
-            for mod in self._modifiers
+            for mod in self.iter_modifiers()
             if SparsificationTypes.distillation in mod.sparsification_types
         ]
 
@@ -132,7 +159,7 @@ class BaseManager(BaseObject):
         """
         return [
             mod
-            for mod in self._modifiers
+            for mod in self.iter_modifiers()
             if SparsificationTypes.structured in mod.sparsification_types
         ]
 
@@ -145,12 +172,16 @@ class BaseManager(BaseObject):
         vals.extend(
             [
                 math.floor(mod.start_epoch)
-                for mod in self._modifiers
+                for mod in self.iter_modifiers()
                 if mod.start_epoch > -1
             ]
         )
         vals.extend(
-            [math.floor(mod.end_epoch) for mod in self._modifiers if mod.end_epoch > -1]
+            [
+                math.floor(mod.end_epoch)
+                for mod in self.iter_modifiers()
+                if mod.end_epoch > -1
+            ]
         )
 
         return min(vals) if len(vals) > 0 else -1
@@ -165,12 +196,16 @@ class BaseManager(BaseObject):
         vals.extend(
             [
                 math.ceil(mod.start_epoch)
-                for mod in self._modifiers
+                for mod in self.iter_modifiers()
                 if mod.start_epoch > -1
             ]
         )
         vals.extend(
-            [math.ceil(mod.end_epoch) for mod in self._modifiers if mod.end_epoch > -1]
+            [
+                math.ceil(mod.end_epoch)
+                for mod in self.iter_modifiers()
+                if mod.end_epoch > -1
+            ]
         )
 
         return max(vals) if len(vals) > 0 else -1
@@ -185,6 +220,19 @@ class BaseManager(BaseObject):
         with open(file_path, "w") as yaml_file:
             yaml_file.write(str(self))
 
+    def iter_modifiers(self) -> Generator[None, None, BaseModifier]:
+        """
+        :return: generator for modifiers of this manager
+        """
+        modifiers_dict = (
+            {"": self._modifiers}
+            if isinstance(self._modifiers, List)
+            else self._modifiers
+        )
+        for modifiers_list in modifiers_dict.values():
+            for mod in modifiers_list:
+                yield mod
+
     def to_string_lines(self) -> List[str]:
         """
         :return: a list of lines for a string / yaml representation of this instance
@@ -194,7 +242,33 @@ class BaseManager(BaseObject):
 
         return yaml_str_lines
 
-    def modifiers_to_string_lines(self, modifiers: List[BaseModifier]) -> List[str]:
+    def modifiers_to_string_lines(
+        self, modifiers: Union[List[BaseModifier], Dict[str, List[BaseModifier]]]
+    ) -> List[str]:
+        """
+        :param modifiers: the modifiers to convert into string / yaml representation
+            for within the manage
+        :return: a list of lines for a string / yaml representation of the
+            modifiers in the manager
+        """
+        if isinstance(modifiers, List):
+            return self.modifiers_list_to_string_lines(modifiers)
+
+        yaml_str_lines = []
+        for stage, stage_modifiers in modifiers.items():
+            # stage name for yaml dict
+            yaml_str_lines.append(f"{stage}:")
+            stage_yaml_str_lines = self.modifiers_list_to_string_lines(stage_modifiers)
+            for stage_yaml_line in stage_yaml_str_lines:
+                # add indentation to each modifier yaml str
+                yaml_str_lines.append(f"  {stage_yaml_line}")
+            # add blank line
+            yaml_str_lines.append("")
+        return yaml_str_lines
+
+    def modifiers_list_to_string_lines(
+        self, modifiers: List[BaseModifier]
+    ) -> List[str]:
         """
         :param modifiers: the modifiers to convert into string / yaml representation
             for within the manage
@@ -231,3 +305,7 @@ class BaseManager(BaseObject):
             if quant_modifiers
             else False
         )
+
+
+def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:
+    return sorted(modifiers, key=cmp_to_key(BaseModifier.comparator))

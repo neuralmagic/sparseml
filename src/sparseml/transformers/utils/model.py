@@ -67,7 +67,7 @@ class SparseAutoModel:
                 kwargs["state_dict"], delayed = SparseAutoModel._loadable_state_dict(
                     model_name_or_path
                 )
-            model = AutoModelForSequenceClassification.from_pretrained(
+            model = AutoModelForMaskedLM.from_pretrained(
                 model_name_or_path,
                 **kwargs,
             )

@@ -370,6 +370,38 @@ class BaseModifier(BaseObject):
         return compare
 
     @staticmethod
+    def comparator_lists(one: List["BaseModifier"], two: List["BaseModifier"]) -> int:
+        """
+        Comparator for list of modifiers, compares the max end, min start epochs
+        of either lists and then the maximal identifiers of either
+
+        :param one: first list of modifiers to compare
+        :param two: second list of modifiers to compare
+        :return: int representing where one is in relation to two
+        """
+        # compare first on end epoch
+        compare = BaseModifier.comparator_ends(
+            max(one, key=lambda mod: mod.end_epoch),
+            max(two, key=lambda mod: mod.end_epoch),
+        )
+
+        if compare == 0:
+            # if ends equal, compare next on start
+            compare = BaseModifier.comparator_starts(
+                min(one, key=lambda mod: mod.start_epoch),
+                min(two, key=lambda mod: mod.start_epoch),
+            )
+
+        if compare == 0:
+            # if still equal, compare on identifier
+            compare = BaseModifier.comparator_identifiers(
+                max(one, key=lambda mod: mod.identifier()),
+                max(two, key=lambda mod: mod.identifier()),
+            )
+
+        return compare
+
+    @staticmethod
     def comparator_ends(one, two) -> int:
         """
         Comparator implementation for Modifiers based on end_epoch.
