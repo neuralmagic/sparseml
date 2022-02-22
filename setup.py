@@ -49,6 +49,7 @@ _deps = [
     "scipy>=1.0.0",
     "tqdm>=4.0.0",
     "toposort>=1.0",
+    "GPUtil>=1.4.0",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
