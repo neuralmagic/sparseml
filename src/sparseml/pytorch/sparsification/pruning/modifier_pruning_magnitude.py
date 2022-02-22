@@ -135,6 +135,11 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
             end_comparator=-1,
             global_sparsity=self._use_global_sparsity,
             allow_reintroduction=False,
+            propagate_extra_kwargs = [
+                "init_sparsity",
+                "final_sparsity",
+                "params",
+                ]
         )
 
     def _get_mask_creator(self) -> PruningMaskCreator:

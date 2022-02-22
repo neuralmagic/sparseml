@@ -118,8 +118,15 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
         leave_enabled: bool = False,
+        propagate_extra_kwargs: Optional[List[str]] = None,
         **kwargs,
     ):
+        if propagate_extra_kwargs is not None:
+            # filter kwargs only for ones that should be propagated
+            # propagate_extra_kwargs = ["params", "init_sparsity", "iterpolation",...]
+            kwargs = {k: v for k, v in kwargs.items() if k in propagate_extra_kwargs}
+            if "params" in propagate_extra_kwargs:
+                kwargs["params"] = params
         super().__init__(
             log_types=log_types,
             start_epoch=start_epoch,
@@ -143,7 +150,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
 
         self._global_sparsity = global_sparsity
         self._allow_reintroduction = allow_reintroduction
-        self._leave_enabled = leave_enabled
+        self._leave_enabled = kwargs.get("leave_enabled", False)
 
         self._applied_sparsity = None
         self._pre_step_completed = False
@@ -575,6 +582,7 @@ class BaseGradualPruningModifier(BasePruningModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
+        propagate_extra_kwargs: Optional[List[str]] = None,
         **kwargs,
     ):
         self._final_sparsity_orig = final_sparsity
@@ -598,6 +606,10 @@ class BaseGradualPruningModifier(BasePruningModifier):
             log_types=log_types,
             global_sparsity=global_sparsity,
             allow_reintroduction=allow_reintroduction,
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
+            inter_func=inter_func,
+            propagate_extra_kwargs = propagate_extra_kwargs,
             **kwargs,
         )
 
