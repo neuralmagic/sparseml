@@ -25,6 +25,7 @@ from typing import Any, Iterable, List, NewType, Optional, Tuple, Union
 
 __all__ = [
     "NmArgumentParser",
+    "string_to_bool",
 ]
 
 DataClass = NewType("DataClass", Any)
