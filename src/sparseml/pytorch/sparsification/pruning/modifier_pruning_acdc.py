@@ -180,21 +180,28 @@ class ACDCPruningModifier(BasePruningModifier):
 
         return applied_sparsity
 
-    @ModifierProp(serializable=False)
+    @ModifierProp()
+    def mask_type(self) -> str:
+        """
+        :return: the mask type used
+        """
+        return self._mask_type
+
+    @ModifierProp(serializable=True)
     def momentum_buffer_reset(self) -> bool:
         """
         :return: True to reset the gradient momentum
                  (momentum buffer) term of the optimizer
                  to zero before every decompression phase.
         """
-        return self._momentum_buffer_empty
+        return self._momentum_buffer_reset
 
     @momentum_buffer_reset.setter
-    def momentum_buffer_empty(self, value: bool):
+    def momentum_buffer_reset(self, value: bool):
         """
         :param value: whether we use momentum buffer reset strategy or not.
         """
-        self._momentum_buffer_empty = value
+        self._momentum_buffer_reset = value
 
     @ModifierProp(serializable=True)
     def compression_sparsity(self) -> float:

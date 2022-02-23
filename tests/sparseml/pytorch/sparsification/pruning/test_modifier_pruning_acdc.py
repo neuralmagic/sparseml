@@ -212,10 +212,9 @@ def test_ac_dc_pruning_yaml():
     update_frequency = 1
     params = ["re:.*weight"]
     global_sparsity = True
-    leave_enabled = True
+    leave_enabled = False
     mask_type = "unstructured"
-    momentum_buffer_reset = True
-    log_types = ALL_TOKEN
+    momentum_buffer_reset = False
 
     yaml_str = f"""
     !ACDCPruningModifier
@@ -228,7 +227,6 @@ def test_ac_dc_pruning_yaml():
         leave_enabled: {leave_enabled}
         mask_type: {mask_type}
         momentum_buffer_reset: {momentum_buffer_reset}
-        log_types: {log_types}
         """
     yaml_modifier = ACDCPruningModifier.load_obj(yaml_str)  # type: ACDCPruningModifier
     serialized_modifier = ACDCPruningModifier.load_obj(
@@ -240,6 +238,10 @@ def test_ac_dc_pruning_yaml():
         start_epoch=start_epoch,
         end_epoch=end_epoch,
         params=params,
+        global_sparsity=global_sparsity,
+        leave_enabled=leave_enabled,
+        mask_type=mask_type,
+        momentum_buffer_reset=momentum_buffer_reset,
     )
     assert isinstance(yaml_modifier, ACDCPruningModifier)
     assert (
@@ -253,3 +255,33 @@ def test_ac_dc_pruning_yaml():
         == obj_modifier.end_epoch
     )
     assert yaml_modifier.params == serialized_modifier.params == obj_modifier.params
+    assert (
+        yaml_modifier.compression_sparsity
+        == serialized_modifier.compression_sparsity
+        == obj_modifier.compression_sparsity
+    )
+    assert (
+        yaml_modifier.update_frequency
+        == serialized_modifier.update_frequency
+        == obj_modifier.update_frequency
+    )
+    assert (
+        yaml_modifier.global_sparsity
+        == serialized_modifier.global_sparsity
+        == obj_modifier.global_sparsity
+    )
+    assert (
+        yaml_modifier.leave_enabled
+        == serialized_modifier.leave_enabled
+        == obj_modifier.leave_enabled
+    )
+    assert (
+        yaml_modifier.mask_type
+        == serialized_modifier.mask_type
+        == obj_modifier.mask_type
+    )
+    assert (
+        yaml_modifier.momentum_buffer_reset
+        == serialized_modifier.momentum_buffer_reset
+        == obj_modifier.momentum_buffer_reset
+    )
