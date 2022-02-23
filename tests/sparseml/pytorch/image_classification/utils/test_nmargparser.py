@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
-from nm_argparser_ import NmArgumentParser, string_to_bool
+from sparseml.pytorch.image_classification.utils import NmArgumentParser, string_to_bool
 
 
 def list_field(default=None, metadata=None):
