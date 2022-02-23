@@ -37,6 +37,7 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_steps_per_epoch,
 )
 
+
 def _device_data_loader(data_loader):
     for sample in data_loader:
         img, target = [t for t in sample]
@@ -48,9 +49,15 @@ def _mfac_loss_function(model_outputs, loss_target):
 
 
 def _build_gradient_sampler(
-    dataset_lambda, loss_function, data_generator, batch_size, num_grads, num_epochs, update_frequency
+    dataset_lambda,
+    loss_function,
+    data_generator,
+    batch_size,
+    num_grads,
+    num_epochs,
+    update_frequency,
 ):
-    data_length = int(batch_size*num_grads*num_epochs*(1/update_frequency)*2)
+    data_length = int(batch_size * num_grads * num_epochs * (1 / update_frequency) * 2)
     dataset = dataset_lambda(length=data_length)
     data_loader = DataLoader(dataset, batch_size=batch_size)
     return GradSampler(data_generator(data_loader), loss_function)
@@ -131,7 +138,13 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         model = model_lambda()
         optimizer = optim_lambda(model)
         grad_sampler = _build_gradient_sampler(
-            dataset_lambda, loss, _device_data_loader, mfac_batch_size, modifier.num_grads, modifier.end_epoch - modifier.start_epoch + 1, modifier.update_frequency
+            dataset_lambda,
+            loss,
+            _device_data_loader,
+            mfac_batch_size,
+            modifier.num_grads,
+            modifier.end_epoch - modifier.start_epoch + 1,
+            modifier.update_frequency,
         )
 
         self.initialize_helper(modifier, model, grad_sampler=grad_sampler)
@@ -225,7 +238,13 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
     ):
         modifier = modifier_lambda()
         grad_sampler = _build_gradient_sampler(
-            dataset_lambda, loss, _device_data_loader, mfac_batch_size, modifier.num_grads, modifier.end_epoch - modifier.start_epoch + 1, modifier.update_frequency
+            dataset_lambda,
+            loss,
+            _device_data_loader,
+            mfac_batch_size,
+            modifier.num_grads,
+            modifier.end_epoch - modifier.start_epoch + 1,
+            modifier.update_frequency,
         )
         super().test_scheduled_update(
             modifier_lambda,
@@ -254,7 +273,6 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         ),
     ],
 )
-
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
