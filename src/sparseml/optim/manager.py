@@ -19,6 +19,7 @@ ex to perform model pruning.
 """
 
 import math
+from collections import OrderedDict
 from functools import cmp_to_key
 from typing import Dict, Generator, List, Union
 
@@ -57,10 +58,14 @@ class BaseManager(BaseObject):
                 stage: _sort_modifiers_list(stage_modifiers)
                 for stage, stage_modifiers in modifiers.items()
             }
-            self._modifiers = dict(
+            self._modifiers = OrderedDict(
                 sorted(
                     modifiers.items(),
-                    key=lambda item: cmp_to_key(BaseModifier.comparator_lists(item[1])),
+                    key=cmp_to_key(
+                        lambda item_1, item_2: BaseModifier.comparator_lists(
+                            item_1[1], item_2[1]
+                        )
+                    ),
                 )
             )
 
