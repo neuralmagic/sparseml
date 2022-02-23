@@ -680,7 +680,6 @@ class BaseGradualPruningModifier(BasePruningModifier):
             )
         self._init_sparsity_orig = value
         self._init_sparsity = value
-        self.validate()
 
     @ModifierProp()
     def params(self) -> Union[str, List[str], None]:
@@ -728,7 +727,6 @@ class BaseGradualPruningModifier(BasePruningModifier):
         self._params, self._final_sparsity = self._get_params_and_final_sparsity(
             self._params_orig, value
         )
-        self.validate()
 
     @ModifierProp()
     def inter_func(self) -> str:

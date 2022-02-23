@@ -16,7 +16,7 @@ import torch
 
 
 def pruning_modifier_serialization_vals_test(
-    yaml_modifier, serialized_modifier, obj_modifier
+    yaml_modifier, serialized_modifier, obj_modifier, exclude_mask = False,
 ):
     assert (
         yaml_modifier.init_sparsity
@@ -49,11 +49,12 @@ def pruning_modifier_serialization_vals_test(
         == serialized_modifier.inter_func
         == obj_modifier.inter_func
     )
-    assert (
-        str(yaml_modifier.mask_type)
-        == str(serialized_modifier.mask_type)
-        == str(obj_modifier.mask_type)
-    )
+    if not exclude_mask:
+        assert (
+            str(yaml_modifier.mask_type)
+            == str(serialized_modifier.mask_type)
+            == str(obj_modifier.mask_type)
+        )
 
 
 def state_dict_save_load_test(
@@ -63,12 +64,13 @@ def state_dict_save_load_test(
     optim_lambda,
     test_steps_per_epoch,  # noqa: F811
     is_gm_pruning,
+    **initialize_kwargs
 ):
     # test state dict serialization/deserialization for pruning modifiers
     modifier = modifier_lambda()
     model = model_lambda()
     optimizer = optim_lambda(model)
-    test_obj.initialize_helper(modifier, model)
+    test_obj.initialize_helper(modifier, model, **initialize_kwargs)
     # apply first mask
     modifier.scheduled_update(
         model, optimizer, modifier.start_epoch, test_steps_per_epoch

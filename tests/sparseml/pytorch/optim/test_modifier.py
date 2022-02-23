@@ -588,6 +588,7 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
         test_steps_per_epoch: int,  # noqa: F811
+        **initialize_kwargs,
     ):
         super().test_scheduled_update(
             modifier_lambda,
@@ -595,11 +596,12 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
             optim_lambda,
             test_epoch,
             test_steps_per_epoch,
+            **initialize_kwargs,
         )
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model)
+        self.initialize_helper(modifier, model, **initialize_kwargs)
         self.start_helper(modifier, model, optimizer)
         min_update_freq = 1.0 / float(test_steps_per_epoch)
 
