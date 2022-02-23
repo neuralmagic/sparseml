@@ -44,14 +44,14 @@ except Exception as _err:
     QATLinear = None
     QATConv2d = None
 
+from sparseml.utils import create_dirs, save_numpy
+
+
 try:
     from torch.nn.qat import Conv3d as QATConv3d
 except Exception as _err:
     quant_conv3d_err = _err
     QATConv3d = None
-
-from sparseml.utils import create_dirs, save_numpy
-
 
 __all__ = [
     "default_device",
