@@ -20,8 +20,7 @@ from torch.utils.data import DataLoader
 
 from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import MFACPruningModifier
-from sparseml.pytorch.utils import GradSampler
-from sparseml.pytorch.utils import tensor_sparsity
+from sparseml.pytorch.utils import GradSampler, tensor_sparsity
 from sparseml.utils import FROM_PARAM_TOKEN
 from tests.sparseml.pytorch.helpers import LinearNet, MLPDataset
 from tests.sparseml.pytorch.optim.test_modifier import (
@@ -31,8 +30,8 @@ from tests.sparseml.pytorch.optim.test_modifier import (
 )
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
     pruning_modifier_serialization_vals_test,
-    state_dict_save_load_test,
 )
+
 
 from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_epoch,
@@ -40,19 +39,21 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_steps_per_epoch,
 )
 
+
 def _device_data_loader(data_loader):
     for sample in data_loader:
         img, target = [t for t in sample]
         yield [img], {}, target
 
+
 def _mfac_loss_function(model_outputs, loss_target):
     return torch.nn.functional.mse_loss(model_outputs[0], loss_target)
 
-dataset = MLPDataset(features=8, classes = 8, length = 1000000)
+
+dataset = MLPDataset(features=8, classes=8, length=1000000)
 data_loader = DataLoader(dataset, shuffle=True, batch_size=4)
-grad_sampler = GradSampler(
-    _device_data_loader(data_loader), _mfac_loss_function
-    )
+grad_sampler = GradSampler(_device_data_loader(data_loader), _mfac_loss_function)
+
 
 @flaky(max_runs=3, min_passes=2)
 @pytest.mark.skipif(
@@ -70,10 +71,9 @@ grad_sampler = GradSampler(
             update_frequency=1.0,
             params=["re:.*weight"],
             inter_func="linear",
-            fisher_block_size = 50,
+            fisher_block_size=50,
             num_grads=16,
         ),
-        
         lambda: MFACPruningModifier(
             init_sparsity=FROM_PARAM_TOKEN,
             final_sparsity=0.95,
@@ -82,7 +82,7 @@ grad_sampler = GradSampler(
             update_frequency=1.0,
             params=["re:.*weight"],
             inter_func="linear",
-            fisher_block_size = 1500,
+            fisher_block_size=1500,
             damp=0.000001,
             num_grads=16,
         ),
@@ -105,7 +105,7 @@ grad_sampler = GradSampler(
             update_frequency=1.0,
             inter_func="cubic",
             num_grads=16,
-            global_sparsity=True
+            global_sparsity=True,
         ),
     ],
     scope="function",
@@ -200,30 +200,12 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         for epoch in range(int(modifier.end_epoch) + 1, int(modifier.end_epoch) + 6):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             _test_final_sparsity_applied()
-    '''
-    def test_state_dict_save_load(
-        self,
-        modifier_lambda,
-        model_lambda,
-        optim_lambda,
-        test_steps_per_epoch,  # noqa: F811
-    ):
-        state_dict_save_load_test(
-            self,
-            modifier_lambda,
-            model_lambda,
-            optim_lambda,
-            test_steps_per_epoch,
-            True,
-            grad_sampler=grad_sampler,
-        )
-    '''
+
     def test_scheduled_update(
         self,
         modifier_lambda,
         model_lambda,
         optim_lambda,
-        test_steps_per_epoch,
     ):
         super().test_scheduled_update(
             modifier_lambda,
@@ -233,7 +215,8 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
             test_steps_per_epoch,
             grad_sampler=grad_sampler,
         )
-    
+
+
 @pytest.mark.parametrize(
     "params,init_sparsity,final_sparsity",
     [
@@ -294,7 +277,7 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     )
     assert isinstance(yaml_modifier, MFACPruningModifier)
     pruning_modifier_serialization_vals_test(
-        yaml_modifier, serialized_modifier, obj_modifier, exclude_mask = True
+        yaml_modifier, serialized_modifier, obj_modifier, exclude_mask=True
     )
     assert (
         str(yaml_modifier.global_sparsity)
@@ -303,6 +286,5 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     )
 
 
-
-#Add global test
-#Add other MFAC params to tests
+# Add global test
+# Add other MFAC params to tests

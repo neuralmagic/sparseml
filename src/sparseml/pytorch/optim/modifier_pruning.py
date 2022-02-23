@@ -20,7 +20,7 @@ import logging
 import math
 from abc import abstractmethod
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from torch import Tensor
 from torch.nn import Module
@@ -41,7 +41,6 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import (
-    GradSampler,
     NamedLayerParam,
     get_layer,
     get_named_layers_and_params_by_regex,
@@ -1047,6 +1046,8 @@ class StructuredPruningModifier(_GMPruningModifier):
             global_sparsity=False,
             score_type=self._score_type,
         )
+
+
 @PyTorchModifierYAML()
 class LayerPruningModifier(ScheduledUpdateModifier):
     """

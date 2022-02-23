@@ -17,16 +17,7 @@ Helper functions for retrieving information related to model sparsification
 """
 
 import json
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    Iterable,
-    Iterator,
-    List,
-    Tuple,
-)
+from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Tuple
 
 import torch
 from torch.nn import Module
@@ -179,6 +170,8 @@ class ModuleSparsificationInfo:
             }
             for (name, layer) in get_prunable_layers(self.module)
         }
+
+
 class GradSampler:
     """
     Class for computing gradient samples for a Model given a sample data loader and

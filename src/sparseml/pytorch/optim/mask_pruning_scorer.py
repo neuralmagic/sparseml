@@ -18,7 +18,7 @@ Classes for tracking and scoring model parameters to generate pruning scores
 
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 import torch
 import torch.distributed as dist
@@ -268,6 +268,7 @@ class MovementPruningParamsScorer(PruningParamsGradScorer):
         """
         return "movement"
 
+
 AVALIABLE_SCORER_CLASSES = [
     MagnitudePruningParamsScorer,
     MovementPruningParamsScorer,
@@ -275,8 +276,7 @@ AVALIABLE_SCORER_CLASSES = [
 
 
 def create_pruning_param_scorer(
-    params: List[Parameter],
-    score_type: str
+    params: List[Parameter], score_type: str
 ) -> PruningParamsScorer:
     """
     :param params: List of Parameters for the created PruningParamsScorer to track

@@ -61,9 +61,9 @@ def test_fast_small_blocks():
 
     assert (
         pytest.approx(
-            fast_diag, 
-            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION
-        ) 
+            fast_diag,
+            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION,
+        )
         == small_blocks_diag
     )
     assert (
@@ -106,8 +106,8 @@ def test_fast_small_blocks_gpu():
 
     assert (
         pytest.approx(
-            fast_diag, 
-            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION
+            fast_diag,
+            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION,
         )
         == small_blocks_diag
     )
@@ -115,7 +115,8 @@ def test_fast_small_blocks_gpu():
         pytest.approx(
             fast_mul_out,
             torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION,
-        ) == small_blocks_mul_out
+        )
+        == small_blocks_mul_out
     )
 
 
@@ -152,15 +153,15 @@ def test_fast_large_blocks():
 
     assert (
         pytest.approx(
-            fast_diag, 
-            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION
+            fast_diag,
+            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION,
         )
         == small_blocks_diag
     )
     assert (
         pytest.approx(
             fast_mul_out,
-            torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION
+            torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION,
         )
         == small_blocks_mul_out
     )
@@ -197,15 +198,15 @@ def test_fast_large_blocks_gpu():
 
     assert (
         pytest.approx(
-            fast_diag, 
-            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION
+            fast_diag,
+            torch.sqrt(torch.mean(torch.square(fast_diag))).item() * PRECISION,
         )
         == small_blocks_diag
     )
     assert (
         pytest.approx(
             fast_mul_out,
-            torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION
+            torch.sqrt(torch.mean(torch.square(fast_mul_out))).item() * PRECISION,
         )
         == small_blocks_mul_out
     )

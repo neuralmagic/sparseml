@@ -26,6 +26,7 @@ from torch.nn import Parameter
 
 from sparseml.pytorch.utils import GradSampler
 
+
 __all__ = [
     "PruningParamsScorer",
     "PruningParamsGradScorer",
@@ -103,7 +104,7 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
     """
 
     def __init__(
-        self, 
+        self,
         params: List[Parameter],
         grad_sampler: Optional[GradSampler] = None,
     ):

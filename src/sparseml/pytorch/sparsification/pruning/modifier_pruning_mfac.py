@@ -16,32 +16,21 @@
 Modifier classes implementing M-FAC pruning as described in
 https://arxiv.org/pdf/2107.03356.pdf
 """
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Union,
-)
-import os
 import logging
 import math
-from dataclasses import dataclass, field
+import os
 from abc import ABC, abstractmethod
 from functools import wraps
-import GPUtil
+from typing import Dict, List, Optional, Union
 
 import torch
+import torch.distributed as dist
 from torch import Tensor
 from torch.nn import Module, Parameter
-import torch.distributed as dist
 from torch.nn.parallel.parallel_apply import parallel_apply
 
-from sparseml.pytorch.utils.logger import BaseLogger
-from sparseml.pytorch.utils import GradSampler
-from sparseml.pytorch.optim.modifier import ModifierProp
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
-from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
+import GPUtil
+from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
@@ -49,7 +38,12 @@ from sparseml.pytorch.sparsification.pruning.mask_creator import (
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BaseGradualPruningModifier,
 )
+from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
+from sparseml.pytorch.utils import GradSampler
+from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.utils import ALL_TOKEN
+
+
 __all__ = [
     "MFACPruningModifier",
     "MFACPruningParamsScorer",
@@ -62,6 +56,8 @@ __all__ = [
 
 _LOGGER = logging.getLogger(__name__)
 BYTES_IN_MIB = 1024 ** 2
+
+
 @PyTorchModifierYAML()
 class MFACPruningModifier(BaseGradualPruningModifier):
     """
@@ -179,8 +175,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         self._num_pages = num_pages
         self._available_devices = available_devices
         if self._available_devices is None and torch.cuda.device_count() > 0:
-            self._available_devices = ['cuda:0']
-
+            self._available_devices = ["cuda:0"]
 
     @ModifierProp(serializable=True)
     def use_gradient_buffering(self) -> Optional[bool]:
@@ -195,7 +190,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         Return number of gradients to collect per pruning step
         """
         return self._num_grads
-    
+
     @ModifierProp(serializable=True)
     def damp(self) -> float:
         """
@@ -223,7 +218,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         Return number of pages to break gradient samples into for GPU computation
         """
         return self._num_pages
-    
+
     @ModifierProp(serializable=True)
     def available_devices(self) -> Optional[List[str]]:
         """
@@ -288,14 +283,14 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         :return: param scorer object to be used by this pruning algorithm
         """
         return MFACPruningParamsScorer(
-            params = params,
-            num_grads = self._num_grads,
-            damp = self._damp,
-            fisher_block_size = self._fisher_block_size,
-            num_pages = self._num_pages,
-            available_devices = self._available_devices, 
-            grad_sampler = self._grad_sampler
-         )
+            params=params,
+            num_grads=self._num_grads,
+            damp=self._damp,
+            fisher_block_size=self._fisher_block_size,
+            num_pages=self._num_pages,
+            available_devices=self._available_devices,
+            grad_sampler=self._grad_sampler,
+        )
 
     def check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
@@ -321,14 +316,14 @@ class MFACPruningModifier(BaseGradualPruningModifier):
                 f"grad_sampler kwarg. Given an object of type {type(grad_sampler)}"
             )
         num_grads = _get_num_grads_for_sparsity(
-            self._num_grads,
-            self._applied_sparsity or 0.0
+            self._num_grads, self._applied_sparsity or 0.0
         )
 
         _LOGGER.debug("Starting to collect {num_grads} grads with GradSampler")
         for _ in grad_sampler.iter_module_backwards(module, num_grads):
             self._module_masks.pre_optim_step_update()
         _LOGGER.debug("GradSampler grad collection complete")
+
 
 class MFACPruningParamsScorer(PruningParamsGradScorer):
     """
@@ -359,15 +354,15 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
     """
 
     def __init__(
-        self, 
+        self,
         params: List[Parameter],
         num_grads: Union[Dict[float, int], int],
         damp: float,
         fisher_block_size: int,
         num_pages: int,
         available_devices: Optional[List[str]],
-        grad_sampler: Optional[GradSampler] = None, 
-        ):
+        grad_sampler: Optional[GradSampler] = None,
+    ):
         super().__init__(params, grad_sampler)
         self._num_grads = num_grads
         self._damp = damp
@@ -388,9 +383,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         if self._is_ddp:
             world_size = dist.get_world_size()
             if isinstance(self._num_grads, int):
-                self.num_grads = (
-                    self._num_grads // world_size
-                )
+                self.num_grads = self._num_grads // world_size
             else:  # dict
                 self._num_grads = {
                     k: v // world_size for k, v in self._num_grads.items()
@@ -545,12 +538,12 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
 
         # inverse hessian approximation
         h_inv = _compute_hessian_inv(
-            grads = self._grads,
-            damp = self._damp,
-            fisher_block_size = self._fisher_block_size,
-            num_pages = self._num_pages,
-            available_devices = self._available_devices,
-            )
+            grads=self._grads,
+            damp=self._damp,
+            fisher_block_size=self._fisher_block_size,
+            num_pages=self._num_pages,
+            available_devices=self._available_devices,
+        )
         diag = h_inv.diag().to(non_pruned_weights.device)
 
         # compute global scores for non-pruned weights
@@ -608,8 +601,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             total_nonzero += self._unpruned_idxs[idx].numel()
         # only track nonzero grads
         num_grads = _get_num_grads_for_sparsity(
-            self._num_grads,
-            self._last_applied_sparsity
+            self._num_grads, self._last_applied_sparsity
         )
         self._grad_buffer = torch.zeros(
             (num_grads, total_nonzero),
@@ -621,6 +613,8 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
 """
 Classes and methods for computing H^-1
 """
+
+
 class FisherInverse(ABC):
     """
     Abstract class for working with the inverse Fisher information matrix. Storing
@@ -1106,8 +1100,10 @@ class FisherInverseFastSmallBlocks(FisherInverse):
                         )
                         self._remaining_blocks -= self._num_blocks_per_device_call[-1]
                         _LOGGER.debug(
-                            f"Allocating {self._num_blocks_per_device_call[-1]} blocks to"
-                            f"device {device}. {self._remaining_blocks} blocks remaining"
+                            f"""
+                            Allocating {self._num_blocks_per_device_call[-1]} blocks to
+                            device {device}. {self._remaining_blocks} blocks remaining
+                            """
                         )
                         if self._remaining_blocks <= 0:
                             break
@@ -1121,24 +1117,25 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
                     self._device_suite_calls += 1
 
-                    # At the end of each iteration the net free memory change should be 0
+                    # At the end of each iter the net free memory change should be 0
                     # If the free memory decreases, throw a warning in debug mode
                     prev_free_memory = free_device_memory
                     free_device_memory = _get_free_gpu_memory(
                         _cuda_list_to_idx(self._devices)
                     )
                     for i in range(len(free_device_memory)):
-                        if free_device_memory[i] < prev_free_memory[i]:
+                        mem_diff = prev_free_memory[i] - free_device_memory[i]
+                        if mem_diff > 0:
                             _LOGGER.debug(
                                 f"WARNING - GPU memory not cleanly freed."
-                                f"Found {(prev_free_memory[i] - free_device_memory[i])/BYTES_IN_MIB} less MiB"
+                                f"Found {(mem_diff)/BYTES_IN_MIB} less MiB"
                                 f"since the last iteration"
                             )
 
                 if sum(self._num_blocks_per_device_call) != self._num_blocks:
                     _LOGGER.debug(
-                        "WARNING - Number of blocks processed does not equal to total number of"
-                        "blocks."
+                        "WARNING - Number of blocks processed does not equal to total "
+                        "number of blocks."
                         f"Total blocks - {self._num_blocks}"
                         f"Processed blocks - {sum(self._num_blocks_per_device_call)}"
                     )
@@ -1332,9 +1329,8 @@ def _compute_hessian_inv(
     grads: Tensor,
     damp: float,
     fisher_block_size: int,
-    num_pages: int, 
+    num_pages: int,
     available_devices: Optional[List[str]],
-
 ) -> FisherInverse:
     """
     Determine which FisherInverse algorithm to use.
@@ -1353,7 +1349,7 @@ def _compute_hessian_inv(
     :return: FisherInverse object with access to the diagonal multiplication of the
         Fisher approximation of the Hessian inverse
     """
-    # The amount of memory required for the computation of one block is the main 
+    # The amount of memory required for the computation of one block is the main
     # decider in the FisherInverse algorithm to use
     if fisher_block_size:
         block_mem_size = _block_memory_size(
@@ -1361,13 +1357,14 @@ def _compute_hessian_inv(
         )
 
         _LOGGER.debug(
-            f"Calculated Fisher block with size {fisher_block_size}"
-            f"to occupy {block_mem_size} bytes/ {block_mem_size/BYTES_IN_MIB} MiB in memory"
+            f"""
+            Calculated Fisher block with size {fisher_block_size}
+            to occupy {block_mem_size} bytes/ {block_mem_size/BYTES_IN_MIB} MiB
+            in memory
+            """
         )
 
-        free_device_mem = _get_free_gpu_memory(
-            _cuda_list_to_idx(available_devices)
-        )
+        free_device_mem = _get_free_gpu_memory(_cuda_list_to_idx(available_devices))
 
         _LOGGER.debug(
             "Free memory on devices:"
@@ -1398,7 +1395,8 @@ def _compute_hessian_inv(
             block_fisher_class = FisherInverseFastSmallBlocks
         else:
             _LOGGER.info(
-                "Large block size detected - Using Fast Block Fisher Inverse Implementation"
+                "Large block size detected - Using Fast Block Fisher Inverse "
+                "Implementation"
             )
             block_fisher_class = FisherInverseFastBlock
 
@@ -1418,32 +1416,29 @@ def _compute_hessian_inv(
     else:
         return FisherInverseFast(grads, damp=damp)
 
+
 def _get_num_grads_for_sparsity(
-    num_grads: Union[Dict[float, int], int], 
-    sparsity: Union[float, List[float]]
-    ) -> int:
-        if isinstance(num_grads, int):
-            return num_grads
-        if isinstance(sparsity, List):
-            sparsity = sum(sparsity) / len(sparsity)
+    num_grads: Union[Dict[float, int], int], sparsity: Union[float, List[float]]
+) -> int:
+    if isinstance(num_grads, int):
+        return num_grads
+    if isinstance(sparsity, List):
+        sparsity = sum(sparsity) / len(sparsity)
 
-        sparsity_thresholds = list(sorted(num_grads, key=lambda key: float(key)))
-        if 0.0 not in sparsity_thresholds:
-            raise ValueError(
-                "Dictionary of sparsity thresholds to number of grads given for "
-                "num_grads, but 0 not included as a sparsity threshold. "
-                "0.0 must be included as a sparsity threshold. Given thresholds "
-                f"{sparsity_thresholds}"
-            )
+    sparsity_thresholds = list(sorted(num_grads, key=lambda key: float(key)))
+    if 0.0 not in sparsity_thresholds:
+        raise ValueError(
+            "Dictionary of sparsity thresholds to number of grads given for "
+            "num_grads, but 0 not included as a sparsity threshold. "
+            "0.0 must be included as a sparsity threshold. Given thresholds "
+            f"{sparsity_thresholds}"
+        )
 
-        idx = 0
-        while (
-            idx < len(sparsity_thresholds)
-            and float(sparsity_thresholds[idx]) < sparsity
-        ):
-            idx += 1
-        idx = min(idx, len(num_grads) - 1)
-        return num_grads[sparsity_thresholds[idx]]
+    idx = 0
+    while idx < len(sparsity_thresholds) and float(sparsity_thresholds[idx]) < sparsity:
+        idx += 1
+    idx = min(idx, len(num_grads) - 1)
+    return num_grads[sparsity_thresholds[idx]]
 
 
 def _get_free_gpu_memory(
