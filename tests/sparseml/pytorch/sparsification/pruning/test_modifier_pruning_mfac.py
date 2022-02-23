@@ -39,7 +39,6 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_steps_per_epoch,
 )
 
-
 def _device_data_loader(data_loader):
     for sample in data_loader:
         img, target = [t for t in sample]
@@ -48,7 +47,6 @@ def _device_data_loader(data_loader):
 
 def _mfac_loss_function(model_outputs, loss_target):
     return torch.nn.functional.mse_loss(model_outputs[0], loss_target)
-
 
 dataset = MLPDataset(features=8, classes=8, length=1000000)
 data_loader = DataLoader(dataset, shuffle=True, batch_size=4)
@@ -64,7 +62,7 @@ grad_sampler = GradSampler(_device_data_loader(data_loader), _mfac_loss_function
     "modifier_lambda",
     [
         lambda: MFACPruningModifier(
-            init_sparsity=0.05,
+            init_sparsity=0.5,
             final_sparsity=0.95,
             start_epoch=2.0,
             end_epoch=5.0,
@@ -72,7 +70,7 @@ grad_sampler = GradSampler(_device_data_loader(data_loader), _mfac_loss_function
             params=["re:.*weight"],
             inter_func="linear",
             fisher_block_size=50,
-            num_grads=16,
+            num_grads=8,
         ),
         lambda: MFACPruningModifier(
             init_sparsity=FROM_PARAM_TOKEN,
@@ -84,27 +82,18 @@ grad_sampler = GradSampler(_device_data_loader(data_loader), _mfac_loss_function
             inter_func="linear",
             fisher_block_size=1500,
             damp=0.000001,
-            num_grads=16,
+            num_grads=8,
         ),
-        lambda: MFACPruningModifier(
-            params="__ALL_PRUNABLE__",
-            init_sparsity=0.05,
-            final_sparsity=0.95,
-            start_epoch=2.0,
-            end_epoch=5.0,
-            update_frequency=1.0,
-            inter_func="cubic",
-            num_grads=16,
-        ),
+
         lambda: MFACPruningModifier(
             params=["seq.fc1.weight", "seq.fc2.weight"],
-            init_sparsity=0.05,
+            init_sparsity=0.5,
             final_sparsity=0.95,
             start_epoch=2.0,
             end_epoch=5.0,
             update_frequency=1.0,
             inter_func="cubic",
-            num_grads=16,
+            num_grads=8,
             global_sparsity=True,
         ),
     ],
@@ -206,6 +195,8 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         modifier_lambda,
         model_lambda,
         optim_lambda,
+        test_steps_per_epoch,
+        test_epoch
     ):
         super().test_scheduled_update(
             modifier_lambda,
