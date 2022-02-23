@@ -42,7 +42,7 @@ from sparseml.pytorch.utils.helpers import (
 __all__ = [
     "ModuleSparsificationInfo",
     "GradSampler",
-    ]
+]
 
 
 class ModuleSparsificationInfo:
