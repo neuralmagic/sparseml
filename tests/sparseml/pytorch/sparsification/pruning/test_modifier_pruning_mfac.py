@@ -220,8 +220,8 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         modifier_lambda,
         model_lambda,
         optim_lambda,
-        test_steps_per_epoch,
-        test_epoch,
+        test_epoch,  # noqa: F811
+        test_steps_per_epoch,  # noqa: F811
         dataset_lambda,
         loss,
         mfac_batch_size,
