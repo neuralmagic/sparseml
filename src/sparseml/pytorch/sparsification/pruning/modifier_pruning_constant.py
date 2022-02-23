@@ -87,6 +87,9 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
         and Linear layers' weights
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune. Default is False
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     """
@@ -121,6 +124,7 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
+        leave_enabled: bool = False,
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(ConstantPruningModifier, self).__init__(
@@ -131,6 +135,7 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
             update_frequency=-1,
             log_types=log_types,
             allow_reintroduction=False,
+            leave_enabled=leave_enabled,
             parent_class_kwarg_names=["params"],
         )
 
