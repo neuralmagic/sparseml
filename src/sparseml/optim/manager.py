@@ -88,6 +88,73 @@ class BaseManager(BaseObject):
     def __eq__(self, compare: object) -> bool:
         return str(self) == str(compare)
 
+    @classmethod
+    def compose_staged(
+        cls,
+        base_recipe: Union[str, "BaseManager"],
+        additional_recipe: Union[str, "BaseManager"],
+        keep_original_epochs: bool = False,
+    ) -> "BaseManager":
+        """
+        composes two recipes into a multi-stage recipe where epochs
+        for additional_recipe are overwritten to come after base_recipe
+
+        :param base_recipe: base recipe to compose multi stage recipe with.
+            May be a string YAML recipe, file path, or Manager object
+        :param additional_recipe: additional recipe whose stages will be added
+            to the base recipe. epoch ranges for additional_recipe will be adjusted
+            to come after base_recipe unless keep_original_epochs is set.
+            May be a string YAML recipe, file path, or Manager object
+        :param keep_original_epochs: by default, epochs in additional_recipe will
+            be overwritten to come after base_recipe. setting keep_original_epochs
+            to True prevents this behavior. Default is False
+        :return: framework Manager object with the loaded composed recipe
+        """
+
+        # will load using class implementation of from_yaml
+        # will fail from BaseModifier
+        if not isinstance(base_recipe, BaseManager):
+            base_recipe = cls.from_yaml(base_recipe)
+        if not isinstance(additional_recipe, BaseManager):
+            additional_recipe = cls.from_yaml(additional_recipe)
+
+        if isinstance(base_recipe.modifiers, OrderedDict):
+            raise ValueError(
+                "non-staged recipes not yet supported for Manager.compose_staged "
+                "found base_recipe with non_staged modifiers"
+            )
+        if isinstance(additional_recipe.modifiers, OrderedDict):
+            raise ValueError(
+                "non-staged recipes not yet supported for Manager.compose_staged "
+                "found additional_recipe with non_staged modifiers"
+            )
+
+        base_stages = deepcopy(base_recipe.modifiers)
+        additional_stages = deepcopy(additional_recipe.modifiers)
+
+        base_keys = set(base_stages.keys())
+        additional_keys = set(additional_stages.keys())
+        keys_intersection = base_keys.intersection(additional_keys)
+        if keys_intersection:
+            raise ValueError(
+                "base and additional recipe must not share any stage names. "
+                f"found overlapping stage names: {list(keys_intersection)}"
+            )
+
+        if not keep_original_epochs:
+            # update additional modifier epochs
+            base_end_epoch = base_recipe.max_epochs
+            for additional_modifiers in additional_stages.values():
+                for additional_modifier in additional_modifiers:
+                    if hasattr(additional_modifier, "start_epoch"):
+                        additional_modifier.start_epoch += base_end_epoch
+                    if hasattr(additional_modifier, "end_epoch"):
+                        additional_modifier.end_epoch += base_end_epoch
+
+        combined_stages = base_stages
+        combined_stages.update(additional_stages)
+        return cls(combined_stages)
+
     @ModifierProp(serializable=False)
     def modifiers(self) -> Union[List[BaseModifier], Dict[str, List[BaseModifier]]]:
         """
