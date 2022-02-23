@@ -26,7 +26,6 @@ from tests.sparseml.pytorch.helpers import MLPDataset, MLPNet
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledUpdateModifierTest,
     create_optim_adam,
-    create_optim_sgd,
 )
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
     pruning_modifier_serialization_vals_test,
