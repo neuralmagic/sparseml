@@ -18,6 +18,7 @@ from torch.nn import Module
 from torch.optim import SGD
 
 from sparseml.pytorch.sparsification.pruning import ACDCPruningModifier
+from sparseml.utils import ALL_TOKEN
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
@@ -210,6 +211,12 @@ def test_ac_dc_pruning_yaml():
     end_epoch = 26
     update_frequency = 1
     params = ["re:.*weight"]
+    global_sparsity = True
+    leave_enabled = True
+    mask_type = "unstructured"
+    momentum_buffer_reset = True
+    log_types = ALL_TOKEN
+
     yaml_str = f"""
     !ACDCPruningModifier
         compression_sparsity: {compression_sparsity}
@@ -217,7 +224,12 @@ def test_ac_dc_pruning_yaml():
         end_epoch: {end_epoch}
         update_frequency: {update_frequency}
         params: {params}
-    """
+        global_sparsity: {global_sparsity}
+        leave_enabled: {leave_enabled}
+        mask_type: {mask_type}
+        momentum_buffer_reset: {momentum_buffer_reset}
+        log_types: {log_types}
+        """
     yaml_modifier = ACDCPruningModifier.load_obj(yaml_str)  # type: ACDCPruningModifier
     serialized_modifier = ACDCPruningModifier.load_obj(
         str(yaml_modifier)
