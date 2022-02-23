@@ -143,7 +143,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
     ) -> PruningMaskCreator:
         """
         :param names: full names of parameters to be pruned
-        :param params: list of Parameters to be masked
+        :param params: list of parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
         if self.mask_type == "unstructured":
