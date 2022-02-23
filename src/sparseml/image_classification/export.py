@@ -99,12 +99,13 @@ from torch.nn import Module
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from . import utils
-from .argparser_.nm_argparser_ import NmArgumentParser
 from sparseml import get_main_logger
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.utils import convert_to_bool
+
+from . import utils
+from .argparser_.nm_argparser_ import NmArgumentParser
 
 
 CURRENT_TASK = utils.Tasks.EXPORT

@@ -159,8 +159,6 @@ import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
 
-from . import utils
-from .argparser_.nm_argparser_ import NmArgumentParser
 from sparseml import get_main_logger
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.utils import (
@@ -174,6 +172,9 @@ from sparseml.pytorch.utils import (
     set_deterministic_seeds,
     tensor_sparsity,
 )
+
+from . import utils
+from .argparser_.nm_argparser_ import NmArgumentParser
 
 
 CURRENT_TASK = utils.Tasks.TRAIN

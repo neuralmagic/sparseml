@@ -145,8 +145,10 @@ def _setup_entry_points() -> Dict:
 
     entry_points["console_scripts"].extend(
         [
-        "sparseml.image_classification.export_onnx=sparseml.image_classification.export:main",
-        "sparseml.image_classification.train=sparseml.image_classification.train:main",
+            "sparseml.image_classification.export_onnx="
+            "sparseml.image_classification.export:main",
+            "sparseml.image_classification.train="
+            "sparseml.image_classification.train:main",
         ]
     )
 
