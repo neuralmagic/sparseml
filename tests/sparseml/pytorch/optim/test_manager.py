@@ -84,7 +84,7 @@ def test_manager_staged_recipe_serialization(staged_recipe):
 
     manager_yaml_str = str(manager)
     reloaded_manager = ScheduledModifierManager.from_yaml(manager_yaml_str)
-    assert type(manager.modifiers) is type(reloaded_manager.modifiers)
+    isinstance(reloaded_manager.modifiers, OrderedDict)
 
     # test iter modifiers
     modifiers_list = list(manager.iter_modifiers())
