@@ -28,7 +28,10 @@ from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
 )
-from sparseml.pytorch.optim.mask_pruning_scorer import create_pruning_param_scorer
+from sparseml.pytorch.optim.mask_pruning_scorer import (
+    PruningParamsScorer,
+    create_pruning_param_scorer,
+)
 from sparseml.pytorch.utils import MFACOptions, mask_difference
 
 
@@ -277,6 +280,13 @@ class ModuleParamPruningMask(object):
         :return: the current gradient values for each parameter
         """
         return self._params_grad
+
+    @property
+    def scorer(self) -> PruningParamsScorer:
+        """
+        :return: the PruningParamsScorer class used to create scores for these masks
+        """
+        return self._scorer
 
     @property
     def score_type(self) -> Union[str, MFACOptions]:
