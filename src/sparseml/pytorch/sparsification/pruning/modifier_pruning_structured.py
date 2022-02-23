@@ -354,9 +354,10 @@ class StructuredPruningModifier(GMPruningModifier):
     ):
         if mask_type not in ["filter", "channel"]:
             raise ValueError(
-                "StructuredPruningModifier mask_type must be 'channel' or 'filter"
+                "StructuredPruningModifier mask_type must be 'channel' or 'filter' "
+                f"found '{mask_type}'"
             )
-        super().__init__(
+        super(StructuredPruningModifier, self).__init__(
             init_sparsity=init_sparsity,
             final_sparsity=final_sparsity,
             start_epoch=start_epoch,
