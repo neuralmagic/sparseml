@@ -20,6 +20,7 @@ ex to perform model pruning.
 
 import math
 from collections import OrderedDict
+from copy import deepcopy
 from functools import cmp_to_key
 from typing import Dict, Generator, List, Union
 
@@ -224,6 +225,33 @@ class BaseManager(BaseObject):
 
         with open(file_path, "w") as yaml_file:
             yaml_file.write(str(self))
+
+    def finalize_and_save_structured_modifiers(self, file_path: str):
+        """
+        saves a recipe containing only the structure modifiers of this
+        manager. start and end epochs are overwritten so that they will
+        be applied by epoch 0 in order
+
+        :param file_path: file path to save the yaml recipe to
+        """
+        structured_modifiers = [deepcopy(mod) for mod in self.structured_modifiers]
+        min_epoch = (-1.0 * len(structured_modifiers)) - 1
+        for mod in structured_modifiers:
+            if hasattr(mod, "start_epoch"):
+                mod.start_epoch = min_epoch
+            if hasattr(mod, "end_epoch"):
+                mod.end_epoch = min_epoch
+            min_epoch += 1
+
+        structured_stage = {"structured_initialize_stage": structured_modifiers}
+        structured_recipe_lines = self.modifiers_list_to_string_lines(structured_stage)
+        structured_recipe_yaml = "\n".join(structured_recipe_lines)
+
+        file_path = clean_path(file_path)
+        create_parent_dirs(file_path)
+
+        with open(file_path, "w") as yaml_file:
+            yaml_file.write(structured_recipe_yaml)
 
     def iter_modifiers(self) -> Generator[None, None, BaseModifier]:
         """
