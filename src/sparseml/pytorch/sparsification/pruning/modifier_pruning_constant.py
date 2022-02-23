@@ -23,7 +23,11 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
+from sparseml.pytorch.optim.modifier import (
+    ModifierProp,
+    PyTorchModifierYAML,
+    ScheduledModifier,
+)
 from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BasePruningModifier,
@@ -127,6 +131,7 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
             update_frequency=-1,
             log_types=log_types,
             allow_reintroduction=False,
+            leave_enabled=False,
             parent_class_kwarg_names=["params"],
         )
 
@@ -147,3 +152,12 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
         :return: None, sparsity is set by the existing levels
         """
         return None
+
+    @ModifierProp(serializable=False)
+    def leave_enabled(self) -> bool:
+        """
+        :return: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune.
+        """
+        return self._leave_enabled

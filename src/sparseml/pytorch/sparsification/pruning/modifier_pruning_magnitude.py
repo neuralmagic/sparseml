@@ -104,7 +104,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         [linear, cubic, inverse_cubic]
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
-    :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
+    :param mask_type: String to define type of sparsity to apply. May be 'unstructured'
         for unstructured pruning or 'block' for four block pruning
     """
 
