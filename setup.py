@@ -141,6 +141,15 @@ def _setup_entry_points() -> Dict:
         "sparseml.transformers.export_onnx=sparseml.transformers.export:main"
     )
 
+    # image classification integration
+
+    entry_points["console_scripts"].extend(
+        [
+        "sparseml.image_classification.export_onnx=sparseml.image_classification.export:main",
+        "sparseml.image_classification.train=sparseml.image_classification.train:main",
+        ]
+    )
+
     return entry_points
 
 
