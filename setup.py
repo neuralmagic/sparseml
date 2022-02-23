@@ -146,9 +146,13 @@ def _setup_entry_points() -> Dict:
     entry_points["console_scripts"].extend(
         [
             "sparseml.image_classification.export_onnx="
-            "sparseml.image_classification.export:main",
+            "sparseml.pytorch.image_classification.export:main",
             "sparseml.image_classification.train="
-            "sparseml.image_classification.train:main",
+            "sparseml.pytorch.image_classification.train:main",
+            "sparseml.image_classification.lr_analysis="
+            "sparseml.pytorch.image_classification.lr_analysis:main",
+            "sparseml.image_classification.pr_sensitivity="
+            "sparseml.pytorch.image_classification.pr_sensitivity:main",
         ]
     )
 
