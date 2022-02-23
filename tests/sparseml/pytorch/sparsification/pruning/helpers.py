@@ -16,7 +16,10 @@ import torch
 
 
 def pruning_modifier_serialization_vals_test(
-    yaml_modifier, serialized_modifier, obj_modifier, exclude_mask = False,
+    yaml_modifier,
+    serialized_modifier,
+    obj_modifier,
+    exclude_mask=False,
 ):
     assert (
         yaml_modifier.init_sparsity
@@ -64,7 +67,7 @@ def state_dict_save_load_test(
     optim_lambda,
     test_steps_per_epoch,  # noqa: F811
     is_gm_pruning,
-    **initialize_kwargs
+    **initialize_kwargs,
 ):
     # test state dict serialization/deserialization for pruning modifiers
     modifier = modifier_lambda()
