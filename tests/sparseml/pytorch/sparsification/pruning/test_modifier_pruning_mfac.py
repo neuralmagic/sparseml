@@ -81,7 +81,7 @@ def _build_gradient_sampler(
             inter_func="linear",
             fisher_block_size=50,
             num_grads=8,
-            available_devices=None,
+            available_devices=["cpu"],
         ),
         lambda: MFACPruningModifier(
             init_sparsity=FROM_PARAM_TOKEN,
@@ -94,7 +94,7 @@ def _build_gradient_sampler(
             fisher_block_size=1500,
             damp=0.000001,
             num_grads=8,
-            available_devices=None,
+            available_devices=["cpu"],
         ),
         lambda: MFACPruningModifier(
             params=["seq.fc1.weight", "seq.fc2.weight"],
@@ -288,7 +288,7 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     grads_device = "cpu"
     fisher_block_size = 20
     num_pages = 1
-    available_devices = "[cuda:0]"
+    available_devices = ["cuda:0"]
     yaml_str = f"""
     !MFACPruningModifier
         init_sparsity: {init_sparsity}
@@ -320,6 +320,10 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         inter_func=inter_func,
         global_sparsity=global_sparsity,
         num_grads=num_grads,
+        damp=damp,
+        grads_device=grads_device,
+        fisher_block_size=fisher_block_size,
+        num_pages=num_pages,
         available_devices=available_devices,
     )
     assert isinstance(yaml_modifier, MFACPruningModifier)
@@ -331,3 +335,34 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         == str(serialized_modifier.global_sparsity)
         == str(obj_modifier.global_sparsity)
     )
+    assert (
+        str(yaml_modifier._num_grads)
+        == str(serialized_modifier._num_grads)
+        == str(obj_modifier._num_grads)
+    )
+    assert (
+        str(yaml_modifier._damp)
+        == str(serialized_modifier._damp)
+        == str(obj_modifier._damp)
+    )
+    assert (
+        str(yaml_modifier._grads_device)
+        == str(serialized_modifier._grads_device)
+        == str(obj_modifier._grads_device)
+    )
+    assert (
+        str(yaml_modifier._fisher_block_size)
+        == str(serialized_modifier._fisher_block_size)
+        == str(obj_modifier._fisher_block_size)
+    )
+    assert (
+        str(yaml_modifier._num_pages)
+        == str(serialized_modifier._num_pages)
+        == str(obj_modifier._num_pages)
+    )
+    assert (
+        str(yaml_modifier._available_devices)
+        == str(serialized_modifier._available_devices)
+        == str(obj_modifier._available_devices)
+    )
+    

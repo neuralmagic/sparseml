@@ -1361,26 +1361,26 @@ def _compute_hessian_inv(
             in memory
             """
         )
+        if available_devices != ["cpu"]:
+            free_device_mem = _get_free_gpu_memory(_cuda_list_to_idx(available_devices))
 
-        free_device_mem = _get_free_gpu_memory(_cuda_list_to_idx(available_devices))
-
-        _LOGGER.debug(
-            "Free memory on devices:"
-            + "\n".join(
-                [
-                    f"{available_devices[i]}: {str(free_device_mem[i]/BYTES_IN_MIB)}"
-                    for i in range(len(free_device_mem))
-                ]
+            _LOGGER.debug(
+                "Free memory on devices:"
+                + "\n".join(
+                    [
+                        f"{available_devices[i]}: {str(free_device_mem[i]/BYTES_IN_MIB)}"
+                        for i in range(len(free_device_mem))
+                    ]
+                )
             )
-        )
 
-        # Determine which of the available gpus have enough free memory to host
-        # the block computation
-        available_devices = [
-            gpu
-            for i, gpu in enumerate(available_devices)
-            if free_device_mem[i] > block_mem_size / BYTES_IN_MIB
-        ]
+            # Determine which of the available gpus have enough free memory to host
+            # the block computation
+            available_devices = [
+                gpu
+                for i, gpu in enumerate(available_devices)
+                if free_device_mem[i] > block_mem_size / BYTES_IN_MIB
+            ]
 
         # FisherInverseFastBlock works only in sequential mode. Unless only one block
         # or less can fit on the GPU, FisherInverseFastSmallBlocks should be used
