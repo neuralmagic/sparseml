@@ -35,7 +35,6 @@
     :caption: Connect Online
 
     Bugs, Feature Requests <https://github.com/neuralmagic/sparseml/issues>
-    Support, General Q&A Forums <https://discuss.neuralmagic.com/>
     Deep Sparse Community Slack <https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ>
     Neural Magic GitHub <https://github.com/neuralmagic>
     Neural Magic Docs <https://docs.neuralmagic.com>
