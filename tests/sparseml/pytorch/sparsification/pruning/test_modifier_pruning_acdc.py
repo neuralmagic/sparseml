@@ -18,7 +18,6 @@ from torch.nn import Module
 from torch.optim import SGD
 
 from sparseml.pytorch.sparsification.pruning import ACDCPruningModifier
-from sparseml.utils import ALL_TOKEN
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledModifierTest,
