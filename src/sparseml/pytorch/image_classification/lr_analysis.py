@@ -96,13 +96,13 @@ EXAMPLES
 
 ##########
 Example command for running LR sensitivity analysis on mobilenet:
-python integrations/pytorch/lr_analysis.py \
+python sparseml.image_classification.lr_analysis \
     --arch-key mobilenet --dataset imagenet \
     --dataset-path ~/datasets/ILSVRC2012 --batch-size 2
 
 Example command for running LR sensitivity analysis on mobilenet using
 imagenette:
-python integrations/pytorch/lr_analysis.py \
+python sparseml.image_classification.lr_analysis \
     --arch-key mobilenet --dataset imagenette \
     --dataset-path ~/datasets/ --batch-size 2
 """
@@ -115,15 +115,14 @@ from torch.nn import Module
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 
-import utils
-from argparser_.nm_argparser_ import NmArgumentParser
 from sparseml import get_main_logger
+from sparseml.pytorch.image_classification.utils import NmArgumentParser, helpers
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import default_exponential_check_lrs, lr_loss_sensitivity
 from sparseml.pytorch.utils import PythonLogger, default_device, model_to_device
 
 
-CURRENT_TASK = utils.Tasks.LR_ANALYSIS
+CURRENT_TASK = helpers.Tasks.LR_ANALYSIS
 LOGGER = get_main_logger()
 
 
@@ -341,7 +340,7 @@ def lr_sensitivity(
     LOGGER.info(f"created optimizer: {optim}")
 
     # loss setup
-    loss = utils.get_loss_wrapper(args.arch_key)
+    loss = helpers.get_loss_wrapper(args.arch_key)
     LOGGER.info(f"created loss: {loss}")
 
     # device setup
@@ -379,7 +378,7 @@ def main():
         "for a desired image classification architecture",
     )
     args_, _ = _parser.parse_args_into_dataclasses()
-    save_dir, loggers = utils.get_save_dir_and_loggers(
+    save_dir, loggers = helpers.get_save_dir_and_loggers(
         args_,
         task=CURRENT_TASK,
     )
@@ -393,14 +392,14 @@ def main():
         train_loader,
         val_dataset,
         val_loader,
-    ) = utils.get_train_and_validation_loaders(
+    ) = helpers.get_train_and_validation_loaders(
         args_,
         image_size,
         task=CURRENT_TASK,
     )
 
-    num_classes = utils.infer_num_classes(args_, train_dataset, val_dataset)
-    model = utils.create_model(args_, num_classes)
+    num_classes = helpers.infer_num_classes(args_, train_dataset, val_dataset)
+    model = helpers.create_model(args_, num_classes)
     lr_sensitivity(args_, model, train_loader, save_dir)
 
 
