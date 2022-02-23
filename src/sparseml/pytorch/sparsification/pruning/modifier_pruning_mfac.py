@@ -1368,7 +1368,8 @@ def _compute_hessian_inv(
                 "Free memory on devices:"
                 + "\n".join(
                     [
-                        f"{available_devices[i]}: {str(free_device_mem[i]/BYTES_IN_MIB)}"
+                        f"{available_devices[i]}: "
+                        f"{str(free_device_mem[i]/BYTES_IN_MIB)}"
                         for i in range(len(free_device_mem))
                     ]
                 )

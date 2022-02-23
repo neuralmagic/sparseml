@@ -365,4 +365,3 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         == str(serialized_modifier._available_devices)
         == str(obj_modifier._available_devices)
     )
-    
