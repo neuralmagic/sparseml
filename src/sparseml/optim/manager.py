@@ -242,7 +242,9 @@ class BaseManager(BaseObject):
         """
         :return: a list of lines for a string / yaml representation of this instance
         """
-        yaml_str_lines = ["version: 1.1.0", "", "modifiers:"]
+        yaml_str_lines = ["version: 1.1.0", ""]
+        if isinstance(self.modifiers, List):
+            yaml_str_lines.append("modifiers:")
         yaml_str_lines.extend(self.modifiers_to_string_lines(self.modifiers))
 
         return yaml_str_lines
@@ -263,6 +265,8 @@ class BaseManager(BaseObject):
         for stage, stage_modifiers in modifiers.items():
             # stage name for yaml dict
             yaml_str_lines.append(f"{stage}:")
+            # put all modifiers in stage into single modifier group
+            yaml_str_lines.append(f"  {stage}_modifiers:")
             stage_yaml_str_lines = self.modifiers_list_to_string_lines(stage_modifiers)
             for stage_yaml_line in stage_yaml_str_lines:
                 # add indentation to each modifier yaml str

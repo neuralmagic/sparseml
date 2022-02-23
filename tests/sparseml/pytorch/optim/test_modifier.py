@@ -33,6 +33,7 @@ from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
 from sparseml.utils import ALL_TOKEN
 from tests.sparseml.optim import BaseModifierTest, BaseScheduledTest, BaseUpdateTest
 from tests.sparseml.pytorch.helpers import (
+    SAMPLE_STAGED_RECIPE,
     LinearNet,
     create_optim_adam,
     create_optim_sgd,
@@ -744,54 +745,10 @@ def test_load_list(modifier_str, num_modifiers):
     assert len(modifier_list) == num_modifiers
 
 
-_SAMPLE_STAGED_RECIPE = """
-stage_1:
-    training_modifiers:
-      - !EpochRangeModifier
-        start_epoch: 0.0
-        end_epoch: 50.0
-
-      - !SetLearningRateModifier
-        start_epoch: 0.0
-        learning_rate: 0.1
-
-    pruning_modifiers:
-      - !GMPruningModifier
-        start_epoch: 0
-        end_epoch: 40
-        init_sparsity: 0.05
-        final_sparsity: 0.85
-        params: ["params.1", "params.2"]
-        update_frequency: 0.5
-
-      - !GMPruningModifier
-        start_epoch: 0
-        end_epoch: 40
-        init_sparsity: 0.05
-        final_sparsity: 0.95
-        params: ["params.3"]
-        update_frequency: 0.5
-
-stage_2:
-    training_modifiers:
-      - !EpochRangeModifier
-        start_epoch: 50.0
-        end_epoch: 52.0
-
-      - !SetLearningRateModifier
-        start_epoch: 0.0
-        learning_rate: 0.0001
-
-    quantization_modifiers:
-      - !QuantizationModifier
-          start_epoch: 50.0
-"""
-
-
 @pytest.mark.parametrize(
     "staged_modifier_str,names_to_num_modifiers",
     [
-        (_SAMPLE_STAGED_RECIPE, {"stage_1": 4, "stage_2": 3}),
+        (SAMPLE_STAGED_RECIPE, {"stage_1": 4, "stage_2": 3}),
     ],
 )
 def test_load_staged(staged_modifier_str, names_to_num_modifiers):
