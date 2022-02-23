@@ -21,7 +21,7 @@ The files encode the instructions needed for modifying the model and/or training
 Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
 The files are written in [YAML](https://yaml.org/) and stored in YAML or 
 [markdown](https://www.markdownguide.org/) files using 
-[YAML front matter](https://assemble.io/docs/YAML-front-matter.html).
+[YAML front matter.](https://assemble.io/docs/YAML-front-matter.html)
 The rest of the SparseML system is coded to parse the recipe files into a native format for the desired framework
 and apply the modifications to the model and training pipeline.
 
@@ -122,7 +122,7 @@ Example:
 
 The `GMPruningModifier` prunes the parameter(s) in a model to a 
 target sparsity (percentage of 0's for a layer's param/variable) 
-using [gradual magnitude pruning] (https://neuralmagic.com/blog/pruning-gmp/).
+using [gradual magnitude pruning.](https://neuralmagic.com/blog/pruning-gmp/)
 This is done gradually from an initial to final sparsity (`init_sparsity`, `final_sparsity`)
 over a range of epochs (`start_epoch`, `end_epoch`) and updated at a specific interval defined by the `update_frequency`.
 For example, using the following settings `start_epoch: 0`, `end_epoch: 5`, `update_frequency: 1`, 
@@ -170,7 +170,7 @@ Example:
 ### Quantization Modifiers
 
 The `QuantizationModifier` sets the model to run with 
-[quantization aware training (QAT)](https://pytorch.org/docs/stable/quantization.html).
+[quantization aware training (QAT).](https://pytorch.org/docs/stable/quantization.html) 
 QAT emulates the precision loss of int8 quantization during training so weights can be
 learned to limit any accuracy loss from quantization. 
 Once the `QuantizationModifier` is enabled, it cannot be disabled (no `end_epoch`). 
