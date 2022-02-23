@@ -86,10 +86,9 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     |       inter_func: cubic
     |       log_types: __ALL__
     |       mask_type: unstructured
-    |       mfac_options:
-    |           num_grads: {0.0: 64, 0.5: 128, 0.75: 256, 0.85: 512}
-    |           fisher_block_size: 10000
-    |           available_gpus: ["cuda:0"]
+    |       num_grads: {0.0: 64, 0.5: 128, 0.75: 256, 0.85: 512}
+    |       fisher_block_size: 10000
+    |       available_devices: ["cuda:0"]
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
@@ -134,7 +133,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     :param num_pages: number of pages to break the gradient samples into for GPU
         computation. Only available when blocked computation is not enabled.
         Default is 1
-    :param available_gpus: list of GPU device names to perform computation on. Default
+    :param available_devices: list of device names to perform computation on. Default
         is empty
     """
 
@@ -154,9 +153,9 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         num_grads: Union[Dict[float, int], int] = 64,
         damp: float = 1e-5,
         grads_device: Union[str, int] = "cpu",
-        fisher_block_size: Optional[int] = 2000,
+        fisher_block_size: int = 2000,
         num_pages: int = 1,  # break computation into pages when block size is None
-        available_gpus: List[str] = field(default_factory=list),
+        available_devices: Optional[List[str]] = None,
     ):
         super().__init__(
             params=params,
@@ -169,6 +168,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             log_types=log_types,
             global_sparsity=global_sparsity,
             leave_enabled=leave_enabled,
+            parent_class_kwarg_names=[],
         )
         self._grad_sampler = None
         self._use_gradient_buffering = use_gradient_buffering
@@ -177,21 +177,59 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         self._grads_device = grads_device
         self._fisher_block_size = fisher_block_size
         self._num_pages = num_pages
-        self._available_gpus = available_gpus
+        self._available_devices = available_devices
+        if self._available_devices is None and torch.cuda.device_count() > 0:
+            self._available_devices = ['cuda:0']
 
-    @ModifierProp(serializable=False)
+
+    @ModifierProp(serializable=True)
     def use_gradient_buffering(self) -> Optional[bool]:
         """
         Return flag indicating force use of gradient buffering over a gradient sampler
         """
         return self._use_gradient_buffering
 
-    @ModifierProp(serializable=False)
+    @ModifierProp(serializable=True)
     def num_grads(self) -> Union[Dict[float, int], int]:
         """
-        Return flag indicating force use of gradient buffering over a gradient sampler
+        Return number of gradients to collect per pruning step
         """
         return self._num_grads
+    
+    @ModifierProp(serializable=True)
+    def damp(self) -> float:
+        """
+        Return dampening coefficient to use for M-FAC calculations
+        """
+        return self._damp
+
+    @ModifierProp(serializable=True)
+    def grads_device(self) -> Union[str, int]:
+        """
+        Return the device on which the gradients will be stored
+        """
+        return self._grads_device
+
+    @ModifierProp(serializable=True)
+    def fisher_block_size(self) -> int:
+        """
+        Return block size B for blockwise Fisher Inverse approximation
+        """
+        return self._fisher_block_size
+
+    @ModifierProp(serializable=True)
+    def num_pages(self) -> int:
+        """
+        Return number of pages to break gradient samples into for GPU computation
+        """
+        return self._num_pages
+    
+    @ModifierProp(serializable=True)
+    def available_devices(self) -> Optional[List[str]]:
+        """
+        Return set of GPU devices that can be utilized for M-FAC calculations
+        """
+        return self._available_devices
 
     def initialize(
         self,
@@ -255,7 +293,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             damp = self._damp,
             fisher_block_size = self._fisher_block_size,
             num_pages = self._num_pages,
-            available_gpus = self._available_gpus, 
+            available_devices = self._available_devices, 
             grad_sampler = self._grad_sampler
          )
 
@@ -316,7 +354,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
     :param num_pages: number of pages to break the gradient samples into for GPU
         computation. Only available when blocked computation is not enabled.
         Default is 1
-    :param available_gpus: list of GPU device names to perform computation on. Default
+    :param available_devices: list of device names to perform computation on. Default
         is empty
     """
 
@@ -325,9 +363,9 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         params: List[Parameter],
         num_grads: Union[Dict[float, int], int],
         damp: float,
-        fisher_block_size: Optional[int],
+        fisher_block_size: int,
         num_pages: int,
-        available_gpus: List[str],
+        available_devices: Optional[List[str]],
         grad_sampler: Optional[GradSampler] = None, 
         ):
         super().__init__(params, grad_sampler)
@@ -335,7 +373,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         self._damp = damp
         self._fisher_block_size = fisher_block_size
         self._num_pages = num_pages
-        self._available_gpus = available_gpus
+        self._available_devices = available_devices
 
         # control when to do live gradient buffering, enabled by default
         self.buffer_grads = True
@@ -511,7 +549,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             damp = self._damp,
             fisher_block_size = self._fisher_block_size,
             num_pages = self._num_pages,
-            available_gpus = self._available_gpus,
+            available_devices = self._available_devices,
             )
         diag = h_inv.diag().to(non_pruned_weights.device)
 
@@ -580,10 +618,9 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         self._buffer_idx = 0
 
 
-'''
+"""
 Classes and methods for computing H^-1
-'''
-
+"""
 class FisherInverse(ABC):
     """
     Abstract class for working with the inverse Fisher information matrix. Storing
@@ -1294,9 +1331,9 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 def _compute_hessian_inv(
     grads: Tensor,
     damp: float,
-    fisher_block_size: Optional[int],
+    fisher_block_size: int,
     num_pages: int, 
-    available_gpus: List[str],
+    available_devices: Optional[List[str]],
 
 ) -> FisherInverse:
     """
@@ -1311,7 +1348,7 @@ def _compute_hessian_inv(
     :param num_pages: number of pages to break the gradient samples into for GPU
         computation. Only available when blocked computation is not enabled.
         Default is 1
-    :param available_gpus: list of GPU device names to perform computation on. Default
+    :param available_devices: list of device names to perform computation on. Default
         is empty
     :return: FisherInverse object with access to the diagonal multiplication of the
         Fisher approximation of the Hessian inverse
@@ -1329,14 +1366,14 @@ def _compute_hessian_inv(
         )
 
         free_device_mem = _get_free_gpu_memory(
-            _cuda_list_to_idx(available_gpus)
+            _cuda_list_to_idx(available_devices)
         )
 
         _LOGGER.debug(
             "Free memory on devices:"
             + "\n".join(
                 [
-                    f"{available_gpus[i]}: {str(free_device_mem[i]/BYTES_IN_MIB)}"
+                    f"{available_devices[i]}: {str(free_device_mem[i]/BYTES_IN_MIB)}"
                     for i in range(len(free_device_mem))
                 ]
             )
@@ -1344,20 +1381,20 @@ def _compute_hessian_inv(
 
         # Determine which of the available gpus have enough free memory to host
         # the block computation
-        available_gpus = [
+        available_devices = [
             gpu
-            for i, gpu in enumerate(available_gpus)
+            for i, gpu in enumerate(available_devices)
             if free_device_mem[i] > block_mem_size / BYTES_IN_MIB
         ]
 
         # FisherInverseFastBlock works only in sequential mode. Unless only one block
         # or less can fit on the GPU, FisherInverseFastSmallBlocks should be used
-        if len(available_gpus) > 0 or not free_device_mem:
+        if len(available_devices) > 0 or not free_device_mem:
             _LOGGER.info("Using Small Block Fast Fisher Inverse Implementation")
             _LOGGER.debug(
-                "Using the following devices for M-FAC:" + "\n".join(available_gpus)
+                "Using the following devices for M-FAC:" + "\n".join(available_devices)
             )
-            available_gpus = available_gpus
+            available_devices = available_devices
             block_fisher_class = FisherInverseFastSmallBlocks
         else:
             _LOGGER.info(
@@ -1369,14 +1406,14 @@ def _compute_hessian_inv(
             grads,
             fisher_block_size,
             damp=damp,
-            devices=available_gpus,
+            devices=available_devices,
         )
-    elif available_gpus or num_pages > 1:
+    elif available_devices or num_pages > 1:
         return FisherInverseFastPageSwap(
             grads,
             damp=damp,
             num_pages=num_pages,
-            devices=available_gpus,
+            devices=available_devices,
         )
     else:
         return FisherInverseFast(grads, damp=damp)

@@ -103,10 +103,10 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
     """
 
     def __init__(
-            self, 
-            params: List[Parameter],
-            grad_sampler: Optional[GradSampler] = None,
-        ):
+        self, 
+        params: List[Parameter],
+        grad_sampler: Optional[GradSampler] = None,
+    ):
         super().__init__(params=params)
 
         self.grad_sampler = grad_sampler
