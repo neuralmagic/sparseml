@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 
 import pytest
@@ -38,7 +37,6 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_steps_per_epoch,
 )
 
-
 def _device_data_loader(data_loader):
     for sample in data_loader:
         img, target = [t for t in sample]
@@ -50,11 +48,12 @@ def _mfac_loss_function(model_outputs, loss_target):
 
 
 def _build_gradient_sampler(
-    dataset_lambda, data_length, batch_size, loss_function, data_generator
+    dataset_lambda, loss_function, data_generator, batch_size, num_grads, num_epochs, update_frequency
 ):
-    _dataset = dataset_lambda(length=data_length)
-    _data_loader = DataLoader(_dataset, batch_size=batch_size)
-    return GradSampler(data_generator(_data_loader), loss_function)
+    data_length = int(batch_size*num_grads*num_epochs*(1/update_frequency)*2)
+    dataset = dataset_lambda(length=data_length)
+    data_loader = DataLoader(dataset, batch_size=batch_size)
+    return GradSampler(data_generator(data_loader), loss_function)
 
 
 @flaky(max_runs=3, min_passes=2)
@@ -75,7 +74,7 @@ def _build_gradient_sampler(
             inter_func="linear",
             fisher_block_size=50,
             num_grads=8,
-            available_devices=["cuda:0"],
+            available_devices=None,
         ),
         lambda: MFACPruningModifier(
             init_sparsity=FROM_PARAM_TOKEN,
@@ -88,7 +87,7 @@ def _build_gradient_sampler(
             fisher_block_size=1500,
             damp=0.000001,
             num_grads=8,
-            available_devices=["cuda:0"],
+            available_devices=None,
         ),
         lambda: MFACPruningModifier(
             params=["seq.fc1.weight", "seq.fc2.weight"],
@@ -115,8 +114,8 @@ def _build_gradient_sampler(
 )
 class TestMFACPruningModifier(ScheduledUpdateModifierTest):
     @pytest.mark.parametrize(
-        "dataset_lambda,loss,mfac_batch_size,data_length",
-        [(MLPDataset, _mfac_loss_function, 4, 1000000)],
+        "dataset_lambda,loss,mfac_batch_size",
+        [(MLPDataset, _mfac_loss_function, 4)],
     )
     def test_lifecycle(
         self,
@@ -127,13 +126,12 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         dataset_lambda,
         loss,
         mfac_batch_size,
-        data_length,
     ):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
         grad_sampler = _build_gradient_sampler(
-            dataset_lambda, data_length, mfac_batch_size, loss, _device_data_loader
+            dataset_lambda, loss, _device_data_loader, mfac_batch_size, modifier.num_grads, modifier.end_epoch - modifier.start_epoch + 1, modifier.update_frequency
         )
 
         self.initialize_helper(modifier, model, grad_sampler=grad_sampler)
@@ -211,8 +209,8 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
             _test_final_sparsity_applied()
 
     @pytest.mark.parametrize(
-        "dataset_lambda,loss,mfac_batch_size,data_length",
-        [(MLPDataset, _mfac_loss_function, 4, 1000000)],
+        "dataset_lambda,loss,mfac_batch_size",
+        [(MLPDataset, _mfac_loss_function, 4)],
     )
     def test_scheduled_update(
         self,
@@ -224,10 +222,10 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         dataset_lambda,
         loss,
         mfac_batch_size,
-        data_length,
     ):
+        modifier = modifier_lambda()
         grad_sampler = _build_gradient_sampler(
-            dataset_lambda, data_length, mfac_batch_size, loss, _device_data_loader
+            dataset_lambda, loss, _device_data_loader, mfac_batch_size, modifier.num_grads, modifier.end_epoch - modifier.start_epoch + 1, modifier.update_frequency
         )
         super().test_scheduled_update(
             modifier_lambda,
@@ -256,6 +254,7 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
         ),
     ],
 )
+
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
