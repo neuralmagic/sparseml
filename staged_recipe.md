@@ -1,11 +1,12 @@
 ---
-high_level_variable1: 1
-high_level_variable2: 2
+high_level_variable: 1
 
 sparsification_stage:
   num_epochs: 13
   init_lr: 1.5e-4 
   final_lr: 0
+  qat_epochs: 3 
+  qat_no_observer_epochs: 1
 
   # Modifiers:
   training_modifiers:
@@ -30,13 +31,8 @@ sparsification_stage:
         start_epoch: eval(num_epochs - qat_epochs)
         disable_quantization_observer_epoch: eval(num_epochs - qat_no_observer_epochs)
         freeze_bn_stats_epoch: eval(num_epochs - qat_no_observer_epochs)
-        quantize_embeddings: eval(quantize_embeddings)
         quantize_linear_activations: 0
         exclude_module_types: ['LayerNorm', 'Tanh']
-        submodules:
-          - bert.embeddings
-          - bert.encoder
-          - qa_outputs
 
 next_stage:
   new_variable: 1

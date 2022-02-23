@@ -230,16 +230,61 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
         # yaml string does not create a dict, return original string
         return recipe_yaml_str
 
-    # validate and load remaining variables
-    container, variables, non_val_variables = _evaluate_recipe_variables(container)
+    # check whether the recipe is a staged recipe of not
+    if any(["stage" in k for k in container.keys()]):
+        container = _evaluate_staged_recipe_yaml_str_equations(container)
 
-    # update values nested in modifier lists based on the variables
-    for key, val in container.items():
-        if "modifiers" not in key:
-            continue
-        container[key] = _maybe_evaluate_yaml_object(val, variables, non_val_variables)
+    else:
+        container, variables, non_val_variables = _evaluate_recipe_variables(container)
+
+        # update values nested in modifier lists based on the variables
+        for key, val in container.items():
+            if "modifiers" not in key:
+                continue
+            container[key] = _maybe_evaluate_yaml_object(
+                val, variables, non_val_variables
+            )
 
     return rewrite_recipe_yaml_string_with_classes(container)
+
+
+def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
+    """
+    Consumes a staged container and transforms it into a valid
+    container for the manager and modifiers to consume further.
+
+    :param container: a staged container generated from a staged recipe.
+    :return consolidated_container: transformed container containing evaluated
+            variables, operations and objects.
+    """
+    consolidated_container = {}
+    main_container = {k: v for k, v in container.items() if "stage" not in k}
+    stages = {k: container[k] for k in set(container) - set(main_container)}
+
+    (
+        main_container,
+        global_variables,
+        global_non_val_variables,
+    ) = _evaluate_recipe_variables(main_container)
+
+    for stage_name, stage_container in stages.items():
+        container, variables, non_val_variables = _evaluate_recipe_variables(
+            stage_container
+        )
+
+        variables = {**variables, **global_variables}
+        non_val_variables = {**non_val_variables, **global_non_val_variables}
+
+        for key, val in container.items():
+            if "modifiers" not in key:
+                continue
+            container[key] = _maybe_evaluate_yaml_object(
+                val, variables, non_val_variables
+            )
+
+        consolidated_container.update(container)
+
+    return consolidated_container
 
 
 def is_eval_string(val: str) -> bool:
