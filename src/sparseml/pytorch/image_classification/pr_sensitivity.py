@@ -102,7 +102,7 @@ EXAMPLES
 ##########
 Example command for running one shot KS sens analysis on ssd300_resnet50 for
 coco:
-python integrations/pytorch/lr_analysis.py pr_sensitivity \
+python sparseml.image_classification.pr_sensitivity \
     --arch-key ssd300_resnet50 --dataset coco \
     --dataset-path ~/datasets/coco-detection
 
@@ -115,9 +115,8 @@ from typing import Any, List, Optional
 
 from torch.utils.data import DataLoader
 
-import utils
-from argparser_.nm_argparser_ import NmArgumentParser
 from sparseml import get_main_logger
+from sparseml.pytorch.image_classification.utils import NmArgumentParser, helpers
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import (
     pruning_loss_sens_magnitude,
@@ -126,7 +125,7 @@ from sparseml.pytorch.optim import (
 from sparseml.pytorch.utils import default_device, model_to_device
 
 
-CURRENT_TASK = utils.Tasks.PR_SENSITIVITY
+CURRENT_TASK = helpers.Tasks.PR_SENSITIVITY
 LOGGER = get_main_logger()
 
 
@@ -329,7 +328,7 @@ def pruning_loss_sensitivity(
     """
     # loss setup
     if not args.approximate:
-        loss = utils.get_loss_wrapper(args)
+        loss = helpers.get_loss_wrapper(args)
         LOGGER.info(f"created loss: {loss}")
     else:
         loss = None
@@ -392,7 +391,7 @@ def main():
 
     args_, _ = _parser.parse_args_into_dataclasses()
 
-    save_dir, loggers = utils.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
+    save_dir, loggers = helpers.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
 
     input_shape = ModelRegistry.input_shape(args_.arch_key)
     # assume shape [C, S, S] where S is the image size
@@ -403,11 +402,11 @@ def main():
         train_loader,
         val_dataset,
         val_loader,
-    ) = utils.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
+    ) = helpers.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
 
-    num_classes = utils.infer_num_classes(args_, train_dataset, val_dataset)
+    num_classes = helpers.infer_num_classes(args_, train_dataset, val_dataset)
 
-    model = utils.create_model(args_, num_classes)
+    model = helpers.create_model(args_, num_classes)
 
     pruning_loss_sensitivity(args_, model, train_loader, save_dir, loggers)
 

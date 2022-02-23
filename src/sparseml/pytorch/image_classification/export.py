@@ -88,7 +88,7 @@ optional arguments:
   --save-dir SAVE_DIR   The path to the directory for saving results
 ##########
 Example command for exporting ResNet50:
-python integrations/pytorch/export.py \
+python sparseml.image_classification.export_onnx \
     --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012
 """
 import json
@@ -99,15 +99,14 @@ from torch.nn import Module
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import utils
-from argparser_.nm_argparser_ import NmArgumentParser
 from sparseml import get_main_logger
+from sparseml.pytorch.image_classification.utils import NmArgumentParser, helpers
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.utils import ModuleExporter
 from sparseml.utils import convert_to_bool
 
 
-CURRENT_TASK = utils.Tasks.EXPORT
+CURRENT_TASK = helpers.Tasks.EXPORT
 LOGGER = get_main_logger()
 
 
@@ -319,7 +318,7 @@ def export_setup(args_: ExportArgs) -> Tuple[Module, Optional[str], Any]:
 
     :param args_ : An ExportArgs object containing config for export task.
     """
-    save_dir, loggers = utils.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
+    save_dir, loggers = helpers.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
     input_shape = ModelRegistry.input_shape(args_.arch_key)
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
     (
@@ -327,11 +326,11 @@ def export_setup(args_: ExportArgs) -> Tuple[Module, Optional[str], Any]:
         train_loader,
         val_dataset,
         val_loader,
-    ) = utils.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
+    ) = helpers.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
 
     # model creation
-    num_classes = utils.infer_num_classes(args_, train_dataset, val_dataset)
-    model = utils.create_model(args_, num_classes)
+    num_classes = helpers.infer_num_classes(args_, train_dataset, val_dataset)
+    model = helpers.create_model(args_, num_classes)
     return model, save_dir, val_loader
 
 
