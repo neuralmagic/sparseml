@@ -37,16 +37,16 @@ PRECISION = 0.000001
     [
         FisherInverseFastSmallBlocks,
         FisherInverseFastBlock,
-    ]
+    ],
 )
 @pytest.mark.parametrize(
     "devices",
     [
         None,
         ["cuda:0"],
-    ]
+    ],
 )
-def test_blocked_fisher_inverse(fisher_algorithm,devices):
+def test_blocked_fisher_inverse(fisher_algorithm, devices):
     total_params = 1000
     num_grads = 32
     block_size = total_params

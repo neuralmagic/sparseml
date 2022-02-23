@@ -289,7 +289,6 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             fisher_block_size=self._fisher_block_size,
             num_pages=self._num_pages,
             available_devices=self._available_devices,
-            grad_sampler=self._grad_sampler,
         )
 
     def check_mask_update(
@@ -361,9 +360,8 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         fisher_block_size: int,
         num_pages: int,
         available_devices: Optional[List[str]],
-        grad_sampler: Optional[GradSampler] = None,
     ):
-        super().__init__(params, grad_sampler)
+        super().__init__(params)
         self._num_grads = num_grads
         self._damp = damp
         self._fisher_block_size = fisher_block_size

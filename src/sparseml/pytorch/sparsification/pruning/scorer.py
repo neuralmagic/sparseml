@@ -18,13 +18,11 @@ Classes for tracking and scoring model parameters to generate pruning scores
 
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import torch.distributed as dist
 from torch import Tensor
 from torch.nn import Parameter
-
-from sparseml.pytorch.utils import GradSampler
 
 
 __all__ = [
@@ -106,11 +104,8 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
     def __init__(
         self,
         params: List[Parameter],
-        grad_sampler: Optional[GradSampler] = None,
     ):
         super().__init__(params=params)
-
-        self.grad_sampler = grad_sampler
 
         self._is_ddp = dist.is_initialized()
         self._is_main_proc = not self._is_ddp or dist.get_rank() == 0

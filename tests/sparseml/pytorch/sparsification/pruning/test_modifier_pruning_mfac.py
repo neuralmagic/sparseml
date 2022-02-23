@@ -22,7 +22,7 @@ from flaky import flaky
 from sparseml.pytorch.sparsification.pruning import MFACPruningModifier
 from sparseml.pytorch.utils import GradSampler, tensor_sparsity
 from sparseml.utils import FROM_PARAM_TOKEN
-from tests.sparseml.pytorch.helpers import LinearNet, MLPDataset
+from tests.sparseml.pytorch.helpers import MLPDataset, MLPNet
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledUpdateModifierTest,
     create_optim_adam,
@@ -39,6 +39,7 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_steps_per_epoch,
 )
 
+
 def _device_data_loader(data_loader):
     for sample in data_loader:
         img, target = [t for t in sample]
@@ -48,9 +49,13 @@ def _device_data_loader(data_loader):
 def _mfac_loss_function(model_outputs, loss_target):
     return torch.nn.functional.mse_loss(model_outputs[0], loss_target)
 
-dataset = MLPDataset(features=8, classes=8, length=1000000)
-data_loader = DataLoader(dataset, shuffle=True, batch_size=4)
-grad_sampler = GradSampler(_device_data_loader(data_loader), _mfac_loss_function)
+
+def _build_gradient_sampler(
+    dataset_lambda, data_length, batch_size, loss_function, data_generator
+):
+    _dataset = dataset_lambda(length=data_length)
+    _data_loader = DataLoader(_dataset, batch_size=batch_size)
+    return GradSampler(data_generator(_data_loader), loss_function)
 
 
 @flaky(max_runs=3, min_passes=2)
@@ -71,6 +76,7 @@ grad_sampler = GradSampler(_device_data_loader(data_loader), _mfac_loss_function
             inter_func="linear",
             fisher_block_size=50,
             num_grads=8,
+            available_devices=["cuda:0"],
         ),
         lambda: MFACPruningModifier(
             init_sparsity=FROM_PARAM_TOKEN,
@@ -83,8 +89,8 @@ grad_sampler = GradSampler(_device_data_loader(data_loader), _mfac_loss_function
             fisher_block_size=1500,
             damp=0.000001,
             num_grads=8,
+            available_devices=["cuda:0"],
         ),
-
         lambda: MFACPruningModifier(
             params=["seq.fc1.weight", "seq.fc2.weight"],
             init_sparsity=0.5,
@@ -99,23 +105,38 @@ grad_sampler = GradSampler(_device_data_loader(data_loader), _mfac_loss_function
     ],
     scope="function",
 )
-@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize(
+    "model_lambda",
+    [MLPNet],
+)
 @pytest.mark.parametrize(
     "optim_lambda",
     [create_optim_sgd, create_optim_adam],
     scope="function",
 )
 class TestMFACPruningModifier(ScheduledUpdateModifierTest):
+    @pytest.mark.parametrize(
+        "dataset_lambda,loss,mfac_batch_size,data_length",
+        [(MLPDataset, _mfac_loss_function, 4, 1000000)],
+    )
     def test_lifecycle(
         self,
         modifier_lambda,
         model_lambda,
         optim_lambda,
         test_steps_per_epoch,  # noqa: F811
+        dataset_lambda,
+        loss,
+        mfac_batch_size,
+        data_length,
     ):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
+        grad_sampler = _build_gradient_sampler(
+            dataset_lambda, data_length, mfac_batch_size, loss, _device_data_loader
+        )
+
         self.initialize_helper(modifier, model, grad_sampler=grad_sampler)
         if modifier.start_epoch > 0:
             assert modifier.applied_sparsity is None
@@ -190,14 +211,25 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             _test_final_sparsity_applied()
 
+    @pytest.mark.parametrize(
+        "dataset_lambda,loss,mfac_batch_size,data_length",
+        [(MLPDataset, _mfac_loss_function, 4, 1000000)],
+    )
     def test_scheduled_update(
         self,
         modifier_lambda,
         model_lambda,
         optim_lambda,
         test_steps_per_epoch,
-        test_epoch
+        test_epoch,
+        dataset_lambda,
+        loss,
+        mfac_batch_size,
+        data_length,
     ):
+        grad_sampler = _build_gradient_sampler(
+            dataset_lambda, data_length, mfac_batch_size, loss, _device_data_loader
+        )
         super().test_scheduled_update(
             modifier_lambda,
             model_lambda,
@@ -275,7 +307,3 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         == str(serialized_modifier.global_sparsity)
         == str(obj_modifier.global_sparsity)
     )
-
-
-# Add global test
-# Add other MFAC params to tests
