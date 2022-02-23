@@ -159,7 +159,7 @@ class ACDCPruningModifier(BasePruningModifier):
         self, epoch: float, steps_per_epoch: int
     ) -> Union[float, List[float]]:
         """
-        :param epoch: curent epoch
+        :param epoch: current epoch
         :param steps_per_epoch: number of steps per epoch
         :return: sparsity level that should be applied at the given epoch. If parameters
             should be set to different sparsities, should return a list of those values
