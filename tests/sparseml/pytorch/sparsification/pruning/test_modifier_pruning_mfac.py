@@ -267,6 +267,10 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     inter_func = "cubic"
     global_sparsity = False
     num_grads = 64
+    damp = 0.000001
+    grads_device = "cpu"
+    fisher_block_size = 20
+    num_pages = 1
     available_devices = "[cuda:0]"
     yaml_str = f"""
     !MFACPruningModifier
@@ -279,6 +283,10 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         inter_func: {inter_func}
         global_sparsity: {global_sparsity}
         num_grads: {num_grads}
+        damp: {damp}
+        grads_device: {grads_device}
+        fisher_block_size: {fisher_block_size}
+        num_pages: {num_pages}
         available_devices: {available_devices}
     """
     yaml_modifier = MFACPruningModifier.load_obj(yaml_str)
