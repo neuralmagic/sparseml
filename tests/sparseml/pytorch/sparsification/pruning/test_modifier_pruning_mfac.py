@@ -111,7 +111,7 @@ def _build_gradient_sampler(
 )
 @pytest.mark.parametrize(
     "optim_lambda",
-    [create_optim_sgd, create_optim_adam],
+    [create_optim_adam],
     scope="function",
 )
 class TestMFACPruningModifier(ScheduledUpdateModifierTest):
