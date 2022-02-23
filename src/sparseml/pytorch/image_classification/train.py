@@ -125,14 +125,14 @@ EXAMPLES
 
 ##########
 Example command for pruning resnet50 on imagenet dataset:
-python integrations/pytorch/train.py \
+python sparseml.image_classification.train \
     --recipe-path ~/sparseml_recipes/pruning_resnet50.yaml \
     --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012 \
     --train-batch-size 256 --test-batch-size 1024
 
 ##########
 Example command for transfer learning sparse mobilenet_v1 on an image folder dataset:
-python integrations/pytorch/train.py \
+python sparseml.image_classification.train \
     --sparse-transfer-learn \
     --recipe-path  ~/sparseml_recipes/pruning_mobilenet.yaml \
     --arch-key mobilenet_v1 --pretrained pruned-moderate \
@@ -145,7 +145,7 @@ DistributedDataParallel using mixed precision. Note - DDP support in this script
 only tested for torch==1.7.0.
 python -m torch.distributed.launch \
 --nproc_per_node <NUM GPUs> \
-integrations/pytorch/train.py \
+sparseml.image_classification.train \
 --use-mixed-precision \
 <TRAIN.PY ARGUMENTS>
 """
@@ -159,9 +159,8 @@ import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
 
-import utils
-from argparser_.nm_argparser_ import NmArgumentParser
 from sparseml import get_main_logger
+from sparseml.pytorch.image_classification.utils import NmArgumentParser, helpers
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
@@ -176,7 +175,7 @@ from sparseml.pytorch.utils import (
 )
 
 
-CURRENT_TASK = utils.Tasks.TRAIN
+CURRENT_TASK = helpers.Tasks.TRAIN
 LOGGER = get_main_logger()
 
 
@@ -513,15 +512,15 @@ def train(
     :param loggers: List of loggers to use during training process
     """
     # loss setup
-    val_loss = utils.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
+    val_loss = helpers.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
     LOGGER.info(f"created loss for validation: {val_loss}")
 
-    train_loss = utils.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
+    train_loss = helpers.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
     LOGGER.info(f"created loss for training: {train_loss}")
 
     # training setup
     if not train_args.eval_mode:
-        epoch, optim, manager = utils.create_scheduled_optimizer(
+        epoch, optim, manager = helpers.create_scheduled_optimizer(
             train_args,
             model,
             train_loader,
@@ -568,7 +567,7 @@ def train(
         tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=train_args.debug_steps)
 
     if not train_args.eval_mode:
-        utils.save_recipe(recipe_manager=manager, save_dir=save_dir)
+        helpers.save_recipe(recipe_manager=manager, save_dir=save_dir)
         LOGGER.info(f"starting training from epoch {epoch}")
 
         if epoch > 0:
@@ -613,7 +612,7 @@ def train(
                         else val_metric >= best_metric
                     )
                 ):
-                    utils.save_model_training(
+                    helpers.save_model_training(
                         model,
                         optim,
                         input_shape,
@@ -631,7 +630,7 @@ def train(
                 and epoch in train_args.save_epochs
             )
             if _save_epoch:
-                utils.save_model_training(
+                helpers.save_model_training(
                     model,
                     optim,
                     input_shape,
@@ -648,7 +647,7 @@ def train(
         if train_args.is_main_process:
             # only convert qat -> quantized ONNX graph for finalized model
             # TODO: change this to all checkpoints when conversion times improve
-            utils.save_model_training(
+            helpers.save_model_training(
                 model, optim, input_shape, "model", save_dir, epoch - 1, val_res, True
             )
 
@@ -670,7 +669,9 @@ def main():
     _parser = NmArgumentParser(dataclass_types=TrainingArguments)
     training_args, _ = _parser.parse_args_into_dataclasses()
 
-    save_dir, loggers = utils.get_save_dir_and_loggers(training_args, task=CURRENT_TASK)
+    save_dir, loggers = helpers.get_save_dir_and_loggers(
+        training_args, task=CURRENT_TASK
+    )
 
     input_shape = ModelRegistry.input_shape(training_args.arch_key)
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
@@ -680,14 +681,14 @@ def main():
         train_loader,
         val_dataset,
         val_loader,
-    ) = utils.get_train_and_validation_loaders(
+    ) = helpers.get_train_and_validation_loaders(
         training_args, image_size, task=CURRENT_TASK
     )
 
-    num_classes = utils.infer_num_classes(training_args, train_dataset, val_dataset)
+    num_classes = helpers.infer_num_classes(training_args, train_dataset, val_dataset)
 
     # # model creation
-    model = utils.create_model(training_args, num_classes)
+    model = helpers.create_model(training_args, num_classes)
     train(
         training_args, model, train_loader, val_loader, input_shape, save_dir, loggers
     )
