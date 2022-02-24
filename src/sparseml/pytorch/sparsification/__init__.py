@@ -23,3 +23,4 @@ algorithms to models within in the PyTorch framework.
 
 from .info import *
 from .pruning import *
+from .quantization import *
