@@ -46,7 +46,6 @@ except Exception:
 
 from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.utils import BaseLogger, tensors_module_forward, tensors_to_device
 from sparseml.pytorch.sparsification.quantization import (
     add_quant_dequant,
     configure_module_default_qconfigs,
@@ -57,6 +56,7 @@ from sparseml.pytorch.sparsification.quantization import (
     prepare_embeddings_qat,
     remove_activation_qat_by_layer_name,
 )
+from sparseml.pytorch.utils import BaseLogger, tensors_module_forward, tensors_to_device
 from sparseml.sparsification import SparsificationTypes
 
 
