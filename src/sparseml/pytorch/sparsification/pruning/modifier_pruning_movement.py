@@ -28,10 +28,7 @@ from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     GMPruningModifier,
 )
-from sparseml.pytorch.sparsification.pruning.scorer import (
-    PruningParamsGradScorer,
-    PruningParamsScorer,
-)
+from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
 from sparseml.utils import ALL_TOKEN
 
 

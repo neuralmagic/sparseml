@@ -29,18 +29,10 @@ from sparseml.pytorch.optim.modifier import (
     PyTorchModifierYAML,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.utils import (
-    get_layer,
-    get_prunable_layers,
-    replace_layer,
-)
+from sparseml.pytorch.utils import get_layer, get_prunable_layers, replace_layer
 from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.sparsification import SparsificationTypes
-from sparseml.utils import (
-    ALL_PRUNABLE_TOKEN,
-    ALL_TOKEN,
-    validate_str_iterable,
-)
+from sparseml.utils import ALL_PRUNABLE_TOKEN, ALL_TOKEN, validate_str_iterable
 
 
 __all__ = [
