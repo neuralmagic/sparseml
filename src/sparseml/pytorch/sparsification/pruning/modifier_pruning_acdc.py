@@ -217,8 +217,12 @@ class ACDCPruningModifier(BasePruningModifier):
         """
         return MagnitudePruningParamsScorer(params)
 
-    def _get_mask_creator(self) -> PruningMaskCreator:
+    def _get_mask_creator(
+        self, param_names: List[str], params: List[Parameter]
+    ) -> PruningMaskCreator:
         """
+        :param names: full names of parameters to be pruned
+        :param params: list of Parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
         if self._mask_type == "unstructured":

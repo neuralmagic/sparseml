@@ -30,7 +30,6 @@ from sparseml.optim import BaseModifier
 from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.mask_creator_pruning import (
-    DimensionSparsityMaskCreator,
     PruningMaskCreator,
     load_mask_creator,
 )
@@ -65,7 +64,6 @@ __all__ = [
     "LegacyGMPruningModifier",
     "MovementPruningModifier",
     "LayerPruningModifier",
-    "StructuredPruningModifier",
 ]
 
 
@@ -875,190 +873,14 @@ class MovementPruningModifier(_GMPruningModifier):
 
 
 @PyTorchModifierYAML()
-class StructuredPruningModifier(_GMPruningModifier):
-    """
-    Gradually applies structured kernel sparsity to a given parameter or parameters
-    from init_sparsity until final_sparsity is reached over a given amount of time
-    and applied with an interpolated function for each step taken. Channel and filter
-    pruning supported.
-
-    A param_group_dependency_map must be provided that maps
-    groups of prunable parameter names that should have their dimensions pruned
-    together to a list of module parameter names that should be updated accordingly
-    when those parameters are pruned.
-
-    | Sample yaml:
-    |   !StructuredPruningModifier
-    |       param_groups: [
-    |           ["param.1.name","param.2.name"], ["param.3.name", "param.4.name"]
-    |       ]
-    |       init_sparsity: 0.05
-    |       final_sparsity: 0.8
-    |       start_epoch: 0.0
-    |       end_epoch: 10.0
-    |       update_frequency: 1.0
-    |       params: __ALL_PRUNABLE__
-    |       leave_enabled: True
-    |       inter_func: cubic
-    |       log_types: __ALL__
-    |       mask_type: filter
-    |       score_type: magnitude
-
-    :param init_sparsity: the initial sparsity for the param to start with at
-        start_epoch
-    :param final_sparsity: the final sparsity for the param to end with at end_epoch
-    :param start_epoch: The epoch to start the modifier at
-    :param end_epoch: The epoch to end the modifier at
-    :param update_frequency: The number of epochs or fraction of epochs to update at
-        between start and end
-    :param param_groups: list of list of parameter names that should be pruned together
-        during structured pruning so that their same indices may be removed. May be
-        useful for structures such as residual blocks or grouped convolutions. Can be
-        generated from an onnx export of the target module with
-        sparseml.onnx.optim.get_param_structured_pruning_group_dependencies by
-        splitting its comma separated keys into lists.
-        i.e. [["param.1.name","param.2.name"], ["param.3.name", "param.4.name"]]
-    :param params: A list of full parameter names or regex patterns of names to apply
-        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
-        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
-        and Linear layers' weights. Defualt is __ALL_PRUNABLE__
-    :param leave_enabled: True to continue masking the weights after end_epoch,
-        False to stop masking. Should be set to False if exporting the result
-        immediately after or doing some other prune
-    :param inter_func: the type of interpolation function to use:
-        [linear, cubic, inverse_cubic]
-    :param phased: True to enable a phased approach where pruning will
-        turn on and off with the update_frequency. Starts with pruning on
-        at start_epoch, off at start_epoch + update_frequency, and so on.
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param mask_type: String to define type of structured sparsity (options: [
-        'channel', 'filter']), or a DimensionSparsityMaskCreator object.
-        default is 'filter'
-    :param score_type: Method used to score parameters for masking, i.e.
-        'magnitude', 'movement'. Default is 'magnitude'
-    """
-
-    def __init__(
-        self,
-        init_sparsity: float,
-        final_sparsity: float,
-        start_epoch: float,
-        end_epoch: float,
-        update_frequency: float,
-        param_groups: List[List[str]] = None,
-        params: Union[str, List[str]] = ALL_PRUNABLE_TOKEN,
-        leave_enabled: bool = True,
-        inter_func: str = "cubic",
-        phased: bool = False,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        mask_type: Union[str, DimensionSparsityMaskCreator] = "filter",
-        score_type: str = "magnitude",
-    ):
-        if not isinstance(mask_type, DimensionSparsityMaskCreator) and (
-            mask_type not in ["channel", "filter"]
-        ):
-            raise ValueError(
-                "StructuredPruningModifier mask_type must be a "
-                "DimensionSparsityMaskCreator or designate 'channel' or 'filter' "
-                f"found {mask_type}"
-            )
-        super().__init__(
-            init_sparsity=init_sparsity,
-            final_sparsity=final_sparsity,
-            start_epoch=start_epoch,
-            end_epoch=end_epoch,
-            update_frequency=update_frequency,
-            params=params,
-            leave_enabled=leave_enabled,
-            inter_func=inter_func,
-            phased=phased,
-            log_types=log_types,
-            mask_type=mask_type,
-            global_sparsity=False,
-            score_type=score_type,
-        )
-
-        self._param_groups = param_groups or []
-
-    @BaseGMPruningModifier.sparsification_types.getter
-    def sparsification_types(self) -> List[SparsificationTypes]:
-        """
-        :return: the sparsification types this modifier instance will apply
-        """
-        return [SparsificationTypes.pruning, SparsificationTypes.structured]
-
-    @ModifierProp()
-    def param_groups(self) -> List[List[str]]:
-        """
-        :return: list of list of parameter names that should be pruned together
-            during structured pruning so that their same indices may be removed. May be
-            useful for structures such as residual blocks or grouped convolutions
-        """
-        return self._param_groups
-
-    @ModifierProp(serializable=False)
-    def global_sparsity(self) -> bool:
-        """
-        :return: True if global pruning is enabled, False otherwise
-        """
-        return self._global_sparsity
-
-    def _create_pruning_mask(
-        self, layers: List[Module], layer_names: List[str], param_names: List[str]
-    ) -> ModuleParamPruningMask:
-        # find and validate parameter groups for structured pruning
-        full_param_names = [
-            f"{layer_name}.{param_name}"
-            for layer_name, param_name in zip(layer_names, param_names)
-        ]
-        param_name_to_idx = dict(zip(full_param_names, range(len(full_param_names))))
-        param_group_idxs = []
-        added_idxs = set()
-
-        for param_group in self._param_groups:
-            group_idxs = []
-            for param_name in param_group:
-                if param_name not in param_name_to_idx:
-                    raise ValueError(
-                        f"param {param_name} from param_groups "
-                        f"not found in pruning modifier params {full_param_names}"
-                    )
-                param_idx = param_name_to_idx[param_name]
-                if param_idx in added_idxs:
-                    raise ValueError(
-                        "found repeated param name in param_groups " f"{param_name}"
-                    )
-                group_idxs.append(param_idx)
-                added_idxs.add(param_idx)
-            param_group_idxs.append(group_idxs)
-        for idx in range(len(full_param_names)):
-            if idx not in added_idxs:
-                param_group_idxs.append([idx])
-
-        self._mask_creator.set_tensor_group_idxs(param_group_idxs)
-
-        return ModuleParamPruningMask(
-            layers,
-            param_names,
-            layer_names=layer_names,
-            mask_creator=self._mask_creator,
-            global_sparsity=False,
-            score_type=self._score_type,
-        )
-
-
-@PyTorchModifierYAML()
 class LayerPruningModifier(ScheduledUpdateModifier):
     """
     Class for pruning away layers within a module
     (replaces with sparseml.pytorch.nn.Identity).
-
     | Sample yaml:
     |   !LayerPruningModifier
     |       layers: ['bert.encoder.layer.6', 'bert.encoder.layer.7']
     |
-
     :param layers: A list of full layer names to apply pruning to.
         __ALL_ will match to all layers. __ALL_PRUNABLE__ will match to all ConvNd
         and Linear layers
@@ -1124,7 +946,6 @@ class LayerPruningModifier(ScheduledUpdateModifier):
     ):
         """
         Grab the layers and apply if epoch in range to control pruning for.
-
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
@@ -1145,7 +966,6 @@ class LayerPruningModifier(ScheduledUpdateModifier):
     ):
         """
         Cleans up any remaining hooks
-
         :param module: The model/module to finalize the modifier for.
             Marked optional so state can still be cleaned up on delete,
             but generally should always be passed in.
@@ -1165,7 +985,6 @@ class LayerPruningModifier(ScheduledUpdateModifier):
     ):
         """
         Update to enable and disable the layers when chosen.
-
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
@@ -1180,7 +999,6 @@ class LayerPruningModifier(ScheduledUpdateModifier):
     ):
         """
         Check whether to log an update for the state of the modifier.
-
         :param module: module to modify
         :param optimizer: optimizer to modify
         :param epoch: current epoch and progress within the current epoch
