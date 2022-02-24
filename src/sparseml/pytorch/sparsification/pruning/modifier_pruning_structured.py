@@ -87,8 +87,8 @@ class StructuredPruningMaskCreator(GroupedPruningMaskCreator):
     def tensor_group_idxs(self) -> Optional[List[List[int]]]:
         """
         :return: list of lists of input tensor idxs whose given dimensions
-        should be scored together. If set, all idxs in the range of provided tensors
-        must be included in exactly one group (tensors in their own group should be a
+              should be scored together. If set, all idxs in the range of provided tensors
+              must be included in exactly one group (tensors in their own group should be a
         list of length 1).  If None, no tensor groups will be used
         """
         return self._tensor_group_idxs
