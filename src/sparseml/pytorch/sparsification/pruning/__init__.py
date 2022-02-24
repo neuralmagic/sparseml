@@ -25,4 +25,5 @@ from .modifier_pruning_acdc import *
 from .modifier_pruning_base import *
 from .modifier_pruning_constant import *
 from .modifier_pruning_magnitude import *
+from .modifier_pruning_mfac import *
 from .scorer import *

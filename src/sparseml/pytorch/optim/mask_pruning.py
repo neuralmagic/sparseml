@@ -28,11 +28,8 @@ from sparseml.pytorch.optim.mask_creator_pruning import (
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
 )
-from sparseml.pytorch.optim.mask_pruning_scorer import (
-    PruningParamsScorer,
-    create_pruning_param_scorer,
-)
-from sparseml.pytorch.utils import MFACOptions, mask_difference
+from sparseml.pytorch.optim.mask_pruning_scorer import create_pruning_param_scorer
+from sparseml.pytorch.utils import mask_difference
 
 
 __all__ = [
@@ -64,8 +61,7 @@ class ModuleParamPruningMask(object):
         lowest global values masked. If False, each layer will be masked to the target
         sparsity ranking values within each individual tensor. Default is False
     :param score_type: the method used to score parameters for masking, i.e.
-        'magnitude', 'movement'. Can also be an MFACOptions object for M-FAC pruning.
-        Default is 'magnitude'
+        'magnitude', 'movement'. Default is 'magnitude'
     """
 
     def __init__(
@@ -78,7 +74,7 @@ class ModuleParamPruningMask(object):
         mask_creator: PruningMaskCreator = UnstructuredPruningMaskCreator(),
         layer_names: Optional[List[str]] = None,
         global_sparsity: bool = False,
-        score_type: Union[str, MFACOptions] = "magnitude",
+        score_type: str = "magnitude",
     ):
         self._layers = layers
         self._param_names = (
@@ -282,14 +278,7 @@ class ModuleParamPruningMask(object):
         return self._params_grad
 
     @property
-    def scorer(self) -> PruningParamsScorer:
-        """
-        :return: the PruningParamsScorer class used to create scores for these masks
-        """
-        return self._scorer
-
-    @property
-    def score_type(self) -> Union[str, MFACOptions]:
+    def score_type(self) -> str:
         """
         :return: the scoring method used to create masks (i.e. magnitude, movement)
         """

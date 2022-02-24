@@ -127,8 +127,8 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
-        parent_class_kwarg_names: Optional[List[str]] = None,
         leave_enabled: bool = False,
+        parent_class_kwarg_names: Optional[List[str]] = None,
         **kwargs,
     ):
         if parent_class_kwarg_names is not None:
