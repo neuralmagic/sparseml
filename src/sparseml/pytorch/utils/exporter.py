@@ -491,16 +491,18 @@ def export_onnx(
         # overwrite exported model with fully quantized version
         # import here to avoid cyclic dependency
         from sparseml.pytorch.sparsification.quantization import (
-            quantize_torch_qat_export
+            quantize_torch_qat_export,
         )
+
         quantize_torch_qat_export(model=file_path, output_file_path=file_path)
 
     if skip_input_quantize:
         try:
             # import here to avoid cyclic dependency
             from sparseml.pytorch.sparsification.quantization import (
-                skip_onnx_input_quantize
+                skip_onnx_input_quantize,
             )
+
             skip_onnx_input_quantize(file_path, file_path)
         except Exception as e:
             _LOGGER.warning(
