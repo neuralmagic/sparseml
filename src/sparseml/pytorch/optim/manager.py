@@ -291,7 +291,17 @@ class ScheduledModifierManager(BaseManager, Modifier):
             Includes all modifiers nested under this manager as sub keys in the dict.
             Only modifiers that a non empty state dict are included.
         """
-        state_dict = {mod.identifier(): mod.state_dict() for mod in self.modifiers}
+
+        def _modifiers_list_state_dict(modifiers):
+            return {mod.identifier(): mod.state_dict() for mod in modifiers}
+
+        if isinstance(self.modifiers, List):
+            state_dict = _modifiers_list_state_dict(self.modifiers)
+        else:
+            state_dict = {
+                stage: _modifiers_list_state_dict(modifiers)
+                for stage, modifiers in self.modifiers
+            }
 
         return state_dict
 
@@ -308,11 +318,27 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :raises IndexError: If any keys in the state dict do not correspond to a valid
             index for this manager and strict=True
         """
-        modifiers_index = {mod.identifier(): mod for mod in self.modifiers}
+        if isinstance(self.modifiers, List):
+            modifiers_index = {mod.identifier(): mod for mod in self.modifiers}
+        else:
+            if strict:
+                modifiers_stages = set(self.modifiers.keys())
+                state_dict_stages = set(state_dict.keys())
+                diff = modifiers_stages.symmetric_difference(state_dict_stages)
+                if diff:
+                    raise IndexError(
+                        f"Found extra stages: {state_dict_stages - modifiers_stages}"
+                        f"and missing stages: {modifiers_stages - state_dict_stages}"
+                    )
+            modifiers_index = {}
+            for stage_modifiers in self.modifiers.values():
+                modifiers_index.update(
+                    {mod.identifier(): mod for mod in stage_modifiers}
+                )
 
         if strict:
-            modifier_keys = {key for key in modifiers_index.keys()}
-            state_dict_keys = {key for key in state_dict.keys()}
+            modifier_keys = set(modifiers_index.keys())
+            state_dict_keys = set(state_dict.keys())
             diff = modifier_keys.symmetric_difference(state_dict_keys)
             if diff:
                 raise IndexError(
@@ -349,7 +375,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
             for individual modifiers (passed to initialize and finalize).
         """
         self._initialize_epoch = epoch
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             mod.apply_structure(module, epoch, loggers, finalize, **kwargs)
 
     def initialize(
@@ -375,7 +401,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         super().initialize(module, epoch, loggers, **kwargs)
         self._initialize_epoch = epoch
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             if mod.initialized:
                 # check in case modifier was initialized from apply_structure
                 continue
@@ -391,7 +417,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().initialize_loggers(loggers)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             mod.initialize_loggers(loggers)
 
     def modify(
@@ -474,7 +500,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().finalize(module, reset_loggers, **kwargs)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             mod.finalize(module, reset_loggers, **kwargs)
 
     def update(
@@ -499,7 +525,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             if not mod.enabled:
                 continue
 
@@ -532,7 +558,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().loss_update(loss, module, optimizer, epoch, steps_per_epoch, **kwargs)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             if not mod.enabled:
                 continue
 
@@ -558,7 +584,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             if not mod.enabled:
                 continue
 
@@ -579,7 +605,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             if not mod.enabled:
                 continue
 
