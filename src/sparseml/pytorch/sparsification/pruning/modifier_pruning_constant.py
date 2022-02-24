@@ -21,7 +21,7 @@ from typing import List, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Module, Parameter
 
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
@@ -135,8 +135,12 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
             parent_class_kwarg_names=["params"],
         )
 
-    def _get_mask_creator(self) -> PruningMaskCreator:
+    def _get_mask_creator(
+        self, param_names: List[str], params: List[Parameter]
+    ) -> PruningMaskCreator:
         """
+        :param names: full names of parameters to be pruned
+        :param params: list of Parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
         return ConstantMaskCreator()

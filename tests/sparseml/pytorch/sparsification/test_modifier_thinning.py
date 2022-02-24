@@ -20,7 +20,10 @@ import torch
 
 from sparseml.onnx.optim import get_param_structured_pruning_group_dependencies
 from sparseml.pytorch.models import mobilenet, resnet50
-from sparseml.pytorch.optim import LayerThinningModifier, StructuredPruningModifier
+from sparseml.pytorch.sparsification import (
+    LayerThinningModifier,
+    StructuredPruningModifier,
+)
 from sparseml.pytorch.utils import export_onnx
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
