@@ -22,11 +22,7 @@ from flaky import flaky
 from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim import LayerPruningModifier
 from sparseml.pytorch.optim import LegacyGMPruningModifier as GMPruningModifier
-from sparseml.pytorch.optim import (
-    MovementPruningModifier,
-    StructuredPruningModifier,
-    load_mask_creator,
-)
+from sparseml.pytorch.optim import MovementPruningModifier, load_mask_creator
 from sparseml.pytorch.utils import get_layer
 from tests.sparseml.pytorch.helpers import FlatMLPNet, LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
@@ -503,60 +499,4 @@ def test_movement_pruning_yaml():
     assert isinstance(yaml_modifier, MovementPruningModifier)
     _test_pruning_modifier_serialization_vals(
         yaml_modifier, serialized_modifier, obj_modifier
-    )
-
-
-def test_structured_pruning_yaml():
-    param_groups = [
-        ["param1", "param2"],
-        [
-            "param3",
-            "param4",
-            "param5",
-        ],
-    ]
-    init_sparsity = 0.05
-    final_sparsity = 0.8
-    start_epoch = 5.0
-    end_epoch = 15.0
-    update_frequency = 1.0
-    params = "__ALL_PRUNABLE__"
-    inter_func = "cubic"
-    mask_type = "filter"
-    yaml_str = f"""
-    !StructuredPruningModifier
-        param_groups: {param_groups}
-        init_sparsity: {init_sparsity}
-        final_sparsity: {final_sparsity}
-        start_epoch: {start_epoch}
-        end_epoch: {end_epoch}
-        update_frequency: {update_frequency}
-        params: {params}
-        inter_func: {inter_func}
-        mask_type: {mask_type}
-    """
-    yaml_modifier = StructuredPruningModifier.load_obj(yaml_str)
-    serialized_modifier = StructuredPruningModifier.load_obj(
-        str(yaml_modifier)
-    )  # type: StructuredPruningModifier
-    obj_modifier = StructuredPruningModifier(
-        param_groups=param_groups,
-        init_sparsity=init_sparsity,
-        final_sparsity=final_sparsity,
-        start_epoch=start_epoch,
-        end_epoch=end_epoch,
-        update_frequency=update_frequency,
-        params=params,
-        inter_func=inter_func,
-        mask_type=mask_type,
-    )
-
-    assert isinstance(yaml_modifier, StructuredPruningModifier)
-    _test_pruning_modifier_serialization_vals(
-        yaml_modifier, serialized_modifier, obj_modifier
-    )
-    assert (
-        yaml_modifier.param_groups
-        == serialized_modifier.param_groups
-        == obj_modifier.param_groups
     )

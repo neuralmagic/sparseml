@@ -35,7 +35,6 @@ from .modifier_lr import *
 from .modifier_params import *
 from .modifier_pruning import *
 from .modifier_regularizer import *
-from .modifier_thinning import *
 from .optimizer import *
 from .sensitivity_as import *
 from .sensitivity_lr import *
