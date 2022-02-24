@@ -129,7 +129,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         allow_reintroduction: bool = False,
         leave_enabled: bool = False,
         parent_class_kwarg_names: Optional[List[str]] = None,
-        leave_enabled: bool = False,
         **kwargs,
     ):
         if parent_class_kwarg_names is not None:

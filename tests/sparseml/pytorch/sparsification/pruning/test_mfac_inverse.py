@@ -44,7 +44,14 @@ PRECISION = 0.00001
     "devices",
     [
         None,
-        ["cuda:0"],
+        pytest.param(
+            ["cuda:0"],
+            marks=pytest.mark.skipif(
+                "CUDA_VISIBLE_DEVICES" not in os.environ
+                or not os.getenv("CUDA_VISIBLE_DEVICES"),
+                reason="No CUDA devices available",
+            ),
+        ),
     ],
 )
 @flaky(max_runs=3, min_passes=2)

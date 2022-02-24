@@ -173,9 +173,13 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         self._grads_device = grads_device
         self._fisher_block_size = fisher_block_size
         self._num_pages = num_pages
-        self._available_devices = available_devices
-        if self._available_devices is None and torch.cuda.device_count() > 0:
-            self._available_devices = ["cuda:0"]
+        if available_devices is None:
+            if torch.cuda.device_count() > 0:
+                self._available_devices = ["cuda:0"]
+            else:
+                self._available_devices = ["cpu"]
+        else:
+            self._available_devices = available_devices
 
     @ModifierProp(serializable=True)
     def use_gradient_buffering(self) -> Optional[bool]:
