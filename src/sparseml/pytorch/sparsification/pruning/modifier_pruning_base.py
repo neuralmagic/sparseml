@@ -107,8 +107,11 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         parent_class_kwarg_names and the initial kwargs. A value of None will preserve
         the original kwargs, whereas an empty list will yield empty kwargs.
         This param is included to avoid collisions between multiple inheritance
-        requirements and SparaseML requirements to not pass kwargs to the BaseObject
+        requirements and SparseML requirements to not pass kwargs to the BaseObject
         class.
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune. Default is False
     """
 
     def __init__(
@@ -124,6 +127,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
+        leave_enabled: bool = False,
         parent_class_kwarg_names: Optional[List[str]] = None,
         **kwargs,
     ):
@@ -156,7 +160,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
 
         self._global_sparsity = global_sparsity
         self._allow_reintroduction = allow_reintroduction
-        self._leave_enabled = kwargs.get("leave_enabled", False)
+        self._leave_enabled = leave_enabled
 
         self._applied_sparsity = None
         self._pre_step_completed = False
@@ -206,6 +210,15 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             and Linear layers' weights
         """
         return self._params
+
+    @ModifierProp()
+    def leave_enabled(self) -> bool:
+        """
+        :return: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune.
+        """
+        return self._leave_enabled
 
     @property
     def module_masks(self) -> Optional[ModuleParamPruningMask]:
@@ -575,7 +588,7 @@ class BaseGradualPruningModifier(BasePruningModifier):
         parent_class_kwarg_names and the initial kwargs. A value of None will preserve
         the original kwargs, whereas an empty list will yield empty kwargs.
         This param is included to avoid collisions between multiple inheritance
-        requirements and SparaseML requirements to not pass kwargs to the BaseObject
+        requirements and SparseML requirements to not pass kwargs to the BaseObject
         class.
     """
 
