@@ -31,6 +31,10 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
+from sparseml.pytorch.sparsification.quantization import (
+    quantize_torch_qat_export,
+    skip_onnx_input_quantize,
+)
 from sparseml.pytorch.utils.helpers import (
     tensors_export,
     tensors_module_forward,
@@ -41,10 +45,6 @@ from sparseml.pytorch.utils.model import (
     save_model,
     script_model,
     trace_model,
-)
-from sparseml.pytorch.sparsification.quantization import (
-    quantize_torch_qat_export,
-    skip_onnx_input_quantize,
 )
 from sparseml.utils import clean_path, create_parent_dirs
 
