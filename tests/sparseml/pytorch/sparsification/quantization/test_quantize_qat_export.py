@@ -16,7 +16,7 @@ import onnx
 import pytest
 from onnx import TensorProto
 
-from sparseml.pytorch.utils.quantization import skip_onnx_input_quantize
+from sparseml.pytorch.sparsification.quantization import skip_onnx_input_quantize
 
 
 def test_skip_onnx_input_quantize():
