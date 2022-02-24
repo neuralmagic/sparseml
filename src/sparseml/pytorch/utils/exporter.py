@@ -42,7 +42,7 @@ from sparseml.pytorch.utils.model import (
     script_model,
     trace_model,
 )
-from sparseml.pytorch.utils.quantization import (
+from sparseml.pytorch.sparsification.quantization import (
     quantize_torch_qat_export,
     skip_onnx_input_quantize,
 )
