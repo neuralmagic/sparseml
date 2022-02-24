@@ -46,7 +46,7 @@ except Exception:
 
 from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.sparsification.quantization import (
+from sparseml.pytorch.sparsification.quantization.helpers import (
     add_quant_dequant,
     configure_module_default_qconfigs,
     configure_module_qat_wrappers,

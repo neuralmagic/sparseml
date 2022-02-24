@@ -24,3 +24,4 @@ algorithms to models within in the PyTorch framework.
 from .info import *
 from .modifier_thinning import *
 from .pruning import *
+from .quantization.modifier_quantization import *
