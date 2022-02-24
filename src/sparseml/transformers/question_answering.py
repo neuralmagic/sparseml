@@ -45,12 +45,12 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 
+from sparseml.transformers.nm_training_arguments import NMTrainingArguments
 from sparseml.transformers.sparsification import (
     QuestionAnsweringTrainer,
     postprocess_qa_predictions,
 )
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.nm_training_arguments import NMTrainingArguments
 
 
 # Will error if the minimal version of Transformers is not installed

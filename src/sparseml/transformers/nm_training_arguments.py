@@ -77,7 +77,7 @@ class NMTrainingArguments(TrainingArguments):
                 )
             )
 
-        # If neither total nor per device batch sizes are defined,
+        # If neither total nor per device batch sizes are defined
         # set total batch sizes as default
         if not self.total_train_batch_size and not self.per_device_train_batch_size:
             self.total_train_batch_size = 8
@@ -87,10 +87,16 @@ class NMTrainingArguments(TrainingArguments):
         # If total batch size is defined at this point,
         # per device batch size needs to be computed
         if self.total_train_batch_size:
-            self.per_device_train_batch_size = self.total_train_batch_size // max(
-                1, self.n_gpu
+            self.per_device_train_batch_size = max(
+                1,
+                self.total_train_batch_size
+                // (
+                    max(1, self.n_gpu)
+                    * self.gradient_accumulation_steps
+                    * self.world_size
+                ),
             )
         if self.total_eval_batch_size:
-            self.per_device_eval_batch_size = self.total_eval_batch_size // max(
-                1, self.n_gpu
+            self.per_device_eval_batch_size = max(
+                1, self.total_eval_batch_size // (max(1, self.n_gpu) * self.world_size)
             )
