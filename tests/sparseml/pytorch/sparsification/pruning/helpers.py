@@ -63,12 +63,11 @@ def pruning_modifier_serialization_vals_test(
         == serialized_modifier.inter_func
         == obj_modifier.inter_func
     )
-    if not exclude_mask:
-        assert (
-            str(yaml_modifier.mask_type)
-            == str(serialized_modifier.mask_type)
-            == str(obj_modifier.mask_type)
-        )
+    assert (
+        str(yaml_modifier.mask_type)
+        == str(serialized_modifier.mask_type)
+        == str(obj_modifier.mask_type)
+    )
 
 
 def state_dict_save_load_test(

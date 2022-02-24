@@ -331,7 +331,7 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     )
     assert isinstance(yaml_modifier, MFACPruningModifier)
     pruning_modifier_serialization_vals_test(
-        yaml_modifier, serialized_modifier, obj_modifier, exclude_mask=True
+        yaml_modifier, serialized_modifier, obj_modifier
     )
     assert (
         str(yaml_modifier.global_sparsity)
