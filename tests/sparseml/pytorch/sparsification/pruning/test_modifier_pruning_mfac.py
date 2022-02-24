@@ -289,6 +289,7 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     fisher_block_size = 20
     num_pages = 1
     available_devices = ["cpu"]
+    mask_type = "block"
     yaml_str = f"""
     !MFACPruningModifier
         init_sparsity: {init_sparsity}
@@ -305,6 +306,7 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         fisher_block_size: {fisher_block_size}
         num_pages: {num_pages}
         available_devices: {available_devices}
+        mask_type: {mask_type}
     """
     yaml_modifier = MFACPruningModifier.load_obj(yaml_str)
     serialized_modifier = MFACPruningModifier.load_obj(
@@ -325,6 +327,7 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         fisher_block_size=fisher_block_size,
         num_pages=num_pages,
         available_devices=available_devices,
+        mask_type=mask_type,
     )
     assert isinstance(yaml_modifier, MFACPruningModifier)
     pruning_modifier_serialization_vals_test(
@@ -364,4 +367,9 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
         str(yaml_modifier._available_devices)
         == str(serialized_modifier._available_devices)
         == str(obj_modifier._available_devices)
+    )
+    assert (
+        str(yaml_modifier.mask_type)
+        == str(serialized_modifier.mask_type)
+        == str(obj_modifier.mask_type)
     )

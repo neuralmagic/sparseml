@@ -22,10 +22,7 @@ from flaky import flaky
 from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim import LayerPruningModifier
 from sparseml.pytorch.optim import LegacyGMPruningModifier as GMPruningModifier
-from sparseml.pytorch.optim import (
-    MovementPruningModifier,
-    load_mask_creator,
-)
+from sparseml.pytorch.optim import MovementPruningModifier, load_mask_creator
 from sparseml.pytorch.utils import get_layer
 from tests.sparseml.pytorch.helpers import FlatMLPNet, LinearNet
 from tests.sparseml.pytorch.optim.test_modifier import (
