@@ -43,7 +43,7 @@ from sparseml.pytorch.utils import (
             )
             or True
         ),
-        *([WANDBLogger] if WANDBLogger.available() else []),
+        *([WANDBLogger()] if WANDBLogger.available() else []),
         SparsificationGroupLogger(
             lambda_func=lambda tag, value, values, step, wall_time: logging.info(
                 f"{tag}, {value}, {values}, {step}, {wall_time}"
