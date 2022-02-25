@@ -15,6 +15,10 @@
 """
 Code related to applying a mask onto a parameter to impose kernel sparsity,
 aka model pruning
+
+NOTE: this file is in the process of being phased out in favor of the
+sparsification package. Once all references to mask utils in the optim
+package are migrated, this file will be deleted
 """
 
 from functools import partial

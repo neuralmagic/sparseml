@@ -14,6 +14,10 @@
 
 """
 Classes for defining sparsity masks based on model parameters.
+
+NOTE: this file is in the process of being phased out in favor of the
+sparsification package. Once all references to mask utils in the optim
+package are migrated, this file will be deleted
 """
 
 import random
