@@ -96,17 +96,6 @@ def _build_gradient_sampler(
             num_grads=8,
             available_devices=["cpu"],
         ),
-        lambda: MFACPruningModifier(
-            params=["seq.fc1.weight", "seq.fc2.weight"],
-            init_sparsity=0.5,
-            final_sparsity=0.95,
-            start_epoch=2.0,
-            end_epoch=5.0,
-            update_frequency=1.0,
-            inter_func="cubic",
-            num_grads=8,
-            global_sparsity=True,
-        ),
     ],
     scope="function",
 )
