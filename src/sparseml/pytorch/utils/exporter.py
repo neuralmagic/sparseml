@@ -42,10 +42,6 @@ from sparseml.pytorch.utils.model import (
     script_model,
     trace_model,
 )
-from sparseml.pytorch.utils.quantization import (
-    quantize_torch_qat_export,
-    skip_onnx_input_quantize,
-)
 from sparseml.utils import clean_path, create_parent_dirs
 
 
@@ -493,10 +489,20 @@ def export_onnx(
 
     if convert_qat and is_quant_module:
         # overwrite exported model with fully quantized version
+        # import here to avoid cyclic dependency
+        from sparseml.pytorch.sparsification.quantization import (
+            quantize_torch_qat_export,
+        )
+
         quantize_torch_qat_export(model=file_path, output_file_path=file_path)
 
     if skip_input_quantize:
         try:
+            # import here to avoid cyclic dependency
+            from sparseml.pytorch.sparsification.quantization import (
+                skip_onnx_input_quantize,
+            )
+
             skip_onnx_input_quantize(file_path, file_path)
         except Exception as e:
             _LOGGER.warning(
