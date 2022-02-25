@@ -14,6 +14,10 @@
 
 """
 Classes for tracking and scoring model parameters to generate pruning scores
+
+NOTE: this file is in the process of being phased out in favor of the
+sparsification package. Once all references to mask utils in the optim
+package are migrated, this file will be deleted
 """
 
 
