@@ -125,6 +125,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         update_frequency: float = -1.0,
         min_frequency: float = -1.0,
         log_types: Union[str, List[str]] = None,
+        log_frequency: float = 1.0,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
         leave_enabled: bool = False,
@@ -146,6 +147,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             end_comparator=end_comparator,
             update_frequency=update_frequency,
             min_frequency=min_frequency,
+            log_frequency=log_frequency,
             **kwargs,
         )
         self._params = validate_str_iterable(
@@ -381,7 +383,12 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             self._module_masks.pruning_end(self._leave_enabled)
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the learning rate of the modifier.
@@ -392,13 +399,17 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
         """
-        super().log_update(module, optimizer, epoch, steps_per_epoch)
+        super().log_update(module, optimizer, epoch, steps_per_epoch, scheduled_log)
 
-        if self._should_log(module, optimizer, epoch, steps_per_epoch):
-            self._last_logged_epoch = math.floor(epoch)
-            _log_sparsity(
-                "ParamPruning", self._analyzers, self.loggers, epoch, steps_per_epoch
-            )
+        self._last_logged_epoch = math.floor(epoch)
+        _log_sparsity(
+            "ParamPruning",
+            self._analyzers,
+            self.loggers,
+            epoch,
+            steps_per_epoch,
+            scheduled_log,
+        )
 
     def optimizer_pre_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -498,7 +509,12 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         )
 
     def _should_log(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        scheduled_log: bool,
     ) -> bool:
         return self._last_logged_epoch != math.floor(epoch)
 
@@ -824,6 +840,7 @@ def _log_sparsity(
     loggers: List[BaseLogger],
     epoch: float,
     steps_per_epoch: int,
+    scheduled_log: bool,
 ):
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
 
@@ -839,4 +856,5 @@ def _log_sparsity(
                 f"{tag_prefix}/{layer_sparsity[0]}",
                 layer_sparsity[1],
                 step,
+                scheduled_log,
             )

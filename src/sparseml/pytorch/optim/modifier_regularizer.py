@@ -163,7 +163,12 @@ class SetWeightDecayModifier(ScheduledModifier):
         self._update_since_last_log = True
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the weight decay of the modifier

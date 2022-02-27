@@ -174,6 +174,7 @@ def test_set_lr_yaml():
             final_lr=0.001,
             start_epoch=0,
             end_epoch=10,
+            update_frequency=0.5,
         ),
         lambda: LearningRateFunctionModifier(
             lr_func="linear",
@@ -401,6 +402,7 @@ def test_lr_function_modifier_yaml():
     init_lr = 0.1
     final_lr = 0.001
     param_groups = [0, 1]
+    log_frequency = 0.5
     yaml_str = f"""
     !LearningRateFunctionModifier
         start_epoch: {start_epoch}
@@ -409,6 +411,7 @@ def test_lr_function_modifier_yaml():
         init_lr: {init_lr}
         final_lr: {final_lr}
         param_groups: {param_groups}
+        log_frequency: {log_frequency}
     """
     yaml_modifier = LearningRateFunctionModifier.load_obj(
         yaml_str
@@ -423,6 +426,7 @@ def test_lr_function_modifier_yaml():
         init_lr=init_lr,
         final_lr=final_lr,
         param_groups=param_groups,
+        log_frequency=log_frequency
     )
 
     assert isinstance(yaml_modifier, LearningRateFunctionModifier)
@@ -450,6 +454,11 @@ def test_lr_function_modifier_yaml():
         yaml_modifier.param_groups
         == serialized_modifier.param_groups
         == obj_modifier.param_groups
+    )
+    assert (
+        yaml_modifier.log_frequency
+        == serialized_modifier.log_frequency
+        == obj_modifier.log_frequency
     )
 
 

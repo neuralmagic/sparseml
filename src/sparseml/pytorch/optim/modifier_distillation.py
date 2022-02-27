@@ -81,11 +81,13 @@ class DistillationModifier(ScheduledUpdateModifier):
         distill_output_keys: List[Any] = None,
         teacher_input_keys: List[Any] = None,
         update_frequency: float = -1.0,
+        log_frequency: float = 1.0,
     ):
         super().__init__(
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             end_comparator=-1,
+            log_frequency=log_frequency,
         )
         self._hardness = hardness
         self._temperature = temperature

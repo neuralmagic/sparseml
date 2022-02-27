@@ -33,7 +33,7 @@ from sparseml.optim import (
     ModifierProp,
     ModifierYAML,
 )
-from sparseml.pytorch.utils import BaseLogger
+from sparseml.pytorch.utils import BaseLogger, PythonLogger
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, PYTORCH_FRAMEWORK
 
@@ -235,6 +235,9 @@ class Modifier(BaseModifier):
         :param loggers: the loggers to setup this modifier with for logging important
             info and milestones to
         """
+        if self._loggers_initialized:
+            return
+
         self._loggers_initialized = True
 
         if not self._log_types or not loggers:
@@ -290,7 +293,12 @@ class Modifier(BaseModifier):
             raise RuntimeError("modifier must be enabled")
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        scheduled_log: bool = True,
     ):
         """
         Handles logging updates for the modifier for better tracking and visualization.
@@ -421,6 +429,8 @@ class ScheduledModifier(Modifier, BaseScheduled):
     def __init__(
         self,
         log_types: Union[str, List[str]] = None,
+        log_frequency: float = -1.0,
+        log_to_file=False,
         start_epoch: float = -1.0,
         min_start: float = -1.0,
         end_epoch: float = -1.0,
@@ -442,6 +452,8 @@ class ScheduledModifier(Modifier, BaseScheduled):
         self._ended = False
         self._schedule_called = False
         self._scheduled_log_called = False
+        self._log_frequency = log_frequency
+        self._last_log_epoch = -1
 
         self.validate_schedule()
 
@@ -460,6 +472,20 @@ class ScheduledModifier(Modifier, BaseScheduled):
             False otherwise
         """
         return self._ended
+
+    @ModifierProp()
+    def log_frequency(self) -> float:
+        """
+        :return: 
+        """
+        return self._log_frequency
+
+    @log_frequency.setter
+    def log_frequency(self, value: str):
+        """
+        :param value:
+        """
+        self._log_frequency = value
 
     def start_pending(self, epoch: float, steps_per_epoch: int) -> bool:
         """
@@ -591,6 +617,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
         """
+
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
 
@@ -600,12 +627,22 @@ class ScheduledModifier(Modifier, BaseScheduled):
         if not self._enabled:
             raise RuntimeError("modifier must be enabled")
 
+        scheduled_log = self._log_frequency == -1.0 or (
+            self._last_log_epoch >= 0.0
+            and epoch >= self._last_log_epoch + self._log_frequency
+        )
+
         self._scheduled_log_called = True
-        self.log_update(module, optimizer, epoch, steps_per_epoch)
+        self.log_update(module, optimizer, epoch, steps_per_epoch, scheduled_log)
         self._scheduled_log_called = False
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        scheduled_log: bool = True,
     ):
         """
         Handles logging updates for the modifier for better tracking and visualization.
@@ -618,7 +655,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
         """
-        super().log_update(module, optimizer, epoch, steps_per_epoch)
+        super().log_update(module, optimizer, epoch, steps_per_epoch, scheduled_log)
 
         if not self._scheduled_log_called:
             raise RuntimeError(
@@ -673,6 +710,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
         min_end: float = -1.0,
         end_comparator: Union[int, None] = 0,
         update_frequency: float = -1.0,
+        log_frequency: float = 1.0,
         min_frequency: float = -1.0,
         **kwargs,
     ):
@@ -685,6 +723,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
             end_comparator=end_comparator,
             update_frequency=update_frequency,
             min_frequency=min_frequency,
+            log_frequency=log_frequency,
             **kwargs,
         )
         self._last_update_epoch = -1.0

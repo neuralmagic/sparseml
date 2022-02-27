@@ -64,9 +64,10 @@ class BaseLogger(ABC):
     :param enabled: True to log, False otherwise
     """
 
-    def __init__(self, name: str, enabled: bool = True):
+    def __init__(self, name: str, enabled: bool = True, scheduled: bool = True):
         self._name = name
         self._enabled = enabled
+        self._scheduled = scheduled
 
     @property
     def name(self) -> str:
@@ -89,6 +90,23 @@ class BaseLogger(ABC):
         """
         self._enabled = value
 
+    @property
+    def scheduled(self) -> bool:
+        """
+        :return: True to log on schedule, False to log always
+        """
+        return self._scheduled
+
+    @scheduled.setter
+    def scheduled(self, value: bool):
+        """
+        :param value: True to log on schedule, False to log always
+        """
+        self._scheduled = value
+
+    def log_ready(self, scheduled_call: bool):
+        return not self._scheduled or scheduled_call
+
     def log_hyperparams(self, params: Dict[str, float]) -> bool:
         """
         :param params: Each key-value pair in the dictionary is the name of the
@@ -103,6 +121,7 @@ class BaseLogger(ABC):
         value: float,
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
+        scheduled_call: bool = True,
     ) -> bool:
         """
         :param tag: identifying tag to log the value with
@@ -119,6 +138,7 @@ class BaseLogger(ABC):
         values: Dict[str, float],
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
+        scheduled_call: bool = True,
     ):
         """
         :param tag: identifying tag to log the values with
@@ -127,6 +147,16 @@ class BaseLogger(ABC):
         :param wall_time: global wall time for when the values were taken
         :return: True if logged, False otherwise.
         """
+        return False
+
+    def log_string(
+        self,
+        tag,
+        string,
+        step,
+        wall_time: Optional[float] = None,
+        scheduled_call: bool = True,
+    ):
         return False
 
 
@@ -147,8 +177,10 @@ class LambdaLogger(BaseLogger):
         lambda_func: Callable[
             [
                 Optional[str],
+                Optional[str],
                 Optional[float],
                 Optional[Dict[str, float]],
+                Optional[str],
                 Optional[int],
                 Optional[float],
             ],
@@ -156,8 +188,9 @@ class LambdaLogger(BaseLogger):
         ],
         name: str = "lambda",
         enabled: bool = True,
+        scheduled: bool = True,
     ):
-        super().__init__(name, enabled)
+        super().__init__(name, enabled, scheduled=scheduled)
         self._lambda_func = lambda_func
         assert lambda_func, "lambda_func must be set to a callable function"
 
@@ -167,8 +200,10 @@ class LambdaLogger(BaseLogger):
     ) -> Callable[
         [
             Optional[str],
+            Optional[str],
             Optional[float],
             Optional[Dict[str, float]],
+            Optional[str],
             Optional[int],
             Optional[float],
         ],
@@ -189,7 +224,15 @@ class LambdaLogger(BaseLogger):
         if not self.enabled:
             return False
 
-        return self._lambda_func(None, None, params, None, None)
+        return self._lambda_func(
+            tag=None,
+            level=None,
+            value=None,
+            values=params,
+            string=None,
+            step=None,
+            wall_time=None,
+        )
 
     def log_scalar(
         self,
@@ -197,6 +240,8 @@ class LambdaLogger(BaseLogger):
         value: float,
         step: Union[None, int] = None,
         wall_time: Union[None, float] = None,
+        scheduled_call: bool = True,
+        level: Optional[str] = None,
     ):
         """
         :param tag: identifying tag to log the value with
@@ -209,10 +254,21 @@ class LambdaLogger(BaseLogger):
         if not self.enabled:
             return False
 
+        if not self.log_ready(scheduled_call):
+            return False
+
         if not wall_time:
             wall_time = time.time()
 
-        return self._lambda_func(tag, value, None, step, wall_time)
+        return self._lambda_func(
+            tag=tag,
+            level=level,
+            value=value,
+            values=None,
+            string=None,
+            step=step,
+            wall_time=wall_time,
+        )
 
     def log_scalars(
         self,
@@ -220,6 +276,8 @@ class LambdaLogger(BaseLogger):
         values: Dict[str, float],
         step: Union[None, int] = None,
         wall_time: Union[None, float] = None,
+        scheduled_call: bool = True,
+        level: Optional[str] = None,
     ):
         """
         :param tag: identifying tag to log the values with
@@ -232,10 +290,21 @@ class LambdaLogger(BaseLogger):
         if not self.enabled:
             return False
 
+        if not self.log_ready(scheduled_call):
+            return False
+
         if not wall_time:
             wall_time = time.time()
 
-        return self._lambda_func(tag, None, values, step, wall_time)
+        return self._lambda_func(
+            tag=tag,
+            level=level,
+            value=None,
+            values=values,
+            string=None,
+            step=step,
+            wall_time=wall_time,
+        )
 
 
 class PythonLogger(LambdaLogger):
@@ -262,7 +331,9 @@ class PythonLogger(LambdaLogger):
             self._logger = logging.getLogger(__name__)
 
         self._log_level = log_level
-        super().__init__(lambda_func=self._log_lambda, name=name, enabled=enabled)
+        super().__init__(
+            lambda_func=self._log_lambda, name=name, enabled=enabled, scheduled=True
+        )
 
     def __getattr__(self, item):
         return getattr(self._logger, item)
@@ -277,15 +348,20 @@ class PythonLogger(LambdaLogger):
     def _log_lambda(
         self,
         tag: Optional[str],
+        level: Optional[str],
         value: Optional[float],
         values: Optional[Dict[str, float]],
+        string: Optional[str],
         step: Optional[int],
         wall_time: Optional[float],
     ) -> bool:
+        if not level:
+            level = self._log_level
+
         if not values:
             values = {}
 
-        if value:
+        if value is not None:
             values["__value__"] = value
 
         self._logger.log(
@@ -340,7 +416,9 @@ class TensorBoardLogger(LambdaLogger):
             create_dirs(log_path)
 
         self._writer = writer if writer is not None else SummaryWriter(log_path)
-        super().__init__(lambda_func=self._log_lambda, name=name, enabled=enabled)
+        super().__init__(
+            lambda_func=self._log_lambda, name=name, enabled=enabled, scheduled=False
+        )
 
     @property
     def writer(self) -> SummaryWriter:
@@ -353,8 +431,10 @@ class TensorBoardLogger(LambdaLogger):
     def _log_lambda(
         self,
         tag: Optional[str],
+        level: Optional[str],
         value: Optional[float],
         values: Optional[Dict[str, float]],
+        string: Optional[str],
         step: Optional[int],
         wall_time: Optional[float],
     ) -> bool:
@@ -395,7 +475,9 @@ class WANDBLogger(LambdaLogger):
         name: str = "wandb",
         enabled: bool = True,
     ):
-        super().__init__(lambda_func=self._log_lambda, name=name, enabled=enabled)
+        super().__init__(
+            lambda_func=self._log_lambda, name=name, enabled=enabled, scheduled=False
+        )
 
         if wandb_err:
             raise wandb_err
@@ -408,14 +490,16 @@ class WANDBLogger(LambdaLogger):
     def _log_lambda(
         self,
         tag: Optional[str],
+        level: Optional[str],
         value: Optional[float],
         values: Optional[Dict[str, float]],
+        string: Optional[str],
         step: Optional[int],
         wall_time: Optional[float],
     ) -> bool:
         params = {}
 
-        if value is not None:
+        if value:
             params[tag] = value
 
         if values:

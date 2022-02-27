@@ -91,12 +91,14 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = None,
+        log_frequency: float = 1.0,
     ):
         super().__init__(
             log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1.0,
+            log_frequency=log_frequency,
         )
         self._layers = validate_str_iterable(
             layers, "{} for layers".format(self.__class__.__name__)
@@ -187,7 +189,12 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         self._check_update_pruning(module, epoch, steps_per_epoch)
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the state of the modifier.
@@ -197,7 +204,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
         """
-        super().log_update(module, optimizer, epoch, steps_per_epoch)
+        super().log_update(module, optimizer, epoch, steps_per_epoch, scheduled_log)
 
         if self._should_log(module, optimizer, epoch, steps_per_epoch):
             self._last_logged_epoch = math.floor(epoch)

@@ -182,7 +182,12 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
         self._check_set_lr(optimizer, epoch)
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the learning rate of the modifier
@@ -281,6 +286,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         param_groups: Optional[List[int]] = None,
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
+        log_frequency: float = -1.0
     ):
         super().__init__(
             log_types=log_types,
@@ -288,6 +294,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             end_epoch=end_epoch,
             update_frequency=-1.0,
             end_comparator=1,
+            log_frequency=log_frequency,
         )
         self._lr_func = lr_func
         self._init_lr = init_lr
@@ -396,7 +403,12 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         set_optim_learning_rate(optimizer, self._learning_rate, self.param_groups)
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the learning rate of the modifier.
@@ -560,6 +572,7 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
+        log_frequency: float = 1.0,
         constant_logging: bool = False,
     ):
         super(LearningRateModifier, self).__init__(
@@ -570,6 +583,7 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1.0,
+            log_frequency=log_frequency,
             end_comparator=-1,
         )
         self._lr_scheduler = None
@@ -648,7 +662,12 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
             )
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the learning rate of the modifier
