@@ -402,6 +402,8 @@ class WANDBLogger(LambdaLogger):
 
         if init_kwargs:
             wandb.init(**init_kwargs)
+        else:
+            wandb.init()
 
     def _log_lambda(
         self,

@@ -21,6 +21,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+from sparseml.optim import BaseModifier
 from sparseml.pytorch.optim import (
     PYTORCH_FRAMEWORK,
     Modifier,
@@ -32,6 +33,7 @@ from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
 from sparseml.utils import ALL_TOKEN
 from tests.sparseml.optim import BaseModifierTest, BaseScheduledTest, BaseUpdateTest
 from tests.sparseml.pytorch.helpers import (
+    SAMPLE_STAGED_RECIPE,
     LinearNet,
     create_optim_adam,
     create_optim_sgd,
@@ -588,6 +590,7 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
         optim_lambda: Callable[[Module], Optimizer],
         test_epoch: float,  # noqa: F811
         test_steps_per_epoch: int,  # noqa: F811
+        **initialize_kwargs,
     ):
         super().test_scheduled_update(
             modifier_lambda,
@@ -595,11 +598,12 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
             optim_lambda,
             test_epoch,
             test_steps_per_epoch,
+            **initialize_kwargs,
         )
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model)
+        self.initialize_helper(modifier, model, **initialize_kwargs)
         self.start_helper(modifier, model, optimizer)
         min_update_freq = 1.0 / float(test_steps_per_epoch)
 
@@ -739,6 +743,25 @@ pruning_modifiers:
 def test_load_list(modifier_str, num_modifiers):
     modifier_list = Modifier.load_list(modifier_str)
     assert len(modifier_list) == num_modifiers
+
+
+@pytest.mark.parametrize(
+    "staged_modifier_str,names_to_num_modifiers",
+    [
+        (SAMPLE_STAGED_RECIPE, {"stage_1": 4, "stage_2": 3}),
+    ],
+)
+def test_load_staged(staged_modifier_str, names_to_num_modifiers):
+    modifier_stages = Modifier.load_list(staged_modifier_str)
+    assert isinstance(modifier_stages, dict)
+    assert len(modifier_stages) == len(names_to_num_modifiers)
+    for (stage_name, modifiers), (expected_stage_name, expected_num_modifiers) in zip(
+        modifier_stages.items(), names_to_num_modifiers.items()
+    ):
+        assert stage_name == expected_stage_name
+        assert isinstance(modifiers, list)
+        assert all(isinstance(modifier, BaseModifier) for modifier in modifiers)
+        assert len(modifiers) == expected_num_modifiers
 
 
 _SAMPLE_BAD_RECIPE = """

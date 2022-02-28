@@ -16,12 +16,12 @@
 Deprecated script kindly use the following task specific scripts for
  optimization tasks on image classification and object detection models:
 
-* Model pruning - integrations/pytorch/train.py
-* Quantization aware training - integrations/pytorch/train.py
-* Sparse transfer learning - integrations/pytorch/train.py
-* pruning sensitivity analysis - integrations/pytorch/pr_sensitivity.py
-* learning rate sensitivity analysis - integrations/pytorch/lr_analysis.py
-* ONNX export - integrations/pytorch/export.py
+* Model pruning - sparseml.image_classification.train
+* Quantization aware training - sparseml.image_classification.train
+* Sparse transfer learning - sparseml.image_classification.train
+* pruning sensitivity analysis - sparseml.image_classification.pr_sensitivity
+* learning rate sensitivity analysis - sparseml.image_classification.lr_analysis
+* ONNX export - sparseml.image_classification.export_onnx
 """
 
 

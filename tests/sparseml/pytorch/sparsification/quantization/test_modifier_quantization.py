@@ -17,7 +17,7 @@ import os
 import pytest
 from torch.nn import Conv2d, Identity, Linear
 
-from sparseml.pytorch.optim import QuantizationModifier
+from sparseml.pytorch.sparsification import QuantizationModifier
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
 
@@ -55,6 +55,10 @@ QUANTIZATION_MODIFIERS = [
     ),
     lambda: QuantizationModifier(
         start_epoch=0.0,
+        activation_bits=4,
+    ),
+    lambda: QuantizationModifier(
+        start_epoch=0.0,
         exclude_module_types=["Linear"],
     ),
 ]
@@ -86,6 +90,17 @@ def _test_quantizable_module(module, qat_expected, modifier):
         )
         if module.qconfig.activation is not Identity:
             assert module.qconfig.activation.p.keywords["reduce_range"] == reduce_range
+        if modifier.activation_bits is not None:
+            expected_quant_min = 0
+            expected_quant_max = (1 << modifier.activation_bits) - 1
+
+            assert (
+                module.qconfig.activation.p.keywords["quant_min"] == expected_quant_min
+            )
+            assert (
+                module.qconfig.activation.p.keywords["quant_max"] == expected_quant_max
+            )
+
         if isinstance(module, Linear):
             assert isinstance(module.activation_post_process, Identity) == (
                 not quantize_linear_activations
@@ -103,11 +118,8 @@ def _test_qat_applied(modifier, model):
         submodules = [""]
         for module in model.modules():
             if _is_quantizable_module(module):
-                _test_quantizable_module(
-                    module,
-                    True,
-                    modifier,
-                )
+                _test_quantizable_module(module, True, modifier)
+
     else:
         assert not hasattr(model, "qconfig") or model.qconfig is None
         submodules = modifier.submodules
@@ -211,6 +223,11 @@ def test_quantization_modifier_yaml():
     quantize_linear_activations = False
     num_calibration_steps = 2
     exclude_module_types = ["LayerNorm", "Tanh"]
+    activation_bits = 4
+    averaging_constant = 0.05
+    activation_qconfig_kwargs = dict(
+        averaging_constant=averaging_constant,
+    )
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}
@@ -223,6 +240,8 @@ def test_quantization_modifier_yaml():
             quantize_linear_activations: {quantize_linear_activations}
             num_calibration_steps: {num_calibration_steps}
             exclude_module_types: {exclude_module_types}
+            activation_bits: {activation_bits}
+            activation_qconfig_kwargs: {activation_qconfig_kwargs}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -239,8 +258,10 @@ def test_quantization_modifier_yaml():
         quantize_embeddings=quantize_embeddings,
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
+        activation_bits=activation_bits,
         num_calibration_steps=num_calibration_steps,
         exclude_module_types=exclude_module_types,
+        activation_qconfig_kwargs=activation_qconfig_kwargs,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -285,6 +306,11 @@ def test_quantization_modifier_yaml():
         == obj_modifier.quantize_linear_activations
     )
     assert (
+        yaml_modifier.activation_bits
+        == serialized_modifier.activation_bits
+        == obj_modifier.activation_bits
+    )
+    assert (
         yaml_modifier.num_calibration_steps
         == serialized_modifier.num_calibration_steps
         == obj_modifier.num_calibration_steps
@@ -293,4 +319,9 @@ def test_quantization_modifier_yaml():
         yaml_modifier.exclude_module_types
         == serialized_modifier.exclude_module_types
         == obj_modifier.exclude_module_types
+    )
+    assert (
+        yaml_modifier.activation_qconfig_kwargs
+        == serialized_modifier.activation_qconfig_kwargs
+        == obj_modifier.activation_qconfig_kwargs
     )

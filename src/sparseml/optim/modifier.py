@@ -326,15 +326,22 @@ class BaseModifier(BaseObject):
             if any("modifiers" in key for key in container):
                 # non-staged recipe, treat entire recipe as stage
                 modifiers = _load_stage_modifiers(container)
-                pass
             else:
                 # staged recipe, return dict of stage_name -> modifiers
                 modifiers = {}
                 for stage_name, stage_item in container.items():
                     if not isinstance(stage_item, Dict):
-                        pass  # stages must be represented as a Dict
+                        continue  # stages must be represented as a Dict
                     if any("modifiers" in key for key in stage_item):
                         modifiers[stage_name] = _load_stage_modifiers(stage_item)
+
+        if not modifiers:
+            raise ValueError(
+                "Unable to find any modifiers in given recipe. Modifiers must be "
+                "listed as lists under yaml keys that include 'modifiers' in their "
+                "name. Those keys and lists may also be nested under an extra key for "
+                "staged recipes."
+            )
 
         return modifiers
 

@@ -11,29 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 
 import pytest
 import torch
+from torch.utils.data import DataLoader
 
 from flaky import flaky
-from sparseml.pytorch.sparsification.pruning import (
-    GlobalMagnitudePruningModifier,
-    GMPruningModifier,
-    MagnitudePruningModifier,
-)
-from sparseml.pytorch.utils import tensor_sparsity
+from sparseml.pytorch.sparsification.pruning import MFACPruningModifier
+from sparseml.pytorch.utils import GradSampler, tensor_sparsity
 from sparseml.utils import FROM_PARAM_TOKEN
-from tests.sparseml.pytorch.helpers import LinearNet
+from tests.sparseml.pytorch.helpers import MLPDataset, MLPNet
 from tests.sparseml.pytorch.optim.test_modifier import (
     ScheduledUpdateModifierTest,
     create_optim_adam,
-    create_optim_sgd,
 )
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
     pruning_modifier_serialization_vals_test,
-    state_dict_save_load_test,
 )
 
 
@@ -44,6 +38,31 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 )
 
 
+def _device_data_loader(data_loader):
+    for sample in data_loader:
+        img, target = [t for t in sample]
+        yield [img], {}, target
+
+
+def _mfac_loss_function(model_outputs, loss_target):
+    return torch.nn.functional.mse_loss(model_outputs[0], loss_target)
+
+
+def _build_gradient_sampler(
+    dataset_lambda,
+    loss_function,
+    data_generator,
+    batch_size,
+    num_grads,
+    num_epochs,
+    update_frequency,
+):
+    data_length = int(batch_size * num_grads * num_epochs * (1 / update_frequency) * 2)
+    dataset = dataset_lambda(length=data_length)
+    data_loader = DataLoader(dataset, batch_size=batch_size)
+    return GradSampler(data_generator(data_loader), loss_function)
+
+
 @flaky(max_runs=3, min_passes=2)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
@@ -52,86 +71,83 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
-        lambda: GMPruningModifier(
-            init_sparsity=0.05,
+        lambda: MFACPruningModifier(
+            init_sparsity=0.5,
             final_sparsity=0.95,
-            start_epoch=0.0,
-            end_epoch=15.0,
+            start_epoch=2.0,
+            end_epoch=5.0,
             update_frequency=1.0,
             params=["re:.*weight"],
             inter_func="linear",
+            fisher_block_size=50,
+            num_grads=8,
+            available_devices=["cpu"],
         ),
-        lambda: GMPruningModifier(
+        lambda: MFACPruningModifier(
             init_sparsity=FROM_PARAM_TOKEN,
             final_sparsity=0.95,
-            start_epoch=0.0,
-            end_epoch=15.0,
+            start_epoch=2.0,
+            end_epoch=5.0,
             update_frequency=1.0,
             params=["re:.*weight"],
             inter_func="linear",
+            fisher_block_size=1500,
+            damp=0.000001,
+            num_grads=8,
+            available_devices=["cpu"],
         ),
-        lambda: GlobalMagnitudePruningModifier(
-            params="__ALL_PRUNABLE__",
-            init_sparsity=0.05,
-            final_sparsity=0.95,
-            start_epoch=10.0,
-            end_epoch=25.0,
-            update_frequency=1.0,
-            inter_func="cubic",
-        ),
-        lambda: GMPruningModifier(
+        lambda: MFACPruningModifier(
             params=["seq.fc1.weight", "seq.fc2.weight"],
-            init_sparsity=0.05,
+            init_sparsity=0.5,
             final_sparsity=0.95,
-            start_epoch=10.0,
-            end_epoch=25.0,
+            start_epoch=2.0,
+            end_epoch=5.0,
             update_frequency=1.0,
             inter_func="cubic",
-            mask_type="block",
-        ),
-        lambda: GMPruningModifier(
-            params=["__ALL_PRUNABLE__"],
-            init_sparsity=0.8,
-            final_sparsity=0.9,
-            start_epoch=10.0,
-            end_epoch=25.0,
-            update_frequency=2.0,
-            inter_func="cubic",
-        ),
-        lambda: GMPruningModifier(
-            params=[],
-            init_sparsity=0.05,
-            final_sparsity={
-                0.6: ["seq.fc1.weight", "seq.fc2.weight"],
-                0.8: ["re:seq.block1.*weight"],
-            },
-            start_epoch=10.0,
-            end_epoch=25.0,
-            update_frequency=1.0,
-            inter_func="cubic",
-            mask_type="block",
+            num_grads=8,
+            global_sparsity=True,
         ),
     ],
     scope="function",
 )
-@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize(
+    "model_lambda",
+    [MLPNet],
+)
 @pytest.mark.parametrize(
     "optim_lambda",
-    [create_optim_sgd, create_optim_adam],
+    [create_optim_adam],
     scope="function",
 )
-class TestGMPruningModifier(ScheduledUpdateModifierTest):
+class TestMFACPruningModifier(ScheduledUpdateModifierTest):
+    @pytest.mark.parametrize(
+        "dataset_lambda,loss,mfac_batch_size",
+        [(MLPDataset, _mfac_loss_function, 4)],
+    )
     def test_lifecycle(
         self,
         modifier_lambda,
         model_lambda,
         optim_lambda,
         test_steps_per_epoch,  # noqa: F811
+        dataset_lambda,
+        loss,
+        mfac_batch_size,
     ):
         modifier = modifier_lambda()
         model = model_lambda()
         optimizer = optim_lambda(model)
-        self.initialize_helper(modifier, model)
+        grad_sampler = _build_gradient_sampler(
+            dataset_lambda,
+            loss,
+            _device_data_loader,
+            mfac_batch_size,
+            modifier.num_grads,
+            modifier.end_epoch - modifier.start_epoch + 1,
+            modifier.update_frequency,
+        )
+
+        self.initialize_helper(modifier, model, grad_sampler=grad_sampler)
         if modifier.start_epoch > 0:
             assert modifier.applied_sparsity is None
         assert modifier._mask_creator == modifier._module_masks._mask_creator
@@ -205,20 +221,38 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
             assert not modifier.update_ready(epoch, test_steps_per_epoch)
             _test_final_sparsity_applied()
 
-    def test_state_dict_save_load(
+    @pytest.mark.parametrize(
+        "dataset_lambda,loss,mfac_batch_size",
+        [(MLPDataset, _mfac_loss_function, 4)],
+    )
+    def test_scheduled_update(
         self,
         modifier_lambda,
         model_lambda,
         optim_lambda,
+        test_epoch,  # noqa: F811
         test_steps_per_epoch,  # noqa: F811
+        dataset_lambda,
+        loss,
+        mfac_batch_size,
     ):
-        state_dict_save_load_test(
-            self,
+        modifier = modifier_lambda()
+        grad_sampler = _build_gradient_sampler(
+            dataset_lambda,
+            loss,
+            _device_data_loader,
+            mfac_batch_size,
+            modifier.num_grads,
+            modifier.end_epoch - modifier.start_epoch + 1,
+            modifier.update_frequency,
+        )
+        super().test_scheduled_update(
             modifier_lambda,
             model_lambda,
             optim_lambda,
+            test_epoch,
             test_steps_per_epoch,
-            True,
+            grad_sampler=grad_sampler,
         )
 
 
@@ -243,55 +277,21 @@ class TestGMPruningModifier(ScheduledUpdateModifierTest):
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
 )
-def test_gm_pruning_yaml(params, init_sparsity, final_sparsity):
+def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     start_epoch = 5.0
     end_epoch = 15.0
     update_frequency = 1.0
     inter_func = "cubic"
-    mask_type = "filter"
-    yaml_str = f"""
-    !GMPruningModifier
-        init_sparsity: {init_sparsity}
-        final_sparsity: {final_sparsity}
-        start_epoch: {start_epoch}
-        end_epoch: {end_epoch}
-        update_frequency: {update_frequency}
-        params: {params}
-        inter_func: {inter_func}
-        mask_type: {mask_type}
-    """
-    yaml_modifier = GMPruningModifier.load_obj(yaml_str)  # type: GMPruningModifier
-    serialized_modifier = GMPruningModifier.load_obj(
-        str(yaml_modifier)
-    )  # type: GMPruningModifier
-    obj_modifier = GMPruningModifier(
-        init_sparsity=init_sparsity,
-        final_sparsity=final_sparsity,
-        start_epoch=start_epoch,
-        end_epoch=end_epoch,
-        update_frequency=update_frequency,
-        params=params,
-        inter_func=inter_func,
-        mask_type=mask_type,
-    )
-
-    assert isinstance(yaml_modifier, GMPruningModifier)
-    pruning_modifier_serialization_vals_test(
-        yaml_modifier, serialized_modifier, obj_modifier
-    )
-
-
-def test_magnitude_pruning_yaml():
-    init_sparsity = 0.05
-    final_sparsity = 0.8
-    start_epoch = 5.0
-    end_epoch = 15.0
-    update_frequency = 1.0
-    params = "__ALL_PRUNABLE__"
-    inter_func = "cubic"
+    global_sparsity = False
+    num_grads = 64
+    damp = 0.000001
+    grads_device = "cpu"
+    fisher_block_size = 20
+    num_pages = 1
+    available_devices = ["cpu"]
     mask_type = "block"
     yaml_str = f"""
-    !MagnitudePruningModifier
+    !MFACPruningModifier
         init_sparsity: {init_sparsity}
         final_sparsity: {final_sparsity}
         start_epoch: {start_epoch}
@@ -299,15 +299,20 @@ def test_magnitude_pruning_yaml():
         update_frequency: {update_frequency}
         params: {params}
         inter_func: {inter_func}
+        global_sparsity: {global_sparsity}
+        num_grads: {num_grads}
+        damp: {damp}
+        grads_device: {grads_device}
+        fisher_block_size: {fisher_block_size}
+        num_pages: {num_pages}
+        available_devices: {available_devices}
         mask_type: {mask_type}
     """
-    yaml_modifier = MagnitudePruningModifier.load_obj(
-        yaml_str
-    )  # type: MagnitudePruningModifier
-    serialized_modifier = MagnitudePruningModifier.load_obj(
+    yaml_modifier = MFACPruningModifier.load_obj(yaml_str)
+    serialized_modifier = MFACPruningModifier.load_obj(
         str(yaml_modifier)
-    )  # type: MagnitudePruningModifier
-    obj_modifier = MagnitudePruningModifier(
+    )  # type: MFACPruningModifier
+    obj_modifier = MFACPruningModifier(
         init_sparsity=init_sparsity,
         final_sparsity=final_sparsity,
         start_epoch=start_epoch,
@@ -315,51 +320,56 @@ def test_magnitude_pruning_yaml():
         update_frequency=update_frequency,
         params=params,
         inter_func=inter_func,
+        global_sparsity=global_sparsity,
+        num_grads=num_grads,
+        damp=damp,
+        grads_device=grads_device,
+        fisher_block_size=fisher_block_size,
+        num_pages=num_pages,
+        available_devices=available_devices,
         mask_type=mask_type,
     )
-
-    assert isinstance(yaml_modifier, MagnitudePruningModifier)
+    assert isinstance(yaml_modifier, MFACPruningModifier)
     pruning_modifier_serialization_vals_test(
         yaml_modifier, serialized_modifier, obj_modifier
     )
-
-
-def test_global_magnitude_pruning_yaml():
-    init_sparsity = 0.05
-    final_sparsity = 0.8
-    start_epoch = 5.0
-    end_epoch = 15.0
-    update_frequency = 1.0
-    params = "__ALL_PRUNABLE__"
-    inter_func = "cubic"
-    mask_type = "filter"
-    yaml_str = f"""
-    !GlobalMagnitudePruningModifier
-        init_sparsity: {init_sparsity}
-        final_sparsity: {final_sparsity}
-        start_epoch: {start_epoch}
-        end_epoch: {end_epoch}
-        update_frequency: {update_frequency}
-        params: {params}
-        inter_func: {inter_func}
-        mask_type: {mask_type}
-    """
-    yaml_modifier = GlobalMagnitudePruningModifier.load_obj(yaml_str)
-    serialized_modifier = GlobalMagnitudePruningModifier.load_obj(
-        str(yaml_modifier)
-    )  # type: GlobalMagnitudePruningModifier
-    obj_modifier = GlobalMagnitudePruningModifier(
-        init_sparsity=init_sparsity,
-        final_sparsity=final_sparsity,
-        start_epoch=start_epoch,
-        end_epoch=end_epoch,
-        update_frequency=update_frequency,
-        params=params,
-        inter_func=inter_func,
-        mask_type=mask_type,
+    assert (
+        str(yaml_modifier.global_sparsity)
+        == str(serialized_modifier.global_sparsity)
+        == str(obj_modifier.global_sparsity)
     )
-
-    assert isinstance(yaml_modifier, GlobalMagnitudePruningModifier)
-    pruning_modifier_serialization_vals_test(
-        yaml_modifier, serialized_modifier, obj_modifier
+    assert (
+        str(yaml_modifier._num_grads)
+        == str(serialized_modifier._num_grads)
+        == str(obj_modifier._num_grads)
+    )
+    assert (
+        str(yaml_modifier._damp)
+        == str(serialized_modifier._damp)
+        == str(obj_modifier._damp)
+    )
+    assert (
+        str(yaml_modifier._grads_device)
+        == str(serialized_modifier._grads_device)
+        == str(obj_modifier._grads_device)
+    )
+    assert (
+        str(yaml_modifier._fisher_block_size)
+        == str(serialized_modifier._fisher_block_size)
+        == str(obj_modifier._fisher_block_size)
+    )
+    assert (
+        str(yaml_modifier._num_pages)
+        == str(serialized_modifier._num_pages)
+        == str(obj_modifier._num_pages)
+    )
+    assert (
+        str(yaml_modifier._available_devices)
+        == str(serialized_modifier._available_devices)
+        == str(obj_modifier._available_devices)
+    )
+    assert (
+        str(yaml_modifier.mask_type)
+        == str(serialized_modifier.mask_type)
+        == str(obj_modifier.mask_type)
     )

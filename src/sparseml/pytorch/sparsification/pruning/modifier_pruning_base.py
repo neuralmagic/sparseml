@@ -102,6 +102,16 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
         between forward passes. Default is False
+    :param parent_class_kwarg_names: a list of args which indicates the subset of kwargs
+        to pass to super.__init__. Resulting kwargs will be the set intersect of
+        parent_class_kwarg_names and the initial kwargs. A value of None will preserve
+        the original kwargs, whereas an empty list will yield empty kwargs.
+        This param is included to avoid collisions between multiple inheritance
+        requirements and SparseML requirements to not pass kwargs to the BaseObject
+        class.
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune. Default is False
     """
 
     def __init__(
@@ -117,10 +127,17 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
+        leave_enabled: bool = False,
+        parent_class_kwarg_names: Optional[List[str]] = None,
         **kwargs,
     ):
+        if parent_class_kwarg_names is not None:
+            # filter kwargs only for ones that should be propagated
+            # parent_class_kwarg_names = ["params", "init_sparsity", "iterpolation",...]
+            kwargs = {k: v for k, v in kwargs.items() if k in parent_class_kwarg_names}
+            if "params" in parent_class_kwarg_names:
+                kwargs["params"] = params
         super().__init__(
-            params=params,
             log_types=log_types,
             start_epoch=start_epoch,
             min_start=min_start,
@@ -143,7 +160,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
 
         self._global_sparsity = global_sparsity
         self._allow_reintroduction = allow_reintroduction
-        self._leave_enabled = kwargs.get("leave_enabled", False)
+        self._leave_enabled = leave_enabled
 
         self._applied_sparsity = None
         self._pre_step_completed = False
@@ -157,8 +174,12 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         return [SparsificationTypes.pruning]
 
     @abstractmethod
-    def _get_mask_creator(self) -> PruningMaskCreator:
+    def _get_mask_creator(
+        self, param_names: List[str], params: List[Parameter]
+    ) -> PruningMaskCreator:
         """
+        :param names: full names of parameters to be pruned
+        :param params: list of Parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
         raise NotImplementedError()
@@ -194,6 +215,15 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         """
         return self._params
 
+    @ModifierProp()
+    def leave_enabled(self) -> bool:
+        """
+        :return: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune.
+        """
+        return self._leave_enabled
+
     @property
     def module_masks(self) -> Optional[ModuleParamPruningMask]:
         """
@@ -215,7 +245,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         """
         :return: mask creator object used by this pruning algorithm
         """
-        raise self._mask_creator
+        return self._mask_creator
 
     @property
     def scorer(self) -> Optional[PruningParamsScorer]:
@@ -269,13 +299,15 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         layer_names = [nlp.layer_name for nlp in named_layers_and_params]
 
         # initialize mask_creator and scorer
-        self._mask_creator = self._get_mask_creator()
-        self._scorer = self._get_scorer(
-            params=[
-                getattr(layer, param_name)
-                for layer, param_name in zip(layers, param_names)
-            ]
-        )
+        params = [
+            getattr(layer, param_name) for layer, param_name in zip(layers, param_names)
+        ]
+        full_param_names = [
+            f"{layer_name}.{param_name}"
+            for layer_name, param_name in zip(layer_names, param_names)
+        ]
+        self._mask_creator = self._get_mask_creator(full_param_names, params)
+        self._scorer = self._get_scorer(params)
 
         self._module_masks = self._create_pruning_mask(layers, layer_names, param_names)
         self._analyzers = self._create_analyzers(layers, layer_names, param_names)
@@ -557,6 +589,13 @@ class BaseGradualPruningModifier(BasePruningModifier):
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
         between forward passes. Default is False
+    :param parent_class_kwarg_names: a list of args which indicates the subset of kwargs
+        to pass to super.__init__. Resulting kwargs will be the set intersect of
+        parent_class_kwarg_names and the initial kwargs. A value of None will preserve
+        the original kwargs, whereas an empty list will yield empty kwargs.
+        This param is included to avoid collisions between multiple inheritance
+        requirements and SparseML requirements to not pass kwargs to the BaseObject
+        class.
     """
 
     def __init__(
@@ -575,6 +614,7 @@ class BaseGradualPruningModifier(BasePruningModifier):
         log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
+        parent_class_kwarg_names: Optional[List[str]] = None,
         **kwargs,
     ):
         self._final_sparsity_orig = final_sparsity
@@ -598,9 +638,10 @@ class BaseGradualPruningModifier(BasePruningModifier):
             log_types=log_types,
             global_sparsity=global_sparsity,
             allow_reintroduction=allow_reintroduction,
-            init_sparsity=self._init_sparsity_orig,
+            init_sparsity=self._init_sparsity,
             final_sparsity=self._final_sparsity,
             inter_func=inter_func,
+            parent_class_kwarg_names=parent_class_kwarg_names,
             **kwargs,
         )
 
@@ -658,7 +699,6 @@ class BaseGradualPruningModifier(BasePruningModifier):
             )
         self._init_sparsity_orig = value
         self._init_sparsity = value
-        self.validate()
 
     @ModifierProp()
     def params(self) -> Union[str, List[str], None]:
@@ -706,7 +746,6 @@ class BaseGradualPruningModifier(BasePruningModifier):
         self._params, self._final_sparsity = self._get_params_and_final_sparsity(
             self._params_orig, value
         )
-        self.validate()
 
     @ModifierProp()
     def inter_func(self) -> str:

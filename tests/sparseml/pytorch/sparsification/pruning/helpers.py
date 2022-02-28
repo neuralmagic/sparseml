@@ -14,9 +14,23 @@
 
 import torch
 
+from sparseml.pytorch.sparsification import GroupedPruningMaskCreator
+from sparseml.pytorch.utils import tensor_sparsity
+
+
+__all__ = [
+    "pruning_modifier_serialization_vals_test",
+    "state_dict_save_load_test",
+    "sparsity_mask_creator_test",
+    "grouped_masks_test",
+]
+
 
 def pruning_modifier_serialization_vals_test(
-    yaml_modifier, serialized_modifier, obj_modifier
+    yaml_modifier,
+    serialized_modifier,
+    obj_modifier,
+    exclude_mask=False,
 ):
     assert (
         yaml_modifier.init_sparsity
@@ -63,12 +77,13 @@ def state_dict_save_load_test(
     optim_lambda,
     test_steps_per_epoch,  # noqa: F811
     is_gm_pruning,
+    **initialize_kwargs,
 ):
     # test state dict serialization/deserialization for pruning modifiers
     modifier = modifier_lambda()
     model = model_lambda()
     optimizer = optim_lambda(model)
-    test_obj.initialize_helper(modifier, model)
+    test_obj.initialize_helper(modifier, model, **initialize_kwargs)
     # apply first mask
     modifier.scheduled_update(
         model, optimizer, modifier.start_epoch, test_steps_per_epoch
@@ -99,3 +114,30 @@ def state_dict_save_load_test(
         if param_name in param_names:
             # check that the all zero mask has been applied
             assert torch.all(param == 0.0)
+
+
+def sparsity_mask_creator_test(tensor_shapes, mask_creator, sparsity_val, device):
+    tensors = [torch.randn(tensor_shape).to(device) for tensor_shape in tensor_shapes]
+    update_masks = mask_creator.create_sparsity_masks(tensors, sparsity_val)
+
+    if isinstance(sparsity_val, float):
+        sparsity_val = [sparsity_val] * len(update_masks)
+
+    for update_mask, target_sparsity in zip(update_masks, sparsity_val):
+        assert abs(tensor_sparsity(update_mask) - target_sparsity) < 1e-2
+
+    if isinstance(mask_creator, GroupedPruningMaskCreator):
+        grouped_masks_test(update_masks, mask_creator)
+
+    return update_masks
+
+
+def grouped_masks_test(masks, mask_creator):
+    # Check that every value in the mask_creator grouping
+    # is the same within the mask.  Assumes grouping applies
+    # an absolte mean to each grouping
+    for mask in masks:
+        grouped_mask = mask_creator.group_tensor(mask)
+        grouped_mask /= max(torch.max(grouped_mask).item(), 1.0)
+        mask_vals_are_grouped = torch.all((grouped_mask == 0.0) | (grouped_mask == 1.0))
+        assert mask_vals_are_grouped

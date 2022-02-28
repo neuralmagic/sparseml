@@ -17,7 +17,7 @@ Helper functions for retrieving information related to model sparsification
 """
 
 import json
-from typing import Dict
+from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Tuple
 
 import torch
 from torch.nn import Module
@@ -30,7 +30,10 @@ from sparseml.pytorch.utils.helpers import (
 )
 
 
-__all__ = ["ModuleSparsificationInfo"]
+__all__ = [
+    "ModuleSparsificationInfo",
+    "GradSampler",
+]
 
 
 class ModuleSparsificationInfo:
@@ -167,3 +170,64 @@ class ModuleSparsificationInfo:
             }
             for (name, layer) in get_prunable_layers(self.module)
         }
+
+
+class GradSampler:
+    """
+    Class for computing gradient samples for a Model given a sample data loader and
+    loss function.
+
+    :param data_loader: iterator of data samples to use as model inputs and their loss
+        targets. items must be tuples of
+        (forward_args: List, forward_kwargs: Dict, loss_targets: Any)
+        where the forward pass will be outputs = model(*forward_args, **forward_kwargs)
+        and loss will be loss = loss_fn(outputs, loss_targets)
+    :param loss_fn: function to be called on model outputs to compute the loss at
+        each step
+    """
+
+    def __init__(
+        self,
+        data_loader: Iterator[Tuple[List[Any], Dict[str, Any], Any]],
+        loss_fn: Callable[[Any], Any],
+    ):
+        if not isinstance(data_loader, Iterable):
+            raise ValueError(
+                "data_loader for GradSampler must be Iterable, received object of "
+                f"type {type(data_loader)}"
+            )
+        if not callable(loss_fn):
+            raise ValueError(
+                "loss_fn for GradSampler must be callable, given input "
+                f"with type {type(loss_fn)}"
+            )
+
+        self._data_loader = data_loader
+        self._loss_fn = loss_fn
+
+    def iter_module_backwards(
+        self, module: Module, num_grads: int
+    ) -> Generator[int, None, None]:
+        """
+        :param module: module to compute gradients for
+        :param num_grads: number of gradient samples to compute
+        :return: generator that yields after every gradient is computed with the index
+            of the gradient sample number
+        """
+        computed_grads = 0
+
+        while computed_grads < num_grads:
+            for forward_args, forward_kwargs, loss_target in self._data_loader:
+                module.zero_grad()
+                # run sample forward and backwards pass
+                model_outputs = module(*forward_args, **forward_kwargs)
+                loss = self._loss_fn(model_outputs, loss_target)
+                loss.backward()
+
+                # yield so gradients can be collected
+                computed_grads += 1
+                yield computed_grads
+
+                if computed_grads >= num_grads:
+                    break
+        module.zero_grad()

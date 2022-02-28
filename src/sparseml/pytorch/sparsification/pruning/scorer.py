@@ -97,9 +97,14 @@ class PruningParamsGradScorer(PruningParamsScorer, ABC):
     Adds extra abstraction for handling gradient sharing between parameters
 
     :param params: list of model Parameters to track and score
+    :param grad_sampler: optional instance of GradSampler used to collect gradients
+        before pruning.
     """
 
-    def __init__(self, params: List[Parameter]):
+    def __init__(
+        self,
+        params: List[Parameter],
+    ):
         super().__init__(params=params)
 
         self._is_ddp = dist.is_initialized()
