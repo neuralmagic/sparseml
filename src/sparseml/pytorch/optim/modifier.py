@@ -20,7 +20,8 @@ are implemented as modifiers.
 """
 
 import math
-from typing import Dict, List, Optional, Union
+from collections.abc import Iterable
+from typing import Dict, List, Optional, Tuple, Union
 
 from torch import Tensor
 from torch.nn import Module
@@ -170,7 +171,7 @@ class Modifier(BaseModifier):
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers (passed to initialize and finalize).
         """
-        self.initialize(module, epoch=epoch, loggers=loggers, **kwargs)
+        self.initialize(module, epoch, loggers=loggers, **kwargs)
 
         if finalize:
             self.finalize(module, **kwargs)
@@ -442,22 +443,41 @@ class ScheduledModifier(Modifier, BaseScheduled):
             self = args[0]
             if self._loggers:
                 self.log_string(
-                    string=f"Calling {func.__name__}",
+                    string=(
+                        f"Calling {func.__name__} with:\n"
+                        f"args: {format_args(args[1:])}\n"
+                        f"kwargs: {format_args(kwargs)}\n"
+                    ),
                     loggers=self._loggers,
                     epoch=kwargs.get("epoch", None),
                     steps_per_epoch=kwargs.get("steps_per_epoch", None),
-                    level=LOGGING_LEVELS["debug"],
+                    level=LOGGING_LEVELS["info"],
                 )
             out = func(*args, **kwargs)
             if self._loggers:
+                out_print = out if isinstance(out, Tuple) else [out]
                 self.log_string(
-                    string=f"Completed {func.__name__}",
+                    string=(f"Returned: {format_args(out_print)}\n"),
                     loggers=self._loggers,
                     epoch=kwargs.get("epoch", None),
                     steps_per_epoch=kwargs.get("steps_per_epoch", None),
-                    level=LOGGING_LEVELS["debug"],
+                    level=LOGGING_LEVELS["info"],
                 )
             return out
+
+        def format_args(args):
+            if not args:
+                return None
+            if not isinstance(args, Iterable):
+                args = [args]
+            args_string = ""
+            printable = (float, int, Tensor)
+            for arg in args:
+                if isinstance(arg, printable):
+                    args_string += f"{arg}| "
+                else:
+                    args_string += f"{type(arg)}| "
+            return args_string
 
         return wrapper
 
@@ -607,7 +627,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
             )
 
         self._schedule_called = True
-        self.update(module, optimizer, epoch, steps_per_epoch)
+        self.update(module, optimizer, epoch=epoch, steps_per_epoch=steps_per_epoch)
         self._schedule_called = False
 
         if self.start_pending(epoch, steps_per_epoch):

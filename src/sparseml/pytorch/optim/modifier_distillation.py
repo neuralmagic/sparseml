@@ -97,7 +97,7 @@ class DistillationModifier(ScheduledUpdateModifier):
             end_epoch=end_epoch,
             end_comparator=-1,
             log_frequency=log_frequency,
-            log_types = (log_types or ["python"])
+            log_types=(log_types or ["python"]),
         )
         self._hardness = hardness
         self._temperature = temperature
@@ -372,7 +372,6 @@ class DistillationModifier(ScheduledUpdateModifier):
             scheduled_log=scheduled_log,
         )
 
-    @ScheduledModifier.log_call
     def finalize(
         self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
     ):

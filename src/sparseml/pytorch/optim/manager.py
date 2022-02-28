@@ -568,7 +568,12 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 continue
 
             loss = mod.loss_update(
-                loss, module, optimizer, epoch, steps_per_epoch, **kwargs
+                loss,
+                module,
+                optimizer,
+                epoch=epoch,
+                steps_per_epoch=steps_per_epoch,
+                **kwargs,
             )
 
         return loss

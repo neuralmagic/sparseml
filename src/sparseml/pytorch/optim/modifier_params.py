@@ -385,7 +385,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
             log_frequency=log_frequency,
             min_end=0.0,
             end_comparator=1,
-            log_types = (log_types or ["python"])
+            log_types=(log_types or ["python"]),
         )
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)

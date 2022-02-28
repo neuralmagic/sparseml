@@ -418,7 +418,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
         lambad_func = getattr(LearningRateFunctionModifier, f"_{self._lr_func}")
-        self._learning_rate = lambad_func(self, epoch, steps_per_epoch=steps_per_epoch)
+        self._learning_rate = lambad_func(self, epoch, steps_per_epoch)
         set_optim_learning_rate(optimizer, self._learning_rate, self.param_groups)
 
     def log_update(
