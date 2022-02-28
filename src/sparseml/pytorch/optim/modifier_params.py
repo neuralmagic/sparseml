@@ -351,6 +351,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
         end_epoch: float,
         update_frequency: float,
         log_frequency: Optional[float] = 0.1,
+        log_types: Union[str, List[str]] = None,
         inter_func: str = "linear",
         params_strict: bool = True,
     ):
@@ -367,6 +368,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
         :param end_epoch: The epoch to end the modifier at
         :param update_frequency: The number of epochs or fraction of epochs to
             update at between start and end
+        :param log_types: The loggers to allow the param values to be logged to
         :param log_frequency: The number of epochs or fraction of epochs to
             log at between start and end of modifier life. Logging occurs on the next
             update call
@@ -383,6 +385,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
             log_frequency=log_frequency,
             min_end=0.0,
             end_comparator=1,
+            log_types = (log_types or ["python"])
         )
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)

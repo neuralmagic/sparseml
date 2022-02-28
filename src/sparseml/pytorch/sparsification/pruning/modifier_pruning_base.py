@@ -146,7 +146,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             if "params" in parent_class_kwarg_names:
                 kwargs["params"] = params
         super().__init__(
-            log_types=log_types,
+            log_types=(log_types or ["python"]),
             start_epoch=start_epoch,
             min_start=min_start,
             end_epoch=end_epoch,

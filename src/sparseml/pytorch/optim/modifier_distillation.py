@@ -71,6 +71,10 @@ class DistillationModifier(ScheduledUpdateModifier):
     :param distill_output_keys: list of keys for the module outputs to use for
         distillation if multiple outputs are present. None or empty list defaults
         to using all available outputs
+    :param log_types: The loggers to allow the distillation losses to be logged to
+    :param log_frequency: The number of epochs or fraction of epochs to
+            log at between start and end of modifier life. Logging occurs on the next
+            update call
     :param teacher_input_keys: list of keys to filter the inputs by before
         passing into the teacher. None or empty list defaults to using
         all available inputs
@@ -85,6 +89,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         distill_output_keys: List[Any] = None,
         teacher_input_keys: List[Any] = None,
         update_frequency: float = -1.0,
+        log_types: Union[str, List[str]] = None,
         log_frequency: Optional[float] = 0.1,
     ):
         super().__init__(
@@ -92,6 +97,7 @@ class DistillationModifier(ScheduledUpdateModifier):
             end_epoch=end_epoch,
             end_comparator=-1,
             log_frequency=log_frequency,
+            log_types = (log_types or ["python"])
         )
         self._hardness = hardness
         self._temperature = temperature
@@ -414,7 +420,7 @@ def _log_losses(
         for (name, loss) in losses.items():
             logger.log_scalar(
                 tag=f"DistillationModifier/{name}",
-                value=loss.item(),
+                value=(loss.item() if loss else None),
                 step=global_step,
                 scheduled_log=scheduled_log,
             )

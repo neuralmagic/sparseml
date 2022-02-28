@@ -98,7 +98,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         log_frequency: Optional[float] = 1.0,
     ):
         super().__init__(
-            log_types=log_types,
+            log_types=(log_types or ["python"]),
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1.0,
