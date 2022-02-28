@@ -35,6 +35,7 @@ __all__ = [
     "update_recipe_variables",
     "evaluate_recipe_yaml_str_equations",
     "parse_recipe_variables",
+    "check_if_staged_recipe",
 ]
 
 
@@ -230,8 +231,8 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
         # yaml string does not create a dict, return original string
         return recipe_yaml_str
 
-    # check whether the recipe is a staged recipe of not
-    if any(["stage" in k for k in container.keys()]):
+    # check whether the recipe is a stage recipe of not
+    if check_if_staged_recipe(container):
         container = _evaluate_staged_recipe_yaml_str_equations(container)
 
     else:
@@ -248,6 +249,26 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
     return rewrite_recipe_yaml_string_with_classes(container)
 
 
+def check_if_staged_recipe(container: dict) -> bool:
+    """
+    Check whether container pertains to a staged recipe.
+    Such a "staged container" fulfills two conditions:
+    - no top level key in container contains "modifiers" in its name
+    - a stage should map to a dict that has at least one key with
+      "modifiers" in its name
+    :param container: a container generated from a YAML string of SparseML recipe
+    :return: True if stage recipe, False if normal recipe
+    """
+
+    if any([key for key in container.keys() if "modifiers" in key]):
+        return False
+    for stage, stage_dict in container.items():
+        if "stage" in stage:
+            if not any([key for key in stage_dict if "modifiers" in key]):
+                return False
+    return True
+
+
 def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
     """
     Consumes a staged container and transforms it into a valid
@@ -257,7 +278,6 @@ def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
     :return consolidated_container: transformed container containing evaluated
             variables, operations and objects.
     """
-    consolidated_container = {}
     main_container = {k: v for k, v in container.items() if "stage" not in k}
     stages = {k: container[k] for k in set(container) - set(main_container)}
 
@@ -267,24 +287,24 @@ def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
         global_non_val_variables,
     ) = _evaluate_recipe_variables(main_container)
 
-    for stage_name, stage_container in stages.items():
-        container, variables, non_val_variables = _evaluate_recipe_variables(
-            stage_container
+    for stage_name, staged_container in stages.items():
+        stage_container, variables, non_val_variables = _evaluate_recipe_variables(
+            staged_container
         )
 
         variables = {**variables, **global_variables}
         non_val_variables = {**non_val_variables, **global_non_val_variables}
 
-        for key, val in container.items():
+        for key, val in staged_container.items():
             if "modifiers" not in key:
                 continue
-            container[key] = _maybe_evaluate_yaml_object(
+            stage_container[key] = _maybe_evaluate_yaml_object(
                 val, variables, non_val_variables
             )
 
-        consolidated_container.update(container)
+        container[stage_name] = staged_container
 
-    return consolidated_container
+    return container
 
 
 def is_eval_string(val: str) -> bool:
