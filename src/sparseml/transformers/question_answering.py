@@ -58,7 +58,6 @@ from sparseml.transformers.utils import SparseAutoModel
 check_min_version("4.7.0.dev0")
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.DEBUG)
 
 
 @dataclass

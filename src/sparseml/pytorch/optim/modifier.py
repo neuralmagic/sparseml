@@ -466,12 +466,14 @@ class ScheduledModifier(Modifier, BaseScheduled):
             return out
 
         def format_args(args):
+            args_string = ""
+            printable = (float, int, str, Tensor)
             if not args:
                 return None
             if not isinstance(args, Iterable):
                 args = [args]
-            args_string = ""
-            printable = (float, int, Tensor)
+            if isinstance(args, Dict):
+                args = [(k, v) for k,v in args.items()]
             for arg in args:
                 if isinstance(arg, printable):
                     args_string += f"{arg}| "

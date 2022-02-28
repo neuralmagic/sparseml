@@ -142,6 +142,7 @@ class SetWeightDecayModifier(ScheduledModifier):
         """
         self._constant_logging = value
 
+    @ScheduledModifier.log_call
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
