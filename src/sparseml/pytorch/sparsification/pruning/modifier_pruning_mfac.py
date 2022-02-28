@@ -32,6 +32,7 @@ from torch.nn.parallel.parallel_apply import parallel_apply
 import GPUtil
 from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
+    FourBlockMaskCreator,
     PruningMaskCreator,
     UnstructuredPruningMaskCreator,
 )
@@ -131,6 +132,9 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         Default is 1
     :param available_devices: list of device names to perform computation on. Default
         is empty
+    :param mask_type: String to define type of sparsity (options: ['unstructured',
+        'block']), List to define block shape of a parameters in and out
+         channels, or a SparsityMaskCreator object. default is 'unstructured'
     """
 
     def __init__(
@@ -152,6 +156,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         fisher_block_size: int = 2000,
         num_pages: int = 1,  # break computation into pages when block size is None
         available_devices: Optional[List[str]] = None,
+        mask_type: str = "unstructured",
     ):
         super().__init__(
             params=params,
@@ -173,6 +178,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         self._grads_device = grads_device
         self._fisher_block_size = fisher_block_size
         self._num_pages = num_pages
+        self._mask_type = mask_type
         if available_devices is None:
             if torch.cuda.device_count() > 0:
                 self._available_devices = ["cuda:0"]
@@ -230,6 +236,13 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         """
         return self._available_devices
 
+    @ModifierProp()
+    def mask_type(self) -> str:
+        """
+        :return: the mask type used
+        """
+        return self._mask_type
+
     def initialize(
         self,
         module: Module,
@@ -275,11 +288,23 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             # disable gradient buffering until sampler is invoked
             self._scorer.buffer_grads = False
 
-    def _get_mask_creator(self) -> PruningMaskCreator:
+    def _get_mask_creator(
+        self, param_names: List[str], params: List[Parameter]
+    ) -> PruningMaskCreator:
         """
+        :param names: full names of parameters to be pruned
+        :param params: list of Parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
-        return UnstructuredPruningMaskCreator()
+        if self._mask_type == "unstructured":
+            return UnstructuredPruningMaskCreator()
+        elif self._mask_type == "block":
+            return FourBlockMaskCreator()
+        else:
+            raise ValueError(
+                f"Unknown mask_type {self._mask_type}. Supported mask types include "
+                "'unstructured' and 'block'"
+            )
 
     def _get_scorer(self, params: List[Parameter]) -> PruningParamsGradScorer:
         """
@@ -379,6 +404,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         self._grad_buffer = None  # type: Tensor
         self._grads = None  # placeholder for all grads across buffers
         self._buffer_idx = 0
+        self._grads_collected = 0
         self._latest_h_inv_diag = None  # type: tuple
 
         # scale num_grads by number of DDP processes
@@ -409,13 +435,11 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             H^-1, scores will be W^2 / (2 * diag(H^-1))
         """
 
-        if self._grad_buffer is None or torch.any(
-            torch.all(self._grad_buffer == 0.0, dim=1)
-        ):
+        if self._grads_collected < self._num_grads:
             # raise Exception if grad buffer is not full
             raise RuntimeError(
-                "MFAC pruning step called, but not enough gradient samples have been "
-                f"collected. Expected {self._num_grads} samples"
+                f"MFAC pruning step called, but only {self._grads_collected} were "
+                f"collected from the expected {self._num_grads}."
             )
 
         if self._is_ddp:
@@ -494,6 +518,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         # update buffer idx
         self._buffer_idx += 1
         self._buffer_idx %= self._grad_buffer.size(0)
+        self._grads_collected += 1
 
     @torch.no_grad()
     def mask_update(self, masks: List[Tensor], mask_diffs: List[Tensor]):
@@ -610,6 +635,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             device="cpu",
         )
         self._buffer_idx = 0
+        self._grads_collected = 0
 
 
 """

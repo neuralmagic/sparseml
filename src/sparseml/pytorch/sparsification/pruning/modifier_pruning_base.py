@@ -174,8 +174,12 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         return [SparsificationTypes.pruning]
 
     @abstractmethod
-    def _get_mask_creator(self) -> PruningMaskCreator:
+    def _get_mask_creator(
+        self, param_names: List[str], params: List[Parameter]
+    ) -> PruningMaskCreator:
         """
+        :param names: full names of parameters to be pruned
+        :param params: list of Parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
         raise NotImplementedError()
@@ -241,7 +245,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         """
         :return: mask creator object used by this pruning algorithm
         """
-        raise self._mask_creator
+        return self._mask_creator
 
     @property
     def scorer(self) -> Optional[PruningParamsScorer]:
@@ -295,13 +299,15 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         layer_names = [nlp.layer_name for nlp in named_layers_and_params]
 
         # initialize mask_creator and scorer
-        self._mask_creator = self._get_mask_creator()
-        self._scorer = self._get_scorer(
-            params=[
-                getattr(layer, param_name)
-                for layer, param_name in zip(layers, param_names)
-            ]
-        )
+        params = [
+            getattr(layer, param_name) for layer, param_name in zip(layers, param_names)
+        ]
+        full_param_names = [
+            f"{layer_name}.{param_name}"
+            for layer_name, param_name in zip(layer_names, param_names)
+        ]
+        self._mask_creator = self._get_mask_creator(full_param_names, params)
+        self._scorer = self._get_scorer(params)
 
         self._module_masks = self._create_pruning_mask(layers, layer_names, param_names)
         self._analyzers = self._create_analyzers(layers, layer_names, param_names)

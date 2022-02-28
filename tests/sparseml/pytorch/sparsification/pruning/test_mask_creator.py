@@ -21,31 +21,10 @@ from sparseml.pytorch.sparsification.pruning import (
     UnstructuredPruningMaskCreator,
 )
 from sparseml.pytorch.utils import tensor_sparsity
-
-
-def _test_sparsity_mask_creator(tensor_shapes, mask_creator, sparsity_val, device):
-    tensors = [torch.randn(tensor_shape).to(device) for tensor_shape in tensor_shapes]
-    update_masks = mask_creator.create_sparsity_masks(tensors, sparsity_val)
-
-    if isinstance(sparsity_val, float):
-        sparsity_val = [sparsity_val] * len(update_masks)
-
-    for update_mask, target_sparsity in zip(update_masks, sparsity_val):
-        assert abs(tensor_sparsity(update_mask) - target_sparsity) < 1e-2
-
-    if isinstance(mask_creator, GroupedPruningMaskCreator):
-        _test_grouped_masks(update_masks, mask_creator)
-
-
-def _test_grouped_masks(masks, mask_creator):
-    # Check that every value in the mask_creator grouping
-    # is the same within the mask.  Assumes grouping applies
-    # an absolte mean to each grouping
-    for mask in masks:
-        grouped_mask = mask_creator.group_tensor(mask)
-        grouped_mask /= max(torch.max(grouped_mask).item(), 1.0)
-        mask_vals_are_grouped = torch.all((grouped_mask == 0.0) | (grouped_mask == 1.0))
-        assert mask_vals_are_grouped
+from tests.sparseml.pytorch.sparsification.pruning.helpers import (
+    grouped_masks_test,
+    sparsity_mask_creator_test,
+)
 
 
 @pytest.mark.parametrize(
@@ -60,7 +39,7 @@ def _test_grouped_masks(masks, mask_creator):
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])
 def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
-    _test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val, "cpu")
+    sparsity_mask_creator_test(tensor_shape, mask_creator, sparsity_val, "cpu")
 
 
 @pytest.mark.parametrize(
@@ -73,7 +52,7 @@ def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda availability")
 def test_sparsity_mask_creator_cuda(tensor_shape, mask_creator, sparsity_val):
-    _test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val, "cuda")
+    sparsity_mask_creator_test(tensor_shape, mask_creator, sparsity_val, "cuda")
 
 
 @pytest.mark.parametrize(
@@ -111,7 +90,7 @@ def test_global_sparsity_mask_creator(tensors, mask_creator, sparsity_val):
         assert len(set(mask_sparsities)) > 1
 
     if isinstance(mask_creator, GroupedPruningMaskCreator):
-        _test_grouped_masks(masks, mask_creator)
+        grouped_masks_test(masks, mask_creator)
 
 
 @pytest.mark.parametrize(
@@ -140,4 +119,4 @@ def test_global_sparsity_mask_creator(tensors, mask_creator, sparsity_val):
     ],
 )
 def test_sparsity_mask_creator_mult_tensor(tensor_shapes, mask_creator, sparsity_val):
-    _test_sparsity_mask_creator(tensor_shapes, mask_creator, sparsity_val, "cpu")
+    sparsity_mask_creator_test(tensor_shapes, mask_creator, sparsity_val, "cpu")

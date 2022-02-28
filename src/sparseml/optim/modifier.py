@@ -288,8 +288,32 @@ class BaseModifier(BaseObject):
         """
         :param yaml_str: a string representation of the yaml syntax to load modifiers
         :param framework: the framework to load the modifiers for
-        :return: the loaded modifiers list
+        :return: the loaded modifiers list or dictionary of stage name to stage
+            modifiers list if given a yaml string of a staged recipe
         """
+
+        def _load_stage_modifiers(stage_container):
+            stage_modifiers = []  # type: List[BaseModifier]
+            for name, item in stage_container.items():
+                if "modifiers" in name and isinstance(item, List):
+                    stage_modifiers.extend(item)
+                elif isinstance(item, BaseModifier):
+                    stage_modifiers.append(item)
+                elif isinstance(item, List) and any(
+                    isinstance(element, BaseModifier) for element in item
+                ):
+                    # invalid modifier group name
+                    modifier_type = type(
+                        [mod for mod in item if isinstance(mod, BaseModifier)][0]
+                    )
+                    raise ValueError(
+                        "Invalid modifier location. Grouped modifiers in recipes must "
+                        "be listed in lists with 'modifiers' in its name. A modifier "
+                        f"of type {modifier_type} was found in recipe list {name}"
+                    )
+            return stage_modifiers
+
+        # evaluate recipe equations and load into yaml container object
         yaml_str = evaluate_recipe_yaml_str_equations(yaml_str)
         yaml_str = BaseModifier._convert_to_framework_modifiers(yaml_str, framework)
         container = yaml.safe_load(yaml_str)
@@ -299,23 +323,25 @@ class BaseModifier(BaseObject):
         elif isinstance(container, List):
             modifiers = container
         else:  # Dict
-            modifiers = []
-            for name, item in container.items():
-                if "modifiers" in name and isinstance(item, List):
-                    modifiers.extend(item)
-                elif isinstance(item, BaseModifier):
-                    modifiers.append(item)
-                elif isinstance(item, List) and any(
-                    isinstance(element, BaseModifier) for element in item
-                ):
-                    modifier_type = type(
-                        [mod for mod in item if isinstance(mod, BaseModifier)][0]
-                    )
-                    raise ValueError(
-                        "Invalid modifier location. Grouped modifiers in recipes must "
-                        "be listed in lists with 'modifiers' in its name. A modifier "
-                        f"of type {modifier_type} was found in recipe list {name}"
-                    )
+            if any("modifiers" in key for key in container):
+                # non-staged recipe, treat entire recipe as stage
+                modifiers = _load_stage_modifiers(container)
+            else:
+                # staged recipe, return dict of stage_name -> modifiers
+                modifiers = {}
+                for stage_name, stage_item in container.items():
+                    if not isinstance(stage_item, Dict):
+                        continue  # stages must be represented as a Dict
+                    if any("modifiers" in key for key in stage_item):
+                        modifiers[stage_name] = _load_stage_modifiers(stage_item)
+
+        if not modifiers:
+            raise ValueError(
+                "Unable to find any modifiers in given recipe. Modifiers must be "
+                "listed as lists under yaml keys that include 'modifiers' in their "
+                "name. Those keys and lists may also be nested under an extra key for "
+                "staged recipes."
+            )
 
         return modifiers
 
@@ -366,6 +392,38 @@ class BaseModifier(BaseObject):
         if compare == 0:
             # if still equal, compare on identifier
             compare = BaseModifier.comparator_identifiers(one, two)
+
+        return compare
+
+    @staticmethod
+    def comparator_lists(one: List["BaseModifier"], two: List["BaseModifier"]) -> int:
+        """
+        Comparator for list of modifiers, compares the max end, min start epochs
+        of either lists and then the maximal identifiers of either
+
+        :param one: first list of modifiers to compare
+        :param two: second list of modifiers to compare
+        :return: int representing where one is in relation to two
+        """
+        # compare first on end epoch
+        compare = BaseModifier.comparator_ends(
+            max(one, key=lambda mod: mod.end_epoch),
+            max(two, key=lambda mod: mod.end_epoch),
+        )
+
+        if compare == 0:
+            # if ends equal, compare next on start
+            compare = BaseModifier.comparator_starts(
+                min(one, key=lambda mod: mod.start_epoch),
+                min(two, key=lambda mod: mod.start_epoch),
+            )
+
+        if compare == 0:
+            # if still equal, compare on identifier
+            compare = BaseModifier.comparator_identifiers(
+                max(one, key=lambda mod: mod.identifier()),
+                max(two, key=lambda mod: mod.identifier()),
+            )
 
         return compare
 

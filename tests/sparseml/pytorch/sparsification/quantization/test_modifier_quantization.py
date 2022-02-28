@@ -17,7 +17,7 @@ import os
 import pytest
 from torch.nn import Conv2d, Identity, Linear
 
-from sparseml.pytorch.optim import QuantizationModifier
+from sparseml.pytorch.sparsification import QuantizationModifier
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
 
