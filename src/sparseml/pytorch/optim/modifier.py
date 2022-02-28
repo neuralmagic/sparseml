@@ -467,7 +467,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
 
         def format_args(args):
             args_string = ""
-            printable = (float, int, str, Tensor)
+            printable = (float, int, str, Tuple, Tensor)
             if not args:
                 return None
             if not isinstance(args, Iterable):
