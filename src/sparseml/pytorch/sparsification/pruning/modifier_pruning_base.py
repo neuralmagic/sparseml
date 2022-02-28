@@ -28,7 +28,11 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.optim.modifier import BaseModifier
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
-from sparseml.pytorch.optim.modifier import ModifierProp, ScheduledUpdateModifier
+from sparseml.pytorch.optim.modifier import (
+    ModifierProp,
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+)
 from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
 from sparseml.pytorch.sparsification.pruning.mask_params import ModuleParamPruningMask
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
@@ -98,6 +102,9 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         default -1
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
+    :param log_frequency: The number of epochs or fraction of epochs to
+            log at between start and end of modifier life. Logging occurs on the next
+            update call
     :param global_sparsity: set True to pass global_sparsity as True to mask
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
@@ -125,7 +132,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         update_frequency: float = -1.0,
         min_frequency: float = -1.0,
         log_types: Union[str, List[str]] = None,
-        log_frequency: float = 1.0,
+        log_frequency: Optional[float] = -1.0,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
         leave_enabled: bool = False,
@@ -334,6 +341,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         """
         pass
 
+    @ScheduledModifier.log_call
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -398,6 +406,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
+        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch, scheduled_log)
 
@@ -853,8 +862,8 @@ def _log_sparsity(
                 )
 
             logger.log_scalar(
-                f"{tag_prefix}/{layer_sparsity[0]}",
-                layer_sparsity[1],
-                step,
-                scheduled_log,
+                tag=f"{tag_prefix}/{layer_sparsity[0]}",
+                value=layer_sparsity[1],
+                step=step,
+                scheduled_log=scheduled_log,
             )

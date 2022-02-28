@@ -33,7 +33,7 @@ from sparseml.optim import (
     ModifierProp,
     ModifierYAML,
 )
-from sparseml.pytorch.utils import BaseLogger, PythonLogger
+from sparseml.pytorch.utils import LOGGING_LEVELS, BaseLogger
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, PYTORCH_FRAMEWORK
 
@@ -235,7 +235,7 @@ class Modifier(BaseModifier):
         :param loggers: the loggers to setup this modifier with for logging important
             info and milestones to
         """
-        if self._loggers_initialized:
+        if self._loggers_initialized and self._loggers:
             return
 
         self._loggers_initialized = True
@@ -309,6 +309,7 @@ class Modifier(BaseModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
+        :param scheduled_log: True when this call falls within the log schedule
         """
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
@@ -415,6 +416,9 @@ class ScheduledModifier(Modifier, BaseScheduled):
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param log_types: The loggers that can be used by the modifier instance
+    :param log_frequency: The number of epochs or fraction of epochs to
+            log at between start and end of modifier life. Logging occurs on the next
+            update call
     :param min_start: The minimum acceptable value for start_epoch, default -1
     :param min_end: The minimum acceptable value for end_epoch, default 0
     :param end_comparator: integer value representing how the end_epoch should be
@@ -426,11 +430,41 @@ class ScheduledModifier(Modifier, BaseScheduled):
     :param kwargs: standard key word args, used to support multi inheritance
     """
 
+    @staticmethod
+    def log_call(func):
+        """
+        Logs the wrapped function using the python logger(s) assigned to the calling
+        class, if the loggers exist. The logs printed will announce when a function is
+        used and when it is exited
+        """
+
+        def wrapper(*args, **kwargs):
+            self = args[0]
+            if self._loggers:
+                self.log_string(
+                    string=f"Calling {func.__name__}",
+                    loggers=self._loggers,
+                    epoch=kwargs.get("epoch", None),
+                    steps_per_epoch=kwargs.get("steps_per_epoch", None),
+                    level=LOGGING_LEVELS["debug"],
+                )
+            out = func(*args, **kwargs)
+            if self._loggers:
+                self.log_string(
+                    string=f"Completed {func.__name__}",
+                    loggers=self._loggers,
+                    epoch=kwargs.get("epoch", None),
+                    steps_per_epoch=kwargs.get("steps_per_epoch", None),
+                    level=LOGGING_LEVELS["debug"],
+                )
+            return out
+
+        return wrapper
+
     def __init__(
         self,
         log_types: Union[str, List[str]] = None,
-        log_frequency: float = -1.0,
-        log_to_file=False,
+        log_frequency: Optional[float] = None,
         start_epoch: float = -1.0,
         min_start: float = -1.0,
         end_epoch: float = -1.0,
@@ -476,7 +510,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
     @ModifierProp()
     def log_frequency(self) -> float:
         """
-        :return: 
+        :return:
         """
         return self._log_frequency
 
@@ -627,9 +661,12 @@ class ScheduledModifier(Modifier, BaseScheduled):
         if not self._enabled:
             raise RuntimeError("modifier must be enabled")
 
-        scheduled_log = self._log_frequency == -1.0 or (
-            self._last_log_epoch >= 0.0
-            and epoch >= self._last_log_epoch + self._log_frequency
+        scheduled_log = (self._log_frequency is not None) and (
+            self._log_frequency == -1.0
+            or (
+                self._last_log_epoch >= 0.0
+                and epoch >= self._last_log_epoch + self._log_frequency
+            )
         )
 
         self._scheduled_log_called = True
@@ -654,6 +691,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
+        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch, scheduled_log)
 
@@ -662,6 +700,26 @@ class ScheduledModifier(Modifier, BaseScheduled):
                 "log_update should not be called directly, "
                 "call scheduled_log_update instead"
             )
+
+    def log_string(
+        self,
+        string: str,
+        loggers: List[BaseLogger],
+        level: int,
+        epoch: Optional[float] = None,
+        steps_per_epoch: Optional[int] = None,
+        tag: Optional[str] = None,
+    ):
+        if not tag:
+            tag = type(self).__name__
+        if epoch and steps_per_epoch:
+            step = (
+                round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
+            )
+        else:
+            step = None
+        for logger in loggers:
+            logger.log_string(tag=tag, string=string, step=step, level=level)
 
 
 class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
@@ -689,6 +747,9 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param log_types: The loggers that can be used by the modifier instance
+    :param log_frequency: The number of epochs or fraction of epochs to
+            log at between start and end of modifier life. Logging occurs on the next
+            update call
     :param min_start: The minimum acceptable value for start_epoch, default -1
     :param min_end: The minimum acceptable value for end_epoch, default 0
     :param end_comparator: integer value representing how the end_epoch should be
@@ -710,7 +771,7 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
         min_end: float = -1.0,
         end_comparator: Union[int, None] = 0,
         update_frequency: float = -1.0,
-        log_frequency: float = 1.0,
+        log_frequency: Optional[float] = None,
         min_frequency: float = -1.0,
         **kwargs,
     ):

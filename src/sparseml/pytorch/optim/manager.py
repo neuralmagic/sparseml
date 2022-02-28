@@ -399,7 +399,9 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
-        if python_log and not any(isinstance(logger, PythonLogger) for logger in loggers):
+        if (python_log and loggers) and not any(
+            isinstance(logger, PythonLogger) for logger in loggers
+        ):
             loggers.append(PythonLogger())
 
         super().initialize(module, epoch, loggers, **kwargs)
@@ -535,9 +537,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
             if mod.update_ready(epoch, steps_per_epoch):
                 mod.scheduled_update(module, optimizer, epoch, steps_per_epoch)
-
-            if log_updates:
-                mod.scheduled_log_update(module, optimizer, epoch, steps_per_epoch)
+                if log_updates:
+                    mod.scheduled_log_update(module, optimizer, epoch, steps_per_epoch)
 
     def loss_update(
         self,

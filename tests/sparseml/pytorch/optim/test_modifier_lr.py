@@ -426,7 +426,7 @@ def test_lr_function_modifier_yaml():
         init_lr=init_lr,
         final_lr=final_lr,
         param_groups=param_groups,
-        log_frequency=log_frequency
+        log_frequency=log_frequency,
     )
 
     assert isinstance(yaml_modifier, LearningRateFunctionModifier)

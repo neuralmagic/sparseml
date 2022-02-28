@@ -334,6 +334,9 @@ class StructuredPruningModifier(GMPruningModifier):
         [linear, cubic, inverse_cubic]
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
+    :param log_frequency: The number of epochs or fraction of epochs to
+            log at between start and end of modifier life. Logging occurs on the next
+            update call
     :param mask_type: String to define type of structured sparsity (options: [
         'channel', 'filter']), or a DimensionSparsityMaskCreator object.
         default is 'filter'
@@ -351,6 +354,7 @@ class StructuredPruningModifier(GMPruningModifier):
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
+        log_frequency: Union[float, None] = -1.0,
         mask_type: str = "filter",
     ):
         if mask_type not in ["filter", "channel"]:
@@ -368,6 +372,7 @@ class StructuredPruningModifier(GMPruningModifier):
             leave_enabled=leave_enabled,
             inter_func=inter_func,
             log_types=log_types,
+            log_frequency=log_frequency,
             mask_type=mask_type,
         )
 

@@ -84,6 +84,9 @@ class MovementPruningModifier(GMPruningModifier):
         [linear, cubic, inverse_cubic]
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
+    :param log_frequency: The number of epochs or fraction of epochs to
+            log at between start and end of modifier life. Logging occurs on the next
+            update call
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'block']), List to define block shape of a parameters in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
@@ -100,6 +103,7 @@ class MovementPruningModifier(GMPruningModifier):
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
+        log_frequency: Union[float, None] = -1.0,
         mask_type: str = "unstructured",
     ):
         super(MovementPruningModifier, self).__init__(
@@ -112,6 +116,7 @@ class MovementPruningModifier(GMPruningModifier):
             leave_enabled=leave_enabled,
             inter_func=inter_func,
             log_types=log_types,
+            log_frequency=log_frequency,
             mask_type=mask_type,
         )
 

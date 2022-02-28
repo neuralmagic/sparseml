@@ -20,7 +20,7 @@ import logging
 import os
 import time
 from abc import ABC
-from logging import Logger
+from logging import CRITICAL, DEBUG, ERROR, INFO, WARN, Logger
 from typing import Callable, Dict, List, Optional, Union
 
 
@@ -53,7 +53,16 @@ __all__ = [
     "TensorBoardLogger",
     "WANDBLogger",
     "SparsificationGroupLogger",
+    "LOGGING_LEVELS",
 ]
+
+LOGGING_LEVELS = {
+    "debug": DEBUG,
+    "info": INFO,
+    "warn": WARN,
+    "error": ERROR,
+    "critical": CRITICAL,
+}
 
 
 class BaseLogger(ABC):
@@ -62,6 +71,7 @@ class BaseLogger(ABC):
 
     :param name: name given to the logger, used for identification
     :param enabled: True to log, False otherwise
+    :param scheduled: True to log only on log_frequency interval, False to always log
     """
 
     def __init__(self, name: str, enabled: bool = True, scheduled: bool = True):
@@ -93,19 +103,25 @@ class BaseLogger(ABC):
     @property
     def scheduled(self) -> bool:
         """
-        :return: True to log on schedule, False to log always
+        :return: True to log only on log_frequency interval, False to always log
         """
         return self._scheduled
 
     @scheduled.setter
     def scheduled(self, value: bool):
         """
-        :param value: True to log on schedule, False to log always
+        :param value: True to log only on log_frequency interval, False to always log
         """
         self._scheduled = value
 
-    def log_ready(self, scheduled_call: bool):
-        return not self._scheduled or scheduled_call
+    def log_ready(self, scheduled_log: bool):
+        """
+        Check whether this log request should be honored
+
+        :param scheduled_log: True when this call falls within the schedule
+        :return: True when this log request should be honored
+        """
+        return self.enabled and (not self._scheduled or scheduled_log)
 
     def log_hyperparams(self, params: Dict[str, float]) -> bool:
         """
@@ -121,13 +137,16 @@ class BaseLogger(ABC):
         value: float,
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
-        scheduled_call: bool = True,
+        scheduled_log: bool = True,
+        **kwargs,
     ) -> bool:
         """
         :param tag: identifying tag to log the value with
         :param value: value to save
         :param step: global step for when the value was taken
         :param wall_time: global wall time for when the value was taken
+        :param scheduled_log: True when this call falls within the schedule
+        :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
         return False
@@ -138,13 +157,16 @@ class BaseLogger(ABC):
         values: Dict[str, float],
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
-        scheduled_call: bool = True,
+        scheduled_log: bool = True,
+        **kwargs,
     ):
         """
         :param tag: identifying tag to log the values with
         :param values: values to save
         :param step: global step for when the values were taken
         :param wall_time: global wall time for when the values were taken
+        :param scheduled_log: True when this call falls within the schedule
+        :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
         return False
@@ -155,8 +177,18 @@ class BaseLogger(ABC):
         string,
         step,
         wall_time: Optional[float] = None,
-        scheduled_call: bool = True,
+        scheduled_log: bool = True,
+        **kwargs,
     ):
+        """
+        :param tag: identifying tag to log the values with
+        :param values: values to save
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken
+        :param scheduled_log: True when this call falls within the schedule
+        :param kwargs: additional logging arguments to support Python and custom loggers
+        :return: True if logged, False otherwise.
+        """
         return False
 
 
@@ -177,10 +209,8 @@ class LambdaLogger(BaseLogger):
         lambda_func: Callable[
             [
                 Optional[str],
-                Optional[str],
-                Optional[float],
+                Optional[Union[float, str]],
                 Optional[Dict[str, float]],
-                Optional[str],
                 Optional[int],
                 Optional[float],
             ],
@@ -200,10 +230,8 @@ class LambdaLogger(BaseLogger):
     ) -> Callable[
         [
             Optional[str],
-            Optional[str],
-            Optional[float],
+            Optional[Union[float, str]],
             Optional[Dict[str, float]],
-            Optional[str],
             Optional[int],
             Optional[float],
         ],
@@ -215,7 +243,11 @@ class LambdaLogger(BaseLogger):
         """
         return self._lambda_func
 
-    def log_hyperparams(self, params: Dict) -> bool:
+    def log_hyperparams(
+        self,
+        params: Dict,
+        **kwargs,
+    ) -> bool:
         """
         :param params: Each key-value pair in the dictionary is the name of the
             hyper parameter and it's corresponding value.
@@ -226,10 +258,8 @@ class LambdaLogger(BaseLogger):
 
         return self._lambda_func(
             tag=None,
-            level=None,
             value=None,
             values=params,
-            string=None,
             step=None,
             wall_time=None,
         )
@@ -238,10 +268,10 @@ class LambdaLogger(BaseLogger):
         self,
         tag: str,
         value: float,
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
-        scheduled_call: bool = True,
-        level: Optional[str] = None,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        scheduled_log: bool = True,
+        **kwargs,
     ):
         """
         :param tag: identifying tag to log the value with
@@ -249,12 +279,11 @@ class LambdaLogger(BaseLogger):
         :param step: global step for when the value was taken
         :param wall_time: global wall time for when the value was taken,
             defaults to time.time()
+        :param scheduled_log: True when this call falls within the schedule
+        :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
-        if not self.enabled:
-            return False
-
-        if not self.log_ready(scheduled_call):
+        if not self.log_ready(scheduled_log):
             return False
 
         if not wall_time:
@@ -262,22 +291,21 @@ class LambdaLogger(BaseLogger):
 
         return self._lambda_func(
             tag=tag,
-            level=level,
             value=value,
             values=None,
-            string=None,
             step=step,
             wall_time=wall_time,
+            **kwargs,
         )
 
     def log_scalars(
         self,
         tag: str,
         values: Dict[str, float],
-        step: Union[None, int] = None,
-        wall_time: Union[None, float] = None,
-        scheduled_call: bool = True,
-        level: Optional[str] = None,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        scheduled_log: bool = True,
+        **kwargs,
     ):
         """
         :param tag: identifying tag to log the values with
@@ -285,12 +313,11 @@ class LambdaLogger(BaseLogger):
         :param step: global step for when the values were taken
         :param wall_time: global wall time for when the values were taken,
             defaults to time.time()
+        :param scheduled_log: True when this call falls within the schedule
+        :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
-        if not self.enabled:
-            return False
-
-        if not self.log_ready(scheduled_call):
+        if not self.log_ready(scheduled_log):
             return False
 
         if not wall_time:
@@ -298,12 +325,11 @@ class LambdaLogger(BaseLogger):
 
         return self._lambda_func(
             tag=tag,
-            level=level,
             value=None,
             values=values,
-            string=None,
             step=step,
             wall_time=wall_time,
+            **kwargs,
         )
 
 
@@ -312,7 +338,8 @@ class PythonLogger(LambdaLogger):
     Modifier logger that handles printing values into a python logger instance.
 
     :param logger: a logger instance to log to, if None then will create it's own
-    :param log_level: level to log any incoming data at on the logging.Logger instance
+    :param log_level: default level to log any incoming data at on the logging.Logger
+        instance when an explicit log level isn't provided
     :param name: name given to the logger, used for identification;
         defaults to python
     :param enabled: True to log, False otherwise
@@ -324,6 +351,7 @@ class PythonLogger(LambdaLogger):
         log_level: int = logging.INFO,
         name: str = "python",
         enabled: bool = True,
+        log_file: int = 0,
     ):
         if logger:
             self._logger = logger
@@ -334,6 +362,11 @@ class PythonLogger(LambdaLogger):
         super().__init__(
             lambda_func=self._log_lambda, name=name, enabled=enabled, scheduled=True
         )
+        if log_file in [1, 2]:
+            handler = logging.FileHandler("sparse_out.log")
+            self._logger.addHandler(handler)
+            if log_file == 1:
+                self._logger.propagate = False
 
     def __getattr__(self, item):
         return getattr(self._logger, item)
@@ -348,33 +381,74 @@ class PythonLogger(LambdaLogger):
     def _log_lambda(
         self,
         tag: Optional[str],
-        level: Optional[str],
-        value: Optional[float],
+        value: Optional[Union[float, str]],
         values: Optional[Dict[str, float]],
-        string: Optional[str],
         step: Optional[int],
         wall_time: Optional[float],
+        level: Optional[int] = None,
     ) -> bool:
+        """
+        :param tag: identifying tag to log the values with
+        :param value: value to save
+        :param values: values to save
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
+        :param level: level to log at. Corresponds to default logging package levels
+        :return: True if logged, False otherwise.
+        """
         if not level:
             level = self._log_level
 
-        if not values:
-            values = {}
+        if level >= LOGGING_LEVELS["debug"]:
+            format = "%s %s step %s: %s"
+            log_args = [
+                self.name,
+                tag,
+                step,
+                values or value,
+            ]
+        else:
+            format = "%s %s [%s - %s]: %s"
+            log_args = [self.name, tag, step, wall_time, values or value]
 
-        if value is not None:
-            values["__value__"] = value
-
-        self._logger.log(
-            self._log_level,
-            "%s %s [%s - %s]: %s",
-            self.name,
-            tag,
-            step,
-            wall_time,
-            values,
-        )
+        self._logger.log(level, format, *log_args)
 
         return True
+
+    def log_string(
+        self,
+        tag: Optional[str],
+        string: Optional[str],
+        step: Optional[int],
+        wall_time: Optional[float] = None,
+        scheduled_log: bool = True,
+        level: Optional[int] = None,
+    ):
+        """
+        :param tag: identifying tag to log the values with
+        :param string: string to log
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken,
+            defaults to time.time()
+        :param scheduled_log: True when this call falls within the schedule
+        :param level: level to log at. Corresponds to default logging package levels
+        :return: True if logged, False otherwise.
+        """
+        if not self.log_ready(scheduled_log):
+            return False
+
+        if not wall_time:
+            wall_time = time.time()
+
+        return self._lambda_func(
+            tag=tag,
+            value=string,
+            values=None,
+            step=step,
+            level=level,
+            wall_time=wall_time,
+        )
 
 
 class TensorBoardLogger(LambdaLogger):
@@ -431,10 +505,8 @@ class TensorBoardLogger(LambdaLogger):
     def _log_lambda(
         self,
         tag: Optional[str],
-        level: Optional[str],
         value: Optional[float],
         values: Optional[Dict[str, float]],
-        string: Optional[str],
         step: Optional[int],
         wall_time: Optional[float],
     ) -> bool:
@@ -490,10 +562,8 @@ class WANDBLogger(LambdaLogger):
     def _log_lambda(
         self,
         tag: Optional[str],
-        level: Optional[str],
         value: Optional[float],
         values: Optional[Dict[str, float]],
-        string: Optional[str],
         step: Optional[int],
         wall_time: Optional[float],
     ) -> bool:

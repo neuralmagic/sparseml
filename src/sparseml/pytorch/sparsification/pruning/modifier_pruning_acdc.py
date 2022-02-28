@@ -95,6 +95,7 @@ class ACDCPruningModifier(BasePruningModifier):
         momentum_buffer_reset: bool = True,
         mask_type: str = "unstructured",
         log_types: Union[str, List[str]] = ALL_TOKEN,
+        log_frequency: Union[float, None] = -1.0,
     ):
 
         # because method does not involve any interpolation
@@ -116,6 +117,7 @@ class ACDCPruningModifier(BasePruningModifier):
             params=params,
             leave_enabled=leave_enabled,
             log_types=log_types,
+            log_frequency=log_frequency,
         )
 
         self._momentum_buffer_empty = True

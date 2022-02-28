@@ -27,6 +27,7 @@ from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
 from sparseml.pytorch.optim.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
+    ScheduledModifier,
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import get_layer, get_prunable_layers, replace_layer
@@ -80,6 +81,9 @@ class LayerPruningModifier(ScheduledUpdateModifier):
     :param end_epoch: The epoch, if set and positive,
         the modifier will reintroduce the pruned layers at
     :param update_frequency: Unused for this modifier
+    :param log_frequency: The number of epochs or fraction of epochs to
+            log at between start and end of modifier life. Logging occurs on the next
+            update call
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     """
@@ -91,7 +95,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
         log_types: Union[str, List[str]] = None,
-        log_frequency: float = 1.0,
+        log_frequency: Optional[float] = 1.0,
     ):
         super().__init__(
             log_types=log_types,
@@ -174,6 +178,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         self._last_logged_epoch = None
         self._last_logged_layers_replaced = None
 
+    @ScheduledModifier.log_call
     def update(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
     ):
@@ -203,6 +208,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
+        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch, scheduled_log)
 

@@ -350,6 +350,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
         start_epoch: float,
         end_epoch: float,
         update_frequency: float,
+        log_frequency: Optional[float] = 0.1,
         inter_func: str = "linear",
         params_strict: bool = True,
     ):
@@ -366,6 +367,9 @@ class GradualParamModifier(ScheduledUpdateModifier):
         :param end_epoch: The epoch to end the modifier at
         :param update_frequency: The number of epochs or fraction of epochs to
             update at between start and end
+        :param log_frequency: The number of epochs or fraction of epochs to
+            log at between start and end of modifier life. Logging occurs on the next
+            update call
         :param inter_func: the type of interpolation function to use:
             [linear, cubic, inverse_cubic]; default is linear
         :param params_strict: True if every regex pattern in params must match at least
@@ -376,6 +380,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=update_frequency,
+            log_frequency=log_frequency,
             min_end=0.0,
             end_comparator=1,
         )

@@ -59,6 +59,9 @@ class SetWeightDecayModifier(ScheduledModifier):
     :param end_epoch: unused and should not be set
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
+    :param log_frequency: The number of epochs or fraction of epochs to
+            log at between start and end of modifier life. Logging occurs on the next
+            update call
     :param constant_logging: True to constantly log on every step,
         False to only log on an LR change and min once per epoch, default False
     """
@@ -70,12 +73,14 @@ class SetWeightDecayModifier(ScheduledModifier):
         param_groups: Union[List[int], None] = None,
         end_epoch: float = -1.0,
         log_types: Union[str, List[str]] = ALL_TOKEN,
+        log_frequency: Union[float, None] = -1.0,
         constant_logging: bool = False,
     ):
         super().__init__(
             start_epoch=start_epoch,
             end_epoch=-1,
             log_types=log_types,
+            log_frequency=log_frequency,
             end_comparator=-1,
         )
 
@@ -180,6 +185,7 @@ class SetWeightDecayModifier(ScheduledModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
+        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
