@@ -275,7 +275,7 @@ def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
     container for the manager and modifiers to consume further.
 
     :param container: a staged container generated from a staged recipe.
-    :return consolidated_container: transformed container containing evaluated
+    :return: transformed container containing evaluated
             variables, operations and objects.
     """
     main_container = {k: v for k, v in container.items() if "stage" not in k}
