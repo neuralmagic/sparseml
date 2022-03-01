@@ -71,13 +71,11 @@ class BaseLogger(ABC):
 
     :param name: name given to the logger, used for identification
     :param enabled: True to log, False otherwise
-    :param scheduled: True to log only on log_frequency interval, False to always log
     """
 
-    def __init__(self, name: str, enabled: bool = True, scheduled: bool = True):
+    def __init__(self, name: str, enabled: bool = True):
         self._name = name
         self._enabled = enabled
-        self._scheduled = scheduled
 
     @property
     def name(self) -> str:
@@ -100,20 +98,6 @@ class BaseLogger(ABC):
         """
         self._enabled = value
 
-    @property
-    def scheduled(self) -> bool:
-        """
-        :return: True to log only on log_frequency interval, False to always log
-        """
-        return self._scheduled
-
-    @scheduled.setter
-    def scheduled(self, value: bool):
-        """
-        :param value: True to log only on log_frequency interval, False to always log
-        """
-        self._scheduled = value
-
     def log_ready(self, scheduled_log: bool):
         """
         Check whether this log request should be honored
@@ -121,7 +105,7 @@ class BaseLogger(ABC):
         :param scheduled_log: True when this call falls within the schedule
         :return: True when this log request should be honored
         """
-        return self.enabled and (not self._scheduled or scheduled_log)
+        return self.enabled and scheduled_log
 
     def log_hyperparams(self, params: Dict[str, float]) -> bool:
         """
@@ -218,9 +202,8 @@ class LambdaLogger(BaseLogger):
         ],
         name: str = "lambda",
         enabled: bool = True,
-        scheduled: bool = True,
     ):
-        super().__init__(name, enabled, scheduled=scheduled)
+        super().__init__(name, enabled)
         self._lambda_func = lambda_func
         assert lambda_func, "lambda_func must be set to a callable function"
 
@@ -351,22 +334,19 @@ class PythonLogger(LambdaLogger):
         log_level: int = logging.INFO,
         name: str = "python",
         enabled: bool = True,
-        log_file: int = 0,
     ):
         if logger:
             self._logger = logger
         else:
             self._logger = logging.getLogger(__name__)
-
-        self._log_level = log_level
-        super().__init__(
-            lambda_func=self._log_lambda, name=name, enabled=enabled, scheduled=True
-        )
-        if log_file in [1, 2]:
             handler = logging.FileHandler("sparse_out.log")
             self._logger.addHandler(handler)
-            if log_file == 1:
-                self._logger.propagate = False
+            self._logger.propagate = False
+        
+        self._log_level = log_level
+        super().__init__(
+            lambda_func=self._log_lambda, name=name, enabled=enabled,
+        )
 
     def __getattr__(self, item):
         return getattr(self._logger, item)
@@ -491,7 +471,7 @@ class TensorBoardLogger(LambdaLogger):
 
         self._writer = writer if writer is not None else SummaryWriter(log_path)
         super().__init__(
-            lambda_func=self._log_lambda, name=name, enabled=enabled, scheduled=False
+            lambda_func=self._log_lambda, name=name, enabled=enabled,
         )
 
     @property
@@ -548,7 +528,7 @@ class WANDBLogger(LambdaLogger):
         enabled: bool = True,
     ):
         super().__init__(
-            lambda_func=self._log_lambda, name=name, enabled=enabled, scheduled=False
+            lambda_func=self._log_lambda, name=name, enabled=enabled,
         )
 
         if wandb_err:
