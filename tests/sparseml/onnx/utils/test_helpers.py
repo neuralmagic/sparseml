@@ -438,7 +438,7 @@ def test_extract_node_shape(extract_node_models):  # noqa: F811
     """
     If we have only one test case, it must must evaluate to True,
     If we have two test cases, at least one must evaluate to True.
-    In other words, we are happy with test passing for legacy or 
+    In other words, we are happy with test passing for legacy or
     upgraded PyTorch (worst case scenario).
     """
     assert any(correct_input_shapes)
