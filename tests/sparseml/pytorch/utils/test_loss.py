@@ -64,6 +64,28 @@ DEFAULT_METRICS = {"one": default_metric_one, "two": default_metric_two}
 DEFAULT_KD_SETTINGS = KDSettings(teacher=default_kd_parent())
 
 
+@pytest.mark.parametrize(
+    "wrapper,data, label, expected_loss",
+    [
+        (
+            CrossEntropyLossWrapper(label_smoothing=0.0),
+            torch.FloatTensor([[-1.6977, 0.6374], [0.0781, -0.4140], [1.5172, 0.0473]]),
+            torch.LongTensor([1, 0, 0]),
+            0.2588,
+        ),
+        (
+            CrossEntropyLossWrapper(label_smoothing=0.0),
+            torch.FloatTensor([[-1.6977, 0.6374], [0.0781, -0.4140], [1.5172, 0.0473]]),
+            torch.LongTensor([0.7, 0.2, 0.3]),
+            1.0372,
+        ),
+    ],
+)
+def test_label_smoothing(wrapper, data, label, expected_loss):
+    loss = wrapper._loss_fn(data, label, label_smoothing=wrapper._label_smoothing)
+    assert loss.item() == pytest.approx(expected_loss, 1e-4)
+
+
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
@@ -209,7 +231,8 @@ class TestBinaryCrossEntropyLossWrapperImpl(LossWrapperTest):
     reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
-    "wrapper,metrics", [(CrossEntropyLossWrapper(DEFAULT_METRICS), DEFAULT_METRICS)]
+    "wrapper,metrics",
+    [(CrossEntropyLossWrapper(extras=DEFAULT_METRICS), DEFAULT_METRICS)],
 )
 @pytest.mark.parametrize(
     "data", [(torch.randn(8, 16), torch.ones(8).type(torch.int64)), torch.randn(8, 16)]

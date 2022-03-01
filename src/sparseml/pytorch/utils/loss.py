@@ -213,9 +213,35 @@ class CrossEntropyLossWrapper(LossWrapper):
 
     def __init__(
         self,
+        label_smoothing: float = 0.0,
         extras: Union[None, Dict] = None,
     ):
+        self._label_smoothing = label_smoothing
         super().__init__(TF.cross_entropy, extras)
+
+    def forward(self, data: Any, pred: Any) -> Dict[str, Tensor]:
+        """
+        :param data: the input data to the model, expected to contain the labels
+        :param pred: the predicted output from the model
+        :return: a dictionary containing all calculated losses and metrics with
+            the loss from the loss_fn at DEFAULT_LOSS_KEY
+        """
+        calculated = {
+            DEFAULT_LOSS_KEY: self._loss_fn(
+                self.get_preds(data, pred, DEFAULT_LOSS_KEY),
+                self.get_labels(data, pred, DEFAULT_LOSS_KEY),
+                label_smoothing=self._label_smoothing,
+            )
+        }
+
+        if self._extras:
+            for extra, func in self._extras.items():
+                calculated[extra] = func(
+                    self.get_preds(data, pred, extra),
+                    self.get_labels(data, pred, extra),
+                )
+
+        return calculated
 
 
 class InceptionCrossEntropyLossWrapper(LossWrapper):

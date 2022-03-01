@@ -21,7 +21,6 @@ from typing import Any, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
-from torch.nn import functional as torch_functional
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
@@ -33,7 +32,6 @@ from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     CrossEntropyLossWrapper,
     InceptionCrossEntropyLossWrapper,
-    LossWrapper,
     ModuleExporter,
     ModuleRunResults,
     PythonLogger,
@@ -279,10 +277,14 @@ def infer_num_classes(args: Any, train_dataset, val_dataset):
 
 
 def get_loss_wrapper(
-    arch_key: str, training: bool = False, task: Optional[Tasks] = None
+    arch_key: str,
+    loss_func_args: Optional[dict],
+    training: bool = False,
+    task: Optional[Tasks] = None,
 ):
     """
     :param arch_key: The model architecture
+    :param loss_func_args: Additional arguments to be passed in to the loss function
     :param training: True if training task started else False
     :param task: current task being executed
     """
@@ -294,11 +296,15 @@ def get_loss_wrapper(
     extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
     if task == Tasks.TRAIN:
         return (
-            CrossEntropyLossWrapper(extras)
+            CrossEntropyLossWrapper(
+                label_smoothing=loss_func_args["label_smoothing"], extras=extras
+            )
             if training and "inception" not in arch_key
             else InceptionCrossEntropyLossWrapper(extras)
         )
-    return LossWrapper(loss_fn=torch_functional.cross_entropy, extras=extras)
+    return CrossEntropyLossWrapper(
+        label_smoothing=loss_func_args["label_smoothing"], extras=extras
+    )
 
 
 #  optimizer helper
