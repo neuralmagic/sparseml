@@ -120,7 +120,12 @@ from argparser_.nm_argparser_ import NmArgumentParser
 from sparseml import get_main_logger
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import default_exponential_check_lrs, lr_loss_sensitivity
-from sparseml.pytorch.utils import PythonLogger, default_device, model_to_device
+from sparseml.pytorch.utils import (
+    LoggerManager,
+    PythonLogger,
+    default_device,
+    model_to_device,
+)
 
 
 CURRENT_TASK = utils.Tasks.LR_ANALYSIS
@@ -357,7 +362,7 @@ def lr_sensitivity(
         device,
         args.steps_per_measurement,
         check_lrs=default_exponential_check_lrs(args.init_lr, args.final_lr),
-        trainer_loggers=[PythonLogger()],
+        trainer_loggers=LoggerManager([PythonLogger()]),
     )
 
     # saving and printing results

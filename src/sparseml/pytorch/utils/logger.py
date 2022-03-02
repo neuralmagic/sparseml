@@ -43,7 +43,7 @@ except Exception as err:
     wandb = None
     wandb_err = err
 
-from sparseml.utils import create_dirs
+from sparseml.utils import ALL_TOKEN, create_dirs
 
 
 __all__ = [
@@ -53,6 +53,7 @@ __all__ = [
     "TensorBoardLogger",
     "WANDBLogger",
     "SparsificationGroupLogger",
+    "LoggerManager",
     "LOGGING_LEVELS",
 ]
 
@@ -98,15 +99,6 @@ class BaseLogger(ABC):
         """
         self._enabled = value
 
-    def log_ready(self, scheduled_log: bool):
-        """
-        Check whether this log request should be honored
-
-        :param scheduled_log: True when this call falls within the schedule
-        :return: True when this log request should be honored
-        """
-        return self.enabled and scheduled_log
-
     def log_hyperparams(self, params: Dict[str, float]) -> bool:
         """
         :param params: Each key-value pair in the dictionary is the name of the
@@ -121,7 +113,6 @@ class BaseLogger(ABC):
         value: float,
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
-        scheduled_log: bool = True,
         **kwargs,
     ) -> bool:
         """
@@ -129,7 +120,6 @@ class BaseLogger(ABC):
         :param value: value to save
         :param step: global step for when the value was taken
         :param wall_time: global wall time for when the value was taken
-        :param scheduled_log: True when this call falls within the schedule
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
@@ -141,7 +131,6 @@ class BaseLogger(ABC):
         values: Dict[str, float],
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
-        scheduled_log: bool = True,
         **kwargs,
     ):
         """
@@ -149,7 +138,6 @@ class BaseLogger(ABC):
         :param values: values to save
         :param step: global step for when the values were taken
         :param wall_time: global wall time for when the values were taken
-        :param scheduled_log: True when this call falls within the schedule
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
@@ -161,7 +149,6 @@ class BaseLogger(ABC):
         string,
         step,
         wall_time: Optional[float] = None,
-        scheduled_log: bool = True,
         **kwargs,
     ):
         """
@@ -169,7 +156,6 @@ class BaseLogger(ABC):
         :param values: values to save
         :param step: global step for when the values were taken
         :param wall_time: global wall time for when the values were taken
-        :param scheduled_log: True when this call falls within the schedule
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
@@ -253,7 +239,6 @@ class LambdaLogger(BaseLogger):
         value: float,
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
-        scheduled_log: bool = True,
         **kwargs,
     ):
         """
@@ -262,13 +247,9 @@ class LambdaLogger(BaseLogger):
         :param step: global step for when the value was taken
         :param wall_time: global wall time for when the value was taken,
             defaults to time.time()
-        :param scheduled_log: True when this call falls within the schedule
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
-        if not self.log_ready(scheduled_log):
-            return False
-
         if not wall_time:
             wall_time = time.time()
 
@@ -287,7 +268,6 @@ class LambdaLogger(BaseLogger):
         values: Dict[str, float],
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
-        scheduled_log: bool = True,
         **kwargs,
     ):
         """
@@ -296,13 +276,9 @@ class LambdaLogger(BaseLogger):
         :param step: global step for when the values were taken
         :param wall_time: global wall time for when the values were taken,
             defaults to time.time()
-        :param scheduled_log: True when this call falls within the schedule
         :param kwargs: additional logging arguments to support Python and custom loggers
         :return: True if logged, False otherwise.
         """
-        if not self.log_ready(scheduled_log):
-            return False
-
         if not wall_time:
             wall_time = time.time()
 
@@ -331,7 +307,7 @@ class PythonLogger(LambdaLogger):
     def __init__(
         self,
         logger: Logger = None,
-        log_level: int = logging.INFO,
+        log_level: int = logging.DEBUG,
         name: str = "python",
         enabled: bool = True,
     ):
@@ -342,10 +318,12 @@ class PythonLogger(LambdaLogger):
             handler = logging.FileHandler("sparse_out.log")
             self._logger.addHandler(handler)
             self._logger.propagate = False
-        
+
         self._log_level = log_level
         super().__init__(
-            lambda_func=self._log_lambda, name=name, enabled=enabled,
+            lambda_func=self._log_lambda,
+            name=name,
+            enabled=enabled,
         )
 
     def __getattr__(self, item):
@@ -402,7 +380,6 @@ class PythonLogger(LambdaLogger):
         string: Optional[str],
         step: Optional[int],
         wall_time: Optional[float] = None,
-        scheduled_log: bool = True,
         level: Optional[int] = None,
     ):
         """
@@ -411,13 +388,9 @@ class PythonLogger(LambdaLogger):
         :param step: global step for when the values were taken
         :param wall_time: global wall time for when the values were taken,
             defaults to time.time()
-        :param scheduled_log: True when this call falls within the schedule
         :param level: level to log at. Corresponds to default logging package levels
         :return: True if logged, False otherwise.
         """
-        if not self.log_ready(scheduled_log):
-            return False
-
         if not wall_time:
             wall_time = time.time()
 
@@ -471,7 +444,9 @@ class TensorBoardLogger(LambdaLogger):
 
         self._writer = writer if writer is not None else SummaryWriter(log_path)
         super().__init__(
-            lambda_func=self._log_lambda, name=name, enabled=enabled,
+            lambda_func=self._log_lambda,
+            name=name,
+            enabled=enabled,
         )
 
     @property
@@ -528,7 +503,9 @@ class WANDBLogger(LambdaLogger):
         enabled: bool = True,
     ):
         super().__init__(
-            lambda_func=self._log_lambda, name=name, enabled=enabled,
+            lambda_func=self._log_lambda,
+            name=name,
+            enabled=enabled,
         )
 
         if wandb_err:
@@ -712,3 +689,117 @@ class SparsificationGroupLogger(BaseLogger):
         """
         for logger in self._loggers:
             logger.log_scalars(tag, values, step, wall_time)
+
+
+class LoggerManager:
+    def __init__(
+        self,
+        loggers: List[BaseLogger] = [],
+        log_frequency: Union[str, float, None] = 0.1,
+        last_log_epoch: float = -1.0,
+    ):
+        self._loggers = loggers
+        self._log_frequency = log_frequency
+        self._last_log_epoch = last_log_epoch
+
+    def __len__(self):
+        return len(self.loggers)
+
+    def __iter__(self):
+        return iter(self.loggers)
+
+    def log_ready(self, epoch):
+        return (
+            self._log_frequency is not None
+            and epoch >= self._last_log_epoch + self._log_frequency
+            and any(log.enabled for log in self.loggers)
+        )
+
+    @staticmethod
+    def epoch_to_step(epoch, steps_per_epoch):
+        return round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
+
+    @property
+    def loggers(self) -> List[BaseLogger]:
+        """
+        :return: List of loggers assigned to this manager
+        """
+        return self._loggers
+
+    @loggers.setter
+    def loggers(self, value: List[BaseLogger]):
+        """
+        :param value: List of loggers assigned to this manager
+        """
+        self._loggers = value
+
+    @property
+    def log_frequency(self) -> Union[str, float, None]:
+        """
+        :return: The number of epochs or fraction of epochs to wait between logs
+        """
+        return self._log_frequency
+
+    @log_frequency.setter
+    def log_frequency(self, value: Union[str, float, None]):
+        """
+        :param value: The number of epochs or fraction of epochs to wait between logs
+        """
+        self._log_frequency = value
+
+    def log_scalar(
+        self,
+        tag: str,
+        value: float,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        **kwargs,
+    ):
+        for log in self.loggers:
+            if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
+                log.log_scalar(
+                    tag=tag,
+                    value=value,
+                    step=step,
+                    wall_time=wall_time,
+                    **kwargs,
+                )
+
+    def log_scalars(
+        self,
+        tag: str,
+        values: float,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        **kwargs,
+    ):
+        for log in self.loggers:
+            if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
+                log.log_scalars(
+                    tag=tag,
+                    values=values,
+                    step=step,
+                    wall_time=wall_time,
+                    **kwargs,
+                )
+
+    def log_string(
+        self,
+        tag: str,
+        string: str,
+        step: Optional[int] = None,
+        wall_time: Optional[float] = None,
+        log_types: Union[str, List[str]] = ALL_TOKEN,
+        **kwargs,
+    ):
+        for log in self.loggers:
+            if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
+                log.log_string(
+                    tag=tag,
+                    string=string,
+                    step=step,
+                    wall_time=wall_time,
+                    **kwargs,
+                )

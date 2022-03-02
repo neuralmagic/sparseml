@@ -36,7 +36,6 @@ from sparseml.pytorch.utils import get_prunable_layers, tensor_sparsity
 from sparseml.sparsification import (
     ConstantPruningModifier as BaseConstantPruningModifier,
 )
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = [
@@ -78,20 +77,14 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
     |       start_epoch: 0.0
     |       end_epoch: 10.0
     |       params: ['re:.*weight']
-    |       log_types: __ALL__
 
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param update_frequency: Ignored for this modifier
-    :param log_frequency: The number of epochs or fraction of epochs to
-            log at between start and end of modifier life. Logging occurs on the next
-            update call
     :param params: A list of full parameter names or regex patterns of names to apply
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
         and Linear layers' weights
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     @staticmethod
@@ -124,8 +117,6 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        log_frequency: Union[float, None] = -1.0,
     ):
         super(ConstantPruningModifier, self).__init__(
             params=params,
@@ -133,8 +124,6 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
             end_epoch=end_epoch,
             end_comparator=-1,
             update_frequency=-1,
-            log_types=log_types,
-            log_frequency=log_frequency,
             allow_reintroduction=False,
             leave_enabled=False,
             parent_class_kwarg_names=["params"],

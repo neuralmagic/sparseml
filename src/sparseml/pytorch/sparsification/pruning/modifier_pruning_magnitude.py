@@ -32,7 +32,6 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
 from sparseml.sparsification import GMPruningModifier as BaseGMPruningModifier
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = [
@@ -77,7 +76,6 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
     |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
 
     :param init_sparsity: initial sparsity for each param to start with at
@@ -101,8 +99,6 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
@@ -118,8 +114,6 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        log_frequency: Union[float, None] = -1.0,
         mask_type: str = "unstructured",
     ):
         super(GMPruningModifier, self).__init__(
@@ -130,8 +124,6 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
             end_epoch=end_epoch,
             update_frequency=update_frequency,
             inter_func=inter_func,
-            log_types=log_types,
-            log_frequency=log_frequency,
             mask_type=mask_type,
             leave_enabled=leave_enabled,
             end_comparator=-1,
@@ -188,7 +180,6 @@ class MagnitudePruningModifier(GMPruningModifier):
     |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
 
     :param init_sparsity: initial sparsity for each param to start with at
@@ -212,8 +203,6 @@ class MagnitudePruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
@@ -242,7 +231,6 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
     |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
 
     :param init_sparsity: initial sparsity for each param to start with at
@@ -266,11 +254,6 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param log_frequency: The number of epochs or fraction of epochs to
-            log at between start and end of modifier life. Logging occurs on the next
-            update call
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
@@ -286,8 +269,6 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        log_frequency: Union[float, None] = -1.0,
         mask_type: str = "unstructured",
     ):
         super(GlobalMagnitudePruningModifier, self).__init__(
@@ -298,8 +279,6 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
             end_epoch=end_epoch,
             update_frequency=update_frequency,
             inter_func=inter_func,
-            log_types=log_types,
-            log_frequency=log_frequency,
             mask_type=mask_type,
             leave_enabled=leave_enabled,
         )

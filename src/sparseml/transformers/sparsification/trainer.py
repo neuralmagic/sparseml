@@ -34,7 +34,13 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.utils import GradSampler, ModuleSparsificationInfo, WANDBLogger
+from sparseml.pytorch.utils import (
+    GradSampler,
+    LoggerManager,
+    ModuleSparsificationInfo,
+    PythonLogger,
+    WANDBLogger,
+)
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
 
@@ -107,7 +113,10 @@ class RecipeManagerTrainerInterface:
             or not kwargs["args"].report_to
             else kwargs["args"].report_to
         )
-        self.manager_loggers = [WANDBLogger()] if "wandb" in report_to else None
+        loggers = [WANDBLogger()] if "wandb" in report_to else None
+        loggers.append(PythonLogger())
+
+        self.logger_manager = LoggerManager(loggers)
 
         # remove arch_managers once recipe stages are supported
         self.manager, self.arch_managers = self._setup_manager(kwargs)
@@ -224,7 +233,7 @@ class RecipeManagerTrainerInterface:
                 steps_per_epoch=self.manager_steps_per_epoch,
                 allow_parallel_module=False,
                 wrap_optim=self.scaler,
-                loggers=self.manager_loggers,
+                loggers=self.logger_manager,
                 distillation_teacher=self.teacher,
                 grad_sampler=self.grad_sampler,
             )
@@ -235,13 +244,13 @@ class RecipeManagerTrainerInterface:
                 self.model,
                 self.manager,
                 steps_per_epoch=self.manager_steps_per_epoch,
-                loggers=self.manager_loggers,
+                loggers=self.logger_manager,
                 grad_sampler=self.grad_sampler,
             )
             if not self.manager.initialized:
                 self.manager.initialize(
                     self.model,
-                    loggers=self.manager_loggers,
+                    loggers=self.logger_manager,
                     distillation_teacher=self.teacher,
                 )
         self.manager_initialized = True

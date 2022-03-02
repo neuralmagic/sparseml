@@ -38,7 +38,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import (
-    BaseLogger,
+    LoggerManager,
     get_optim_groups_learning_rates,
     set_optim_learning_rate,
 )
@@ -47,7 +47,7 @@ from sparseml.sparsification import (
     SetLearningRateModifier as BaseSetLearningRateModifier,
 )
 from sparseml.sparsification import SparsificationTypes
-from sparseml.utils import ALL_TOKEN, convert_to_bool
+from sparseml.utils import convert_to_bool
 
 
 __all__ = [
@@ -67,21 +67,16 @@ CONSTRUCTORS = {
 
 def _log_lr(
     group_lrs: List[Tuple[str, float]],
-    loggers: List[BaseLogger],
+    loggers: LoggerManager,
     epoch: float,
     steps_per_epoch: int,
-    scheduled_log: bool,
 ):
-    step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
-
-    for logger in loggers:
-        for (group_name, group_lr) in group_lrs:
-            logger.log_scalar(
-                tag=f"LearningRateModifier/{group_name}",
-                value=group_lr,
-                step=step,
-                scheduled_log=scheduled_log,
-            )
+    for (group_name, group_lr) in group_lrs:
+        loggers.log_scalar(
+            tag=f"LearningRateModifier/{group_name}",
+            value=group_lr,
+            step=loggers.epoch_to_step(epoch, steps_per_epoch),
+        )
 
 
 @PyTorchModifierYAML()
@@ -96,19 +91,12 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
     |   !SetLearningRateModifier
     |       start_epoch: 0.0
     |       learning_rate: 0.001
-    |       log_types: __ALL__
     |       constant_logging: True
 
     :param learning_rate: The learning rate to use once this modifier starts
     :param start_epoch: The epoch to start the modifier at
         (set to -1.0 so it starts immediately)
     :param end_epoch: unused and should not be set
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param log_frequency: The number of epochs or fraction of epochs to
-            log at between start and end of modifier life. Logging occurs on the next
-            update call. If constant_logging is also used, the hardest contraint
-            will be honored
     :param constant_logging: True to constantly log on every step,
         False to only log on an LR change and min once per epoch, default False
     """
@@ -119,14 +107,10 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
         param_groups: Optional[List[int]] = None,
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        log_frequency: Optional[float] = 0.1,
         constant_logging: bool = False,
     ):
         super(SetLearningRateModifier, self).__init__(
             learning_rate=learning_rate,
-            log_types=log_types,
-            log_frequency=log_frequency,
             start_epoch=start_epoch,
             end_epoch=-1,
             end_comparator=None,
@@ -200,7 +184,6 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
-        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the learning rate of the modifier
@@ -212,7 +195,6 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
-        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
         group_lrs = [
@@ -236,7 +218,7 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
         ):
             self._last_logged_lr = current_lr
             self._last_logged_epoch = math.floor(epoch)
-            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch, scheduled_log)
+            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
 
     def _check_set_lr(self, optimizer: Optimizer, epoch: float):
         if (
@@ -283,12 +265,6 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     :param_groups: The param group indices to set the lr for within the optimizer,
         if not set will set the lr for all param groups
     :param update_frequency: unused and should not be set
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param log_frequency: The number of epochs or fraction of epochs to
-            log at between start and end of modifier life. Logging occurs on the next
-            update call. If constant_logging is also used, the hardest contraint
-            will be honored
     :param constant_logging: True to constantly log on every step,
         False to only log on an LR change and min once per epoch, default False
     """
@@ -303,12 +279,8 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         cycle_epochs: float = 1.0,
         param_groups: Optional[List[int]] = None,
         update_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        log_frequency: Optional[float] = 0.1,
     ):
         super().__init__(
-            log_types=log_types,
-            log_frequency=log_frequency,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1.0,
@@ -427,7 +399,6 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
-        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the learning rate of the modifier.
@@ -438,7 +409,6 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
-        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
         group_lrs = [
@@ -459,7 +429,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
             current_lr != self._last_logged_lr
             or math.floor(epoch) != self._last_logged_epoch
         ):
-            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch, scheduled_log)
+            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
             self._last_logged_lr = current_lr
             self._last_logged_epoch = math.floor(epoch)
 
@@ -564,7 +534,7 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
     |       lr_kwargs:
     |           gamma: 0.95
     |       init_lr: 0.01
-    |       log_types: __ALL__
+
     |       constant_logging: True
 
     :param lr_class: The name of the lr scheduler class to use:
@@ -577,12 +547,6 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
     :param end_epoch: The epoch to end the modifier at,
         (set to -1.0 so it doesn't end)
     :param update_frequency: unused and should not be set
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param log_frequency: The number of epochs or fraction of epochs to
-            log at between start and end of modifier life. Logging occurs on the next
-            update call. If constant_logging is also used, the hardest contraint
-            will be honored
     :param constant_logging: True to constantly log on every step,
         False to only log on an LR change and min once per epoch, default False
     """
@@ -595,19 +559,15 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
         start_epoch: float,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        log_frequency: Optional[float] = 0.1,
         constant_logging: bool = False,
     ):
         super(LearningRateModifier, self).__init__(
             lr_class=lr_class,
             lr_kwargs=lr_kwargs,
             init_lr=init_lr,
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1.0,
-            log_frequency=log_frequency,
             end_comparator=-1,
         )
         self._lr_scheduler = None
@@ -692,7 +652,6 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
-        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the learning rate of the modifier
@@ -704,7 +663,6 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
-        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
         group_lrs = [
@@ -724,7 +682,7 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
         ):
             self._last_logged_lr = current_lr
             self._last_logged_epoch = math.floor(epoch)
-            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch, scheduled_log)
+            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
 
     def validate(self):
         """

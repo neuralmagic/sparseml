@@ -14,7 +14,7 @@
 
 import os
 import sys
-from typing import Callable, List, Union
+from typing import Callable
 
 import pytest
 from torch import Tensor
@@ -29,8 +29,7 @@ from sparseml.pytorch.optim import (
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.utils import PythonLogger, TensorBoardLogger
-from sparseml.utils import ALL_TOKEN
+from sparseml.pytorch.utils import LoggerManager, PythonLogger, TensorBoardLogger
 from tests.sparseml.optim import BaseModifierTest, BaseScheduledTest, BaseUpdateTest
 from tests.sparseml.pytorch.helpers import (
     SAMPLE_STAGED_RECIPE,
@@ -74,7 +73,7 @@ class ModifierTest(BaseModifierTest):
         modifier.initialize(model, epoch, **kwargs)
 
         if log_initialize:
-            modifier.initialize_loggers([PythonLogger()])
+            modifier.initialize_loggers(LoggerManager([PythonLogger()]))
 
     # noinspection PyMethodOverriding
     def test_constructor(
@@ -163,24 +162,20 @@ class ModifierTest(BaseModifierTest):
         loggers = []
         expected_loggers = []
 
-        if modifier.log_types == ALL_TOKEN or (
-            isinstance(modifier.log_types, List) and "python" in modifier.log_types
-        ):
-            logger = PythonLogger()
-            loggers.append(logger)
-            expected_loggers.append(logger)
+        logger = PythonLogger()
+        loggers.append(logger)
+        expected_loggers.append(logger)
 
-        if modifier.log_types == ALL_TOKEN or (
-            isinstance(modifier.log_types, List) and "tensorboard" in modifier.log_types
-        ):
-            logger = TensorBoardLogger()
-            loggers.append(logger)
-            expected_loggers.append(logger)
+        logger = TensorBoardLogger()
+        loggers.append(logger)
+        expected_loggers.append(logger)
 
-        modifier.initialize_loggers(loggers)
+        logger_manager = LoggerManager(loggers)
+
+        modifier.initialize_loggers(logger_manager)
         assert len(expected_loggers) == len(modifier.loggers)
 
-        for logger in loggers:
+        for logger in logger_manager:
             assert logger in modifier.loggers
 
     def test_update(
@@ -633,8 +628,8 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
 
 @PyTorchModifierYAML()
 class ModifierImpl(Modifier):
-    def __init__(self, log_types: Union[str, List[str]] = ["python"]):
-        super().__init__(log_types)
+    def __init__(self):
+        super().__init__()
 
 
 @pytest.mark.skipif(
@@ -654,11 +649,10 @@ class TestModifierImpl(ModifierTest):
 class ScheduledModifierImpl(ScheduledModifier):
     def __init__(
         self,
-        log_types: Union[str, List[str]] = ["python"],
         end_epoch: float = -1.0,
         start_epoch: float = -1.0,
     ):
-        super().__init__(log_types)
+        super().__init__()
 
 
 @pytest.mark.skipif(
@@ -678,12 +672,11 @@ class TestScheduledModifierImpl(ScheduledModifierTest):
 class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
     def __init__(
         self,
-        log_types: Union[str, List[str]] = ["python"],
         end_epoch: float = -1.0,
         start_epoch: float = -1.0,
         update_frequency: float = -1,
     ):
-        super().__init__(log_types)
+        super().__init__()
 
 
 @pytest.mark.skipif(

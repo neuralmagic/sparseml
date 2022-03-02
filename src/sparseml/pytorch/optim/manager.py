@@ -27,7 +27,7 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseManager, load_recipe_yaml_str, parse_recipe_variables
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
-from sparseml.pytorch.utils import BaseLogger, PythonLogger, is_parallel_model
+from sparseml.pytorch.utils import LoggerManager, is_parallel_model
 from sparsezoo.objects import Recipe
 
 
@@ -356,7 +356,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         self,
         module: Module,
         epoch: float = 0.0,
-        loggers: Optional[List[BaseLogger]] = None,
+        loggers: Optional[LoggerManager] = None,
         finalize: bool = False,
         **kwargs,
     ):
@@ -368,7 +368,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
         :param module: the PyTorch model/module to modify
         :param epoch: the epoch to apply the modifier at, defaults to 0.0 (start)
-        :param loggers: Optional list of loggers to log the modification process to
+        :param loggers: Optional logger manager to log the modification process to
         :param finalize: True to invoke finalize after initialize, False otherwise.
             Set finalize to True and epoch to math.inf for one shot application.
         :param kwargs: Optional kwargs to support specific arguments
@@ -382,8 +382,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[List[BaseLogger]] = None,
-        python_log: bool = True,
+        loggers: Optional[LoggerManager] = None,
         **kwargs,
     ):
         """
@@ -395,15 +394,10 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the manager and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional list of loggers to log the modification process to
+        :param loggers: Optional logger manager to log the modification process to
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
-        if (python_log and loggers) and not any(
-            isinstance(logger, PythonLogger) for logger in loggers
-        ):
-            loggers.append(PythonLogger())
-
         super().initialize(module, epoch, loggers, **kwargs)
         self._initialize_epoch = epoch
 
@@ -414,12 +408,12 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
             mod.initialize(module, epoch, loggers, **kwargs)
 
-    def initialize_loggers(self, loggers: Union[None, List[BaseLogger]]):
+    def initialize_loggers(self, loggers: Union[None, LoggerManager]):
         """
         Handles initializing and setting up the loggers for the contained modifiers.
 
-        :param loggers: the loggers to setup this manager with for logging important
-            info and milestones to
+        :param loggers: the logger manager to setup this manager with for logging
+            importantinfo and milestones to
         """
         super().initialize_loggers(loggers)
 

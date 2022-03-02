@@ -42,7 +42,7 @@ from sparseml.pytorch.utils import (
     get_prunable_layers,
     tensor_sparsity,
 )
-from sparseml.pytorch.utils.logger import BaseLogger
+from sparseml.pytorch.utils.logger import LoggerManager
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import (
     ALL_PRUNABLE_TOKEN,
@@ -100,11 +100,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             update at between start and end
     :param min_frequency: The minimum acceptable value for update_frequency,
         default -1
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param log_frequency: The number of epochs or fraction of epochs to
-            log at between start and end of modifier life. Logging occurs on the next
-            update call
     :param global_sparsity: set True to pass global_sparsity as True to mask
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
@@ -131,8 +126,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         end_comparator: Union[int, None] = 0,
         update_frequency: float = -1.0,
         min_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = None,
-        log_frequency: Optional[float] = -1.0,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
         leave_enabled: bool = False,
@@ -146,7 +139,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             if "params" in parent_class_kwarg_names:
                 kwargs["params"] = params
         super().__init__(
-            log_types=(log_types or ["python"]),
             start_epoch=start_epoch,
             min_start=min_start,
             end_epoch=end_epoch,
@@ -154,7 +146,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             end_comparator=end_comparator,
             update_frequency=update_frequency,
             min_frequency=min_frequency,
-            log_frequency=log_frequency,
             **kwargs,
         )
         self._params = validate_str_iterable(
@@ -288,7 +279,7 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[List[BaseLogger]] = None,
+        loggers: Optional[LoggerManager] = None,
         **kwargs,
     ):
         """
@@ -396,7 +387,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
-        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the learning rate of the modifier.
@@ -406,9 +396,8 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
-        :param scheduled_log: True when this call falls within the log schedule
         """
-        super().log_update(module, optimizer, epoch, steps_per_epoch, scheduled_log)
+        super().log_update(module, optimizer, epoch, steps_per_epoch)
 
         self._last_logged_epoch = math.floor(epoch)
         _log_sparsity(
@@ -417,7 +406,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             self.loggers,
             epoch,
             steps_per_epoch,
-            scheduled_log,
         )
 
     def optimizer_pre_step(
@@ -523,7 +511,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
-        scheduled_log: bool,
     ) -> bool:
         return self._last_logged_epoch != math.floor(epoch)
 
@@ -608,8 +595,6 @@ class BaseGradualPruningModifier(BasePruningModifier):
             update at between start and end
     :param min_frequency: The minimum acceptable value for update_frequency,
         default -1
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param global_sparsity: set True to pass global_sparsity as True to mask
         creator methods. Default is False
     :param allow_reintroduction: if True, gradients and params will not be masked
@@ -636,7 +621,6 @@ class BaseGradualPruningModifier(BasePruningModifier):
         end_comparator: Union[int, None] = 0,
         update_frequency: float = -1.0,
         min_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = None,
         global_sparsity: bool = False,
         allow_reintroduction: bool = False,
         parent_class_kwarg_names: Optional[List[str]] = None,
@@ -660,7 +644,6 @@ class BaseGradualPruningModifier(BasePruningModifier):
             end_comparator=end_comparator,
             update_frequency=update_frequency,
             min_frequency=min_frequency,
-            log_types=log_types,
             global_sparsity=global_sparsity,
             allow_reintroduction=allow_reintroduction,
             init_sparsity=self._init_sparsity,
@@ -846,24 +829,20 @@ class BaseGradualPruningModifier(BasePruningModifier):
 def _log_sparsity(
     tag_prefix: str,
     layer_sparsities: List[Union[Tuple[str, float], ModulePruningAnalyzer]],
-    loggers: List[BaseLogger],
+    loggers: LoggerManager,
     epoch: float,
     steps_per_epoch: int,
-    scheduled_log: bool,
 ):
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
-
-    for logger in loggers:
-        for layer_sparsity in layer_sparsities:
-            if isinstance(layer_sparsity, ModulePruningAnalyzer):
-                layer_sparsity = (
-                    layer_sparsity.tag,
-                    layer_sparsity.param_sparsity.item(),
-                )
-
-            logger.log_scalar(
-                tag=f"{tag_prefix}/{layer_sparsity[0]}",
-                value=layer_sparsity[1],
-                step=step,
-                scheduled_log=scheduled_log,
+    for layer_sparsity in layer_sparsities:
+        if isinstance(layer_sparsity, ModulePruningAnalyzer):
+            layer_sparsity = (
+                layer_sparsity.tag,
+                layer_sparsity.param_sparsity.item(),
             )
+
+        loggers.log_scalar(
+            tag=f"{tag_prefix}/{layer_sparsity[0]}",
+            value=layer_sparsity[1],
+            step=step,
+        )

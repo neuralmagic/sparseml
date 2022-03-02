@@ -33,7 +33,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
+from sparseml.pytorch.utils import LoggerManager, device_of, tensors_module_forward
 from sparseml.sparsification import SparsificationTypes
 
 
@@ -71,10 +71,6 @@ class DistillationModifier(ScheduledUpdateModifier):
     :param distill_output_keys: list of keys for the module outputs to use for
         distillation if multiple outputs are present. None or empty list defaults
         to using all available outputs
-    :param log_types: The loggers to allow the distillation losses to be logged to
-    :param log_frequency: The number of epochs or fraction of epochs to
-            log at between start and end of modifier life. Logging occurs on the next
-            update call
     :param teacher_input_keys: list of keys to filter the inputs by before
         passing into the teacher. None or empty list defaults to using
         all available inputs
@@ -89,15 +85,11 @@ class DistillationModifier(ScheduledUpdateModifier):
         distill_output_keys: List[Any] = None,
         teacher_input_keys: List[Any] = None,
         update_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = None,
-        log_frequency: Optional[float] = 0.1,
     ):
         super().__init__(
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             end_comparator=-1,
-            log_frequency=log_frequency,
-            log_types=(log_types or ["python"]),
         )
         self._hardness = hardness
         self._temperature = temperature
@@ -186,7 +178,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[List[BaseLogger]] = None,
+        loggers: Optional[LoggerManager] = None,
         distillation_teacher: Module = "disable",
         **kwargs,
     ):
@@ -196,7 +188,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional list of loggers to log the modification process to
+        :param loggers: Optional logger manager to log the modification process to
         :param distillation_teacher: teacher module to perform knowledge distillation
             with. If not provided, self distillation will be used with a teacher
              from a copy of the given module at the start epoch. If given string
@@ -350,7 +342,6 @@ class DistillationModifier(ScheduledUpdateModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
-        scheduled_log: bool = True,
     ):
         """
         log the latest set of losses
@@ -360,7 +351,6 @@ class DistillationModifier(ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
-        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
         _log_losses(
@@ -369,7 +359,6 @@ class DistillationModifier(ScheduledUpdateModifier):
             self._student_loss,
             self._teacher_loss,
             self._distillation_loss,
-            scheduled_log=scheduled_log,
         )
 
     def finalize(
@@ -402,12 +391,11 @@ class DistillationModifier(ScheduledUpdateModifier):
 
 
 def _log_losses(
-    loggers: List[BaseLogger],
+    loggers: LoggerManager,
     global_step: int,
     original_loss: float,
     teacher_loss: float,
     distillation_loss: float,
-    scheduled_log: bool,
 ):
     losses = {
         "original_loss": original_loss,
@@ -415,11 +403,9 @@ def _log_losses(
         "distillation_loss": distillation_loss,
     }
 
-    for logger in loggers:
-        for (name, loss) in losses.items():
-            logger.log_scalar(
-                tag=f"DistillationModifier/{name}",
-                value=(loss.item() if loss else None),
-                step=global_step,
-                scheduled_log=scheduled_log,
-            )
+    for (name, loss) in losses.items():
+        loggers.log_scalar(
+            tag=f"DistillationModifier/{name}",
+            value=(loss.item() if loss else None),
+            step=global_step,
+        )

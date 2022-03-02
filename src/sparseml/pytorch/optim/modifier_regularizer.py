@@ -24,20 +24,19 @@ from torch.optim import Optimizer
 
 from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.utils import BaseLogger
+from sparseml.pytorch.utils import LoggerManager
 from sparseml.sparsification import SparsificationTypes
-from sparseml.utils import ALL_TOKEN, convert_to_bool
+from sparseml.utils import convert_to_bool
 
 
 __all__ = ["SetWeightDecayModifier"]
 
 
 def _log_weight_decay(
-    value: float, loggers: List[BaseLogger], epoch: float, steps_per_epoch: int
+    value: float, loggers: LoggerManager, epoch: float, steps_per_epoch: int
 ):
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
-    for logger in loggers:
-        logger.log_scalar("Modifier Weight Decay", value, step)
+    loggers.log_scalar("Modifier Weight Decay", value, step)
 
 
 @PyTorchModifierYAML()
@@ -50,18 +49,13 @@ class SetWeightDecayModifier(ScheduledModifier):
     |       start_epoch: 0.0
     |       weight_decay: 0.0
     |       param_groups: [0]
-    |       log_types: __ALL__
 
     :param weight_decay: weight decay (L2 penalty) value to set for the given optimizer
     :param start_epoch: The epoch to start the modifier at
     :param param_groups: The indices of param groups in the optimizer to be modified.
         If None, all param groups will be modified. Default is None
     :param end_epoch: unused and should not be set
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
-    :param log_frequency: The number of epochs or fraction of epochs to
-            log at between start and end of modifier life. Logging occurs on the next
-            update call
+
     :param constant_logging: True to constantly log on every step,
         False to only log on an LR change and min once per epoch, default False
     """
@@ -72,15 +66,11 @@ class SetWeightDecayModifier(ScheduledModifier):
         start_epoch: float = -1.0,
         param_groups: Union[List[int], None] = None,
         end_epoch: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
-        log_frequency: Union[float, None] = -1.0,
         constant_logging: bool = False,
     ):
         super().__init__(
             start_epoch=start_epoch,
             end_epoch=-1,
-            log_types=log_types,
-            log_frequency=log_frequency,
             end_comparator=-1,
         )
 
@@ -174,7 +164,6 @@ class SetWeightDecayModifier(ScheduledModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
-        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the weight decay of the modifier
@@ -186,7 +175,6 @@ class SetWeightDecayModifier(ScheduledModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
-        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 

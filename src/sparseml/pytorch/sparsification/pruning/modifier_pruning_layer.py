@@ -31,7 +31,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import get_layer, get_prunable_layers, replace_layer
-from sparseml.pytorch.utils.logger import BaseLogger
+from sparseml.pytorch.utils.logger import LoggerManager
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_PRUNABLE_TOKEN, ALL_TOKEN, validate_str_iterable
 
@@ -44,25 +44,23 @@ __all__ = [
 def _log_sparsity(
     tag_prefix: str,
     layer_sparsities: List[Union[Tuple[str, float], ModulePruningAnalyzer]],
-    loggers: List[BaseLogger],
+    loggers: LoggerManager,
     epoch: float,
     steps_per_epoch: int,
 ):
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
-
-    for logger in loggers:
-        for layer_sparsity in layer_sparsities:
-            if isinstance(layer_sparsity, ModulePruningAnalyzer):
-                layer_sparsity = (
-                    layer_sparsity.tag,
-                    layer_sparsity.param_sparsity.item(),
-                )
-
-            logger.log_scalar(
-                f"{tag_prefix}/{layer_sparsity[0]}",
-                layer_sparsity[1],
-                step,
+    for layer_sparsity in layer_sparsities:
+        if isinstance(layer_sparsity, ModulePruningAnalyzer):
+            layer_sparsity = (
+                layer_sparsity.tag,
+                layer_sparsity.param_sparsity.item(),
             )
+
+        loggers.log_scalar(
+            f"{tag_prefix}/{layer_sparsity[0]}",
+            layer_sparsity[1],
+            step,
+        )
 
 
 @PyTorchModifierYAML()
@@ -81,11 +79,6 @@ class LayerPruningModifier(ScheduledUpdateModifier):
     :param end_epoch: The epoch, if set and positive,
         the modifier will reintroduce the pruned layers at
     :param update_frequency: Unused for this modifier
-    :param log_frequency: The number of epochs or fraction of epochs to
-            log at between start and end of modifier life. Logging occurs on the next
-            update call
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     def __init__(
@@ -94,15 +87,11 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = None,
-        log_frequency: Optional[float] = 1.0,
     ):
         super().__init__(
-            log_types=(log_types or ["python"]),
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1.0,
-            log_frequency=log_frequency,
         )
         self._layers = validate_str_iterable(
             layers, "{} for layers".format(self.__class__.__name__)
@@ -139,7 +128,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[List[BaseLogger]] = None,
+        loggers: Optional[LoggerManager] = None,
         **kwargs,
     ):
         """
@@ -147,7 +136,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional list of loggers to log the modification process to
+        :param loggers: Optional logger manager to log the modification process to
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
@@ -199,7 +188,6 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         optimizer: Optimizer,
         epoch: float,
         steps_per_epoch: int,
-        scheduled_log: bool = True,
     ):
         """
         Check whether to log an update for the state of the modifier.
@@ -210,7 +198,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         :param scheduled_log: True when this call falls within the log schedule
         """
-        super().log_update(module, optimizer, epoch, steps_per_epoch, scheduled_log)
+        super().log_update(module, optimizer, epoch, steps_per_epoch)
 
         if self._should_log(module, optimizer, epoch, steps_per_epoch):
             self._last_logged_epoch = math.floor(epoch)

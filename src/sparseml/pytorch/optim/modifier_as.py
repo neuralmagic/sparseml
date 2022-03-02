@@ -26,7 +26,7 @@ from torch.optim.optimizer import Optimizer
 from sparseml.optim import BaseModifier
 from sparseml.pytorch.optim.modifier import ModifierProp, ScheduledModifier
 from sparseml.pytorch.optim.sensitivity_as import ASLayerTracker
-from sparseml.pytorch.utils import BaseLogger, get_layer, get_terminal_layers
+from sparseml.pytorch.utils import LoggerManager, get_layer, get_terminal_layers
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
 
@@ -188,7 +188,7 @@ class ASRegModifier(ScheduledModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[List[BaseLogger]] = None,
+        loggers: Optional[LoggerManager] = None,
         **kwargs,
     ):
         """
@@ -197,7 +197,7 @@ class ASRegModifier(ScheduledModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional list of loggers to log the modification process to
+        :param loggers: Optional logger manager to log the modification process to
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """

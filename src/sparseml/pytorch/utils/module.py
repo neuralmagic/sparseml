@@ -21,7 +21,7 @@ import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from contextlib import ExitStack
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
 from torch import Tensor
@@ -37,7 +37,7 @@ from sparseml.pytorch.utils.helpers import (
     tensors_module_forward,
     tensors_to_device,
 )
-from sparseml.pytorch.utils.logger import BaseLogger
+from sparseml.pytorch.utils.logger import LoggerManager
 from sparseml.pytorch.utils.loss import DEFAULT_LOSS_KEY, LossWrapper
 
 
@@ -568,7 +568,7 @@ class ModuleRunner(ABC):
         module: Module,
         device: str,
         loss: Union[LossWrapper, Callable[[Any, Any], Tensor]],
-        loggers: List[BaseLogger],
+        loggers: Optional[LoggerManager],
         log_name: str,
         log_steps: int,
         log_summary: bool,
@@ -813,8 +813,7 @@ class ModuleRunner(ABC):
         )
 
     def _log_scalar(self, key: str, item: Any, step: int):
-        for logger in self._loggers:
-            logger.log_scalar(key, item, step)
+        self._loggers.log_scalar(key, item, step)
 
     @abstractmethod
     def _runner_setup(self):
@@ -884,7 +883,7 @@ class ModuleTrainer(ModuleRunner):
         optimizer: Optimizer,
         num_accumulated_batches: int = 1,
         optim_closure: Union[None, Callable] = None,
-        loggers: List[BaseLogger] = None,
+        loggers: Optional[LoggerManager] = None,
         log_name: str = "Train",
         log_steps: int = 100,
         log_summary: bool = True,
@@ -1052,7 +1051,7 @@ class ModuleTester(ModuleRunner):
         module: Module,
         device: str,
         loss: Union[LossWrapper, Callable[[Any, Any], Tensor]],
-        loggers: List[BaseLogger] = None,
+        loggers: Optional[LoggerManager] = None,
         log_name: str = "Test",
         log_steps: int = 100,
         log_summary: bool = True,
