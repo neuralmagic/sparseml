@@ -50,10 +50,9 @@ pruning_modifiers:
     end_epoch: *pruning_end_epoch
     update_frequency: *pruning_update_frequency
     mask_type: *pruning_mask_type
-    mfac_options:
-      num_grads: 256
-      fisher_block_size: 2000
-      available_gpus: ["cuda:0"]
+    num_grads: 256
+    fisher_block_size: 2000
+    available_gpus: ["cuda:0"]
 
   - !SetWeightDecayModifier
     weight_decay: 0.0
