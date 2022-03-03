@@ -22,7 +22,7 @@ import math
 from collections import OrderedDict
 from copy import deepcopy
 from functools import cmp_to_key
-from typing import Dict, Generator, List, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from sparseml.optim.modifier import BaseModifier, BaseObject, ModifierProp
 from sparseml.sparsification.types import SparsificationTypes
@@ -38,14 +38,19 @@ class BaseManager(BaseObject):
     Handles base implementations for properties and methods.
 
     :param modifiers: the modifiers to wrap
+    :metadata: additional (to the information provided in the recipe) data to be
+        preserved and possibly utilized - for reproducibility and completeness
     """
 
     def __init__(
         self,
         modifiers: Union[List[BaseModifier], Dict[str, List[BaseModifier]]],
+        metadata: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
+
+        self._metadata = metadata if metadata else None
 
         if isinstance(modifiers, List):
             # sort modifiers by when they start and end so that later modifiers
@@ -283,15 +288,25 @@ class BaseManager(BaseObject):
 
         return max(vals) if len(vals) > 0 else -1
 
-    def save(self, file_path: str):
+    def save(self, file_path: str, include_metadata: bool):
         """
         :param file_path: the file path to save the yaml config representation to
+        :param include_metadata: boolean indicator whether metadata shall be
+            appended to the yaml file before saving.
         """
         file_path = clean_path(file_path)
         create_parent_dirs(file_path)
 
+        # this is a one-liner for now, could evolve into a
+        # separate function if complexity increases
+        metadata_serialized = (
+            f"\nmetadata: {str(self._metadata)}"
+            if include_metadata and self._metadata
+            else ""
+        )
+
         with open(file_path, "w") as yaml_file:
-            yaml_file.write(str(self))
+            yaml_file.write(str(self) + metadata_serialized)
 
     def finalize_and_save_structured_modifiers(self, file_path: str):
         """

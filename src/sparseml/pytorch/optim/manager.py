@@ -252,6 +252,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         file_path: Union[str, Recipe],
         add_modifiers: Optional[List[Modifier]] = None,
         recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         """
         Convenience function used to create the manager of multiple modifiers from a
@@ -269,6 +270,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :param recipe_variables: additional arguments to override any root variables
             in the recipe with (i.e. num_epochs, init_lr)
         :return: ScheduledModifierManager() created from the recipe file
+        :metadata: additional (to the information provided in the recipe) data to be
+            preserved and possibly utilized - for reproducibility and completeness
         """
         recipe_variables = parse_recipe_variables(recipe_variables)
         yaml_str = load_recipe_yaml_str(file_path, **recipe_variables)
@@ -277,12 +280,16 @@ class ScheduledModifierManager(BaseManager, Modifier):
         if add_modifiers:
             modifiers.extend(add_modifiers)
 
-        manager = ScheduledModifierManager(modifiers)
+        manager = ScheduledModifierManager(modifiers=modifiers, metadata=metadata)
 
         return manager
 
-    def __init__(self, modifiers: List[ScheduledModifier]):
-        super().__init__(modifiers=modifiers)
+    def __init__(
+        self,
+        modifiers: List[ScheduledModifier],
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(modifiers=modifiers, metadata=metadata)
         self._initialize_epoch = 0
 
     def state_dict(self) -> Dict[str, Dict]:
