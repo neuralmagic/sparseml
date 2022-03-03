@@ -426,6 +426,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         def wrapper(*args, **kwargs):
             self = args[0]
             epoch = kwargs.get("epoch", None)
+            # Log call state
             if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
                 self.log_string(
                     string=(
@@ -439,6 +440,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
                     level=LOGGING_LEVELS["debug"],
                 )
             out = func(*args, **kwargs)
+            # Log return state
             if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
                 out_print = out if isinstance(out, Tuple) else [out]
                 self.log_string(
@@ -451,25 +453,29 @@ class ScheduledModifier(Modifier, BaseScheduled):
             return out
 
         def format_args(args):
+            """
+            Helper function to format call logs. Args and returns are printed in full
+            if they are of type (float, int, str, toch.Tensor), otherwise only their
+            type is printed.
+            """
             args_string = ""
             printable = (float, int, str, Tensor)
-            if not args:
+            if not args:  # handles empty function returns
                 return None
-            if not isinstance(args, Iterable):
+            if not isinstance(args, Iterable):  # handles single function return
                 args = [args]
-            if isinstance(args, Dict):
+            if isinstance(args, Dict):  # handles kwargs
                 for k, v in args.items():
                     if isinstance(v, printable):
                         args_string += f"{k}: {v}| "
                     else:
                         args_string += f"{k}: {type(v)}| "
-            else:
+            else:  # handles lists (args, single return) and tuples (returns)
                 for arg in args:
                     if isinstance(arg, printable):
                         args_string += f"{arg}| "
                     else:
                         args_string += f"{type(arg)}| "
-
             return args_string
 
         return wrapper

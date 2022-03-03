@@ -698,17 +698,23 @@ class SparsificationGroupLogger(BaseLogger):
             logger.log_scalars(tag, values, step, wall_time)
 
 
-class LoggerManager:
+class LoggerManager(ABC):
+    """
+    Wrapper around loggers that handles log scheduling and handing off logs to intended
+    loggers.
+
+    :param loggers: list of loggers assigned to this manager
+    :param log_frequency: number of epochs or fraction of epochs to wait between logs
+
+    """
+
     def __init__(
         self,
         loggers: List[BaseLogger] = [],
         log_frequency: Union[str, float, None] = 0.1,
-        last_log_epoch: float = -1.0,
     ):
         self._loggers = loggers
         self._log_frequency = log_frequency
-        self._last_log_epoch = last_log_epoch
-        self._current_log_epoch = 0
 
     def __len__(self):
         return len(self.loggers)
@@ -717,6 +723,13 @@ class LoggerManager:
         return iter(self.loggers)
 
     def log_ready(self, epoch, last_log_epoch):
+        """
+        Check if there is a logger that is ready to accept a log
+
+        :param epoch: current epoch log is requested at
+        :param last_log_epoch: last time a log was recorder for this object
+        :return: True if a logger is ready to accept a log.
+        """
         return (
             self._log_frequency is not None
             and (
@@ -732,28 +745,28 @@ class LoggerManager:
     @property
     def loggers(self) -> List[BaseLogger]:
         """
-        :return: List of loggers assigned to this manager
+        :return: list of loggers assigned to this manager
         """
         return self._loggers
 
     @loggers.setter
     def loggers(self, value: List[BaseLogger]):
         """
-        :param value: List of loggers assigned to this manager
+        :param value: list of loggers assigned to this manager
         """
         self._loggers = value
 
     @property
     def log_frequency(self) -> Union[str, float, None]:
         """
-        :return: The number of epochs or fraction of epochs to wait between logs
+        :return: number of epochs or fraction of epochs to wait between logs
         """
         return self._log_frequency
 
     @log_frequency.setter
     def log_frequency(self, value: Union[str, float, None]):
         """
-        :param value: The number of epochs or fraction of epochs to wait between logs
+        :param value: number of epochs or fraction of epochs to wait between logs
         """
         self._log_frequency = value
 
@@ -766,7 +779,14 @@ class LoggerManager:
         log_types: Union[str, List[str]] = ALL_TOKEN,
         **kwargs,
     ):
-        self._last_log_epoch
+        """
+        :param tag: identifying tag to log the value with
+        :param value: value to save
+        :param step: global step for when the value was taken
+        :param wall_time: global wall time for when the value was taken
+        :param kwargs: additional logging arguments to support Python and custom loggers
+        :return: True if logged, False otherwise.
+        """
         for log in self.loggers:
             if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
                 log.log_scalar(
@@ -786,6 +806,14 @@ class LoggerManager:
         log_types: Union[str, List[str]] = ALL_TOKEN,
         **kwargs,
     ):
+        """
+        :param tag: identifying tag to log the values with
+        :param values: values to save
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken
+        :param kwargs: additional logging arguments to support Python and custom loggers
+        :return: True if logged, False otherwise.
+        """
         for log in self.loggers:
             if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
                 log.log_scalars(
@@ -805,6 +833,14 @@ class LoggerManager:
         log_types: Union[str, List[str]] = ALL_TOKEN,
         **kwargs,
     ):
+        """
+        :param tag: identifying tag to log the values with
+        :param values: values to save
+        :param step: global step for when the values were taken
+        :param wall_time: global wall time for when the values were taken
+        :param kwargs: additional logging arguments to support Python and custom loggers
+        :return: True if logged, False otherwise.
+        """
         for log in self.loggers:
             if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
                 log.log_string(
