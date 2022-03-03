@@ -15,12 +15,89 @@
 import pytest
 
 from sparseml.optim import (
+    check_if_staged_recipe,
     evaluate_recipe_yaml_str_equations,
     load_recipe_yaml_str,
     load_recipe_yaml_str_no_classes,
     update_recipe_variables,
 )
 
+
+STAGED_RECIPE = """
+first_variable: 10
+second_variable: 5
+lr_multiplier: 2
+
+first_stage:
+  lr: 0.1
+  num_epochs: 10
+  init_lr: eval(lr * 2)
+  final_lr: eval(lr)
+
+  training_modifiers:
+    - !EpochRangeModifier
+        end_epoch: eval(num_epochs + first_variable)
+        start_epoch: 0.0
+
+    - !LearningRateFunctionModifier
+      start_epoch: 0
+      end_epoch: eval(num_epochs)
+      lr_func: linear
+      init_lr: eval(init_lr)
+      final_lr: eval(final_lr)
+
+next_stage:
+  new_num_epochs: 15
+  sparsity: 0.9
+
+  modifiers:
+    - !EpochRangeModifier
+        end_epoch: eval(new_num_epochs)
+        start_epoch: eval(second_variable)
+
+    - !GMPruningModifier
+        end_epoch: eval(second_variable + first_variable)
+        final_sparsity: eval(sparsity)
+        init_sparsity: eval(sparsity)
+"""
+
+STAGED_RECIPE_EVAL = """
+first_variable: 10
+second_variable: 5
+lr_multiplier: 2
+
+first_stage:
+  lr: 0.1
+  num_epochs: 10
+  init_lr: 0.2
+  final_lr: 0.1
+
+  training_modifiers:
+    - !EpochRangeModifier
+        end_epoch: 20
+        start_epoch: 0.0
+
+    - !LearningRateFunctionModifier
+      start_epoch: 0
+      end_epoch: 10
+      lr_func: linear
+      init_lr: 0.2
+      final_lr: 0.1
+
+next_stage:
+  new_num_epochs: 15
+  sparsity: 0.9
+
+  modifiers:
+    - !EpochRangeModifier
+        end_epoch: 15
+        start_epoch: 5
+
+    - !GMPruningModifier
+        end_epoch: 15
+        final_sparsity: 0.9
+        init_sparsity: 0.9
+"""
 
 RECIPE_SIMPLE_EVAL = """
 num_epochs: 10.0
@@ -117,18 +194,25 @@ def _test_nested_equality(val, other):
 
 
 @pytest.mark.parametrize(
-    "recipe,expected_recipe",
+    "recipe,expected_recipe, is_staged",
     [
-        (TARGET_RECIPE.format(num_epochs=10.0), TARGET_RECIPE.format(num_epochs=10.0)),
-        (RECIPE_SIMPLE_EVAL, TARGET_RECIPE.format(num_epochs=10.0)),
-        (RECIPE_MULTI_EVAL, TARGET_RECIPE.format(num_epochs=10.0)),
+        (
+            TARGET_RECIPE.format(num_epochs=10.0),
+            TARGET_RECIPE.format(num_epochs=10.0),
+            False,
+        ),
+        (RECIPE_SIMPLE_EVAL, TARGET_RECIPE.format(num_epochs=10.0), False),
+        (RECIPE_MULTI_EVAL, TARGET_RECIPE.format(num_epochs=10.0), False),
+        (STAGED_RECIPE, STAGED_RECIPE_EVAL, True),
     ],
 )
-def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe):
+def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
     evaluated_recipe = evaluate_recipe_yaml_str_equations(recipe)
     evaluated_yaml = load_recipe_yaml_str_no_classes(evaluated_recipe)
+    expected_is_staged = check_if_staged_recipe(evaluated_yaml)
     expected_yaml = load_recipe_yaml_str_no_classes(expected_recipe)
 
+    assert expected_is_staged == is_staged
     assert isinstance(evaluated_yaml, dict)
     assert isinstance(expected_yaml, dict)
     _test_nested_equality(evaluated_yaml, expected_yaml)
