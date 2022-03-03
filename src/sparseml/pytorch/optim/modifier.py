@@ -426,27 +426,27 @@ class ScheduledModifier(Modifier, BaseScheduled):
         def wrapper(*args, **kwargs):
             self = args[0]
             epoch = kwargs.get("epoch", None)
-            if self.loggers and self.loggers.log_ready(epoch):
+            if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
                 self.log_string(
                     string=(
-                        f"Calling {func.__name__} with:\n"
+                        f"\nCalling {func.__name__} with:\n"
                         f"args: {format_args(args[1:])}\n"
-                        f"kwargs: {format_args(kwargs)}\n"
+                        f"kwargs: {format_args(kwargs)}"
                     ),
                     loggers=self.loggers,
                     epoch=epoch,
                     steps_per_epoch=kwargs.get("steps_per_epoch", None),
-                    level=LOGGING_LEVELS["info"],
+                    level=LOGGING_LEVELS["debug"],
                 )
             out = func(*args, **kwargs)
-            if self.loggers and self.loggers.log_ready(epoch):
+            if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
                 out_print = out if isinstance(out, Tuple) else [out]
                 self.log_string(
-                    string=(f"Returned: {format_args(out_print)}\n"),
+                    string=(f"\nReturned: {format_args(out_print)}\n"),
                     loggers=self.loggers,
                     epoch=kwargs.get("epoch", None),
                     steps_per_epoch=kwargs.get("steps_per_epoch", None),
-                    level=LOGGING_LEVELS["info"],
+                    level=LOGGING_LEVELS["debug"],
                 )
             return out
 
@@ -656,7 +656,8 @@ class ScheduledModifier(Modifier, BaseScheduled):
         if not self._enabled:
             raise RuntimeError("modifier must be enabled")
 
-        if self.loggers.log_ready(epoch):
+        if self.loggers.log_ready(epoch, self._last_log_epoch):
+            self._last_log_epoch = epoch
             self._scheduled_log_called = True
             self.log_update(module, optimizer, epoch, steps_per_epoch)
             self._scheduled_log_called = False

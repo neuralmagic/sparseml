@@ -20,6 +20,7 @@ import logging
 import os
 import time
 from abc import ABC
+from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARN, Logger
 from typing import Callable, Dict, List, Optional, Union
 
@@ -315,10 +316,16 @@ class PythonLogger(LambdaLogger):
             self._logger = logger
         else:
             self._logger = logging.getLogger(__name__)
-            handler = logging.FileHandler("sparse_out.log")
+            now = datetime.now()
+            dt_string = now.strftime("%d-%m-%Y_%H.%M.%S")
+            os.makedirs("sparse_logs", exist_ok=True)
+            handler = logging.FileHandler(
+                os.path.join("sparse_logs", f"{dt_string}.log")
+            )
             self._logger.addHandler(handler)
             self._logger.propagate = False
 
+        self.logger.setLevel(log_level)
         self._log_level = log_level
         super().__init__(
             lambda_func=self._log_lambda,
@@ -358,7 +365,7 @@ class PythonLogger(LambdaLogger):
         if not level:
             level = self._log_level
 
-        if level >= LOGGING_LEVELS["debug"]:
+        if level > LOGGING_LEVELS["debug"]:
             format = "%s %s step %s: %s"
             log_args = [
                 self.name,
@@ -701,6 +708,7 @@ class LoggerManager:
         self._loggers = loggers
         self._log_frequency = log_frequency
         self._last_log_epoch = last_log_epoch
+        self._current_log_epoch = 0
 
     def __len__(self):
         return len(self.loggers)
@@ -708,10 +716,12 @@ class LoggerManager:
     def __iter__(self):
         return iter(self.loggers)
 
-    def log_ready(self, epoch):
+    def log_ready(self, epoch, last_log_epoch):
         return (
             self._log_frequency is not None
-            and epoch >= self._last_log_epoch + self._log_frequency
+            and (
+                epoch == last_log_epoch or epoch >= last_log_epoch + self._log_frequency
+            )
             and any(log.enabled for log in self.loggers)
         )
 
@@ -756,6 +766,7 @@ class LoggerManager:
         log_types: Union[str, List[str]] = ALL_TOKEN,
         **kwargs,
     ):
+        self._last_log_epoch
         for log in self.loggers:
             if log.enabled and (log_types == ALL_TOKEN or log.name in log_types):
                 log.log_scalar(
