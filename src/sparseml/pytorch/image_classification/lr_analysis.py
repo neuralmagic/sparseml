@@ -110,7 +110,9 @@ python sparseml.image_classification.lr_analysis \
 import json
 import os
 from dataclasses import dataclass, field
+from typing import Optional
 
+import torch
 from torch.nn import Module
 from torch.optim import SGD
 from torch.utils.data import DataLoader
@@ -178,13 +180,6 @@ class LRAnalysisArguments:
     """
 
     batch_size: int = field(metadata={"help": "The batch size to use for analysis"})
-    arch_key: str = field(
-        metadata={
-            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
-            "put as help to see the full list"
-            "(will raise an exception with the list)",
-        }
-    )
 
     dataset: str = field(
         metadata={
@@ -210,6 +205,14 @@ class LRAnalysisArguments:
             "Otherwise should be set to the desired weights type: "
             "[base, optim, optim-perf]. "
             "To not load any weights set to one of [none, false]"
+        },
+    )
+    arch_key: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
+            "put as help to see the full list"
+            "(will raise an exception with the list)",
         },
     )
 
@@ -307,6 +310,19 @@ class LRAnalysisArguments:
     )
 
     def __post_init__(self):
+        if self.arch_key is None:
+            assert self.checkpoint_path, (
+                "Must provide a checkpoint path if " "no arch_key is provided"
+            )
+
+            checkpoint = torch.load(self.checkpoint_path)
+            assert "arch_key" in checkpoint, (
+                "Checkpoint does not contain "
+                "arch_key, provide one using "
+                "--arch_key"
+            )
+            self.arch_key = checkpoint["arch_key"]
+
         if "preprocessing_type" not in self.dataset_kwargs and (
             "coco" in self.dataset.lower() or "voc" in self.dataset.lower()
         ):

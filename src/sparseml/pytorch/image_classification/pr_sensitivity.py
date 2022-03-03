@@ -113,6 +113,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
+import torch
 from torch.utils.data import DataLoader
 
 from sparseml import get_main_logger
@@ -177,14 +178,6 @@ class PRAnalysisArguments:
         (uses one shot analysis if --approximate not passed)
     """
 
-    arch_key: str = field(
-        metadata={
-            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
-            "put as help to see the full list (will raise an exception "
-            "with the list)",
-        }
-    )
-
     dataset: str = field(
         metadata={
             "help": "The dataset to use for training, "
@@ -199,6 +192,14 @@ class PRAnalysisArguments:
         metadata={
             "help": "The root path to where the dataset is stored",
         }
+    )
+    arch_key: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
+            "put as help to see the full list (will raise an exception "
+            "with the list)",
+        },
     )
     pretrained: str = field(
         default=True,
@@ -296,6 +297,19 @@ class PRAnalysisArguments:
     )
 
     def __post_init__(self):
+        if self.arch_key is None:
+            assert self.checkpoint_path, (
+                "Must provide a checkpoint path if " "no arch_key is provided"
+            )
+
+            checkpoint = torch.load(self.checkpoint_path)
+            assert "arch_key" in checkpoint, (
+                "Checkpoint does not contain "
+                "arch_key, provide one using "
+                "--arch_key"
+            )
+            self.arch_key = checkpoint["arch_key"]
+
         if "preprocessing_type" not in self.dataset_kwargs and (
             "coco" in self.dataset.lower() or "voc" in self.dataset.lower()
         ):

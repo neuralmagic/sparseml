@@ -256,13 +256,6 @@ class TrainingArguments:
     test_batch_size: int = field(
         metadata={"help": "The batch size to use while testing"}
     )
-    arch_key: str = field(
-        metadata={
-            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
-            "put as help to see the full list (will raise an exception"
-            "with the list)",
-        }
-    )
 
     dataset: str = field(
         metadata={
@@ -278,6 +271,14 @@ class TrainingArguments:
         metadata={
             "help": "The root path to where the dataset is stored",
         }
+    )
+    arch_key: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
+            "put as help to see the full list (will raise an exception"
+            "with the list)",
+        },
     )
     local_rank: int = field(
         default=-1,
@@ -474,6 +475,19 @@ class TrainingArguments:
         )
 
         self.train_batch_size = self.train_batch_size // self.world_size
+
+        if self.arch_key is None:
+            assert self.checkpoint_path, (
+                "Must provide a checkpoint path if " "no arch_key is provided"
+            )
+
+            checkpoint = torch.load(self.checkpoint_path)
+            assert "arch_key" in checkpoint, (
+                "Checkpoint does not contain "
+                "arch_key, provide one using "
+                "--arch_key"
+            )
+            self.arch_key = checkpoint["arch_key"]
 
         if "preprocessing_type" not in self.dataset_kwargs and (
             "coco" in self.dataset.lower() or "voc" in self.dataset.lower()
