@@ -31,9 +31,9 @@ techniques on a variety of one-shot and gradual pruning tasks.
 SparseML makes it easy to use the M-FAC pruning algorithm as part of sparsification
 recipes to improve pruning recovery by providing an `MFACPruningModifier`.
 The `MFACPruningModifier` contains the same settings as the magnitude
-pruning modifiers and contains extra settings for the M-FAC algorithm under the
-`mfac_options` parameter.  `mfac_options` should be provided as a YAML dictionary and
-details of the main options are provided below.
+pruning modifiers and contains extra settings for the M-FAC algorithm including 
+`num_grads`, `fisher_block_size`, and `available_gpus`. Ideal values will depend 
+on the system available to run on and model to be pruned.
 
 ### Example M-FAC Recipe
 The following is an example `MFACPruningModifier` to be used in place of other
@@ -48,16 +48,10 @@ pruning_modifiers:
     start_epoch: 1.0
     end_epoch: 61.0
     update_frequency: 4.0
-    mfac_options:
-      num_grads: {0.0: 256, 0.5: 512, 0.75: 1024, 0.83: 1400}
-      fisher_block_size: 10000
-      available_gpus: ["cuda:0"]
+    num_grads: {0.0: 256, 0.5: 512, 0.75: 1024, 0.83: 1400}
+    fisher_block_size: 10000
+    available_gpus: ["cuda:0"]
 ```
-
-### mfac_options Parameters
-The following parameters can be specified under the `mfac_options` parameter to control
-how the M-FAC calculations are made. Ideal values will depend on the system
-available to run on and model to be pruned.
 
 #### num_grads
 To approximate the second order information in the M-FAC algorithm, first order
