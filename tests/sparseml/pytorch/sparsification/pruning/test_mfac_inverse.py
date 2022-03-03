@@ -53,7 +53,7 @@ PRECISION = 0.00001
         ),
     ],
 )
-@flaky(max_runs=10, min_passes=10)
+@flaky(max_runs=3, min_passes=2)
 def test_blocked_fisher_inverse(fisher_algorithm, devices):
     total_params = 1000
     num_grads = 32
