@@ -58,7 +58,7 @@ class RecipeManagerTrainerInterface:
     Can additionally be used outside of transformers flows provided
     they match reasonably closely.
 
-    Should be instantiated with multi-inheretance with a custom trainer class.
+    Should be instantiated with multi-inheritance with a custom trainer class.
     RecipeManagerTrainerInterface must be provided
     before Trainer for proper class dependency.
     i.e. class MyCustomTrainer(RecipeManagerTrainerInterface, Trainer)
