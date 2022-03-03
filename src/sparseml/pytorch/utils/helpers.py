@@ -822,7 +822,7 @@ def get_quantized_layers(module: Module) -> List[Tuple[str, Module]]:
         ):
             quantized_layers.append((name, mod))
 
-        elif isinstance(mod, QATConv3d) and not QATConv3d:
+        elif isinstance(mod, Conv3d) and not QATConv3d:
             warnings.warn(
                 "Pytorch version is not setup for Conv3D Quantization. "
                 "Quantization of Conv3D layers will be skipped",
