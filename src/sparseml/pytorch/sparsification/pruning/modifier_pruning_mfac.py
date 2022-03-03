@@ -1263,13 +1263,15 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
         # Get the H^-1 values corresponding to the number of blocks used here.
         # It's clunky compared to torch.cat()[idx], but avoids duplicating
-        # the memory of H^-1
+        # the memory of H^-1. Most of the logic deals with indexing into a list of
+        # tensors as one continuous tensor, to grab slices that may span separate 
+        # tensors in the list
         start_block = sum(self._num_blocks_per_device_call[:call_idx])
         end_block = sum(self._num_blocks_per_device_call[: call_idx + 1])
         t_hinv = []
-        tensor_start = 0
         tensor_end = 0
-        for tensor in self._hinvs:
+        for tensor in self._hinvs: 
+            tensor_start = tensor_end 
             tensor_end += len(tensor)
             if start_block > tensor_end:
                 continue
@@ -1281,7 +1283,6 @@ class FisherInverseFastSmallBlocks(FisherInverse):
             else:
                 t_hinv.append(tensor[start_block - tensor_start :])
                 start_block = tensor_end
-            tensor_start = tensor_end
 
         mul_slice = (
             torch.bmm(torch.cat(t_hinv).to(device), x_slice)
