@@ -47,14 +47,13 @@ PRECISION = 0.00001
         pytest.param(
             ["cuda:0"],
             marks=pytest.mark.skipif(
-                "CUDA_VISIBLE_DEVICES" not in os.environ
-                or not os.getenv("CUDA_VISIBLE_DEVICES"),
+                not torch.cuda.is_available(),
                 reason="No CUDA devices available",
             ),
         ),
     ],
 )
-@flaky(max_runs=3, min_passes=2)
+@flaky(max_runs=10, min_passes=10)
 def test_blocked_fisher_inverse(fisher_algorithm, devices):
     total_params = 1000
     num_grads = 32
