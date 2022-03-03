@@ -435,7 +435,9 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             H^-1, scores will be W^2 / (2 * diag(H^-1))
         """
 
-        if self._grads_collected < self._num_grads:
+        if self._grads_collected < _get_num_grads_for_sparsity(
+            self._num_grads, self._last_applied_sparsity
+        ):
             # raise Exception if grad buffer is not full
             raise RuntimeError(
                 f"MFAC pruning step called, but only {self._grads_collected} were "
