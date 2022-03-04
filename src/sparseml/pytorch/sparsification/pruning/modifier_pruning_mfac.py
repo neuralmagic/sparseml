@@ -404,6 +404,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         self._grad_buffer = None  # type: Tensor
         self._grads = None  # placeholder for all grads across buffers
         self._buffer_idx = 0
+        self._grads_collected = 0
         self._latest_h_inv_diag = None  # type: tuple
 
         # scale num_grads by number of DDP processes
@@ -434,13 +435,13 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             H^-1, scores will be W^2 / (2 * diag(H^-1))
         """
 
-        if self._grad_buffer is None or torch.any(
-            torch.all(self._grad_buffer == 0.0, dim=1)
+        if self._grads_collected < _get_num_grads_for_sparsity(
+            self._num_grads, self._last_applied_sparsity
         ):
             # raise Exception if grad buffer is not full
             raise RuntimeError(
-                "MFAC pruning step called, but not enough gradient samples have been "
-                f"collected. Expected {self._num_grads} samples"
+                f"MFAC pruning step called, but only {self._grads_collected} were "
+                f"collected from the expected {self._num_grads}."
             )
 
         if self._is_ddp:
@@ -519,6 +520,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         # update buffer idx
         self._buffer_idx += 1
         self._buffer_idx %= self._grad_buffer.size(0)
+        self._grads_collected += 1
 
     @torch.no_grad()
     def mask_update(self, masks: List[Tensor], mask_diffs: List[Tensor]):
@@ -635,6 +637,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
             device="cpu",
         )
         self._buffer_idx = 0
+        self._grads_collected = 0
 
 
 """
@@ -1260,25 +1263,26 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
         # Get the H^-1 values corresponding to the number of blocks used here.
         # It's clunky compared to torch.cat()[idx], but avoids duplicating
-        # the memory of H^-1
-        start_block = sum(self._num_blocks_per_device_call[:call_idx])
-        end_block = sum(self._num_blocks_per_device_call[: call_idx + 1])
+        # the memory of H^-1. Most of the logic deals with indexing into a list of
+        # tensors as one continuous tensor, to grab slices that may span separate
+        # tensors in the list
+        block_start = sum(self._num_blocks_per_device_call[:call_idx])
+        block_end = sum(self._num_blocks_per_device_call[: call_idx + 1])
         t_hinv = []
-        tensor_start = 0
-        tensor_end = 0
+        cont_end_idx = 0
         for tensor in self._hinvs:
-            tensor_end += len(tensor)
-            if start_block > tensor_end:
+            cont_start_idx = cont_end_idx
+            cont_end_idx += len(tensor)
+            if block_start > cont_end_idx:
                 continue
-            if end_block < tensor_end:
+            if block_end < cont_end_idx:
                 t_hinv.append(
-                    tensor[start_block - tensor_start : end_block - tensor_start]
+                    tensor[block_start - cont_start_idx : block_end - cont_start_idx]
                 )
                 break
             else:
-                t_hinv.append(tensor[start_block - tensor_start :])
-                start_block = tensor_end
-            tensor_start = tensor_end
+                t_hinv.append(tensor[block_start - cont_start_idx :])
+                block_start = cont_end_idx
 
         mul_slice = (
             torch.bmm(torch.cat(t_hinv).to(device), x_slice)
