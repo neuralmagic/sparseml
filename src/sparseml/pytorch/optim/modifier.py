@@ -437,7 +437,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
                     loggers=self.loggers,
                     epoch=epoch,
                     steps_per_epoch=kwargs.get("steps_per_epoch", None),
-                    level=LOGGING_LEVELS["debug"],
                 )
             out = func(*args, **kwargs)
             # Log return state
@@ -448,7 +447,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
                     loggers=self.loggers,
                     epoch=kwargs.get("epoch", None),
                     steps_per_epoch=kwargs.get("steps_per_epoch", None),
-                    level=LOGGING_LEVELS["debug"],
                 )
             return out
 
@@ -699,7 +697,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
         string: str,
         tag: Optional[str] = None,
         loggers: Optional[LoggerManager] = None,
-        level: Optional[int] = None,
         epoch: Optional[float] = None,
         steps_per_epoch: Optional[int] = None,
     ):
@@ -711,7 +708,9 @@ class ScheduledModifier(Modifier, BaseScheduled):
             step = loggers.epoch_to_step(epoch, steps_per_epoch)
         else:
             step = None
-        loggers.log_string(tag=tag, string=string, step=step, level=level)
+        loggers.log_string(
+            tag=tag, string=string, step=step, level=LOGGING_LEVELS["debug"]
+        )
 
 
 class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
