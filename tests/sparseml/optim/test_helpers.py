@@ -82,8 +82,8 @@ next_stage:
 
     - !GMPruningModifier
         end_epoch: eval(end_epoch)
-        final_sparsity: sparsity
-        init_sparsity: sparsity
+        final_sparsity: eval(sparsity)
+        init_sparsity: eval(sparsity)
 """
 
 STAGED_RECIPE_COMPLEX_EVAL = """

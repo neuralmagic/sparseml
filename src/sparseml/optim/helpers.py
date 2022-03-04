@@ -15,7 +15,6 @@
 """
 Helper functions for base Modifier and Manger utilities
 """
-
 import json
 import re
 from contextlib import suppress
@@ -295,8 +294,21 @@ def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
             staged_container
         )
 
-        variables = {**variables, **global_variables}
-        non_val_variables = {**non_val_variables, **global_non_val_variables}
+        """
+        if same variable is both in global_variables and variables, the
+        global_variable will get overwritten.
+        """
+        _global_variables = {
+            k: v for k, v in global_variables.items() if k not in variables.keys()
+        }
+        variables = {**variables, **_global_variables}
+
+        _global_non_val_variables = {
+            k: v
+            for k, v in global_non_val_variables.items()
+            if k not in non_val_variables.keys()
+        }
+        non_val_variables = {**non_val_variables, **_global_non_val_variables}
 
         for key, val in staged_container.items():
             if "modifiers" not in key:
