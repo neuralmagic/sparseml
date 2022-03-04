@@ -27,3 +27,4 @@ from .pruning import *
 from .quantization.modifier_quantization import *
 from .modifier import *
 from .training import *
+from .distillation import *

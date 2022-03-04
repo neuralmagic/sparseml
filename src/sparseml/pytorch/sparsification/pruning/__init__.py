@@ -29,4 +29,5 @@ from .modifier_pruning_magnitude import *
 from .modifier_pruning_mfac import *
 from .modifier_pruning_movement import *
 from .modifier_pruning_structured import *
+from .modifier_as import *
 from .scorer import *
