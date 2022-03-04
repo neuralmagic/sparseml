@@ -17,7 +17,7 @@ import os
 import pytest
 import torch
 
-from sparseml.pytorch.optim import (
+from sparseml.pytorch.sparsification import (
     GradualParamModifier,
     SetParamModifier,
     TrainableParamsModifier,

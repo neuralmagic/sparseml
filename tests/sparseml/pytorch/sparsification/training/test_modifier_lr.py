@@ -19,7 +19,7 @@ import sys
 import pytest
 from torch.optim import SGD, Adam
 
-from sparseml.pytorch.optim import (
+from sparseml.pytorch.sparsification import (
     LearningRateFunctionModifier,
     LearningRateModifier,
     SetLearningRateModifier,

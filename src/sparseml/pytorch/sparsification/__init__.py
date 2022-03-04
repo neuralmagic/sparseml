@@ -26,3 +26,4 @@ from .modifier_thinning import *
 from .pruning import *
 from .quantization.modifier_quantization import *
 from .modifier import *
+from .training import *
