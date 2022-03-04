@@ -21,6 +21,7 @@ Pruning modifiers and utilities to support their creation
 
 from .mask_creator import *
 from .mask_params import *
+from .modifier_as import *
 from .modifier_pruning_acdc import *
 from .modifier_pruning_base import *
 from .modifier_pruning_constant import *
@@ -29,5 +30,4 @@ from .modifier_pruning_magnitude import *
 from .modifier_pruning_mfac import *
 from .modifier_pruning_movement import *
 from .modifier_pruning_structured import *
-from .modifier_as import *
 from .scorer import *

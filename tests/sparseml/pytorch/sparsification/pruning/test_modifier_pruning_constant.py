@@ -18,13 +18,13 @@ import pytest
 
 from sparseml.pytorch.sparsification.pruning import ConstantPruningModifier
 from tests.sparseml.pytorch.helpers import LinearNet
+from tests.sparseml.pytorch.sparsification.pruning.helpers import (
+    state_dict_save_load_test,
+)
 from tests.sparseml.pytorch.sparsification.test_modifier import (
     ScheduledModifierTest,
     create_optim_adam,
     create_optim_sgd,
-)
-from tests.sparseml.pytorch.sparsification.pruning.helpers import (
-    state_dict_save_load_test,
 )
 
 

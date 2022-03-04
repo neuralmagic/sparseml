@@ -16,7 +16,10 @@
 Modifiers related to controlling the training epochs while training a model
 """
 
-from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML, ScheduledModifier
+from sparseml.pytorch.sparsification.modifier import (
+    PyTorchModifierYAML,
+    ScheduledModifier,
+)
 from sparseml.sparsification import EpochRangeModifier as BaseEpochRangeModifier
 
 

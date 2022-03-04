@@ -21,7 +21,11 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 
-from sparseml.pytorch.sparsification import Modifier, ScheduledModifier, DistillationModifier
+from sparseml.pytorch.sparsification import (
+    DistillationModifier,
+    Modifier,
+    ScheduledModifier,
+)
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
