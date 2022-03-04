@@ -115,11 +115,11 @@ ac_dc_phase:
     end_epoch: 5.0
     lr_func: linear
     init_lr: 0.05
-    final_lr: 0.0
+    final_lr: 0.256
 
   - !LearningRateFunctionModifier
     start_epoch: 5.0
-    end_epoch: 75
+    end_epoch: 100
     lr_func: cosine
     init_lr: 0.256
     final_lr: 0.0
@@ -140,14 +140,13 @@ next_stage:
   modifiers:
     - !EpochRangeModifier
         end_epoch: 100
-        start_epoch: 15
+        start_epoch: 15.0
 
     - !GMPruningModifier
         end_epoch: 100
         final_sparsity: 0.9
         init_sparsity: 0.9
 """
-
 
 STAGED_RECIPE_SIMPLE = """
 first_variable: 10
@@ -249,7 +248,6 @@ modifiers:
         start_epoch: eval(pruning_start_epoch)
         update_frequency: 0.01
 """
-
 
 RECIPE_MULTI_EVAL = """
 num_epochs: 10.0
