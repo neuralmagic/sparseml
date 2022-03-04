@@ -18,7 +18,7 @@ import pytest
 
 from sparseml.pytorch.sparsification.pruning import ConstantPruningModifier
 from tests.sparseml.pytorch.helpers import LinearNet
-from tests.sparseml.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.sparsification.test_modifier import (
     ScheduledModifierTest,
     create_optim_adam,
     create_optim_sgd,
