@@ -326,7 +326,7 @@ class PythonLogger(LambdaLogger):
             self._logger.propagate = False
 
         if log_level is None:
-            log_level = logging.getLogger('sparseml').level
+            log_level = logging.getLogger("sparseml").level
         self.logger.setLevel(log_level)
         self._log_level = log_level
         super().__init__(
