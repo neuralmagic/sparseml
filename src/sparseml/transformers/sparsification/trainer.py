@@ -115,8 +115,12 @@ class RecipeManagerTrainerInterface:
         )
         loggers = [WANDBLogger()] if "wandb" in report_to else None
         loggers.append(PythonLogger())
-
-        self.logger_manager = LoggerManager(loggers)
+        if "sparse_log_frequency" in kwargs:
+            self.logger_manager = LoggerManager(
+                loggers, log_frequency=kwargs["sparse_log_frequency"]
+            )
+        else:
+            self.logger_manager = LoggerManager(loggers)
 
         # remove arch_managers once recipe stages are supported
         self.manager, self.arch_managers = self._setup_manager(kwargs)

@@ -426,17 +426,18 @@ class ScheduledModifier(Modifier, BaseScheduled):
         def wrapper(*args, **kwargs):
             self = args[0]
             epoch = kwargs.get("epoch", None)
+            steps_per_epoch = kwargs.get("steps_per_epoch", None)
             # Log call state
             if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
                 self.log_string(
                     string=(
-                        f"\nCalling {func.__name__} with:\n"
+                        f"Calling {func.__name__} with:\n"
                         f"args: {format_args(args[1:])}\n"
                         f"kwargs: {format_args(kwargs)}"
                     ),
                     loggers=self.loggers,
                     epoch=epoch,
-                    steps_per_epoch=kwargs.get("steps_per_epoch", None),
+                    steps_per_epoch=steps_per_epoch,
                 )
             out = func(*args, **kwargs)
             # Log return state
@@ -445,8 +446,8 @@ class ScheduledModifier(Modifier, BaseScheduled):
                 self.log_string(
                     string=(f"\nReturned: {format_args(out_print)}\n"),
                     loggers=self.loggers,
-                    epoch=kwargs.get("epoch", None),
-                    steps_per_epoch=kwargs.get("steps_per_epoch", None),
+                    epoch=epoch,
+                    steps_per_epoch=steps_per_epoch,
                 )
             return out
 
