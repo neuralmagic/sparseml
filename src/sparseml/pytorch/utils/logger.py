@@ -308,7 +308,7 @@ class PythonLogger(LambdaLogger):
     def __init__(
         self,
         logger: Logger = None,
-        log_level: int = logging.DEBUG,
+        log_level: int = None,
         name: str = "python",
         enabled: bool = True,
     ):
@@ -325,6 +325,8 @@ class PythonLogger(LambdaLogger):
             self._logger.addHandler(handler)
             self._logger.propagate = False
 
+        if log_level is None:
+            log_level = logging.getLogger('sparseml').level
         self.logger.setLevel(log_level)
         self._log_level = log_level
         super().__init__(
@@ -733,7 +735,9 @@ class LoggerManager(ABC):
         return (
             self._log_frequency is not None
             and (
-                epoch == last_log_epoch or epoch >= last_log_epoch + self._log_frequency
+                epoch is None
+                or epoch == last_log_epoch
+                or epoch >= last_log_epoch + self._log_frequency
             )
             and any(log.enabled for log in self.loggers)
         )

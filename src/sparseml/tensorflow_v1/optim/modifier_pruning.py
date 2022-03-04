@@ -165,9 +165,7 @@ class ConstantPruningModifier(BaseConstantPruningModifier, ScheduledModifier):
                 self.ks_group,
             )
 
-            mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(
-                    prune_op_vars
-            )
+            mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(prune_op_vars)
 
         mod_ops.append(update_op)
         self._prune_op_vars = prune_op_vars
@@ -391,9 +389,7 @@ class GMPruningModifier(BaseGMPruningModifier, ScheduledUpdateModifier):
                 self._mask_creator,
             )
 
-            mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(
-                    prune_op_vars
-            )
+            mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(prune_op_vars)
 
         mod_ops.append(update_op)
         self._prune_op_vars = prune_op_vars

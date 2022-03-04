@@ -812,6 +812,8 @@ class ModifierYAML(object):
                 if not isinstance(node, ScalarNode)
                 else {}
             )
+            if "log_type" in state:
+                del state["log_type"]
             instance.__init__(**state)
 
         yaml.add_constructor(yaml_key, constructor)

@@ -35,7 +35,6 @@ from sparseml.tensorflow_v1.optim.schedule_lr import (
     step_lr_schedule,
 )
 from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = [
@@ -51,8 +50,8 @@ def _add_lr_extras(
 ):
     mod_extras[EXTRAS_KEY_LEARNING_RATE] = learning_rate
     mod_extras[EXTRAS_KEY_SUMMARIES] = [
-            tf_compat.summary.scalar("Train/learning_rate", learning_rate)
-        ]
+        tf_compat.summary.scalar("Train/learning_rate", learning_rate)
+    ]
 
 
 class GroupLearningRateModifier(ScheduledModifier):
