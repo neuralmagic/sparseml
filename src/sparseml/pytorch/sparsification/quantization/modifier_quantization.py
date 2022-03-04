@@ -45,7 +45,7 @@ except Exception:
     torch_intrinsic = None
 
 from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
+from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.sparsification.quantization.helpers import (
     add_quant_dequant,
     configure_module_default_qconfigs,

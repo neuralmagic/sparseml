@@ -30,7 +30,7 @@ from torch.nn import Module, Parameter
 from torch.nn.parallel.parallel_apply import parallel_apply
 
 import GPUtil
-from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
+from sparseml.pytorch.sparsification.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
     get_mask_creator_default,

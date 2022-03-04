@@ -31,7 +31,7 @@ from torch.optim.lr_scheduler import (
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseModifier
-from sparseml.pytorch.optim.modifier import (
+from sparseml.pytorch.sparsification.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
     ScheduledModifier,
