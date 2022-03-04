@@ -18,7 +18,7 @@ import pytest
 
 from sparseml.pytorch.optim import SetWeightDecayModifier
 from tests.sparseml.pytorch.helpers import ConvNet, create_optim_adam, create_optim_sgd
-from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
+from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
 
 from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
