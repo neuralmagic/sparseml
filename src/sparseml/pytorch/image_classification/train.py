@@ -476,18 +476,10 @@ class TrainingArguments:
 
         self.train_batch_size = self.train_batch_size // self.world_size
 
-        if self.arch_key is None:
-            assert self.checkpoint_path, (
-                "Must provide a checkpoint path if " "no arch_key is provided"
-            )
-
-            checkpoint = torch.load(self.checkpoint_path)
-            assert "arch_key" in checkpoint, (
-                "Checkpoint does not contain "
-                "arch_key, provide one using "
-                "--arch_key"
-            )
-            self.arch_key = checkpoint["arch_key"]
+        self.arch_key = helpers.get_arch_key(
+            arch_key=self.arch_key,
+            checkpoint_path=self.checkpoint_path,
+        )
 
         if "preprocessing_type" not in self.dataset_kwargs and (
             "coco" in self.dataset.lower() or "voc" in self.dataset.lower()
