@@ -16,7 +16,7 @@ import os
 
 import pytest
 
-from sparseml.pytorch.optim import EpochRangeModifier
+from sparseml.pytorch.sparsification import EpochRangeModifier
 from tests.sparseml.pytorch.helpers import (
     LinearNet,
     create_optim_adam,
