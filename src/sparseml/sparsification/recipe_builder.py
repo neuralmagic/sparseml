@@ -345,7 +345,6 @@ class PruningRecipeBuilder(RecipeYAMLBuilder):
     |   pruning_update_frequency: 0.5
     |   base_target_sparsity: 0.8
     |   mask_type: unstructured
-    |
     |   training_modifiers:
     |     - !EpochRangeModifier
     |       start_epoch: 0.0

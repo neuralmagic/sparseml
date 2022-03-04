@@ -85,7 +85,6 @@ pruning_modifiers:
     leave_enabled: True
     mask_type: [1,4]
 
-
 quantization_modifiers:
   - !QuantizationModifier
       start_epoch: *quantization_start_epoch

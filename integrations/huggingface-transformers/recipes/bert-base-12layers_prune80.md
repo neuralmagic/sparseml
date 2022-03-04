@@ -53,7 +53,6 @@ pruning_modifiers:
     leave_enabled: True
     mask_type: unstructured
 
-
 distillation_modifiers:
   - !DistillationModifier
      hardness: *distill_hardness
