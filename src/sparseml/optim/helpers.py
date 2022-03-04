@@ -15,7 +15,6 @@
 """
 Helper functions for base Modifier and Manger utilities
 """
-
 import json
 import re
 from contextlib import suppress
@@ -259,14 +258,11 @@ def check_if_staged_recipe(container: dict) -> bool:
     :param container: a container generated from a YAML string of SparseML recipe
     :return: True if stage recipe, False if normal recipe
     """
-
-    if any([key for key in container.keys() if "modifiers" in key]):
-        return False
-    for stage, stage_dict in container.items():
-        if "stage" in stage:
-            if not any([key for key in stage_dict if "modifiers" in key]):
-                return False
-    return True
+    for k, v in container.items():
+        if isinstance(v, dict):
+            if any([key for key in v.keys() if "modifiers" in key]):
+                return True
+    return False
 
 
 def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
@@ -278,7 +274,13 @@ def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
     :return: transformed container containing evaluated
             variables, operations and objects.
     """
-    main_container = {k: v for k, v in container.items() if "stage" not in k}
+    main_container = {}
+    for k, v in container.items():
+        if isinstance(v, dict):
+            if any([key for key in v.keys() if "modifiers" in key]):
+                continue
+        main_container.update({k: v})
+
     stages = {k: container[k] for k in set(container) - set(main_container)}
 
     (
@@ -292,8 +294,21 @@ def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
             staged_container
         )
 
-        variables = {**variables, **global_variables}
-        non_val_variables = {**non_val_variables, **global_non_val_variables}
+        """
+        if same variable is both in global_variables and variables, the
+        global_variable will get overwritten.
+        """
+        _global_variables = {
+            k: v for k, v in global_variables.items() if k not in variables.keys()
+        }
+        variables = {**variables, **_global_variables}
+
+        _global_non_val_variables = {
+            k: v
+            for k, v in global_non_val_variables.items()
+            if k not in non_val_variables.keys()
+        }
+        non_val_variables = {**non_val_variables, **_global_non_val_variables}
 
         for key, val in staged_container.items():
             if "modifiers" not in key:
