@@ -26,7 +26,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseManager, load_recipe_yaml_str, parse_recipe_variables
-from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
+from sparseml.pytorch.sparsification.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, is_parallel_model
 from sparsezoo.objects import Recipe
 

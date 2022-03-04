@@ -21,7 +21,8 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseModifier
-from sparseml.pytorch.optim import Modifier, ScheduledModifierManager
+from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.sparsification import Modifier
 from tests.sparseml.pytorch.helpers import (
     SAMPLE_STAGED_RECIPE,
     LinearNet,

@@ -22,7 +22,7 @@ import torch
 from torch import Tensor
 from torch.nn import Parameter
 
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
+from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     FourBlockMaskCreator,
     PruningMaskCreator,
