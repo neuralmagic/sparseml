@@ -338,11 +338,9 @@ def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
     evaluated_yaml = load_recipe_yaml_str_no_classes(evaluated_recipe)
     expected_is_staged = check_if_staged_recipe(evaluated_yaml)
     expected_yaml = load_recipe_yaml_str_no_classes(expected_recipe)
-    print(is_staged)
     assert expected_is_staged == is_staged
     assert isinstance(evaluated_yaml, dict)
     assert isinstance(expected_yaml, dict)
-    print(evaluated_recipe)
     _test_nested_equality(evaluated_yaml, expected_yaml)
 
 
