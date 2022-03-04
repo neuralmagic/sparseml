@@ -28,7 +28,10 @@ from torch.nn import Module
 from torch.optim import Optimizer
 
 from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML, ScheduledUpdateModifier
+from sparseml.pytorch.sparsification.modifier import (
+    PyTorchModifierYAML,
+    ScheduledUpdateModifier,
+)
 from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
 from sparseml.sparsification import SparsificationTypes
 
