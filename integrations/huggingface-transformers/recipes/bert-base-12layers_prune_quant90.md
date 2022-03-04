@@ -39,7 +39,7 @@ training_modifiers:
   - !EpochRangeModifier
     end_epoch: *num_epochs
     start_epoch: 0.0
-    
+
   - !LearningRateFunctionModifier
     start_epoch: 0.0
     end_epoch: *quantization_start_epoch
