@@ -53,7 +53,6 @@ pruning_modifiers:
     leave_enabled: True
     mask_type: unstructured
 
-
   - !LayerPruningModifier
     layers:
       - bert.encoder.layer.1

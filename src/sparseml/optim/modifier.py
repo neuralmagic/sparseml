@@ -812,6 +812,8 @@ class ModifierYAML(object):
                 if not isinstance(node, ScalarNode)
                 else {}
             )
+            # ignore the log_types arg in recipes to maintain backwards compatability
+            # while recipes are updated
             if "log_types" in state:
                 del state["log_types"]
             instance.__init__(**state)

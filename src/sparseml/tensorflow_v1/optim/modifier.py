@@ -82,7 +82,6 @@ class Modifier(BaseModifier):
     |   - manager.complete_graph()
     |   - export graph
 
-
     :param kwargs: standard key word args, used to support multi inheritance
     """
 
