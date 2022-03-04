@@ -713,7 +713,7 @@ class LoggerManager(ABC):
     def __init__(
         self,
         loggers: List[BaseLogger] = [],
-        log_frequency: Union[str, float, None] = 0.1,
+        log_frequency: Union[float, None] = 0.1,
     ):
         self._loggers = loggers
         self._log_frequency = log_frequency
