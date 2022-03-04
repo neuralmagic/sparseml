@@ -26,7 +26,10 @@ from torch.nn import Module, Parameter
 from torch.optim import Optimizer
 
 from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.pytorch.sparsification.modifier import PyTorchModifierYAML, ScheduledModifier
+from sparseml.pytorch.sparsification.modifier import (
+    PyTorchModifierYAML,
+    ScheduledModifier,
+)
 from sparseml.sparsification import SparsificationTypes
 
 
