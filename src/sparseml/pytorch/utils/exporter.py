@@ -242,12 +242,13 @@ class ModuleExporter(object):
 
     def export_pytorch(
         self,
-        optimizer: Optimizer = None,
-        epoch: int = None,
+        optimizer: Optional[Optimizer] = None,
+        epoch: Optional[int] = None,
         name: str = "model.pth",
         use_zipfile_serialization_if_available: bool = True,
         include_modifiers: bool = False,
         export_entire_model: bool = False,
+        arch_key: Optional[str] = None,
     ):
         """
         Export the pytorch state dicts into pth file within a
@@ -262,6 +263,8 @@ class ModuleExporter(object):
             as the optimizer, the associated ScheduledModifierManager and its
             Modifiers will be exported under the 'manager' key. Default is False
         :param export_entire_model: Exports entire file instead of state_dict
+        :param arch_key: if provided, the `arch_key` will be saved in the
+            checkpoint
         """
         pytorch_path = os.path.join(self._output_dir, "framework")
         pth_path = os.path.join(pytorch_path, name)
@@ -279,6 +282,7 @@ class ModuleExporter(object):
                     use_zipfile_serialization_if_available
                 ),
                 include_modifiers=include_modifiers,
+                arch_key=arch_key,
             )
 
     def export_samples(

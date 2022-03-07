@@ -14,5 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sparseml.pytorch.image_classification.utils.helpers import *
-from sparseml.pytorch.image_classification.utils.nm_argparser import *
+from .helpers import *
+from .nm_argparser import *
+from .trainer import *
