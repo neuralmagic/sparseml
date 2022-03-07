@@ -35,6 +35,7 @@ __all__ = [
     "evaluate_recipe_yaml_str_equations",
     "parse_recipe_variables",
     "check_if_staged_recipe",
+    "validate_metadata"
 ]
 
 
@@ -432,3 +433,31 @@ def _maybe_parse_number(val: str) -> Union[str, float, int]:
             return float(val)
         except Exception:
             return val
+
+def validate_metadata(metadata: dict, yaml_str: str) -> dict:
+    """
+    Compare the metadata carried over from the recipe with the new, incoming
+    metadata. If new metadata has valid format, it will overwrite the old.
+
+    :param metadata: New metadata
+    :param yaml_str: String representation of the recipe YAML file,
+                     (contains previous metadata)
+    :return: Validated metadata
+    """
+    # TODO: add support for stage recipies
+
+    previous_metadata = [metadata_str for metadata_str in yaml_str.split("\n") if 'metadata' in metadata_str]
+    if previous_metadata:
+        if len(previous_metadata) > 1:
+            raise ValueError(f"Detected two entries in the recipe pertaining to metadata.\n{[print(x) for x in previous_metadata]}")
+        else:
+            previous_metadata_dict = yaml.safe_load(previous_metadata[0])['metadata']
+            if previous_metadata_dict.keys() != metadata.keys():
+                # this assumes that we can only overwrite existing keys, but cannot add any additional keys to the metadata.
+                raise ValueError(f"Attempting to overwrite the previous metadata with new keys: {metadata.keys() - previous_metadata_dict.keys()}")
+            else:
+                for k,v in metadata.items():
+                    previous_metadata_dict.update({k:v})
+                return previous_metadata_dict
+    else:
+        return metadata

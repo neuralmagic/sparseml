@@ -19,6 +19,7 @@ ex to perform model pruning.
 """
 
 import math
+import yaml
 from collections import OrderedDict
 from copy import deepcopy
 from functools import cmp_to_key
@@ -288,7 +289,7 @@ class BaseManager(BaseObject):
 
         return max(vals) if len(vals) > 0 else -1
 
-    def save(self, file_path: str, include_metadata: bool):
+    def save(self, file_path: str, include_metadata: bool = True):
         """
         :param file_path: the file path to save the yaml config representation to
         :param include_metadata: boolean indicator whether metadata shall be
