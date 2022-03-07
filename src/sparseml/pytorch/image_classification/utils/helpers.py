@@ -378,12 +378,10 @@ def save_recipe(
 def save_model_training(
     model: Module,
     optim: Optimizer,
-    input_shape: Tuple[int, ...],
     save_name: str,
     save_dir: str,
     epoch: int,
     val_res: Union[ModuleRunResults, None],
-    convert_qat: bool = False,
 ):
     """
     :param model: model architecture
