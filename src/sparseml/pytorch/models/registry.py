@@ -207,8 +207,11 @@ class ModelRegistry(object):
         if not isinstance(key, List):
             key = [key]
 
-        def decorator(const_func):
-            wrapped_constructor = ModelRegistry._registered_wrapper(key[0], const_func)
+        def decorator(constructor_func):
+            wrapped_constructor = ModelRegistry._registered_wrapper(
+                key[0],
+                constructor_func,
+            )
 
             ModelRegistry.register_wrapped_model_constructor(
                 wrapped_constructor,
@@ -293,10 +296,10 @@ class ModelRegistry(object):
     @staticmethod
     def _registered_wrapper(
         key: str,
-        const_func: Callable,
+        constructor_func: Callable,
     ):
-        @merge_args(const_func)
-        @wrapper_decorator(const_func)
+        @merge_args(constructor_func)
+        @wrapper_decorator(constructor_func)
         def wrapper(
             pretrained_path: str = None,
             pretrained: Union[bool, str] = False,
@@ -329,7 +332,7 @@ class ModelRegistry(object):
             if attributes.args and pretrained in attributes.args:
                 kwargs[attributes.args[pretrained][0]] = attributes.args[pretrained][1]
 
-            model = const_func(*args, **kwargs)
+            model = constructor_func(*args, **kwargs)
             ignore = []
 
             if ignore_error_tensors:
