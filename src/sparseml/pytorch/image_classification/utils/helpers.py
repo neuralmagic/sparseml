@@ -99,7 +99,12 @@ def get_save_dir_and_loggers(
         if task == Tasks.TRAIN:
             logs_dir = os.path.join(logs_dir, model_id)
             create_dirs(logs_dir)
-            loggers.append(TensorBoardLogger(log_path=logs_dir))
+            try:
+                loggers.append(TensorBoardLogger(log_path=logs_dir))
+            except AttributeError:
+                print("Failed to initialize TensorBoard logger, "
+                      "it will not be used for logging")
+
         print(f"Model id is set to {model_id}")
     else:
         # do not log for non main processes
