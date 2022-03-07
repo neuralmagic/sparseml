@@ -24,7 +24,7 @@ from sparseml.optim import (
 
 
 STAGED_RECIPE_COMPLEX = """
-sparsity: 0.9
+sparsity: {sparsity}
 init_lr: 0.05
 final_lr: 0.0
 end_epoch: 100
@@ -36,7 +36,7 @@ ac_dc_phase:
   update_frequency: 5
   end_epoch_global: eval(end_epoch)
   end_epoch: 75
-  num_epochs: 10
+  num_epochs: {num_epochs}
   end_warm_up_epoch: 5.0
   final_lr: eval(final_lr)
   final_lr: 0.256
@@ -58,7 +58,7 @@ ac_dc_phase:
   - !LearningRateFunctionModifier
     start_epoch: eval(end_warm_up_epoch)
     end_epoch: eval(end_epoch_global)
-    lr_func: cosine
+    lr_func: {lr_func}
     init_lr: eval(final_lr)
     final_lr: 0.0
 
@@ -73,7 +73,7 @@ ac_dc_phase:
      global_sparsity: eval(global_sparsity)
 
 next_stage:
-  new_num_epochs: 15
+  new_num_epochs: {new_num_epochs}
 
   modifiers:
     - !EpochRangeModifier
@@ -328,7 +328,13 @@ def _test_nested_equality(val, other):
         (RECIPE_SIMPLE_EVAL, TARGET_RECIPE.format(num_epochs=10.0), False),
         (RECIPE_MULTI_EVAL, TARGET_RECIPE.format(num_epochs=10.0), False),
         (STAGED_RECIPE_SIMPLE, STAGED_RECIPE_SIMPLE_EVAL, True),
-        (STAGED_RECIPE_COMPLEX, STAGED_RECIPE_COMPLEX_EVAL, True),
+        (
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.9, num_epochs=10, lr_func="cosine", new_num_epochs=15
+            ),
+            STAGED_RECIPE_COMPLEX_EVAL,
+            True,
+        ),
     ],
 )
 def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
@@ -393,6 +399,20 @@ def test_load_recipe_yaml_str_zoo(zoo_path):
             TARGET_RECIPE.format(num_epochs=100.0),
             {"num_epochs": 10.0},
             TARGET_RECIPE.format(num_epochs=10.0),
+        ),
+        (
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.9, num_epochs=10, lr_func="cosine", new_num_epochs=15
+            ),
+            {
+                "sparsity": 0.5,
+                "num_epochs": 11,
+                "lr_func": "linear",
+                "new_num_epochs": 13,
+            },
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.5, num_epochs=11, lr_func="linear", new_num_epochs=13
+            ),
         ),
     ],
 )

@@ -198,7 +198,9 @@ def parse_recipe_variables(
 def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> str:
     """
     :param recipe_yaml_str: YAML string of a SparseML recipe
-    :param variables: variables dictionary to update recipe top level variables with
+    :param variables: variables dictionary to update recipe top level variables with.
+                      If recipe contains stages, it will parse the whole recipe
+                      and substitute ANY variable with the corresponding name.
     :return: given recipe with variables updated
     """
 
@@ -207,15 +209,52 @@ def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> 
         # yaml string does not create a dict, return original string
         return recipe_yaml_str
 
-    for key in variables:
-        if key not in container:
+    if check_if_staged_recipe(container):
+        key_found = False
+        for var_key in variables.keys():
+            for container_key, container_value in container.items():
+
+                if isinstance(container_value, dict):
+                    # checking contents of a stage
+                    for stage_key, stage_value in container_value.items():
+
+                        # checking contents of the modifiers list
+                        if isinstance(stage_value, list):
+                            for i, modifier in enumerate(stage_value):
+                                if var_key in modifier.keys():
+                                    container[container_key][stage_key][i][
+                                        var_key
+                                    ] = variables[var_key]
+
+                        # checking stage variables
+                        else:
+                            if var_key == stage_key:
+                                container[container_key][var_key] = variables[var_key]
+                                key_found = True
+
+                # checking contents of global variables
+                else:
+                    if var_key == container_key:
+                        container[var_key] = variables[var_key]
+                        key_found = True
+
+        if not key_found:
             raise ValueError(
-                f"updating recipe variable {key} but {key} is not currently "
-                "set in existing recipe. Set the variable in the recipe in order "
-                "to overwrite it."
+                f"updating recipe variable {var_key} but {var_key} "
+                f"is not currently set in existing recipe. Set the "
+                f"variable in the recipe in order to overwrite it."
             )
 
-    container.update(variables)
+    else:
+        for key in variables:
+            if key not in container:
+                raise ValueError(
+                    f"updating recipe variable {key} but {key} is not currently "
+                    "set in existing recipe. Set the variable in the recipe in order "
+                    "to overwrite it."
+                )
+        container.update(variables)
+
     return rewrite_recipe_yaml_string_with_classes(container)
 
 
