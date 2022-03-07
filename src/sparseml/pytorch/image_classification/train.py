@@ -153,23 +153,22 @@ import argparse
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
-from torch.nn import Module
 from torch.utils.data import DataLoader
 
 from sparseml import get_main_logger
-from sparseml.pytorch.image_classification.utils import NmArgumentParser, helpers
-from sparseml.pytorch.models import ModelRegistry
+from sparseml.pytorch.image_classification.utils import (
+    ImageClassificationTrainer,
+    NmArgumentParser,
+    helpers,
+)
 from sparseml.pytorch.utils import (
-    DEFAULT_LOSS_KEY,
-    ModuleDeviceContext,
-    ModuleTester,
-    ModuleTrainer,
+    CrossEntropyLossWrapper,
+    TopKAccuracy,
     default_device,
     get_prunable_layers,
-    model_to_device,
     set_deterministic_seeds,
     tensor_sparsity,
 )
@@ -214,7 +213,7 @@ class TrainingArguments:
         the ones to be loaded from the recipe-path.
     :param eval_mode: bool to start evaluation mode so that the model can be
         evaluated on the desired dataset.
-    :param optim: str respresnting the optimizer type to use, one of
+    :param optim: str representing the optimizer type to use, one of
         [SGD, Adam, RMSprop].
     :param logs_dir: The path to the directory for saving logs.
     :param save_best_after: int epoch number to start saving the best
@@ -223,7 +222,7 @@ class TrainingArguments:
     :param use_mixed_precision: bool to train model using mixed precision.
         Supported environments are single GPU and multiple GPUs using
         DistributedDataParallel with one GPU per process.
-    :param debug_steps: int represnting amount of steps to run for training and
+    :param debug_steps: int representing amount of steps to run for training and
         testing for debug mode default=-1.
     :param pretrained: The type of pretrained weights to use default is true
         to load the default pretrained weights for the model Otherwise should
@@ -247,6 +246,8 @@ class TrainingArguments:
         default=4.
     :param loader_pin_memory: bool to use pinned memory for data loading,
         default=True.
+    :param image_size: int representing the size of the image input to the model
+        default=224.
     """
 
     train_batch_size: int = field(
@@ -453,6 +454,9 @@ class TrainingArguments:
     loader_pin_memory: bool = field(
         default=True, metadata={"help": "Use pinned memory for data loading"}
     )
+    image_size: int = field(
+        default=224, metadata={"help": "The size of the image input to the model"}
+    )
 
     def __post_init__(self):
         # add ddp args
@@ -476,11 +480,6 @@ class TrainingArguments:
 
         self.train_batch_size = self.train_batch_size // self.world_size
 
-        self.arch_key = helpers.get_arch_key(
-            arch_key=self.arch_key,
-            checkpoint_path=self.checkpoint_path,
-        )
-
         if "preprocessing_type" not in self.dataset_kwargs and (
             "coco" in self.dataset.lower() or "voc" in self.dataset.lower()
         ):
@@ -498,18 +497,16 @@ class TrainingArguments:
 
 def train(
     train_args: TrainingArguments,
-    model: Module,
+    num_classes: int,
     train_loader: DataLoader,
     val_loader: DataLoader,
-    input_shape: Tuple[int, ...],
-    save_dir: str,
-    loggers: List[Any],
 ) -> None:
     """
     Utility function to drive the training processing
 
     :param train_args: A TrainingArguments object with
         arguments for current training task
+    :param num_classes: The number of output classes in the dataset
     :param model: model architecture to train
     :param train_loader: A DataLoader for training data
     :param val_loader: A DataLoader for validation data
@@ -517,114 +514,49 @@ def train(
     :param save_dir: Directory to store checkpoints at during training process
     :param loggers: List of loggers to use during training process
     """
-    # loss setup
-    val_loss = helpers.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
-    LOGGER.info(f"created loss for validation: {val_loss}")
 
-    train_loss = helpers.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
-    LOGGER.info(f"created loss for training: {train_loss}")
-
-    # training setup
-    if not train_args.eval_mode:
-        epoch, optim, manager = helpers.create_scheduled_optimizer(
-            train_args,
-            model,
-            train_loader,
-            loggers,
-        )
-    else:
-        epoch = 0
-        train_loss = None
-        optim = None
-        manager = None
-
-    # device setup
-    if train_args.rank == -1:
-        device = train_args.device
-        ddp = False
-    else:
-        torch.cuda.set_device(train_args.local_rank)
-        device = train_args.local_rank
-        ddp = True
-
-    model, device, device_ids = model_to_device(model, device, ddp=ddp)
-    LOGGER.info(f"running on device {device} for ids {device_ids}")
-
-    trainer = (
-        ModuleTrainer(
-            model,
-            device,
-            train_loss,
-            optim,
-            loggers=loggers,
-            device_context=ModuleDeviceContext(
-                use_mixed_precision=train_args.use_mixed_precision,
-                world_size=train_args.world_size,
-            ),
-        )
-        if not train_args.eval_mode
-        else None
+    trainer, save_dir = _init_image_classification_trainer_and_save_dirs(
+        train_args=train_args,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        num_classes=num_classes,
     )
 
-    if train_args.is_main_process:  # only test on one DDP process if using DDP
-        tester = ModuleTester(model, device, val_loss, loggers=loggers, log_steps=-1)
-
-        # initial baseline eval run
-        tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=train_args.debug_steps)
-
     if not train_args.eval_mode:
-        helpers.save_recipe(recipe_manager=manager, save_dir=save_dir)
-        LOGGER.info(f"starting training from epoch {epoch}")
+        helpers.save_recipe(recipe_manager=trainer.manager, save_dir=save_dir)
+        LOGGER.info(f"starting training from epoch {trainer.epoch}")
 
-        if epoch > 0:
-            LOGGER.info("adjusting ScheduledOptimizer to restore point")
-            optim.adjust_current_step(epoch, 0)
-
-        target_metric = (
-            "top1acc" if "top1acc" in tester.loss.available_losses else DEFAULT_LOSS_KEY
-        )
+        val_metric = None
         best_metric = None
         val_res = None
 
-        while epoch < manager.max_epochs:
-            if train_args.debug_steps > 0:
-                # correct since all optimizer steps are not
-                # taken in the epochs for debug mode
-                optim.adjust_current_step(epoch, 0)
-
-            if train_args.rank != -1:  # sync DDP dataloaders
-                train_loader.sampler.set_epoch(epoch)
-
-            trainer.run_epoch(
-                train_loader,
-                epoch,
+        while trainer.epoch < trainer.max_epochs:
+            val_res = trainer.run_one_epoch(
+                mode="train",
                 max_steps=train_args.debug_steps,
-                show_progress=train_args.is_main_process,
             )
 
             # testing steps
             if train_args.is_main_process:
-                # only test and save on main process
-                val_res = tester.run_epoch(
-                    val_loader, epoch, max_steps=train_args.debug_steps
-                )
-                val_metric = val_res.result_mean(target_metric).item()
+                val_metric = val_res.result_mean(trainer.target_metric).item()
 
-                if epoch >= train_args.save_best_after and (
+                _save_epoch = trainer.epoch >= train_args.save_best_after and (
                     best_metric is None
                     or (
                         val_metric <= best_metric
-                        if target_metric != "top1acc"
+                        if trainer.target_metric != "top1acc"
                         else val_metric >= best_metric
                     )
-                ):
+                )
+                if _save_epoch:
                     helpers.save_model_training(
-                        model,
-                        optim,
+                        trainer.model,
+                        trainer.optim,
                         "checkpoint-best",
                         save_dir,
-                        epoch,
+                        trainer.epoch,
                         val_res,
+                        arch_key=trainer.key,
                     )
                     best_metric = val_metric
 
@@ -632,31 +564,41 @@ def train(
             _save_epoch = (
                 train_args.is_main_process
                 and train_args.save_epochs
-                and epoch in train_args.save_epochs
+                and trainer.epoch in train_args.save_epochs
             )
             if _save_epoch:
+                save_name = (
+                    f"checkpoint-{trainer.epoch:04d}-{val_metric:.04f}"
+                    if val_metric
+                    else f"checkpoint-{trainer.epoch:04d}"
+                )
                 helpers.save_model_training(
-                    model,
-                    optim,
-                    f"checkpoint-{epoch:04d}-{val_metric:.04f}",
+                    trainer.model,
+                    trainer.optim,
+                    save_name,
                     save_dir,
-                    epoch,
+                    trainer.epoch,
                     val_res,
+                    arch_key=trainer.key,
                 )
 
-            epoch += 1
+            trainer.epoch += 1
 
         # export the final model
         LOGGER.info("completed...")
         if train_args.is_main_process:
             # only convert qat -> quantized ONNX graph for finalized model
-            # TODO: change this to all checkpoints when conversion times improve
             helpers.save_model_training(
-                model, optim, "model", save_dir, epoch - 1, val_res
+                trainer.model,
+                trainer.optim,
+                "model",
+                save_dir,
+                trainer.epoch - 1,
+                val_res,
             )
 
             LOGGER.info("layer sparsities:")
-            for (name, layer) in get_prunable_layers(model):
+            for (name, layer) in get_prunable_layers(trainer.model):
                 LOGGER.info(
                     f"{name}.weight: {tensor_sparsity(layer.weight).item():.4f}"
                 )
@@ -673,28 +615,78 @@ def main():
     _parser = NmArgumentParser(dataclass_types=TrainingArguments)
     training_args, _ = _parser.parse_args_into_dataclasses()
 
-    save_dir, loggers = helpers.get_save_dir_and_loggers(
-        training_args, task=CURRENT_TASK
-    )
-
-    input_shape = ModelRegistry.input_shape(training_args.arch_key)
-    image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
-
     (
         train_dataset,
         train_loader,
         val_dataset,
         val_loader,
-    ) = helpers.get_train_and_validation_loaders(
-        training_args, image_size, task=CURRENT_TASK
+    ) = helpers.get_train_and_validation_loaders(args=training_args, task=CURRENT_TASK)
+
+    num_classes = helpers.infer_num_classes(
+        args=training_args,
+        train_dataset=train_dataset,
+        val_dataset=val_dataset,
     )
 
-    num_classes = helpers.infer_num_classes(training_args, train_dataset, val_dataset)
-
-    # # model creation
-    model = helpers.create_model(training_args, num_classes)
     train(
-        training_args, model, train_loader, val_loader, input_shape, save_dir, loggers
+        train_args=training_args,
+        num_classes=num_classes,
+        train_loader=train_loader,
+        val_loader=val_loader,
+    )
+
+
+def _init_image_classification_trainer_and_save_dirs(
+    train_args: TrainingArguments,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    num_classes: int,
+) -> Tuple[ImageClassificationTrainer, Optional[str]]:
+    # Initialize and return the image classification trainer
+
+    def _loss_fn():
+        extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
+        return CrossEntropyLossWrapper(extras=extras)
+
+    model, key = helpers.create_model(
+        args=train_args,
+        num_classes=num_classes,
+    )
+    train_args.arch_key = key
+
+    save_dir, loggers = helpers.get_save_dir_and_loggers(
+        args=train_args, task=CURRENT_TASK
+    )
+
+    LOGGER.info(f"created model with key {key}: {model}")
+
+    model, device, ddp = helpers.device_setup(
+        model=model,
+        rank=train_args.rank,
+        local_rank=train_args.local_rank,
+        device=train_args.device,
+    )
+    LOGGER.info(f"running on device {device}")
+
+    return (
+        ImageClassificationTrainer(
+            model=model,
+            key=train_args.arch_key,
+            recipe_path=train_args.recipe_path,
+            ddp=ddp,
+            device=device,
+            use_mixed_precision=train_args.use_mixed_precision,
+            sparse_transfer_learn=train_args.sparse_transfer_learn,
+            val_loader=val_loader,
+            train_loader=train_loader,
+            is_main_process=train_args.is_main_process,
+            loggers=loggers,
+            loss_fn=_loss_fn,
+            init_lr=train_args.init_lr,
+            optim_name=train_args.optim,
+            optim_kwargs=train_args.optim_args,
+        ),
+        save_dir,
     )
 
 
