@@ -288,7 +288,7 @@ class BaseManager(BaseObject):
 
         return max(vals) if len(vals) > 0 else -1
 
-    def save(self, file_path: str, include_metadata: bool):
+    def save(self, file_path: str, include_metadata: bool = True):
         """
         :param file_path: the file path to save the yaml config representation to
         :param include_metadata: boolean indicator whether metadata shall be
