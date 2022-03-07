@@ -20,11 +20,12 @@ Also handles loading modifiers from yaml files
 
 import logging
 from typing import Any, Dict, List, Optional, Union
+
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import BaseManager, load_recipe_yaml_str, parse_recipe_variables, validate_metadata
+from sparseml.optim import BaseManager, load_recipe_yaml_str, parse_recipe_variables
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, is_parallel_model
 from sparsezoo.objects import Recipe
@@ -279,8 +280,6 @@ class ScheduledModifierManager(BaseManager, Modifier):
         if add_modifiers:
             modifiers.extend(add_modifiers)
 
-        metadata = validate_metadata(metadata, yaml_str)
-
         manager = ScheduledModifierManager(modifiers=modifiers, metadata=metadata)
 
         return manager
@@ -292,7 +291,6 @@ class ScheduledModifierManager(BaseManager, Modifier):
     ):
         super().__init__(modifiers=modifiers, metadata=metadata)
         self._initialize_epoch = 0
-
 
     def state_dict(self) -> Dict[str, Dict]:
         """
