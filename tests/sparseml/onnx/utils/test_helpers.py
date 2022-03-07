@@ -407,12 +407,42 @@ def test_onnx_node_sparsities():
 
 
 def test_extract_node_shape(extract_node_models):  # noqa: F811
-    model_path, expected_output = extract_node_models
+    model_path, *expected_outputs = extract_node_models
     onnx_model = load_model(model_path)
     node_shapes = extract_node_shapes(onnx_model)
-    for node in node_shapes:
-        assert node_shapes[node].input_shapes == expected_output[node][0]
-        assert node_shapes[node].output_shapes == expected_output[node][1]
+
+    """
+    Depending whether we have test case written for legacy PyTorch
+    or both legacy and upgraded PyTorch, three lists below will have:
+    `len` of 1 (if only legacy PyTorch test case present)
+    `len` of 2 (if test case for legacy and upgraded PyTorch)
+    """
+    expected_outputs = [x for x in expected_outputs if x]
+    correct_input_shapes = [False] * len(expected_outputs)
+    correct_output_shapes = [False] * len(expected_outputs)
+
+    for i, expected_output in enumerate(expected_outputs):
+        if all(node in node_shapes for node in expected_output):
+            correct_input_shapes[i] = all(
+                [
+                    node_shapes[node].input_shapes == expected_output[node][0]
+                    for node in node_shapes
+                ]
+            )
+            correct_output_shapes[i] = all(
+                [
+                    node_shapes[node].output_shapes == expected_output[node][1]
+                    for node in node_shapes
+                ]
+            )
+    """
+    If we have only one test case, it must must evaluate to True,
+    If we have two test cases, at least one must evaluate to True.
+    In other words, we are happy with test passing for legacy or
+    upgraded PyTorch (worst case scenario).
+    """
+    assert any(correct_input_shapes)
+    assert any(correct_output_shapes)
 
 
 @pytest.mark.parametrize(
