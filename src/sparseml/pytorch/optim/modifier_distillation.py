@@ -83,9 +83,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         update_frequency: float = -1.0,
     ):
         super().__init__(
-            start_epoch=start_epoch,
-            end_epoch=end_epoch,
-            end_comparator=-1,
+            start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1,
         )
         self._hardness = hardness
         self._temperature = temperature
@@ -357,7 +355,9 @@ class DistillationModifier(ScheduledUpdateModifier):
                 target=TF.softmax(teacher_val / self._temperature, dim=-1),
                 reduction="sum",
             )
-            * (self._temperature ** 2)) / (student_val.shape[0] * student_val.shape[1])
+            * (self._temperature ** 2)
+        ) / (student_val.shape[0] * student_val.shape[1])
+
 
 def _log_losses(
     loggers: List[BaseLogger],
