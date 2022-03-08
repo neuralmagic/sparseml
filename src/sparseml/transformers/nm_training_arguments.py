@@ -106,7 +106,7 @@ class NMTrainingArguments(TrainingArguments):
                 "Used total_train_batch size "
                 f"({self.total_train_batch_size}) "
                 "and gradient_accumulation_steps "
-                f"({self.gradient_accumulation_steps} "
+                f"({self.gradient_accumulation_steps}) "
                 "to compute per_device_train_batch_size of "
                 f"{self.per_device_train_batch_size}."
             )
