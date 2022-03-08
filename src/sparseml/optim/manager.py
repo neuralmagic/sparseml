@@ -135,8 +135,20 @@ class BaseManager(BaseObject):
                 "found additional_recipe with non_staged modifiers"
             )
 
-        base_stages = deepcopy(base_recipe.modifiers)
-        additional_stages = deepcopy(additional_recipe.modifiers)
+        if isinstance(base_recipe.modifiers, List):
+            base_stage_name = "stage_0"
+            base_stages = {base_stage_name: deepcopy(base_recipe.modifiers)}
+
+        else:
+            base_stages = deepcopy(base_recipe.modifiers)
+
+
+        if isinstance(additional_recipe.modifiers, List):
+            additional_recipe_name = "stage_1"
+            additional_stages = {additional_recipe_name: deepcopy(additional_recipe.modifiers)}
+
+        else:
+            additional_stages = deepcopy(additional_recipe.modifiers)
 
         base_keys = set(base_stages.keys())
         additional_keys = set(additional_stages.keys())
@@ -289,7 +301,7 @@ class BaseManager(BaseObject):
 
         return max(vals) if len(vals) > 0 else -1
 
-    def save(self, file_path: str, include_metadata: bool = True):
+    def save(self, file_path: str, checkpoint_manager = None, include_metadata: bool = True):
         """
         :param file_path: the file path to save the yaml config representation to
         :param include_metadata: boolean indicator whether metadata shall be
@@ -298,6 +310,8 @@ class BaseManager(BaseObject):
         file_path = clean_path(file_path)
         create_parent_dirs(file_path)
 
+        if checkpoint_manager:
+            composed_manager = self.compose_staged(checkpoint_manager, str(self))
         # this is a one-liner for now, could evolve into a
         # separate function if complexity increases
         metadata_serialized = (

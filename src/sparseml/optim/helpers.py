@@ -439,13 +439,15 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     Compare the metadata carried over from the recipe with the new, incoming
     metadata. If new metadata has valid format, it will overwrite the old.
 
+    Scenario.1: metadata not None and previous_metadata None (not staged) -> return metadata
+    Scenario.2: metadata not None and previous_metadata not None (not staged) -> overwrite
+    # TODO: Cover all scenarios
+
     :param metadata: New metadata
     :param yaml_str: String representation of the recipe YAML file,
                      (contains previous metadata)
     :return: Validated metadata
     """
-    # TODO: add support for stage recipies
-
     previous_metadata = [metadata_str for metadata_str in yaml_str.split("\n") if 'metadata' in metadata_str]
     if previous_metadata:
         if len(previous_metadata) > 1:

@@ -360,19 +360,22 @@ def create_scheduled_optimizer(
 
 
 # saving helpers
-
+from sparseml.pytorch.optim.modifier import Modifier
 
 def save_recipe(
     recipe_manager: ScheduledModifierManager,
     save_dir: str,
+    checkpoint_recipe = None,
 ):
     """
     :param recipe_manager: The ScheduleModified manager to save recipes
     :param save_dir: The directory to save the recipe
     """
     recipe_save_path = os.path.join(save_dir, "recipe.yaml")
-    recipe_manager.save(recipe_save_path)
-    print(f"Saved recipe to {recipe_save_path}")
+    if checkpoint_recipe:
+        modifiers = Modifier.load_list(checkpoint_recipe)
+        checkpoint_manager = ScheduledModifierManager(modifiers=modifiers)
+    recipe_manager.save(recipe_save_path, checkpoint_manager)
 
 
 def save_model_training(
