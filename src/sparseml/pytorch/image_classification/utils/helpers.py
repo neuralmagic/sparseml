@@ -16,6 +16,7 @@
 Helper methods for image classification/detection based tasks
 """
 import os
+import warnings
 from enum import Enum, auto, unique
 from typing import Any, List, Optional, Tuple, Union
 
@@ -102,8 +103,10 @@ def get_save_dir_and_loggers(
             try:
                 loggers.append(TensorBoardLogger(log_path=logs_dir))
             except AttributeError:
-                print("Failed to initialize TensorBoard logger, "
-                      "it will not be used for logging")
+                warnings.warn(
+                    "Failed to initialize TensorBoard logger, "
+                    "it will not be used for logging",
+                )
 
         print(f"Model id is set to {model_id}")
     else:
