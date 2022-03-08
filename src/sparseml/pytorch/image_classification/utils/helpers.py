@@ -381,12 +381,10 @@ def save_recipe(
 def save_model_training(
     model: Module,
     optim: Optimizer,
-    input_shape: Tuple[int, ...],
     save_name: str,
     save_dir: str,
     epoch: int,
     val_res: Union[ModuleRunResults, None],
-    convert_qat: bool = False,
 ):
     """
     :param model: model architecture
@@ -407,12 +405,6 @@ def save_model_training(
     )
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(optim, epoch, f"{save_name}.pth")
-    exporter.export_onnx(
-        torch.randn(1, *input_shape),
-        f"{save_name}.onnx",
-        convert_qat=convert_qat,
-    )
-
     info_path = os.path.join(save_dir, f"{save_name}.txt")
 
     with open(info_path, "w") as info_file:

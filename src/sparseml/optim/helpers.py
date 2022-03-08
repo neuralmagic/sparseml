@@ -15,6 +15,7 @@
 """
 Helper functions for base Modifier and Manger utilities
 """
+
 import json
 import re
 from contextlib import suppress
@@ -236,7 +237,9 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
         container = _evaluate_staged_recipe_yaml_str_equations(container)
 
     else:
-        container, variables, non_val_variables = _evaluate_recipe_variables(container)
+        container, variables, non_val_variables = _evaluate_container_variables(
+            container
+        )
 
         # update values nested in modifier lists based on the variables
         for key, val in container.items():
@@ -288,11 +291,11 @@ def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
         main_container,
         global_variables,
         global_non_val_variables,
-    ) = _evaluate_recipe_variables(main_container)
+    ) = _evaluate_container_variables(main_container)
 
     for stage_name, staged_container in stages.items():
-        stage_container, variables, non_val_variables = _evaluate_recipe_variables(
-            staged_container
+        stage_container, variables, non_val_variables = _evaluate_container_variables(
+            staged_container, main_container
         )
 
         """
@@ -337,6 +340,7 @@ def _maybe_evaluate_recipe_equation(
     val: str,
     variables: Dict[str, Union[int, float]],
     non_eval_variables: Dict[str, Any],
+    global_container: Optional[Dict[str, Any]] = {},
 ) -> Union[str, float, int]:
     if is_eval_string(val):
         is_eval_str = True
@@ -346,6 +350,9 @@ def _maybe_evaluate_recipe_equation(
 
     if val in non_eval_variables:
         return non_eval_variables[val]
+
+    if val in global_container:
+        return global_container[val]
 
     evaluated_val = restricted_eval(val, variables)
 
@@ -357,8 +364,8 @@ def _maybe_evaluate_recipe_equation(
     return evaluated_val
 
 
-def _evaluate_recipe_variables(
-    recipe_dict: Dict[str, Any],
+def _evaluate_container_variables(
+    recipe_container: Dict[str, Any], global_container: Optional[Dict[str, Any]] = {}
 ) -> Tuple[Dict[str, Any], Dict[str, Union[int, float]]]:
     valid_variables = {}
     non_evaluatable_variables = {}
@@ -367,7 +374,7 @@ def _evaluate_recipe_variables(
     while prev_num_variables != len(valid_variables):
         prev_num_variables = len(valid_variables)
 
-        for name, val in recipe_dict.items():
+        for name, val in recipe_container.items():
             if name in valid_variables:
                 continue
 
@@ -382,7 +389,7 @@ def _evaluate_recipe_variables(
 
             try:
                 val = _maybe_evaluate_recipe_equation(
-                    val, valid_variables, non_evaluatable_variables
+                    val, valid_variables, non_evaluatable_variables, global_container
                 )
             except UnknownVariableException:
                 # dependant variables maybe not evaluated yet
@@ -390,18 +397,18 @@ def _evaluate_recipe_variables(
 
             if isinstance(val, (int, float)):
                 # update variable value and add to valid vars
-                recipe_dict[name] = val
+                recipe_container[name] = val
                 valid_variables[name] = val
 
     # check that all eval statements have been evaluated
-    for name, val in recipe_dict.items():
+    for name, val in recipe_container.items():
         if isinstance(val, str) and is_eval_string(val):
             raise RuntimeError(
                 f"Unable to evaluate expression: {val}. Check if any dependent "
                 "variables form a cycle or are not defined"
             )
 
-    return recipe_dict, valid_variables, non_evaluatable_variables
+    return recipe_container, valid_variables, non_evaluatable_variables
 
 
 def _maybe_evaluate_yaml_object(
