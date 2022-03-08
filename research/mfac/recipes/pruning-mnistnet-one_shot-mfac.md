@@ -23,13 +23,12 @@ pruning_modifiers:
     start_epoch: 0.0
     end_epoch: 1.0
     update_frequency: 1.0
-    mfac_options:
-      num_grads: 512
-      fisher_block_size: 2000
+    num_grads: 512
+    fisher_block_size: 2000
 ---
 
 # Pruning MNISTNet with M-FAC
 This recipe prunes a model to 35% sparsity using the M-FAC pruning algorithm.
 It is intended for use with MNISTNet but could be used to prune other models
-in one shot, however the `final_sparsity` and `mfac_options` should be adjusted
-accordingly.
+in one shot, however the `final_sparsity`, `num_grads`, and `fisher_block_size` 
+should be adjusted accordingly.

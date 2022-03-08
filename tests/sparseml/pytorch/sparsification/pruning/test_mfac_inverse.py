@@ -47,8 +47,7 @@ PRECISION = 0.00001
         pytest.param(
             ["cuda:0"],
             marks=pytest.mark.skipif(
-                "CUDA_VISIBLE_DEVICES" not in os.environ
-                or not os.getenv("CUDA_VISIBLE_DEVICES"),
+                not torch.cuda.is_available(),
                 reason="No CUDA devices available",
             ),
         ),
