@@ -393,12 +393,19 @@ def test_load_recipe_yaml_str_zoo(zoo_path):
 
 
 @pytest.mark.parametrize(
-    "base_recipe,override_variables,target_recipe",
+    "base_recipe,override_variables,target_recipe,raises_value_error",
     [
         (
             TARGET_RECIPE.format(num_epochs=100.0),
             {"num_epochs": 10.0},
             TARGET_RECIPE.format(num_epochs=10.0),
+            False,
+        ),
+        (
+            TARGET_RECIPE.format(num_epochs=100.0),
+            {"invalid_var_name": 10.0},
+            TARGET_RECIPE.format(num_epochs=10.0),
+            True,
         ),
         (
             STAGED_RECIPE_COMPLEX.format(
@@ -413,12 +420,29 @@ def test_load_recipe_yaml_str_zoo(zoo_path):
             STAGED_RECIPE_COMPLEX.format(
                 sparsity=0.5, num_epochs=11, lr_func="linear", new_num_epochs=13
             ),
+            False,
+        ),
+        (
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.9, num_epochs=10, lr_func="cosine", new_num_epochs=15
+            ),
+            {"invalid_var_name": 10.0},
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.5, num_epochs=11, lr_func="linear", new_num_epochs=13
+            ),
+            True,
         ),
     ],
 )
-def test_update_recipe_variables(base_recipe, override_variables, target_recipe):
-    updated_recipe = update_recipe_variables(base_recipe, override_variables)
+def test_update_recipe_variables(
+    base_recipe, override_variables, target_recipe, raises_value_error
+):
+    if raises_value_error:
+        with pytest.raises(ValueError):
+            update_recipe_variables(base_recipe, override_variables)
 
-    updated_yaml = load_recipe_yaml_str_no_classes(updated_recipe)
-    target_yaml = load_recipe_yaml_str_no_classes(target_recipe)
-    _test_nested_equality(updated_yaml, target_yaml)
+    else:
+        updated_recipe = update_recipe_variables(base_recipe, override_variables)
+        updated_yaml = load_recipe_yaml_str_no_classes(updated_recipe)
+        target_yaml = load_recipe_yaml_str_no_classes(target_recipe)
+        _test_nested_equality(updated_yaml, target_yaml)
