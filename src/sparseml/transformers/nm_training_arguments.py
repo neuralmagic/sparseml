@@ -17,10 +17,14 @@ NMTrainingArguments class extends the original HF TrainingArguments class
 to include additional arguments
 """
 
+import logging
 from dataclasses import dataclass, field
 from typing import Optional
 
 from transformers import TrainingArguments
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -81,8 +85,10 @@ class NMTrainingArguments(TrainingArguments):
         # set total batch sizes as default
         if not self.total_train_batch_size and not self.per_device_train_batch_size:
             self.total_train_batch_size = 8
+            _LOGGER.info("Setting total_train_batch size to default value of 8.")
         if not self.total_eval_batch_size and not self.per_device_eval_batch_size:
             self.total_eval_batch_size = 8
+            _LOGGER.info("Setting total_eval_batch size to default value of 8.")
 
         # If total batch size is defined at this point,
         # per device batch size needs to be computed
@@ -96,7 +102,21 @@ class NMTrainingArguments(TrainingArguments):
                     * self.world_size
                 ),
             )
+            _LOGGER.info(
+                "Used total_train_batch size "
+                f"({self.total_train_batch_size}) "
+                "and gradient_accumulation_steps "
+                f"({self.gradient_accumulation_steps} "
+                "to compute per_device_train_batch_size of "
+                f"{self.per_device_train_batch_size}."
+            )
         if self.total_eval_batch_size:
             self.per_device_eval_batch_size = max(
                 1, self.total_eval_batch_size // (max(1, self.n_gpu) * self.world_size)
+            )
+            _LOGGER.info(
+                "Used total_eval_batch size "
+                f"({self.total_train_batch_size}) "
+                "to compute per_device_eval_batch_size "
+                f"of {self.per_device_eval_batch_size}."
             )
