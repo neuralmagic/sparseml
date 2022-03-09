@@ -65,7 +65,8 @@ def _build_gradient_sampler(
 
 @flaky(max_runs=3, min_passes=2)
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -110,14 +111,18 @@ def _build_gradient_sampler(
     scope="function",
 )
 @pytest.mark.parametrize(
-    "model_lambda", [MLPNet],
+    "model_lambda",
+    [MLPNet],
 )
 @pytest.mark.parametrize(
-    "optim_lambda", [create_optim_adam], scope="function",
+    "optim_lambda",
+    [create_optim_adam],
+    scope="function",
 )
 class TestMFACPruningModifier(ScheduledUpdateModifierTest):
     @pytest.mark.parametrize(
-        "dataset_lambda,loss,mfac_batch_size", [(MLPDataset, _mfac_loss_function, 4)],
+        "dataset_lambda,loss,mfac_batch_size",
+        [(MLPDataset, _mfac_loss_function, 4)],
     )
     def test_lifecycle(
         self,
@@ -217,7 +222,8 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
             _test_final_sparsity_applied()
 
     @pytest.mark.parametrize(
-        "dataset_lambda,loss,mfac_batch_size", [(MLPDataset, _mfac_loss_function, 4)],
+        "dataset_lambda,loss,mfac_batch_size",
+        [(MLPDataset, _mfac_loss_function, 4)],
     )
     def test_scheduled_update(
         self,
@@ -268,7 +274,8 @@ class TestMFACPruningModifier(ScheduledUpdateModifierTest):
     ],
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     start_epoch = 5.0

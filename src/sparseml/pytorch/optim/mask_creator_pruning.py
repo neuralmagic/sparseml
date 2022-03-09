@@ -662,7 +662,9 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
     """
 
     def __init__(
-        self, block_shape: List[int], grouping_fn_name: str = "mean",
+        self,
+        block_shape: List[int],
+        grouping_fn_name: str = "mean",
     ):
         if len(block_shape) < 2:
             raise ValueError(
@@ -722,7 +724,8 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         return block_mask.reshape(original_tensor_shape)
 
     def _get_blocked_tens_shape_and_validate(
-        self, tens_shape: torch.Size,
+        self,
+        tens_shape: torch.Size,
     ) -> List[int]:
         """
         :param tens_shape: The shape of the tensor to group in blocks
@@ -780,7 +783,8 @@ class FourBlockMaskCreator(GroupedPruningMaskCreator):
     """
 
     def __init__(
-        self, grouping_fn_name: str = "mean",
+        self,
+        grouping_fn_name: str = "mean",
     ):
         self._grouping_fn_name = grouping_fn_name
 

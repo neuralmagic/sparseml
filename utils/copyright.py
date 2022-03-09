@@ -287,7 +287,11 @@ def _file_header_info(lines: List[str], file_type: str) -> _HeaderInfo:
 
 _CommentFormatting = NamedTuple(
     "CommentFormatting",
-    [("line_prefix", str), ("block_prefix", str), ("block_suffix", str),],
+    [
+        ("line_prefix", str),
+        ("block_prefix", str),
+        ("block_suffix", str),
+    ],
 )
 
 

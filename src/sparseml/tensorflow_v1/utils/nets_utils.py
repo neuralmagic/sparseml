@@ -122,7 +122,8 @@ def get_network_fn(
 
 
 def get_gan_network_fn(
-    name: str, is_training: bool = False,
+    name: str,
+    is_training: bool = False,
 ):
     """
     Returns network_fn for a GAN sub-model

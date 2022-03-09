@@ -275,10 +275,16 @@ class TrainingArguments:
     )
 
     dataset_path: str = field(
-        metadata={"help": "The root path to where the dataset is stored",}
+        metadata={
+            "help": "The root path to where the dataset is stored",
+        }
     )
     local_rank: int = field(
-        default=-1, metadata={"keep_underscores": True, "help": argparse.SUPPRESS,},
+        default=-1,
+        metadata={
+            "keep_underscores": True,
+            "help": argparse.SUPPRESS,
+        },
     )
 
     checkpoint_path: str = field(
@@ -347,7 +353,9 @@ class TrainingArguments:
 
     logs_dir: str = field(
         default=os.path.join("pytorch_vision_train", "tensorboard-logs"),
-        metadata={"help": "The path to the directory for saving logs",},
+        metadata={
+            "help": "The path to the directory for saving logs",
+        },
     )
 
     save_best_after: int = field(
@@ -424,7 +432,9 @@ class TrainingArguments:
 
     save_dir: str = field(
         default="pytorch_vision",
-        metadata={"help": "The path to the directory for saving results",},
+        metadata={
+            "help": "The path to the directory for saving results",
+        },
     )
 
     device: str = field(
@@ -511,7 +521,10 @@ def train(
     # training setup
     if not train_args.eval_mode:
         epoch, optim, manager = helpers.create_scheduled_optimizer(
-            train_args, model, train_loader, loggers,
+            train_args,
+            model,
+            train_loader,
+            loggers,
         )
     else:
         epoch = 0

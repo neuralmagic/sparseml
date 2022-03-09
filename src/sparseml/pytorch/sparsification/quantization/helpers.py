@@ -427,7 +427,8 @@ def remove_activation_qat_by_layer_name(module: Module, layer_class_names: List[
             submodule, "qconfig"
         ):
             submodule.qconfig = torch_quantization.QConfig(
-                activation=torch.nn.Identity, weight=submodule.qconfig.weight,
+                activation=torch.nn.Identity,
+                weight=submodule.qconfig.weight,
             )
 
 
@@ -489,7 +490,8 @@ def get_qat_qconfig(
         **weight_observer_kwargs,
     )
     return torch_quantization.QConfig(
-        activation=activation_observer, weight=weight_observer,
+        activation=activation_observer,
+        weight=weight_observer,
     )
 
 

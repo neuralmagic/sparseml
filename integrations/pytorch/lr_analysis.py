@@ -198,7 +198,9 @@ class LRAnalysisArguments:
     )
 
     dataset_path: str = field(
-        metadata={"help": "The root path to where the dataset is stored",}
+        metadata={
+            "help": "The root path to where the dataset is stored",
+        }
     )
     pretrained: str = field(
         default=True,
@@ -247,7 +249,9 @@ class LRAnalysisArguments:
 
     save_dir: str = field(
         default="pytorch_vision",
-        metadata={"help": "The path to the directory for saving results",},
+        metadata={
+            "help": "The path to the directory for saving results",
+        },
     )
 
     device: str = field(
@@ -318,7 +322,10 @@ class LRAnalysisArguments:
 
 
 def lr_sensitivity(
-    args, model: Module, train_loader: DataLoader, save_dir: str,
+    args,
+    model: Module,
+    train_loader: DataLoader,
+    save_dir: str,
 ) -> None:
     """
     Utility function to run learning rate sensitivity analysis
@@ -372,7 +379,10 @@ def main():
         "for a desired image classification architecture",
     )
     args_, _ = _parser.parse_args_into_dataclasses()
-    save_dir, loggers = utils.get_save_dir_and_loggers(args_, task=CURRENT_TASK,)
+    save_dir, loggers = utils.get_save_dir_and_loggers(
+        args_,
+        task=CURRENT_TASK,
+    )
 
     input_shape = ModelRegistry.input_shape(args_.arch_key)
     # assume shape [C, S, S] where S is the image size
@@ -383,7 +393,11 @@ def main():
         train_loader,
         val_dataset,
         val_loader,
-    ) = utils.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK,)
+    ) = utils.get_train_and_validation_loaders(
+        args_,
+        image_size,
+        task=CURRENT_TASK,
+    )
 
     num_classes = utils.infer_num_classes(args_, train_dataset, val_dataset)
     model = utils.create_model(args_, num_classes)

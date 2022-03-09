@@ -83,7 +83,9 @@ class ONNXGraph(object):
         }
 
     def get_init_by_name(
-        self, name: str, allow_optional: bool = True,
+        self,
+        name: str,
+        allow_optional: bool = True,
     ) -> Optional[TensorProto]:
         """
         :param name: name of initializer
@@ -285,7 +287,11 @@ class ONNXGraph(object):
             self._input_id_to_nodes[input_id].remove(node)
 
 
-def update_model_param(model: ModelProto, param_name: str, val: numpy.ndarray,) -> None:
+def update_model_param(
+    model: ModelProto,
+    param_name: str,
+    val: numpy.ndarray,
+) -> None:
     """
     Removes the parameter with name param_name from the model
     Creates a new parameter using val
@@ -317,7 +323,9 @@ def swap_node_output(node: onnx.NodeProto, output: str) -> None:
 
 
 def remove_node_and_params_from_graph(
-    model: ModelProto, node: onnx.NodeProto, keep_params: Iterable[str] = None,
+    model: ModelProto,
+    node: onnx.NodeProto,
+    keep_params: Iterable[str] = None,
 ) -> None:
     """
     Deletes a node from the mdoel graph as well as its parameters listed in node.input

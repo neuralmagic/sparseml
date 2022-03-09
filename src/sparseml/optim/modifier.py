@@ -827,7 +827,9 @@ class ModifierYAML(object):
 
         yaml.add_constructor(yaml_key, constructor)
         yaml.add_constructor(
-            yaml_key, constructor, yaml.SafeLoader,
+            yaml_key,
+            constructor,
+            yaml.SafeLoader,
         )
 
         return clazz

@@ -48,7 +48,9 @@ from tests.sparseml.tensorflow_v1.optim.test_modifier import (
         (
             mlp_graph_lambda,
             lambda: ConstantPruningModifier(
-                params=["mlp_net/fc1/weight"], start_epoch=0.0, end_epoch=20.0,
+                params=["mlp_net/fc1/weight"],
+                start_epoch=0.0,
+                end_epoch=20.0,
             ),
         ),
     ],

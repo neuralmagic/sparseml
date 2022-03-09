@@ -41,7 +41,11 @@ def test_modifier_type():
 @pytest.mark.parametrize(
     "const_args",
     [
-        {"name": "test name", "description": "test description", "type_": "str",},
+        {
+            "name": "test name",
+            "description": "test description",
+            "type_": "str",
+        },
         {
             "name": "test name",
             "description": "test description",
@@ -67,7 +71,10 @@ def test_modifier_prop_info_lifecycle(const_args):
 @pytest.mark.parametrize(
     "const_args",
     [
-        {"name": "test name", "description": "test description",},
+        {
+            "name": "test name",
+            "description": "test description",
+        },
         {
             "name": "test name",
             "description": "test description",

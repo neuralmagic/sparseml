@@ -58,7 +58,11 @@ def _run_pruning_analysis(analyzer_class, model, **run_kwargs):
     assert analyzer_class.available(model_info, model=model, **run_kwargs)
 
     analyzer = analyzer_class(model_info)
-    return analyzer.run(model=model, show_progress=False, **run_kwargs,)
+    return analyzer.run(
+        model=model,
+        show_progress=False,
+        **run_kwargs,
+    )
 
 
 def _test_pruning_sensitivity_results(results, expected_results):

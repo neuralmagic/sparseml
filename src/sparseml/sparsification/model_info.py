@@ -46,10 +46,12 @@ class LayerInfo(BaseModel):
     """
 
     name: str = Field(
-        title="name", description="unique name of the layer within its model",
+        title="name",
+        description="unique name of the layer within its model",
     )
     op_type: str = Field(
-        title="op_type", description="type of layer, i.e. 'conv', 'linear'",
+        title="op_type",
+        description="type of layer, i.e. 'conv', 'linear'",
     )
     params: Optional[int] = Field(
         title="params",
@@ -182,7 +184,9 @@ class Result(BaseModel):
     """
 
     value: Any = Field(
-        title="value", default=None, description="initial value of the result",
+        title="value",
+        default=None,
+        description="initial value of the result",
     )
     attributes: Optional[Dict[str, Any]] = Field(
         title="attributes",
@@ -230,7 +234,9 @@ class PruningSensitivityResult(ModelResult):
     """
 
     def __init__(
-        self, analysis_type: PruningSensitivityResultTypes, **kwargs,
+        self,
+        analysis_type: PruningSensitivityResultTypes,
+        **kwargs,
     ):
         # validate result type
         analysis_type = PruningSensitivityResultTypes(analysis_type)

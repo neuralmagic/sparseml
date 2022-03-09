@@ -90,7 +90,9 @@ class RequiredExample:
 @dataclass
 class NonHyphenatedExample:
     non_hyphenated: int = field(
-        metadata={"keep_underscores": True,}
+        metadata={
+            "keep_underscores": True,
+        }
     )
 
 

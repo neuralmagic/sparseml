@@ -42,7 +42,9 @@ class EpochRangeModifier(BaseEpochRangeModifier, ScheduledModifier):
     """
 
     def __init__(
-        self, start_epoch: float, end_epoch: float,
+        self,
+        start_epoch: float,
+        end_epoch: float,
     ):
         super(EpochRangeModifier, self).__init__(
             start_epoch=start_epoch, end_epoch=end_epoch, end_comparator=-1

@@ -45,7 +45,8 @@ def _get_fake_batch(model_lambda):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", DISTILLATION_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -148,7 +149,8 @@ class TestDistillationModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 def test_distillation_modifier_yaml():
     start_epoch = 0.0

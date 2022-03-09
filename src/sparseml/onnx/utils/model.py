@@ -796,7 +796,10 @@ class DeepSparseAnalyzeModelRunner(_DeepSparseBaseModelRunner):
     """
 
     def __init__(
-        self, model: Union[str, ModelProto], batch_size: int, num_cores: int = None,
+        self,
+        model: Union[str, ModelProto],
+        batch_size: int,
+        num_cores: int = None,
     ):
         super().__init__(model, batch_size, num_cores, loss=None)
 

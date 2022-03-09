@@ -345,7 +345,8 @@ def parse_args():
 
     subparsers = parser.add_subparsers(dest="command")
     train_parser = subparsers.add_parser(
-        TRAIN_COMMAND, description="Train and/or prune an image classification model",
+        TRAIN_COMMAND,
+        description="Train and/or prune an image classification model",
     )
     export_parser = subparsers.add_parser(
         EXPORT_COMMAND,
@@ -683,7 +684,8 @@ def _save_checkpoint(args, sess, save_dir, checkpoint_name) -> str:
 
 
 def _save_recipe(
-    recipe_manager: ScheduledModifierManager, save_dir: str,
+    recipe_manager: ScheduledModifierManager,
+    save_dir: str,
 ):
 
     recipe_save_path = os.path.join(save_dir, "recipe.yaml")
@@ -782,7 +784,8 @@ def train(args, save_dir, logs_dir):
             val_acc, val_loss = [], []
             for step in range(val_steps):
                 meas_loss, meas_acc = sess.run(
-                    [loss, acc], feed_dict={handle: val_iter_handle, training: False},
+                    [loss, acc],
+                    feed_dict={handle: val_iter_handle, training: False},
                 )
                 val_acc.append(meas_acc)
                 val_loss.append(meas_loss)

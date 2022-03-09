@@ -146,7 +146,9 @@ def framework_info() -> FrameworkInfo:
         },
         sparsification=sparsification_info(),
         inference_providers=[cpu_provider, gpu_provider],
-        properties={"is_native_keras": is_native_keras,},
+        properties={
+            "is_native_keras": is_native_keras,
+        },
         training_available=True,
         sparsification_available=True,
         exporting_onnx_available=True,

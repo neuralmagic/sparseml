@@ -135,7 +135,10 @@ class DataTrainingArguments:
         },
     )
     recipe_args: Optional[str] = field(
-        default=None, metadata={"help": "Recipe arguments to be overwritten",},
+        default=None,
+        metadata={
+            "help": "Recipe arguments to be overwritten",
+        },
     )
     dataset_name: Optional[str] = field(
         default=None,
@@ -153,7 +156,8 @@ class DataTrainingArguments:
         },
     )
     train_file: Optional[str] = field(
-        default=None, metadata={"help": "The input training data file (a text file)."},
+        default=None,
+        metadata={"help": "The input training data file (a text file)."},
     )
     validation_file: Optional[str] = field(
         default=None,

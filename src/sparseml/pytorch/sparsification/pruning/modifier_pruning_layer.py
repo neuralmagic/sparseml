@@ -58,7 +58,9 @@ def _log_sparsity(
                 )
 
             logger.log_scalar(
-                f"{tag_prefix}/{layer_sparsity[0]}", layer_sparsity[1], step,
+                f"{tag_prefix}/{layer_sparsity[0]}",
+                layer_sparsity[1],
+                step,
             )
 
 

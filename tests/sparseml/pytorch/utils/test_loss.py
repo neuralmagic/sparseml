@@ -65,7 +65,8 @@ DEFAULT_KD_SETTINGS = KDSettings(teacher=default_kd_parent())
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 class LossWrapperTest(ABC):
     def test_available_losses(self, wrapper, metrics, data, pred):
@@ -141,7 +142,8 @@ class LossWrapperTest(ABC):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "wrapper,metrics",
@@ -157,7 +159,8 @@ class TestLossWrapperImpl(LossWrapperTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "wrapper,metrics",
@@ -180,13 +183,17 @@ class TestKDLossWrapperImpl(LossWrapperTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "wrapper,metrics",
     [
         (BinaryCrossEntropyLossWrapper(DEFAULT_METRICS), DEFAULT_METRICS),
-        (BinaryCrossEntropyLossWrapper(DEFAULT_METRICS), DEFAULT_METRICS,),
+        (
+            BinaryCrossEntropyLossWrapper(DEFAULT_METRICS),
+            DEFAULT_METRICS,
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -198,7 +205,8 @@ class TestBinaryCrossEntropyLossWrapperImpl(LossWrapperTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "wrapper,metrics", [(CrossEntropyLossWrapper(DEFAULT_METRICS), DEFAULT_METRICS)]
@@ -212,10 +220,12 @@ class TestCrossEntropyLossWrapperImpl(LossWrapperTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
-    "wrapper,metrics", [(SSDLossWrapper({}), {})],
+    "wrapper,metrics",
+    [(SSDLossWrapper({}), {})],
 )
 @pytest.mark.parametrize(
     "data",
@@ -244,10 +254,12 @@ class TestSSDLossWrapperImpl(LossWrapperTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
-    "wrapper,metrics", [(YoloLossWrapper({}), {})],
+    "wrapper,metrics",
+    [(YoloLossWrapper({}), {})],
 )
 @pytest.mark.parametrize(
     "data",
@@ -291,7 +303,8 @@ class TestYoloLossWrapperImpl(LossWrapperTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "pred,lab,expected_acc",
@@ -313,7 +326,8 @@ def test_accuracy(pred, lab, expected_acc):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "pred,lab,topk,expected_acc",

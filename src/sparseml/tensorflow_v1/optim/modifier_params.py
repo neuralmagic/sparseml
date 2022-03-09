@@ -176,5 +176,7 @@ class TrainableParamsModifier(BaseTrainableParamsModifier, ScheduledModifier):
         if self._trainable and self._params == ALL_TOKEN:
             raise ValueError(
                 "params == {} not supported when trainable == True"
-                " please provide a list of parameter names instead".format(ALL_TOKEN,)
+                " please provide a list of parameter names instead".format(
+                    ALL_TOKEN,
+                )
             )

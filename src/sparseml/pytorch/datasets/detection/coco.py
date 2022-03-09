@@ -145,8 +145,10 @@ class CocoDetectionDataset(CocoDetection):
                 year=year,
             )
             zip_path = os.path.join(root, "images.zip")
-            annotation_url = "{COCO_ANNOTATION_ZIP_ROOT}/annotations_trainval{year}.zip".format(
-                COCO_ANNOTATION_ZIP_ROOT=COCO_ANNOTATION_ZIP_ROOT, year=year
+            annotation_url = (
+                "{COCO_ANNOTATION_ZIP_ROOT}/annotations_trainval{year}.zip".format(
+                    COCO_ANNOTATION_ZIP_ROOT=COCO_ANNOTATION_ZIP_ROOT, year=year
+                )
             )
             annotation_zip_path = os.path.join(root, "annotation.zip")
             os.makedirs(root, exist_ok=True)
@@ -226,7 +228,10 @@ class CocoDetectionDataset(CocoDetection):
             )
         elif yolo_preprocess:
             trans.append(
-                lambda img, ann: (img, (bounding_box_and_labels_to_yolo_fmt(ann), ann),)
+                lambda img, ann: (
+                    img,
+                    (bounding_box_and_labels_to_yolo_fmt(ann), ann),
+                )
             )
 
         super().__init__(

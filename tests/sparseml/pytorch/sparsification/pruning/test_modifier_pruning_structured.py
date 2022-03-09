@@ -43,7 +43,8 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     ("tensor_shape,structure_type,tensor_group_idxs"),
@@ -75,7 +76,8 @@ def test_structured_sparsity_mask_creator(
 
 @flaky(max_runs=3, min_passes=2)
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -95,7 +97,9 @@ def test_structured_sparsity_mask_creator(
 )
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
-    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function",
+    "optim_lambda",
+    [create_optim_sgd, create_optim_adam],
+    scope="function",
 )
 class TestStructuredPruningModifier(ScheduledUpdateModifierTest):
     def test_lifecycle(
@@ -213,7 +217,11 @@ class TestStructuredPruningModifier(ScheduledUpdateModifierTest):
 def test_structured_pruning_yaml():
     param_groups = [
         ["param1", "param2"],
-        ["param3", "param4", "param5",],
+        [
+            "param3",
+            "param4",
+            "param5",
+        ],
     ]
     init_sparsity = 0.05
     final_sparsity = 0.8

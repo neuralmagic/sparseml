@@ -30,10 +30,15 @@ PRECISION = 0.00001
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
-    "fisher_algorithm", [FisherInverseFastSmallBlocks, FisherInverseFastBlock,],
+    "fisher_algorithm",
+    [
+        FisherInverseFastSmallBlocks,
+        FisherInverseFastBlock,
+    ],
 )
 @pytest.mark.parametrize(
     "devices",
@@ -42,7 +47,8 @@ PRECISION = 0.00001
         pytest.param(
             ["cuda:0"],
             marks=pytest.mark.skipif(
-                not torch.cuda.is_available(), reason="No CUDA devices available",
+                not torch.cuda.is_available(),
+                reason="No CUDA devices available",
             ),
         ),
     ],
@@ -57,10 +63,16 @@ def test_blocked_fisher_inverse(fisher_algorithm, devices):
     grads1 = torch.rand(num_grads, total_params)
     grads2 = grads1.clone()
 
-    fast_hinv = FisherInverseFast(grads=grads1, damp=damp,)
+    fast_hinv = FisherInverseFast(
+        grads=grads1,
+        damp=damp,
+    )
 
     blocked_hinv = fisher_algorithm(
-        grads=grads2, block_size=block_size, damp=damp, devices=devices,
+        grads=grads2,
+        block_size=block_size,
+        damp=damp,
+        devices=devices,
     )
 
     fast_diag = fast_hinv.diag()

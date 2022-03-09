@@ -131,7 +131,9 @@ def framework_info() -> FrameworkInfo:
         device="cpu",
         supported_sparsification=SparsificationInfo(),  # TODO: fill in when available
         available=check_deepsparse_install(raise_on_error=False),
-        properties={"cpu_architecture": arch,},
+        properties={
+            "cpu_architecture": arch,
+        },
         warnings=cpu_warnings,
     )
 

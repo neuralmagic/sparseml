@@ -241,7 +241,10 @@ class VOCDetectionDataset(VOCDetection):
             )
         elif preprocessing_type == "yolo":
             trans.append(
-                lambda img, ann: (img, (bounding_box_and_labels_to_yolo_fmt(ann), ann),)
+                lambda img, ann: (
+                    img,
+                    (bounding_box_and_labels_to_yolo_fmt(ann), ann),
+                )
             )
         super().__init__(
             root,

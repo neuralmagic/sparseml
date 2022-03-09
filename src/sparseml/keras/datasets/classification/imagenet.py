@@ -60,14 +60,12 @@ def imagenet_pre_resize_processor():
         shape = tf.shape(image)
         h, w = shape[0], shape[1]
         if h > w:
-            new_h, new_w = (
-                tf.cast(256 * h / w, dtype=tf.uint16),
-                tf.constant(256, dtype=tf.uint16),
+            new_h, new_w = tf.cast(256 * h / w, dtype=tf.uint16), tf.constant(
+                256, dtype=tf.uint16
             )
         else:
-            new_h, new_w = (
-                tf.constant(256, dtype=tf.uint16),
-                tf.cast(256 * w / h, dtype=tf.uint16),
+            new_h, new_w = tf.constant(256, dtype=tf.uint16), tf.cast(
+                256 * w / h, dtype=tf.uint16
             )
         resizer = keras.layers.experimental.preprocessing.Resizing(new_h, new_w)
         image_batch = tf.cast(resizer(image_batch), dtype=tf.uint8)
@@ -108,7 +106,10 @@ class ImageNetDataset(ImageFolderDataset):
         rand_trans: bool = False,
         image_size: Union[None, int, Tuple[int, int]] = 224,
         pre_resize_transforms=SplitsTransforms(
-            train=(random_scaling_crop(), tf.image.random_flip_left_right,),
+            train=(
+                random_scaling_crop(),
+                tf.image.random_flip_left_right,
+            ),
             val=(imagenet_pre_resize_processor(),),
         ),
         post_resize_transforms=SplitsTransforms(

@@ -132,11 +132,17 @@ class _SSDLiteHead(nn.ModuleList):
 
 class _SSDLitePredictorBlock(nn.Module):
     def __init__(
-        self, in_channels: int, out_channels: int,
+        self,
+        in_channels: int,
+        out_channels: int,
     ):
         super().__init__()
         self.depth = nn.Conv2d(
-            in_channels, in_channels, kernel_size=3, padding=1, groups=in_channels,
+            in_channels,
+            in_channels,
+            kernel_size=3,
+            padding=1,
+            groups=in_channels,
         )
         self.point = nn.Conv2d(in_channels, out_channels, kernel_size=1, groups=1)
         self.initialize()

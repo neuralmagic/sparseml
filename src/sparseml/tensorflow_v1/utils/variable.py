@@ -186,7 +186,8 @@ def get_prunable_ops(
 
 
 def get_ops_and_inputs_by_name_or_regex(
-    var_names: List[str], graph: tf_compat.Graph = None,
+    var_names: List[str],
+    graph: tf_compat.Graph = None,
 ) -> List[Tuple[tf_compat.Operation, tf_compat.Tensor]]:
     """
     Get tuples of operations and the inputs for inputs of operations that match
@@ -252,7 +253,8 @@ def get_ops_and_inputs_by_name_or_regex(
 
 
 def any_str_or_regex_matches_tensor_name(
-    tensor_name: str, name_or_regex_patterns: List[str],
+    tensor_name: str,
+    name_or_regex_patterns: List[str],
 ):
     """
     :param tensor_name: The name of a tensor

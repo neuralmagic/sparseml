@@ -42,7 +42,9 @@ class SparseAutoModel:
 
     @staticmethod
     def masked_language_modeling_from_pretrained(
-        model_name_or_path: str, model_type: str, **kwargs,
+        model_name_or_path: str,
+        model_type: str,
+        **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
@@ -65,7 +67,10 @@ class SparseAutoModel:
                 kwargs["state_dict"], delayed = SparseAutoModel._loadable_state_dict(
                     model_name_or_path
                 )
-            model = AutoModelForMaskedLM.from_pretrained(model_name_or_path, **kwargs,)
+            model = AutoModelForMaskedLM.from_pretrained(
+                model_name_or_path,
+                **kwargs,
+            )
 
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
@@ -95,7 +100,9 @@ class SparseAutoModel:
         )
         teacher = (
             SparseAutoModel.masked_language_modeling_from_pretrained(
-                teacher_name_or_path, model_type="teacher", **teacher_kwargs,
+                teacher_name_or_path,
+                model_type="teacher",
+                **teacher_kwargs,
             )
             if teacher_name_or_path and teacher_name_or_path not in ["self", "disable"]
             else teacher_name_or_path
@@ -105,7 +112,9 @@ class SparseAutoModel:
 
     @staticmethod
     def question_answering_from_pretrained(
-        model_name_or_path: str, model_type: str, **kwargs,
+        model_name_or_path: str,
+        model_type: str,
+        **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
@@ -124,7 +133,8 @@ class SparseAutoModel:
                 model_name_or_path
             )
         model = AutoModelForQuestionAnswering.from_pretrained(
-            model_name_or_path, **kwargs,
+            model_name_or_path,
+            **kwargs,
         )
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
@@ -164,7 +174,9 @@ class SparseAutoModel:
 
     @staticmethod
     def text_classification_from_pretrained(
-        model_name_or_path: str, model_type: str, **kwargs,
+        model_name_or_path: str,
+        model_type: str,
+        **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
@@ -183,7 +195,8 @@ class SparseAutoModel:
                 model_name_or_path
             )
         model = AutoModelForSequenceClassification.from_pretrained(
-            model_name_or_path, **kwargs,
+            model_name_or_path,
+            **kwargs,
         )
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
@@ -223,7 +236,9 @@ class SparseAutoModel:
 
     @staticmethod
     def token_classification_from_pretrained(
-        model_name_or_path: str, model_type: str, **kwargs,
+        model_name_or_path: str,
+        model_type: str,
+        **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
@@ -242,7 +257,8 @@ class SparseAutoModel:
                 model_name_or_path
             )
         model = AutoModelForTokenClassification.from_pretrained(
-            model_name_or_path, **kwargs,
+            model_name_or_path,
+            **kwargs,
         )
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 

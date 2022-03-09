@@ -49,14 +49,18 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
             update_frequency=1.0,
         ),
         lambda: LayerPruningModifier(
-            layers="__ALL_PRUNABLE__", start_epoch=10.0, end_epoch=25.0,
+            layers="__ALL_PRUNABLE__",
+            start_epoch=10.0,
+            end_epoch=25.0,
         ),
     ],
     scope="function",
 )
 @pytest.mark.parametrize("model_lambda", [FlatMLPNet], scope="function")
 @pytest.mark.parametrize(
-    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function",
+    "optim_lambda",
+    [create_optim_sgd, create_optim_adam],
+    scope="function",
 )
 class TestLayerPruningModifier(ScheduledUpdateModifierTest):
     def test_lifecycle(

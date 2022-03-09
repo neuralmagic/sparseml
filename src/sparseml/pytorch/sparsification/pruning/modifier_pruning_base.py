@@ -522,7 +522,9 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
             param_names = self._params
 
         return get_named_layers_and_params_by_regex(
-            module, param_names, params_strict=True,
+            module,
+            param_names,
+            params_strict=True,
         )
 
     def _create_pruning_mask(
@@ -778,7 +780,9 @@ class BaseGradualPruningModifier(BasePruningModifier):
 
         for sparsity, param_names in self._final_sparsity_orig.items():
             layer_param_name_results = get_named_layers_and_params_by_regex(
-                module, param_names, params_strict=True,
+                module,
+                param_names,
+                params_strict=True,
             )
             for result in layer_param_name_results:
                 name = f"{result.layer_name}.{result.param_name}"
@@ -832,5 +836,7 @@ def _log_sparsity(
                 )
 
             logger.log_scalar(
-                f"{tag_prefix}/{layer_sparsity[0]}", layer_sparsity[1], step,
+                f"{tag_prefix}/{layer_sparsity[0]}",
+                layer_sparsity[1],
+                step,
             )

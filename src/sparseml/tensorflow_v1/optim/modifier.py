@@ -421,7 +421,8 @@ class ModifierSessionRunHook(tf_compat.train.SessionRunHook):
     """
 
     def __init__(
-        self, mod_ops: List[Union[tf_compat.Tensor, tf_compat.Operation]],
+        self,
+        mod_ops: List[Union[tf_compat.Tensor, tf_compat.Operation]],
     ):
         self._mod_ops = mod_ops
 

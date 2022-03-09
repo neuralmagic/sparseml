@@ -357,7 +357,12 @@ val_1: eval([1,2])
 
 
 @pytest.mark.parametrize(
-    "recipe", [RECIPE_INVALID_LOOP, RECIPE_INVALID_UNDEFINED, RECIPE_INVALID_DTYPE,],
+    "recipe",
+    [
+        RECIPE_INVALID_LOOP,
+        RECIPE_INVALID_UNDEFINED,
+        RECIPE_INVALID_DTYPE,
+    ],
 )
 def test_evaluate_recipe_yaml_str_equations_invalid(recipe):
     with pytest.raises(RuntimeError):

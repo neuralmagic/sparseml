@@ -266,7 +266,10 @@ def pruning_loss_sens_one_shot_iter(
     )
     _LOGGER.debug("created runner for one shot analysis {}".format(runner))
     base_outputs, _ = runner.run(
-        data, desc="", show_progress=False, max_steps=steps_per_measurement,
+        data,
+        desc="",
+        show_progress=False,
+        max_steps=steps_per_measurement,
     )
     _LOGGER.debug("recorded base outputs")
     del runner
@@ -296,7 +299,10 @@ def pruning_loss_sens_one_shot_iter(
             )
             _LOGGER.debug("created runner for one shot analysis {}".format(runner))
             pruned_outputs, _ = runner.run(
-                data, desc="", show_progress=False, max_steps=steps_per_measurement,
+                data,
+                desc="",
+                show_progress=False,
+                max_steps=steps_per_measurement,
             )
             del runner
             _LOGGER.debug("recorded outputs")
@@ -468,7 +474,10 @@ def pruning_perf_sens_one_shot_iter(
             time.sleep(iters_sleep_time)  # hack to release GIL between runs
 
     yield analysis, KSSensitivityProgress(
-        len(sparsity_levels), None, len(sparsity_levels), 1.0,
+        len(sparsity_levels),
+        None,
+        len(sparsity_levels),
+        1.0,
     )
 
 

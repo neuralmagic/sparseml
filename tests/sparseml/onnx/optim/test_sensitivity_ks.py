@@ -233,7 +233,10 @@ def test_one_shot_ks_loss_sensitivity(
         expected_analysis.dict()["results"], key=lambda x: x["index"]
     )
 
-    actual_layers = sorted(analysis.dict()["results"], key=lambda x: x["index"],)
+    actual_layers = sorted(
+        analysis.dict()["results"],
+        key=lambda x: x["index"],
+    )
 
     _test_analysis_comparison(expected_layers, actual_layers, False)
 
@@ -268,6 +271,9 @@ def test_one_shot_ks_perf_sensitivity(
         expected_analysis.dict()["results"], key=lambda x: x["index"]
     )
 
-    actual_layers = sorted(analysis.dict()["results"], key=lambda x: x["index"],)
+    actual_layers = sorted(
+        analysis.dict()["results"],
+        key=lambda x: x["index"],
+    )
 
     _test_analysis_comparison(expected_layers, actual_layers, True)

@@ -193,10 +193,12 @@ class BinaryCrossEntropyLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None,
+        self,
+        extras: Union[None, Dict] = None,
     ):
         super().__init__(
-            TF.binary_cross_entropy_with_logits, extras,
+            TF.binary_cross_entropy_with_logits,
+            extras,
         )
 
 
@@ -210,7 +212,8 @@ class CrossEntropyLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None,
+        self,
+        extras: Union[None, Dict] = None,
     ):
         super().__init__(TF.cross_entropy, extras)
 
@@ -232,7 +235,9 @@ class InceptionCrossEntropyLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None, aux_weight: float = 0.4,
+        self,
+        extras: Union[None, Dict] = None,
+        aux_weight: float = 0.4,
     ):
         if extras is None:
             extras = {}
@@ -463,7 +468,8 @@ class SSDLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None,
+        self,
+        extras: Union[None, Dict] = None,
     ):
         if extras is None:
             extras = {}
@@ -550,7 +556,9 @@ class YoloLossWrapper(LossWrapper):
     """
 
     def __init__(
-        self, extras: Union[None, Dict] = None, anchor_groups: List[Tensor] = None,
+        self,
+        extras: Union[None, Dict] = None,
+        anchor_groups: List[Tensor] = None,
     ):
         if extras is None:
             extras = {}

@@ -45,11 +45,22 @@ QUANTIZATION_MODIFIERS = [
         start_epoch=2.0, submodules=["seq.fc1", "seq.block1.fc2"]
     ),
     lambda: QuantizationModifier(
-        start_epoch=2.0, submodules=["seq.fc1", "seq.block1.fc2"], reduce_range=True,
+        start_epoch=2.0,
+        submodules=["seq.fc1", "seq.block1.fc2"],
+        reduce_range=True,
     ),
-    lambda: QuantizationModifier(start_epoch=0.0, quantize_linear_activations=False,),
-    lambda: QuantizationModifier(start_epoch=0.0, activation_bits=4,),
-    lambda: QuantizationModifier(start_epoch=0.0, exclude_module_types=["Linear"],),
+    lambda: QuantizationModifier(
+        start_epoch=0.0,
+        quantize_linear_activations=False,
+    ),
+    lambda: QuantizationModifier(
+        start_epoch=0.0,
+        activation_bits=4,
+    ),
+    lambda: QuantizationModifier(
+        start_epoch=0.0,
+        exclude_module_types=["Linear"],
+    ),
 ]
 
 
@@ -121,14 +132,16 @@ def _test_qat_applied(modifier, model):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None, reason="torch quantization not available",
+    torch_quantization is None,
+    reason="torch quantization not available",
 )
 @pytest.mark.parametrize("modifier_lambda", QUANTIZATION_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -188,14 +201,16 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None, reason="torch quantization not available",
+    torch_quantization is None,
+    reason="torch quantization not available",
 )
 def test_quantization_modifier_yaml():
     start_epoch = 0.0
@@ -210,7 +225,9 @@ def test_quantization_modifier_yaml():
     exclude_module_types = ["LayerNorm", "Tanh"]
     activation_bits = 4
     averaging_constant = 0.05
-    activation_qconfig_kwargs = dict(averaging_constant=averaging_constant,)
+    activation_qconfig_kwargs = dict(
+        averaging_constant=averaging_constant,
+    )
     yaml_str = f"""
         !QuantizationModifier
             start_epoch: {start_epoch}

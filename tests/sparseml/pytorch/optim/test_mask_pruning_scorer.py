@@ -34,7 +34,12 @@ def _fake_params_random_update(params):
 
 
 @pytest.mark.parametrize(
-    "score_type,n_updates", [("magnitude", 0), ("magnitude", 1), ("movement", 5),],
+    "score_type,n_updates",
+    [
+        ("magnitude", 0),
+        ("magnitude", 1),
+        ("movement", 5),
+    ],
 )
 def test_pruning_scorer(score_type, n_updates):
     params = _make_fake_params(8, (24, 24))

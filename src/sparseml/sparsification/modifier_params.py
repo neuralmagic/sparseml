@@ -63,7 +63,9 @@ class TrainableParamsModifier(BaseModifier, BaseScheduled):
     ):
         kwargs["end_comparator"] = kwargs.get("end_comparator", -1)
         super(TrainableParamsModifier, self).__init__(
-            start_epoch=start_epoch, end_epoch=end_epoch, **kwargs,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            **kwargs,
         )
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)

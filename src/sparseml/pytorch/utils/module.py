@@ -713,18 +713,26 @@ class ModuleRunner(ABC):
             if should_log:
                 for loss, val in batch_results.items():
                     self._log_scalar(
-                        "{}/{}".format(self._log_name, loss), val.item(), log_step,
+                        "{}/{}".format(self._log_name, loss),
+                        val.item(),
+                        log_step,
                     )
 
                 self._log_scalar(
-                    "{}/Epoch Counter".format(self._log_name), counter, log_step,
+                    "{}/Epoch Counter".format(self._log_name),
+                    counter,
+                    log_step,
                 )
                 self._log_scalar(
-                    "{}/Batch Size".format(self._log_name), batch_size, log_step,
+                    "{}/Batch Size".format(self._log_name),
+                    batch_size,
+                    log_step,
                 )
                 step_time = time.time() - step_timer
                 self._log_scalar(
-                    "{}/Seconds per step".format(self._log_name), step_time, log_step,
+                    "{}/Seconds per step".format(self._log_name),
+                    step_time,
+                    log_step,
                 )
                 self._log_scalar(
                     "{}/Steps per second".format(self._log_name),
@@ -753,7 +761,9 @@ class ModuleRunner(ABC):
             for loss in results.results.keys():
                 val = results.result_mean(loss)
                 self._log_scalar(
-                    "{}/{} Summary".format(self._log_name, loss), val.item(), log_step,
+                    "{}/{} Summary".format(self._log_name, loss),
+                    val.item(),
+                    log_step,
                 )
 
             self._log_scalar(

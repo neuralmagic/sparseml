@@ -325,10 +325,12 @@ def parse_args():
 
     subparsers = parser.add_subparsers(dest="command")
     train_parser = subparsers.add_parser(
-        TRAIN_COMMAND, description="Train and/or prune an image classification model",
+        TRAIN_COMMAND,
+        description="Train and/or prune an image classification model",
     )
     eval_parser = subparsers.add_parser(
-        EVAL_COMMAND, description="Evaluate an image classification model on a dataset",
+        EVAL_COMMAND,
+        description="Evaluate an image classification model on a dataset",
     )
     export_parser = subparsers.add_parser(
         EXPORT_COMMAND,

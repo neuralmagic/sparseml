@@ -120,7 +120,9 @@ def _get_collate_fn(arch_key: str, task: Optional[Tasks] = None):
 
 
 def _create_train_dataset_and_loader(
-    args: Any, image_size: Tuple[int, ...], task: Optional[Tasks] = None,
+    args: Any,
+    image_size: Tuple[int, ...],
+    task: Optional[Tasks] = None,
 ) -> Tuple[Any, Any]:
     need_train_data = not (
         task == Tasks.EXPORT
@@ -301,7 +303,10 @@ def get_loss_wrapper(
 
 #  optimizer helper
 def create_scheduled_optimizer(
-    train_args: Any, model: Module, train_loader: DataLoader, loggers: List[Any],
+    train_args: Any,
+    model: Module,
+    train_loader: DataLoader,
+    loggers: List[Any],
 ) -> Tuple[int, ScheduledOptimizer, ScheduledModifierManager]:
     """
     :param train_args : An object with task specific config
@@ -344,7 +349,11 @@ def create_scheduled_optimizer(
         file_path=train_args.recipe_path, add_modifiers=add_mods
     )
     optim = ScheduledOptimizer(
-        optim, model, manager, steps_per_epoch=len(train_loader), loggers=loggers,
+        optim,
+        model,
+        manager,
+        steps_per_epoch=len(train_loader),
+        loggers=loggers,
     )
     print(f"created manager: {manager}")
     return epoch, optim, manager
@@ -354,7 +363,8 @@ def create_scheduled_optimizer(
 
 
 def save_recipe(
-    recipe_manager: ScheduledModifierManager, save_dir: str,
+    recipe_manager: ScheduledModifierManager,
+    save_dir: str,
 ):
     """
     :param recipe_manager: The ScheduleModified manager to save recipes
@@ -395,7 +405,9 @@ def save_model_training(
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(optim, epoch, f"{save_name}.pth")
     exporter.export_onnx(
-        torch.randn(1, *input_shape), f"{save_name}.onnx", convert_qat=convert_qat,
+        torch.randn(1, *input_shape),
+        f"{save_name}.onnx",
+        convert_qat=convert_qat,
     )
 
     info_path = os.path.join(save_dir, f"{save_name}.txt")

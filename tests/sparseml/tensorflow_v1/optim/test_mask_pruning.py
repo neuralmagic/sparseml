@@ -254,10 +254,24 @@ def test_get_or_create_graph_ops_pruning(
         )
         update_ready = tf_compat.placeholder(dtype=tf_compat.bool, name="update_ready")
         pruning_op_vars = get_or_create_graph_ops_pruning(
-            graph, var_names, sparsity, update_ready, True, None, group, mask_creator,
+            graph,
+            var_names,
+            sparsity,
+            update_ready,
+            True,
+            None,
+            group,
+            mask_creator,
         )
         pruning_op_vars_sec = get_or_create_graph_ops_pruning(
-            graph, var_names, sparsity, update_ready, True, None, group, mask_creator,
+            graph,
+            var_names,
+            sparsity,
+            update_ready,
+            True,
+            None,
+            group,
+            mask_creator,
         )
 
         assert len(pruning_op_vars) >= len(var_names)  # get at least 1 match per regex
@@ -511,7 +525,11 @@ def _expected_sparsity(
 @pytest.mark.parametrize(
     "net_const,inp_arr,var_names",
     [
-        (mlp_net, numpy.random.random((4, 16)), ["re:mlp_net/.*/weight"],),
+        (
+            mlp_net,
+            numpy.random.random((4, 16)),
+            ["re:mlp_net/.*/weight"],
+        ),
         (
             conv_net,
             numpy.random.random((4, 28, 28, 1)),

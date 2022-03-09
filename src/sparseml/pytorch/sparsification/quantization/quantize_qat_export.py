@@ -67,7 +67,9 @@ _QLINEAR_OP_NAMES = ["QLinearConv", "QLinearMatMul", "QLinearAdd"]
 
 
 def get_quantization_params(
-    model: Union[ModelProto, ONNXGraph], node: NodeProto, include_target: bool = False,
+    model: Union[ModelProto, ONNXGraph],
+    node: NodeProto,
+    include_target: bool = False,
 ) -> QuantizationParams:
     """
     :param model: ONNX model to read from or ONNXGraph object
@@ -468,7 +470,10 @@ def _convert_quantizable_gemm(
 
     # create qmatmul node and add it to graph
     qmatmul_node = onnx.helper.make_node(
-        "QLinearMatMul", qmatmul_inputs, [qmatmul_output], qmatmul_name,
+        "QLinearMatMul",
+        qmatmul_inputs,
+        [qmatmul_output],
+        qmatmul_name,
     )
     model.graph.node.append(qmatmul_node)
 
@@ -629,7 +634,10 @@ def _convert_quantizable_matmul(model: ModelProto):
 
         # create qmatmul node and add it to graph
         qmatmul_node = onnx.helper.make_node(
-            "QLinearMatMul", qmatmul_inputs, [qmatmul_output], qmatmul_name,
+            "QLinearMatMul",
+            qmatmul_inputs,
+            [qmatmul_output],
+            qmatmul_name,
         )
         model.graph.node.append(qmatmul_node)
 
@@ -744,7 +752,10 @@ def _add_quantized_matmul_add_ops(
 
     # create Add node and add it to graph
     qadd_node = onnx.helper.make_node(
-        "Add", quant_add_inputs, [quant_add_output], quant_add_name,
+        "Add",
+        quant_add_inputs,
+        [quant_add_output],
+        quant_add_name,
     )
     model.graph.node.append(qadd_node)
 
@@ -767,7 +778,10 @@ def _add_quantized_matmul_add_ops(
     ]
     mul_node_name = "{}_rescale_mul".format(quant_add_name)
     mul_node = onnx.helper.make_node(
-        "Mul", mul_node_inputs, [target_output], mul_node_name,
+        "Mul",
+        mul_node_inputs,
+        [target_output],
+        mul_node_name,
     )
     model.graph.node.append(mul_node)
 
@@ -1447,7 +1461,8 @@ def _skip_trivially_nested_input_quantize(model: ModelProto) -> bool:
 
 
 def skip_onnx_input_quantize(
-    model: Union[ModelProto, str], output_file_path: Union[str, None] = None,
+    model: Union[ModelProto, str],
+    output_file_path: Union[str, None] = None,
 ):
     """
     If the given model has a single FP32 input that feeds into a QuantizeLinear

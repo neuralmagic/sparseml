@@ -38,10 +38,12 @@ def _validate_coco(dataset: Dataset, size: int):
 
 @pytest.mark.skipif(pycocotools is None, reason="Pycocotools not installed")
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
+    reason="Skipping dataset tests",
 )
 def test_coco_detection():
     # 18 GB download

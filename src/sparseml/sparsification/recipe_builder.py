@@ -430,7 +430,8 @@ class PruningRecipeBuilder(RecipeYAMLBuilder):
             EpochRangeModifier, start_epoch=0.0, end_epoch="eval(num_epochs)"
         )
         init_lr_modifier = ModifierYAMLBuilder(
-            SetLearningRateModifier, learning_rate="eval(init_lr)",
+            SetLearningRateModifier,
+            learning_rate="eval(init_lr)",
         )
         return [epoch_modifier, init_lr_modifier]
 

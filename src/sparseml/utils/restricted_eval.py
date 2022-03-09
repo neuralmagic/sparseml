@@ -41,7 +41,8 @@ class UnknownVariableException(Exception):
 
 
 def restricted_eval(
-    expression: str, variables: Optional[Dict[str, float]] = None,
+    expression: str,
+    variables: Optional[Dict[str, float]] = None,
 ) -> float:
     """
     :param expression: expression to evaluate
