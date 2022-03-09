@@ -22,7 +22,6 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import torch
 from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
 
-
 try:
     import torch.nn.intrinsic as nni
     from torch import quantization as torch_quantization
@@ -32,20 +31,21 @@ except Exception:
 
 from sparseml.pytorch.nn import ReLU as ReLU_nm
 
-
 __all__ = [
+    "QUANTIZABLE_MODULE_TYPES",
     "QATWrapper",
     "configure_module_qat_wrappers",
     "configure_module_default_qconfigs",
     "add_quant_dequant",
     "remove_activation_qat_by_layer_name",
     "get_qat_qconfig",
+    "get_updated_qconfig_kwargs",
     "fix_observer_quant_range",
     "fuse_module_conv_bn_relus",
     "prepare_embeddings_qat",
 ]
 
-_QUANTIZABLE_MODULE_TYPES = (
+QUANTIZABLE_MODULE_TYPES = (
     {
         # Conv based layers
         torch.nn.Conv1d,
@@ -106,10 +106,10 @@ class QATWrapper(Module):
 
     @staticmethod
     def from_module(
-        module: Module,
-        reduce_range: bool = None,
-        activation_qconfig_kwargs: Dict[str, Any] = {},
-        weight_qconfig_kwargs: Dict[str, Any] = {},
+            module: Module,
+            reduce_range: bool = None,
+            activation_qconfig_kwargs: Dict[str, Any] = {},
+            weight_qconfig_kwargs: Dict[str, Any] = {},
     ) -> "QATWrapper":
         """
         :param module: torch Module to create a QATWrapper for
@@ -141,7 +141,7 @@ class QATWrapper(Module):
             activation_qconfig_kwargs
             if "activation_qconfig_kwargs" not in qat_wrapper_kwargs
             else activation_qconfig_kwargs
-            or qat_wrapper_kwargs["activation_qconfig_kwargs"]
+                 or qat_wrapper_kwargs["activation_qconfig_kwargs"]
         )
 
         qat_wrapper_kwargs["weight_qconfig_kwargs"] = (
@@ -153,20 +153,20 @@ class QATWrapper(Module):
         return QATWrapper(forward_fn=module, **qat_wrapper_kwargs)
 
     def __init__(
-        self,
-        forward_fn: Callable[[Any], Any],
-        num_inputs: int = 1,
-        kwarg_input_names: List[str] = None,
-        num_outputs: int = 1,
-        input_qconfigs: Union[
-            "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
-        ] = "asymmetric",
-        output_qconfigs: Union[
-            "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
-        ] = "asymmetric",
-        reduce_range: bool = False,
-        activation_qconfig_kwargs: Dict[str, Any] = {},
-        weight_qconfig_kwargs: Dict[str, Any] = {},
+            self,
+            forward_fn: Callable[[Any], Any],
+            num_inputs: int = 1,
+            kwarg_input_names: List[str] = None,
+            num_outputs: int = 1,
+            input_qconfigs: Union[
+                "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
+            ] = "asymmetric",
+            output_qconfigs: Union[
+                "torch.quantization.QConfig", str, List["torch.quantization.QConfig"]
+            ] = "asymmetric",
+            reduce_range: bool = False,
+            activation_qconfig_kwargs: Dict[str, Any] = {},
+            weight_qconfig_kwargs: Dict[str, Any] = {},
     ):
         super().__init__()
 
@@ -285,12 +285,12 @@ class QATWrapper(Module):
 
     @staticmethod
     def _load_qconfigs(
-        name: str,
-        expected_len: int,
-        qconfigs: Union["QConfig", str, List["QConfig"]],  # noqa: F821
-        reduce_range: bool = False,
-        activation_qconfig_kwargs: Dict[str, Any] = {},
-        weight_qconfig_kwargs: Dict[str, Any] = {},
+            name: str,
+            expected_len: int,
+            qconfigs: Union["QConfig", str, List["QConfig"]],  # noqa: F821
+            reduce_range: bool = False,
+            activation_qconfig_kwargs: Dict[str, Any] = {},
+            weight_qconfig_kwargs: Dict[str, Any] = {},
     ):
         if not isinstance(qconfigs, (str, torch_quantization.QConfig, List)):
             raise ValueError(
@@ -331,10 +331,10 @@ class QATWrapper(Module):
 
 
 def configure_module_qat_wrappers(
-    module: Module,
-    reduce_range: bool = False,
-    activation_qconfig_kwargs: Dict[str, Any] = {},
-    weight_qconfig_kwargs: Dict[str, Any] = {},
+        module: Module,
+        reduce_range: bool = False,
+        activation_qconfig_kwargs: Dict[str, Any] = {},
+        weight_qconfig_kwargs: Dict[str, Any] = {},
 ):
     """
     if any submodule of the given module has the attribute wrap_qat == True,
@@ -383,7 +383,7 @@ def configure_module_default_qconfigs(module: Module):
     """
     for submodule in module.modules():
         if hasattr(submodule, "configure_qconfig") and callable(
-            getattr(submodule, "configure_qconfig")
+                getattr(submodule, "configure_qconfig")
         ):
             submodule.configure_qconfig()
 
@@ -398,9 +398,9 @@ def add_quant_dequant(module, name=None, parent_module=None):
     """
     named_children = module.named_children()
     if (
-        type(module) in _QUANTIZABLE_MODULE_TYPES
-        and hasattr(module, "qconfig")
-        and module.qconfig
+            type(module) in QUANTIZABLE_MODULE_TYPES
+            and hasattr(module, "qconfig")
+            and module.qconfig
     ):
         if parent_module is not None and len(list(named_children)) <= 0:
             module = torch_quantization.QuantWrapper(module)
@@ -424,7 +424,7 @@ def remove_activation_qat_by_layer_name(module: Module, layer_class_names: List[
     """
     for submodule in module.modules():
         if submodule.__class__.__name__ in layer_class_names and hasattr(
-            submodule, "qconfig"
+                submodule, "qconfig"
         ):
             submodule.qconfig = torch_quantization.QConfig(
                 activation=torch.nn.Identity,
@@ -433,11 +433,11 @@ def remove_activation_qat_by_layer_name(module: Module, layer_class_names: List[
 
 
 def get_qat_qconfig(
-    symmetric_activations: bool = False,
-    symmetric_weights: bool = True,
-    reduce_range: bool = False,
-    activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
-    weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
+        symmetric_activations: bool = False,
+        symmetric_weights: bool = True,
+        reduce_range: bool = False,
+        activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
+        weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
 ) -> "torch.quantization.QConfig":
     """
     :param symmetric_activations: if True, activations will have a symmetric
@@ -509,7 +509,7 @@ def fix_observer_quant_range(module: Module):
         if isinstance(submodule, torch_quantization.FakeQuantize):
             fake_quantize = submodule
         elif hasattr(submodule, "activation_post_process") and isinstance(
-            submodule.activation_post_process, torch_quantization.FakeQuantize
+                submodule.activation_post_process, torch_quantization.FakeQuantize
         ):
             fake_quantize = submodule.activation_post_process
         else:
@@ -518,9 +518,9 @@ def fix_observer_quant_range(module: Module):
         # continue if fake_quantize quant range not set, or observer quant range is set
         observer = fake_quantize.activation_post_process
         if (
-            fake_quantize.quant_min is None
-            or fake_quantize.quant_max is None
-            or (observer.quant_min is not None or observer.quant_max is not None)
+                fake_quantize.quant_min is None
+                or fake_quantize.quant_max is None
+                or (observer.quant_min is not None or observer.quant_max is not None)
         ):
             continue
         observer.quant_min = fake_quantize.quant_min
@@ -529,9 +529,9 @@ def fix_observer_quant_range(module: Module):
 
 
 def fuse_module_conv_bn_relus(
-    module: Module,
-    inplace: bool = True,
-    override_bn_subclasses_forward: Union[bool, str] = True,
+        module: Module,
+        inplace: bool = True,
+        override_bn_subclasses_forward: Union[bool, str] = True,
 ) -> Module:
     """
     Performs fusion of Conv2d, BatchNorm2d, and ReLU layers found in the
@@ -566,14 +566,14 @@ def fuse_module_conv_bn_relus(
     for name, layer in module.named_modules():
         submodule_name = ".".join(name.split(".")[:-1])
         if (
-            len(current_block) == 1  # [Conv2d]
-            and isinstance(layer, BatchNorm2d)
-            and submodule_name == current_block_submodule_name
+                len(current_block) == 1  # [Conv2d]
+                and isinstance(layer, BatchNorm2d)
+                and submodule_name == current_block_submodule_name
         ) or (
-            len(current_block) in [1, 2]  # [Conv2d] or [Conv2d, BatchNorm2d]
-            and isinstance(layer, ReLU)
-            and not isinstance(current_block[-1], ReLU)
-            and submodule_name == current_block_submodule_name
+                len(current_block) in [1, 2]  # [Conv2d] or [Conv2d, BatchNorm2d]
+                and isinstance(layer, ReLU)
+                and not isinstance(current_block[-1], ReLU)
+                and submodule_name == current_block_submodule_name
         ):
             if isinstance(layer, ReLU_nm):
                 _set_submodule(module, name, ReLU(inplace=layer.inplace))
@@ -610,11 +610,11 @@ def fuse_module_conv_bn_relus(
 
 
 def prepare_embeddings_qat(
-    module: Module,
-    qconfig: "torch.quantization.QConfig" = None,
-    reduce_range: bool = False,
-    activation_qconfig_kwargs: Dict[str, Any] = {},
-    weight_qconfig_kwargs: Dict[str, Any] = {},
+        module: Module,
+        qconfig: "torch.quantization.QConfig" = None,
+        reduce_range: bool = False,
+        activation_qconfig_kwargs: Dict[str, Any] = {},
+        weight_qconfig_kwargs: Dict[str, Any] = {},
 ):
     """
     adds a fake quantize call to the weights of any Embedding modules in the given
@@ -641,6 +641,37 @@ def prepare_embeddings_qat(
     for submodule in module.modules():
         if type(submodule) is Embedding:
             _prepare_qat_embedding(submodule, qconfig)
+
+
+def get_updated_qconfig_kwargs(qconfig_kwargs, bits):
+    qconfig_kwargs = (
+        qconfig_kwargs.copy()
+        if qconfig_kwargs
+        else {}
+    )
+
+    # update qconfig_kwargs for bits
+    if bits and (
+            qconfig_kwargs.get("quant_min")
+            or qconfig_kwargs.get("quant_max")
+    ):
+        raise ValueError(
+            "Cannot override quant_max and quant_min when number of bits is set"
+        )
+
+    if bits:
+        quant_min = 0
+        quant_max = 2 ** bits - 1
+        dtype = torch.quint8
+        qconfig_kwargs.update(
+            dict(
+                quant_min=quant_min,
+                quant_max=quant_max,
+                dtype=dtype,
+            )
+        )
+
+    return qconfig_kwargs
 
 
 def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConfig"):
