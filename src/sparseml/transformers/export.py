@@ -15,14 +15,18 @@
 """
 Helper functions and script for exporting a trained transformers model to an ONNX file
 for use with engines such as DeepSparse
+
 script accessible from sparseml.transformers.export_onnx
+
 command help:
 usage: export.py [-h] --task TASK --model_path MODEL_PATH
                  [--sequence_length SEQUENCE_LENGTH]
                  [--convert_qat CONVERT_QAT]
                  [--finetuning_task FINETUNING_TASK]
                  [--onnx_file_name ONNX_FILE_NAME]
+
 Export a trained transformers model to an ONNX file
+
 optional arguments:
   -h, --help            show this help message and exit
   --task TASK           Task to create the model for. i.e. mlm, qa, glue, ner
@@ -42,6 +46,7 @@ optional arguments:
                         Name for exported ONNX file in the model directory. Default
                         and reccomended value for pipeline compatibility is
                         'model.onnx'
+
 example usage:
 sparseml.transformers.export_onnx \
   --task question-answering \
@@ -117,20 +122,22 @@ def export_transformer_to_onnx(
     finetuning_task: Optional[str] = None,
     onnx_file_name: str = "model.onnx",
 ) -> str:
-    """Exports the saved transformers file to ONNX at batch size 1 using the
-    given model path weights, config, and tokenizer.
+    """
+    Exports the saved transformers file to ONNX at batch size 1 using
+    the given model path weights, config, and tokenizer
 
     :param task: task to create the model for. i.e. mlm, qa, glue, ner
     :param model_path: path to directory where model files, tokenizers,
-    and configs are saved. ONNX export will also be written here :param
-    sequence_length: model sequence length to use for export :param
-    convert_qat: set True to convert a QAT model to fully quantized
-    ONNX model. Default is True :param finetuning_task: optional string
-    finetuning task for text classification     and token classification
-    exports :param onnx_file_name: name to save the exported ONNX file
-    as. Default     is model.onnx. Note that when loading a model
-    directory to a deepsparse     pipeline, it will look only for
-    'model.onnx' :return: path to the exported ONNX file
+        and configs are saved. ONNX export will also be written here
+    :param sequence_length: model sequence length to use for export
+    :param convert_qat: set True to convert a QAT model to fully quantized
+        ONNX model. Default is True
+    :param finetuning_task: optional string finetuning task for text classification
+        and token classification exports
+    :param onnx_file_name: name to save the exported ONNX file as. Default
+        is model.onnx. Note that when loading a model directory to a deepsparse
+        pipeline, it will look only for 'model.onnx'
+    :return: path to the exported ONNX file
     """
     task = task.replace("_", "-").replace(" ", "-")
 

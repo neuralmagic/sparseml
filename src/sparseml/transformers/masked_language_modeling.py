@@ -18,11 +18,12 @@
 # Adapted from https://github.com/huggingface/transformers
 # neuralmagic: no copyright
 
-"""Fine-tuning the library models for masked language modeling (BERT, ALBERT,
-RoBERTa...) on a text file or a dataset.
+"""
+Fine-tuning the library models for masked language modeling (BERT, ALBERT, RoBERTa...)
+on a text file or a dataset
 
-Here is the full list of checkpoints on the hub that can be fine-tuned
-by this script: https://huggingface.co/models?filter=masked-lm
+Here is the full list of checkpoints on the hub that can be fine-tuned by this script:
+https://huggingface.co/models?filter=masked-lm
 """
 
 # You can also adapt this script on your own masked language modeling task.

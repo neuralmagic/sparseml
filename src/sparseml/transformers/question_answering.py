@@ -17,8 +17,9 @@
 # Adapted from https://github.com/huggingface/transformers
 # neuralmagic: no copyright
 
-"""Fine-tuning the library models for question answering integrated with
-sparseml."""
+"""
+Fine-tuning the library models for question answering integrated with sparseml.
+"""
 
 # You can also adapt this script on your own question answering task.
 # Pointers for this are left as comments.
