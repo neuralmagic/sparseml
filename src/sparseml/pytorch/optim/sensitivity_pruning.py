@@ -181,12 +181,7 @@ def _sensitivity_callback(
     complete_measurement()
 
     def batch_end(
-        epoch: int,
-        step: int,
-        batch_size: int,
-        data: Any,
-        pred: Any,
-        losses: Any,
+        epoch: int, step: int, batch_size: int, data: Any, pred: Any, losses: Any,
     ):
         nonlocal measurement_steps
         measurement_steps += 1

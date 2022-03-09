@@ -189,9 +189,7 @@ class SparsityFreezer(PruningScheduler):
     """
 
     def __init__(
-        self,
-        start_step: int,
-        end_step: int,
+        self, start_step: int, end_step: int,
     ):
         self._start_step = start_step
         self._end_step = end_step
@@ -508,9 +506,7 @@ class ConstantPruningModifier(BaseConstantPruningModifier, ScheduledModifier):
         )
         self._sparsity_scheduler = self._create_sparsity_scheduler(steps_per_epoch)
         cloned_model = keras.models.clone_model(
-            model,
-            input_tensors,
-            clone_function=self._clone_layer,
+            model, input_tensors, clone_function=self._clone_layer,
         )
         pruning_step_callback = PruningModifierCallback(self._masked_layers)
         callbacks = [pruning_step_callback]
@@ -691,9 +687,7 @@ class GMPruningModifier(BaseGMPruningModifier, ScheduledUpdateModifier):
 
         # Clone model and additional set up
         cloned_model = keras.models.clone_model(
-            model,
-            input_tensors,
-            clone_function=self._clone_layer,
+            model, input_tensors, clone_function=self._clone_layer,
         )
 
         # Pruning step call back and additional set up

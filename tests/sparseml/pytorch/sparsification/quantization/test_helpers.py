@@ -71,16 +71,14 @@ def _count_submodule_instances(module, clazz):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None,
-    reason="torch quantization not available",
+    torch_quantization is None, reason="torch quantization not available",
 )
 def test_configure_module_qat_wrappers():
     module = _ModuleWrapper(_ModuleWrapper(_QATMatMul()))
@@ -110,16 +108,14 @@ def _assert_module_quant_stub_configs_exist(module, should_exist):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None,
-    reason="torch quantization not available",
+    torch_quantization is None, reason="torch quantization not available",
 )
 def test_configure_module_default_qconfigs():
     module = QATWrapper.from_module(_QATMatMul())
@@ -130,16 +126,14 @@ def test_configure_module_default_qconfigs():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None,
-    reason="torch quantization not available",
+    torch_quantization is None, reason="torch quantization not available",
 )
 def test_configure_module_default_qconfigs_no_config():
     module = QATWrapper.from_module(_QATMatMul())
@@ -152,20 +146,17 @@ def test_configure_module_default_qconfigs_no_config():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None,
-    reason="torch quantization not available",
+    torch_quantization is None, reason="torch quantization not available",
 )
 @pytest.mark.parametrize(
-    "model_lambda,num_quantizable_ops",
-    [(mobilenet, 28), (resnet50, 54)],
+    "model_lambda,num_quantizable_ops", [(mobilenet, 28), (resnet50, 54)],
 )
 def test_add_quant_dequant(model_lambda, num_quantizable_ops):
     module = model_lambda()
@@ -179,16 +170,14 @@ def test_add_quant_dequant(model_lambda, num_quantizable_ops):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None,
-    reason="torch quantization not available",
+    torch_quantization is None, reason="torch quantization not available",
 )
 def test_get_qat_qconfig():
     assert isinstance(get_qat_qconfig(), torch_quantization.QConfig)
@@ -196,10 +185,7 @@ def test_get_qat_qconfig():
 
 def _get_fake_conv_relus(num_blocks=1):
     def _conv_relu():
-        return torch.nn.Sequential(
-            torch.nn.Conv2d(20, 20, 3),
-            torch.nn.ReLU(),
-        )
+        return torch.nn.Sequential(torch.nn.Conv2d(20, 20, 3), torch.nn.ReLU(),)
 
     return torch.nn.Sequential(*[_conv_relu() for _ in range(num_blocks)])
 
@@ -211,25 +197,20 @@ def _get_fake_conv_float_functional(num_blocks=1):
         FloatFunctional = None
 
     def _conv_float_functional():
-        return torch.nn.Sequential(
-            torch.nn.Conv2d(20, 20, 3),
-            FloatFunctional(),
-        )
+        return torch.nn.Sequential(torch.nn.Conv2d(20, 20, 3), FloatFunctional(),)
 
     return torch.nn.Sequential(*[_conv_float_functional() for _ in range(num_blocks)])
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_QUANT_TESTS", False),
     reason="Skipping pytorch torch quantization tests",
 )
 @pytest.mark.skipif(
-    torch_quantization is None,
-    reason="torch quantization not available",
+    torch_quantization is None, reason="torch quantization not available",
 )
 @pytest.mark.parametrize(
     "model_lambda,conv_bn_relus,conv_bns,conv_relus",
@@ -239,9 +220,7 @@ def _get_fake_conv_float_functional(num_blocks=1):
         (lambda: _get_fake_conv_relus(5), 0, 0, 5),
         (
             lambda: torch.nn.Sequential(
-                _get_fake_conv_relus(3),
-                resnet50(),
-                _get_fake_conv_relus(6),
+                _get_fake_conv_relus(3), resnet50(), _get_fake_conv_relus(6),
             ),
             33,
             20,

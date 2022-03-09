@@ -84,9 +84,7 @@ class LayerThinningModifier(ScheduledModifier):
         end_epoch: float = -1,
     ):
         super().__init__(
-            start_epoch=start_epoch,
-            end_epoch=-1,
-            end_comparator=-1,
+            start_epoch=start_epoch, end_epoch=-1, end_comparator=-1,
         )
 
         self._param_group_dependency_map = param_group_dependency_map

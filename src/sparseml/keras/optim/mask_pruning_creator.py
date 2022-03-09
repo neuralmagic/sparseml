@@ -41,8 +41,7 @@ class PruningMaskCreator(ABC):
 
     @abstractmethod
     def get_mask_initializer(
-        self,
-        tensor: tensorflow.Tensor,
+        self, tensor: tensorflow.Tensor,
     ) -> Callable[[], tensorflow.Tensor]:
         """
         :param tensor: A tensor of a model layer's weights
@@ -52,9 +51,7 @@ class PruningMaskCreator(ABC):
 
     @abstractmethod
     def create_sparsity_mask(
-        self,
-        tensor: tensorflow.Tensor,
-        sparsity: tensorflow.Tensor,
+        self, tensor: tensorflow.Tensor, sparsity: tensorflow.Tensor,
     ) -> tensorflow.Tensor:
         """
         :param tensor: A tensor of a model layer's weights
@@ -73,8 +70,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
     """
 
     def get_mask_initializer(
-        self,
-        tensor: tensorflow.Tensor,
+        self, tensor: tensorflow.Tensor,
     ) -> Callable[[], tensorflow.Tensor]:
         """
         :param tensor: A tensor of a model layer's weights
@@ -97,9 +93,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
         return non_zero_mask_initializer
 
     def create_sparsity_mask(
-        self,
-        tensor: tensorflow.Tensor,
-        sparsity: tensorflow.Tensor,
+        self, tensor: tensorflow.Tensor, sparsity: tensorflow.Tensor,
     ) -> tensorflow.Tensor:
         """
         :param tensor: A tensor of a model layer's weights
@@ -115,8 +109,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             tensorflow.int32,
         )
         sparse_threshold_index = tensorflow.minimum(
-            tensorflow.maximum(sparse_threshold_index, 0),
-            tensorflow.size(tensor) - 1,
+            tensorflow.maximum(sparse_threshold_index, 0), tensorflow.size(tensor) - 1,
         )
 
         try:
@@ -199,8 +192,7 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         raise NotImplementedError()
 
     def get_mask_initializer(
-        self,
-        tensor: tensorflow.Tensor,
+        self, tensor: tensorflow.Tensor,
     ) -> Callable[[], tensorflow.Tensor]:
         """
         :param tensor: A tensor of a model layer's weights
@@ -223,9 +215,7 @@ class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):
         return grouped_non_zero_mask_initializer
 
     def create_sparsity_mask(
-        self,
-        tensor: tensorflow.Tensor,
-        sparsity: tensorflow.Tensor,
+        self, tensor: tensorflow.Tensor, sparsity: tensorflow.Tensor,
     ) -> tensorflow.Tensor:
         """
         :param tensor: A tensor of a model layer's weights
@@ -250,9 +240,7 @@ class DimensionPruningMaskCreator(GroupedPruningMaskCreator):
     _VALID_DIM_NAMES = ["channel", "filter"]
 
     def __init__(
-        self,
-        dim: Union[str, int, List[int]],
-        grouping_op_name: str = "mean",
+        self, dim: Union[str, int, List[int]], grouping_op_name: str = "mean",
     ):
         if isinstance(dim, int):
             dim = [dim]
@@ -303,9 +291,7 @@ class DimensionPruningMaskCreator(GroupedPruningMaskCreator):
         n_dims = len(tensor.shape)
         reduced_axis = [idx for idx in range(n_dims) if idx not in self._dim]
         return self._grouping_op(
-            tensorflow.abs(tensor),
-            axis=reduced_axis,
-            keepdims=True,
+            tensorflow.abs(tensor), axis=reduced_axis, keepdims=True,
         )
 
     def _map_mask_to_tensor(
@@ -349,9 +335,7 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
     """
 
     def __init__(
-        self,
-        block_shape: List[int],
-        grouping_op_name: str = "mean",
+        self, block_shape: List[int], grouping_op_name: str = "mean",
     ):
         if len(block_shape) != 2:
             raise ValueError(
@@ -421,8 +405,7 @@ class BlockPruningMaskCreator(GroupedPruningMaskCreator):
         return mask
 
     def _get_blocked_tens_shape_and_validate(
-        self,
-        tens_shape: tensorflow.TensorShape,
+        self, tens_shape: tensorflow.TensorShape,
     ) -> Tuple[List[int], tensorflow.TensorShape]:
         """
         :param tens_shape: The shape of the tensor to group in blocks

@@ -122,8 +122,7 @@ class DataTrainingArguments:
         },
     )
     recipe_args: Optional[str] = field(
-        default=None,
-        metadata={"help": "Recipe arguments to be overwritten"},
+        default=None, metadata={"help": "Recipe arguments to be overwritten"},
     )
     task_name: Optional[str] = field(
         default="ner", metadata={"help": "The name of the task (ner, pos...)."}
@@ -134,9 +133,7 @@ class DataTrainingArguments:
     )
     dataset_config_name: Optional[str] = field(
         default=None,
-        metadata={
-            "help": ("The configuration name of the dataset to use"),
-        },
+        metadata={"help": ("The configuration name of the dataset to use"),},
     )
     train_file: Optional[str] = field(
         default=None,

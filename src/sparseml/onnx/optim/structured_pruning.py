@@ -31,8 +31,7 @@ _OUTPUT_CHANNEL_OP_TYPES = _PRUNABLE_OP_TYPES + ["BatchNormalization"]
 
 
 def get_param_structured_pruning_group_dependencies(
-    model: Union[onnx.ModelProto, str],
-    structure_type: str = "filter",
+    model: Union[onnx.ModelProto, str], structure_type: str = "filter",
 ) -> Dict[str, List[str]]:
     """
     :param model: model to generate pruning groups and dependencies for

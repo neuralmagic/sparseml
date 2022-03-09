@@ -206,9 +206,7 @@ class ModuleAnalyzer(object):
         return [forward_pre_hook, forward_hook]
 
     def _forward_pre_hook(
-        self,
-        mod: Module,
-        inp: Union[Tuple[Tensor, ...], Tensor],
+        self, mod: Module, inp: Union[Tuple[Tensor, ...], Tensor],
     ):
         self._call_count += 1
 

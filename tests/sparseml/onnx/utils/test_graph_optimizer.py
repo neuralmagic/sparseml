@@ -42,8 +42,7 @@ def _model_has_conv_bn(model: onnx.ModelProto):
     reason="Skipping quantization tests",
 )
 @pytest.mark.parametrize(
-    "model_lambda, inputs_dtype",
-    [(onnx_conv_net, np.float32)],
+    "model_lambda, inputs_dtype", [(onnx_conv_net, np.float32)],
 )
 def test_fold_conv_bn(model_lambda, inputs_dtype):
     base_model = model_lambda()

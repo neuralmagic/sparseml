@@ -41,9 +41,7 @@ class EpochRangeModifier(BaseEpochRangeModifier, ScheduledModifier):
     """
 
     def __init__(
-        self,
-        start_epoch: float,
-        end_epoch: float,
+        self, start_epoch: float, end_epoch: float,
     ):
         """
         :param start_epoch: The epoch to start the modifier at

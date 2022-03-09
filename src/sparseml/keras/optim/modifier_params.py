@@ -128,17 +128,11 @@ class TrainableParamsModifier(BaseTrainableParamsModifier, ScheduledModifier):
         if self._trainable and self._params == ALL_TOKEN:
             raise ValueError(
                 "params == {} not supported when trainable == True"
-                " please provide a list of parameter names instead".format(
-                    ALL_TOKEN,
-                )
+                " please provide a list of parameter names instead".format(ALL_TOKEN,)
             )
 
     def modify(
-        self,
-        model,
-        optimizer,
-        steps_per_epoch: int,
-        input_tensors: Tensor = None,
+        self, model, optimizer, steps_per_epoch: int, input_tensors: Tensor = None,
     ):
         model, optimizer, callback = super(TrainableParamsModifier, self).modify(
             model, optimizer, steps_per_epoch, input_tensors=input_tensors

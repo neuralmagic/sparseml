@@ -75,17 +75,11 @@ def cifar10_label_mapping(labels: Tensor):
 
 
 def imagenette_label_mapping(labels: Tensor):
-    return apply_one_hot_label_mapping(
-        labels,
-        IMAGENETTE_CLASSES,
-    )
+    return apply_one_hot_label_mapping(labels, IMAGENETTE_CLASSES,)
 
 
 def imagenet_label_mapping(labels: Tensor):
-    return apply_one_hot_label_mapping(
-        labels,
-        IMAGENET_CLASSES,
-    )
+    return apply_one_hot_label_mapping(labels, IMAGENET_CLASSES,)
 
 
 def mnist_label_mapping(labels: Tensor):

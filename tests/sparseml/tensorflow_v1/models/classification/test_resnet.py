@@ -35,8 +35,7 @@ from sparseml.tensorflow_v1.utils import tf_compat
     reason="Skipping tensorflow_v1 tests",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_MODEL_TESTS", False),
-    reason="Skipping model tests",
+    os.getenv("NM_ML_SKIP_MODEL_TESTS", False), reason="Skipping model tests",
 )
 @pytest.mark.parametrize(
     "key,pretrained,test_input,const",

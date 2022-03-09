@@ -125,9 +125,7 @@ class ModelRegistry(object):
 
     @staticmethod
     def create_zoo_model(
-        key: str,
-        pretrained: Union[bool, str] = True,
-        pretrained_dataset: str = None,
+        key: str, pretrained: Union[bool, str] = True, pretrained_dataset: str = None,
     ) -> Model:
         """
         Create a sparsezoo Model for the desired model in the zoo

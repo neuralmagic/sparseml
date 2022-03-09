@@ -42,8 +42,7 @@ def _test_lr_sensitivity(model, data, loss, device, steps_per_measurement):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size,samples_per_measurement",
@@ -54,17 +53,12 @@ def test_module_ks_sensitivity_analysis_one_shot(
 ):
     data = DataLoader(dataset, batch_size)
     _test_lr_sensitivity(
-        model,
-        data,
-        loss,
-        "cpu",
-        samples_per_measurement,
+        model, data, loss, "cpu", samples_per_measurement,
     )
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size,samples_per_measurement",
@@ -80,9 +74,5 @@ def test_module_ks_sensitivity_analysis_one_shot_cuda(
     data = DataLoader(dataset, batch_size)
     model = model.to("cuda")
     _test_lr_sensitivity(
-        model,
-        data,
-        loss,
-        "cuda",
-        samples_per_measurement,
+        model, data, loss, "cuda", samples_per_measurement,
     )

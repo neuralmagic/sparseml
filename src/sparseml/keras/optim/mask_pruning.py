@@ -271,9 +271,7 @@ class MaskedLayer(keras.layers.Wrapper):
             self._global_step,
         )
 
-    def _reuse_or_create_pruning_vars(
-        self,
-    ) -> List[MaskedParamInfo]:
+    def _reuse_or_create_pruning_vars(self,) -> List[MaskedParamInfo]:
         if isinstance(self._layer, MaskedLayer):
             # All nested masked layers reused pruning vars created
             # for the "core", inner-most, Keras built-in layer

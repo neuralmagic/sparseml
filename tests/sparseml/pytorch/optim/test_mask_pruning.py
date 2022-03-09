@@ -43,8 +43,7 @@ def _test_constructor(layer, param_name, mask_creator):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,mask_creator",
@@ -96,8 +95,7 @@ def test_constructor(layer, param_name, mask_creator):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name, mask_creator",
@@ -136,8 +134,7 @@ def test_constructor_cuda(layer, param_name, mask_creator):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def _test_set_param_data(layer, param_name, data):
     mask = ModuleParamPruningMask([layer], param_name)
@@ -146,8 +143,7 @@ def _test_set_param_data(layer, param_name, data):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,data",
@@ -171,8 +167,7 @@ def test_set_param_data(layer, param_name, data):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,data",
@@ -199,8 +194,7 @@ def random_mask(*size, threshold):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def _test_set_param_mask(layer, param_name, param_mask):
     mask = ModuleParamPruningMask([layer], [param_name])
@@ -223,8 +217,7 @@ def _test_set_param_mask(layer, param_name, param_mask):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param_mask",
@@ -258,8 +251,7 @@ def test_set_param_mask(layer, param_name, param_mask):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param_mask",
@@ -309,16 +301,10 @@ def _test_grouped_sparsity_mask_output(mask_creator, mask):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def _test_set_param_mask_from_abs_threshold(
-    layer,
-    param_name,
-    param,
-    threshold,
-    expected_sparsity,
-    mask_creator,
+    layer, param_name, param, threshold, expected_sparsity, mask_creator,
 ):
     mask = ModuleParamPruningMask([layer], [param_name], mask_creator=mask_creator)
     mask.set_param_data(param, 0)
@@ -331,8 +317,7 @@ def _test_set_param_mask_from_abs_threshold(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param,threshold,expected_sparsity,mask_creator",
@@ -436,12 +421,7 @@ def _test_set_param_mask_from_abs_threshold(
     ],
 )
 def test_set_param_mask_from_abs_threshold(
-    layer,
-    param_name,
-    param,
-    threshold,
-    expected_sparsity,
-    mask_creator,
+    layer, param_name, param, threshold, expected_sparsity, mask_creator,
 ):
     _test_set_param_mask_from_abs_threshold(
         layer, param_name, param, threshold, expected_sparsity, mask_creator
@@ -449,8 +429,7 @@ def test_set_param_mask_from_abs_threshold(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param,threshold,expected_sparsity, mask_creator",
@@ -577,8 +556,7 @@ def _test_set_param_mask_from_sparsity(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param,sparsity,mask_creator",
@@ -674,8 +652,7 @@ def test_set_param_mask_from_sparsity(layer, param_name, param, sparsity, mask_c
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "layer,param_name,param,sparsity,mask_creator",

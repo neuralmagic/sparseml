@@ -334,9 +334,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         super().check_mask_update(module, epoch, steps_per_epoch, **kwargs)
 
     def _collect_grad_samples(
-        self,
-        module: Module,
-        grad_sampler: GradSampler,
+        self, module: Module, grad_sampler: GradSampler,
     ):
         if not isinstance(grad_sampler, GradSampler):
             raise ValueError(
@@ -450,10 +448,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
                 # initialize grads tensor to fit grad buffers from all processes
                 num_grads = self._grad_buffer.size(0)
                 self._grads = self._grad_buffer.new_zeros(
-                    (
-                        num_grads * dist.get_world_size(),
-                        self._grad_buffer.size(1),
-                    )
+                    (num_grads * dist.get_world_size(), self._grad_buffer.size(1),)
                 )
                 # have gather list reference grads to avoid doubling memory on concat
                 gather_list = [
@@ -605,10 +600,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
 
     def _calc_params_perterb(self, mask_diffs):
         # select weights that are about to be masked with 0s for unmasked weights
-        weights_to_prune = torch.zeros(
-            self._grads.size(1),
-            device=self._grads.device,
-        )
+        weights_to_prune = torch.zeros(self._grads.size(1), device=self._grads.device,)
         weights_idx = 0
         for idx, mask_diff in enumerate(mask_diffs):
             indices = self._unpruned_idxs[idx]
@@ -632,10 +624,7 @@ class MFACPruningParamsScorer(PruningParamsGradScorer):
         num_grads = _get_num_grads_for_sparsity(
             self._num_grads, self._last_applied_sparsity
         )
-        self._grad_buffer = torch.zeros(
-            (num_grads, total_nonzero),
-            device="cpu",
-        )
+        self._grad_buffer = torch.zeros((num_grads, total_nonzero), device="cpu",)
         self._buffer_idx = 0
         self._grads_collected = 0
 
@@ -918,8 +907,7 @@ class FisherInverseFastPageSwap(FisherInverse):
             self._denom[0] += first_grad.dot(first_page_hinv_g[0, :]).to("cpu")
 
         parallel_apply(
-            [_process_first_sample] * len(self._devices),
-            first_page_hinv_g_dist,
+            [_process_first_sample] * len(self._devices), first_page_hinv_g_dist,
         )
         self._denom[0] += self._num_samples
 
@@ -1023,10 +1011,9 @@ class FisherInverseFastPageSwap(FisherInverse):
             fisher_inv_buf_gpu[page_sample_idx, :] -= mul.matmul(
                 fisher_inv_buf_gpu[:page_sample_idx, :]
             )
-            self._denom[
-                page_sample_idx + page_offset
-            ] = self._num_samples + grad_sample.dot(
-                fisher_inv_buf_gpu[page_sample_idx, :]
+            self._denom[page_sample_idx + page_offset] = (
+                self._num_samples
+                + grad_sample.dot(fisher_inv_buf_gpu[page_sample_idx, :])
             )
 
         # update main tensor
@@ -1292,11 +1279,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
         self._mul_slices.append(mul_slice)
 
     def _init_hinv(
-        self,
-        num_blocks: int,
-        damp: float,
-        device: torch.device,
-        dtype: torch.dtype,
+        self, num_blocks: int, damp: float, device: torch.device, dtype: torch.dtype,
     ):
         # initialize hinv to num_blocks diagonal blocks of size blocksize
         base_block = torch.diag(
@@ -1433,17 +1416,11 @@ def _compute_hessian_inv(
             block_fisher_class = FisherInverseFastBlock
 
         return block_fisher_class(
-            grads,
-            fisher_block_size,
-            damp=damp,
-            devices=available_devices,
+            grads, fisher_block_size, damp=damp, devices=available_devices,
         )
     elif available_devices or num_pages > 1:
         return FisherInverseFastPageSwap(
-            grads,
-            damp=damp,
-            num_pages=num_pages,
-            devices=available_devices,
+            grads, damp=damp, num_pages=num_pages, devices=available_devices,
         )
     else:
         return FisherInverseFast(grads, damp=damp)

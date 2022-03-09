@@ -355,8 +355,7 @@ def train_model(
 
 
 def _save_recipe(
-    recipe_manager: ScheduledModifierManager,
-    save_dir: str,
+    recipe_manager: ScheduledModifierManager, save_dir: str,
 ):
 
     recipe_save_path = os.path.join(save_dir, "recipe.yaml")
@@ -398,10 +397,7 @@ def main(args):
 
     # create model
     model = _get_torchvision_model(
-        args.model,
-        num_classes,
-        args.pretrained,
-        args.checkpoint_path,
+        args.model, num_classes, args.pretrained, args.checkpoint_path,
     )
     print("created model: {}".format(model))
     device = "cuda" if torch.cuda.is_available() else "cpu"

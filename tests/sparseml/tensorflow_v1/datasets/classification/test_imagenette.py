@@ -78,8 +78,7 @@ def _validate(dataset: ImageFolderDataset, size: int):
     reason="Must install tensorflow_v1 version 1.3 or greater",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
-    reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_imagenette_160():
     train_dataset = ImagenetteDataset(train=True)
@@ -101,8 +100,7 @@ def test_imagenette_160():
     reason="Must install tensorflow_v1 version 1.3 or greater",
 )
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_DATASET_TESTS", False),
-    reason="Skipping dataset tests",
+    os.getenv("NM_ML_SKIP_DATASET_TESTS", False), reason="Skipping dataset tests",
 )
 def test_imagewoof_160():
     train_dataset = ImagewoofDataset(train=True)

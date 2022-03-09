@@ -106,10 +106,7 @@ class ImageFolderDataset(Dataset):
         ),
         post_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
             train=(imagenet_normalizer,),
-            val=(
-                center_square_crop(),
-                imagenet_normalizer,
-            ),
+            val=(center_square_crop(), imagenet_normalizer,),
         ),
     ):
         self._root = os.path.join(clean_path(root), "train" if train else "val")

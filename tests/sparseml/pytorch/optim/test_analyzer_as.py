@@ -23,8 +23,7 @@ from tests.sparseml.pytorch.helpers import MLPNet
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_as_analyzer():
     model = MLPNet()

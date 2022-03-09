@@ -708,11 +708,7 @@ def _tensors_export_recursive(
     if isinstance(tensors, Iterable):
         for index, tens in enumerate(tensors):
             _tensors_export_recursive(
-                tens,
-                export_dir,
-                name_prefix,
-                counter + index,
-                exported_paths,
+                tens, export_dir, name_prefix, counter + index, exported_paths,
             )
 
         return

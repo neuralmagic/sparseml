@@ -73,12 +73,7 @@ class _ConvBNRelu(Module):
     ):
         super().__init__()
         self.conv = Conv2d(
-            in_channels,
-            out_channels,
-            kernel_size,
-            stride,
-            padding,
-            bias=False,
+            in_channels, out_channels, kernel_size, stride, padding, bias=False,
         )
         self.bn = BatchNorm2d(out_channels)
         self.act = ReLU(num_channels=out_channels, inplace=True)

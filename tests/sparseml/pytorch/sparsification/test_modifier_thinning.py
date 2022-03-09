@@ -39,16 +39,13 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 THINNING_MODIFIERS = [
     lambda: LayerThinningModifier(param_group_dependency_map={}, start_epoch=0.0),
     lambda: LayerThinningModifier(
-        param_group_dependency_map={},
-        start_epoch=0.0,
-        update_epochs=[1.0, 2.0, 3.0],
+        param_group_dependency_map={}, start_epoch=0.0, update_epochs=[1.0, 2.0, 3.0],
     ),
 ]
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", THINNING_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -90,8 +87,7 @@ class TestLayerThinningModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_thinning_modifier_yaml():
     start_epoch = 0.0
@@ -157,8 +153,7 @@ def _get_param_shapes(module):
     ],
 )
 @pytest.mark.parametrize(
-    "strict",
-    [True, False],
+    "strict", [True, False],
 )
 def test_structured_pruning_one_shot_e2e(
     model_lambda, structure_type, sparsity, ignore_params, strict

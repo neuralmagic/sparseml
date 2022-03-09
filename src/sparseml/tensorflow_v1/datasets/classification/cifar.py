@@ -101,8 +101,7 @@ class CifarDataSet(ImageFolderDataset):
             train=(preprocess_for_train,), val=(preprocess_for_eval,)
         ),
         post_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
-            train=None,
-            val=None,
+            train=None, val=None,
         ),
         download: bool = True,
     ):
@@ -220,10 +219,7 @@ class Cifar10DataSet(CifarDataSet):
         file_path = os.path.join(self._download_dir, "cifar-10-python.tar.gz")
         url = "https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"
         download_file(
-            url,
-            file_path,
-            overwrite=False,
-            progress_title="downloading CIFAR-10",
+            url, file_path, overwrite=False, progress_title="downloading CIFAR-10",
         )
 
         create_dirs(self._extract_dir)
@@ -317,10 +313,7 @@ class Cifar100DataSet(CifarDataSet):
         file_path = os.path.join(self._download_dir, "cifar-100-python.tar.gz")
         url = "https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz"
         download_file(
-            url,
-            file_path,
-            overwrite=False,
-            progress_title="downloading CIFAR-100",
+            url, file_path, overwrite=False, progress_title="downloading CIFAR-100",
         )
 
         create_dirs(self._extract_dir)

@@ -196,9 +196,7 @@ class PRAnalysisArguments:
     )
 
     dataset_path: str = field(
-        metadata={
-            "help": "The root path to where the dataset is stored",
-        }
+        metadata={"help": "The root path to where the dataset is stored",}
     )
     pretrained: str = field(
         default=True,
@@ -247,9 +245,7 @@ class PRAnalysisArguments:
 
     save_dir: str = field(
         default="pytorch_vision",
-        metadata={
-            "help": "The path to the directory for saving results",
-        },
+        metadata={"help": "The path to the directory for saving results",},
     )
 
     device: str = field(

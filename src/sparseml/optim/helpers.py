@@ -38,10 +38,7 @@ __all__ = [
 ]
 
 
-def load_recipe_yaml_str(
-    file_path: Union[str, Recipe],
-    **variable_overrides,
-) -> str:
+def load_recipe_yaml_str(file_path: Union[str, Recipe], **variable_overrides,) -> str:
     """
     Loads a YAML recipe file to a string or
     extracts recipe from YAML front matter in a sparsezoo markdown recipe card.

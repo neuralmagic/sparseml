@@ -655,9 +655,7 @@ class PruningPerfSensitivityAnalysis(object):
             json.dump(self.dict(), file, indent=2)
 
     def plot(
-        self,
-        path: Union[str, None],
-        title: str = None,
+        self, path: Union[str, None], title: str = None,
     ) -> Union[Tuple[plt.Figure, plt.Axes], Tuple[None, None]]:
         """
         :param path: the path to save an img version of the chart,
@@ -770,9 +768,7 @@ class LRLossSensitivityAnalysis(object):
             json.dump(self.dict(), file, indent=2)
 
     def plot(
-        self,
-        path: Union[str, None],
-        title: str = None,
+        self, path: Union[str, None], title: str = None,
     ) -> Union[Tuple[plt.Figure, plt.Axes], Tuple[None, None]]:
         """
         Plot the recorded sensitivity values

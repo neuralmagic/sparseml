@@ -78,9 +78,7 @@ class ModelInfo(BaseModelInfo):
 
     @staticmethod
     def _make_conv_layer_info(
-        node: NodeProto,
-        graph: ONNXGraph,
-        execution_order: int,
+        node: NodeProto, graph: ONNXGraph, execution_order: int,
     ) -> Optional[NodeProto]:
         param = ModelInfo._get_node_param_array(node, graph)
         if param is None:
@@ -107,9 +105,7 @@ class ModelInfo(BaseModelInfo):
 
     @staticmethod
     def _make_gemm_layer_info(
-        node: NodeProto,
-        graph: ONNXGraph,
-        execution_order: int,
+        node: NodeProto, graph: ONNXGraph, execution_order: int,
     ) -> Optional[NodeProto]:
         param = ModelInfo._get_node_param_array(node, graph)
         if param is None:
@@ -131,9 +127,7 @@ class ModelInfo(BaseModelInfo):
 
     @staticmethod
     def _make_matmul_layer_info(
-        node: NodeProto,
-        graph: ONNXGraph,
-        execution_order: int,
+        node: NodeProto, graph: ONNXGraph, execution_order: int,
     ) -> Optional[NodeProto]:
         param = ModelInfo._get_node_param_array(node, graph)
         if param is None:
@@ -150,9 +144,7 @@ class ModelInfo(BaseModelInfo):
 
     @staticmethod
     def _get_node_param_array(
-        node: NodeProto,
-        graph: ONNXGraph,
-        param_idx: int = 1,
+        node: NodeProto, graph: ONNXGraph, param_idx: int = 1,
     ) -> Optional[numpy.ndarray]:
         if len(node.input) <= param_idx:
             # no such param exists

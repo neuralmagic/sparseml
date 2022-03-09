@@ -34,8 +34,7 @@ from tests.sparseml.optim.test_modifier import (
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_KERAS_TESTS", False),
-    reason="Skipping keras tests",
+    os.getenv("NM_ML_SKIP_KERAS_TESTS", False), reason="Skipping keras tests",
 )
 class ModifierTest(BaseModifierTest):
     # noinspection PyMethodOverriding
@@ -85,8 +84,7 @@ class ModifierTest(BaseModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_KERAS_TESTS", False),
-    reason="Skipping keras tests",
+    os.getenv("NM_ML_SKIP_KERAS_TESTS", False), reason="Skipping keras tests",
 )
 class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
     # noinspection PyMethodOverriding
@@ -109,8 +107,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_KERAS_TESTS", False),
-    reason="Skipping keras tests",
+    os.getenv("NM_ML_SKIP_KERAS_TESTS", False), reason="Skipping keras tests",
 )
 class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
     # noinspection PyMethodOverriding
@@ -130,8 +127,7 @@ class ModifierImpl(Modifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_KERAS_TESTS", False),
-    reason="Skipping keras tests",
+    os.getenv("NM_ML_SKIP_KERAS_TESTS", False), reason="Skipping keras tests",
 )
 @pytest.mark.parametrize("modifier_lambda", [ModifierImpl], scope="function")
 @pytest.mark.parametrize("model_lambda", [mnist_model], scope="function")
@@ -171,8 +167,7 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_KERAS_TESTS", False),
-    reason="Skipping keras tests",
+    os.getenv("NM_ML_SKIP_KERAS_TESTS", False), reason="Skipping keras tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda", [ScheduledUpdateModifierImpl], scope="function"

@@ -27,10 +27,7 @@ __all__ = [
 
 
 def pruning_modifier_serialization_vals_test(
-    yaml_modifier,
-    serialized_modifier,
-    obj_modifier,
-    exclude_mask=False,
+    yaml_modifier, serialized_modifier, obj_modifier, exclude_mask=False,
 ):
     assert (
         yaml_modifier.init_sparsity

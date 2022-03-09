@@ -614,11 +614,7 @@ class QuantizationModifier(ScheduledModifier):
             quant_max = 2 ** self.activation_bits - 1
             dtype = torch.quint8
             activation_qconfig_kwargs.update(
-                dict(
-                    quant_min=quant_min,
-                    quant_max=quant_max,
-                    dtype=dtype,
-                )
+                dict(quant_min=quant_min, quant_max=quant_max, dtype=dtype,)
             )
         return activation_qconfig_kwargs
 

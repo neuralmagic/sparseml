@@ -63,10 +63,7 @@ def test_framework_inference_provider_info_lifecycle(const_args):
 @pytest.mark.parametrize(
     "const_args",
     [
-        {
-            "framework": Framework.unknown,
-            "package_versions": {"test": "0.1.0"},
-        },
+        {"framework": Framework.unknown, "package_versions": {"test": "0.1.0"},},
         {
             "framework": Framework.unknown,
             "package_versions": {"test": "0.1.0"},

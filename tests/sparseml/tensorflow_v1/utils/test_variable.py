@@ -105,10 +105,7 @@ def test_get_prunable_ops(net_const, expected_ops: List[str]):
     ],
 )
 def test_get_ops_and_inputs_by_name_or_regex(
-    net_const,
-    var_names,
-    expected_ops,
-    expected_tens,
+    net_const, var_names, expected_ops, expected_tens,
 ):
     with tf_compat.Graph().as_default() as graph:
         net_const()

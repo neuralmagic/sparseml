@@ -25,8 +25,7 @@ from tests.sparseml.pytorch.helpers import ConvNet, MLPNet
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "model,input_shape,name,params,prunable_params,execution_order,flops,total_flops",

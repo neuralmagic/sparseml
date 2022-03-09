@@ -58,8 +58,7 @@ __all__ = [
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 class ModifierTest(BaseModifierTest):
     # noinspection PyMethodOverriding
@@ -314,8 +313,7 @@ class ModifierTest(BaseModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
     def start_helper(self, modifier: Modifier, model: Module, optimizer: Optimizer):
@@ -528,8 +526,7 @@ class ScheduledModifierTest(ModifierTest, BaseScheduledTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
     # noinspection PyMethodOverriding
@@ -638,8 +635,7 @@ class ModifierImpl(Modifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", [ModifierImpl], scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -662,8 +658,7 @@ class ScheduledModifierImpl(ScheduledModifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", [ScheduledModifierImpl], scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -687,8 +682,7 @@ class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda", [ScheduledUpdateModifierImpl], scope="function"
@@ -734,11 +728,7 @@ pruning_modifiers:
 
 
 @pytest.mark.parametrize(
-    "modifier_str,num_modifiers",
-    [
-        (_SAMPLE_RECIPE, 2),
-        (_SAMPLE_GROUPED_RECIPE, 3),
-    ],
+    "modifier_str,num_modifiers", [(_SAMPLE_RECIPE, 2), (_SAMPLE_GROUPED_RECIPE, 3),],
 )
 def test_load_list(modifier_str, num_modifiers):
     modifier_list = Modifier.load_list(modifier_str)
@@ -747,9 +737,7 @@ def test_load_list(modifier_str, num_modifiers):
 
 @pytest.mark.parametrize(
     "staged_modifier_str,names_to_num_modifiers",
-    [
-        (SAMPLE_STAGED_RECIPE, {"stage_1": 4, "stage_2": 3}),
-    ],
+    [(SAMPLE_STAGED_RECIPE, {"stage_1": 4, "stage_2": 3}),],
 )
 def test_load_staged(staged_modifier_str, names_to_num_modifiers):
     modifier_stages = Modifier.load_list(staged_modifier_str)
@@ -777,10 +765,7 @@ incorrect_modifier_list_name:
 
 
 @pytest.mark.parametrize(
-    "modifier_str",
-    [
-        _SAMPLE_BAD_RECIPE,
-    ],
+    "modifier_str", [_SAMPLE_BAD_RECIPE,],
 )
 def test_load_list_fails(modifier_str):
     # expect ValueError mentioning 'modifiers'

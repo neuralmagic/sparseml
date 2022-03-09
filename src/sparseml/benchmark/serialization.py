@@ -52,9 +52,7 @@ class BatchBenchmarkResult(BaseModel):
         gt=0.0,
     )
     items_per_second: float = Field(
-        title="items_per_second",
-        description="Items processed per second",
-        gt=0.0,
+        title="items_per_second", description="Items processed per second", gt=0.0,
     )
     ms_per_batch: float = Field(
         title="ms_per_batch",
@@ -67,9 +65,7 @@ class BatchBenchmarkResult(BaseModel):
         gt=0.0,
     )
     batch_size: int = Field(
-        title="batch_size",
-        description="Batch size of the result",
-        ge=1,
+        title="batch_size", description="Batch size of the result", ge=1,
     )
 
     @classmethod
@@ -111,9 +107,7 @@ class BenchmarkResult(BaseModel):
     """
 
     results: List[BatchBenchmarkResult] = Field(
-        default=[],
-        title="results",
-        description="The results of all benchmark runs",
+        default=[], title="results", description="The results of all benchmark runs",
     )
     batch_times_mean: float = Field(
         title="batch_times_mean",
@@ -161,19 +155,13 @@ class BenchmarkResult(BaseModel):
         ge=0.0,
     )
     ms_per_item: float = Field(
-        title="ms_per_item",
-        description="The number of milliseconds per item",
-        ge=0.0,
+        title="ms_per_item", description="The number of milliseconds per item", ge=0.0,
     )
     num_items: int = Field(
-        title="num_items",
-        description="The number of items processed",
-        ge=0,
+        title="num_items", description="The number of items processed", ge=0,
     )
     num_batches: int = Field(
-        title="num_batches",
-        description="The number of batches processed",
-        ge=0,
+        title="num_batches", description="The number of batches processed", ge=0,
     )
 
     @classmethod
@@ -281,8 +269,7 @@ class BenchmarkConfig(BaseModel):
         description="The number of cores used for benchmarking",
     )
     device: str = Field(
-        title="device",
-        description="The device the framework is running on.",
+        title="device", description="The device the framework is running on.",
     )
     framework_args: Dict[str, Any] = Field(
         default={},
@@ -316,8 +303,7 @@ class BenchmarkInfo(BaseModel):
         ),
     )
     benchmark: BenchmarkResult = Field(
-        title="benchmark",
-        description="The benchmark results for the framework.",
+        title="benchmark", description="The benchmark results for the framework.",
     )
     config: BenchmarkConfig = Field(
         title="config",

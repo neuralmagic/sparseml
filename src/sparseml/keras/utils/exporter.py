@@ -47,9 +47,7 @@ class ModelExporter(object):
     """
 
     def __init__(
-        self,
-        model: keras.Model,
-        output_dir: str,
+        self, model: keras.Model, output_dir: str,
     ):
         self._model = model
         self._output_dir = clean_path(output_dir)

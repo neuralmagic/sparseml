@@ -21,8 +21,7 @@ from sparseml.pytorch.utils import get_default_boxes_300
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_default_box_representations():
     default_boxes = get_default_boxes_300()
@@ -41,8 +40,7 @@ def test_default_box_representations():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_default_box_encode_decode():
     default_boxes = get_default_boxes_300()

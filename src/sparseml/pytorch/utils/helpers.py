@@ -474,11 +474,7 @@ def _tensors_export_recursive(
     if isinstance(tensors, Iterable):
         for index, tens in enumerate(tensors):
             _tensors_export_recursive(
-                tens,
-                export_dir,
-                name_prefix,
-                counter + index,
-                exported_paths,
+                tens, export_dir, name_prefix, counter + index, exported_paths,
             )
 
         return
@@ -684,11 +680,7 @@ def get_layer(name: str, module: Module) -> Module:
     return layer
 
 
-def replace_layer(
-    module: Module,
-    name: str,
-    replace: Module,
-) -> Module:
+def replace_layer(module: Module, name: str, replace: Module,) -> Module:
     """
     General function to replace a layer in a module with the given new one.
 
@@ -846,9 +838,7 @@ def get_layer_param(param: str, layer: str, module: Module) -> Parameter:
 
 
 def get_named_layers_and_params_by_regex(
-    module: Module,
-    param_names: List[str],
-    params_strict: bool = False,
+    module: Module, param_names: List[str], params_strict: bool = False,
 ) -> List[NamedLayerParam]:
     """
     :param module: the module to get the matching layers and params from
@@ -894,8 +884,7 @@ def get_named_layers_and_params_by_regex(
 
 
 def any_str_or_regex_matches_param_name(
-    param_name: str,
-    name_or_regex_patterns: List[str],
+    param_name: str, name_or_regex_patterns: List[str],
 ) -> bool:
     """
     :param param_name: The name of a parameter
@@ -915,8 +904,7 @@ def any_str_or_regex_matches_param_name(
 
 
 def validate_all_params_found(
-    name_or_regex_patterns: List[str],
-    found_param_names: List[str],
+    name_or_regex_patterns: List[str], found_param_names: List[str],
 ):
     """
     :param name_or_regex_patterns: List of full param names or regex patterns of them

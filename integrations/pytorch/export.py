@@ -171,9 +171,7 @@ class ExportArgs:
     )
 
     dataset_path: str = field(
-        metadata={
-            "help": "The root path to where the dataset is stored",
-        }
+        metadata={"help": "The root path to where the dataset is stored",}
     )
     checkpoint_path: str = field(
         default=None,
@@ -255,9 +253,7 @@ class ExportArgs:
 
     save_dir: str = field(
         default="pytorch_vision",
-        metadata={
-            "help": "The path to the directory for saving results",
-        },
+        metadata={"help": "The path to the directory for saving results",},
     )
 
     def __post_init__(self):

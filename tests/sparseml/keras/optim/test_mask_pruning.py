@@ -52,21 +52,9 @@ from tests.sparseml.keras.optim.mock import (
             # above update step in the MockPruningScheduler
             [
                 # Expected mask at time step 1, 25% sparsity
-                np.array(
-                    [
-                        [1, 0, 0, 1],
-                        [0, 1, 1, 1],
-                        [1, 1, 1, 1],
-                    ]
-                ),
+                np.array([[1, 0, 0, 1], [0, 1, 1, 1], [1, 1, 1, 1],]),
                 # Expected mask at time step 2, 50% sparsity
-                np.array(
-                    [
-                        [1, 0, 0, 0],
-                        [0, 0, 1, 1],
-                        [0, 1, 1, 1],
-                    ]
-                ),
+                np.array([[1, 0, 0, 0], [0, 0, 1, 1], [0, 1, 1, 1],]),
             ],
         )
     ],

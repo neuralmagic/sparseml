@@ -255,14 +255,8 @@ def compare_model_outputs(pt_model, kr_model, test_image_file_path):
 
     layer_pairs = [
         (pt_model.input.conv, get_kr_layer(kr_model, "input.conv")),
-        (
-            pt_model.sections[1][3].conv3,
-            get_kr_layer(kr_model, "sections.1.3.conv3"),
-        ),
-        (
-            pt_model.sections[3][2].conv3,
-            get_kr_layer(kr_model, "sections.3.2.conv3"),
-        ),
+        (pt_model.sections[1][3].conv3, get_kr_layer(kr_model, "sections.1.3.conv3"),),
+        (pt_model.sections[3][2].conv3, get_kr_layer(kr_model, "sections.3.2.conv3"),),
         (pt_model.classifier.softmax, get_kr_layer(kr_model, "classifier.fc")),
     ]
     pt_layer, kr_layer = layer_pairs[-1]

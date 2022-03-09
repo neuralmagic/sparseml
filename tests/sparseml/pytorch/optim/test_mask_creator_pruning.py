@@ -112,10 +112,7 @@ def test_sparsity_mask_creator_cuda(tensor_shape, mask_creator, sparsity_val):
             [torch.randn(128, 128, 3, 3), 3 * torch.randn(64, 512)],
             FourBlockMaskCreator(),
         ),
-        (
-            [i * torch.randn(64, 64, 3, 3) for i in range(1, 6)],
-            FourBlockMaskCreator(),
-        ),
+        ([i * torch.randn(64, 64, 3, 3) for i in range(1, 6)], FourBlockMaskCreator(),),
     ],
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])
@@ -138,31 +135,19 @@ def test_global_sparsity_mask_creator(tensors, mask_creator, sparsity_val):
 @pytest.mark.parametrize(
     ("tensor_shapes,mask_creator,sparsity_val"),
     [
-        (
-            [[128, 128, 3, 3], [64, 64]],
-            UnstructuredPruningMaskCreator(),
-            [0.8, 0.9],
-        ),
+        ([[128, 128, 3, 3], [64, 64]], UnstructuredPruningMaskCreator(), [0.8, 0.9],),
         (
             [[64, 64, 3, 3]] * 6,
             UnstructuredPruningMaskCreator(),
             [0.4, 0.6, 0.8, 0.9, 0.95, 0.99],
         ),
-        (
-            [[128, 128, 3, 3], [64, 512]],
-            BlockPruningMaskCreator([1, 4]),
-            [0.8, 0.9],
-        ),
+        ([[128, 128, 3, 3], [64, 512]], BlockPruningMaskCreator([1, 4]), [0.8, 0.9],),
         (
             [[64, 64, 3, 3]] * 6,
             BlockPruningMaskCreator([1, 4]),
             [0.4, 0.6, 0.8, 0.9, 0.95, 0.99],
         ),
-        (
-            [[128, 128, 3, 3], [64, 512]],
-            FourBlockMaskCreator(),
-            [0.8, 0.9],
-        ),
+        ([[128, 128, 3, 3], [64, 512]], FourBlockMaskCreator(), [0.8, 0.9],),
         (
             [[64, 64, 3, 3]] * 6,
             FourBlockMaskCreator(),
@@ -199,10 +184,7 @@ def test_mask_creator_serialization(creator_str, creator_obj):
 
 @pytest.mark.parametrize(
     ("tensors"),
-    [
-        [torch.randn(128, 128), torch.randn(128, 512, 3, 3)],
-        [torch.randn(5, 64, 3, 3)],
-    ],
+    [[torch.randn(128, 128), torch.randn(128, 512, 3, 3)], [torch.randn(5, 64, 3, 3)],],
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])
 def test_four_block_mask_creator_matches_block(tensors, sparsity_val):

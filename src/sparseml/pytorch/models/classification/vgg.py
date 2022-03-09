@@ -154,10 +154,7 @@ class VGG(Module):
     """
 
     def __init__(
-        self,
-        sec_settings: List[VGGSectionSettings],
-        num_classes: int,
-        class_type: str,
+        self, sec_settings: List[VGGSectionSettings], num_classes: int, class_type: str,
     ):
         super(VGG, self).__init__()
         self.sections = Sequential(

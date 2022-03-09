@@ -92,8 +92,7 @@ class DataTrainingArguments:
         },
     )
     recipe_args: Optional[str] = field(
-        default=None,
-        metadata={"help": "Recipe arguments to be overwritten"},
+        default=None, metadata={"help": "Recipe arguments to be overwritten"},
     )
     task_name: Optional[str] = field(
         default=None,
@@ -108,9 +107,7 @@ class DataTrainingArguments:
     )
     dataset_config_name: Optional[str] = field(
         default=None,
-        metadata={
-            "help": ("The configuration name of the dataset to use"),
-        },
+        metadata={"help": ("The configuration name of the dataset to use"),},
     )
     max_seq_length: int = field(
         default=384,

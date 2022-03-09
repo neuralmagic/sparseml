@@ -36,28 +36,21 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
     [
+        lambda: ConstantPruningModifier(params=["re:.*weight"],),
         lambda: ConstantPruningModifier(
-            params=["re:.*weight"],
-        ),
-        lambda: ConstantPruningModifier(
-            params=["seq.fc1.weight"],
-            start_epoch=10.0,
-            end_epoch=25.0,
+            params=["seq.fc1.weight"], start_epoch=10.0, end_epoch=25.0,
         ),
     ],
     scope="function",
 )
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
-    "optim_lambda",
-    [create_optim_sgd, create_optim_adam],
-    scope="function",
+    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function",
 )
 class TestConstantPruningModifier(ScheduledModifierTest):
     def test_lifecycle(
@@ -109,8 +102,7 @@ class TestConstantPruningModifier(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_constant_pruning_yaml():
     start_epoch = 5.0

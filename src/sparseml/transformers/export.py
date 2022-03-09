@@ -80,16 +80,12 @@ _LOGGER = logging.getLogger(__name__)
 def _load_task_model(task: str, model_path: str, config: Any) -> Module:
     if task == "masked-language-modeling" or task == "mlm":
         return SparseAutoModel.masked_language_modeling_from_pretrained(
-            model_name_or_path=model_path,
-            config=config,
-            model_type="model",
+            model_name_or_path=model_path, config=config, model_type="model",
         )
 
     if task == "question-answering" or task == "qa":
         return SparseAutoModel.question_answering_from_pretrained(
-            model_name_or_path=model_path,
-            config=config,
-            model_type="model",
+            model_name_or_path=model_path, config=config, model_type="model",
         )
 
     if (
@@ -99,16 +95,12 @@ def _load_task_model(task: str, model_path: str, config: Any) -> Module:
         or task == "text-classification"
     ):
         return SparseAutoModel.text_classification_from_pretrained(
-            model_name_or_path=model_path,
-            config=config,
-            model_type="model",
+            model_name_or_path=model_path, config=config, model_type="model",
         )
 
     if task == "token-classification" or task == "ner":
         return SparseAutoModel.token_classification_from_pretrained(
-            model_name_or_path=model_path,
-            config=config,
-            model_type="model",
+            model_name_or_path=model_path, config=config, model_type="model",
         )
 
     raise ValueError(f"unrecognized task given of {task}")
@@ -149,10 +141,7 @@ def export_transformer_to_onnx(
 
     _LOGGER.info(f"Attempting onnx export for model at {model_path} for task {task}")
     config_args = {"finetuning_task": finetuning_task} if finetuning_task else {}
-    config = AutoConfig.from_pretrained(
-        model_path,
-        **config_args,
-    )
+    config = AutoConfig.from_pretrained(model_path, **config_args,)
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
@@ -213,10 +202,7 @@ def export_transformer_to_onnx(
     # run export
     onnx_file_path = os.path.join(model_path, onnx_file_name)
     export_onnx(
-        model,
-        inputs,
-        onnx_file_path,
-        convert_qat=convert_qat,
+        model, inputs, onnx_file_path, convert_qat=convert_qat,
     )
     _LOGGER.info(f"ONNX exported to {onnx_file_path}")
 

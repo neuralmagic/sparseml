@@ -306,12 +306,7 @@ def mobilenet(num_classes: int = 1000, class_type: str = "single") -> MobileNet:
 
 
 @ModelRegistry.register(
-    key=[
-        "han-mobilenet",
-        "han_mobilenet",
-        "mobilenet-han",
-        "mobilenet_han",
-    ],
+    key=["han-mobilenet", "han_mobilenet", "mobilenet-han", "mobilenet_han",],
     input_shape=(3, 224, 224),
     domain="cv",
     sub_domain="classification",

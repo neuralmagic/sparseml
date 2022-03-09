@@ -45,8 +45,7 @@ __all__ = [
 
 
 def _get_folded_conv_params(
-    conv_params: Tuple[NodeParam, Union[NodeParam, None]],
-    bn_params: BatchNormParams,
+    conv_params: Tuple[NodeParam, Union[NodeParam, None]], bn_params: BatchNormParams,
 ) -> Tuple[NodeParam, Union[NodeParam, None]]:
     conv_weight, conv_bias = conv_params
     weight_new, bias_new = None, None
@@ -75,9 +74,7 @@ def _get_folded_conv_params(
 
 
 def _fold_conv_bn(
-    model: onnx.ModelProto,
-    conv_node: onnx.NodeProto,
-    bn_node: onnx.NodeProto,
+    model: onnx.ModelProto, conv_node: onnx.NodeProto, bn_node: onnx.NodeProto,
 ) -> bool:
     """
     Folds the linear operations in bn_node into conv_node

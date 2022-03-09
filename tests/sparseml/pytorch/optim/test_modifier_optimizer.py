@@ -30,23 +30,16 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 
 OPTIMIZER_MODIFIERS = [
     lambda: SetWeightDecayModifier(
-        weight_decay=0.999,
-        start_epoch=2.0,
-        constant_logging=False,
-        param_groups=[0],
+        weight_decay=0.999, start_epoch=2.0, constant_logging=False, param_groups=[0],
     ),
     lambda: SetWeightDecayModifier(
-        weight_decay=0.75,
-        start_epoch=0.0,
-        constant_logging=False,
-        param_groups=None,
+        weight_decay=0.75, start_epoch=0.0, constant_logging=False, param_groups=None,
     ),
 ]
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", OPTIMIZER_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [ConvNet], scope="function")
@@ -89,8 +82,7 @@ class TestSetWeightDecayModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_set_weight_decay_modifier_yaml():
     weight_decay = 0.0

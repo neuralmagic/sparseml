@@ -65,9 +65,7 @@ class ModuleExporter(object):
     """
 
     def __init__(
-        self,
-        module: Module,
-        output_dir: str,
+        self, module: Module, output_dir: str,
     ):
         if is_parallel_model(module):
             module = module.module
@@ -220,9 +218,7 @@ class ModuleExporter(object):
         )
 
     def export_torchscript(
-        self,
-        name: str = "model.pts",
-        sample_batch: Optional[Any] = None,
+        self, name: str = "model.pts", sample_batch: Optional[Any] = None,
     ):
         """
         Export the torchscript into a pts file within a framework directory. If

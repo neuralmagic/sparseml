@@ -93,12 +93,7 @@ class TestLoadModel:
 
 class TestLoadData:
     @pytest.mark.parametrize(
-        "batch_size,total_iterations",
-        [
-            (1, 1),
-            (1, 10),
-            (3, 10),
-        ],
+        "batch_size,total_iterations", [(1, 1), (1, 10), (3, 10),],
     )
     def test_load_data_from_model(
         self, mobilenet_fixture: Model, batch_size: int, total_iterations: int

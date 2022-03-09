@@ -39,8 +39,7 @@ class FakeModifier(BaseModifier):
 
 
 @pytest.mark.parametrize(
-    "modifier_class",
-    [FakeModifier],
+    "modifier_class", [FakeModifier],
 )
 def test_modifier_builder_setters_getters(modifier_class):
     builder = ModifierYAMLBuilder(modifier_class)

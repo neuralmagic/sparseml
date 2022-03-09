@@ -27,9 +27,7 @@ def test_skip_onnx_input_quantize():
         "input", TensorProto.FLOAT, [1, 3, None, None]
     )
     quant_node = onnx.helper.make_node(
-        "QuantizeLinear",
-        ["input", "scale", "zp"],
-        ["quant_output"],
+        "QuantizeLinear", ["input", "scale", "zp"], ["quant_output"],
     )
     qconv_node = onnx.helper.make_node(
         "QLinearConv",
@@ -42,11 +40,7 @@ def test_skip_onnx_input_quantize():
     )
 
     graph = onnx.helper.make_graph(
-        [quant_node, qconv_node],
-        "test_graph",
-        [float_input],
-        [qconv_output],
-        [],
+        [quant_node, qconv_node], "test_graph", [float_input], [qconv_output], [],
     )
     model = onnx.helper.make_model(graph)
 
@@ -87,11 +81,7 @@ def test_skip_onnx_input_quantize_expected_exception():
     )
 
     graph = onnx.helper.make_graph(
-        [qconv_node],
-        "test_graph",
-        [int_input],
-        [qconv_output],
-        [],
+        [qconv_node], "test_graph", [int_input], [qconv_output], [],
     )
     model = onnx.helper.make_model(graph)
     with pytest.raises(RuntimeError):

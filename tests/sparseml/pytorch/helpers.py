@@ -143,14 +143,7 @@ class MLPNet(Module):
                         )
                     )
                 elif isinstance(layer, ReLU):
-                    MLPNet._LAYER_DESCS.append(
-                        LayerDesc(
-                            name,
-                            [],
-                            [],
-                            False,
-                        )
-                    )
+                    MLPNet._LAYER_DESCS.append(LayerDesc(name, [], [], False,))
 
         return MLPNet._LAYER_DESCS
 
@@ -193,14 +186,7 @@ class FlatMLPNet(Module):
                         )
                     )
                 elif isinstance(layer, ReLU):
-                    FlatMLPNet._LAYER_DESCS.append(
-                        LayerDesc(
-                            name,
-                            [],
-                            [],
-                            False,
-                        )
-                    )
+                    FlatMLPNet._LAYER_DESCS.append(LayerDesc(name, [], [], False,))
 
         return FlatMLPNet._LAYER_DESCS
 

@@ -335,8 +335,7 @@ class FourBlockMaskCreator(GroupedPruningMaskCreator):
     """
 
     def __init__(
-        self,
-        grouping_fn_name: str = "mean",
+        self, grouping_fn_name: str = "mean",
     ):
         self._grouping_fn_name = grouping_fn_name
 

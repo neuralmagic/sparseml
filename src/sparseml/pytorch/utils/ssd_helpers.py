@@ -489,8 +489,7 @@ def ssd_random_crop(
 named tuple for storing detection model score and truth
 """
 DetectionResult = NamedTuple(
-    "DetectionResult",
-    [("score", float), ("is_true_positive", bool)],
+    "DetectionResult", [("score", float), ("is_true_positive", bool)],
 )
 
 
@@ -675,10 +674,7 @@ class MeanAveragePrecision(object):
 
     @staticmethod
     def _get_true_positives(
-        pred_labels: Tensor,
-        actual_labels: Tensor,
-        ious: Tensor,
-        iou_threshold: float,
+        pred_labels: Tensor, actual_labels: Tensor, ious: Tensor, iou_threshold: float,
     ) -> Tensor:
         same_label_mask = pred_labels.unsqueeze(1).expand(
             ious.shape
@@ -702,8 +698,7 @@ class MeanAveragePrecision(object):
 
     @staticmethod
     def _interpolated_precision(
-        prediction_is_true_positive: List[bool],
-        num_ground_truth_objects: int,
+        prediction_is_true_positive: List[bool], num_ground_truth_objects: int,
     ) -> List[Tuple[float, float]]:
         num_true_positives = 0.0
         interpolated_precisions = defaultdict(float)

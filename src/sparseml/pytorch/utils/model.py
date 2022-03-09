@@ -145,9 +145,7 @@ def load_epoch(path: str, map_location: Union[None, str] = "cpu") -> Union[int, 
 
 
 def trace_model(
-    path: str,
-    model: Module,
-    sample_batch: Any,
+    path: str, model: Module, sample_batch: Any,
 ):
     """
     Convenience function which traces the provided module using the sample batch
@@ -162,8 +160,7 @@ def trace_model(
 
 
 def script_model(
-    path: str,
-    model: Module,
+    path: str, model: Module,
 ):
     """
     Convenience function which scripts the provided module into a TorchScript script
@@ -252,9 +249,7 @@ def parallelize_model(model: Module, ids: Union[None, List[int]]) -> Module:
 
 
 def model_to_device(
-    model: Module,
-    device: Union[str, int],
-    ddp: bool = False,
+    model: Module, device: Union[str, int], ddp: bool = False,
 ) -> Tuple[Module, str, Union[None, List[int]]]:
     """
     The model to push onto a device or multiple devices.

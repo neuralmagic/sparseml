@@ -110,10 +110,7 @@ class ImageFolderDataset(Dataset):
         train: bool,
         image_size: Union[None, int, Tuple[int, int]] = 224,
         pre_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(
-            train=(
-                random_scaling_crop(),
-                tensorflow.image.random_flip_left_right,
-            ),
+            train=(random_scaling_crop(), tensorflow.image.random_flip_left_right,),
             val=None,
         ),
         post_resize_transforms: Union[SplitsTransforms, None] = SplitsTransforms(

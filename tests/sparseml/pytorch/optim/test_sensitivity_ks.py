@@ -28,12 +28,10 @@ from tests.sparseml.pytorch.helpers import ConvDataset, ConvNet, MLPDataset, MLP
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
-    "model",
-    [MLPNet(), ConvNet()],
+    "model", [MLPNet(), ConvNet()],
 )
 def test_module_ks_sensitivity_analysis_one_shot(model):
     analysis = pruning_loss_sens_magnitude(model)
@@ -65,8 +63,7 @@ def _test_one_shot_ks_loss_sensitivity_helper(
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size,steps_per_measurement",
@@ -80,17 +77,12 @@ def test_model_ks_sensitivity_analysis_one_shot(
 ):
     data = DataLoader(dataset, batch_size)
     _test_one_shot_ks_loss_sensitivity_helper(
-        model,
-        data,
-        loss,
-        "cpu",
-        steps_per_measurement,
+        model, data, loss, "cpu", steps_per_measurement,
     )
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize(
     "model,dataset,loss,batch_size,steps_per_measurement",
@@ -106,9 +98,5 @@ def test_module_ks_sensitivity_analysis_one_shot_cuda(
     data = DataLoader(dataset, batch_size)
     model = model.to("cuda")
     _test_one_shot_ks_loss_sensitivity_helper(
-        model,
-        data,
-        loss,
-        "cuda",
-        steps_per_measurement,
+        model, data, loss, "cuda", steps_per_measurement,
     )

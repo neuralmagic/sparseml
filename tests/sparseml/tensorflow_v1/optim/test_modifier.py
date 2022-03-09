@@ -133,9 +133,7 @@ class ModifierTest(BaseModifierTest):
 
         modifier = modifier_lambda()
         tf_compat.get_default_graph()
-        estimator = tf_compat.estimator.Estimator(
-            model_fn=model_fn,
-        )
+        estimator = tf_compat.estimator.Estimator(model_fn=model_fn,)
         assert estimator._model_fn == model_fn
         modifier.modify_estimator(estimator, steps_per_epoch)
         assert estimator._model_fn != model_fn

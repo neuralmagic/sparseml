@@ -31,10 +31,7 @@ __all__ = [
 
 
 def _random_float_tensor(name, *shape):
-    return numpy_helper.from_array(
-        np.random.rand(*shape).astype(np.float32),
-        name,
-    )
+    return numpy_helper.from_array(np.random.rand(*shape).astype(np.float32), name,)
 
 
 def make_tmp_onnx_file(model: ModelProto) -> str:

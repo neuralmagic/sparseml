@@ -218,12 +218,7 @@ class BenchmarkRunner(ABC):
         )
 
     @abstractmethod
-    def run_batch(
-        self,
-        batch: Any,
-        *args,
-        **kwargs,
-    ) -> BatchBenchmarkResult:
+    def run_batch(self, batch: Any, *args, **kwargs,) -> BatchBenchmarkResult:
         """
         Runs a benchmark on a given batch.
 
@@ -419,10 +414,7 @@ def load_benchmark_info(load: str) -> BenchmarkInfo:
 
 
 def load_and_run_benchmark(
-    model: Any,
-    data: Any,
-    load: str,
-    save_path: Optional[str] = None,
+    model: Any, data: Any, load: str, save_path: Optional[str] = None,
 ):
     """
     Loads the benchmark configuration from a file or raw json and reruns

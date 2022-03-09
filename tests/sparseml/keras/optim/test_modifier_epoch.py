@@ -22,8 +22,7 @@ from tests.sparseml.keras.optim.test_modifier import ScheduledModifierTest
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_KERAS_TESTS", False),
-    reason="Skipping keras tests",
+    os.getenv("NM_ML_SKIP_KERAS_TESTS", False), reason="Skipping keras tests",
 )
 @pytest.mark.parametrize(
     "modifier_lambda",
@@ -37,8 +36,7 @@ class TestEpochRangeModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_KERAS_TESTS", False),
-    reason="Skipping keras tests",
+    os.getenv("NM_ML_SKIP_KERAS_TESTS", False), reason="Skipping keras tests",
 )
 def test_epoch_range_yaml():
     start_epoch = 5.0

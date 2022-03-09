@@ -162,8 +162,7 @@ class PruningPerformanceSensitivityAnalyzer(Analyzer):
         )
 
     def _run_iter(
-        self,
-        **kwargs,
+        self, **kwargs,
     ) -> Generator[Tuple[AnalyzerProgress, PruningSensitivityResult], None, None]:
         sparsity_levels = (
             kwargs["pruning_perf_analysis_sparsity_levels"]

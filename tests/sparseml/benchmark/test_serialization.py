@@ -140,10 +140,7 @@ def test_batch_benchmark_result_schema(data: Dict[str, Any], expect_error: bool)
     "results,expected_output",
     [
         (
-            dict(
-                batch_time=2,
-                batch_size=1,
-            ),
+            dict(batch_time=2, batch_size=1,),
             dict(
                 batch_time=2,
                 batch_size=1,
@@ -154,10 +151,7 @@ def test_batch_benchmark_result_schema(data: Dict[str, Any], expect_error: bool)
             ),
         ),
         (
-            dict(
-                batch_time=2,
-                batch_size=32,
-            ),
+            dict(batch_time=2, batch_size=32,),
             dict(
                 batch_time=2.0,
                 batches_per_second=0.5,
@@ -168,10 +162,7 @@ def test_batch_benchmark_result_schema(data: Dict[str, Any], expect_error: bool)
             ),
         ),
         (
-            dict(
-                batch_time=4,
-                batch_size=32,
-            ),
+            dict(batch_time=4, batch_size=32,),
             dict(
                 batch_time=4.0,
                 batches_per_second=0.25,
@@ -182,10 +173,7 @@ def test_batch_benchmark_result_schema(data: Dict[str, Any], expect_error: bool)
             ),
         ),
         (
-            dict(
-                batch_time=8,
-                batch_size=32,
-            ),
+            dict(batch_time=8, batch_size=32,),
             dict(
                 batch_time=8.0,
                 batches_per_second=0.125,
@@ -471,12 +459,7 @@ def test_benchmark_result_schema(data: Dict[str, Any], expect_error: bool):
     [
         (
             dict(
-                results=[
-                    BatchBenchmarkResult.from_result(
-                        batch_time=2,
-                        batch_size=1,
-                    )
-                ]
+                results=[BatchBenchmarkResult.from_result(batch_time=2, batch_size=1,)]
             ),
             dict(
                 results=[
@@ -506,18 +489,9 @@ def test_benchmark_result_schema(data: Dict[str, Any], expect_error: bool):
         (
             dict(
                 results=[
-                    BatchBenchmarkResult.from_result(
-                        batch_time=2,
-                        batch_size=32,
-                    ),
-                    BatchBenchmarkResult.from_result(
-                        batch_time=4,
-                        batch_size=32,
-                    ),
-                    BatchBenchmarkResult.from_result(
-                        batch_time=8,
-                        batch_size=32,
-                    ),
+                    BatchBenchmarkResult.from_result(batch_time=2, batch_size=32,),
+                    BatchBenchmarkResult.from_result(batch_time=4, batch_size=32,),
+                    BatchBenchmarkResult.from_result(batch_time=8, batch_size=32,),
                 ]
             ),
             dict(
@@ -580,9 +554,7 @@ def test_benchmark_result_from_results(
                 iterations=30,
                 warmup_iterations=10,
                 device="cpu",
-                framework_args=dict(
-                    arg="val",
-                ),
+                framework_args=dict(arg="val",),
                 inference_provider=dict(
                     name="cpu",
                     description="Base CPU provider within ONNXRuntime",
@@ -696,10 +668,7 @@ def test_benchmark_config(data: Dict[str, Any], expect_error: bool):
             dict(
                 framework="onnx",
                 package_versions=dict(
-                    onnx="1.7.0",
-                    onnxruntime="1.8.0",
-                    sparsezoo=None,
-                    sparseml="0.2.0",
+                    onnx="1.7.0", onnxruntime="1.8.0", sparsezoo=None, sparseml="0.2.0",
                 ),
                 benchmark=dict(
                     results=[

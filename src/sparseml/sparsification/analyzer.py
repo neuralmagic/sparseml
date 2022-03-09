@@ -45,12 +45,10 @@ class AnalyzerProgress(BaseModel):
     """
 
     step: int = Field(
-        title="step",
-        description="current step of the Analyzer",
+        title="step", description="current step of the Analyzer",
     )
     total_steps: int = Field(
-        title="total_steps",
-        description="total steps Analyzer will run",
+        title="total_steps", description="total steps Analyzer will run",
     )
     metadata: Optional[Dict[str, Any]] = Field(
         title="metadata",
@@ -128,8 +126,7 @@ class Analyzer(ABC):
         return self.result
 
     def run_iter(
-        self,
-        **kwargs,
+        self, **kwargs,
     ) -> Generator[Tuple[AnalyzerProgress, ModelResult], None, None]:
         """
         runs the analysis stepwise using the abstract _run_iter method yielding an
@@ -152,8 +149,7 @@ class Analyzer(ABC):
 
     @abstractmethod
     def _run_iter(
-        self,
-        **kwargs,
+        self, **kwargs,
     ) -> Generator[Tuple[AnalyzerProgress, ModelResult], None, None]:
         # runs the analysis and updates self.result
         raise NotImplementedError()
@@ -220,8 +216,7 @@ class PruningLossSensitivityMagnitudeAnalyzer(Analyzer, ABC):
         return PruningSensitivityResult(PruningSensitivityResultTypes.LOSS)
 
     def _run_iter(
-        self,
-        **kwargs,
+        self, **kwargs,
     ) -> Generator[Tuple[AnalyzerProgress, PruningSensitivityResult], None, None]:
         named_params = self.get_named_prunable_params(kwargs["model"])
         num_params = len(named_params)

@@ -23,8 +23,7 @@ from tests.sparseml.pytorch.helpers import MLPNet
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_exporter_onnx():
     sample_batch = torch.randn(1, 8)
@@ -33,8 +32,7 @@ def test_exporter_onnx():
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("batch_size", [1, 64])
 def test_export_batches(batch_size):

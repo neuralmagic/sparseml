@@ -53,28 +53,19 @@ TRAINABLE_MODIFIERS = [
     lambda: TrainableParamsModifier(params=ALL_TOKEN, trainable=False, start_epoch=0.0),
     lambda: TrainableParamsModifier(params=ALL_TOKEN, trainable=True, start_epoch=0.0),
     lambda: TrainableParamsModifier(
-        params=ALL_TOKEN,
-        trainable=False,
-        start_epoch=0.0,
-        end_epoch=15.0,
+        params=ALL_TOKEN, trainable=False, start_epoch=0.0, end_epoch=15.0,
     ),
     lambda: TrainableParamsModifier(
-        params=ALL_TOKEN,
-        trainable=True,
-        start_epoch=10.0,
-        end_epoch=25.0,
+        params=ALL_TOKEN, trainable=True, start_epoch=10.0, end_epoch=25.0,
     ),
     lambda: TrainableParamsModifier(
-        params=["re:.*weight"],
-        trainable=False,
-        start_epoch=10.0,
+        params=["re:.*weight"], trainable=False, start_epoch=10.0,
     ),
 ]
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", TRAINABLE_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -148,8 +139,7 @@ class TestTrainableParamsModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_trainable_params_yaml():
     params = ALL_TOKEN
@@ -223,21 +213,16 @@ SET_PARAM_MOD_PARAMS = [
 ]
 SET_PARAM_MODIFIERS = [
     lambda: SetParamModifier(
-        params=SET_PARAM_MOD_PARAMS,
-        val=SET_PARAM_MOD_VAL,
-        start_epoch=0.0,
+        params=SET_PARAM_MOD_PARAMS, val=SET_PARAM_MOD_VAL, start_epoch=0.0,
     ),
     lambda: SetParamModifier(
-        params=SET_PARAM_MOD_PARAMS,
-        val=SET_PARAM_MOD_VAL,
-        start_epoch=10.0,
+        params=SET_PARAM_MOD_PARAMS, val=SET_PARAM_MOD_VAL, start_epoch=10.0,
     ),
 ]
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", SET_PARAM_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -293,8 +278,7 @@ class TestSetParamModifierImpl(ScheduledModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_set_param_yaml():
     params_strict = False
@@ -384,8 +368,7 @@ GRADUAL_PARAM_MODIFIERS = [
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 @pytest.mark.parametrize("modifier_lambda", GRADUAL_PARAM_MODIFIERS, scope="function")
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
@@ -455,8 +438,7 @@ class TestGradualParamModifierImpl(ScheduledUpdateModifierTest):
 
 
 @pytest.mark.skipif(
-    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
-    reason="Skipping pytorch tests",
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False), reason="Skipping pytorch tests",
 )
 def test_gradual_param_yaml():
     params_strict = False

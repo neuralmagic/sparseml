@@ -87,9 +87,7 @@ def test_finish_on_compression(
 )
 @pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
 @pytest.mark.parametrize(
-    "optim_lambda",
-    [create_optim_sgd, create_optim_adam],
-    scope="function",
+    "optim_lambda", [create_optim_sgd, create_optim_adam], scope="function",
 )
 class TestACDCPruningModifier(ScheduledModifierTest):
     def test_lifecycle(

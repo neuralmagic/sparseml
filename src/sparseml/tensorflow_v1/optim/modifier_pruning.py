@@ -162,12 +162,7 @@ class ConstantPruningModifier(BaseConstantPruningModifier, ScheduledModifier):
 
         with graph.as_default():
             update_op, prune_op_vars = create_ks_scheduled_constant_graph_ops(
-                graph,
-                global_step,
-                params,
-                start_step,
-                end_step,
-                self.ks_group,
+                graph, global_step, params, start_step, end_step, self.ks_group,
             )
 
             if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:

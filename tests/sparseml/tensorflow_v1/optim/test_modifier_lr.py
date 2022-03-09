@@ -54,10 +54,7 @@ EPSILON = 1e-7
 @pytest.mark.parametrize(
     "graph_lambda,modifier_lambda",
     [
-        (
-            mlp_graph_lambda,
-            lambda: SetLearningRateModifier(learning_rate=0.1),
-        ),
+        (mlp_graph_lambda, lambda: SetLearningRateModifier(learning_rate=0.1),),
         (
             mlp_graph_lambda,
             lambda: SetLearningRateModifier(learning_rate=0.03, start_epoch=5),
@@ -124,8 +121,7 @@ class TestSetLRModifierImpl(ScheduledModifierTest):
                         epoch, step, gs
                     )
                     sess.run(
-                        training_op,
-                        feed_dict={x_batch: batch_x, y_lab: batch_lab},
+                        training_op, feed_dict={x_batch: batch_x, y_lab: batch_lab},
                     )
 
 
@@ -274,8 +270,7 @@ class TestLRModifierExponentialImpl(ScheduledModifierTest):
                         epoch, step, gs
                     )
                     sess.run(
-                        training_op,
-                        feed_dict={x_batch: batch_x, y_lab: batch_lab},
+                        training_op, feed_dict={x_batch: batch_x, y_lab: batch_lab},
                     )
 
 
@@ -451,8 +446,7 @@ class TestLRModifierStepImpl(ScheduledModifierTest):
                         epoch, step, gs
                     )
                     sess.run(
-                        training_op,
-                        feed_dict={x_batch: batch_x, y_lab: batch_lab},
+                        training_op, feed_dict={x_batch: batch_x, y_lab: batch_lab},
                     )
 
 
@@ -620,8 +614,7 @@ class TestLRModifierMultiStepImpl(ScheduledModifierTest):
                         epoch, step, gs
                     )
                     sess.run(
-                        training_op,
-                        feed_dict={x_batch: batch_x, y_lab: batch_lab},
+                        training_op, feed_dict={x_batch: batch_x, y_lab: batch_lab},
                     )
 
 
@@ -802,8 +795,7 @@ class TestGroupLearningRateImpl(ScheduledModifierTest):
                         epoch, step, gs
                     )
                     sess.run(
-                        training_op,
-                        feed_dict={x_batch: batch_x, y_lab: batch_lab},
+                        training_op, feed_dict={x_batch: batch_x, y_lab: batch_lab},
                     )
 
 
@@ -904,8 +896,7 @@ def test_lrs_with_manager(optim_lambda):
                     abs(optim_lr - expected) <= EPSILON
                 ), "Failed at epoch:{} step:{} global_step:{}".format(epoch, step, gs)
                 sess.run(
-                    training_op,
-                    feed_dict={x_batch: batch_x, y_lab: batch_lab},
+                    training_op, feed_dict={x_batch: batch_x, y_lab: batch_lab},
                 )
 
 

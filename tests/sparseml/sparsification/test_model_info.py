@@ -223,10 +223,7 @@ def _fake_pruning_perf_sensitivity_result():
                         "value": {"0.8": 0.005, "0.9": 0.003},
                         "attributes": None,
                     },
-                    "layer_2": {
-                        "value": {"0.8": 0.002},
-                        "attributes": None,
-                    },
+                    "layer_2": {"value": {"0.8": 0.002}, "attributes": None,},
                 },
                 "attributes": None,
             },
@@ -235,19 +232,10 @@ def _fake_pruning_perf_sensitivity_result():
             _fake_pruning_perf_sensitivity_result(),
             {
                 "analysis_type": PruningSensitivityResultTypes.PERF.value,
-                "value": {
-                    "0.8": 1.1,
-                    "0.9": 0.9,
-                },
+                "value": {"0.8": 1.1, "0.9": 0.9,},
                 "layer_results": {
-                    "layer_1": {
-                        "value": {"0.8": 0.5, "0.9": 0.3},
-                        "attributes": None,
-                    },
-                    "layer_2": {
-                        "value": {"0.8": 0.2},
-                        "attributes": None,
-                    },
+                    "layer_1": {"value": {"0.8": 0.5, "0.9": 0.3}, "attributes": None,},
+                    "layer_2": {"value": {"0.8": 0.2}, "attributes": None,},
                 },
                 "attributes": None,
             },

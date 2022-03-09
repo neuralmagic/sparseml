@@ -61,10 +61,7 @@ class SetLearningRateModifier(BaseModifier, BaseScheduled):
     ):
         kwargs["end_comparator"] = kwargs.get("end_comparator", None)
         super().__init__(
-            log_types=log_types,
-            start_epoch=start_epoch,
-            end_epoch=-1.0,
-            **kwargs,
+            log_types=log_types, start_epoch=start_epoch, end_epoch=-1.0, **kwargs,
         )
         self._learning_rate = learning_rate
         self.validate_learning_rate()
@@ -146,10 +143,7 @@ class LearningRateModifier(BaseModifier, BaseScheduled, BaseUpdate):
         kwargs["update_frequency"] = kwargs.get("update_frequency", -1.0)
         kwargs["end_comparator"] = kwargs.get("end_comparator", -1)
         super().__init__(
-            log_types=log_types,
-            start_epoch=start_epoch,
-            end_epoch=end_epoch,
-            **kwargs,
+            log_types=log_types, start_epoch=start_epoch, end_epoch=end_epoch, **kwargs,
         )
 
         self._lr_class = lr_class

@@ -49,8 +49,7 @@ def _check_sparse_tensor_import():
 
 
 def create_sparse_tensor(
-    array: Union[numpy.ndarray, TensorProto],
-    name: str = None,
+    array: Union[numpy.ndarray, TensorProto], name: str = None,
 ) -> Union[SparseTensorProto, None]:
     """
     :param array: numpy array or TensorProto object to convert to sparse representation

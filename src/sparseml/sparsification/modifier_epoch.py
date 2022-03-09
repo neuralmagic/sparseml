@@ -44,10 +44,7 @@ class EpochRangeModifier(BaseModifier, BaseScheduled):
     """
 
     def __init__(
-        self,
-        start_epoch: float,
-        end_epoch: float,
-        **kwargs,
+        self, start_epoch: float, end_epoch: float, **kwargs,
     ):
         super(EpochRangeModifier, self).__init__(
             start_epoch=start_epoch, end_epoch=end_epoch, **kwargs
