@@ -64,25 +64,24 @@ modifiers:
 """
 
 RECIPE_LEVEL_1 = """
-compression_sparsity = 0.5
+compression_sparsity: 0.5
 
-modifiers:
+training_modifiers:
     - !EpochRangeModifier
-        end_epoch: 6.0
+        end_epoch: 1.0
         start_epoch: 0.0
-  
+
 pruning_modifiers:
-     - !ACDCPruningModifier
+    - !ACDCPruningModifier
         compression_sparsity: eval(compression_sparsity)
-        start_epoch: 2.0
-        end_epoch: 6.0
+        start_epoch: 2
+        end_epoch: 6
         update_frequency: 2
-        params: ['re:.*conv*', 're:.*fc.weight*']
+        params: ["re:.*weight"]
 """
 
 
-RECIPE_LEVEL_0_EVAL = """
-version: 1.1.0
+RECIPE_LEVEL_0_EVAL = """version: 1.1.0
 
 modifiers:
     - !EpochRangeModifier
@@ -101,21 +100,63 @@ modifiers:
         start_epoch: 0.0
         update_frequency: 1.0
 
-metadata: {'metadata': None, 'level': 0}
-"""
+single_recipe_metadata: {'metadata': None, 'level': 0}"""
 
-RECIPE_LEVEL_1_EVAL = """
-"""
+RECIPE_LEVEL_1_EVAL = """version: 1.1.0
+
+stage_0:
+  stage_0_modifiers:
+      - !EpochRangeModifier
+          end_epoch: 1.0
+          start_epoch: 0.0
+  
+      - !GMPruningModifier
+          end_epoch: 3.0
+          final_sparsity: 0.8
+          init_sparsity: 0.2
+          inter_func: cubic
+          leave_enabled: True
+          log_types: __ALL__
+          mask_type: unstructured
+          params: ['re:.*weight']
+          start_epoch: 0.0
+          update_frequency: 1.0
+  
+
+stage_1:
+  stage_1_modifiers:
+      - !EpochRangeModifier
+          end_epoch: 4.0
+          start_epoch: 3.0
+  
+      - !ACDCPruningModifier
+          compression_sparsity: 0.5
+          end_epoch: 9
+          leave_enabled: True
+          log_types: __ALL__
+          mask_type: unstructured
+          momentum_buffer_reset: True
+          params: ['re:.*weight']
+          start_epoch: 5
+          update_frequency: 2
+  
+
+stage_0_metadata: {'metadata': 'None', 'level': 0}
+stage_1_metadata: {'metadata': None, 'level': 1}"""
+
+RECIPE_LEVEL_2_EVAL = """"""
 
 METADATA_LEVEL_0 = {'metadata': None, 'level': 0}
 METADATA_LEVEL_1 = {'metadata': None, 'level': 1}
+METADATA_LEVEL_2 = {'metadata': None, 'level': 2}
 import tempfile
 import yaml
 @pytest.mark.parametrize(
     "recipe,metadata,checkpoint_recipe,expected_recipe,raise_value_error",
     [
-        (RECIPE_LEVEL_0,METADATA_LEVEL_0,None,RECIPE_LEVEL_0_EVAL, False),
-        (RECIPE_LEVEL_1,METADATA_LEVEL_1,RECIPE_LEVEL_0_EVAL, RECIPE_LEVEL_1_EVAL, False),
+        #(RECIPE_LEVEL_0,METADATA_LEVEL_0,None,RECIPE_LEVEL_0_EVAL, False),
+        #(RECIPE_LEVEL_1,METADATA_LEVEL_1,RECIPE_LEVEL_0_EVAL, RECIPE_LEVEL_1_EVAL, False),
+        (RECIPE_LEVEL_1,METADATA_LEVEL_2,RECIPE_LEVEL_1_EVAL, RECIPE_LEVEL_2_EVAL, False)
 
     ],
 )
@@ -123,7 +164,7 @@ def test_lifecycle_manager_staged(recipe, metadata, checkpoint_recipe, expected_
     temp_dir = tempfile.mkdtemp()
     recipe_path = os.path.join(temp_dir, 'recipy.yaml')
     recipe_manager = ScheduledModifierManager.from_yaml(file_path=recipe, metadata=metadata)
-    checkpoint_manager = None if checkpoint_recipe else None
+    checkpoint_manager = ScheduledModifierManager.from_yaml(file_path=checkpoint_recipe) if checkpoint_recipe else None
     recipe_manager.save(recipe_path, checkpoint_manager)
 
     with open(recipe_path, 'r') as file:

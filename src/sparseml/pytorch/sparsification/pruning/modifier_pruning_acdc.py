@@ -266,6 +266,9 @@ class ACDCPruningModifier(BasePruningModifier):
         :return: reduced_end_epoch:
             (If required) reduced, original end_epoch (reduced_end_epoch <= end_epoch)
         """
+
+        # TODO: Fix the infinity problem
+        # TODO: Fix the TypeError: 'float' object cannot be interpreted as an integer
         compression_phases = [
             math.floor(epoch / update_frequency) % 2 == 0.0
             for epoch in range(start_epoch, end_epoch)

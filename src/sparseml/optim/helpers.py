@@ -20,7 +20,7 @@ import json
 import re
 from contextlib import suppress
 from typing import Any, Dict, Optional, Tuple, Union
-
+from collections import ChainMap
 import yaml
 
 from sparseml.utils import UnknownVariableException, restricted_eval
@@ -441,32 +441,35 @@ def _maybe_parse_number(val: str) -> Union[str, float, int]:
         except Exception:
             return val
 
+
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     """
-    Compare the metadata carried over from the recipe with the new, incoming
-    metadata. If new metadata has valid format, it will overwrite the old.
-
-    Scenario.1: metadata not None and previous_metadata None (not staged) -> return metadata
-    Scenario.2: metadata not None and previous_metadata not None (not staged) -> overwrite
-    # TODO: Cover all scenarios
+    Compare the metadata carried over from the recipe (`yaml_str`) with the
+    new, incoming metadata. If new metadata has valid format, it will overwrite the old.
 
     :param metadata: New metadata
     :param yaml_str: String representation of the recipe YAML file,
-                     (contains previous metadata)
+                     (maybe contains previous metadata)
     :return: Validated metadata
     """
-    previous_metadata = [metadata_str for metadata_str in yaml_str.split("\n") if 'metadata' in metadata_str]
-    if previous_metadata:
-        if len(previous_metadata) > 1:
-            raise ValueError(f"Detected two entries in the recipe pertaining to metadata.\n{[print(x) for x in previous_metadata]}")
-        else:
-            previous_metadata_dict = yaml.safe_load(previous_metadata[0])['metadata']
-            if previous_metadata_dict.keys() != metadata.keys():
-                # this assumes that we can only overwrite existing keys, but cannot add any additional keys to the metadata.
-                raise ValueError(f"Attempting to overwrite the previous metadata with new keys: {metadata.keys() - previous_metadata_dict.keys()}")
-            else:
-                for k,v in metadata.items():
-                    previous_metadata_dict.update({k:v})
-                return previous_metadata_dict
+
+    previous_metadatas = dict(ChainMap(*[yaml.safe_load(metadata_str) for metadata_str in yaml_str.split("\n") if 'metadata' in metadata_str]))
+    # we are working with a checkpoint file
+    if previous_metadatas:
+        if metadata:
+            key_found = False
+            for key, value in metadata.items():
+                for stage_name, stage_metadata in previous_metadatas.items():
+                    for k,v in stage_metadata:
+                        if key == v:
+                            previous_metadatas[stage_name][k] = value
+                            key_found = True
+
+            if not key_found:
+                raise ValueError("!")
+
+        return previous_metadatas
+
     else:
-        return metadata
+        return {'single_recipe_metadata': metadata}
+

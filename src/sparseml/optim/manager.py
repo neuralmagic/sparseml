@@ -100,6 +100,7 @@ class BaseManager(BaseObject):
         base_recipe: Union[str, "BaseManager"],
         additional_recipe: Union[str, "BaseManager"],
         keep_original_epochs: bool = False,
+        additional_metadata=False,
     ) -> "BaseManager":
         """
         composes two recipes into a multi-stage recipe where epochs
@@ -124,30 +125,44 @@ class BaseManager(BaseObject):
         if not isinstance(additional_recipe, BaseManager):
             additional_recipe = cls.from_yaml(additional_recipe)
 
-        if isinstance(base_recipe.modifiers, OrderedDict):
-            raise ValueError(
-                "non-staged recipes not yet supported for Manager.compose_staged "
-                "found base_recipe with non_staged modifiers"
-            )
-        if isinstance(additional_recipe.modifiers, OrderedDict):
-            raise ValueError(
-                "non-staged recipes not yet supported for Manager.compose_staged "
-                "found additional_recipe with non_staged modifiers"
-            )
 
-        if isinstance(base_recipe.modifiers, List):
-            base_stage_name = "stage_0"
+        if isinstance(base_recipe.modifiers, List) and isinstance(additional_recipe.modifiers, List):
+            # two non-staged recipes
+            base_stage_name, additional_stage_name = [f"stage_{i}" for i in range(2)]
+
             base_stages = {base_stage_name: deepcopy(base_recipe.modifiers)}
+            additional_stages = {additional_stage_name: deepcopy(additional_recipe.modifiers)}
+
+            base_recipe._metadata[base_stage_name] = base_recipe._metadata.pop('single_recipe_metadata')
+            additional_metadata[additional_stage_name] = additional_metadata.pop('single_recipe_metadata')
+
+            combined_metadata = base_recipe._metadata
+            combined_metadata.update(additional_metadata)
+
+        elif isinstance(base_recipe.modifiers, OrderedDict) and isinstance(additional_recipe.modifiers, List):
+
+            base_stages = deepcopy(base_recipe.modifiers)
+
+            last_stage_name = list(base_recipe.modifiers.keys())[-1]
+            last_stage_name_decomposed = last_stage_name.split("_")
+            if last_stage_name_decomposed[-1].isdigit():
+                last_stage_name_decomposed[-1] = str(int(last_stage_name_decomposed[-1]) + 1)
+
+            additional_stage_name = "_".join(last_stage_name_decomposed)
+            additional_stages = {additional_stage_name: deepcopy(additional_recipe.modifiers)}
+
+            base_recipe._metadata = {k.replace("_metadata",""):v for k,v in base_recipe._metadata.items() if "_metadata" in k}
+            additional_metadata[additional_stage_name] = additional_metadata.pop('single_recipe_metadata')
+
+            combined_metadata = base_recipe._metadata
+            combined_metadata.update(additional_metadata)
+
+
+        elif isinstance(base_recipe.modifiers, List) and isinstance(additional_recipe.modifiers, OrderedDict):
+            raise NotImplementedError("base_recipe not staged and additional staged")
 
         else:
             base_stages = deepcopy(base_recipe.modifiers)
-
-
-        if isinstance(additional_recipe.modifiers, List):
-            additional_recipe_name = "stage_1"
-            additional_stages = {additional_recipe_name: deepcopy(additional_recipe.modifiers)}
-
-        else:
             additional_stages = deepcopy(additional_recipe.modifiers)
 
         base_keys = set(base_stages.keys())
@@ -171,7 +186,8 @@ class BaseManager(BaseObject):
 
         combined_stages = base_stages
         combined_stages.update(additional_stages)
-        return cls(combined_stages)
+
+        return cls(combined_stages, combined_metadata)
 
     @ModifierProp(serializable=False)
     def modifiers(self) -> Union[List[BaseModifier], Dict[str, List[BaseModifier]]]:
@@ -310,18 +326,27 @@ class BaseManager(BaseObject):
         file_path = clean_path(file_path)
         create_parent_dirs(file_path)
 
+
         if checkpoint_manager:
-            composed_manager = self.compose_staged(checkpoint_manager, str(self))
-        # this is a one-liner for now, could evolve into a
-        # separate function if complexity increases
-        metadata_serialized = (
-            f"\nmetadata: {str(self._metadata)}"
+            composed_manager = self.compose_staged(checkpoint_manager, str(self), additional_metadata= self._metadata)
+            metadata_serialized = []
+            if include_metadata and self._metadata:
+                metadata_serialized = [f"\n{stage_name}_metadata: {composed_manager._metadata[stage_name]}" for stage_name in composed_manager.modifiers.keys()]
+
+            with open(file_path, "w") as yaml_file:
+                yaml_file.write(str(composed_manager) + "".join(metadata_serialized))
+
+
+        else:
+            metadata_name = 'single_recipe_metadata'
+            metadata_serialized = (
+            f"\n{metadata_name}: {str(self._metadata[metadata_name])}"
             if include_metadata and self._metadata
             else ""
-        )
+            )
 
-        with open(file_path, "w") as yaml_file:
-            yaml_file.write(str(self) + metadata_serialized)
+            with open(file_path, "w") as yaml_file:
+                yaml_file.write(str(self) + metadata_serialized)
 
     def finalize_and_save_structured_modifiers(self, file_path: str):
         """
