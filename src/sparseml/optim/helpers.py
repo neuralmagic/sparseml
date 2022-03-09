@@ -18,9 +18,10 @@ Helper functions for base Modifier and Manger utilities
 
 import json
 import re
+from collections import ChainMap
 from contextlib import suppress
 from typing import Any, Dict, Optional, Tuple, Union
-from collections import ChainMap
+
 import yaml
 
 from sparseml.utils import UnknownVariableException, restricted_eval
@@ -36,7 +37,7 @@ __all__ = [
     "evaluate_recipe_yaml_str_equations",
     "parse_recipe_variables",
     "check_if_staged_recipe",
-    "validate_metadata"
+    "validate_metadata",
 ]
 
 
@@ -445,31 +446,43 @@ def _maybe_parse_number(val: str) -> Union[str, float, int]:
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     """
     Compare the metadata carried over from the recipe (`yaml_str`) with the
-    new, incoming metadata. If new metadata has valid format, it will overwrite the old.
-
+    new, incoming metadata ('metadata').
+    If there exists a key in new metadata which also exists in previous metadata,
+    it will overwrite the old metadata. However, it is prohibitive to pass unseen keys.
     :param metadata: New metadata
     :param yaml_str: String representation of the recipe YAML file,
-                     (maybe contains previous metadata)
+        (maybe contains previous metadata)
     :return: Validated metadata
     """
 
-    previous_metadatas = dict(ChainMap(*[yaml.safe_load(metadata_str) for metadata_str in yaml_str.split("\n") if 'metadata' in metadata_str]))
-    # we are working with a checkpoint file
-    if previous_metadatas:
+    previous_metadatas = dict(
+        ChainMap(
+            *[
+                yaml.safe_load(metadata_str)
+                for metadata_str in yaml_str.split("\n")
+                if "metadata" in metadata_str
+            ]
+        )
+    )
+
+    if previous_metadatas:  # we are working with a checkpoint file
         if metadata:
-            key_found = False
             for key, value in metadata.items():
+                key_found = False
                 for stage_name, stage_metadata in previous_metadatas.items():
-                    for k,v in stage_metadata:
+                    for k, v in stage_metadata.items():
                         if key == v:
                             previous_metadatas[stage_name][k] = value
                             key_found = True
 
-            if not key_found:
-                raise ValueError("!")
+                if not key_found:
+                    raise ValueError(
+                        f"The previously unseen metadata key {k} "
+                        f"has not been recognized in previous "
+                        f"metadata {previous_metadatas}"
+                    )
 
         return previous_metadatas
 
     else:
-        return {'single_recipe_metadata': metadata}
-
+        return {"recipe_metadata": metadata}

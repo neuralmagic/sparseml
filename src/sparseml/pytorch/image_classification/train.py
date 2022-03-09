@@ -567,8 +567,7 @@ def train(
         tester.run_epoch(val_loader, epoch=epoch - 1, max_steps=train_args.debug_steps)
 
     if not train_args.eval_mode:
-        checkpoint_recipe = torch.load(train_args.checkpoint_path)['recipe'] if train_args.checkpoint_path else None
-        helpers.save_recipe(recipe_manager=manager, checkpoint_recipe=checkpoint_recipe, save_dir=save_dir)
+        helpers.save_recipe(recipe_manager=manager, save_dir=save_dir)
         LOGGER.info(f"starting training from epoch {epoch}")
 
         if epoch > 0:

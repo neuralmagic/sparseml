@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import tempfile
 from collections import OrderedDict
 from typing import Callable
 
@@ -74,8 +75,8 @@ training_modifiers:
 pruning_modifiers:
     - !ACDCPruningModifier
         compression_sparsity: eval(compression_sparsity)
-        start_epoch: 2
-        end_epoch: 6
+        start_epoch: 2.0
+        end_epoch: 6.0
         update_frequency: 2
         params: ["re:.*weight"]
 """
@@ -100,7 +101,7 @@ modifiers:
         start_epoch: 0.0
         update_frequency: 1.0
 
-single_recipe_metadata: {'metadata': None, 'level': 0}"""
+recipe_metadata: {'metadata': None, 'level': 0}"""
 
 RECIPE_LEVEL_1_EVAL = """version: 1.1.0
 
@@ -109,7 +110,7 @@ stage_0:
       - !EpochRangeModifier
           end_epoch: 1.0
           start_epoch: 0.0
-  
+
       - !GMPruningModifier
           end_epoch: 3.0
           final_sparsity: 0.8
@@ -121,14 +122,14 @@ stage_0:
           params: ['re:.*weight']
           start_epoch: 0.0
           update_frequency: 1.0
-  
+
 
 stage_1:
   stage_1_modifiers:
       - !EpochRangeModifier
           end_epoch: 4.0
           start_epoch: 3.0
-  
+
       - !ACDCPruningModifier
           compression_sparsity: 0.5
           end_epoch: 9
@@ -139,40 +140,61 @@ stage_1:
           params: ['re:.*weight']
           start_epoch: 5
           update_frequency: 2
-  
+
 
 stage_0_metadata: {'metadata': 'None', 'level': 0}
 stage_1_metadata: {'metadata': None, 'level': 1}"""
 
+
 RECIPE_LEVEL_2_EVAL = """"""
 
-METADATA_LEVEL_0 = {'metadata': None, 'level': 0}
-METADATA_LEVEL_1 = {'metadata': None, 'level': 1}
-METADATA_LEVEL_2 = {'metadata': None, 'level': 2}
-import tempfile
-import yaml
+METADATA_LEVEL_0 = {"metadata": None, "level": 0}
+METADATA_LEVEL_1 = {"metadata": None, "level": 1}
+METADATA_LEVEL_2 = {"metadata": None, "level": 2}
+METADATA_ERR = {"break": None, "level": 0}
+
+
 @pytest.mark.parametrize(
     "recipe,metadata,checkpoint_recipe,expected_recipe,raise_value_error",
     [
-        #(RECIPE_LEVEL_0,METADATA_LEVEL_0,None,RECIPE_LEVEL_0_EVAL, False),
-        #(RECIPE_LEVEL_1,METADATA_LEVEL_1,RECIPE_LEVEL_0_EVAL, RECIPE_LEVEL_1_EVAL, False),
-        (RECIPE_LEVEL_1,METADATA_LEVEL_2,RECIPE_LEVEL_1_EVAL, RECIPE_LEVEL_2_EVAL, False)
-
+        (RECIPE_LEVEL_1_EVAL, METADATA_ERR, None, None, True),
+        (RECIPE_LEVEL_0, METADATA_LEVEL_0, None, RECIPE_LEVEL_0_EVAL, False),
+        (
+            RECIPE_LEVEL_1,
+            METADATA_LEVEL_1,
+            RECIPE_LEVEL_0_EVAL,
+            RECIPE_LEVEL_1_EVAL,
+            False,
+        ),
+        # ( RECIPE_LEVEL_1, METADATA_LEVEL_2,
+        # RECIPE_LEVEL_1_EVAL, RECIPE_LEVEL_2_EVAL, False,)
     ],
 )
-def test_lifecycle_manager_staged(recipe, metadata, checkpoint_recipe, expected_recipe, raise_value_error):
-    temp_dir = tempfile.mkdtemp()
-    recipe_path = os.path.join(temp_dir, 'recipy.yaml')
-    recipe_manager = ScheduledModifierManager.from_yaml(file_path=recipe, metadata=metadata)
-    checkpoint_manager = ScheduledModifierManager.from_yaml(file_path=checkpoint_recipe) if checkpoint_recipe else None
-    recipe_manager.save(recipe_path, checkpoint_manager)
+def test_lifecycle_manager_staged(
+    recipe, metadata, checkpoint_recipe, expected_recipe, raise_value_error
+):
+    if raise_value_error:
+        with pytest.raises(ValueError):
+            recipe_manager = ScheduledModifierManager.from_yaml(
+                file_path=recipe, metadata=metadata
+            )
+    else:
 
-    with open(recipe_path, 'r') as file:
-        final_recipe = file.read()
-    assert final_recipe == expected_recipe
+        temp_dir = tempfile.mkdtemp()
+        recipe_path = os.path.join(temp_dir, "recipy.yaml")
+        recipe_manager = ScheduledModifierManager.from_yaml(
+            file_path=recipe, metadata=metadata
+        )
+        checkpoint_manager = (
+            ScheduledModifierManager.from_yaml(file_path=checkpoint_recipe)
+            if checkpoint_recipe
+            else None
+        )
+        recipe_manager.save(recipe_path, checkpoint_manager)
 
-
-
+        with open(recipe_path, "r") as file:
+            final_recipe = file.read()
+        assert final_recipe == expected_recipe
 
 
 @pytest.mark.skipif(

@@ -37,6 +37,20 @@ from sparseml.utils import ALL_TOKEN
 __all__ = ["ACDCPruningModifier"]
 
 
+def assert_not_decimal(x):
+    if isinstance(x, float):
+        if x.is_integer():
+            x = int(x)
+        else:
+            raise ValueError(
+                f"It is prohibitive to pass decimals for either of "
+                f"`start_epoch, `end_epoch` or `update_frequency. "
+                f"Detected: {x}"
+            )
+
+    return x
+
+
 @PyTorchModifierYAML()
 class ACDCPruningModifier(BasePruningModifier):
     """
@@ -87,9 +101,9 @@ class ACDCPruningModifier(BasePruningModifier):
     def __init__(
         self,
         compression_sparsity: float,
-        start_epoch: float,
-        end_epoch: float,
-        update_frequency: float,
+        start_epoch: Union[int, float],
+        end_epoch: Union[int, float],
+        update_frequency: Union[int, float],
         params: Union[str, List[str]],
         global_sparsity: bool = True,
         leave_enabled: bool = True,
@@ -98,6 +112,9 @@ class ACDCPruningModifier(BasePruningModifier):
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
 
+        start_epoch = assert_not_decimal(start_epoch)
+        end_epoch = assert_not_decimal(end_epoch)
+        update_frequency = assert_not_decimal(update_frequency)
         # because method does not involve any interpolation
         # compression sparsity (final sparsity) is a single float.
         self._compression_sparsity = compression_sparsity
@@ -165,7 +182,7 @@ class ACDCPruningModifier(BasePruningModifier):
             should be set to different sparsities, should return a list of those values
             in the order the parameters appear in the mask manager for this object
         """
-        self._num_phase = math.floor((self.start_epoch) / self.update_frequency)
+        self._num_phase = math.floor((epoch - self.start_epoch) / self.update_frequency)
         if self._num_phase % 2 == 0:
             # entering decompression phase
             self._is_phase_decompression = True
@@ -266,9 +283,6 @@ class ACDCPruningModifier(BasePruningModifier):
         :return: reduced_end_epoch:
             (If required) reduced, original end_epoch (reduced_end_epoch <= end_epoch)
         """
-
-        # TODO: Fix the infinity problem
-        # TODO: Fix the TypeError: 'float' object cannot be interpreted as an integer
         compression_phases = [
             math.floor(epoch / update_frequency) % 2 == 0.0
             for epoch in range(start_epoch, end_epoch)
