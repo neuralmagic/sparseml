@@ -16,6 +16,7 @@ import pytest
 import torch
 
 from sparseml.pytorch.sparsification.pruning import (
+    BlockMaskCreator,
     FourBlockMaskCreator,
     GroupedPruningMaskCreator,
     UnstructuredPruningMaskCreator,
@@ -35,6 +36,7 @@ from tests.sparseml.pytorch.sparsification.pruning.helpers import (
         ([[64, 513]], FourBlockMaskCreator()),
         ([[64, 512, 3, 3]], FourBlockMaskCreator()),
         ([[63, 513, 3, 3]], FourBlockMaskCreator()),
+        ([[64, 512, 3, 3]], BlockMaskCreator([1, 4])),
     ],
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])
@@ -47,6 +49,7 @@ def test_sparsity_mask_creator(tensor_shape, mask_creator, sparsity_val):
     [
         ([[64, 64, 3, 3]], UnstructuredPruningMaskCreator()),
         ([[64, 512, 3, 3]], FourBlockMaskCreator()),
+        ([[64, 512, 3, 3]], BlockMaskCreator([1, 4])),
     ],
 )
 @pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])
@@ -73,6 +76,14 @@ def test_sparsity_mask_creator_cuda(tensor_shape, mask_creator, sparsity_val):
         (
             [i * torch.randn(64, 64, 3, 3) for i in range(1, 6)],
             FourBlockMaskCreator(),
+        ),
+        (
+            [torch.randn(128, 128, 3, 3), 3 * torch.randn(64, 512)],
+            BlockMaskCreator([1, 4]),
+        ),
+        (
+            [i * torch.randn(64, 64, 3, 3) for i in range(1, 6)],
+            BlockMaskCreator([1, 4]),
         ),
     ],
 )
@@ -116,7 +127,37 @@ def test_global_sparsity_mask_creator(tensors, mask_creator, sparsity_val):
             FourBlockMaskCreator(),
             [0.4, 0.6, 0.8, 0.9, 0.95, 0.99],
         ),
+        (
+            [[128, 128, 3, 3], [64, 512]],
+            BlockMaskCreator([1, 4]),
+            [0.8, 0.9],
+        ),
+        (
+            [[64, 64, 3, 3]] * 6,
+            BlockMaskCreator([1, 4]),
+            [0.4, 0.6, 0.8, 0.9, 0.95, 0.99],
+        ),
     ],
 )
 def test_sparsity_mask_creator_mult_tensor(tensor_shapes, mask_creator, sparsity_val):
     sparsity_mask_creator_test(tensor_shapes, mask_creator, sparsity_val, "cpu")
+
+
+@pytest.mark.parametrize(
+    ("tensors"),
+    [
+        [torch.randn(128, 128), torch.randn(128, 512, 3, 3)],
+        [torch.randn(5, 64, 3, 3)],
+    ],
+)
+@pytest.mark.parametrize("sparsity_val", [0.0, 0.4, 0.6, 0.9, 0.99, 1.0])
+def test_four_block_mask_creator_matches_block(tensors, sparsity_val):
+    mask_creator_1 = FourBlockMaskCreator()
+    mask_creator_2 = BlockMaskCreator([1, 4])
+
+    masks_1 = mask_creator_1.create_sparsity_masks(tensors, sparsity_val)
+    masks_2 = mask_creator_2.create_sparsity_masks(tensors, sparsity_val)
+
+    for mask_1, mask_2 in zip(masks_1, masks_2):
+        assert mask_1.shape == mask_2.shape
+        assert torch.all(mask_1 == mask_2)
