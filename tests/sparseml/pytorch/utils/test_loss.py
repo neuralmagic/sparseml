@@ -69,20 +69,32 @@ DEFAULT_KD_SETTINGS = KDSettings(teacher=default_kd_parent())
     [
         (
             CrossEntropyLossWrapper(label_smoothing=0.0),
-            torch.FloatTensor([[-1.6977, 0.6374], [0.0781, -0.4140], [1.5172, 0.0473]]),
-            torch.LongTensor([1, 0, 0]),
-            0.2588,
+            torch.FloatTensor(
+                [
+                    [-1.3101, -0.9284, -0.5697, 0.3361, -0.0948],
+                    [-0.3611, 1.8996, 0.3804, 0.2673, 0.5532],
+                    [1.1785, -0.6854, 0.4624, -2.2461, -0.8022],
+                ]
+            ),
+            torch.LongTensor([2, 0, 3]),
+            2.8969,
         ),
         (
-            CrossEntropyLossWrapper(label_smoothing=0.0),
-            torch.FloatTensor([[-1.6977, 0.6374], [0.0781, -0.4140], [1.5172, 0.0473]]),
-            torch.LongTensor([0.7, 0.2, 0.3]),
-            1.0372,
+            CrossEntropyLossWrapper(label_smoothing=0.5),
+            torch.FloatTensor(
+                [
+                    [-1.3101, -0.9284, -0.5697, 0.3361, -0.0948],
+                    [-0.3611, 1.8996, 0.3804, 0.2673, 0.5532],
+                    [1.1785, -0.6854, 0.4624, -2.2461, -0.8022],
+                ]
+            ),
+            torch.LongTensor([2, 0, 3]),
+            2.4314,
         ),
     ],
 )
 def test_label_smoothing(wrapper, data, label, expected_loss):
-    loss = wrapper._loss_fn(data, label, label_smoothing=wrapper._label_smoothing)
+    loss = wrapper._loss_fn(data, label)
     assert loss.item() == pytest.approx(expected_loss, 1e-4)
 
 
