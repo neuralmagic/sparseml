@@ -169,6 +169,7 @@ class _QuestionAnsweringTrainer(Trainer):
 class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
     """
     Trainer for running sparsification recipes with Question Answering training
+
     :param model: the model to use with the trainer and apply sparsification to
     :param model_state_path: the state path to the model,
         used to load config and tokenizer settings
@@ -217,6 +218,7 @@ def postprocess_qa_predictions(
     Post-processes the predictions of a question-answering model to convert them
     to answers that are substrings of the original contexts. This is the base
     postprocessing functions for models that only return start and end logits.
+
     :param examples: The non-preprocessed dataset. See main script for more
     :param features: The processed dataset. See main script for more
     :param predictions: The predictions of the model: two arrays containing the start
@@ -308,8 +310,8 @@ def postprocess_qa_predictions(
                     "end_logit": end_logits[0],
                 }
 
-            # Go through all possibilities for the `n_best_size` greater start and end
-            # logits.
+            # Go through all possibilities for the `n_best_size` greater start 
+            # and end logits.
             start_indexes = np.argsort(start_logits)[
                 -1 : -n_best_size - 1 : -1
             ].tolist()
@@ -317,8 +319,8 @@ def postprocess_qa_predictions(
             for start_index in start_indexes:
                 for end_index in end_indexes:
                     # Don't consider out-of-scope answers, either because the indices
-                    # are out of bounds or correspond to part of the input_ids that are
-                    # not in the context.
+                    # are out of bounds or correspond to part of the input_ids that 
+                    # are not in the context.
                     if (
                         start_index >= len(offset_mapping)
                         or end_index >= len(offset_mapping)
@@ -342,7 +344,6 @@ def postprocess_qa_predictions(
                         and not token_is_max_context.get(str(start_index), False)
                     ):
                         continue
-
                     prelim_predictions.append(
                         {
                             "offsets": (
@@ -364,8 +365,8 @@ def postprocess_qa_predictions(
             prelim_predictions, key=lambda x: x["score"], reverse=True
         )[:n_best_size]
 
-        # Add back the minimum null prediction if it was removed because of its low
-        # score.
+        # Add back the minimum null prediction if it was removed because of its 
+        # low score.
         if version_2_with_negative and not any(
             p["offsets"] == (0, 0) for p in predictions
         ):
@@ -378,7 +379,7 @@ def postprocess_qa_predictions(
             pred["text"] = context[offsets[0] : offsets[1]]
 
         # In the very rare edge case we have not a single non-null prediction, we
-        # create a fake prediction to avoid failure.
+        # create a fake prediction to avoid failure
         if len(predictions) == 0 or (
             len(predictions) == 1 and predictions[0]["text"] == ""
         ):
@@ -387,7 +388,7 @@ def postprocess_qa_predictions(
             )
 
         # Compute the softmax of all scores (we do it with numpy to stay independent
-        # from torch/tf in this file, using the LogSumExp trick).
+        # from torch/tf in this file, using the LogSumExp trick)
         scores = np.array([pred.pop("score") for pred in predictions])
         exp_scores = np.exp(scores - np.max(scores))
         probs = exp_scores / exp_scores.sum()

@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Helper variables and functions for integrating SparseML with
-huggingface/transformers flows."""
+"""
+Helper variables and functions for integrating SparseML with huggingface/transformers 
+flows
+"""
 
 __all__ = [
     "RECIPE_NAME",

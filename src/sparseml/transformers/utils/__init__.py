@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Utilities for applying sparsification algorithms to Hugging Face
-transformers flows."""
+"""
+Utilities for applying sparsification algorithms to Hugging Face transformers flows
+"""
 
 # flake8: noqa
 

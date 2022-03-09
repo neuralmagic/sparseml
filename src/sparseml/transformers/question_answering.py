@@ -18,7 +18,7 @@
 # neuralmagic: no copyright
 
 """
-Fine-tuning the library models for question answering integrated with sparseml.
+Fine-tuning the library models for question answering integrated with sparseml
 """
 
 # You can also adapt this script on your own question answering task.
@@ -70,8 +70,9 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class ModelArguments:
-    """Arguments pertaining to which model/config/tokenizer we are going to
-    fine-tune from."""
+    """
+    Arguments pertaining to which model/config/tokenizer we are going to fine-tune from
+    """
 
     model_name_or_path: str = field(
         metadata={
@@ -128,8 +129,9 @@ class ModelArguments:
 
 @dataclass
 class DataTrainingArguments:
-    """Arguments pertaining to what data to input to our model for training and
-    eval."""
+    """
+    Arguments pertaining to what data to input to our model for training and eval
+    """
 
     recipe: Optional[str] = field(
         default=None,

@@ -74,8 +74,10 @@ MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
 @dataclass
 class ModelArguments:
-    """Arguments pertaining to which model/config/tokenizer we are going to
-    fine-tune, or train from scratch."""
+    """
+    Arguments pertaining to which model/config/tokenizer we are going to
+    fine-tune, or train from scratch
+    """
 
     model_name_or_path: Optional[str] = field(
         default=None,
@@ -150,8 +152,10 @@ class ModelArguments:
 
 @dataclass
 class DataTrainingArguments:
-    """Arguments pertaining to what data we are going to input our model for
-    training and eval."""
+    """
+    Arguments pertaining to what data we are going to input our model for
+    training and eval
+    """
 
     recipe: Optional[str] = field(
         default=None,
