@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Objects, classes, and methods for applying sparsification algorithms to
-Hugging Face transformers flows
-"""
+"""Objects, classes, and methods for applying sparsification algorithms to
+Hugging Face transformers flows."""
 
 # flake8: noqa
 
