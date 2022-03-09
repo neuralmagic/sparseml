@@ -517,7 +517,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
     """
     Training interface for running sparsification recipes with transformers flows.
     Mimics the lifecycle of transformers Trainer classes.
-    
+
     Should be instantiated with multi-inheretance with a custom trainer class.
     TrainerInterface must be provided before Trainer for proper class dependency.
     i.e. class MyCustomTrainer(TrainerInterface, Trainer)
@@ -595,7 +595,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         Run a sparsification prediction cycle.
         Calls into apply_manager before super().predict()
         and calls finalize_manager, if applied, after super().predict().
-        
+
         :param args: positional args to pass to super().predict()
         :param kwargs: keyword args to pass to super().predict()
         :return: the output from super.predict()

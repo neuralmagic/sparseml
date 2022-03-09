@@ -303,7 +303,7 @@ class SparseAutoModel:
         """
         Log the state of a loaded model including sparsity and
         prunable params information.
-        
+
         :param model: the loaded model
         :param model_name_or_path: the original name of or path to the model that loaded
         :param model_type: specify the type of model loaded for logging;

@@ -310,7 +310,7 @@ def postprocess_qa_predictions(
                     "end_logit": end_logits[0],
                 }
 
-            # Go through all possibilities for the `n_best_size` greater start 
+            # Go through all possibilities for the `n_best_size` greater start
             # and end logits.
             start_indexes = np.argsort(start_logits)[
                 -1 : -n_best_size - 1 : -1
@@ -319,7 +319,7 @@ def postprocess_qa_predictions(
             for start_index in start_indexes:
                 for end_index in end_indexes:
                     # Don't consider out-of-scope answers, either because the indices
-                    # are out of bounds or correspond to part of the input_ids that 
+                    # are out of bounds or correspond to part of the input_ids that
                     # are not in the context.
                     if (
                         start_index >= len(offset_mapping)
@@ -365,7 +365,7 @@ def postprocess_qa_predictions(
             prelim_predictions, key=lambda x: x["score"], reverse=True
         )[:n_best_size]
 
-        # Add back the minimum null prediction if it was removed because of its 
+        # Add back the minimum null prediction if it was removed because of its
         # low score.
         if version_2_with_negative and not any(
             p["offsets"] == (0, 0) for p in predictions
