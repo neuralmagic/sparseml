@@ -47,7 +47,6 @@ except Exception:
 from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.sparsification.quantization.helpers import (
-    QUANTIZABLE_MODULE_TYPES,
     add_quant_dequant,
     configure_module_default_qconfigs,
     configure_module_qat_wrappers,
@@ -94,8 +93,8 @@ class QuantizationModifier(ScheduledModifier):
     :param submodules: List of submodule names to perform QAT on. Leave None to quantize
         entire model. Default is None
     :param model_fuse_fn_name: Name of model function to fuse the model in place prior
-        to performing QAT.  Set as 'no_fuse' to skip module fusing. Leave None to use
-        the default function `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
+        to performing QAT.  Set as None or 'no_fuse' to skip module fusing. Set as 'conv_bv_relus'
+        to use `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         Default is None
     :param disable_quantization_observer_epoch: Epoch to disable updates to the module's
         quantization observers. After this point, quantized weights and zero points will
@@ -143,10 +142,10 @@ class QuantizationModifier(ScheduledModifier):
         reduce_range: bool = False,
         quantize_linear_output_activations: bool = False,
         quantize_conv_output_activations: bool = False,
-        quantize_add_input_activations: bool = True,
         activation_bits: Optional[int] = None,
         weight_bits: Optional[int] = None,
         num_calibration_steps: Optional[int] = None,
+        exclude_batchnorm: bool = True,
         exclude_module_types: Union[List[str], None] = None,
         activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
@@ -175,9 +174,9 @@ class QuantizationModifier(ScheduledModifier):
         self._reduce_range = reduce_range
         self._quantize_linear_output_activations = quantize_linear_output_activations
         self._quantize_conv_output_activations = quantize_conv_output_activations
-        self._quantize_add_input_activations = quantize_add_input_activations
         self._activation_bits = activation_bits
         self._weight_bits = weight_bits
+        self._exclude_batchnorm = exclude_batchnorm
         self._exclude_module_types = exclude_module_types
 
         self._modules_to_quantize = None
@@ -233,7 +232,8 @@ class QuantizationModifier(ScheduledModifier):
             to performing QAT. None to uses the default function
             `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         """
-        return self._model_fuse_fn_name
+        fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else 'no_fuse'
+        return fuse_fn
 
     @model_fuse_fn_name.setter
     def model_fuse_fn_name(self, value: Union[str, None]):
@@ -416,10 +416,7 @@ class QuantizationModifier(ScheduledModifier):
         if self._submodules is not None:
             found_submodules = []
             for name, submodule in module.named_modules():
-                if (
-                        type(submodule) in QUANTIZABLE_MODULE_TYPES
-                        and name in self._submodules
-                ):
+                if name in self._submodules:
                     self._modules_to_quantize.append(_ModuleToQuantize(name, submodule))
                     found_submodules.append(name)
             if not len(found_submodules) == len(self._submodules):
@@ -509,10 +506,10 @@ class QuantizationModifier(ScheduledModifier):
 
     def _enable_module_qat(self, module: Module):
         # fuse module Conv-BNs
-        if (
-            self._model_fuse_fn_name is not None
-            and self._model_fuse_fn_name != "no_fuse"
-        ):  # module class fn
+        if self._model_fuse_fn_name == 'conv_bn_relus':
+            self._model_fuse_fn_kwargs["inplace"] = True
+            fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
+        elif self.model_fuse_fn_name != "no_fuse":
             module_fuse_fn = getattr(module, self._model_fuse_fn_name, None)
             if module_fuse_fn is None or not callable(module_fuse_fn):
                 raise ValueError(
@@ -522,16 +519,13 @@ class QuantizationModifier(ScheduledModifier):
                     )
                 )
             module_fuse_fn(**self._model_fuse_fn_kwargs)
-        elif self._model_fuse_fn_name is None:  # default auto fn
-            self._model_fuse_fn_kwargs["inplace"] = True
-            fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
 
         activation_qconfig_kwargs = self._get_updated_activation_qconfig_kwargs()
         weight_qconfig_kwargs = self._get_updated_weight_qconfig_kwargs()
 
         to_remove_layer_name = []
         if not self._quantize_linear_output_activations:
-            to_remove_layer_name.extend(["Linear", "LinearReLu"])
+            to_remove_layer_name.extend(["Linear", "LinearReLU"])
 
         if not self._quantize_conv_output_activations:
             to_remove_layer_name.extend(
@@ -565,8 +559,15 @@ class QuantizationModifier(ScheduledModifier):
             remove_activation_qat_by_layer_name(quant_module, to_remove_layer_name)
 
         # remove qconfigs for module types in exclude_module_types
+        to_exclude = []
         if self._exclude_module_types:
-            self._strip_excluded_module_qconfigs(module)
+            to_exclude.extend(self._exclude_module_types)
+
+        if self._exclude_batchnorm:
+            to_exclude.extend(['BatchNorm1d', 'BatchNorm2d', 'BatchNorm3d'])
+
+        self._exclude_module_types = to_exclude
+        self._strip_excluded_module_qconfigs(module)
 
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)
