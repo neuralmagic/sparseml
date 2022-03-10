@@ -397,7 +397,7 @@ def configure_module_bn_wrappers(module: Module):
             weights. Default is {}
     """
     # wrap any children of the given module as a QATWrapper if required
-    if type(module) != BNWrapper:
+    if type(module) not in _BN_MODULE_TYPES:
         for child_name, child_module in module.named_children():
             if type(child_module) in [torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d]:
                 setattr(
