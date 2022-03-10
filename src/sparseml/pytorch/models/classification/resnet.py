@@ -140,14 +140,14 @@ class _IdentityModifier(Module):
 
 
 class _AddReLU(Module):
-    def __init__(self, num_channels):
+    def __init__(self):
         super().__init__()
         if FloatFunctional:
             self.functional = FloatFunctional()
             self.wrap_qat = True
             self.qat_wrapper_kwargs = {'num_inputs': 1, 'num_outputs': 0}
         else:
-            self.functional = ReLU(num_channels=num_channels, inplace=True)
+            self.functional = ReLU(num_channels=out_channels, inplace=True)
 
     def forward(self, x, y):
         if isinstance(self.functional, FloatFunctional):
@@ -179,7 +179,7 @@ class _BasicBlock(Module):
             else None
         )
 
-        self.add_relu = _AddReLU(out_channels)
+        self.add_relu = _AddReLU()
 
         self.initialize()
 
@@ -236,7 +236,7 @@ class _BottleneckBlock(Module):
             else None
         )
 
-        self.add_relu = _AddReLU(out_channels)
+        self.add_relu = _AddReLU()
 
         self.initialize()
 
