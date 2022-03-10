@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Helper variables and functions for integrating SparseML with huggingface/transformers 
+Helper variables and functions for integrating SparseML with huggingface/transformers
 flows
 """
 
