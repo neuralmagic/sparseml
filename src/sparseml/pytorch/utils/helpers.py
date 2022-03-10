@@ -736,9 +736,11 @@ def get_conv_layers(module: Module) -> Dict[str, Module]:
     :param module: the module to grab all conv layers for
     :return: a list of all the conv layers in the module
     """
-    convs = {name: mod for (name, mod) in module.named_modules() if isinstance(mod, _ConvNd)}
-
-    return convs
+    return {
+        name: mod
+        for name, mod in module.named_modules()
+        if isinstance(mod, _ConvNd)
+    }
 
 
 def get_linear_layers(module: Module) -> Dict[str, Module]:
@@ -746,13 +748,11 @@ def get_linear_layers(module: Module) -> Dict[str, Module]:
     :param module: the module to grab all linear layers for
     :return: a list of all linear layers in the module
     """
-    linears = {}
-
-    for name, mod in module.named_modules():
-        if isinstance(mod, Linear):
-            linears[name] = mod
-
-    return linears
+    return {
+        name: mod
+        for name, mod in module.named_modules()
+        if isinstance(mod, Linear)
+    }
 
 
 def get_prunable_layers(module: Module) -> List[Tuple[str, Module]]:
