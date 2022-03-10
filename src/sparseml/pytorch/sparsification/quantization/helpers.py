@@ -32,7 +32,6 @@ except Exception:
 from sparseml.pytorch.nn import ReLU as ReLU_nm
 
 __all__ = [
-    "QUANTIZABLE_MODULE_TYPES",
     "QATWrapper",
     "configure_module_qat_wrappers",
     "configure_module_default_qconfigs",
@@ -45,7 +44,7 @@ __all__ = [
     "prepare_embeddings_qat",
 ]
 
-QUANTIZABLE_MODULE_TYPES = (
+_QUANTIZABLE_MODULE_TYPES = (
     {
         # Conv based layers
         torch.nn.Conv1d,
@@ -150,6 +149,7 @@ class QATWrapper(Module):
             else weight_qconfig_kwargs or qat_wrapper_kwargs["weight_qconfig_kwargs"]
         )
 
+        module.qconfig = None
         return QATWrapper(forward_fn=module, **qat_wrapper_kwargs)
 
     def __init__(
@@ -398,7 +398,7 @@ def add_quant_dequant(module, name=None, parent_module=None):
     """
     named_children = module.named_children()
     if (
-            type(module) in QUANTIZABLE_MODULE_TYPES
+            type(module) in _QUANTIZABLE_MODULE_TYPES
             and hasattr(module, "qconfig")
             and module.qconfig
     ):
