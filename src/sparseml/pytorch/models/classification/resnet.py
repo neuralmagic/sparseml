@@ -41,12 +41,10 @@ from torch.nn import (
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.nn import ReLU
 
-
 try:
     from torch.nn.quantized import FloatFunctional
 except Exception:
     FloatFunctional = None
-
 
 __all__ = [
     "ResNetSectionSettings",
@@ -141,6 +139,23 @@ class _IdentityModifier(Module):
         return in_channels != out_channels or stride > 1
 
 
+class _AddReLU(Module):
+    def __init__(self):
+        super().__init__()
+        if FloatFunctional:
+            self.functional = FloatFunctional()
+            self.wrap_qat = True
+            self.qat_wrapper_kwargs = {'num_inputs': 1, 'num_outputs': 0}
+        else:
+            self.functional = ReLU(num_channels=out_channels, inplace=True)
+
+    def forward(self, x, y):
+        if isinstance(self.functional, FloatFunctional):
+            return self.functional.add_relu(x, y)
+        else:
+            return self.functional(x + y)
+
+
 class _BasicBlock(Module):
     def __init__(self, in_channels: int, out_channels: int, stride: int = 1):
         super().__init__()
@@ -164,11 +179,7 @@ class _BasicBlock(Module):
             else None
         )
 
-        self.add_relu = (
-            FloatFunctional()
-            if FloatFunctional is not None
-            else ReLU(num_channels=out_channels, inplace=True)
-        )
+        self.add_relu = _AddReLU()
 
         self.initialize()
 
@@ -181,12 +192,7 @@ class _BasicBlock(Module):
         out = self.bn2(out)
 
         identity_val = self.identity(inp) if self.identity is not None else inp
-
-        if isinstance(self.add_relu, FloatFunctional):
-            out = self.add_relu.add_relu(out, identity_val)
-        else:
-            out += identity_val
-            out = self.add_relu(out)
+        out = self.add_relu(identity_val, out)
 
         return out
 
@@ -199,12 +205,12 @@ class _BasicBlock(Module):
 
 class _BottleneckBlock(Module):
     def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        proj_channels: int,
-        stride: int = 1,
-        groups: int = 1,
+            self,
+            in_channels: int,
+            out_channels: int,
+            proj_channels: int,
+            stride: int = 1,
+            groups: int = 1,
     ):
         super().__init__()
 
@@ -230,11 +236,7 @@ class _BottleneckBlock(Module):
             else None
         )
 
-        self.add_relu = (
-            FloatFunctional()
-            if FloatFunctional is not None
-            else ReLU(num_channels=out_channels, inplace=True)
-        )
+        self.add_relu = _AddReLU()
 
         self.initialize()
 
@@ -252,11 +254,7 @@ class _BottleneckBlock(Module):
 
         identity_val = self.identity(inp) if self.identity is not None else inp
 
-        if isinstance(self.add_relu, FloatFunctional):
-            out = self.add_relu.add_relu(out, identity_val)
-        else:
-            out += identity_val
-            out = self.add_relu(out)
+        out = self.add_relu(identity_val, out)
 
         return out
 
@@ -323,12 +321,12 @@ class _BasicBlockV2(Module):
 
 class _BottleneckBlockV2(Module):
     def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        proj_channels: int,
-        stride: int = 1,
-        groups: int = 1,
+            self,
+            in_channels: int,
+            out_channels: int,
+            proj_channels: int,
+            stride: int = 1,
+            groups: int = 1,
     ):
         super().__init__()
 
@@ -439,15 +437,15 @@ class ResNetSectionSettings(object):
     """
 
     def __init__(
-        self,
-        num_blocks: int,
-        in_channels: int,
-        out_channels: int,
-        downsample: bool,
-        proj_channels: int = -1,
-        groups: int = 1,
-        use_se: bool = False,
-        version: int = 1,
+            self,
+            num_blocks: int,
+            in_channels: int,
+            out_channels: int,
+            downsample: bool,
+            proj_channels: int = -1,
+            groups: int = 1,
+            use_se: bool = False,
+            version: int = 1,
     ):
         if use_se:
             # TODO: add support for squeeze excite
@@ -481,10 +479,10 @@ class ResNet(Module):
     """
 
     def __init__(
-        self,
-        sec_settings: List[ResNetSectionSettings],
-        num_classes: int,
-        class_type: str,
+            self,
+            sec_settings: List[ResNetSectionSettings],
+            num_classes: int,
+            class_type: str,
     ):
         super().__init__()
         self.input = _Input()
