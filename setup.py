@@ -49,13 +49,19 @@ _deps = [
     "scipy>=1.0.0",
     "tqdm>=4.0.0",
     "toposort>=1.0",
+    "GPUtil>=1.4.0",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
 ]
-_pytorch_deps = ["torch>=1.1.0,<=1.9.0", "tensorboard>=1.0", "tensorboardX>=1.0"]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.10.0"]
+_pytorch_deps = [
+    "torch>=1.1.0,<=1.10.2",
+    "tensorboard>=1.0",
+    "tensorboardX>=1.0",
+    "gputils",
+]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.11.3"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
@@ -66,22 +72,23 @@ _keras_deps = ["tensorflow~=2.2.0", "keras2onnx>=1.0.0"]
 
 _dev_deps = [
     "beautifulsoup4==4.9.3",
-    "black>=20.8b1",
-    "flake8>=3.8.3",
-    "isort>=5.7.0",
+    "black==21.5b2",
+    "flake8==3.9.2",
+    "isort==5.8.0",
     "m2r2~=0.2.7",
+    "mistune==0.8.4",
     "myst-parser~=0.14.0",
-    "rinohtype>=0.4.2",
-    "sphinx>=3.4.0",
-    "sphinx-copybutton>=0.3.0",
-    "sphinx-markdown-tables>=0.0.15",
-    "sphinx-multiversion==0.2.4",
-    "sphinx-pydantic>=0.1.0",
-    "sphinx-rtd-theme>=0.5.0",
+    "rinohtype~=0.4.2",
+    "sphinx~=3.5.0",
+    "sphinx-copybutton~=0.3.0",
+    "sphinx-markdown-tables~=0.0.15",
+    "sphinx-multiversion~=0.2.4",
+    "sphinx-pydantic~=0.1.0",
+    "sphinx-rtd-theme~=0.5.0",
     "wheel>=0.36.2",
-    "pytest>=6.0.0",
-    "pytest-mock>=3.6.1",
-    "flaky>=3.0.0",
+    "pytest~=6.2.0",
+    "pytest-mock~=3.6.0",
+    "flaky~=3.7.0",
     "sphinx-rtd-theme",
 ]
 
@@ -112,24 +119,49 @@ def _setup_extras() -> Dict:
     }
 
 
-_transformers_entry_point_template = (
-    "sparseml.transformers.train.{task}=sparseml.transformers.train.{task}:main"
-)
-
-
 def _setup_entry_points() -> Dict:
-    return {
+    entry_points = {
         "console_scripts": [
+            # sparsification
             "sparseml.benchmark=sparseml.benchmark.info:_main",
             "sparseml.framework=sparseml.framework.info:_main",
             "sparseml.sparsification=sparseml.sparsification.info:_main",
-            _transformers_entry_point_template.format(task="question_answering"),
-            _transformers_entry_point_template.format(task="text_classification"),
-            _transformers_entry_point_template.format(task="token_classification"),
-            _transformers_entry_point_template.format(task="language_modeling"),
-            "sparseml.transformers.export_onnx=sparseml.transformers.utils.export:main",
         ]
     }
+
+    # transformers integration
+    for task in [
+        "question_answering",
+        "text_classification",
+        "token_classification",
+    ]:
+        entry_points["console_scripts"].extend(
+            [
+                f"sparseml.transformers.{task}=sparseml.transformers.{task}:main",
+                f"sparseml.transformers.train.{task}=sparseml.transformers.{task}:main",
+            ]
+        )
+
+    entry_points["console_scripts"].append(
+        "sparseml.transformers.export_onnx=sparseml.transformers.export:main"
+    )
+
+    # image classification integration
+
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.image_classification.export_onnx="
+            "sparseml.pytorch.image_classification.export:main",
+            "sparseml.image_classification.train="
+            "sparseml.pytorch.image_classification.train:main",
+            "sparseml.image_classification.lr_analysis="
+            "sparseml.pytorch.image_classification.lr_analysis:main",
+            "sparseml.image_classification.pr_sensitivity="
+            "sparseml.pytorch.image_classification.pr_sensitivity:main",
+        ]
+    )
+
+    return entry_points
 
 
 def _setup_long_description() -> Tuple[str, str]:

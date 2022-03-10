@@ -25,7 +25,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import BaseManager, load_recipe_yaml_str
+from sparseml.optim import BaseManager, load_recipe_yaml_str, parse_recipe_variables
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, is_parallel_model
 from sparsezoo.objects import Recipe
@@ -250,8 +250,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
     @staticmethod
     def from_yaml(
         file_path: Union[str, Recipe],
-        add_modifiers: List[Modifier] = None,
-        **recipe_variables,
+        add_modifiers: Optional[List[Modifier]] = None,
+        recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
     ):
         """
         Convenience function used to create the manager of multiple modifiers from a
@@ -266,10 +266,11 @@ class ScheduledModifierManager(BaseManager, Modifier):
              yaml str is also supported in place of a file path.
         :param add_modifiers: additional modifiers that should be added to the
             returned manager alongside the ones loaded from the recipe file
-        :param recipe_variables: additional variable values to override the recipe
-            with (i.e. num_epochs, init_lr)
+        :param recipe_variables: additional arguments to override any root variables
+            in the recipe with (i.e. num_epochs, init_lr)
         :return: ScheduledModifierManager() created from the recipe file
         """
+        recipe_variables = parse_recipe_variables(recipe_variables)
         yaml_str = load_recipe_yaml_str(file_path, **recipe_variables)
         modifiers = Modifier.load_list(yaml_str)
 
@@ -290,7 +291,17 @@ class ScheduledModifierManager(BaseManager, Modifier):
             Includes all modifiers nested under this manager as sub keys in the dict.
             Only modifiers that a non empty state dict are included.
         """
-        state_dict = {mod.identifier(): mod.state_dict() for mod in self.modifiers}
+
+        def _modifiers_list_state_dict(modifiers):
+            return {mod.identifier(): mod.state_dict() for mod in modifiers}
+
+        if isinstance(self.modifiers, List):
+            state_dict = _modifiers_list_state_dict(self.modifiers)
+        else:
+            state_dict = {
+                stage: _modifiers_list_state_dict(modifiers)
+                for stage, modifiers in self.modifiers
+            }
 
         return state_dict
 
@@ -307,11 +318,27 @@ class ScheduledModifierManager(BaseManager, Modifier):
         :raises IndexError: If any keys in the state dict do not correspond to a valid
             index for this manager and strict=True
         """
-        modifiers_index = {mod.identifier(): mod for mod in self.modifiers}
+        if isinstance(self.modifiers, List):
+            modifiers_index = {mod.identifier(): mod for mod in self.modifiers}
+        else:
+            if strict:
+                modifiers_stages = set(self.modifiers.keys())
+                state_dict_stages = set(state_dict.keys())
+                diff = modifiers_stages.symmetric_difference(state_dict_stages)
+                if diff:
+                    raise IndexError(
+                        f"Found extra stages: {state_dict_stages - modifiers_stages}"
+                        f"and missing stages: {modifiers_stages - state_dict_stages}"
+                    )
+            modifiers_index = {}
+            for stage_modifiers in self.modifiers.values():
+                modifiers_index.update(
+                    {mod.identifier(): mod for mod in stage_modifiers}
+                )
 
         if strict:
-            modifier_keys = {key for key in modifiers_index.keys()}
-            state_dict_keys = {key for key in state_dict.keys()}
+            modifier_keys = set(modifiers_index.keys())
+            state_dict_keys = set(state_dict.keys())
             diff = modifier_keys.symmetric_difference(state_dict_keys)
             if diff:
                 raise IndexError(
@@ -324,6 +351,32 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 continue
 
             modifiers_index[key].load_state_dict(val)
+
+    def apply_structure(
+        self,
+        module: Module,
+        epoch: float = 0.0,
+        loggers: Optional[List[BaseLogger]] = None,
+        finalize: bool = False,
+        **kwargs,
+    ):
+        """
+        Initialize/apply the modifier for a given model/module at the given epoch
+        if the modifier affects the structure of the module such as
+        quantization, layer pruning, or filter pruning.
+        Calls into initialize(module, epoch, loggers, **kwargs) if structured.
+
+        :param module: the PyTorch model/module to modify
+        :param epoch: the epoch to apply the modifier at, defaults to 0.0 (start)
+        :param loggers: Optional list of loggers to log the modification process to
+        :param finalize: True to invoke finalize after initialize, False otherwise.
+            Set finalize to True and epoch to math.inf for one shot application.
+        :param kwargs: Optional kwargs to support specific arguments
+            for individual modifiers (passed to initialize and finalize).
+        """
+        self._initialize_epoch = epoch
+        for mod in self.iter_modifiers():
+            mod.apply_structure(module, epoch, loggers, finalize, **kwargs)
 
     def initialize(
         self,
@@ -348,7 +401,11 @@ class ScheduledModifierManager(BaseManager, Modifier):
         super().initialize(module, epoch, loggers, **kwargs)
         self._initialize_epoch = epoch
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
+            if mod.initialized:
+                # check in case modifier was initialized from apply_structure
+                continue
+
             mod.initialize(module, epoch, loggers, **kwargs)
 
     def initialize_loggers(self, loggers: Union[None, List[BaseLogger]]):
@@ -360,7 +417,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().initialize_loggers(loggers)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             mod.initialize_loggers(loggers)
 
     def modify(
@@ -371,6 +428,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         wrap_optim: Any = None,
         epoch: float = None,
         allow_parallel_module: bool = True,
+        **kwargs,
     ) -> RecipeManagerStepWrapper:
         """
         Modify the given module and optimizer for training aware algorithms such as
@@ -393,6 +451,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
             module.module. This is useful so a recipe may reference the base module
             parameters instead of the wrapped distributed ones. Set to True to not
             unwrap the distributed module. Default is True
+        :param kwargs: Key word arguments that are passed to the intialize call
+            if initilaize has not been called yet
         :return: A wrapped optimizer object. The wrapped object makes all the
             original properties for the wrapped object available so it can be
             used without any additional code changes.
@@ -414,7 +474,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
                 module = module.module  # unwrap parallel module
 
         if not self.initialized:
-            self.initialize(module, epoch)
+            self.initialize(module, epoch, **kwargs)
 
         if wrap_optim is None:
             wrap_optim = optimizer
@@ -440,7 +500,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().finalize(module, reset_loggers, **kwargs)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             mod.finalize(module, reset_loggers, **kwargs)
 
     def update(
@@ -465,7 +525,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().update(module, optimizer, epoch, steps_per_epoch)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             if not mod.enabled:
                 continue
 
@@ -498,7 +558,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().loss_update(loss, module, optimizer, epoch, steps_per_epoch, **kwargs)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             if not mod.enabled:
                 continue
 
@@ -524,7 +584,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().optimizer_pre_step(module, optimizer, epoch, steps_per_epoch)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             if not mod.enabled:
                 continue
 
@@ -545,7 +605,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         """
         super().optimizer_post_step(module, optimizer, epoch, steps_per_epoch)
 
-        for mod in self._modifiers:
+        for mod in self.iter_modifiers():
             if not mod.enabled:
                 continue
 

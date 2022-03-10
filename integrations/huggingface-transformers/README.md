@@ -116,3 +116,5 @@ python transformers/examples/pytorch/question-answering/run_qa.py \
 
 The DeepSparse Engine [accepts ONNX formats](https://docs.neuralmagic.com/sparseml/source/onnx_export.html) and is engineered to significantly speed up inference on CPUs for the sparsified models from this integration.
 Examples for loading, benchmarking, and deploying can be found in the [DeepSparse repository here](https://github.com/neuralmagic/deepsparse).
+
+**Note: there is currently a known issue where conversion of the BERT models from PyTorch into ONNX is not preserving the accuracy of the model for some tasks and datasets. If you encounter this issue, try rolling back to the 0.9.0 release. As a resolution is being actively investigated, this note will be removed when the issue has been remediated.** 

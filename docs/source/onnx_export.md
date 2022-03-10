@@ -37,7 +37,7 @@ exporter.export_onnx(sample_batch=torch.randn(1, 1, 28, 28))
 
 ## Exporting Keras to ONNX
 
-ONNX is not built into the Keras system, but is supported through an ONNX official tool [keras2onnx](https://github.com/onnx/keras-onnx). The `ModelExporter` class under the `sparseml.keras.utils` package features an `export_onnx` function built on top of keras2onnx.
+ONNX is not built into the Keras system, but is supported through an ONNX official tool [keras2onnx.](https://github.com/onnx/keras-onnx) The `ModelExporter` class under the `sparseml.keras.utils` package features an `export_onnx` function built on top of keras2onnx.
 Example code:
 
 ```python
@@ -52,7 +52,7 @@ exporter.export_onnx()
 ## Exporting TensorFlow V1 to ONNX
 
 ONNX is not built into the TensorFlow system, but it is supported through an ONNX official tool
-[tf2onnx](https://github.com/onnx/tensorflow-onnx).
+[tf2onnx.](https://github.com/onnx/tensorflow-onnx)
 The `GraphExporter` class under the `sparseml.tensorflow_v1.utils` package features an
 `export_onnx` function built on top of tf2onnx.
 Note that the ONNX file is created from the protobuf graph representation, so `export_pb` must be called first.

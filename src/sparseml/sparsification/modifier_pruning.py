@@ -26,7 +26,13 @@ from sparseml.optim.modifier import (
     BaseUpdate,
     ModifierProp,
 )
-from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
+from sparseml.sparsification.types import SparsificationTypes
+from sparseml.utils import (
+    ALL_TOKEN,
+    FROM_PARAM_TOKEN,
+    convert_to_bool,
+    validate_str_iterable,
+)
 
 
 __all__ = [
@@ -73,6 +79,13 @@ class ConstantPruningModifier(BaseModifier, BaseScheduled):
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)
         )  # type: List[str]
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.pruning]
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
@@ -174,6 +187,13 @@ class GMPruningModifier(BaseModifier, BaseScheduled, BaseUpdate):
         self._leave_enabled = convert_to_bool(leave_enabled)
 
         self.validate()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.pruning]
 
     @ModifierProp()
     def params(self) -> Union[str, List[str]]:
@@ -304,19 +324,23 @@ class GMPruningModifier(BaseModifier, BaseScheduled, BaseUpdate):
                 )
             )
 
-        if not isinstance(self._init_sparsity, float):
+        if not isinstance(self.init_sparsity, float) and (
+            self.init_sparsity != FROM_PARAM_TOKEN
+        ):
             raise TypeError(
-                "init_sparsity must be of float type for {}".format(
-                    self.__class__.__name__
+                "init_sparsity must be of float type or be '{}' for {}".format(
+                    self.__class__.__name__, FROM_PARAM_TOKEN
                 )
             )
 
-        if not 0.0 <= self._init_sparsity <= 1.0:
+        if isinstance(self.init_sparsity, float) and (
+            not 0.0 <= self.init_sparsity <= 1.0
+        ):
             raise ValueError(
                 (
                     "init_sparsity value must be in the range"
                     " [0.0, 1.0], given {} for {}"
-                ).format(self._init_sparsity, self.__class__.__name__)
+                ).format(self.init_sparsity, self.__class__.__name__)
             )
 
         if not isinstance(self._final_sparsity, (float, List)):

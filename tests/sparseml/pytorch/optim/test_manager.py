@@ -13,14 +13,17 @@
 # limitations under the License.
 
 import os
+from collections import OrderedDict
 from typing import Callable
 
 import pytest
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+from sparseml.optim import BaseModifier
 from sparseml.pytorch.optim import Modifier, ScheduledModifierManager
 from tests.sparseml.pytorch.helpers import (
+    SAMPLE_STAGED_RECIPE,
     LinearNet,
     create_optim_adam,
     create_optim_sgd,
@@ -72,3 +75,36 @@ def test_manager_yaml():
     manager = ScheduledModifierManager([ScheduledModifierImpl()])
     yaml_str = str(manager)
     assert yaml_str
+
+
+@pytest.mark.parametrize("staged_recipe", [SAMPLE_STAGED_RECIPE])
+def test_manager_staged_recipe_serialization(staged_recipe):
+    manager = ScheduledModifierManager.from_yaml(staged_recipe)
+    assert isinstance(manager.modifiers, OrderedDict)
+
+    manager_yaml_str = str(manager)
+    reloaded_manager = ScheduledModifierManager.from_yaml(manager_yaml_str)
+    isinstance(reloaded_manager.modifiers, OrderedDict)
+
+    # test iter modifiers
+    modifiers_list = list(manager.iter_modifiers())
+    reloaded_modifiers_list = list(reloaded_manager.iter_modifiers())
+    assert len(modifiers_list) == len(reloaded_modifiers_list) > 0
+    for mod, reloaded_mod in zip(modifiers_list, reloaded_modifiers_list):
+        assert isinstance(mod, BaseModifier)
+        assert type(mod) is type(reloaded_mod)
+
+    # test stages dict
+    assert len(manager.modifiers) == len(reloaded_manager.modifiers)
+    for stage_name, reloaded_stage_name in zip(
+        manager.modifiers, reloaded_manager.modifiers
+    ):
+        assert stage_name == reloaded_stage_name
+        stage_modifiers = manager.modifiers[stage_name]
+        reloaded_stage_modifiers = reloaded_manager.modifiers[reloaded_stage_name]
+        assert isinstance(stage_modifiers, list)
+        assert isinstance(reloaded_stage_modifiers, list)
+        assert len(stage_modifiers) == len(reloaded_stage_modifiers) > 0
+        assert [type(mod) for mod in stage_modifiers] == (
+            [type(mod) for mod in reloaded_stage_modifiers]
+        )

@@ -23,6 +23,7 @@ from sparseml.optim.modifier import (
     BaseUpdate,
     ModifierProp,
 )
+from sparseml.sparsification.types import SparsificationTypes
 from sparseml.utils import ALL_TOKEN
 
 
@@ -67,6 +68,13 @@ class SetLearningRateModifier(BaseModifier, BaseScheduled):
         )
         self._learning_rate = learning_rate
         self.validate_learning_rate()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.learning_rate]
 
     @ModifierProp()
     def learning_rate(self) -> float:
@@ -148,6 +156,13 @@ class LearningRateModifier(BaseModifier, BaseScheduled, BaseUpdate):
         self._lr_kwargs = lr_kwargs
         self._init_lr = init_lr
         self.validate_lr_info()
+
+    @BaseModifier.sparsification_types.getter
+    def sparsification_types(self) -> List[SparsificationTypes]:
+        """
+        :return: the sparsification types this modifier instance will apply
+        """
+        return [SparsificationTypes.learning_rate]
 
     @ModifierProp()
     def lr_class(self) -> str:

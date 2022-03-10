@@ -35,6 +35,7 @@ from sparsezoo.utils import load_numpy_list
 __all__ = [
     "ALL_TOKEN",
     "ALL_PRUNABLE_TOKEN",
+    "FROM_PARAM_TOKEN",
     "flatten_iterable",
     "convert_to_bool",
     "validate_str_iterable",
@@ -64,6 +65,7 @@ __all__ = [
 
 ALL_TOKEN = "__ALL__"
 ALL_PRUNABLE_TOKEN = "__ALL_PRUNABLE__"
+FROM_PARAM_TOKEN = "__FROM_PARAM__"
 _LOGGER = logging.getLogger(__name__)
 
 

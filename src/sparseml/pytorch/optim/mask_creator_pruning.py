@@ -14,6 +14,10 @@
 
 """
 Classes for defining sparsity masks based on model parameters.
+
+NOTE: this file is in the process of being phased out in favor of the
+sparsification package. Once all references to mask utils in the optim
+package are migrated, this file will be deleted
 """
 
 import random
@@ -172,7 +176,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             local_rng = random.Random(42)
             local_rng.shuffle(rand_indices)
             num_elem = tensor.numel()
-            num_mask = int(num_elem * sparsity_target)
+            num_mask = round(num_elem * sparsity_target)
             rand_indices = rand_indices[:num_mask]
             rand_indices = tensor.new_tensor(rand_indices, dtype=torch.int64)
             zero_indices = zero_indices[rand_indices, :]
