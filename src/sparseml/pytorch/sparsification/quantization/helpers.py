@@ -106,7 +106,7 @@ class BNWrapper(Module):
 
     def train(self, mode=True):
         if not self.freeze_bn:
-            self.bn.train()
+            self.bn.train(mode)
         return self
 
     def update_bn_stats(self):
