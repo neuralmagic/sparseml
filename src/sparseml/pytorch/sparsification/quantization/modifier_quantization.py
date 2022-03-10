@@ -234,7 +234,7 @@ class QuantizationModifier(ScheduledModifier):
             to performing QAT. None to uses the default function
             `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         """
-        fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else 'no_fuse'
+        fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else 'conv_bn_relus'
         return fuse_fn
 
     @model_fuse_fn_name.setter
@@ -508,8 +508,8 @@ class QuantizationModifier(ScheduledModifier):
 
     def _enable_module_qat(self, module: Module):
         # fuse module Conv-BNs
-        if self._model_fuse_fn_name == 'conv_bn_relus':
-            self._model_fuse_fn_kwargs["inplace"] = True
+        if self.model_fuse_fn_name == 'conv_bn_relus':
+            self.model_fuse_fn_kwargs["inplace"] = True
             fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
         elif self.model_fuse_fn_name != "no_fuse":
             module_fuse_fn = getattr(module, self._model_fuse_fn_name, None)
