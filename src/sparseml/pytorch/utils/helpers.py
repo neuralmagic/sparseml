@@ -737,9 +737,7 @@ def get_conv_layers(module: Module) -> Dict[str, Module]:
     :return: a list of all the conv layers in the module
     """
     return {
-        name: mod
-        for name, mod in module.named_modules()
-        if isinstance(mod, _ConvNd)
+        name: mod for name, mod in module.named_modules() if isinstance(mod, _ConvNd)
     }
 
 
@@ -749,9 +747,7 @@ def get_linear_layers(module: Module) -> Dict[str, Module]:
     :return: a list of all linear layers in the module
     """
     return {
-        name: mod
-        for name, mod in module.named_modules()
-        if isinstance(mod, Linear)
+        name: mod for name, mod in module.named_modules() if isinstance(mod, Linear)
     }
 
 
