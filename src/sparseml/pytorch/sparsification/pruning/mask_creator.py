@@ -31,6 +31,7 @@ __all__ = [
     "GroupedPruningMaskCreator",
     "UnstructuredPruningMaskCreator",
     "FourBlockMaskCreator",
+    "BlockMaskCreator",
 ]
 
 
@@ -422,3 +423,148 @@ class FourBlockMaskCreator(GroupedPruningMaskCreator):
             permute_val.insert(1, len(permute_val))
             block_mask = block_mask.permute(*permute_val)
         return block_mask
+
+
+class BlockMaskCreator(GroupedPruningMaskCreator):
+    """
+    Structured sparsity mask creator that groups the input tensor into blocks of
+    shape block_shape.
+
+    :param block_shape: The shape in and out channel should take in blocks.  Should be
+        a list of exactly two integers that divide the input tensors evenly on the
+        channel dimensions.  -1 for a dimension blocks across the entire dimension
+    :param grouping_fn_name: The name of the torch grouping function to reduce
+        dimensions by
+    """
+
+    def __init__(
+        self,
+        block_shape: List[int],
+        grouping_fn_name: str = "mean",
+    ):
+        if len(block_shape) < 2:
+            raise ValueError(
+                (
+                    "Invalid block_shape: {}, "
+                    "block_shape must have length == 2 for in and out channels"
+                ).format(block_shape)
+            )
+
+        if len(block_shape) > 2 and not all([shape == 1 for shape in block_shape[2:]]):
+            # after in and out channels, only 1 can be used for other dimensions
+            raise ValueError(
+                (
+                    "Invalid block_shape: {}, "
+                    "block_shape for indices not in [0, 1] must be equal to 1"
+                ).format(block_shape)
+            )
+
+        self._block_shape = block_shape
+        self._grouping_fn_name = grouping_fn_name
+
+    def group_tensor(self, tensor: Tensor) -> Tensor:
+        """
+        :param tensor: The tensor to transform
+        :return: The mean values of the tensor grouped by blocks of shape
+            self._block_shape
+        """
+        blocked_tens_shape = self._get_blocked_tens_shape_and_validate(tensor.shape)
+        blocked_tensor = tensor.reshape(blocked_tens_shape)
+        reduced_blocks = GroupedPruningMaskCreator.reduce_tensor(
+            blocked_tensor, 1, self._grouping_fn_name
+        )
+        return reduced_blocks.type(tensor.type())
+
+    def _map_mask_to_tensor(
+        self,
+        grouped_mask: Tensor,
+        original_tensor_shape: torch.Size,
+        tensor_idx: Optional[int] = None,
+    ) -> Tensor:
+        """
+        :param grouped_mask: A binary mask the size of a tensor from group_tensor
+        :param original_tensor_shape: Shape of the original tensor grouped_mask
+            derives from
+        :param tensor_idx: optional index this tensor was passed into a tensor
+            list for mask creation
+        :return: The values from grouped_mask mapped to a tensor of size
+            original_tensor_shape
+        """
+        blocked_tens_shape = self._get_blocked_tens_shape_and_validate(
+            original_tensor_shape
+        )
+        # expand so every element has a corresponding value in the original tensor
+        block_mask = grouped_mask.reshape(blocked_tens_shape[0], blocked_tens_shape[2])
+        block_mask = block_mask.unsqueeze(1)
+        block_mask = block_mask.expand(*blocked_tens_shape).contiguous()
+        return block_mask.reshape(original_tensor_shape)
+
+    def _get_blocked_tens_shape_and_validate(
+        self,
+        tens_shape: torch.Size,
+    ) -> List[int]:
+        """
+        :param tens_shape: The shape of the tensor to group in blocks
+        :return: shape of tens when blocked by block_shape
+        :raise: ValueError if we are unable to block tens by shape block_shape
+        """
+        block_shape = self._block_shape
+        n_dims = len(tens_shape)
+        while len(block_shape) < n_dims:  # Conv will have block shape [X, Y, 1, ..., 1]
+            block_shape.append(1)
+        for idx, shape in enumerate(block_shape):
+            if shape == -1:
+                block_shape[idx] = tens_shape[idx]
+        # Validate
+        if n_dims < 2:
+            raise ValueError(
+                "Invalid tensor shape {}."
+                " BlockSparsityMaskCreator can only create masks from tensors with 2 or"
+                " more dimensions, tensor has {}.".format(tens_shape, n_dims)
+            )
+        for tens_dim, block_dim in zip(tens_shape, block_shape):
+            if tens_dim % block_dim != 0:
+                raise ValueError(
+                    f"Invalid block_shape {block_shape} for parameter shape "
+                    f"{tens_shape}. Elements of block_shape must divide parameter "
+                    f"shape evenly"
+                )
+        # Compute blocked tensor shape
+        if len(block_shape) > 1 and block_shape[1] > 1:
+            return [
+                tens_shape[0] * tens_shape[1] // (block_shape[0] * block_shape[1]),
+                block_shape[0] * block_shape[1],
+                -1,
+            ]
+        else:
+            return [tens_shape[0] // block_shape[0], block_shape[0], -1]
+
+
+def get_mask_creator_default(mask_type: Union[str, List[int]]) -> PruningMaskCreator:
+    """
+    :param mask_type: type of mask creator to use, can be 'unstructured', for
+        unstructured mask creator, 'block4' for 1x4 block pruning, or a list of two
+        integers for custom block pruning (does not support padding)
+    :return: mask creator object created from the mask type
+    """
+    if mask_type == "unstructured":
+        return UnstructuredPruningMaskCreator()
+    elif mask_type == "block4":
+        return FourBlockMaskCreator()
+    elif isinstance(mask_type, List):
+        if not all(isinstance(val, int) for val in mask_type):
+            raise ValueError(
+                "all values in list specification of BlockMaskCreator must be integers "
+                f"found {mask_type}"
+            )
+        if len(mask_type) != 2:
+            raise ValueError(
+                "expected list of length 2 for specification of BlockMaskCreator, "
+                f"got list with length {len(mask_type)}, mask_type={mask_type}"
+            )
+        return BlockMaskCreator(mask_type)
+    else:
+        raise ValueError(
+            f"Unknown mask_type {mask_type}. Supported mask types include "
+            "'unstructured' and 'block'"
+        )

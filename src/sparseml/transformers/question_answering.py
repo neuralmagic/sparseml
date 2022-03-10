@@ -339,11 +339,6 @@ def main():
             )
 
     # Setup logging
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
     _LOGGER.setLevel(logging.INFO if training_args.should_log else logging.WARN)
 
     # Log on each process the small summary:

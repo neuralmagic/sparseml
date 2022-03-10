@@ -24,9 +24,8 @@ from torch.nn import Parameter
 
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
-    FourBlockMaskCreator,
     PruningMaskCreator,
-    UnstructuredPruningMaskCreator,
+    get_mask_creator_default,
 )
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BaseGradualPruningModifier,
@@ -104,8 +103,9 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         [linear, cubic, inverse_cubic]
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
-    :param mask_type: String to define type of sparsity to apply. May be 'unstructured'
-        for unstructured pruning or 'block' for four block pruning
+    :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
+        for unstructured pruning or 'block4' for four block pruning or a list of two
+        integers for a custom block shape. Default is 'unstructured'
     """
 
     def __init__(
@@ -152,15 +152,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         :param params: list of parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
-        if self.mask_type == "unstructured":
-            return UnstructuredPruningMaskCreator()
-        elif self.mask_type == "block":
-            return FourBlockMaskCreator()
-        else:
-            raise ValueError(
-                f"Unknown mask_type {self.mask_type}. Supported mask types include "
-                "'unstructured' and 'block'"
-            )
+        return get_mask_creator_default(self.mask_type)
 
     def _get_scorer(self, params: List[Parameter]) -> PruningParamsScorer:
         """
@@ -221,7 +213,8 @@ class MagnitudePruningModifier(GMPruningModifier):
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
-        for unstructured pruning or 'block' for four block pruning
+        for unstructured pruning or 'block4' for four block pruning or a list of two
+        integers for a custom block shape. Default is 'unstructured'
     """
 
     # just an alias for GMPruningModifier
@@ -274,7 +267,8 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
-        for unstructured pruning or 'block' for four block pruning
+        for unstructured pruning or 'block4' for four block pruning or a list of two
+        integers for a custom block shape. Default is 'unstructured'
     """
 
     def __init__(
