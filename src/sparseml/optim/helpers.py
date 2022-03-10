@@ -18,7 +18,6 @@ Helper functions for base Modifier and Manger utilities
 
 import json
 import re
-from collections import ChainMap
 from contextlib import suppress
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -219,6 +218,7 @@ def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> 
             )
 
     container.update(variables)
+
     return rewrite_recipe_yaml_string_with_classes(container)
 
 
@@ -250,7 +250,10 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
                 val, variables, non_val_variables
             )
 
-    return rewrite_recipe_yaml_string_with_classes(container)
+    # I find it really helpful to use the container returned by this function.
+    # I'd love to either make this return only the container
+    # or the (func(container), container)
+    return rewrite_recipe_yaml_string_with_classes(container), container
 
 
 def check_if_staged_recipe(container: dict) -> bool:
@@ -445,44 +448,82 @@ def _maybe_parse_number(val: str) -> Union[str, float, int]:
 
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     """
-    Compare the metadata carried over from the recipe (`yaml_str`) with the
-    new, incoming metadata ('metadata').
+    Merge the metadata carried over from the recipe (`yaml_str`) with
+    the new, incoming metadata ('metadata').
+
+    If yaml_str is a staged recipe, this function returns a multi-key
+        dict where:
+        -keys are stage names
+        -values are metadata for respective stage name
+    If yaml_str is a normal recipe, this function returns a single-key
+        dict where:
+        -key is '__metadata__'
+        -value is metadata for the recipe
+
     If there exists a key in new metadata which also exists in previous metadata,
-    it will overwrite the old metadata. However, it is prohibitive to pass unseen keys.
+    it will overwrite the old metadata. However, it is prohibitive to pass novel keys.
+
     :param metadata: New metadata
     :param yaml_str: String representation of the recipe YAML file,
-        (maybe contains previous metadata)
+        (may contains previous metadata)
     :return: Validated metadata
     """
 
-    previous_metadatas = dict(
-        ChainMap(
-            *[
-                yaml.safe_load(metadata_str)
-                for metadata_str in yaml_str.split("\n")
-                if "metadata" in metadata_str
-            ]
-        )
-    )
+    default_metadata_key = "__metadata__"
+    _, container = evaluate_recipe_yaml_str_equations(yaml_str)
+    is_recipe_staged = check_if_staged_recipe(container)
 
-    if previous_metadatas:  # we are working with a checkpoint file
-        if metadata:
-            for key, value in metadata.items():
-                key_found = False
-                for stage_name, stage_metadata in previous_metadatas.items():
-                    for k, v in stage_metadata.items():
-                        if key == v:
-                            previous_metadatas[stage_name][k] = value
-                            key_found = True
-
-                if not key_found:
-                    raise ValueError(
-                        f"The previously unseen metadata key {k} "
-                        f"has not been recognized in previous "
-                        f"metadata {previous_metadatas}"
-                    )
-
-        return previous_metadatas
+    if is_recipe_staged:
+        stage_names = [
+            stage_name
+            for stage_name, stage_dict in container.items()
+            if isinstance(stage_dict, dict)
+        ]
+        prev_metadata = {
+            stage_name: container[stage_name]["metadata"]
+            for stage_name in stage_names
+            if "metadata" in container[stage_name]
+        }
 
     else:
-        return {"recipe_metadata": metadata}
+        if "metadata" in container.keys():
+            prev_metadata = {default_metadata_key: container["metadata"]}
+        else:
+            prev_metadata = {}
+
+    # checking if new metadata does not conflict with
+    # the previous, possibly overwriting previous_data
+    if metadata and prev_metadata:
+        for k, v in metadata.items():
+            key_found = False
+            for stage_name, metadata_dict in prev_metadata.items():
+                if k in metadata_dict.keys():
+                    if is_recipe_staged:
+                        container[stage_name]["metadata"][k] = v
+                    else:
+                        container["metadata"][k] = v
+
+                    key_found = True
+            if not key_found:
+                raise ValueError(
+                    f"The previously unseen metadata key {k} "
+                    f"has not been recognized in previous "
+                    f"metadata."
+                )
+        return prev_metadata
+
+    elif not metadata and prev_metadata:
+        return prev_metadata
+
+    else:
+        # if we pass fresh metadata to a staged recipe with no previous metadata,
+        # we overwrite all the stages with the fresh metadata.
+        # Wondering whether this is correct behaviour, maybe raise ValueError?
+        if is_recipe_staged:
+            return {
+                stage_name: metadata
+                for stage_name, stage_dict in container.items()
+                if isinstance(stage_dict, dict)
+            }
+        else:
+            return {default_metadata_key: metadata}

@@ -85,9 +85,6 @@ def load_model(
     model_dict = torch.load(path, map_location="cpu")
     current_dict = model.state_dict()
 
-    checkpoint_epoch = model_dict.get("epoch", float("inf"))
-    checkpoint_recipe = model_dict.get("recipe", None)
-
     if "state_dict" in model_dict:
         model_dict = model_dict["state_dict"]
 
@@ -119,15 +116,6 @@ def load_model(
             model_dict[ignore] = current_dict[ignore]
         elif ignore in model_dict and ignore not in current_dict:
             del model_dict[ignore]
-
-    # apply checkpoint recipe if present to make any potential structural changes
-    if checkpoint_recipe is not None:
-        # import here to avoid cyclic dependencies
-        from sparseml.pytorch.optim import ScheduledModifierManager
-
-        ScheduledModifierManager.from_yaml(checkpoint_recipe).apply(
-            model, epoch=checkpoint_epoch
-        )
 
     model.load_state_dict(model_dict, strict)
 
@@ -225,15 +213,6 @@ def save_model(
 
     if optimizer:
         save_dict["optimizer"] = optimizer.state_dict()
-
-        # save recipe from manager if exists
-        if hasattr(optimizer, "manager") or hasattr(optimizer, "wrapped_manager"):
-            manager = (
-                optimizer.manager
-                if hasattr(optimizer, "manager")
-                else optimizer.wrapped_manager
-            )
-            save_dict["recipe"] = str(manager)
 
     if epoch:
         save_dict["epoch"] = epoch

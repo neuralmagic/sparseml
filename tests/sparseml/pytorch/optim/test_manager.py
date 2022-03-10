@@ -42,13 +42,13 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 )
 
 
-RECIPE_LEVEL_0 = """
+STANDARD_RECIPE_1 = """
 init_sparsity: 0.2
 final_sparsity: 0.8
 
 modifiers:
     - !EpochRangeModifier
-        end_epoch: 1.0
+        end_epoch: 3.0
         start_epoch: 0.0
 
     - !GMPruningModifier
@@ -64,137 +64,389 @@ modifiers:
         mask_type: unstructured
 """
 
-RECIPE_LEVEL_1 = """
+STANDARD_RECIPE_2 = """
 compression_sparsity: 0.5
 
 training_modifiers:
     - !EpochRangeModifier
-        end_epoch: 1.0
+        end_epoch: 6.0
         start_epoch: 0.0
 
 pruning_modifiers:
     - !ACDCPruningModifier
         compression_sparsity: eval(compression_sparsity)
-        start_epoch: 2.0
-        end_epoch: 6.0
+        start_epoch: 2
+        end_epoch: 5
         update_frequency: 2
         params: ["re:.*weight"]
 """
 
 
-RECIPE_LEVEL_0_EVAL = """version: 1.1.0
+STANDARD_RECIPE_1_EVAL = """version: 1.1.0
 
+metadata:
+  level: 0
+  metadata: null
 modifiers:
-    - !EpochRangeModifier
-        end_epoch: 1.0
-        start_epoch: 0.0
+- !EpochRangeModifier
+    end_epoch: 3.0
+    start_epoch: 0.0
+- !GMPruningModifier
+    end_epoch: 3.0
+    final_sparsity: 0.8
+    init_sparsity: 0.2
+    inter_func: cubic
+    leave_enabled: true
+    log_types: __ALL__
+    mask_type: unstructured
+    params:
+    - re:.*weight
+    start_epoch: 0.0
+    update_frequency: 1.0
+"""
 
-    - !GMPruningModifier
-        end_epoch: 3.0
-        final_sparsity: 0.8
-        init_sparsity: 0.2
-        inter_func: cubic
-        leave_enabled: True
-        log_types: __ALL__
-        mask_type: unstructured
-        params: ['re:.*weight']
-        start_epoch: 0.0
-        update_frequency: 1.0
+TWO_STAGES_RECIPE = """version: 1.1.0
 
-recipe_metadata: {'metadata': None, 'level': 0}"""
+{stage_0_name}:
+  metadata:
+    level: 0
+    metadata: null
+  stage_0_modifiers:
+  - !EpochRangeModifier
+      end_epoch: 3.0
+      start_epoch: 0.0
+  - !GMPruningModifier
+      end_epoch: 3.0
+      final_sparsity: 0.8
+      init_sparsity: 0.2
+      inter_func: cubic
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      params:
+      - re:.*weight
+      start_epoch: 0.0
+      update_frequency: 1.0
+{stage_1_name}:
+  metadata:
+    level: 1
+    metadata: null
+  stage_1_modifiers:
+  - !ACDCPruningModifier
+      compression_sparsity: 0.5
+      end_epoch: 8
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      momentum_buffer_reset: true
+      params:
+      - re:.*weight
+      start_epoch: 5
+      update_frequency: 2
+  - !EpochRangeModifier
+      end_epoch: 9.0
+      start_epoch: 3.0
+"""
 
-RECIPE_LEVEL_1_EVAL = """version: 1.1.0
+
+THREE_STAGES_RECIPE_1 = """version: 1.1.0
 
 stage_0:
+  metadata:
+    level: 0
+    metadata: null
   stage_0_modifiers:
-      - !EpochRangeModifier
-          end_epoch: 1.0
-          start_epoch: 0.0
-
-      - !GMPruningModifier
-          end_epoch: 3.0
-          final_sparsity: 0.8
-          init_sparsity: 0.2
-          inter_func: cubic
-          leave_enabled: True
-          log_types: __ALL__
-          mask_type: unstructured
-          params: ['re:.*weight']
-          start_epoch: 0.0
-          update_frequency: 1.0
-
-
+  - !EpochRangeModifier
+      end_epoch: 3.0
+      start_epoch: 0.0
+  - !GMPruningModifier
+      end_epoch: 3.0
+      final_sparsity: 0.8
+      init_sparsity: 0.2
+      inter_func: cubic
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      params:
+      - re:.*weight
+      start_epoch: 0.0
+      update_frequency: 1.0
 stage_1:
+  metadata:
+    level: 1
+    metadata: null
   stage_1_modifiers:
-      - !EpochRangeModifier
-          end_epoch: 4.0
-          start_epoch: 3.0
+  - !ACDCPruningModifier
+      compression_sparsity: 0.5
+      end_epoch: 8
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      momentum_buffer_reset: true
+      params:
+      - re:.*weight
+      start_epoch: 5
+      update_frequency: 2
+  - !EpochRangeModifier
+      end_epoch: 9.0
+      start_epoch: 3.0
+stage_2:
+  metadata:
+    level: 3
+    metadata: null
+  stage_2_modifiers:
+  - !EpochRangeModifier
+      end_epoch: 12.0
+      start_epoch: 9.0
+  - !GMPruningModifier
+      end_epoch: 12.0
+      final_sparsity: 0.8
+      init_sparsity: 0.2
+      inter_func: cubic
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      params:
+      - re:.*weight
+      start_epoch: 9.0
+      update_frequency: 1.0
+"""
+THREE_STAGES_RECIPE_2 = """version: 1.1.0
 
-      - !ACDCPruningModifier
-          compression_sparsity: 0.5
-          end_epoch: 9
-          leave_enabled: True
-          log_types: __ALL__
-          mask_type: unstructured
-          momentum_buffer_reset: True
-          params: ['re:.*weight']
-          start_epoch: 5
-          update_frequency: 2
+stage_-1:
+  metadata:
+    level: 0
+    metadata: null
+  stage_-1_modifiers:
+  - !EpochRangeModifier
+      end_epoch: 3.0
+      start_epoch: 0.0
+  - !GMPruningModifier
+      end_epoch: 3.0
+      final_sparsity: 0.8
+      init_sparsity: 0.2
+      inter_func: cubic
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      params:
+      - re:.*weight
+      start_epoch: 0.0
+      update_frequency: 1.0
+stage_0:
+  metadata:
+    level: 1
+    metadata: null
+  stage_0_modifiers:
+  - !EpochRangeModifier
+      end_epoch: 6.0
+      start_epoch: 3.0
+  - !GMPruningModifier
+      end_epoch: 6.0
+      final_sparsity: 0.8
+      init_sparsity: 0.2
+      inter_func: cubic
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      params:
+      - re:.*weight
+      start_epoch: 3.0
+      update_frequency: 1.0
+stage_1:
+  metadata:
+    level: 1
+    metadata: null
+  stage_1_modifiers:
+  - !ACDCPruningModifier
+      compression_sparsity: 0.5
+      end_epoch: 12
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      momentum_buffer_reset: true
+      params:
+      - re:.*weight
+      start_epoch: 8
+      update_frequency: 2
+  - !EpochRangeModifier
+      end_epoch: 12.0
+      start_epoch: 6.0
+"""
 
+FOUR_STAGES_RECIPE = """version: 1.1.0
 
-stage_0_metadata: {'metadata': 'None', 'level': 0}
-stage_1_metadata: {'metadata': None, 'level': 1}"""
+stage_0:
+  metadata:
+    level: 0
+    metadata: null
+  stage_0_modifiers:
+  - !EpochRangeModifier
+      end_epoch: 3.0
+      start_epoch: 0.0
+  - !GMPruningModifier
+      end_epoch: 3.0
+      final_sparsity: 0.8
+      init_sparsity: 0.2
+      inter_func: cubic
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      params:
+      - re:.*weight
+      start_epoch: 0.0
+      update_frequency: 1.0
+stage_1:
+  metadata:
+    level: 1
+    metadata: null
+  stage_1_modifiers:
+  - !ACDCPruningModifier
+      compression_sparsity: 0.5
+      end_epoch: 6
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      momentum_buffer_reset: true
+      params:
+      - re:.*weight
+      start_epoch: 5
+      update_frequency: 2
+  - !EpochRangeModifier
+      end_epoch: 9.0
+      start_epoch: 3.0
+stage_3:
+  metadata:
+    level: 1
+    metadata: null
+  stage_3_modifiers:
+  - !EpochRangeModifier
+      end_epoch: 12.0
+      start_epoch: 9.0
+  - !GMPruningModifier
+      end_epoch: 12.0
+      final_sparsity: 0.8
+      init_sparsity: 0.2
+      inter_func: cubic
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      params:
+      - re:.*weight
+      start_epoch: 9.0
+      update_frequency: 1.0
+stage_4:
+  metadata:
+    level: 1
+    metadata: null
+  stage_4_modifiers:
+  - !ACDCPruningModifier
+      compression_sparsity: 0.5
+      end_epoch: 16
+      leave_enabled: true
+      log_types: __ALL__
+      mask_type: unstructured
+      momentum_buffer_reset: true
+      params:
+      - re:.*weight
+      start_epoch: 14
+      update_frequency: 2
+  - !EpochRangeModifier
+      end_epoch: 18.0
+      start_epoch: 12.0
+"""
+METADATA = """{{'metadata': None, 'level': {level}}}"""
 
-
-RECIPE_LEVEL_2_EVAL = """"""
-
-METADATA_LEVEL_0 = {"metadata": None, "level": 0}
-METADATA_LEVEL_1 = {"metadata": None, "level": 1}
-METADATA_LEVEL_2 = {"metadata": None, "level": 2}
-METADATA_ERR = {"break": None, "level": 0}
+# TODO: Investigate a peculiar bug, in `optim/modifier.py Line 319
+# yaml.safe_load() improperly parses end_epoch for ACDC
 
 
 @pytest.mark.parametrize(
-    "recipe,metadata,checkpoint_recipe,expected_recipe,raise_value_error",
+    "recipe,checkpoint_recipe,metadata,expected_recipe,raise_value_error",
     [
-        (RECIPE_LEVEL_1_EVAL, METADATA_ERR, None, None, True),
-        (RECIPE_LEVEL_0, METADATA_LEVEL_0, None, RECIPE_LEVEL_0_EVAL, False),
+        # Testing saving standard recipe with metadata, no stage composing.
         (
-            RECIPE_LEVEL_1,
-            METADATA_LEVEL_1,
-            RECIPE_LEVEL_0_EVAL,
-            RECIPE_LEVEL_1_EVAL,
+            STANDARD_RECIPE_1,
+            None,
+            eval(METADATA.format(level=0)),
+            STANDARD_RECIPE_1_EVAL,
             False,
         ),
-        # ( RECIPE_LEVEL_1, METADATA_LEVEL_2,
-        # RECIPE_LEVEL_1_EVAL, RECIPE_LEVEL_2_EVAL, False,)
+        # Testing composing standard recipe (with metadata)
+        # with a standard checkpoint recipe
+        (
+            STANDARD_RECIPE_2,
+            STANDARD_RECIPE_1_EVAL,
+            eval(METADATA.format(level=1)),
+            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            False,
+        ),
+        # Testing composing standard recipe (with metadata)
+        # with a staged checkpoint recipe
+        (
+            STANDARD_RECIPE_1,
+            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            eval(METADATA.format(level=3)),
+            THREE_STAGES_RECIPE_1,
+            False,
+        ),
+        # Testing composing staged recipe (with metadata)
+        # with standard checkpoint recipe (with metadata)
+        (
+            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            STANDARD_RECIPE_1_EVAL,
+            eval(METADATA.format(level=1)),
+            THREE_STAGES_RECIPE_2,
+            False,
+        ),
+        # Testing composing two staged recipes
+        (
+            TWO_STAGES_RECIPE.format(stage_0_name="stage_3", stage_1_name="stage_4"),
+            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            eval(METADATA.format(level=1)),
+            FOUR_STAGES_RECIPE,
+            False,
+        ),
+        # Testing composing two stage recipes with
+        # same stage names -> should raise ValueError
+        (
+            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            None,
+            FOUR_STAGES_RECIPE,
+            True,
+        ),
     ],
 )
 def test_lifecycle_manager_staged(
     recipe, metadata, checkpoint_recipe, expected_recipe, raise_value_error
 ):
-    if raise_value_error:
-        with pytest.raises(ValueError):
-            recipe_manager = ScheduledModifierManager.from_yaml(
-                file_path=recipe, metadata=metadata
+    temp_dir = tempfile.mkdtemp()
+    recipe_path = os.path.join(temp_dir, "recipy.yaml")
+    recipe_manager = ScheduledModifierManager.from_yaml(
+        file_path=recipe, metadata=metadata
+    )
+    if checkpoint_recipe:
+        if raise_value_error:
+            with pytest.raises(ValueError):
+                recipe_manager = ScheduledModifierManager.compose_staged(
+                    checkpoint_recipe, recipe, metadata=recipe_manager._metadata
+                )
+            return
+        else:
+            # For now, it makes the most sense for me to
+            # do composing recipes and metadata together using this method.
+            # I'd gladly discuss it and seek for the most efficient approach.
+            recipe_manager = ScheduledModifierManager.compose_staged(
+                base_recipe=checkpoint_recipe,
+                additional_recipe=recipe,
+                additional_metadata=recipe_manager._metadata,
             )
-    else:
+    recipe_manager.save(recipe_path)
 
-        temp_dir = tempfile.mkdtemp()
-        recipe_path = os.path.join(temp_dir, "recipy.yaml")
-        recipe_manager = ScheduledModifierManager.from_yaml(
-            file_path=recipe, metadata=metadata
-        )
-        checkpoint_manager = (
-            ScheduledModifierManager.from_yaml(file_path=checkpoint_recipe)
-            if checkpoint_recipe
-            else None
-        )
-        recipe_manager.save(recipe_path, checkpoint_manager)
-
-        with open(recipe_path, "r") as file:
-            final_recipe = file.read()
-        assert final_recipe == expected_recipe
+    with open(recipe_path, "r") as file:
+        final_recipe = file.read()
+    assert final_recipe == expected_recipe
 
 
 @pytest.mark.skipif(

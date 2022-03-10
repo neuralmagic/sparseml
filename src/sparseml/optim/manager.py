@@ -24,6 +24,11 @@ from copy import deepcopy
 from functools import cmp_to_key
 from typing import Any, Dict, Generator, List, Optional, Union
 
+from sparseml.optim import (
+    check_if_staged_recipe,
+    evaluate_recipe_yaml_str_equations,
+    rewrite_recipe_yaml_string_with_classes,
+)
 from sparseml.optim.modifier import BaseModifier, BaseObject, ModifierProp
 from sparseml.sparsification.types import SparsificationTypes
 from sparseml.utils import clean_path, create_parent_dirs
@@ -98,8 +103,8 @@ class BaseManager(BaseObject):
         cls,
         base_recipe: Union[str, "BaseManager"],
         additional_recipe: Union[str, "BaseManager"],
+        additional_metadata=Dict[str, Any],
         keep_original_epochs: bool = False,
-        additional_metadata=False,
     ) -> "BaseManager":
         """
         composes two recipes into a multi-stage recipe where epochs
@@ -111,6 +116,8 @@ class BaseManager(BaseObject):
             to the base recipe. epoch ranges for additional_recipe will be adjusted
             to come after base_recipe unless keep_original_epochs is set.
             May be a string YAML recipe, file path, or Manager object
+        :param additional_metadata:
+            # TODO: Add docstring if this implementation accepted
         :param keep_original_epochs: by default, epochs in additional_recipe will
             be overwritten to come after base_recipe. setting keep_original_epochs
             to True prevents this behavior. Default is False
@@ -124,10 +131,11 @@ class BaseManager(BaseObject):
         if not isinstance(additional_recipe, BaseManager):
             additional_recipe = cls.from_yaml(additional_recipe)
 
+        # Both base_recipe and additional_recipe are non-staged_recipes
         if isinstance(base_recipe.modifiers, List) and isinstance(
             additional_recipe.modifiers, List
         ):
-            # Both base_recipe and additional_recipe are non-staged_recipes
+            # Need to generate stage names for two standard recipes
             base_stage_name, additional_stage_name = [f"stage_{i}" for i in range(2)]
 
             base_stages = {base_stage_name: deepcopy(base_recipe.modifiers)}
@@ -135,35 +143,31 @@ class BaseManager(BaseObject):
                 additional_stage_name: deepcopy(additional_recipe.modifiers)
             }
 
+            # Need to generate stage names for two metadata dicts
             base_recipe._metadata[base_stage_name] = base_recipe._metadata.pop(
-                "recipe_metadata"
+                "__metadata__"
             )
             additional_metadata[additional_stage_name] = additional_metadata.pop(
-                "recipe_metadata"
+                "__metadata__"
             )
 
-            combined_metadata = base_recipe._metadata
-            combined_metadata.update(additional_metadata)
-
+        # Base_recipe is staged recipe and additional_recipe is not
         elif isinstance(base_recipe.modifiers, OrderedDict) and isinstance(
             additional_recipe.modifiers, List
         ):
-            # Both base_recipe is staged recipe
-            # and additional_recipe is non-stage_recipe
+
             base_stages = deepcopy(base_recipe.modifiers)
 
-            # Using the last name of base_recipe to
-            # figure out the name of stage for additional_recipe.
-            # If last_stage_name = [numer]_[digit] ->
-            #   additional_stage_name = [numer]_[digit + 1]
+            # Using the last name of base_recipe stages to
+            # generate the name of stage for additional_recipe.
+            # If last_stage_name = [...]_[digit] ->
+            #   additional_stage_name = [...]_[digit + 1]
             # Else: additional_stage_name = [last_stage_name]_0
-            last_stage_name = list(base_recipe.modifiers.keys())[-1]
-            last_stage_name_decomposed = last_stage_name.split("_")
-            if last_stage_name_decomposed[-1].isdigit():
-                last_stage_name_decomposed[-1] = str(
-                    int(last_stage_name_decomposed[-1]) + 1
-                )
-                additional_stage_name = "_".join(last_stage_name_decomposed)
+            #       (this will also happen if digit is negative)
+            last_stage_name = list(base_recipe.modifiers.keys())[-1].split("_")
+            if last_stage_name[-1].isdigit():
+                last_stage_name[-1] = str(int(last_stage_name[-1]) + 1)
+                additional_stage_name = "_".join(last_stage_name)
 
             else:
                 additional_stage_name = last_stage_name + "_0"
@@ -172,30 +176,42 @@ class BaseManager(BaseObject):
                 additional_stage_name: deepcopy(additional_recipe.modifiers)
             }
 
-            base_recipe._metadata = {
-                k.replace("_metadata", ""): v
-                for k, v in base_recipe._metadata.items()
-                if "_metadata" in k
-            }
             additional_metadata[additional_stage_name] = additional_metadata.pop(
-                "recipe_metadata"
+                "__metadata__"
             )
+            additional_metadata.update(base_recipe._metadata)
 
-            combined_metadata = base_recipe._metadata
-            combined_metadata.update(additional_metadata)
-
+        # Additional_recipe is staged recipe and base_recipe is not
         elif isinstance(base_recipe.modifiers, List) and isinstance(
             additional_recipe.modifiers, OrderedDict
         ):
-            raise NotImplementedError(
-                "Base_recipe not staged and additional_recipe is staged. "
-                "Will be similar to the case above."
+            additional_stages = deepcopy(additional_recipe.modifiers)
+
+            # Using the first name of additional_recipe stages to
+            # generate the name of stage for base_recipe.
+            # If first_stage_name = [...]_[digit] ->
+            #   base_stage_name = [...]_[digit - 1]
+            # Else: base_stage_name = [first_stage_name]_0
+            #       (this will also happen if digit is negative)
+            # TODO: Maybe refactor it to account for negative numbers
+            first_stage_name = list(additional_stages.keys())[0].split("_")
+            if first_stage_name[-1].isdigit():
+                first_stage_name[-1] = str(int(first_stage_name[-1]) - 1)
+                base_stage_name = "_".join(first_stage_name)
+
+            else:
+                base_stage_name = first_stage_name + "_0"
+
+            base_stages = {base_stage_name: deepcopy(base_recipe.modifiers)}
+
+            base_recipe._metadata[base_stage_name] = base_recipe._metadata.pop(
+                "__metadata__"
             )
 
+        # Both recipes are staged.
         else:
             base_stages = deepcopy(base_recipe.modifiers)
             additional_stages = deepcopy(additional_recipe.modifiers)
-            raise NotImplementedError("Base_recipe and additional_recipe both staged.")
 
         base_keys = set(base_stages.keys())
         additional_keys = set(additional_stages.keys())
@@ -211,15 +227,25 @@ class BaseManager(BaseObject):
             base_end_epoch = base_recipe.max_epochs
             for additional_modifiers in additional_stages.values():
                 for additional_modifier in additional_modifiers:
-                    if hasattr(additional_modifier, "start_epoch"):
-                        additional_modifier.start_epoch += base_end_epoch
+                    """
+                    Changed the order here because it is prohibitive
+                    in modifiers to set
+                    start_epoch > end_epoch. Now it is fine."""
                     if hasattr(additional_modifier, "end_epoch"):
                         additional_modifier.end_epoch += base_end_epoch
+                    if hasattr(additional_modifier, "start_epoch"):
+                        additional_modifier.start_epoch += base_end_epoch
 
         combined_stages = base_stages
         combined_stages.update(additional_stages)
 
-        return cls(combined_stages, combined_metadata)
+        # as discussed, this is the most elegant way
+        # I see to work with metadata.
+        # Let's discuss it.
+        metadata = base_recipe._metadata
+        metadata.update(additional_metadata)
+
+        return cls(combined_stages, additional_metadata)
 
     @ModifierProp(serializable=False)
     def modifiers(self) -> Union[List[BaseModifier], Dict[str, List[BaseModifier]]]:
@@ -349,47 +375,39 @@ class BaseManager(BaseObject):
 
         return max(vals) if len(vals) > 0 else -1
 
-    def save(
-        self,
-        file_path: str,
-        checkpoint_manager=None,
-        include_metadata: bool = True
-        # TODO: Add type and docstring to checkpoint manager
-    ):
+    def save(self, file_path: str, include_metadata: bool = True):
         """
         :param file_path: the file path to save the yaml config representation to
-        :param checkpoint_manager: ...
         :param include_metadata: boolean indicator whether metadata shall be
             appended to the yaml file before saving.
         """
         file_path = clean_path(file_path)
         create_parent_dirs(file_path)
 
-        if checkpoint_manager:
-            composed_manager = self.compose_staged(
-                checkpoint_manager, str(self), additional_metadata=self._metadata
-            )
-            metadata_serialized = ""
-            if include_metadata and self._metadata:
-                metadata_serialized = [
-                    f"\n{stage_name}_metadata: {composed_manager._metadata[stage_name]}"
-                    for stage_name in composed_manager.modifiers.keys()
-                ]
-                metadata_serialized = "".join(metadata_serialized)
+        _, container = evaluate_recipe_yaml_str_equations(str(self))
+
+        if include_metadata:
+            if check_if_staged_recipe(container):
+                for stage_name, metadata in self._metadata.items():
+                    container[stage_name]["metadata"] = metadata
+
+            else:
+                container["metadata"] = self._metadata["__metadata__"]
+
+            """This is a hack to make sure,
+            that the resulting saved recipe has nice
+            structure (version on top and then metadata -> modifiers).
+            Perhaps a better way to do this?"""
+
+            version = container["version"]
+            del container["version"]
+            yaml_str = rewrite_recipe_yaml_string_with_classes(container)
 
             with open(file_path, "w") as yaml_file:
-                yaml_file.write(str(composed_manager) + metadata_serialized)
-
+                yaml_file.write(f"version: {version}" + "\n\n" + yaml_str)
         else:
-            metadata_name = "recipe_metadata"
-            metadata_serialized = (
-                f"\n{metadata_name}: {str(self._metadata[metadata_name])}"
-                if include_metadata and self._metadata
-                else ""
-            )
-
             with open(file_path, "w") as yaml_file:
-                yaml_file.write(str(self) + metadata_serialized)
+                yaml_file.write(str(self))
 
     def finalize_and_save_structured_modifiers(self, file_path: str):
         """

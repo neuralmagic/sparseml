@@ -20,9 +20,8 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
-    FourBlockMaskCreator,
     PruningMaskCreator,
-    UnstructuredPruningMaskCreator,
+    get_mask_creator_default,
 )
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BasePruningModifier,
@@ -35,20 +34,6 @@ from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["ACDCPruningModifier"]
-
-
-def assert_not_decimal(x):
-    if isinstance(x, float):
-        if x.is_integer():
-            x = int(x)
-        else:
-            raise ValueError(
-                f"It is prohibitive to pass decimals for either of "
-                f"`start_epoch, `end_epoch` or `update_frequency. "
-                f"Detected: {x}"
-            )
-
-    return x
 
 
 @PyTorchModifierYAML()
@@ -84,9 +69,9 @@ class ACDCPruningModifier(BasePruningModifier):
         immediately after or doing some other prune. Default is True
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
-    :param mask_type: String to define type of sparsity (options: ['unstructured',
-        'channel', 'filter']), List to define block shape of a parameters in and out
-         channels, or a SparsityMaskCreator object. default is 'unstructured'
+    :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
+        for unstructured pruning or 'block4' for four block pruning or a list of two
+        integers for a custom block shape. Default is 'unstructured'
     :param momentum_buffer_reset: set True to reset momentum buffer
         before algorithm enters a consecutive decompression phase.
         According to the paper:
@@ -101,9 +86,9 @@ class ACDCPruningModifier(BasePruningModifier):
     def __init__(
         self,
         compression_sparsity: float,
-        start_epoch: Union[int, float],
-        end_epoch: Union[int, float],
-        update_frequency: Union[int, float],
+        start_epoch: float,
+        end_epoch: float,
+        update_frequency: float,
         params: Union[str, List[str]],
         global_sparsity: bool = True,
         leave_enabled: bool = True,
@@ -112,9 +97,6 @@ class ACDCPruningModifier(BasePruningModifier):
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
 
-        start_epoch = assert_not_decimal(start_epoch)
-        end_epoch = assert_not_decimal(end_epoch)
-        update_frequency = assert_not_decimal(update_frequency)
         # because method does not involve any interpolation
         # compression sparsity (final sparsity) is a single float.
         self._compression_sparsity = compression_sparsity
@@ -242,15 +224,7 @@ class ACDCPruningModifier(BasePruningModifier):
         :param params: list of Parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
-        if self._mask_type == "unstructured":
-            return UnstructuredPruningMaskCreator()
-        elif self._mask_type == "block":
-            return FourBlockMaskCreator()
-        else:
-            raise ValueError(
-                f"Unknown mask_type {self._mask_type}. Supported mask types include "
-                "'unstructured' and 'block'"
-            )
+        return get_mask_creator_default(self.mask_type)
 
     @staticmethod
     def _reset_momentum_buffer(optimizer):

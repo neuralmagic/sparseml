@@ -20,6 +20,7 @@ from sparseml.optim import (
     load_recipe_yaml_str,
     load_recipe_yaml_str_no_classes,
     update_recipe_variables,
+    validate_metadata,
 )
 
 
@@ -301,6 +302,78 @@ modifiers:
 pruning_start_epoch: 2.0
 """
 
+RECIPE_SIMPLE_EVAL_W_METADATA = """
+num_epochs: 10.0
+pruning_start_epoch: eval(num_epochs * 0.2)
+pruning_end_epoch: eval(num_epochs * 0.8)
+init_sparsity: 0.2
+num_pruning_epochs: 6
+metadata:
+  this: is
+  metadata: 90
+
+modifiers:
+    - !EpochRangeModifier
+        end_epoch: 1.0
+        start_epoch: 0.0
+
+    - !GMPruningModifier
+        end_epoch: eval(pruning_end_epoch)
+        final_sparsity: eval(init_sparsity + 0.7)
+        init_sparsity: eval(init_sparsity)
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: [1, 4]
+        params: __ALL_PRUNABLE__
+        start_epoch: eval(pruning_start_epoch)
+        update_frequency: 0.01
+"""
+
+STAGED_RECIPE_SIMPLE_EVAL_W_METADATA = """
+first_variable: 10
+second_variable: 5
+lr_multiplier: 2
+
+first_stage:
+  metadata:
+    this: is
+    metadata: 110
+  lr: 0.1
+  num_epochs: 10
+  init_lr: 0.2
+  final_lr: 0.1
+
+  training_modifiers:
+    - !EpochRangeModifier
+        end_epoch: 20
+        start_epoch: 0.0
+
+    - !LearningRateFunctionModifier
+      start_epoch: 0
+      end_epoch: 10
+      lr_func: linear
+      init_lr: 0.2
+      final_lr: 0.1
+
+next_stage:
+  metadata:
+    this: is
+    metadata: 120
+  new_num_epochs: 15
+  sparsity: 0.9
+
+  modifiers:
+    - !EpochRangeModifier
+        end_epoch: 15
+        start_epoch: 5
+
+    - !GMPruningModifier
+        end_epoch: 15
+        final_sparsity: 0.9
+        init_sparsity: 0.9
+"""
+
 
 def _test_nested_equality(val, other):
     assert type(val) == type(other)
@@ -332,7 +405,7 @@ def _test_nested_equality(val, other):
     ],
 )
 def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
-    evaluated_recipe = evaluate_recipe_yaml_str_equations(recipe)
+    evaluated_recipe, _ = evaluate_recipe_yaml_str_equations(recipe)
     evaluated_yaml = load_recipe_yaml_str_no_classes(evaluated_recipe)
     expected_is_staged = check_if_staged_recipe(evaluated_yaml)
     expected_yaml = load_recipe_yaml_str_no_classes(expected_recipe)
@@ -340,6 +413,99 @@ def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
     assert isinstance(evaluated_yaml, dict)
     assert isinstance(expected_yaml, dict)
     _test_nested_equality(evaluated_yaml, expected_yaml)
+
+
+METADATA = """{{"this": "is","{key}":{value}}}"""
+
+
+@pytest.mark.parametrize(
+    "metadata,yaml_str, expected_metadata, raise_value_error",
+    [
+        # Testing simple recipe
+        (
+            eval(METADATA.format(key="metadata", value=100)),
+            RECIPE_SIMPLE_EVAL,
+            {"__metadata__": eval(METADATA.format(key="metadata", value=100))},
+            False,
+        ),
+        # Testing simple recipe (metadata = None)
+        (None, RECIPE_SIMPLE_EVAL, {"__metadata__": None}, False),
+        # Testing simple recipe, overwriting previous metadata
+        (
+            eval(METADATA.format(key="metadata", value=120)),
+            RECIPE_SIMPLE_EVAL_W_METADATA,
+            {"__metadata__": eval(METADATA.format(key="metadata", value=120))},
+            False,
+        ),
+        # Testing simple recipe, previous metadata present but new metadata is None
+        (
+            None,
+            RECIPE_SIMPLE_EVAL_W_METADATA,
+            {"__metadata__": eval(METADATA.format(key="metadata", value=90))},
+            False,
+        ),
+        # Prohibitive scenario, adding novel metadata key to recipe
+        # with previous metadata
+        (
+            eval(METADATA.format(key="error", value=100)),
+            RECIPE_SIMPLE_EVAL_W_METADATA,
+            None,
+            True,
+        ),
+        # Testing staged recipe
+        (
+            eval(METADATA.format(key="metadata", value=150)),
+            STAGED_RECIPE_SIMPLE_EVAL,
+            {
+                "first_stage": eval(METADATA.format(key="metadata", value=150)),
+                "next_stage": eval(METADATA.format(key="metadata", value=150)),
+            },
+            False,
+        ),
+        # Testing staged recipe (metadata = None)
+        (
+            None,
+            STAGED_RECIPE_SIMPLE_EVAL,
+            {"first_stage": None, "next_stage": None},
+            False,
+        ),
+        # Testing staged recipe, overwriting previous metadata
+        (
+            eval(METADATA.format(key="metadata", value=150)),
+            STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
+            {
+                "first_stage": eval(METADATA.format(key="metadata", value=150)),
+                "next_stage": eval(METADATA.format(key="metadata", value=150)),
+            },
+            False,
+        ),
+        # Testing staged recipe, previous metadata present but new metadata is None
+        (
+            None,
+            STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
+            {
+                "first_stage": {"this": "is", "metadata": 110},
+                "next_stage": {"this": "is", "metadata": 120},
+            },
+            False,
+        ),
+        # Prohibitive scenario, adding novel metadata key to recipe
+        # with previous metadata
+        (
+            eval(METADATA.format(key="error", value=100)),
+            STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
+            None,
+            True,
+        ),
+    ],
+)
+def test_validate_metadata(metadata, yaml_str, expected_metadata, raise_value_error):
+    if raise_value_error:
+        with pytest.raises(ValueError):
+            metadata = validate_metadata(metadata, yaml_str)
+    else:
+        metadata = validate_metadata(metadata, yaml_str)
+        assert metadata == expected_metadata
 
 
 RECIPE_INVALID_LOOP = """
