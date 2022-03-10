@@ -216,7 +216,19 @@ class CrossEntropyLossWrapper(LossWrapper):
         label_smoothing: float = 0.0,
         extras: Union[None, Dict] = None,
     ):
-        super().__init__(CrossEntropyLoss(label_smoothing=label_smoothing), extras)
+        self.label_smoothing = label_smoothing
+
+        if torch.__version__ < "1.10.0":
+            if self.label_smoothing:
+                raise ValueError(
+                    f"Passed 'label_smoothing' argument to CrossEntropyLoss()."
+                    f"This functionality is only supported by PyTorch >= 1.10.0."
+                    f"However, PyTorch version detected: {torch.__version__}."
+                )
+            else:
+                super().__init__(CrossEntropyLoss(), extras)
+
+        super().__init__(CrossEntropyLoss(label_smoothing=self.label_smoothing), extras)
 
 
 class InceptionCrossEntropyLossWrapper(LossWrapper):

@@ -94,7 +94,10 @@ DEFAULT_KD_SETTINGS = KDSettings(teacher=default_kd_parent())
     ],
 )
 def test_label_smoothing(wrapper, data, label, expected_loss):
-    loss = wrapper._loss_fn(data, label)
+    if torch.__version__ < "1.10.0" and wrapper.label_smoothing:
+        # TODO: todo
+    else:
+        loss = wrapper._loss_fn(data, label)
     assert loss.item() == pytest.approx(expected_loss, 1e-4)
 
 
