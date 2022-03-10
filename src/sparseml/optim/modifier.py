@@ -23,6 +23,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Union
 
 import yaml
+from yaml import ScalarNode
 
 from sparseml.optim.helpers import evaluate_recipe_yaml_str_equations
 from sparseml.sparsification.types import SparsificationTypes
@@ -822,7 +823,11 @@ class ModifierYAML(object):
         def constructor(loader, node):
             instance = clazz.__new__(clazz)
             yield instance
-            state = loader.construct_mapping(node, deep=True)
+            state = (
+                loader.construct_mapping(node, deep=True)
+                if not isinstance(node, ScalarNode)
+                else {}
+            )
             instance.__init__(**state)
 
         yaml.add_constructor(yaml_key, constructor)
