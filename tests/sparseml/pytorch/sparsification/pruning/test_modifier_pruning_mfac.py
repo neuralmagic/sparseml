@@ -289,7 +289,7 @@ def test_mfac_pruning_yaml(params, init_sparsity, final_sparsity):
     fisher_block_size = 20
     num_pages = 1
     available_devices = ["cpu"]
-    mask_type = "block"
+    mask_type = "block4"
     yaml_str = f"""
     !MFACPruningModifier
         init_sparsity: {init_sparsity}
