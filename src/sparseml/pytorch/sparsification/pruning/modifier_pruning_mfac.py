@@ -32,9 +32,8 @@ from torch.nn.parallel.parallel_apply import parallel_apply
 import GPUtil
 from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
-    FourBlockMaskCreator,
     PruningMaskCreator,
-    UnstructuredPruningMaskCreator,
+    get_mask_creator_default,
 )
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
     BaseGradualPruningModifier,
@@ -109,9 +108,9 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         [linear, cubic, inverse_cubic]
     :param log_types: The loggers to allow the learning rate to be logged to,
         default is __ALL__
-    :param mask_type: String to define type of sparsity (options: ['unstructured',
-        'channel', 'filter']), List to define block shape of a parameters in and out
-        channels, or a SparsityMaskCreator object. default is 'unstructured'
+    :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
+        for unstructured pruning or 'block4' for four block pruning or a list of two
+        integers for a custom block shape. Default is 'unstructured'
     :param global_sparsity: set True to enable global pruning. if False, pruning will
         be layer-wise. Default is False
     :param use_gradient_buffering: Optional bool to use gradient buffering instead of
@@ -132,9 +131,9 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         Default is 1
     :param available_devices: list of device names to perform computation on. Default
         is empty
-    :param mask_type: String to define type of sparsity (options: ['unstructured',
-        'block']), List to define block shape of a parameters in and out
-         channels, or a SparsityMaskCreator object. default is 'unstructured'
+    :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
+        for unstructured pruning or 'block4' for four block pruning or a list of two
+        integers for a custom block shape. Default is 'unstructured'
     """
 
     def __init__(
@@ -296,15 +295,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         :param params: list of Parameters to be masked
         :return: mask creator object to be used by this pruning algorithm
         """
-        if self._mask_type == "unstructured":
-            return UnstructuredPruningMaskCreator()
-        elif self._mask_type == "block":
-            return FourBlockMaskCreator()
-        else:
-            raise ValueError(
-                f"Unknown mask_type {self._mask_type}. Supported mask types include "
-                "'unstructured' and 'block'"
-            )
+        return get_mask_creator_default(self.mask_type)
 
     def _get_scorer(self, params: List[Parameter]) -> PruningParamsGradScorer:
         """

@@ -154,14 +154,35 @@ def _test_model_analyzer(model_path: str, expected_output: str):
     analyzer = ModelAnalyzer(model_path)
 
     analyzer_from_json = ModelAnalyzer.from_dict(expected_output)
-    print(analyzer.dict())
-    assert analyzer.dict() == expected_output
-    assert analyzer == analyzer_from_json
+    analyzer_dict = analyzer.dict()
+
+    return (
+        True
+        if (analyzer_dict == expected_output) and (analyzer == analyzer_from_json)
+        else False
+    )
 
 
 def test_model_analyzer(analyzer_models):  # noqa: F811
-    model_path, expected_output = analyzer_models
-    _test_model_analyzer(model_path, expected_output)
+    model_path, *expected_outputs = analyzer_models
+    """
+    Depending whether we have test case written for legacy PyTorch
+    or both legacy and upgraded PyTorch, three lists below will have:
+    `len` of 1 (if only legacy PyTorch test case present)
+    `len` of 2 (if test case for legacy and upgraded PyTorch)
+    """
+
+    expected_outputs = [x for x in expected_outputs if x]
+    result = [False] * len(expected_outputs)
+    for i, expected_output in enumerate(expected_outputs):
+        result[i] = _test_model_analyzer(model_path, expected_output)
+    """
+    If we have only one test case, it must must evaluate to True,
+    If we have two test cases, at least one must evaluate to True.
+    In other words, we are happy with test passing for legacy or
+    upgraded PyTorch (worst case scenario).
+    """
+    assert any(result)
 
 
 def test_model_analyzer_from_repo(analyzer_models_repo):

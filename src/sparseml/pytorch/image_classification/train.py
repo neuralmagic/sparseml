@@ -615,7 +615,6 @@ def train(
                     helpers.save_model_training(
                         model,
                         optim,
-                        input_shape,
                         "checkpoint-best",
                         save_dir,
                         epoch,
@@ -633,7 +632,6 @@ def train(
                 helpers.save_model_training(
                     model,
                     optim,
-                    input_shape,
                     f"checkpoint-{epoch:04d}-{val_metric:.04f}",
                     save_dir,
                     epoch,
@@ -648,7 +646,7 @@ def train(
             # only convert qat -> quantized ONNX graph for finalized model
             # TODO: change this to all checkpoints when conversion times improve
             helpers.save_model_training(
-                model, optim, input_shape, "model", save_dir, epoch - 1, val_res, True
+                model, optim, "model", save_dir, epoch - 1, val_res
             )
 
             LOGGER.info("layer sparsities:")
