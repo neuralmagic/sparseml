@@ -509,7 +509,7 @@ class QuantizationModifier(ScheduledModifier):
     def _enable_module_qat(self, module: Module):
         # fuse module Conv-BNs
         if self.model_fuse_fn_name == 'conv_bn_relus':
-            self.model_fuse_fn_kwargs["inplace"] = True
+            self._model_fuse_fn_kwargs["inplace"] = True
             fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
         elif self.model_fuse_fn_name != "no_fuse":
             module_fuse_fn = getattr(module, self._model_fuse_fn_name, None)
