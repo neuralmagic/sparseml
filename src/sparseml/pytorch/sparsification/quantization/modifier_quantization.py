@@ -48,9 +48,11 @@ from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.sparsification.quantization.helpers import (
     add_quant_dequant,
+    configure_module_bn_wrappers,
     configure_module_default_qconfigs,
     configure_module_qat_wrappers,
     fix_observer_quant_range,
+    freeze_bn_stats,
     fuse_module_conv_bn_relus,
     get_qat_qconfig,
     get_updated_qconfig_kwargs,
@@ -232,7 +234,7 @@ class QuantizationModifier(ScheduledModifier):
             to performing QAT. None to uses the default function
             `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         """
-        fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else "no_fuse"
+        fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else 'no_fuse'
         return fuse_fn
 
     @model_fuse_fn_name.setter
@@ -262,7 +264,7 @@ class QuantizationModifier(ScheduledModifier):
 
     @disable_quantization_observer_epoch.setter
     def disable_quantization_observer_epoch(self, value: Union[float, None]):
-        """
+        """print
         :params value: Epoch to disable updates to the module's
             quantization observers. After this point, quantized weights and zero points
             will not be updated. Set None to not disable observers during QAT
@@ -355,6 +357,7 @@ class QuantizationModifier(ScheduledModifier):
             activations. Default is None, which will quantize activations to 8 bits.
         """
         return self._weight_bits
+
 
     @ModifierProp()
     def activation_qconfig_kwargs(self) -> Dict[str, Any]:
@@ -500,12 +503,12 @@ class QuantizationModifier(ScheduledModifier):
 
         if self._freeze_bn_stats_update_ready(epoch):
             for _, quant_module in self._modules_to_quantize:
-                quant_module.apply(torch_intrinsic.qat.freeze_bn_stats)
+                quant_module.apply(freeze_bn_stats)
             self._bn_stats_frozen = True
 
     def _enable_module_qat(self, module: Module):
         # fuse module Conv-BNs
-        if self._model_fuse_fn_name == "conv_bn_relus":
+        if self._model_fuse_fn_name == 'conv_bn_relus':
             self._model_fuse_fn_kwargs["inplace"] = True
             fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
         elif self.model_fuse_fn_name != "no_fuse":
@@ -528,21 +531,13 @@ class QuantizationModifier(ScheduledModifier):
 
         if not self._quantize_conv_output_activations:
             to_remove_layer_name.extend(
-                [
-                    "Conv1d",
-                    "Conv2d",
-                    "Conv3d",
-                    "ConvBn1d",
-                    "ConvBn2d",
-                    "ConvBn3d",
-                    "ConvReLU1d",
-                    "ConvReLU2d",
-                    "ConvReLU3d",
-                    "ConvBnReLU1d",
-                    "ConvBnReLU2d",
-                    "ConvBnReLU3d",
-                ]
+                ["Conv1d", "Conv2d", "Conv3d",
+                 "ConvBn1d", "ConvBn2d", "ConvBn3d",
+                 "ConvReLU1d", "ConvReLU2d", "ConvReLU3d",
+                 "ConvBnReLU1d", "ConvBnReLU2d", "ConvBnReLU3d"]
             )
+
+        configure_module_bn_wrappers(module)
 
         # prepare each module / submodule for quantization
         qconfig = get_qat_qconfig(
@@ -573,7 +568,7 @@ class QuantizationModifier(ScheduledModifier):
             to_exclude.extend(self._exclude_module_types)
 
         if self._exclude_batchnorm:
-            to_exclude.extend(["BatchNorm1d", "BatchNorm2d", "BatchNorm3d"])
+            to_exclude.extend(['BatchNorm1d', 'BatchNorm2d', 'BatchNorm3d'])
 
         self._exclude_module_types = to_exclude
         self._strip_excluded_module_qconfigs(module)
@@ -643,9 +638,7 @@ class QuantizationModifier(ScheduledModifier):
             module.train()
 
     def _get_updated_activation_qconfig_kwargs(self):
-        return get_updated_qconfig_kwargs(
-            self.activation_qconfig_kwargs, self.activation_bits
-        )
+        return get_updated_qconfig_kwargs(self.activation_qconfig_kwargs, self.activation_bits)
 
     def _get_updated_weight_qconfig_kwargs(self):
         return get_updated_qconfig_kwargs(self.weight_qconfig_kwargs, self.weight_bits)
