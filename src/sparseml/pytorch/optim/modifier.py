@@ -20,8 +20,7 @@ are implemented as modifiers.
 """
 
 import math
-from collections.abc import Iterable
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union
 
 from torch import Tensor
 from torch.nn import Module
