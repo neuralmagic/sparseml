@@ -209,10 +209,9 @@ def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> 
         # yaml string does not create a dict, return original string
         return recipe_yaml_str
 
-    key_found = False
-
     if check_if_staged_recipe(container):
         for var_key in variables.keys():
+            key_found = False
             for container_key, container_value in container.items():
 
                 if isinstance(container_value, dict):
@@ -240,8 +239,17 @@ def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> 
                         container[var_key] = variables[var_key]
                         key_found = True
 
+            if not key_found:
+                raise ValueError(
+                    f"updating recipe variable {var_key} but "
+                    f"{var_key} is not currently "
+                    "set in existing recipe. Set the variable in the recipe in order "
+                    "to overwrite it."
+                )
+
     else:
         for var_key in variables.keys():
+            key_found = False
             for key, value in container.items():
                 # checking contents of the modifiers list
                 if isinstance(value, list):
@@ -255,12 +263,13 @@ def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> 
                         container[var_key] = variables[var_key]
                         key_found = True
 
-    if not key_found:
-        raise ValueError(
-            f"updating recipe variable {var_key} but {var_key} is not currently "
-            "set in existing recipe. Set the variable in the recipe in order "
-            "to overwrite it."
-        )
+            if not key_found:
+                raise ValueError(
+                    f"updating recipe variable {var_key} but "
+                    f"{var_key} is not currently "
+                    "set in existing recipe. Set the variable in the recipe in order "
+                    "to overwrite it."
+                )
 
     return rewrite_recipe_yaml_string_with_classes(container)
 
