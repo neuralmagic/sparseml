@@ -115,9 +115,9 @@ class RecipeManagerTrainerInterface:
         )
         loggers = [WANDBLogger()] if "wandb" in report_to else None
         loggers.append(PythonLogger())
-        if "sparse_log_frequency" in kwargs:
+        if "modifier_log_frequency" in kwargs:
             self.logger_manager = LoggerManager(
-                loggers, log_frequency=kwargs["sparse_log_frequency"]
+                loggers, log_frequency=kwargs["modifier_log_frequency"]
             )
         else:
             self.logger_manager = LoggerManager(loggers)

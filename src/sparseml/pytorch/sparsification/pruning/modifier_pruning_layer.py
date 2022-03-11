@@ -196,7 +196,6 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         :param epoch: current epoch and progress within the current epoch
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
-        :param scheduled_log: True when this call falls within the log schedule
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 

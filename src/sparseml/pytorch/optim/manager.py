@@ -413,7 +413,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         Handles initializing and setting up the loggers for the contained modifiers.
 
         :param loggers: the logger manager to setup this manager with for logging
-            importantinfo and milestones to
+            important info and milestones to
         """
         super().initialize_loggers(loggers)
 
