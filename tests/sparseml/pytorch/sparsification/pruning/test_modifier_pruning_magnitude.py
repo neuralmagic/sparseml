@@ -87,7 +87,7 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
             end_epoch=25.0,
             update_frequency=1.0,
             inter_func="cubic",
-            mask_type="block",
+            mask_type="block4",
         ),
         lambda: GMPruningModifier(
             params=["__ALL_PRUNABLE__"],
@@ -109,7 +109,7 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
             end_epoch=25.0,
             update_frequency=1.0,
             inter_func="cubic",
-            mask_type="block",
+            mask_type="block4",
         ),
     ],
     scope="function",
@@ -289,7 +289,7 @@ def test_magnitude_pruning_yaml():
     update_frequency = 1.0
     params = "__ALL_PRUNABLE__"
     inter_func = "cubic"
-    mask_type = "block"
+    mask_type = "block4"
     yaml_str = f"""
     !MagnitudePruningModifier
         init_sparsity: {init_sparsity}
