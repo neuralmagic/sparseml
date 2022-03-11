@@ -86,9 +86,9 @@ class ACDCPruningModifier(BasePruningModifier):
     def __init__(
         self,
         compression_sparsity: float,
-        start_epoch: float,
-        end_epoch: float,
-        update_frequency: float,
+        start_epoch: Union[int, float],
+        end_epoch: Union[int, float],
+        update_frequency: Union[int, float],
         params: Union[str, List[str]],
         global_sparsity: bool = True,
         leave_enabled: bool = True,
@@ -96,6 +96,11 @@ class ACDCPruningModifier(BasePruningModifier):
         mask_type: str = "unstructured",
         log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
+        # AC/DC assumes that variables `start_epoch`, `end_epoch`
+        # and `update_frequency` are integers.
+        start_epoch = self._assert_is_integer(start_epoch)
+        end_epoch = self._assert_is_integer(end_epoch)
+        update_frequency = self._assert_is_integer(update_frequency)
 
         # because method does not involve any interpolation
         # compression sparsity (final sparsity) is a single float.
@@ -273,3 +278,21 @@ class ACDCPruningModifier(BasePruningModifier):
                 end_epoch -= 1
 
         return end_epoch
+
+    @staticmethod
+    def _assert_is_integer(x):
+        """
+        Check if x, which is expected to be either a float or int,
+        can be evaluated as int.
+        If True, return and integer, else, raise ValueError.
+
+        :param x: an integer or a float.
+        :return: an integer
+        """
+        if isinstance(x, float) and not x.is_integer():
+            raise ValueError(
+                f"The ACDCPruningModifier assumes that attributes "
+                f"`start_epoch`, `end epoch` and `update frequency` "
+                f"are integers. However, type({x}) is float."
+            )
+        return int(x)
