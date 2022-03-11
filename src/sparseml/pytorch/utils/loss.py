@@ -23,6 +23,7 @@ from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as TF
+from packaging import version
 from torch import Tensor
 from torch.nn import CrossEntropyLoss, Module
 
@@ -218,7 +219,7 @@ class CrossEntropyLossWrapper(LossWrapper):
     ):
         self.label_smoothing = label_smoothing
 
-        if torch.__version__ < "1.10.0":
+        if version.parse(torch.__version__) < version.parse("1.10.0"):
             if self.label_smoothing:
                 raise ValueError(
                     f"Passed 'label_smoothing' argument to CrossEntropyLoss()."
@@ -227,8 +228,10 @@ class CrossEntropyLossWrapper(LossWrapper):
                 )
             else:
                 super().__init__(CrossEntropyLoss(), extras)
-
-        super().__init__(CrossEntropyLoss(label_smoothing=self.label_smoothing), extras)
+        else:
+            super().__init__(
+                CrossEntropyLoss(label_smoothing=self.label_smoothing), extras
+            )
 
 
 class InceptionCrossEntropyLossWrapper(LossWrapper):
