@@ -119,6 +119,9 @@ optional arguments:
                         Do not use pinned memory for data loading
   --loader-pin-memory [LOADER_PIN_MEMORY]
                         Use pinned memory for data loading
+  --loss-func-args LOSS_FUNC_ARGS
+                        Additional args to be passed to the loss function
+                        as a json object
 #########
 EXAMPLES
 #########
@@ -247,6 +250,8 @@ class TrainingArguments:
         default=4.
     :param loader_pin_memory: bool to use pinned memory for data loading,
         default=True.
+    :param loss_func_args: Additional arguments to be passed in to the loss
+        function as a json object.
     """
 
     train_batch_size: int = field(
@@ -453,6 +458,13 @@ class TrainingArguments:
         default=True, metadata={"help": "Use pinned memory for data loading"}
     )
 
+    loss_func_args: json.loads = field(
+        default_factory=lambda: {"label_smoothing": 0.0},
+        metadata={
+            "help": "Additional args to be passed to the loss function as a json object"
+        },
+    )
+
     def __post_init__(self):
         # add ddp args
         env_world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -512,10 +524,18 @@ def train(
     :param loggers: List of loggers to use during training process
     """
     # loss setup
-    val_loss = helpers.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
+    val_loss = helpers.get_loss_wrapper(
+        arch_key=train_args.arch_key,
+        loss_func_args=train_args.loss_func_args,
+        training=False,
+    )
     LOGGER.info(f"created loss for validation: {val_loss}")
 
-    train_loss = helpers.get_loss_wrapper(arch_key=train_args.arch_key, training=True)
+    train_loss = helpers.get_loss_wrapper(
+        arch_key=train_args.arch_key,
+        loss_func_args=train_args.loss_func_args,
+        training=True,
+    )
     LOGGER.info(f"created loss for training: {train_loss}")
 
     # training setup

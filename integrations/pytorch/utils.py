@@ -17,7 +17,7 @@ Helper methods for image classification/detection based tasks
 """
 import os
 from enum import Enum, auto, unique
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
@@ -278,7 +278,7 @@ def infer_num_classes(args: Any, train_dataset, val_dataset):
 
 def get_loss_wrapper(
     arch_key: str,
-    loss_func_args: Optional[dict],
+    loss_func_args: Dict[str, Any],
     training: bool = False,
     task: Optional[Tasks] = None,
 ):
