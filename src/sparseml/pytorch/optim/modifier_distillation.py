@@ -220,9 +220,9 @@ class DistillationModifier(ScheduledUpdateModifier):
                 f"{distillation_teacher}. "
                 "To disable set to 'disable' and for self attention set to 'self'"
             )
-        self._student_loss = None
-        self._teacher_loss = None
-        self._distillation_loss = None
+        self._latest_student__loss = None
+        self._latest_teacher_loss = None
+        self._latest_distillation_loss = None
 
     def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
         """
@@ -261,15 +261,15 @@ class DistillationModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         :return: loss tensor with knowledge distillation loss added
         """
-        self._student_loss = None
-        self._teacher_loss = None
-        self._distillation_loss = None
-        self._student_loss = super().loss_update(
+        self._latest_student__loss = None
+        self._latest_teacher_loss = None
+        self._latest_distillation_loss = None
+        self._latest_student__loss = super().loss_update(
             loss, module, optimizer, epoch, steps_per_epoch, **kwargs
         )
 
         if not self.update_ready(epoch, steps_per_epoch):
-            return self._student_loss
+            return self._latest_student__loss
 
         if student_outputs is None or student_inputs is None:
             raise ValueError(
@@ -329,12 +329,12 @@ class DistillationModifier(ScheduledUpdateModifier):
                 )
 
         # get distillation loss as average of individual output distillation loss values
-        self._teacher_loss = sum(distill_losses) / len(distill_losses)
-        self._distillation_loss = ((1.0 - self._hardness) * loss) + (
-            self._hardness * self._teacher_loss
+        self._latest_teacher_loss = sum(distill_losses) / len(distill_losses)
+        self._latest_distillation_loss = ((1.0 - self._hardness) * loss) + (
+            self._hardness * self._latest_teacher_loss
         )
 
-        return self._distillation_loss
+        return self._latest_distillation_loss
 
     def log_update(
         self,
@@ -356,9 +356,9 @@ class DistillationModifier(ScheduledUpdateModifier):
         _log_losses(
             self.loggers,
             round(epoch * steps_per_epoch),
-            self._student_loss,
-            self._teacher_loss,
-            self._distillation_loss,
+            self._latest_student__loss,
+            self._latest_teacher_loss,
+            self._latest_distillation_loss,
         )
 
     def finalize(
