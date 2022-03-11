@@ -146,9 +146,9 @@ class BaseLogger(ABC):
 
     def log_string(
         self,
-        tag,
-        string,
-        step,
+        tag: str,
+        string: str,
+        step: Optional[int] = None,
         wall_time: Optional[float] = None,
         **kwargs,
     ):

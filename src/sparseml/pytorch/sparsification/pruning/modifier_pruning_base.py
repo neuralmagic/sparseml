@@ -17,7 +17,6 @@ Base classes for creating modifiers for pruning algorithms
 """
 
 
-import math
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple, Union
@@ -153,7 +152,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         )
         self._module_masks = None  # type: Optional[ModuleParamPruningMask]
         self._analyzers = None  # type: Optional[List[ModulePruningAnalyzer]]
-        self._last_logged_epoch = None
 
         self._scorer = None  # type: PruningParamsScorer
         self._mask_creator = None  # type: PruningMaskCreator
@@ -399,14 +397,18 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
-        self._last_logged_epoch = math.floor(epoch)
-        _log_sparsity(
-            "ParamPruning",
-            self._analyzers,
-            self.loggers,
-            epoch,
-            steps_per_epoch,
-        )
+        for layer_sparsity in self._analyzers:
+            if isinstance(layer_sparsity, ModulePruningAnalyzer):
+                layer_sparsity = (
+                    layer_sparsity.tag,
+                    layer_sparsity.param_sparsity.item(),
+                )
+                self.log_scalar(
+                    tag=f"ParamPruning/{layer_sparsity[0]}",
+                    value=layer_sparsity[1],
+                    epoch=epoch,
+                    steps_per_epoch=steps_per_epoch,
+                )
 
     def optimizer_pre_step(
         self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
@@ -504,15 +506,6 @@ class BasePruningModifier(ABC, ScheduledUpdateModifier):
         self._module_masks.set_param_masks(
             [state_dict[name] for name in self._module_masks.names]
         )
-
-    def _should_log(
-        self,
-        module: Module,
-        optimizer: Optimizer,
-        epoch: float,
-        steps_per_epoch: int,
-    ) -> bool:
-        return self._last_logged_epoch != math.floor(epoch)
 
     def _check_params_match(self, token: Union[str, List[str]]):
         if isinstance(token, str):
@@ -824,25 +817,3 @@ class BaseGradualPruningModifier(BasePruningModifier):
             # default params to ALL_PRUNABLE_TOKEN
             params = params or ALL_PRUNABLE_TOKEN
             return params, final_sparsity
-
-
-def _log_sparsity(
-    tag_prefix: str,
-    layer_sparsities: List[Union[Tuple[str, float], ModulePruningAnalyzer]],
-    loggers: LoggerManager,
-    epoch: float,
-    steps_per_epoch: int,
-):
-    step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
-    for layer_sparsity in layer_sparsities:
-        if isinstance(layer_sparsity, ModulePruningAnalyzer):
-            layer_sparsity = (
-                layer_sparsity.tag,
-                layer_sparsity.param_sparsity.item(),
-            )
-
-        loggers.log_scalar(
-            tag=f"{tag_prefix}/{layer_sparsity[0]}",
-            value=layer_sparsity[1],
-            step=step,
-        )

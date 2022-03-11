@@ -98,7 +98,6 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         )
         self._layer_modules = {}  # type: Dict[str, Module]
         self._layers_replaced = False
-        self._last_logged_epoch = None
         self._last_logged_layers_replaced = None
 
     @BaseModifier.sparsification_types.getter
@@ -164,7 +163,6 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         super().finalize(module, reset_loggers, **kwargs)
         self._check_update_pruning(module, epoch=math.inf, steps_per_epoch=1)
         self._layer_modules = None
-        self._last_logged_epoch = None
         self._last_logged_layers_replaced = None
 
     @ScheduledModifier.log_call
@@ -199,19 +197,24 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
-        if self._should_log(module, optimizer, epoch, steps_per_epoch):
-            self._last_logged_epoch = math.floor(epoch)
+        if self._last_logged_layers_replaced != self._layers_replaced:
             self._last_logged_layers_replaced = self._layers_replaced
-            _log_sparsity(
-                "LayerPruning",
-                [
-                    (name, 1 if self._layers_replaced else 0)
-                    for name in self._layer_modules.keys()
-                ],
-                self.loggers,
-                epoch,
-                steps_per_epoch,
-            )
+            layer_sparsities = [
+                (name, 1 if self._layers_replaced else 0)
+                for name in self._layer_modules.keys()
+            ]
+            for layer_sparsity in layer_sparsities:
+                if isinstance(layer_sparsity, ModulePruningAnalyzer):
+                    layer_sparsity = (
+                        layer_sparsity.tag,
+                        layer_sparsity.param_sparsity.item(),
+                    )
+                    self.log_scalar(
+                        tag=f"LayerPruning/{layer_sparsity[0]}",
+                        value=layer_sparsity[1],
+                        epoch=epoch,
+                        steps_per_epoch=steps_per_epoch,
+                    )
 
     def _check_layers_match(self, token: Union[str, List[str]]):
         if isinstance(token, str):
@@ -245,11 +248,3 @@ class LayerPruningModifier(ScheduledUpdateModifier):
                 replace_layer(module, name, replaced)
                 self._layer_modules[name] = None
             self._layers_replaced = False
-
-    def _should_log(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
-    ) -> bool:
-        return (
-            self._last_logged_epoch != math.floor(epoch)
-            or self._last_logged_layers_replaced != self._layers_replaced
-        )

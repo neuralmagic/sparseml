@@ -19,7 +19,7 @@ certain update formulas or patterns.
 
 import math
 import sys
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 from torch.nn import Module
 from torch.optim.lr_scheduler import (
@@ -38,7 +38,6 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import (
-    LoggerManager,
     get_optim_groups_learning_rates,
     set_optim_learning_rate,
 )
@@ -63,20 +62,6 @@ CONSTRUCTORS = {
     "ExponentialLR": ExponentialLR,
     "CosineAnnealingWarmRestarts": CosineAnnealingWarmRestarts,
 }
-
-
-def _log_lr(
-    group_lrs: List[Tuple[str, float]],
-    loggers: LoggerManager,
-    epoch: float,
-    steps_per_epoch: int,
-):
-    for (group_name, group_lr) in group_lrs:
-        loggers.log_scalar(
-            tag=f"LearningRateModifier/{group_name}",
-            value=group_lr,
-            step=loggers.epoch_to_step(epoch, steps_per_epoch),
-        )
 
 
 @PyTorchModifierYAML()
@@ -120,7 +105,6 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
         self._applied = -1.0
         self._constant_logging = convert_to_bool(constant_logging)
         self._last_logged_lr = None
-        self._last_logged_epoch = None
 
     @ModifierProp()
     def param_groups(self) -> Optional[List[int]]:
@@ -211,14 +195,13 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
 
         current_lr = group_lrs[-1][1]
 
-        if (
-            self._constant_logging
-            or self._last_logged_lr != current_lr
-            or math.floor(epoch) != self._last_logged_epoch
-        ):
+        if self._constant_logging or self._last_logged_lr != current_lr:
             self._last_logged_lr = current_lr
-            self._last_logged_epoch = math.floor(epoch)
-            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
+            self.log_named_scalars(
+                name_value_pairs=group_lrs,
+                epoch=epoch,
+                steps_per_epoch=steps_per_epoch,
+            )
 
     def _check_set_lr(self, optimizer: Optimizer, epoch: float):
         if (
@@ -294,7 +277,6 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         self._learning_rate = None
         self._last_applied_lr = None
         self._last_logged_lr = None
-        self._last_logged_epoch = None
         self.validate()
 
     @BaseModifier.sparsification_types.getter
@@ -425,13 +407,13 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
 
         current_lr = group_lrs[-1][1]
 
-        if (
-            current_lr != self._last_logged_lr
-            or math.floor(epoch) != self._last_logged_epoch
-        ):
-            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
+        if current_lr != self._last_logged_lr:
+            self.log_named_scalars(
+                name_value_pairs=group_lrs,
+                epoch=epoch,
+                steps_per_epoch=steps_per_epoch,
+            )
             self._last_logged_lr = current_lr
-            self._last_logged_epoch = math.floor(epoch)
 
     def validate(self):
         """
@@ -576,7 +558,6 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
         self._constant_logging = convert_to_bool(constant_logging)
         self._double_step = False
         self._last_logged_lr = None
-        self._last_logged_epoch = None
         self._scheduler_steps = 0
         self.validate()
 
@@ -675,14 +656,13 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
 
         current_lr = group_lrs[-1][1]
 
-        if (
-            self._constant_logging
-            or current_lr != self._last_logged_lr
-            or math.floor(epoch) != self._last_logged_epoch
-        ):
+        if self._constant_logging or current_lr != self._last_logged_lr:
             self._last_logged_lr = current_lr
-            self._last_logged_epoch = math.floor(epoch)
-            _log_lr(group_lrs, self.loggers, epoch, steps_per_epoch)
+            self.log_named_scalars(
+                name_value_pairs=group_lrs,
+                epoch=epoch,
+                steps_per_epoch=steps_per_epoch,
+            )
 
     def validate(self):
         """

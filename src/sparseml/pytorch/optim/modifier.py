@@ -713,6 +713,43 @@ class ScheduledModifier(Modifier, BaseScheduled):
             tag=tag, string=string, step=step, level=LOGGING_LEVELS["debug"]
         )
 
+    def log_scalar(
+        self,
+        value: float,
+        tag: Optional[str] = None,
+        loggers: Optional[LoggerManager] = None,
+        epoch: Optional[float] = None,
+        steps_per_epoch: Optional[int] = None,
+        level: Optional[int] = None,
+    ):
+        if not tag:
+            tag = type(self).__name__
+        if not loggers:
+            loggers = self.loggers
+        if epoch and steps_per_epoch:
+            step = loggers.epoch_to_step(epoch, steps_per_epoch)
+        else:
+            step = None
+        loggers.log_scalar(tag=tag, value=value, step=step, level=level)
+
+    def log_named_scalars(
+        self,
+        name_value_pairs: Iterable[Tuple[str, float]],
+        loggers: Optional[LoggerManager] = None,
+        epoch: Optional[float] = None,
+        steps_per_epoch: Optional[int] = None,
+        level: Optional[int] = None,
+    ):
+        for name, value in name_value_pairs:
+            self.log_scalar(
+                value=value,
+                tag=f"{type(self).__name__}/{name}",
+                loggers=loggers,
+                epoch=epoch,
+                steps_per_epoch=steps_per_epoch,
+                level=level,
+            )
+
 
 class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     """

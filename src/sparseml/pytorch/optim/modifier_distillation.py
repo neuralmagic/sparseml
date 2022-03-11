@@ -353,12 +353,16 @@ class DistillationModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
-        _log_losses(
-            self.loggers,
-            round(epoch * steps_per_epoch),
-            self._latest_student__loss,
-            self._latest_teacher_loss,
-            self._latest_distillation_loss,
+
+        losses = {
+            "original_loss": self._latest_student__loss,
+            "teacher_loss": self._latest_teacher_loss,
+            "distillation_loss": self._latest_distillation_loss,
+        }
+        self.log_named_scalars(
+            name_value_pairs=losses.items(),
+            epoch=epoch,
+            steps_per_epoch=steps_per_epoch,
         )
 
     def finalize(
@@ -387,25 +391,4 @@ class DistillationModifier(ScheduledUpdateModifier):
                 reduction="batchmean",
             )
             * (self._temperature ** 2)
-        )
-
-
-def _log_losses(
-    loggers: LoggerManager,
-    global_step: int,
-    original_loss: float,
-    teacher_loss: float,
-    distillation_loss: float,
-):
-    losses = {
-        "original_loss": original_loss,
-        "teacher_loss": teacher_loss,
-        "distillation_loss": distillation_loss,
-    }
-
-    for (name, loss) in losses.items():
-        loggers.log_scalar(
-            tag=f"DistillationModifier/{name}",
-            value=(loss.item() if loss else None),
-            step=global_step,
         )
