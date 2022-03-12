@@ -234,7 +234,9 @@ class QuantizationModifier(ScheduledModifier):
             to performing QAT. None to uses the default function
             `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         """
-        fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else 'conv_bn_relus'
+        fuse_fn = (
+            self._model_fuse_fn_name if self._model_fuse_fn_name else "conv_bn_relus"
+        )
         return fuse_fn
 
     @model_fuse_fn_name.setter
@@ -332,7 +334,7 @@ class QuantizationModifier(ScheduledModifier):
         :return: if False, FakeQuantize ops will not be run
             for activations of convolutional layers.
         """
-        return self._quantize_linear_output_activations
+        return self._quantize_conv_output_activations
 
     @ModifierProp()
     def exclude_module_types(self) -> Union[List[str], None]:
@@ -357,7 +359,6 @@ class QuantizationModifier(ScheduledModifier):
             activations. Default is None, which will quantize activations to 8 bits.
         """
         return self._weight_bits
-
 
     @ModifierProp()
     def activation_qconfig_kwargs(self) -> Dict[str, Any]:
@@ -504,11 +505,12 @@ class QuantizationModifier(ScheduledModifier):
         if self._freeze_bn_stats_update_ready(epoch):
             for _, quant_module in self._modules_to_quantize:
                 quant_module.apply(freeze_bn_stats)
+                # quant_module.apply(torch_intrinsic.qat.freeze_bn_stats)
             self._bn_stats_frozen = True
 
     def _enable_module_qat(self, module: Module):
         # fuse module Conv-BNs
-        if self.model_fuse_fn_name == 'conv_bn_relus':
+        if self.model_fuse_fn_name == "conv_bn_relus":
             self._model_fuse_fn_kwargs["inplace"] = True
             fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
         elif self.model_fuse_fn_name != "no_fuse":
@@ -531,11 +533,23 @@ class QuantizationModifier(ScheduledModifier):
 
         if not self._quantize_conv_output_activations:
             to_remove_layer_name.extend(
-                ["Conv1d", "Conv2d", "Conv3d",
-                 "ConvBn1d", "ConvBn2d", "ConvBn3d",
-                 "ConvReLU1d", "ConvReLU2d", "ConvReLU3d",
-                 "ConvBnReLU1d", "ConvBnReLU2d", "ConvBnReLU3d"]
+                [
+                    "Conv1d",
+                    "Conv2d",
+                    "Conv3d",
+                    "ConvBn1d",
+                    "ConvBn2d",
+                    "ConvBn3d",
+                    "ConvReLU1d",
+                    "ConvReLU2d",
+                    "ConvReLU3d",
+                    "ConvBnReLU1d",
+                    "ConvBnReLU2d",
+                    "ConvBnReLU3d",
+                ]
             )
+        if len(to_remove_layer_name) == 0:
+            to_remove_layer_name = None
 
         configure_module_bn_wrappers(module)
 
@@ -560,7 +574,8 @@ class QuantizationModifier(ScheduledModifier):
             configure_module_default_qconfigs(quant_module)
 
             add_quant_dequant(quant_module, name, module)
-            remove_activation_qat_by_layer_name(quant_module, to_remove_layer_name)
+            if to_remove_layer_name:
+                remove_activation_qat_by_layer_name(quant_module, to_remove_layer_name)
 
         # remove qconfigs for module types in exclude_module_types
         to_exclude = []
@@ -568,10 +583,11 @@ class QuantizationModifier(ScheduledModifier):
             to_exclude.extend(self._exclude_module_types)
 
         if self._exclude_batchnorm:
-            to_exclude.extend(['BatchNorm1d', 'BatchNorm2d', 'BatchNorm3d'])
+            to_exclude.extend(["BatchNorm1d", "BatchNorm2d", "BatchNorm3d"])
 
         self._exclude_module_types = to_exclude
-        self._strip_excluded_module_qconfigs(module)
+        if self._exclude_module_types:
+            self._strip_excluded_module_qconfigs(module)
 
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)
@@ -638,10 +654,14 @@ class QuantizationModifier(ScheduledModifier):
             module.train()
 
     def _get_updated_activation_qconfig_kwargs(self):
-        return get_updated_qconfig_kwargs(self.activation_qconfig_kwargs, self.activation_bits)
+        return get_updated_qconfig_kwargs(
+            self.activation_qconfig_kwargs, self.activation_bits, "asymmetric"
+        )
 
     def _get_updated_weight_qconfig_kwargs(self):
-        return get_updated_qconfig_kwargs(self.weight_qconfig_kwargs, self.weight_bits)
+        return get_updated_qconfig_kwargs(
+            self.weight_qconfig_kwargs, self.weight_bits, "symmetric"
+        )
 
     def _disable_quantization_observer_update_ready(self, epoch: float) -> bool:
         return (
