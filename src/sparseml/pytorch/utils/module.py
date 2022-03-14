@@ -37,7 +37,7 @@ from sparseml.pytorch.utils.helpers import (
     tensors_module_forward,
     tensors_to_device,
 )
-from sparseml.pytorch.utils.logger import LoggerManager
+from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.pytorch.utils.loss import DEFAULT_LOSS_KEY, LossWrapper
 
 
@@ -553,7 +553,7 @@ class ModuleRunner(ABC):
         (where data will be copied to)
     :param loss: the loss functions callable used to calculate loss values after
         executing a forward pass
-    :param loggers: list of loggers to log training results to
+    :param loggers: Optional list of loggers to log the modification process to
     :param log_name: the key to store all log files under
     :param log_steps: The number of steps (batches) to log at,
         ex 100 will log every 100 batches
@@ -568,7 +568,7 @@ class ModuleRunner(ABC):
         module: Module,
         device: str,
         loss: Union[LossWrapper, Callable[[Any, Any], Tensor]],
-        loggers: Optional[LoggerManager],
+        loggers: Optional[List[BaseLogger]],
         log_name: str,
         log_steps: int,
         log_summary: bool,
@@ -883,7 +883,7 @@ class ModuleTrainer(ModuleRunner):
         optimizer: Optimizer,
         num_accumulated_batches: int = 1,
         optim_closure: Union[None, Callable] = None,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Optional[List[BaseLogger]] = None,
         log_name: str = "Train",
         log_steps: int = 100,
         log_summary: bool = True,
@@ -1051,7 +1051,7 @@ class ModuleTester(ModuleRunner):
         module: Module,
         device: str,
         loss: Union[LossWrapper, Callable[[Any, Any], Tensor]],
-        loggers: Optional[LoggerManager] = None,
+        loggers: Optional[List[BaseLogger]] = None,
         log_name: str = "Test",
         log_steps: int = 100,
         log_summary: bool = True,

@@ -29,7 +29,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.utils import LoggerManager, get_named_layers_and_params_by_regex
+from sparseml.pytorch.utils import BaseLogger, get_named_layers_and_params_by_regex
 from sparseml.sparsification import SparsificationTypes
 from sparseml.sparsification import (
     TrainableParamsModifier as BaseTrainableParamsModifier,
@@ -99,7 +99,7 @@ class TrainableParamsModifier(BaseTrainableParamsModifier, ScheduledModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Optional[List[BaseLogger]] = None,
         **kwargs,
     ):
         """
@@ -108,7 +108,7 @@ class TrainableParamsModifier(BaseTrainableParamsModifier, ScheduledModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional logger manager to log the modification process to
+        :param loggers: Optional list of loggers to log the modification process to
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
@@ -268,7 +268,7 @@ class SetParamModifier(ScheduledModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Optional[List[BaseLogger]] = None,
         **kwargs,
     ):
         """
@@ -277,7 +277,7 @@ class SetParamModifier(ScheduledModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional logger manager to log the modification process to
+        :param loggers: Optional list of loggers to log the modification process to
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
@@ -490,7 +490,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Optional[List[BaseLogger]] = None,
         **kwargs,
     ):
         """
@@ -499,7 +499,7 @@ class GradualParamModifier(ScheduledUpdateModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional logger manager to log the modification process to
+        :param loggers: Optional list of loggers to log the modification process to
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """

@@ -31,7 +31,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledUpdateModifier,
 )
 from sparseml.pytorch.utils import get_layer, get_prunable_layers, replace_layer
-from sparseml.pytorch.utils.logger import LoggerManager
+from sparseml.pytorch.utils.logger import BaseLogger
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_PRUNABLE_TOKEN, ALL_TOKEN, validate_str_iterable
 
@@ -39,28 +39,6 @@ from sparseml.utils import ALL_PRUNABLE_TOKEN, ALL_TOKEN, validate_str_iterable
 __all__ = [
     "LayerPruningModifier",
 ]
-
-
-def _log_sparsity(
-    tag_prefix: str,
-    layer_sparsities: List[Union[Tuple[str, float], ModulePruningAnalyzer]],
-    loggers: LoggerManager,
-    epoch: float,
-    steps_per_epoch: int,
-):
-    step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
-    for layer_sparsity in layer_sparsities:
-        if isinstance(layer_sparsity, ModulePruningAnalyzer):
-            layer_sparsity = (
-                layer_sparsity.tag,
-                layer_sparsity.param_sparsity.item(),
-            )
-
-        loggers.log_scalar(
-            f"{tag_prefix}/{layer_sparsity[0]}",
-            layer_sparsity[1],
-            step,
-        )
 
 
 @PyTorchModifierYAML()
@@ -127,7 +105,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Optional[List[BaseLogger]] = None,
         **kwargs,
     ):
         """
@@ -135,7 +113,7 @@ class LayerPruningModifier(ScheduledUpdateModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional logger manager to log the modification process to
+        :param loggers: Optional list of loggers to log the modification process to
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """

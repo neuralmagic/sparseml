@@ -373,7 +373,7 @@ class QuantizationModifier(ScheduledModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional logger manager to log the modification process to
+        :param loggers: Optional list of loggers to log the modification process to
         :param calibration_dataloader: optional dataloader for running post training
             quantization with the given model. if present, calibration will be run
             immediately after quantization is enabled

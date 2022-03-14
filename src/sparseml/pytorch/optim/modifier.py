@@ -20,7 +20,7 @@ are implemented as modifiers.
 """
 
 import math
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from torch import Tensor
 from torch.nn import Module
@@ -33,7 +33,7 @@ from sparseml.optim import (
     ModifierProp,
     ModifierYAML,
 )
-from sparseml.pytorch.utils import LOGGING_LEVELS, LoggerManager
+from sparseml.pytorch.utils import LOGGING_LEVELS, BaseLogger, LoggerManager
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import PYTORCH_FRAMEWORK
 
@@ -208,7 +208,7 @@ class Modifier(BaseModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
         **kwargs,
     ):
         """
@@ -227,7 +227,7 @@ class Modifier(BaseModifier):
         self._initialized = True
         self.initialize_loggers(loggers)
 
-    def initialize_loggers(self, loggers: Union[None, LoggerManager]):
+    def initialize_loggers(self, loggers: Union[None, LoggerManager, List[BaseLogger]]):
         """
         Handles initializing and setting up the loggers for the modifier.
 
@@ -237,6 +237,8 @@ class Modifier(BaseModifier):
         if self._loggers_initialized and self._loggers or not loggers:
             return
 
+        if isinstance(loggers, List):
+            loggers = LoggerManager(loggers)
         self._loggers_initialized = True
         self._loggers = loggers
 

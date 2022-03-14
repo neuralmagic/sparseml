@@ -24,7 +24,7 @@ from torch.optim import Optimizer
 
 from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
-from sparseml.pytorch.utils import LoggerManager
+from sparseml.pytorch.utils import BaseLogger
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import convert_to_bool
 
@@ -33,7 +33,7 @@ __all__ = ["SetWeightDecayModifier"]
 
 
 def _log_weight_decay(
-    value: float, loggers: LoggerManager, epoch: float, steps_per_epoch: int
+    value: float, loggers: List[BaseLogger], epoch: float, steps_per_epoch: int
 ):
     step = round(epoch) if steps_per_epoch <= 0 else round(epoch * steps_per_epoch)
     loggers.log_scalar("Modifier Weight Decay", value, step)

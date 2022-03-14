@@ -308,7 +308,7 @@ class PythonLogger(LambdaLogger):
     def __init__(
         self,
         logger: Logger = None,
-        log_level: int = None,
+        log_level: int = logging.DEBUG,
         name: str = "python",
         enabled: bool = True,
     ):
@@ -532,6 +532,7 @@ class WANDBLogger(LambdaLogger):
         values: Optional[Dict[str, float]],
         step: Optional[int],
         wall_time: Optional[float],
+        **kwargs,
     ) -> bool:
         params = {}
 
@@ -712,11 +713,16 @@ class LoggerManager(ABC):
 
     def __init__(
         self,
-        loggers: List[BaseLogger] = [],
-        log_frequency: Union[float, None] = 0.1,
+        loggers: Optional[List[BaseLogger]] = None,
+        log_frequency: Union[float, None] = 0.01,
+        log_python: bool = True,
     ):
-        self._loggers = loggers
+        self._loggers = loggers or []
         self._log_frequency = log_frequency
+        if log_python and not any(
+            isinstance(log, PythonLogger) for log in self._loggers
+        ):
+            self._loggers.append(PythonLogger())
 
     def __len__(self):
         return len(self.loggers)

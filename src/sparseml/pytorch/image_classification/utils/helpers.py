@@ -34,7 +34,6 @@ from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     CrossEntropyLossWrapper,
     InceptionCrossEntropyLossWrapper,
-    LoggerManager,
     LossWrapper,
     ModuleExporter,
     ModuleRunResults,
@@ -97,7 +96,7 @@ def get_save_dir_and_loggers(
         create_dirs(save_dir)
 
         # loggers setup
-        loggers = LoggerManager([PythonLogger()])
+        loggers = [PythonLogger()]
         if task == Tasks.TRAIN:
             logs_dir = os.path.join(logs_dir, model_id)
             create_dirs(logs_dir)

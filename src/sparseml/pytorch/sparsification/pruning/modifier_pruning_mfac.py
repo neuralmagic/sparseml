@@ -40,7 +40,7 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
 from sparseml.pytorch.utils import GradSampler
-from sparseml.pytorch.utils.logger import LoggerManager
+from sparseml.pytorch.utils.logger import BaseLogger
 
 
 __all__ = [
@@ -240,7 +240,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Optional[List[BaseLogger]] = None,
         **kwargs,
     ):
         """

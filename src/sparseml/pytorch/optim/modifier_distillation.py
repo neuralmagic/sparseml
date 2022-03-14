@@ -33,7 +33,7 @@ from sparseml.pytorch.optim.modifier import (
     ScheduledModifier,
     ScheduledUpdateModifier,
 )
-from sparseml.pytorch.utils import LoggerManager, device_of, tensors_module_forward
+from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
 from sparseml.sparsification import SparsificationTypes
 
 
@@ -178,7 +178,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Optional[List[BaseLogger]] = None,
         distillation_teacher: Module = "disable",
         **kwargs,
     ):
@@ -188,7 +188,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional logger manager to log the modification process to
+        :param loggers: Optional list of loggers to log the modification process to
         :param distillation_teacher: teacher module to perform knowledge distillation
             with. If not provided, self distillation will be used with a teacher
              from a copy of the given module at the start epoch. If given string

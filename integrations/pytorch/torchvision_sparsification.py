@@ -97,7 +97,6 @@ from torchvision import models
 from sparseml.pytorch.datasets.classification import ImageFolderDataset
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
 from sparseml.pytorch.utils import ModuleExporter, PythonLogger, load_model
-from sparseml.pytorch.utils.logger import LoggerManager
 from sparseml.utils import create_dirs
 
 
@@ -424,7 +423,7 @@ def main(args):
         model,
         manager,
         steps_per_epoch=len(train_loader),
-        loggers=LoggerManager([PythonLogger()]),
+        loggers=[PythonLogger()],
     )
 
     ########################

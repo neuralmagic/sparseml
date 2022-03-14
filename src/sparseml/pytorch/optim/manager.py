@@ -27,7 +27,7 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseManager, load_recipe_yaml_str, parse_recipe_variables
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
-from sparseml.pytorch.utils import LoggerManager, is_parallel_model
+from sparseml.pytorch.utils import BaseLogger, LoggerManager, is_parallel_model
 from sparsezoo.objects import Recipe
 
 
@@ -356,7 +356,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         self,
         module: Module,
         epoch: float = 0.0,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
         finalize: bool = False,
         **kwargs,
     ):
@@ -382,7 +382,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[LoggerManager] = None,
+        loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
         **kwargs,
     ):
         """
@@ -408,7 +408,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
             mod.initialize(module, epoch, loggers, **kwargs)
 
-    def initialize_loggers(self, loggers: Union[None, LoggerManager]):
+    def initialize_loggers(self, loggers: Union[None, LoggerManager, List[BaseLogger]]):
         """
         Handles initializing and setting up the loggers for the contained modifiers.
 
