@@ -291,9 +291,9 @@ class ACDCPruningModifier(BasePruningModifier):
         """
         if isinstance(x, float) and not x.is_integer():
             raise ValueError(
-                f"The ACDCPruningModifier assumes that attributes "
-                f"`start_epoch`, `end epoch` and `update frequency` "
-                f"are integers or floats, which evaluate to integers. 
-                f"However: type(x)==float and x.is_integer() == False."
+                "The ACDCPruningModifier assumes that attributes"
+                "`start_epoch`, `end epoch` and `update frequency` "
+                "are integers, or floats which evaluate to integers."
+                "However: type(x)==float and x.is_integer() == False."
             )
         return int(x)
