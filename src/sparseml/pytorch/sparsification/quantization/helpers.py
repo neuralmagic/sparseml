@@ -521,6 +521,11 @@ def fix_observer_quant_range(module: Module):
             fake_quantize.quant_min is None
             or fake_quantize.quant_max is None
             or (observer.quant_min is not None or observer.quant_max is not None)
+            or (  # do not propagate default uint8 symmetric range
+                observer.qscheme == torch.per_tensor_symmetric
+                and fake_quantize.quant_min == 0
+                and fake_quantize.quant_max == 255
+            )
         ):
             continue
         observer.quant_min = fake_quantize.quant_min
