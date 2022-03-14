@@ -35,7 +35,7 @@ __all__ = [
     "evaluate_recipe_yaml_str_equations",
     "parse_recipe_variables",
     "check_if_staged_recipe",
-    "validate_metadata"
+    "validate_metadata",
 ]
 
 
