@@ -315,7 +315,7 @@ class BaseModifier(BaseObject):
             return stage_modifiers
 
         # evaluate recipe equations and load into yaml container object
-        yaml_str, _ = evaluate_recipe_yaml_str_equations(yaml_str)
+        yaml_str = evaluate_recipe_yaml_str_equations(yaml_str)
         yaml_str = BaseModifier._convert_to_framework_modifiers(yaml_str, framework)
         container = yaml.safe_load(yaml_str)
 

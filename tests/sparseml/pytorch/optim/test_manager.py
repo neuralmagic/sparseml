@@ -65,7 +65,7 @@ modifiers:
 """
 
 STANDARD_RECIPE_2 = """
-compression_sparsity: 0.5
+params: ["re:.*weight"]
 
 training_modifiers:
     - !EpochRangeModifier
@@ -73,292 +73,300 @@ training_modifiers:
         start_epoch: 0.0
 
 pruning_modifiers:
-    - !ACDCPruningModifier
-        compression_sparsity: eval(compression_sparsity)
+    - !ConstantPruningModifier
         start_epoch: 2
         end_epoch: 5
-        update_frequency: 2
-        params: ["re:.*weight"]
+        params: eval(params)
 """
 
 
 STANDARD_RECIPE_1_EVAL = """version: 1.1.0
 
 metadata:
+  metadata: None
   level: 0
-  metadata: null
+
 modifiers:
-- !EpochRangeModifier
-    end_epoch: 3.0
-    start_epoch: 0.0
-- !GMPruningModifier
-    end_epoch: 3.0
-    final_sparsity: 0.8
-    init_sparsity: 0.2
-    inter_func: cubic
-    leave_enabled: true
-    log_types: __ALL__
-    mask_type: unstructured
-    params:
-    - re:.*weight
-    start_epoch: 0.0
-    update_frequency: 1.0
+    - !EpochRangeModifier
+        end_epoch: 3.0
+        start_epoch: 0.0
+
+    - !GMPruningModifier
+        end_epoch: 3.0
+        final_sparsity: 0.8
+        init_sparsity: 0.2
+        inter_func: cubic
+        leave_enabled: True
+        log_types: __ALL__
+        mask_type: unstructured
+        params: ['re:.*weight']
+        start_epoch: 0.0
+        update_frequency: 1.0
 """
 
 TWO_STAGES_RECIPE = """version: 1.1.0
 
 {stage_0_name}:
   metadata:
+    metadata: None
     level: 0
-    metadata: null
-  stage_0_modifiers:
-  - !EpochRangeModifier
-      end_epoch: 3.0
-      start_epoch: 0.0
-  - !GMPruningModifier
-      end_epoch: 3.0
-      final_sparsity: 0.8
-      init_sparsity: 0.2
-      inter_func: cubic
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      params:
-      - re:.*weight
-      start_epoch: 0.0
-      update_frequency: 1.0
+
+  {stage_0_name}_modifiers:
+      - !EpochRangeModifier
+          end_epoch: 3.0
+          start_epoch: 0.0
+  
+      - !GMPruningModifier
+          end_epoch: 3.0
+          final_sparsity: 0.8
+          init_sparsity: 0.2
+          inter_func: cubic
+          leave_enabled: True
+          log_types: __ALL__
+          mask_type: unstructured
+          params: ['re:.*weight']
+          start_epoch: 0.0
+          update_frequency: 1.0
+  
+
 {stage_1_name}:
   metadata:
+    metadata: None
     level: 1
-    metadata: null
-  stage_1_modifiers:
-  - !ACDCPruningModifier
-      compression_sparsity: 0.5
-      end_epoch: 8
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      momentum_buffer_reset: true
-      params:
-      - re:.*weight
-      start_epoch: 5
-      update_frequency: 2
-  - !EpochRangeModifier
-      end_epoch: 9.0
-      start_epoch: 3.0
-"""
+
+  {stage_1_name}_modifiers:
+      - !ConstantPruningModifier
+          end_epoch: 8
+          log_types: __ALL__
+          params: ['re:.*weight']
+          start_epoch: 5
+          update_frequency: -1
+  
+      - !EpochRangeModifier
+          end_epoch: 9.0
+          start_epoch: 3.0
+  
+"""  # noqa: W293
 
 
 THREE_STAGES_RECIPE_1 = """version: 1.1.0
 
 stage_0:
   metadata:
+    metadata: None
     level: 0
-    metadata: null
+
   stage_0_modifiers:
-  - !EpochRangeModifier
-      end_epoch: 3.0
-      start_epoch: 0.0
-  - !GMPruningModifier
-      end_epoch: 3.0
-      final_sparsity: 0.8
-      init_sparsity: 0.2
-      inter_func: cubic
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      params:
-      - re:.*weight
-      start_epoch: 0.0
-      update_frequency: 1.0
+      - !EpochRangeModifier
+          end_epoch: 3.0
+          start_epoch: 0.0
+  
+      - !GMPruningModifier
+          end_epoch: 3.0
+          final_sparsity: 0.8
+          init_sparsity: 0.2
+          inter_func: cubic
+          leave_enabled: True
+          log_types: __ALL__
+          mask_type: unstructured
+          params: ['re:.*weight']
+          start_epoch: 0.0
+          update_frequency: 1.0
+  
+
 stage_1:
   metadata:
+    metadata: None
     level: 1
-    metadata: null
+
   stage_1_modifiers:
-  - !ACDCPruningModifier
-      compression_sparsity: 0.5
-      end_epoch: 8
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      momentum_buffer_reset: true
-      params:
-      - re:.*weight
-      start_epoch: 5
-      update_frequency: 2
-  - !EpochRangeModifier
-      end_epoch: 9.0
-      start_epoch: 3.0
-stage_2:
+      - !ConstantPruningModifier
+          end_epoch: 8
+          log_types: __ALL__
+          params: ['re:.*weight']
+          start_epoch: 5
+          update_frequency: -1
+  
+      - !EpochRangeModifier
+          end_epoch: 9.0
+          start_epoch: 3.0
+  
+
+stage_3:
   metadata:
+    metadata: None
     level: 3
-    metadata: null
-  stage_2_modifiers:
-  - !EpochRangeModifier
-      end_epoch: 12.0
-      start_epoch: 9.0
-  - !GMPruningModifier
-      end_epoch: 12.0
-      final_sparsity: 0.8
-      init_sparsity: 0.2
-      inter_func: cubic
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      params:
-      - re:.*weight
-      start_epoch: 9.0
-      update_frequency: 1.0
-"""
+
+  stage_3_modifiers:
+      - !EpochRangeModifier
+          end_epoch: 12.0
+          start_epoch: 9.0
+  
+      - !GMPruningModifier
+          end_epoch: 12.0
+          final_sparsity: 0.8
+          init_sparsity: 0.2
+          inter_func: cubic
+          leave_enabled: True
+          log_types: __ALL__
+          mask_type: unstructured
+          params: ['re:.*weight']
+          start_epoch: 9.0
+          update_frequency: 1.0
+  
+"""  # noqa: W293
 THREE_STAGES_RECIPE_2 = """version: 1.1.0
 
-stage_-1:
+pre_stage_0:
   metadata:
+    metadata: None
     level: 0
-    metadata: null
-  stage_-1_modifiers:
-  - !EpochRangeModifier
-      end_epoch: 3.0
-      start_epoch: 0.0
-  - !GMPruningModifier
-      end_epoch: 3.0
-      final_sparsity: 0.8
-      init_sparsity: 0.2
-      inter_func: cubic
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      params:
-      - re:.*weight
-      start_epoch: 0.0
-      update_frequency: 1.0
+
+  pre_stage_0_modifiers:
+      - !EpochRangeModifier
+          end_epoch: 3.0
+          start_epoch: 0.0
+  
+      - !GMPruningModifier
+          end_epoch: 3.0
+          final_sparsity: 0.8
+          init_sparsity: 0.2
+          inter_func: cubic
+          leave_enabled: True
+          log_types: __ALL__
+          mask_type: unstructured
+          params: ['re:.*weight']
+          start_epoch: 0.0
+          update_frequency: 1.0
+  
+
 stage_0:
   metadata:
+    metadata: None
     level: 1
-    metadata: null
+
   stage_0_modifiers:
-  - !EpochRangeModifier
-      end_epoch: 6.0
-      start_epoch: 3.0
-  - !GMPruningModifier
-      end_epoch: 6.0
-      final_sparsity: 0.8
-      init_sparsity: 0.2
-      inter_func: cubic
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      params:
-      - re:.*weight
-      start_epoch: 3.0
-      update_frequency: 1.0
+      - !EpochRangeModifier
+          end_epoch: 6.0
+          start_epoch: 3.0
+  
+      - !GMPruningModifier
+          end_epoch: 6.0
+          final_sparsity: 0.8
+          init_sparsity: 0.2
+          inter_func: cubic
+          leave_enabled: True
+          log_types: __ALL__
+          mask_type: unstructured
+          params: ['re:.*weight']
+          start_epoch: 3.0
+          update_frequency: 1.0
+  
+
 stage_1:
   metadata:
+    metadata: None
     level: 1
-    metadata: null
+
   stage_1_modifiers:
-  - !ACDCPruningModifier
-      compression_sparsity: 0.5
-      end_epoch: 12
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      momentum_buffer_reset: true
-      params:
-      - re:.*weight
-      start_epoch: 8
-      update_frequency: 2
-  - !EpochRangeModifier
-      end_epoch: 12.0
-      start_epoch: 6.0
-"""
+      - !ConstantPruningModifier
+          end_epoch: 11
+          log_types: __ALL__
+          params: ['re:.*weight']
+          start_epoch: 8
+          update_frequency: -1
+  
+      - !EpochRangeModifier
+          end_epoch: 12.0
+          start_epoch: 6.0
+  
+"""  # noqa: W293
 
 FOUR_STAGES_RECIPE = """version: 1.1.0
 
 stage_0:
   metadata:
+    metadata: None
     level: 0
-    metadata: null
+
   stage_0_modifiers:
-  - !EpochRangeModifier
-      end_epoch: 3.0
-      start_epoch: 0.0
-  - !GMPruningModifier
-      end_epoch: 3.0
-      final_sparsity: 0.8
-      init_sparsity: 0.2
-      inter_func: cubic
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      params:
-      - re:.*weight
-      start_epoch: 0.0
-      update_frequency: 1.0
+      - !EpochRangeModifier
+          end_epoch: 3.0
+          start_epoch: 0.0
+  
+      - !GMPruningModifier
+          end_epoch: 3.0
+          final_sparsity: 0.8
+          init_sparsity: 0.2
+          inter_func: cubic
+          leave_enabled: True
+          log_types: __ALL__
+          mask_type: unstructured
+          params: ['re:.*weight']
+          start_epoch: 0.0
+          update_frequency: 1.0
+  
+
 stage_1:
   metadata:
+    metadata: None
     level: 1
-    metadata: null
+
   stage_1_modifiers:
-  - !ACDCPruningModifier
-      compression_sparsity: 0.5
-      end_epoch: 6
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      momentum_buffer_reset: true
-      params:
-      - re:.*weight
-      start_epoch: 5
-      update_frequency: 2
-  - !EpochRangeModifier
-      end_epoch: 9.0
-      start_epoch: 3.0
+      - !ConstantPruningModifier
+          end_epoch: 8
+          log_types: __ALL__
+          params: ['re:.*weight']
+          start_epoch: 5
+          update_frequency: -1
+  
+      - !EpochRangeModifier
+          end_epoch: 9.0
+          start_epoch: 3.0
+  
+
 stage_3:
   metadata:
+    metadata: None
     level: 1
-    metadata: null
+
   stage_3_modifiers:
-  - !EpochRangeModifier
-      end_epoch: 12.0
-      start_epoch: 9.0
-  - !GMPruningModifier
-      end_epoch: 12.0
-      final_sparsity: 0.8
-      init_sparsity: 0.2
-      inter_func: cubic
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      params:
-      - re:.*weight
-      start_epoch: 9.0
-      update_frequency: 1.0
+      - !EpochRangeModifier
+          end_epoch: 12.0
+          start_epoch: 9.0
+  
+      - !GMPruningModifier
+          end_epoch: 12.0
+          final_sparsity: 0.8
+          init_sparsity: 0.2
+          inter_func: cubic
+          leave_enabled: True
+          log_types: __ALL__
+          mask_type: unstructured
+          params: ['re:.*weight']
+          start_epoch: 9.0
+          update_frequency: 1.0
+  
+
 stage_4:
   metadata:
+    metadata: None
     level: 1
-    metadata: null
-  stage_4_modifiers:
-  - !ACDCPruningModifier
-      compression_sparsity: 0.5
-      end_epoch: 16
-      leave_enabled: true
-      log_types: __ALL__
-      mask_type: unstructured
-      momentum_buffer_reset: true
-      params:
-      - re:.*weight
-      start_epoch: 14
-      update_frequency: 2
-  - !EpochRangeModifier
-      end_epoch: 18.0
-      start_epoch: 12.0
-"""
-METADATA = """{{'metadata': None, 'level': {level}}}"""
 
-# TODO: Investigate a peculiar bug, in `optim/modifier.py Line 319
-# yaml.safe_load() improperly parses end_epoch for ACDC
+  stage_4_modifiers:
+      - !ConstantPruningModifier
+          end_epoch: 17
+          log_types: __ALL__
+          params: ['re:.*weight']
+          start_epoch: 14
+          update_frequency: -1
+  
+      - !EpochRangeModifier
+          end_epoch: 18.0
+          start_epoch: 12.0
+  
+"""  # noqa: W293
+METADATA = """{{'metadata': None, 'level': {level}}}"""
 
 
 @pytest.mark.parametrize(
@@ -429,18 +437,14 @@ def test_lifecycle_manager_staged(
     if checkpoint_recipe:
         if raise_value_error:
             with pytest.raises(ValueError):
-                recipe_manager = ScheduledModifierManager.compose_staged(
-                    checkpoint_recipe, recipe, metadata=recipe_manager._metadata
+                ScheduledModifierManager.compose_staged(
+                    checkpoint_recipe, recipe_manager
                 )
             return
         else:
-            # For now, it makes the most sense for me to
-            # do composing recipes and metadata together using this method.
-            # I'd gladly discuss it and seek for the most efficient approach.
             recipe_manager = ScheduledModifierManager.compose_staged(
                 base_recipe=checkpoint_recipe,
-                additional_recipe=recipe,
-                additional_metadata=recipe_manager._metadata,
+                additional_recipe=recipe_manager,
             )
     recipe_manager.save(recipe_path)
 

@@ -250,10 +250,7 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
                 val, variables, non_val_variables
             )
 
-    # I find it really helpful to use the container returned by this function.
-    # I'd love to either make this return only the container
-    # or the (func(container), container)
-    return rewrite_recipe_yaml_string_with_classes(container), container
+    return rewrite_recipe_yaml_string_with_classes(container)
 
 
 def check_if_staged_recipe(container: dict) -> bool:
@@ -470,7 +467,7 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     """
 
     default_metadata_key = "__metadata__"
-    _, container = evaluate_recipe_yaml_str_equations(yaml_str)
+    container = load_recipe_yaml_str_no_classes(yaml_str)
     is_recipe_staged = check_if_staged_recipe(container)
 
     if is_recipe_staged:
@@ -516,9 +513,6 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
         return prev_metadata
 
     else:
-        # if we pass fresh metadata to a staged recipe with no previous metadata,
-        # we overwrite all the stages with the fresh metadata.
-        # Wondering whether this is correct behaviour, maybe raise ValueError?
         if is_recipe_staged:
             return {
                 stage_name: metadata
