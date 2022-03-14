@@ -308,7 +308,7 @@ class PythonLogger(LambdaLogger):
     def __init__(
         self,
         logger: Logger = None,
-        log_level: int = logging.DEBUG,
+        log_level: int = None,
         name: str = "python",
         enabled: bool = True,
     ):
@@ -714,7 +714,7 @@ class LoggerManager(ABC):
     def __init__(
         self,
         loggers: Optional[List[BaseLogger]] = None,
-        log_frequency: Union[float, None] = 0.01,
+        log_frequency: Union[float, None] = 0.1,
         log_python: bool = True,
     ):
         self._loggers = loggers or []

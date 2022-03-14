@@ -234,7 +234,7 @@ class Modifier(BaseModifier):
         :param loggers: the logger maanger to setup this modifier with for logging
         important info and milestones to
         """
-        if self._loggers_initialized and self._loggers or not loggers:
+        if self._loggers_initialized and self._loggers:
             return
 
         if isinstance(loggers, List):

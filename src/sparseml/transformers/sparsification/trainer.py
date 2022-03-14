@@ -25,6 +25,7 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
+from torch import distributed as dist
 from torch.nn import Module
 from torch.utils.data import RandomSampler
 from transformers import Trainer as TransformersTrainer
@@ -38,7 +39,6 @@ from sparseml.pytorch.utils import (
     GradSampler,
     LoggerManager,
     ModuleSparsificationInfo,
-    PythonLogger,
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
@@ -113,13 +113,16 @@ class RecipeManagerTrainerInterface:
             or not kwargs["args"].report_to
             else kwargs["args"].report_to
         )
-        loggers = [WANDBLogger()] if "wandb" in report_to else None
-        if "modifier_log_frequency" in kwargs:
-            self.logger_manager = LoggerManager(
-                loggers, log_frequency=kwargs["modifier_log_frequency"]
-            )
+        if not dist.is_initialized() or dist.get_rank() == 0:
+            loggers = [WANDBLogger()] if "wandb" in report_to else None
+            if "modifier_log_frequency" in kwargs:
+                self.logger_manager = LoggerManager(
+                    loggers, log_frequency=kwargs["modifier_log_frequency"]
+                )
+            else:
+                self.logger_manager = LoggerManager(loggers)
         else:
-            self.logger_manager = LoggerManager(loggers)
+            self.logger_manager = LoggerManager(log_python=False)
 
         # remove arch_managers once recipe stages are supported
         self.manager, self.arch_managers = self._setup_manager(kwargs)
