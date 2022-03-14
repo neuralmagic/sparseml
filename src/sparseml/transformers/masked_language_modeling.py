@@ -63,7 +63,7 @@ from sparseml.transformers.utils import SparseAutoModel
 check_min_version("4.18.0.dev0")
 
 require_version(
-    "datasets>=1.8.0",
+    "datasets>=1.18.0",
     "To fix: pip install -r examples/pytorch/language-modeling/requirements.txt",
 )
 
