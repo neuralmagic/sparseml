@@ -154,7 +154,12 @@ class BaseManager(BaseObject):
 
             additional_stage_name = f"stage_{len(base_stages) + 1}"
             if additional_stage_name in base_stages.keys():
-                raise ValueError("!")
+                raise ValueError(
+                    f"Generated new stage name: {additional_stage_name}, "
+                    f"but there already exists"
+                    f"a stage with that name in the checkpoint file. "
+                    f"Please edit the stage name in the checkpoint file."
+                )
 
             additional_stages = {
                 additional_stage_name: deepcopy(additional_recipe.modifiers)

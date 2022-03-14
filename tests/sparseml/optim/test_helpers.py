@@ -405,7 +405,7 @@ def _test_nested_equality(val, other):
     ],
 )
 def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
-    evaluated_recipe, _ = evaluate_recipe_yaml_str_equations(recipe)
+    evaluated_recipe = evaluate_recipe_yaml_str_equations(recipe)
     evaluated_yaml = load_recipe_yaml_str_no_classes(evaluated_recipe)
     expected_is_staged = check_if_staged_recipe(evaluated_yaml)
     expected_yaml = load_recipe_yaml_str_no_classes(expected_recipe)

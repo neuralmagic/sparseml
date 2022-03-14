@@ -445,7 +445,7 @@ def _maybe_parse_number(val: str) -> Union[str, float, int]:
 
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     """
-    Merge the metadata carried over from the recipe (`yaml_str`) with
+    Compare the metadata carried over from the recipe (`yaml_str`) with
     the new, incoming metadata ('metadata').
 
     If yaml_str is a staged recipe, this function returns a multi-key
