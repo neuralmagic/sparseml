@@ -401,7 +401,7 @@ class BaseManager(BaseObject):
             for mod in modifiers_list:
                 yield mod
 
-    def to_string_lines(self, include_metadata: bool = True) -> List[str]:
+    def to_string_lines(self, include_metadata: bool = False) -> List[str]:
         """
         :param include_metadata: boolean indicator whether metadata shall be
             appended to the yaml file before saving..
@@ -410,7 +410,7 @@ class BaseManager(BaseObject):
         yaml_str_lines = ["version: 1.1.0", ""]
         # parse standard recipe
         if isinstance(self.modifiers, List):
-            if include_metadata:
+            if include_metadata and self._metadata:
                 yaml_str_lines.extend(self.metadata_to_string_lines())
             yaml_str_lines.append("modifiers:")
             yaml_str_lines.extend(self.modifiers_list_to_string_lines(self.modifiers))
@@ -463,7 +463,7 @@ class BaseManager(BaseObject):
             # stage name for yaml dict
             yaml_str_lines.append(f"{stage}:")
 
-            if include_metadata:
+            if include_metadata and self._metadata:
                 yaml_str_lines.extend(self.metadata_to_string_lines(stage))
 
             # put all modifiers in stage into single modifier group
