@@ -27,11 +27,9 @@ from sparseml.utils.frameworks import PYTORCH_FRAMEWORK
 from sparsezoo import Zoo
 from sparsezoo.objects import Model
 
-
 __all__ = [
     "ModelRegistry",
 ]
-
 
 """
 Simple named tuple object to store model info
@@ -91,16 +89,25 @@ class ModelRegistry(object):
             loaded in model, False otherwise; default True
         :param ignore_error_tensors: tensors to ignore if there are errors in loading
         :param kwargs: any keyword args to supply to the model constructor
-        :return: the instantiated model
+        :return: The instantiated model if key is given else a Tuple containing
+            the instantiated model and the loaded key
         """
-        if key not in ModelRegistry._CONSTRUCTORS:
+        _key = key
+
+        if _key is None:
+            _checkpoint = torch.load(pretrained_path)
+            if "model_key" in _checkpoint:
+                _key = _checkpoint["model_key"]
+            else:
+                raise ValueError("No `model_key` found in checkpoint")
+
+        if _key not in ModelRegistry._CONSTRUCTORS:
             raise ValueError(
                 "key {} is not in the model registry; available: {}".format(
-                    key, ModelRegistry._CONSTRUCTORS
+                    _key, ModelRegistry._CONSTRUCTORS
                 )
             )
-
-        return ModelRegistry._CONSTRUCTORS[key](
+        model = ModelRegistry._CONSTRUCTORS[_key](
             pretrained=pretrained,
             pretrained_path=pretrained_path,
             pretrained_dataset=pretrained_dataset,
@@ -108,12 +115,13 @@ class ModelRegistry(object):
             ignore_error_tensors=ignore_error_tensors,
             **kwargs,
         )
+        return (model, _key) if key is None else model
 
     @staticmethod
     def create_zoo_model(
-        key: str,
-        pretrained: Union[bool, str] = True,
-        pretrained_dataset: str = None,
+            key: str,
+            pretrained: Union[bool, str] = True,
+            pretrained_dataset: str = None,
     ) -> Model:
         """
         Create a sparsezoo Model for the desired model in the zoo
@@ -124,6 +132,7 @@ class ModelRegistry(object):
         :param pretrained_dataset: The dataset to load for the model
         :return: the sparsezoo Model reference for the given model
         """
+
         if key not in ModelRegistry._CONSTRUCTORS:
             raise ValueError(
                 "key {} is not in the model registry; available: {}".format(
@@ -134,7 +143,8 @@ class ModelRegistry(object):
         attributes = ModelRegistry._ATTRIBUTES[key]
 
         sparse_name, sparse_category, sparse_target = parse_optimization_str(
-            pretrained if isinstance(pretrained, str) else attributes.default_desc
+            pretrained if isinstance(pretrained,
+                                     str) else attributes.default_desc
         )
 
         return Zoo.load_model(
@@ -170,17 +180,17 @@ class ModelRegistry(object):
 
     @staticmethod
     def register(
-        key: Union[str, List[str]],
-        input_shape: Any,
-        domain: str,
-        sub_domain: str,
-        architecture: str,
-        sub_architecture: str,
-        default_dataset: str,
-        default_desc: str,
-        repo_source: str = "sparseml",
-        def_ignore_error_tensors: List[str] = None,
-        desc_args: Dict[str, Tuple[str, Any]] = None,
+            key: Union[str, List[str]],
+            input_shape: Any,
+            domain: str,
+            sub_domain: str,
+            architecture: str,
+            sub_architecture: str,
+            default_dataset: str,
+            default_desc: str,
+            repo_source: str = "sparseml",
+            def_ignore_error_tensors: List[str] = None,
+            desc_args: Dict[str, Tuple[str, Any]] = None,
     ):
         """
         Register a model with the registry. Should be used as a decorator
@@ -233,18 +243,18 @@ class ModelRegistry(object):
 
     @staticmethod
     def register_wrapped_model_constructor(
-        wrapped_constructor: Callable,
-        key: Union[str, List[str]],
-        input_shape: Any,
-        domain: str,
-        sub_domain: str,
-        architecture: str,
-        sub_architecture: str,
-        default_dataset: str,
-        default_desc: str,
-        repo_source: str,
-        def_ignore_error_tensors: List[str] = None,
-        desc_args: Dict[str, Tuple[str, Any]] = None,
+            wrapped_constructor: Callable,
+            key: Union[str, List[str]],
+            input_shape: Any,
+            domain: str,
+            sub_domain: str,
+            architecture: str,
+            sub_architecture: str,
+            default_dataset: str,
+            default_desc: str,
+            repo_source: str,
+            def_ignore_error_tensors: List[str] = None,
+            desc_args: Dict[str, Tuple[str, Any]] = None,
     ):
         """
         Register a model with the registry from a model constructor or provider function
@@ -295,19 +305,19 @@ class ModelRegistry(object):
 
     @staticmethod
     def _registered_wrapper(
-        key: str,
-        constructor_func: Callable,
+            key: str,
+            constructor_func: Callable,
     ):
         @merge_args(constructor_func)
         @wrapper_decorator(constructor_func)
         def wrapper(
-            pretrained_path: str = None,
-            pretrained: Union[bool, str] = False,
-            pretrained_dataset: str = None,
-            load_strict: bool = True,
-            ignore_error_tensors: List[str] = None,
-            *args,
-            **kwargs,
+                pretrained_path: str = None,
+                pretrained: Union[bool, str] = False,
+                pretrained_dataset: str = None,
+                load_strict: bool = True,
+                ignore_error_tensors: List[str] = None,
+                *args,
+                **kwargs,
         ):
             """
             :param pretrained_path: A path to the pretrained weights to load,
@@ -330,7 +340,8 @@ class ModelRegistry(object):
             attributes = ModelRegistry._ATTRIBUTES[key]
 
             if attributes.args and pretrained in attributes.args:
-                kwargs[attributes.args[pretrained][0]] = attributes.args[pretrained][1]
+                kwargs[attributes.args[pretrained][0]] = \
+                    attributes.args[pretrained][1]
 
             model = constructor_func(*args, **kwargs)
             ignore = []
@@ -353,7 +364,8 @@ class ModelRegistry(object):
                     key, pretrained, pretrained_dataset
                 )
                 try:
-                    paths = zoo_model.download_framework_files(extensions=[".pth"])
+                    paths = zoo_model.download_framework_files(
+                        extensions=[".pth"])
                     load_model(paths[0], model, load_strict, ignore)
                 except Exception:
                     # try one more time with overwrite on in case file was corrupted
