@@ -62,8 +62,8 @@ def create_optim_sgd(
         ),
         lambda: ACDCPruningModifier(
             compression_sparsity=0.8,
-            start_epoch=6,
-            end_epoch=26,
+            start_epoch=6.0,
+            end_epoch=26.0,
             update_frequency=1,
             params=["re:.*weight"],
             momentum_buffer_reset=True,
