@@ -31,6 +31,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Optional
 
+import datasets
 import numpy as np
 import transformers
 from datasets import load_dataset, load_metric
@@ -47,6 +48,7 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
+from transformers.utils.versions import require_version
 
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
@@ -54,7 +56,12 @@ from sparseml.transformers.utils import SparseAutoModel
 
 # Will error if the minimal version of Transformers is not installed.
 # Remove at your own risks.
-check_min_version("4.7.0.dev0")
+check_min_version("4.18.0.dev0")
+
+require_version(
+    "datasets>=1.18.0",
+    "To fix: pip install -r examples/pytorch/text-classification/requirements.txt",
+)
 
 _TASK_TO_KEYS = {
     "cola": ("sentence", None),
@@ -77,9 +84,8 @@ class DataTrainingArguments:
     Arguments pertaining to what data we are going to input our model for
     training and eval
 
-    Using `HfArgumentParser` we can turn this class
-    into argparse arguments to be able to specify them on
-    the command line.
+    Using `HfArgumentParser` we can turn this class into argparse
+    arguments to be able to specify them on the command line
     """
 
     recipe: Optional[str] = field(
@@ -272,6 +278,24 @@ def main():
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
+    # Setup logging
+
+    log_level = training_args.get_process_log_level()
+    _LOGGER.setLevel(log_level)
+    datasets.utils.logging.set_verbosity(log_level)
+    transformers.utils.logging.set_verbosity(log_level)
+    transformers.utils.logging.enable_default_handler()
+    transformers.utils.logging.enable_explicit_format()
+
+    # Log on each process the small summary:
+    _LOGGER.warning(
+        f"Process rank: {training_args.local_rank}, device: {training_args.device}, "
+        f"n_gpu: {training_args.n_gpu}"
+        f"distributed training: {bool(training_args.local_rank != -1)}, "
+        f"16-bits training: {training_args.fp16}"
+    )
+    _LOGGER.info(f"Training/evaluation parameters {training_args}")
+
     # Detecting last checkpoint.
     last_checkpoint = None
     if (
@@ -294,23 +318,6 @@ def main():
                 "`--overwrite_output_dir` to train from scratch."
             )
 
-    # Setup logging
-    _LOGGER.setLevel(logging.INFO if training_args.should_log else logging.WARN)
-
-    # Log on each process the small summary:
-    _LOGGER.warning(
-        f"Process rank: {training_args.local_rank}, device: {training_args.device}, "
-        f"n_gpu: {training_args.n_gpu} distributed training: "
-        f"{bool(training_args.local_rank != -1)}, "
-        f"16-bits training: {training_args.fp16}"
-    )
-    # Set the verbosity to info of the Transformers logger (on main process only):
-    if training_args.should_log:
-        transformers.utils.logging.set_verbosity_info()
-        transformers.utils.logging.enable_default_handler()
-        transformers.utils.logging.enable_explicit_format()
-    _LOGGER.info(f"Training/evaluation parameters {training_args}")
-
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
@@ -331,12 +338,12 @@ def main():
     # process can concurrently download the dataset.
     if data_args.task_name is not None:
         # Downloading and loading a dataset from the hub.
-        datasets = load_dataset(
+        raw_datasets = load_dataset(
             "glue", data_args.task_name, cache_dir=model_args.cache_dir
         )
     elif data_args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
-        datasets = load_dataset(
+        raw_datasets = load_dataset(
             data_args.dataset_name,
             data_args.dataset_config_name,
             cache_dir=model_args.cache_dir,
@@ -370,12 +377,12 @@ def main():
 
         if data_args.train_file.endswith(".csv"):
             # Loading a dataset from local csv files
-            datasets = load_dataset(
+            raw_datasets = load_dataset(
                 "csv", data_files=data_files, cache_dir=model_args.cache_dir
             )
         else:
             # Loading a dataset from local json files
-            datasets = load_dataset(
+            raw_datasets = load_dataset(
                 "json", data_files=data_files, cache_dir=model_args.cache_dir
             )
     # See more about loading any type of standard or custom dataset at
@@ -385,20 +392,20 @@ def main():
     if data_args.task_name is not None:
         is_regression = data_args.task_name == "stsb"
         if not is_regression:
-            label_list = datasets["train"].features["label"].names
+            label_list = raw_datasets["train"].features["label"].names
             num_labels = len(label_list)
         else:
             num_labels = 1
     else:
         # Trying to have good defaults here, don't hesitate to tweak to your needs.
-        is_regression = datasets["train"].features["label"].dtype in [
+        is_regression = raw_datasets["train"].features["label"].dtype in [
             "float32",
             "float64",
         ]
         if is_regression:
             num_labels = 1
         else:
-            label_list = datasets["train"].unique("label")
+            label_list = raw_datasets["train"].unique("label")
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
 
@@ -452,7 +459,7 @@ def main():
         # Again, we try to have some nice defaults but don't hesitate to tweak to your
         # use case
         non_label_column_names = [
-            name for name in datasets["train"].column_names if name != "label"
+            name for name in raw_datasets["train"].column_names if name != "label"
         ]
         if (
             "sentence1" in non_label_column_names
@@ -498,6 +505,13 @@ def main():
     elif data_args.task_name is None and not is_regression:
         label_to_id = {v: i for i, v in enumerate(label_list)}
 
+    if label_to_id is not None:
+        model.config.label2id = label_to_id
+        model.config.id2label = {id: label for label, id in config.label2id.items()}
+    elif data_args.task_name is not None and not is_regression:
+        model.config.label2id = {l: i for i, l in enumerate(label_list)}
+        model.config.id2label = {id: label for label, id in config.label2id.items()}
+
     if data_args.max_seq_length > tokenizer.model_max_length:
         _LOGGER.warning(
             f"The max_seq_length passed ({data_args.max_seq_length}) is larger than "
@@ -525,23 +539,28 @@ def main():
             ]
         return result
 
-    datasets = datasets.map(
-        preprocess_function,
-        batched=True,
-        num_proc=data_args.preprocessing_num_workers,
-        load_from_cache_file=not data_args.overwrite_cache,
-    )
+    with training_args.main_process_first(desc="dataset map pre-processing"):
+        raw_datasets = raw_datasets.map(
+            preprocess_function,
+            batched=True,
+            num_proc=data_args.preprocessing_num_workers,
+            load_from_cache_file=not data_args.overwrite_cache,
+            desc="Running tokenizer on dataset",
+        )
     if training_args.do_train:
-        if "train" not in datasets:
+        if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
-        train_dataset = datasets["train"]
+        train_dataset = raw_datasets["train"]
         if data_args.max_train_samples is not None:
             train_dataset = train_dataset.select(range(data_args.max_train_samples))
 
     if training_args.do_eval:
-        if "validation" not in datasets and "validation_matched" not in datasets:
+        if (
+            "validation" not in raw_datasets
+            and "validation_matched" not in raw_datasets
+        ):
             raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = datasets[
+        eval_dataset = raw_datasets[
             "validation_matched" if data_args.task_name == "mnli" else "validation"
         ]
         if data_args.max_eval_samples is not None:
@@ -552,9 +571,9 @@ def main():
         or data_args.task_name is not None
         or data_args.test_file is not None
     ):
-        if "test" not in datasets and "test_matched" not in datasets:
+        if "test" not in raw_datasets and "test_matched" not in raw_datasets:
             raise ValueError("--do_predict requires a test dataset")
-        predict_dataset = datasets[
+        predict_dataset = raw_datasets[
             "test_matched" if data_args.task_name == "mnli" else "test"
         ]
         if data_args.max_predict_samples is not None:
@@ -591,8 +610,8 @@ def main():
                 "accuracy": (preds == p.label_ids).astype(np.float32).mean().item(),
             }
 
-    # Data collator will default to DataCollatorWithPadding, so we change it if we
-    # already did the padding.
+    # Data collator will default to DataCollatorWithPadding when the tokenizer is
+    # passed to Trainer, so we change it if we already did the padding.
     if data_args.pad_to_max_length:
         data_collator = default_data_collator
     elif training_args.fp16:
@@ -646,7 +665,7 @@ def main():
         eval_datasets = [eval_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
-            eval_datasets.append(datasets["validation_mismatched"])
+            eval_datasets.append(raw_datasets["validation_mismatched"])
 
         for eval_dataset, task in zip(eval_datasets, tasks):
             metrics = trainer.evaluate(eval_dataset=eval_dataset)
@@ -669,12 +688,12 @@ def main():
         predict_datasets = [predict_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
-            predict_datasets.append(datasets["test_mismatched"])
+            predict_datasets.append(raw_datasets["test_mismatched"])
 
         for predict_dataset, task in zip(predict_datasets, tasks):
             # Removing the `label` columns because it contains -1 and Trainer will
             # not like that
-            predict_dataset.remove_columns_("label")
+            predict_dataset = predict_dataset.remove_columns("label")
             predictions = trainer.predict(
                 predict_dataset, metric_key_prefix="predict"
             ).predictions
@@ -698,18 +717,20 @@ def main():
                             item = label_list[item]
                             writer.write(f"{index}\t{item}\n")
 
-    if training_args.push_to_hub:
-        kwargs = {
-            "finetuned_from": model_args.model_name_or_path,
-            "tags": "text-classification",
-        }
-        if data_args.task_name is not None:
-            kwargs["language"] = "en"
-            kwargs["dataset_tags"] = "glue"
-            kwargs["dataset_args"] = data_args.task_name
-            kwargs["dataset"] = f"GLUE {data_args.task_name.upper()}"
+    kwargs = {
+        "finetuned_from": model_args.model_name_or_path,
+        "tasks": "text-classification",
+    }
+    if data_args.task_name is not None:
+        kwargs["language"] = "en"
+        kwargs["dataset_tags"] = "glue"
+        kwargs["dataset_args"] = data_args.task_name
+        kwargs["dataset"] = f"GLUE {data_args.task_name.upper()}"
 
+    if training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)
+    else:
+        trainer.create_model_card(**kwargs)
 
 
 def _mp_fn(index):
