@@ -251,7 +251,9 @@ class RecipeManagerTrainerInterface:
             f"steps_per_epoch: {self.manager_steps_per_epoch}"
         )
 
-    def create_scheduler(self, num_training_steps: int):
+    def create_scheduler(
+        self, num_training_steps: int, optimizer: torch.optim.Optimizer = None
+    ):
         """
         Create an LR scheduler to work with the applied recipes.
         If the recipe specifies LR modifiers, then will set lr_scheduler
@@ -268,7 +270,7 @@ class RecipeManagerTrainerInterface:
             or self.manager is None
             or not self.manager.learning_rate_modifiers
         ):
-            super().create_scheduler(num_training_steps)
+            super().create_scheduler(num_training_steps, optimizer=optimizer)
             return
 
         # allow SparseML to manage LR and set a dummy scheduler
@@ -318,7 +320,9 @@ class RecipeManagerTrainerInterface:
 
         return (loss, student_outputs) if return_outputs else loss
 
-    def save_model(self, output_dir: Optional[str] = None):
+    def save_model(
+        self, output_dir: Optional[str] = None, _internal_call: bool = False
+    ):
         """
         Override of the save_model function and expects it to exist in the parent.
         Calls into super() to save the model and additionally saves any recipes
