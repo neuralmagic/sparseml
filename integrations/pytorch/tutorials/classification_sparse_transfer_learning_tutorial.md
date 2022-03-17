@@ -33,7 +33,7 @@ The examples listed in this tutorial are all performed on the [Imagenette](https
 
 ## Need Help?
 
-For Neural Magic Support, sign up or log in to get help with your questions in our Tutorials channel: [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). 
+For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues) 
 
 ## Setting Up
 
@@ -124,4 +124,4 @@ In this tutorial, you downloaded a pre-sparsified model, applied a Neural Magic 
 
 An example for benchmarking and deploying image classification models with DeepSparse [is also available](https://github.com/neuralmagic/deepsparse/tree/main/examples/classification).
 
-For Neural Magic Support, sign up or log in to get help with your questions in our Tutorials channel: [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ).
+For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
