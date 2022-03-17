@@ -448,7 +448,7 @@ class RecipeManagerTrainerInterface:
         load_state_dict = torch.load(
             os.path.join(load_path, WEIGHTS_NAME), map_location="cpu"
         )
-        _, missing, unexpected, __ = self.model._load_state_dict_into_model(
+        _, missing, unexpected, _, _ = self.model._load_state_dict_into_model(
             self.model, load_state_dict, load_path, _fast_init=False
         )
 
