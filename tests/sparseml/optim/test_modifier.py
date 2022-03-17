@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict
 
 import pytest
 
@@ -106,8 +106,8 @@ class BaseModifierTest(object):
     ):
         modifier = modifier_lambda()
 
-        expected_serializable = ["log_types"]
-        expected_all = ["log_types", "initialized", "enabled"]
+        expected_serializable = []
+        expected_all = ["initialized", "enabled"]
 
         found_all = {}
         props = {}
@@ -122,9 +122,6 @@ class BaseModifierTest(object):
 
             props[attr] = prop
             val = getattr(modifier, attr)
-
-            if attr == "log_types" and not val:
-                expected_serializable = []
 
             if prop._func_set:
                 setattr(modifier, attr, val)
@@ -453,8 +450,8 @@ def test_base_object():
 
 @ModifierYAML("test_framework")
 class BaseModifierImpl(BaseModifier):
-    def __init__(self, log_types: Union[str, List[str]] = "__ALL__"):
-        super().__init__(log_types)
+    def __init__(self):
+        super().__init__()
 
 
 @pytest.mark.parametrize("modifier_lambda", [lambda: BaseModifierImpl()])

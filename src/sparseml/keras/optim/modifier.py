@@ -62,7 +62,6 @@ class Modifier(BaseModifier):
     | Modifiers are expected to implement the following functions for Keras:
     |  - modify - modify model and optimizer
 
-    :param log_types: the loggers that can be used by the modifier instance
     :param kwargs: standard key word args, used to support multi inheritance
     """
 
@@ -84,8 +83,8 @@ class Modifier(BaseModifier):
         """
         return Modifier.load_framework_obj(yaml_str, KERAS_FRAMEWORK)
 
-    def __init__(self, log_types: Union[str, List[str]] = None, **kwargs):
-        super().__init__(log_types=log_types, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def modify(
         self,
@@ -129,7 +128,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
     | Modifiers are expected to implement the following functions for Keras:
     |  - modify - modify model and optimizer
 
-    :param log_types: the loggers that can be used by the modifier instance
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param min_start: The minimum acceptable value for start_epoch, default -1
@@ -145,7 +143,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
 
     def __init__(
         self,
-        log_types: Union[str, List[str]] = None,
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         min_start: float = -1.0,
@@ -154,7 +151,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
         **kwargs,
     ):
         super().__init__(
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             min_start=min_start,
@@ -203,7 +199,6 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     | Modifiers are expected to implement the following functions for Keras:
     |  - modify - modify model and optimizer
 
-    :param log_types: the loggers that can be used by the modifier instance
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
     :param min_start: The minimum acceptable value for start_epoch, default -1
@@ -221,7 +216,6 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
 
     def __init__(
         self,
-        log_types: Union[str, List[str]] = None,
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         min_start: float = -1.0,
@@ -232,7 +226,6 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
         **kwargs,
     ):
         super().__init__(
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             min_start=min_start,

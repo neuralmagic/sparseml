@@ -27,7 +27,6 @@ from yaml import ScalarNode
 
 from sparseml.optim.helpers import evaluate_recipe_yaml_str_equations
 from sparseml.sparsification.types import SparsificationTypes
-from sparseml.utils import ALL_TOKEN, validate_str_iterable
 
 
 __all__ = [
@@ -273,7 +272,6 @@ class BaseModifier(BaseObject):
     Parent class meant to be used for all modifiers.
     Handles base implementations for properties and methods.
 
-    :param log_types: the loggers that can be used by the modifier instance
     :param kwargs: standard key word args, used to support multi inheritance
     """
 
@@ -498,15 +496,8 @@ class BaseModifier(BaseObject):
             return 1
         return 0
 
-    def __init__(self, log_types: Union[str, List[str]] = ALL_TOKEN, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._log_types = (
-            validate_str_iterable(
-                log_types, "log_types for {}".format(self.__class__.__name__)
-            )
-            if log_types
-            else None
-        )
         self._initialized = False
         self._enabled = True
 
@@ -532,13 +523,6 @@ class BaseModifier(BaseObject):
         :return: the sparsification types this modifier instance will apply
         """
         return []
-
-    @ModifierProp(serializable=True)
-    def log_types(self) -> Union[None, str, List[str]]:
-        """
-        :return: the loggers that can be used by the modifier instance
-        """
-        return self._log_types
 
     @ModifierProp(serializable=False, restrict_initialized=False)
     def initialized(self) -> bool:
@@ -828,6 +812,10 @@ class ModifierYAML(object):
                 if not isinstance(node, ScalarNode)
                 else {}
             )
+            # ignore the log_types arg in recipes to maintain backwards compatability
+            # while recipes are updated
+            if "log_types" in state:
+                del state["log_types"]
             instance.__init__(**state)
 
         yaml.add_constructor(yaml_key, constructor)
