@@ -27,12 +27,7 @@ from sparseml.optim.modifier import (
     ModifierProp,
 )
 from sparseml.sparsification.types import SparsificationTypes
-from sparseml.utils import (
-    ALL_TOKEN,
-    FROM_PARAM_TOKEN,
-    convert_to_bool,
-    validate_str_iterable,
-)
+from sparseml.utils import FROM_PARAM_TOKEN, convert_to_bool, validate_str_iterable
 
 
 __all__ = [
@@ -51,7 +46,6 @@ class ConstantPruningModifier(BaseModifier, BaseScheduled):
     |       params: __ALL__
     |       start_epoch: 0.0
     |       end_epoch: 10.0
-    |       log_types: __ALL__
 
     :param params: List of str names or regex patterns of names for the parameter
         variables to apply the KS modifier to. Regex patterns must be specified
@@ -59,8 +53,6 @@ class ConstantPruningModifier(BaseModifier, BaseScheduled):
         prunable layers and weights
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     def __init__(
@@ -68,13 +60,10 @@ class ConstantPruningModifier(BaseModifier, BaseScheduled):
         params: Union[str, List[str]],
         start_epoch: float = -1,
         end_epoch: float = -1,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         **kwargs,
     ):
         kwargs["end_comparator"] = kwargs.get("end_comparator", None)
-        super().__init__(
-            log_types=log_types, start_epoch=start_epoch, end_epoch=end_epoch, **kwargs
-        )
+        super().__init__(start_epoch=start_epoch, end_epoch=end_epoch, **kwargs)
 
         self._params = validate_str_iterable(
             params, "{} for params".format(self.__class__.__name__)
@@ -125,7 +114,6 @@ class GMPruningModifier(BaseModifier, BaseScheduled, BaseUpdate):
     |       end_epoch: 10.0
     |       update_frequency: 1.0
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
     |       leave_enabled: True
 
@@ -144,8 +132,6 @@ class GMPruningModifier(BaseModifier, BaseScheduled, BaseUpdate):
         immediately after or doing some other prune
     :param inter_func: The type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameter's in and out
         channels. default is 'unstructured'
@@ -163,14 +149,12 @@ class GMPruningModifier(BaseModifier, BaseScheduled, BaseUpdate):
         end_epoch: float,
         update_frequency: float,
         inter_func: str = "cubic",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int]] = "unstructured",
         leave_enabled: bool = True,
         **kwargs,
     ):
         kwargs["min_frequency"] = kwargs.get("min_frequency", -1.0)
         super().__init__(
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=update_frequency,

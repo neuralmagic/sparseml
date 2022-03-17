@@ -39,7 +39,7 @@ training_modifiers:
   - !EpochRangeModifier
     end_epoch: *num_epochs
     start_epoch: 0.0
-    
+
   - !LearningRateFunctionModifier
     start_epoch: 0.0
     end_epoch: *quantization_start_epoch
@@ -72,7 +72,6 @@ pruning_modifiers:
     update_frequency: *pruning_update_frequency
     leave_enabled: True
     mask_type: [1,4]
-    log_types: __ALL__
 
 quantization_modifiers:
   - !QuantizationModifier
