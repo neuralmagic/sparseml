@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#import sparseml.transformers as __transformers  # noqa: F401
 
 import glob
 import math
@@ -21,9 +22,8 @@ from collections import Counter, OrderedDict
 import onnx
 import onnxruntime as ort
 import pytest
-from transformers import AutoConfig
-
 from sparseml.transformers.sparsification import Trainer
+from transformers import AutoConfig
 from sparsezoo import Zoo
 from sparsezoo.utils import load_numpy_list
 from src.sparseml.transformers import export_transformer_to_onnx, load_task_model
