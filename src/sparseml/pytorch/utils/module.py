@@ -813,7 +813,8 @@ class ModuleRunner(ABC):
         )
 
     def _log_scalar(self, key: str, item: Any, step: int):
-        self._loggers.log_scalar(key, item, step)
+        for logger in self._loggers:
+            logger.log_scalar(key, item, step)
 
     @abstractmethod
     def _runner_setup(self):
