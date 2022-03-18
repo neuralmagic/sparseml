@@ -523,6 +523,10 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     container = load_recipe_yaml_str_no_classes(yaml_str)
     is_recipe_staged = check_if_staged_recipe(container)
 
+    ### first check if there is metadata in staged/unstaged recipe and extract it
+
+    ### then check if metadata and if yes, overwrite.
+
     if is_recipe_staged:
         stage_names = [
             stage_name
@@ -557,8 +561,8 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
             if not key_found:
                 raise ValueError(
                     f"The previously unseen metadata key {k} "
-                    f"has not been recognized in previous "
-                    f"metadata."
+                    "has not been recognized in previous "
+                    "metadata."
                 )
         return prev_metadata
 

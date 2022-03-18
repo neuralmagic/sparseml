@@ -156,9 +156,9 @@ class BaseManager(BaseObject):
             if additional_stage_name in base_stages.keys():
                 raise ValueError(
                     f"Generated new stage name: {additional_stage_name}, "
-                    f"but there already exists"
-                    f"a stage with that name in the checkpoint file. "
-                    f"Please edit the stage name in the checkpoint file."
+                    "but there already exists"
+                    "a stage with that name in the checkpoint file. "
+                    "Please edit the stage name in the checkpoint file."
                 )
 
             additional_stages = {
@@ -353,7 +353,7 @@ class BaseManager(BaseObject):
         """
         :param file_path: the file path to save the yaml config representation to
         :param include_metadata: boolean indicator whether metadata shall be
-            appended to the yaml file before saving.
+            appended to the yaml file before saving. Default is True.
         """
         file_path = clean_path(file_path)
         create_parent_dirs(file_path)
@@ -401,10 +401,10 @@ class BaseManager(BaseObject):
             for mod in modifiers_list:
                 yield mod
 
-    def to_string_lines(self, include_metadata: bool = False) -> List[str]:
+    def to_string_lines(self, include_metadata: bool = True) -> List[str]:
         """
         :param include_metadata: boolean indicator whether metadata shall be
-            appended to the yaml file before saving..
+            appended to the yaml file before saving. Default is False.
         :return: a list of lines for a string / yaml representation of this instance
         """
         yaml_str_lines = ["version: 1.1.0", ""]

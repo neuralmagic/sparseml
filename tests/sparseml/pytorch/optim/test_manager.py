@@ -60,7 +60,6 @@ modifiers:
         params: ["re:.*weight"]
         leave_enabled: True
         inter_func: cubic
-        log_types: __ALL__
         mask_type: unstructured
 """
 
@@ -97,7 +96,6 @@ modifiers:
         init_sparsity: 0.2
         inter_func: cubic
         leave_enabled: True
-        log_types: __ALL__
         mask_type: unstructured
         params: ['re:.*weight']
         start_epoch: 0.0
@@ -122,7 +120,6 @@ TWO_STAGES_RECIPE = """version: 1.1.0
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
-          log_types: __ALL__
           mask_type: unstructured
           params: ['re:.*weight']
           start_epoch: 0.0
@@ -137,7 +134,6 @@ TWO_STAGES_RECIPE = """version: 1.1.0
   {stage_1_name}_modifiers:
       - !ConstantPruningModifier
           end_epoch: 8
-          log_types: __ALL__
           params: ['re:.*weight']
           start_epoch: 5
           update_frequency: -1
@@ -167,7 +163,6 @@ stage_0:
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
-          log_types: __ALL__
           mask_type: unstructured
           params: ['re:.*weight']
           start_epoch: 0.0
@@ -182,7 +177,6 @@ stage_1:
   stage_1_modifiers:
       - !ConstantPruningModifier
           end_epoch: 8
-          log_types: __ALL__
           params: ['re:.*weight']
           start_epoch: 5
           update_frequency: -1
@@ -208,7 +202,6 @@ stage_3:
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
-          log_types: __ALL__
           mask_type: unstructured
           params: ['re:.*weight']
           start_epoch: 9.0
@@ -233,7 +226,6 @@ pre_stage_0:
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
-          log_types: __ALL__
           mask_type: unstructured
           params: ['re:.*weight']
           start_epoch: 0.0
@@ -256,7 +248,6 @@ stage_0:
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
-          log_types: __ALL__
           mask_type: unstructured
           params: ['re:.*weight']
           start_epoch: 3.0
@@ -271,7 +262,6 @@ stage_1:
   stage_1_modifiers:
       - !ConstantPruningModifier
           end_epoch: 11
-          log_types: __ALL__
           params: ['re:.*weight']
           start_epoch: 8
           update_frequency: -1
@@ -300,7 +290,6 @@ stage_0:
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
-          log_types: __ALL__
           mask_type: unstructured
           params: ['re:.*weight']
           start_epoch: 0.0
@@ -315,7 +304,6 @@ stage_1:
   stage_1_modifiers:
       - !ConstantPruningModifier
           end_epoch: 8
-          log_types: __ALL__
           params: ['re:.*weight']
           start_epoch: 5
           update_frequency: -1
@@ -341,7 +329,6 @@ stage_3:
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
-          log_types: __ALL__
           mask_type: unstructured
           params: ['re:.*weight']
           start_epoch: 9.0
@@ -356,7 +343,6 @@ stage_4:
   stage_4_modifiers:
       - !ConstantPruningModifier
           end_epoch: 17
-          log_types: __ALL__
           params: ['re:.*weight']
           start_epoch: 14
           update_frequency: -1
