@@ -36,7 +36,6 @@ from sparseml.pytorch.utils import get_prunable_layers, tensor_sparsity
 from sparseml.sparsification import (
     ConstantPruningModifier as BaseConstantPruningModifier,
 )
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = [
@@ -78,7 +77,6 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
     |       start_epoch: 0.0
     |       end_epoch: 10.0
     |       params: ['re:.*weight']
-    |       log_types: __ALL__
 
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
@@ -87,8 +85,6 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
         pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
         will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
         and Linear layers' weights
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     @staticmethod
@@ -121,7 +117,6 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
         start_epoch: float = -1.0,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(ConstantPruningModifier, self).__init__(
             params=params,
@@ -129,7 +124,6 @@ class ConstantPruningModifier(BasePruningModifier, BaseConstantPruningModifier):
             end_epoch=end_epoch,
             end_comparator=-1,
             update_frequency=-1,
-            log_types=log_types,
             allow_reintroduction=False,
             leave_enabled=False,
             parent_class_kwarg_names=["params"],

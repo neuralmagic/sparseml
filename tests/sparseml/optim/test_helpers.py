@@ -24,7 +24,7 @@ from sparseml.optim import (
 
 
 STAGED_RECIPE_COMPLEX = """
-sparsity: 0.9
+sparsity: {sparsity}
 init_lr: 0.05
 final_lr: 0.0
 end_epoch: 100
@@ -36,7 +36,7 @@ ac_dc_phase:
   update_frequency: 5
   end_epoch_global: eval(end_epoch)
   end_epoch: 75
-  num_epochs: 10
+  num_epochs: {num_epochs}
   end_warm_up_epoch: 5.0
   final_lr: eval(final_lr)
   final_lr: 0.256
@@ -58,7 +58,7 @@ ac_dc_phase:
   - !LearningRateFunctionModifier
     start_epoch: eval(end_warm_up_epoch)
     end_epoch: eval(end_epoch_global)
-    lr_func: cosine
+    lr_func: {lr_func}
     init_lr: eval(final_lr)
     final_lr: 0.0
 
@@ -73,7 +73,7 @@ ac_dc_phase:
      global_sparsity: eval(global_sparsity)
 
 next_stage:
-  new_num_epochs: 15
+  new_num_epochs: {new_num_epochs}
 
   modifiers:
     - !EpochRangeModifier
@@ -242,7 +242,6 @@ modifiers:
         init_sparsity: eval(init_sparsity)
         inter_func: cubic
         leave_enabled: True
-        log_types: __ALL__
         mask_type: [1, 4]
         params: __ALL_PRUNABLE__
         start_epoch: eval(pruning_start_epoch)
@@ -267,7 +266,6 @@ modifiers:
         init_sparsity: eval(init_sparsity)
         inter_func: cubic
         leave_enabled: True
-        log_types: __ALL__
         mask_type: [1, 4]
         params: __ALL_PRUNABLE__
         start_epoch: eval(pruning_start_epoch)
@@ -291,7 +289,6 @@ modifiers:
     init_sparsity: 0.2
     inter_func: cubic
     leave_enabled: true
-    log_types: __ALL__
     mask_type:
     - 1
     - 4
@@ -328,7 +325,13 @@ def _test_nested_equality(val, other):
         (RECIPE_SIMPLE_EVAL, TARGET_RECIPE.format(num_epochs=10.0), False),
         (RECIPE_MULTI_EVAL, TARGET_RECIPE.format(num_epochs=10.0), False),
         (STAGED_RECIPE_SIMPLE, STAGED_RECIPE_SIMPLE_EVAL, True),
-        (STAGED_RECIPE_COMPLEX, STAGED_RECIPE_COMPLEX_EVAL, True),
+        (
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.9, num_epochs=10, lr_func="cosine", new_num_epochs=15
+            ),
+            STAGED_RECIPE_COMPLEX_EVAL,
+            True,
+        ),
     ],
 )
 def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
@@ -387,18 +390,56 @@ def test_load_recipe_yaml_str_zoo(zoo_path):
 
 
 @pytest.mark.parametrize(
-    "base_recipe,override_variables,target_recipe",
+    "base_recipe,override_variables,target_recipe,raises_value_error",
     [
         (
             TARGET_RECIPE.format(num_epochs=100.0),
             {"num_epochs": 10.0},
             TARGET_RECIPE.format(num_epochs=10.0),
+            False,
+        ),
+        (
+            TARGET_RECIPE.format(num_epochs=100.0),
+            {"invalid_var_name": 10.0},
+            TARGET_RECIPE.format(num_epochs=10.0),
+            True,
+        ),
+        (
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.9, num_epochs=10, lr_func="cosine", new_num_epochs=15
+            ),
+            {
+                "sparsity": 0.5,
+                "num_epochs": 11,
+                "lr_func": "linear",
+                "new_num_epochs": 13,
+            },
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.5, num_epochs=11, lr_func="linear", new_num_epochs=13
+            ),
+            False,
+        ),
+        (
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.9, num_epochs=10, lr_func="cosine", new_num_epochs=15
+            ),
+            {"invalid_var_name": 10.0},
+            STAGED_RECIPE_COMPLEX.format(
+                sparsity=0.5, num_epochs=11, lr_func="linear", new_num_epochs=13
+            ),
+            True,
         ),
     ],
 )
-def test_update_recipe_variables(base_recipe, override_variables, target_recipe):
-    updated_recipe = update_recipe_variables(base_recipe, override_variables)
+def test_update_recipe_variables(
+    base_recipe, override_variables, target_recipe, raises_value_error
+):
+    if raises_value_error:
+        with pytest.raises(ValueError):
+            update_recipe_variables(base_recipe, override_variables)
 
-    updated_yaml = load_recipe_yaml_str_no_classes(updated_recipe)
-    target_yaml = load_recipe_yaml_str_no_classes(target_recipe)
-    _test_nested_equality(updated_yaml, target_yaml)
+    else:
+        updated_recipe = update_recipe_variables(base_recipe, override_variables)
+        updated_yaml = load_recipe_yaml_str_no_classes(updated_recipe)
+        target_yaml = load_recipe_yaml_str_no_classes(target_recipe)
+        _test_nested_equality(updated_yaml, target_yaml)
