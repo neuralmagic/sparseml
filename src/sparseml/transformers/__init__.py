@@ -21,6 +21,7 @@ Tools for integrating SparseML with transformers training flows
 import logging as _logging
 
 
+"""
 try:
     import transformers as _transformers
 
@@ -34,7 +35,7 @@ except Exception as _transformers_import_err:
 _LOGGER = _logging.getLogger(__name__)
 _NM_TRANSFORMERS_TAR_TEMPLATE = (
     "https://github.com/neuralmagic/transformers/releases/download/"
-    "{version}/transformers-4.7.0.dev0-py3-none-any.whl"
+    "{version}/transformers-4.18.0.dev0-py3-none-any.whl"
 )
 _NM_TRANSFORMERS_NIGHTLY = _NM_TRANSFORMERS_TAR_TEMPLATE.format(version="nightly")
 
@@ -111,5 +112,5 @@ def _check_transformers_install():
 
 
 _check_transformers_install()
-
+"""
 from .export import *

@@ -30,7 +30,6 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     MagnitudePruningParamsScorer,
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["ACDCPruningModifier"]
@@ -67,8 +66,6 @@ class ACDCPruningModifier(BasePruningModifier):
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune. Default is True
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
@@ -86,16 +83,20 @@ class ACDCPruningModifier(BasePruningModifier):
     def __init__(
         self,
         compression_sparsity: float,
-        start_epoch: float,
-        end_epoch: float,
-        update_frequency: float,
+        start_epoch: Union[int, float],
+        end_epoch: Union[int, float],
+        update_frequency: Union[int, float],
         params: Union[str, List[str]],
         global_sparsity: bool = True,
         leave_enabled: bool = True,
         momentum_buffer_reset: bool = True,
         mask_type: str = "unstructured",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
+        # AC/DC assumes that variables `start_epoch`, `end_epoch`
+        # and `update_frequency` are integers.
+        start_epoch = self._assert_is_integer(start_epoch)
+        end_epoch = self._assert_is_integer(end_epoch)
+        update_frequency = self._assert_is_integer(update_frequency)
 
         # because method does not involve any interpolation
         # compression sparsity (final sparsity) is a single float.
@@ -115,7 +116,6 @@ class ACDCPruningModifier(BasePruningModifier):
             global_sparsity=global_sparsity,
             params=params,
             leave_enabled=leave_enabled,
-            log_types=log_types,
         )
 
         self._momentum_buffer_empty = True
@@ -273,3 +273,22 @@ class ACDCPruningModifier(BasePruningModifier):
                 end_epoch -= 1
 
         return end_epoch
+
+    @staticmethod
+    def _assert_is_integer(x):
+        """
+        Check if x, which is expected to be either a float or int,
+        can be evaluated as int.
+        If True, return and integer, else, raise ValueError.
+
+        :param x: an integer or a float.
+        :return: an integer
+        """
+        if isinstance(x, float) and not x.is_integer():
+            raise ValueError(
+                "The ACDCPruningModifier assumes that attributes"
+                "`start_epoch`, `end epoch` and `update frequency` "
+                "are integers, or floats which evaluate to integers."
+                "However: type(x)==float and x.is_integer() == False."
+            )
+        return int(x)

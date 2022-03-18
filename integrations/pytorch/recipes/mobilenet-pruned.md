@@ -26,7 +26,6 @@ pruning_end_epoch: &pruning_end_epoch 40.0
 pruning_update_frequency: &pruning_update_frequency 0.4
 init_sparsity: &init_sparsity 0.05
 pruning_mask_type: &pruning_mask_type unstructured
-
 prune_low_target_sparsity: &prune_low_target_sparsity 0.7
 prune_mid_target_sparsity: &prune_mid_target_sparsity 0.8
 prune_high_target_sparsity: &prune_high_target_sparsity 0.9
@@ -41,7 +40,6 @@ training_modifiers:
     constant_logging: False
     end_epoch: -1.0
     init_lr: *init_lr
-    log_types: __ALL__
     lr_class: MultiStepLR
     lr_kwargs: {'milestones': *lr_step_epochs, 'gamma': 0.1}
     start_epoch: 0.0
@@ -54,7 +52,6 @@ pruning_modifiers:
     init_sparsity: *init_sparsity
     inter_func: cubic
     leave_enabled: True
-    log_types: __ALL__
     mask_type: *pruning_mask_type
     params: ['sections.1.0.point.conv.weight', 'sections.1.1.point.conv.weight', 'sections.2.0.point.conv.weight']
     start_epoch: *pruning_start_epoch
@@ -66,7 +63,6 @@ pruning_modifiers:
     init_sparsity: *init_sparsity
     inter_func: cubic
     leave_enabled: True
-    log_types: __ALL__
     mask_type: *pruning_mask_type
     params: ['sections.2.1.point.conv.weight', 'sections.3.0.point.conv.weight', 'sections.3.1.point.conv.weight', 'sections.3.5.point.conv.weight']
     start_epoch: *pruning_start_epoch
@@ -78,7 +74,6 @@ pruning_modifiers:
     init_sparsity: *init_sparsity
     inter_func: cubic
     leave_enabled: True
-    log_types: __ALL__
     mask_type: *pruning_mask_type
     params: ['sections.3.2.point.conv.weight', 'sections.3.3.point.conv.weight', 'sections.3.4.point.conv.weight', 'sections.4.0.point.conv.weight', 'sections.4.1.point.conv.weight']
     start_epoch: *pruning_start_epoch

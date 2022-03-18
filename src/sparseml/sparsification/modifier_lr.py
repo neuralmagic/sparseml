@@ -15,7 +15,7 @@
 """
 Code related to learning rate controls that are shared across frameworks.
 """
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 
 from sparseml.optim.modifier import (
     BaseModifier,
@@ -24,7 +24,6 @@ from sparseml.optim.modifier import (
     ModifierProp,
 )
 from sparseml.sparsification.types import SparsificationTypes
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = [
@@ -42,12 +41,9 @@ class SetLearningRateModifier(BaseModifier, BaseScheduled):
     |    !SetLearningRateModifier
     |        start_epoch: 0.0
     |        learning_rate: 0.001
-    |        log_types: __ALL__
 
     :param learning_rate: The learning rate to use once this modifier starts
     :param start_epoch: The epoch to start the modifier at
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param: end_epoch: should not be set, does not affect modifier. Set at -1
     """
 
@@ -55,13 +51,11 @@ class SetLearningRateModifier(BaseModifier, BaseScheduled):
         self,
         learning_rate: float,
         start_epoch: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         end_epoch: float = -1.0,
         **kwargs,
     ):
         kwargs["end_comparator"] = kwargs.get("end_comparator", None)
         super().__init__(
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=-1.0,
             **kwargs,
@@ -116,7 +110,6 @@ class LearningRateModifier(BaseModifier, BaseScheduled, BaseUpdate):
     |            decay_rate: 0.96
     |        start_epoch: 0.0
     |        end_epoch: 10.0
-    |        log_types: __ALL__
 
     :param lr_class: The name of the lr scheduler class to use:
         [StepLR, MultiStepLR, ExponentialLR]
@@ -128,8 +121,6 @@ class LearningRateModifier(BaseModifier, BaseScheduled, BaseUpdate):
     :param end_epoch: The epoch to end the modifier at,
         (set to -1.0 so it doesn't end)
     :param update_frequency: unused and should not be set
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     def __init__(
@@ -140,13 +131,11 @@ class LearningRateModifier(BaseModifier, BaseScheduled, BaseUpdate):
         start_epoch: float,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         **kwargs,
     ):
         kwargs["update_frequency"] = kwargs.get("update_frequency", -1.0)
         kwargs["end_comparator"] = kwargs.get("end_comparator", -1)
         super().__init__(
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             **kwargs,

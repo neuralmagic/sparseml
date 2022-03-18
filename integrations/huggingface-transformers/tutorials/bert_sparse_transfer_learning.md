@@ -37,7 +37,7 @@ Additionally, all commands are intended to be run from the root of the `huggingf
 
 ## Need Help?
 
-For Neural Magic Support, sign up or log in to get help with your questions in our Tutorials channel: [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ).
+For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
 
 ## Selecting a Pre-sparsified Model
 
@@ -147,4 +147,4 @@ In this tutorial, you selected a pre-sparsified model, applied a Neural Magic re
 
 Now, refer [here](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers) for an example for benchmarking and deploying BERT models with DeepSparse.
 
-For Neural Magic Support, sign up or log in to get help with your questions in our Tutorials channel: [Discourse Forum](https://discuss.neuralmagic.com/) and/or [Slack](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ).
+For Neural Magic Support, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)

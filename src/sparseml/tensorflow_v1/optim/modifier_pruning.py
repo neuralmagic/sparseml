@@ -64,7 +64,6 @@ class ConstantPruningModifier(BaseConstantPruningModifier, ScheduledModifier):
     |       params: __ALL__
     |       start_epoch: 0.0
     |       end_epoch: 10.0
-    |       log_types: __ALL__
 
     :param params: List of str names or regex patterns of names for the parameter
         variables to apply the pruning modifier to. Regex patterns must be specified
@@ -72,8 +71,6 @@ class ConstantPruningModifier(BaseConstantPruningModifier, ScheduledModifier):
         prunable layers and weights
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     def __init__(
@@ -81,11 +78,9 @@ class ConstantPruningModifier(BaseConstantPruningModifier, ScheduledModifier):
         params: Union[str, List[str]],
         start_epoch: float = -1,
         end_epoch: float = -1,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(ConstantPruningModifier, self).__init__(
             params=params,
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             end_comparator=None,
@@ -170,10 +165,7 @@ class ConstantPruningModifier(BaseConstantPruningModifier, ScheduledModifier):
                 self.ks_group,
             )
 
-            if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:
-                mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(
-                    prune_op_vars
-                )
+            mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(prune_op_vars)
 
         mod_ops.append(update_op)
         self._prune_op_vars = prune_op_vars
@@ -229,7 +221,6 @@ class GMPruningModifier(BaseGMPruningModifier, ScheduledUpdateModifier):
     |       end_epoch: 10.0
     |       update_frequency: 1.0
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
     |       leave_enabled: True
 
@@ -248,8 +239,6 @@ class GMPruningModifier(BaseGMPruningModifier, ScheduledUpdateModifier):
         immediately after or doing some other prune
     :param inter_func: The type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'channel', 'filter']), List to define block shape of a parameter's in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
@@ -267,7 +256,6 @@ class GMPruningModifier(BaseGMPruningModifier, ScheduledUpdateModifier):
         end_epoch: float,
         update_frequency: float,
         inter_func: str = "cubic",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: Union[str, List[int], PruningMaskCreator] = "unstructured",
         leave_enabled: bool = True,
     ):
@@ -279,7 +267,6 @@ class GMPruningModifier(BaseGMPruningModifier, ScheduledUpdateModifier):
             end_epoch=end_epoch,
             update_frequency=update_frequency,
             inter_func=inter_func,
-            log_types=log_types,
             mask_type=mask_type,
             leave_enabled=leave_enabled,
             min_start=-1.0,
@@ -402,10 +389,7 @@ class GMPruningModifier(BaseGMPruningModifier, ScheduledUpdateModifier):
                 self._mask_creator,
             )
 
-            if self.log_types == ALL_TOKEN or "tensorboard" in self.log_types:
-                mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(
-                    prune_op_vars
-                )
+            mod_extras[EXTRAS_KEY_SUMMARIES] = create_summaries_pruning(prune_op_vars)
 
         mod_ops.append(update_op)
         self._prune_op_vars = prune_op_vars

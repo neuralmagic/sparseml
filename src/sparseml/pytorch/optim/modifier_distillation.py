@@ -28,7 +28,11 @@ from torch.nn import Module
 from torch.optim import Optimizer
 
 from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledUpdateModifier
+from sparseml.pytorch.optim.modifier import (
+    PyTorchModifierYAML,
+    ScheduledModifier,
+    ScheduledUpdateModifier,
+)
 from sparseml.pytorch.utils import BaseLogger, device_of, tensors_module_forward
 from sparseml.sparsification import SparsificationTypes
 
@@ -216,6 +220,9 @@ class DistillationModifier(ScheduledUpdateModifier):
                 f"{distillation_teacher}. "
                 "To disable set to 'disable' and for self attention set to 'self'"
             )
+        self._latest_student__loss = None
+        self._latest_teacher_loss = None
+        self._latest_distillation_loss = None
 
     def update_ready(self, epoch: float, steps_per_epoch: int) -> bool:
         """
@@ -231,6 +238,7 @@ class DistillationModifier(ScheduledUpdateModifier):
             epoch, steps_per_epoch
         )
 
+    @ScheduledModifier.log_call
     def loss_update(
         self,
         loss: Tensor,
@@ -253,12 +261,15 @@ class DistillationModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         :return: loss tensor with knowledge distillation loss added
         """
-        loss = super().loss_update(
+        self._latest_student__loss = None
+        self._latest_teacher_loss = None
+        self._latest_distillation_loss = None
+        self._latest_student__loss = super().loss_update(
             loss, module, optimizer, epoch, steps_per_epoch, **kwargs
         )
 
         if not self.update_ready(epoch, steps_per_epoch):
-            return loss
+            return self._latest_student__loss
 
         if student_outputs is None or student_inputs is None:
             raise ValueError(
@@ -318,19 +329,41 @@ class DistillationModifier(ScheduledUpdateModifier):
                 )
 
         # get distillation loss as average of individual output distillation loss values
-        teacher_loss = sum(distill_losses) / len(distill_losses)
-        distillation_loss = ((1.0 - self._hardness) * loss) + (
-            self._hardness * teacher_loss
-        )
-        _log_losses(
-            self.loggers,
-            round(epoch * steps_per_epoch),
-            loss,
-            teacher_loss,
-            distillation_loss,
+        self._latest_teacher_loss = sum(distill_losses) / len(distill_losses)
+        self._latest_distillation_loss = ((1.0 - self._hardness) * loss) + (
+            self._hardness * self._latest_teacher_loss
         )
 
-        return distillation_loss
+        return self._latest_distillation_loss
+
+    def log_update(
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
+    ):
+        """
+        log the latest set of losses
+
+        :param module: module to modify
+        :param optimizer: optimizer to modify
+        :param epoch: current epoch and progress within the current epoch
+        :param steps_per_epoch: number of steps taken within each epoch
+            (calculate batch number using this and epoch)
+        """
+        super().log_update(module, optimizer, epoch, steps_per_epoch)
+
+        losses = {
+            "original_loss": self._latest_student__loss,
+            "teacher_loss": self._latest_teacher_loss,
+            "distillation_loss": self._latest_distillation_loss,
+        }
+        self.log_named_scalars(
+            name_value_pairs=losses.items(),
+            epoch=epoch,
+            steps_per_epoch=steps_per_epoch,
+        )
 
     def finalize(
         self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
@@ -359,21 +392,3 @@ class DistillationModifier(ScheduledUpdateModifier):
             )
             * (self._temperature ** 2)
         )
-
-
-def _log_losses(
-    loggers: List[BaseLogger],
-    global_step: int,
-    original_loss: float,
-    teacher_loss: float,
-    distillation_loss: float,
-):
-    losses = {
-        "original_loss": original_loss,
-        "teacher_loss": teacher_loss,
-        "distillation_loss": distillation_loss,
-    }
-
-    for logger in loggers:
-        for (name, loss) in losses.items():
-            logger.log_scalar(f"DistillationModifier/{name}", loss.item(), global_step)

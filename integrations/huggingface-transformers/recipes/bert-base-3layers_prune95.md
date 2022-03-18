@@ -58,7 +58,6 @@ pruning_modifiers:
     update_frequency: *pruning_update_frequency
     leave_enabled: True
     mask_type: unstructured
-    log_types: __ALL__
 
 distillation_modifiers:
   - !DistillationModifier

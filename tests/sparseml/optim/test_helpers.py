@@ -243,7 +243,6 @@ modifiers:
         init_sparsity: eval(init_sparsity)
         inter_func: cubic
         leave_enabled: True
-        log_types: __ALL__
         mask_type: [1, 4]
         params: __ALL_PRUNABLE__
         start_epoch: eval(pruning_start_epoch)
@@ -268,7 +267,6 @@ modifiers:
         init_sparsity: eval(init_sparsity)
         inter_func: cubic
         leave_enabled: True
-        log_types: __ALL__
         mask_type: [1, 4]
         params: __ALL_PRUNABLE__
         start_epoch: eval(pruning_start_epoch)
@@ -292,7 +290,6 @@ modifiers:
     init_sparsity: 0.2
     inter_func: cubic
     leave_enabled: true
-    log_types: __ALL__
     mask_type:
     - 1
     - 4
