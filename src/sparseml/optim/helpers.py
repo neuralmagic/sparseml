@@ -22,7 +22,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import yaml
 
-from sparseml.utils import UnknownVariableException, restricted_eval
+from sparseml.utils import UnknownVariableException, restricted_eval, RECIPE_METADATA_KEY
 from sparsezoo import Zoo
 from sparsezoo.objects import Recipe
 
@@ -515,6 +515,24 @@ def _maybe_parse_number(val: str) -> Union[str, float, int]:
             return val
 
 
+
+def _extract_metadata_from_recipe(container):
+    metadata = {}
+    if RECIPE_METADATA_KEY in container.keys():
+        metadata = container[RECIPE_METADATA_KEY]
+    return metadata
+    
+def _extract_metadata_from_staged_recipe(container):
+    metadata = {}
+    for stage_name in _get_recipe_stage_names(container):
+        if RECIPE_METADATA_KEY in container[stage_name].keys():
+            metadata[stage_name] = container[stage_name][RECIPE_METADATA_KEY]
+    return metadata
+
+def _get_recipe_stage_names(container):
+    stage_names = [stage_name for stage_name, stage_dict in container.items() if isinstance(stage_dict, dict) and any([key for key in stage_dict.keys() if 'modifiers' in key])]
+    return stage_names
+    
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     """
     Compare the metadata carried over from the recipe (`yaml_str`) with
@@ -538,62 +556,30 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     :return: Validated metadata
     """
 
-    default_metadata_key = "__metadata__"
     container = load_recipe_yaml_str_no_classes(yaml_str)
-    is_recipe_staged = check_if_staged_recipe(container)
 
-    ### first check if there is metadata in staged/unstaged recipe and extract it
+    if check_if_staged_recipe(container):
+        checkpoint_metadata = _extract_metadata_from_staged_recipe(container)
 
-    ### then check if metadata and if yes, overwrite.
-
-    if is_recipe_staged:
-        stage_names = [
-            stage_name
-            for stage_name, stage_dict in container.items()
-            if isinstance(stage_dict, dict)
-        ]
-        prev_metadata = {
-            stage_name: container[stage_name]["metadata"]
-            for stage_name in stage_names
-            if "metadata" in container[stage_name]
-        }
-
+        if metadata and not checkpoint_metadata:
+            return {stage_name: metadata for stage_name in _get_recipe_stage_names(container)}
     else:
-        if "metadata" in container.keys():
-            prev_metadata = {default_metadata_key: container["metadata"]}
+        checkpoint_metadata = _extract_metadata_from_recipe(container)
+        if metadata and checkpoint_metadata:
+            for var_name, var_value in metadata.items():
+                checkpoint_metadata, key_found = _update_recipe_variable(var_name,var_value, checkpoint_metadata)
+                if not key_found:
+                    raise ValueError(
+                        "Attempting to find and overwrite overwrite checkpoint metadata"
+                        f"with metadata key {var_name}, but {var_name}"
+                        "is not present in checkpoint metadata.")
+
+            return {RECIPE_METADATA_KEY: checkpoint_metadata}
+        if metadata and not checkpoint_metadata:
+            return {RECIPE_METADATA_KEY: metadata}
+        if not metadata and checkpoint_metadata:
+            return {RECIPE_METADATA_KEY: checkpoint_metadata}
         else:
-            prev_metadata = {}
+            return {RECIPE_METADATA_KEY: None}
 
-    # checking if new metadata does not conflict with
-    # the previous, possibly overwriting previous_data
-    if metadata and prev_metadata:
-        for k, v in metadata.items():
-            key_found = False
-            for stage_name, metadata_dict in prev_metadata.items():
-                if k in metadata_dict.keys():
-                    if is_recipe_staged:
-                        container[stage_name]["metadata"][k] = v
-                    else:
-                        container["metadata"][k] = v
 
-                    key_found = True
-            if not key_found:
-                raise ValueError(
-                    f"The previously unseen metadata key {k} "
-                    "has not been recognized in previous "
-                    "metadata."
-                )
-        return prev_metadata
-
-    elif not metadata and prev_metadata:
-        return prev_metadata
-
-    else:
-        if is_recipe_staged:
-            return {
-                stage_name: metadata
-                for stage_name, stage_dict in container.items()
-                if isinstance(stage_dict, dict)
-            }
-        else:
-            return {default_metadata_key: metadata}

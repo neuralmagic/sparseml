@@ -23,6 +23,8 @@ from sparseml.optim import (
     validate_metadata,
 )
 
+from sparseml.utils import RECIPE_METADATA_KEY
+
 
 STAGED_RECIPE_COMPLEX = """
 sparsity: {sparsity}
@@ -305,7 +307,7 @@ pruning_start_epoch: eval(num_epochs * 0.2)
 pruning_end_epoch: eval(num_epochs * 0.8)
 init_sparsity: 0.2
 num_pruning_epochs: 6
-metadata:
+__metadata__:
   this: is
   metadata: 90
 
@@ -428,50 +430,50 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
         (
             eval(METADATA.format(key="metadata", value=100)),
             RECIPE_SIMPLE_EVAL,
-            {"__metadata__": eval(METADATA.format(key="metadata", value=100))},
+            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=100))},
             False,
         ),
         # Testing simple recipe (metadata = None)
-        #(None, RECIPE_SIMPLE_EVAL, {"__metadata__": None}, False),
+        (None, RECIPE_SIMPLE_EVAL, {RECIPE_METADATA_KEY: None}, False),
         # Testing simple recipe, overwriting previous metadata
-        #(
-        #    eval(METADATA.format(key="metadata", value=120)),
-        #    RECIPE_SIMPLE_EVAL_W_METADATA,
-        #    {"__metadata__": eval(METADATA.format(key="metadata", value=120))},
-        #    False,
-        #),
+        (
+            eval(METADATA.format(key="metadata", value=120)),
+            RECIPE_SIMPLE_EVAL_W_METADATA,
+            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=120))},
+            False,
+        ),
         # Testing simple recipe, previous metadata present but new metadata is None
-        #(
-        #    None,
-        #    RECIPE_SIMPLE_EVAL_W_METADATA,
-        #    {"__metadata__": eval(METADATA.format(key="metadata", value=90))},
-        #    False,
-        #),
+        (
+            None,
+            RECIPE_SIMPLE_EVAL_W_METADATA,
+            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=90))},
+            False,
+        ),
         # Prohibitive scenario, adding novel metadata key to recipe
         # with previous metadata
-        #(
-       #     eval(METADATA.format(key="error", value=100)),
-        #    RECIPE_SIMPLE_EVAL_W_METADATA,
-        #    None,
-        #    True,
-        #),
+        (
+            eval(METADATA.format(key="error", value=100)),
+            RECIPE_SIMPLE_EVAL_W_METADATA,
+            None,
+            True,
+        ),
         # Testing staged recipe
-        #(
-        #    eval(METADATA.format(key="metadata", value=150)),
-        #    STAGED_RECIPE_SIMPLE_EVAL,
-        #    {
-        #        "first_stage": eval(METADATA.format(key="metadata", value=150)),
-        #        "next_stage": eval(METADATA.format(key="metadata", value=150)),
-        #    },
-        #    False,
-        #),
+        (
+            eval(METADATA.format(key="metadata", value=150)),
+            STAGED_RECIPE_SIMPLE_EVAL,
+            {
+                "first_stage": eval(METADATA.format(key="metadata", value=150)),
+                "next_stage": eval(METADATA.format(key="metadata", value=150)),
+            },
+            False,
+        ),
         # Testing staged recipe (metadata = None)
-        #(
-        #    None,
-        #    STAGED_RECIPE_SIMPLE_EVAL,
-        #    {"first_stage": None, "next_stage": None},
-        #    False,
-        #),
+        (
+            None,
+            STAGED_RECIPE_SIMPLE_EVAL,
+            {"first_stage": None, "next_stage": None},
+            False,
+        ),
         # Testing staged recipe, overwriting previous metadata
         #(
          #   eval(METADATA.format(key="metadata", value=150)),
