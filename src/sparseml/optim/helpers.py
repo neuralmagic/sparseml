@@ -22,7 +22,11 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import yaml
 
-from sparseml.utils import UnknownVariableException, restricted_eval, RECIPE_METADATA_KEY
+from sparseml.utils import (
+    RECIPE_METADATA_KEY,
+    UnknownVariableException,
+    restricted_eval,
+)
 from sparsezoo import Zoo
 from sparsezoo.objects import Recipe
 
@@ -515,24 +519,44 @@ def _maybe_parse_number(val: str) -> Union[str, float, int]:
             return val
 
 
-
 def _extract_metadata_from_recipe(container):
     metadata = {}
     if RECIPE_METADATA_KEY in container.keys():
         metadata = container[RECIPE_METADATA_KEY]
     return metadata
-    
+
+
 def _extract_metadata_from_staged_recipe(container):
     metadata = {}
-    for stage_name in _get_recipe_stage_names(container):
+    stage_names = _get_recipe_stage_names(container)
+    for stage_name in stage_names:
         if RECIPE_METADATA_KEY in container[stage_name].keys():
             metadata[stage_name] = container[stage_name][RECIPE_METADATA_KEY]
+    if metadata and (len(metadata) != len(stage_names)):
+        raise ValueError(
+            "It seems that some stages in your checkpoint recipe"
+            "contain metadata and some don't."
+            "This is not allowed: either all the "
+            f"stages contain {RECIPE_METADATA_KEY} key or none does."
+        )
+
     return metadata
 
+
 def _get_recipe_stage_names(container):
-    stage_names = [stage_name for stage_name, stage_dict in container.items() if isinstance(stage_dict, dict) and any([key for key in stage_dict.keys() if 'modifiers' in key])]
+    # Extracts valid stage names from a container.
+    # Valid stage name (key) is the one which corresponds to a value, which is
+    # a dictionary where at least one of the keys contains a string 'modifiers'.
+
+    stage_names = [
+        stage_name
+        for stage_name, stage_dict in container.items()
+        if isinstance(stage_dict, dict)
+        and any([key for key in stage_dict.keys() if "modifiers" in key])
+    ]
     return stage_names
-    
+
+
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     """
     Compare the metadata carried over from the recipe (`yaml_str`) with
@@ -544,7 +568,7 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
         -values are metadata for respective stage name
     If yaml_str is a normal recipe, this function returns a single-key
         dict where:
-        -key is '__metadata__'
+        -key is RECIPE_METADATA_KEY
         -value is metadata for the recipe
 
     If there exists a key in new metadata which also exists in previous metadata,
@@ -552,34 +576,58 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
 
     :param metadata: New metadata
     :param yaml_str: String representation of the recipe YAML file,
-        (may contains previous metadata)
+        (may contain previous metadata)
     :return: Validated metadata
     """
 
     container = load_recipe_yaml_str_no_classes(yaml_str)
+    is_container_staged = check_if_staged_recipe(container)
 
-    if check_if_staged_recipe(container):
-        checkpoint_metadata = _extract_metadata_from_staged_recipe(container)
+    checkpoint_metadata = (
+        _extract_metadata_from_staged_recipe(container)
+        if is_container_staged
+        else _extract_metadata_from_recipe(container)
+    )
 
-        if metadata and not checkpoint_metadata:
-            return {stage_name: metadata for stage_name in _get_recipe_stage_names(container)}
-    else:
-        checkpoint_metadata = _extract_metadata_from_recipe(container)
-        if metadata and checkpoint_metadata:
+    if checkpoint_metadata:
+        if metadata:
             for var_name, var_value in metadata.items():
-                checkpoint_metadata, key_found = _update_recipe_variable(var_name,var_value, checkpoint_metadata)
+                if is_container_staged:
+                    checkpoint_metadata, key_found = _update_staged_recipe_variable(
+                        var_name, var_value, checkpoint_metadata
+                    )
+                else:
+                    checkpoint_metadata, key_found = _update_recipe_variable(
+                        var_name, var_value, checkpoint_metadata
+                    )
+
                 if not key_found:
                     raise ValueError(
                         "Attempting to find and overwrite overwrite checkpoint metadata"
                         f"with metadata key {var_name}, but {var_name}"
-                        "is not present in checkpoint metadata.")
+                        "is not present in checkpoint metadata."
+                    )
 
-            return {RECIPE_METADATA_KEY: checkpoint_metadata}
-        if metadata and not checkpoint_metadata:
-            return {RECIPE_METADATA_KEY: metadata}
-        if not metadata and checkpoint_metadata:
-            return {RECIPE_METADATA_KEY: checkpoint_metadata}
+        return (
+            checkpoint_metadata
+            if is_container_staged
+            else {RECIPE_METADATA_KEY: checkpoint_metadata}
+        )
+
+    else:
+        if metadata:
+            return (
+                {
+                    stage_name: metadata
+                    for stage_name in _get_recipe_stage_names(container)
+                }
+                if is_container_staged
+                else {RECIPE_METADATA_KEY: metadata}
+            )
+
         else:
-            return {RECIPE_METADATA_KEY: None}
-
-
+            return (
+                {stage_name: None for stage_name in _get_recipe_stage_names(container)}
+                if is_container_staged
+                else {RECIPE_METADATA_KEY: None}
+            )

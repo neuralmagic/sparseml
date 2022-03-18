@@ -26,7 +26,7 @@ from typing import Any, Dict, Generator, List, Optional, Union
 
 from sparseml.optim.modifier import BaseModifier, BaseObject, ModifierProp
 from sparseml.sparsification.types import SparsificationTypes
-from sparseml.utils import clean_path, create_parent_dirs
+from sparseml.utils import RECIPE_METADATA_KEY, clean_path, create_parent_dirs
 
 
 __all__ = ["BaseManager"]
@@ -123,6 +123,9 @@ class BaseManager(BaseObject):
         if not isinstance(additional_recipe, BaseManager):
             additional_recipe = cls.from_yaml(additional_recipe)
 
+        base_recipe_metadata = deepcopy(base_recipe._metadata)
+        additional_recipe_metadata = deepcopy(additional_recipe._metadata)
+
         # Both base_recipe and additional_recipe are non-staged_recipes
         if isinstance(base_recipe.modifiers, List) and isinstance(
             additional_recipe.modifiers, List
@@ -135,15 +138,12 @@ class BaseManager(BaseObject):
                 additional_stage_name: deepcopy(additional_recipe.modifiers)
             }
 
-            base_recipe_metadata = deepcopy(base_recipe._metadata)
-            additional_recipe_metadata = deepcopy(additional_recipe._metadata)
-
             base_recipe_metadata[base_stage_name] = base_recipe_metadata.pop(
-                "__metadata__"
+                RECIPE_METADATA_KEY
             )
             additional_recipe_metadata[
                 additional_stage_name
-            ] = additional_recipe_metadata.pop("__metadata__")
+            ] = additional_recipe_metadata.pop(RECIPE_METADATA_KEY)
 
         # Base_recipe is staged recipe and additional_recipe is not
         elif isinstance(base_recipe.modifiers, OrderedDict) and isinstance(
@@ -165,11 +165,9 @@ class BaseManager(BaseObject):
                 additional_stage_name: deepcopy(additional_recipe.modifiers)
             }
 
-            base_recipe_metadata = deepcopy(base_recipe._metadata)
-            additional_recipe_metadata = deepcopy(additional_recipe._metadata)
             additional_recipe_metadata[
                 additional_stage_name
-            ] = additional_recipe_metadata.pop("__metadata__")
+            ] = additional_recipe_metadata.pop(RECIPE_METADATA_KEY)
 
         # Additional_recipe is staged recipe and base_recipe is not
         elif isinstance(base_recipe.modifiers, List) and isinstance(
@@ -180,19 +178,15 @@ class BaseManager(BaseObject):
             base_stage_name = f"pre_{list(additional_stages.keys())[0]}"
 
             base_stages = {base_stage_name: deepcopy(base_recipe.modifiers)}
-            additional_recipe_metadata = deepcopy(additional_recipe._metadata)
-            base_recipe_metadata = deepcopy(base_recipe._metadata)
+
             base_recipe_metadata[base_stage_name] = base_recipe_metadata.pop(
-                "__metadata__"
+                RECIPE_METADATA_KEY
             )
 
         # Both recipes are staged.
         else:
             base_stages = deepcopy(base_recipe.modifiers)
             additional_stages = deepcopy(additional_recipe.modifiers)
-
-            base_recipe_metadata = deepcopy(base_recipe._metadata)
-            additional_recipe_metadata = deepcopy(additional_recipe._metadata)
 
         base_keys = set(base_stages.keys())
         additional_keys = set(additional_stages.keys())
@@ -401,7 +395,7 @@ class BaseManager(BaseObject):
             for mod in modifiers_list:
                 yield mod
 
-    def to_string_lines(self, include_metadata: bool = True) -> List[str]:
+    def to_string_lines(self, include_metadata: bool = False) -> List[str]:
         """
         :param include_metadata: boolean indicator whether metadata shall be
             appended to the yaml file before saving. Default is False.
@@ -433,12 +427,12 @@ class BaseManager(BaseObject):
         yaml_str_lines = []
 
         if stage:
-            yaml_str_lines.append("  metadata:")
+            yaml_str_lines.append(f"  {RECIPE_METADATA_KEY}:")
             for key, value in self._metadata[stage].items():
                 yaml_str_lines.append(f"    {key}: {value}")
         else:
-            yaml_str_lines.append("metadata:")
-            for key, value in self._metadata["__metadata__"].items():
+            yaml_str_lines.append(f"{RECIPE_METADATA_KEY}:")
+            for key, value in self._metadata[RECIPE_METADATA_KEY].items():
                 yaml_str_lines.append(f"  {key}: {value}")
 
         yaml_str_lines.append("")

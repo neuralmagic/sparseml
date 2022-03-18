@@ -81,7 +81,7 @@ pruning_modifiers:
 
 STANDARD_RECIPE_1_EVAL = """version: 1.1.0
 
-metadata:
+__metadata__:
   metadata: None
   level: 0
 
@@ -105,7 +105,7 @@ modifiers:
 TWO_STAGES_RECIPE = """version: 1.1.0
 
 {stage_0_name}:
-  metadata:
+  __metadata__:
     metadata: None
     level: 0
 
@@ -127,7 +127,7 @@ TWO_STAGES_RECIPE = """version: 1.1.0
   
 
 {stage_1_name}:
-  metadata:
+  __metadata__:
     metadata: None
     level: 1
 
@@ -148,7 +148,7 @@ TWO_STAGES_RECIPE = """version: 1.1.0
 THREE_STAGES_RECIPE_1 = """version: 1.1.0
 
 stage_0:
-  metadata:
+  __metadata__:
     metadata: None
     level: 0
 
@@ -170,7 +170,7 @@ stage_0:
   
 
 stage_1:
-  metadata:
+  __metadata__:
     metadata: None
     level: 1
 
@@ -187,7 +187,7 @@ stage_1:
   
 
 stage_3:
-  metadata:
+  __metadata__:
     metadata: None
     level: 3
 
@@ -211,7 +211,7 @@ stage_3:
 THREE_STAGES_RECIPE_2 = """version: 1.1.0
 
 pre_stage_0:
-  metadata:
+  __metadata__:
     metadata: None
     level: 0
 
@@ -233,7 +233,7 @@ pre_stage_0:
   
 
 stage_0:
-  metadata:
+  __metadata__:
     metadata: None
     level: 1
 
@@ -255,7 +255,7 @@ stage_0:
   
 
 stage_1:
-  metadata:
+  __metadata__:
     metadata: None
     level: 1
 
@@ -275,7 +275,7 @@ stage_1:
 FOUR_STAGES_RECIPE = """version: 1.1.0
 
 stage_0:
-  metadata:
+  __metadata__:
     metadata: None
     level: 0
 
@@ -297,7 +297,7 @@ stage_0:
   
 
 stage_1:
-  metadata:
+  __metadata__:
     metadata: None
     level: 1
 
@@ -314,7 +314,7 @@ stage_1:
   
 
 stage_3:
-  metadata:
+  __metadata__:
     metadata: None
     level: 1
 
@@ -336,7 +336,7 @@ stage_3:
   
 
 stage_4:
-  metadata:
+  __metadata__:
     metadata: None
     level: 1
 
