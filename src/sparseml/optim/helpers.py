@@ -196,16 +196,16 @@ def parse_recipe_variables(
 
 
 def _update_staged_recipe_variable(var_name, var_value, container):
-    """
-    Extends the functionality of _update_container_value to handle staged recipes.
 
-    :param var_name: The key we are attempting to find in the container.
-    :param var_value: The value which will overwrite the previous value
-        every time var_name is found in the container's keys.
-    :param container: A container generated from a YAML string of SparseML recipe
-    :return: (optionally mutated) container, as well as key_value
-        (True if var_key found in container's attributes, otherwise False)
-    """
+    # Extends the functionality of _update_container_value to handle staged recipes.
+
+    # :param var_name: The key we are attempting to find in the container.
+    # :param var_value: The value which will overwrite the previous value
+    #     every time var_name is found in the container's keys.
+    # :param container: A container generated from a YAML string of SparseML recipe
+    # :return: (optionally mutated) container, as well as key_value
+    #     (True if var_key found in container's attributes, otherwise False)
+
     key_found = False
 
     for container_key, container_value in container.items():
@@ -228,19 +228,19 @@ def _update_staged_recipe_variable(var_name, var_value, container):
 
 
 def _update_recipe_variable(var_name: str, var_value, container):
-    """
-    Checks whether there is at least one attribute (key) in the container, with the same
-    name as var_name. If this is the case, key_found = True, otherwise False.
-    Additionally, during checking, when var_name key is present in any of the
-    container's attributes, this attribute's value gets overwritten with var_value.
+    
+    # Checks whether there is at least one attribute (key) in the container, with the same
+    # name as var_name. If this is the case, key_found = True, otherwise False.
+    # Additionally, during checking, when var_name key is present in any of the
+    # container's attributes, this attribute's value gets overwritten with var_value.
 
-    :param var_name: The key we are attempting to find in the container.
-    :param var_value: The value which will overwrite the previous value
-        every time var_name is found in the container's keys.
-    :param container: A container generated from a YAML string of SparseML recipe
-    :return: (optionally mutated) container, as well as key_value
-        (True if var_key found in container's attributes, otherwise False)
-    """
+    # :param var_name: The key we are attempting to find in the container.
+    # :param var_value: The value which will overwrite the previous value
+    #   every time var_name is found in the container's keys.
+    # :param container: A container generated from a YAML string of SparseML recipe
+    # :return: (optionally mutated) container, as well as key_value
+    #    (True if var_key found in container's attributes, otherwise False)
+
     key_found = False
 
     for key, value in container.items():
