@@ -426,12 +426,3 @@ class StructuredPruningModifier(GMPruningModifier):
             useful for structures such as residual blocks or grouped convolutions
         """
         return self._param_groups
-
-    @ModifierProp(serializable=False)
-    def global_sparsity(self) -> bool:
-        """
-        :return: True for global magnitude pruning, False for
-            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
-            for global magnitude pruning and MagnitudePruningModifier for layer-wise
-        """
-        return self._global_sparsity
