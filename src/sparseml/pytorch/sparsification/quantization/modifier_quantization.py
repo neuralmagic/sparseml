@@ -147,10 +147,10 @@ class QuantizationModifier(ScheduledModifier):
         weight_bits: Optional[int] = None,
         num_calibration_steps: Optional[int] = None,
         exclude_batchnorm: bool = True,
-        exclude_module_types: Union[List[str], None] = None,
+        exclude_module_types: Optional[List[str]] = None,
         activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
-        tensorrt: Optional[bool] = False,
+        tensorrt: bool = False,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -379,7 +379,15 @@ class QuantizationModifier(ScheduledModifier):
             for weights
 
         """
-        return self._weight_qconfig_kwargs
+        if "observer" in self._weight_qconfig_kwargs:
+            kwargs = self._weight_qconfig_kwargs.copy()
+            if kwargs["observer"] == "minmaxobserver":
+                kwargs["observer"] = torch_quantization.MinMaxObserver
+            return kwargs
+        else:
+            return self._weight_qconfig_kwargs
+
+
 
     @ModifierProp()
     def num_calibration_steps(self) -> Optional[int]:
@@ -388,6 +396,15 @@ class QuantizationModifier(ScheduledModifier):
             When None, the entire calibration_dataloader is used
         """
         return self._num_calibration_steps
+
+    @ModifierProp()
+    def tensorrt(self) -> Dict[str, Any]:
+        """
+        :return: Dictionary with correct quant_min, quant_max, and dtype values
+            for activations
+
+        """
+        return self._tensorrt
 
     def initialize(
         self,
@@ -545,17 +562,23 @@ class QuantizationModifier(ScheduledModifier):
         # prepare each module / submodule for quantization
         if self.tensorrt:
             _symmetric_activations = True
-            _activations_dtype = torch.qint8
+            _activation_dtype = torch.qint8
+            _symmetric_weights = True
+            _weight_dtype = torch.qint8
         else:
-            _symmetric_activations = False
-            _activations_dtype = torch.quint8
+            _symmetric_activations = None
+            _activation_dtype = None
+            _symmetric_weights = None
+            _weight_dtype = None
 
         qconfig = get_qat_qconfig(
             symmetric_activations=_symmetric_activations,
+            symmetric_weights=_symmetric_weights,
             reduce_range=self._reduce_range,
-            activation_qconfig_kwargs=activation_qconfig_kwargs,
-            weight_qconfig_kwargs=weight_qconfig_kwargs,
-            activation_dtype=_activations_dtype,
+            activation_qconfig_kwargs=self.activation_qconfig_kwargs,
+            weight_qconfig_kwargs=self.weight_qconfig_kwargs,
+            activation_dtype=_activation_dtype,
+            weight_dtype=_weight_dtype,
             activation_bits=self.activation_bits,
             weight_bits=self.weight_bits
         )
@@ -563,9 +586,15 @@ class QuantizationModifier(ScheduledModifier):
             # wrap any modules with wrap_qat set to True as QATWrapper(s)
             configure_module_qat_wrappers(
                 quant_module,
+                symmetric_activations=_symmetric_activations,
+                symmetric_weights=_symmetric_weights,
                 reduce_range=self._reduce_range,
-                activation_qconfig_kwargs=activation_qconfig_kwargs,
-                weight_qconfig_kwargs=weight_qconfig_kwargs,
+                activation_qconfig_kwargs=self.activation_qconfig_kwargs,
+                weight_qconfig_kwargs=self.weight_qconfig_kwargs,
+                activation_dtype=_activation_dtype,
+                weight_dtype=_weight_dtype,
+                activation_bits=self.activation_bits,
+                weight_bits=self.weight_bits
             )
             # set quantization config (asymmetric activations, symmetric weights)
             quant_module.qconfig = qconfig
@@ -594,9 +623,15 @@ class QuantizationModifier(ScheduledModifier):
         if self._quantize_embeddings:
             prepare_embeddings_qat(
                 module,
+                symmetric_activations=_symmetric_activations,
+                symmetric_weights=_symmetric_weights,
                 reduce_range=self._reduce_range,
-                activation_qconfig_kwargs=activation_qconfig_kwargs,
-                weight_qconfig_kwargs=weight_qconfig_kwargs,
+                activation_qconfig_kwargs=self.activation_qconfig_kwargs,
+                weight_qconfig_kwargs=self.weight_qconfig_kwargs,
+                activation_dtype=_activation_dtype,
+                weight_dtype=_weight_dtype,
+                activation_bits=self.activation_bits,
+                weight_bits=self.weight_bits,
             )
 
         # propagate custom quant min/max range from FakeQuantize to Observer objects
