@@ -16,13 +16,14 @@
 Modifiers classes related to magnitude pruning
 """
 
+import logging
 from typing import Dict, List, Union
 
 import torch
 from torch import Tensor
 from torch.nn import Parameter
 
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
+from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
     get_mask_creator_default,
@@ -41,6 +42,9 @@ __all__ = [
     "GMPruningModifier",
     "GlobalMagnitudePruningModifier",
 ]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class MagnitudePruningParamsScorer(PruningParamsScorer):
@@ -106,6 +110,9 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
+    :param global_sparsity: set True to use global magnitude pruning, False for
+        layer-wise. Default is False. [DEPRECATED] - use GlobalMagnitudePruningModifier
+        for global magnitude pruning and MagnitudePruningModifier for layer-wise
     """
 
     def __init__(
@@ -120,7 +127,10 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         inter_func: str = "cubic",
         log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: str = "unstructured",
+        global_sparsity: bool = False,
     ):
+        self._check_warn_global_sparsity(global_sparsity)
+
         super(GMPruningModifier, self).__init__(
             params=params,
             init_sparsity=init_sparsity,
@@ -132,8 +142,8 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
             log_types=log_types,
             mask_type=mask_type,
             leave_enabled=leave_enabled,
+            global_sparsity=global_sparsity,
             end_comparator=-1,
-            global_sparsity=self._use_global_sparsity,
             allow_reintroduction=False,
             parent_class_kwarg_names=[
                 "init_sparsity",
@@ -161,10 +171,22 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         """
         return MagnitudePruningParamsScorer(params)
 
-    @property
-    def _use_global_sparsity(self) -> bool:
-        # base GMPruningModifier will not support global sparsity
-        return False
+    @ModifierProp()
+    def global_sparsity(self) -> bool:
+        """
+        :return: True for global magnitude pruning, False for
+            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
+            for global magnitude pruning and MagnitudePruningModifier for layer-wise
+        """
+        return self._global_sparsity
+
+    def _check_warn_global_sparsity(self, global_sparsity):
+        if self.__class__.__name__ == "GMPruningModifier" and global_sparsity is True:
+            _LOGGER.warning(
+                "Use of global_sparsity parameter in GMPruningModifier is now "
+                "deprecated. Use GlobalMagnitudePruningModifier instead for global "
+                "magnitude pruning"
+            )
 
 
 @PyTorchModifierYAML()
@@ -217,8 +239,39 @@ class MagnitudePruningModifier(GMPruningModifier):
         integers for a custom block shape. Default is 'unstructured'
     """
 
-    # just an alias for GMPruningModifier
-    pass
+    def __init__(
+        self,
+        init_sparsity: Union[float, str],
+        final_sparsity: Union[float, Dict[float, List[str]]],
+        start_epoch: float,
+        end_epoch: float,
+        update_frequency: float,
+        params: Union[str, List[str]],
+        leave_enabled: bool = True,
+        inter_func: str = "cubic",
+        mask_type: str = "unstructured",
+    ):
+        super(MagnitudePruningModifier, self).__init__(
+            params=params,
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            inter_func=inter_func,
+            mask_type=mask_type,
+            leave_enabled=leave_enabled,
+            global_sparsity=False,
+        )
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True for global magnitude pruning, False for
+            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
+            for global magnitude pruning and MagnitudePruningModifier for layer-wise
+        """
+        return self._global_sparsity
 
 
 @PyTorchModifierYAML()
@@ -295,8 +348,14 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
             log_types=log_types,
             mask_type=mask_type,
             leave_enabled=leave_enabled,
+            global_sparsity=True,
         )
 
-    @property
-    def _use_global_sparsity(self) -> bool:
-        return True
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True for global magnitude pruning, False for
+            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
+            for global magnitude pruning and MagnitudePruningModifier for layer-wise
+        """
+        return self._global_sparsity
