@@ -353,6 +353,7 @@ class PythonLogger(LambdaLogger):
         step: Optional[int],
         wall_time: Optional[float],
         level: Optional[int] = None,
+        **kwargs,
     ) -> bool:
         """
         :param tag: identifying tag to log the values with
@@ -473,6 +474,7 @@ class TensorBoardLogger(LambdaLogger):
         values: Optional[Dict[str, float]],
         step: Optional[int],
         wall_time: Optional[float],
+        **kwargs,
     ) -> bool:
         if value is not None:
             self._writer.add_scalar(tag, value, step, wall_time)
