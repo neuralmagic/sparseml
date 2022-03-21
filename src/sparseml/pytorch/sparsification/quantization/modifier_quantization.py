@@ -379,7 +379,7 @@ class QuantizationModifier(ScheduledModifier):
             for weights
 
         """
-        if "observer" in self._weight_qconfig_kwargs:
+        if self._weight_qconfig_kwargs is not None and "observer" in self._weight_qconfig_kwargs:
             kwargs = self._weight_qconfig_kwargs.copy()
             if kwargs["observer"] == "minmaxobserver":
                 kwargs["observer"] = torch_quantization.MinMaxObserver
