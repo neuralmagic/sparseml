@@ -251,13 +251,14 @@ class RecipeManagerTrainerInterface:
                 self.manager,
                 steps_per_epoch=self.manager_steps_per_epoch,
                 loggers=self.logger_manager,
-                grad_sampler=self.grad_sampler,
+                initialize_kwargs={"grad_sampler": self.grad_sampler},
             )
             if not self.manager.initialized:
                 self.manager.initialize(
                     self.model,
                     loggers=self.logger_manager,
                     distillation_teacher=self.teacher,
+                    grad_sampler=self.grad_sampler,
                 )
         self.manager_initialized = True
         _LOGGER.info(
