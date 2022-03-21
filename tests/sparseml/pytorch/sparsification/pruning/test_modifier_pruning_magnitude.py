@@ -249,6 +249,7 @@ def test_gm_pruning_yaml(params, init_sparsity, final_sparsity):
     update_frequency = 1.0
     inter_func = "cubic"
     mask_type = "filter"
+    global_sparsity = False
     yaml_str = f"""
     !GMPruningModifier
         init_sparsity: {init_sparsity}
@@ -259,6 +260,7 @@ def test_gm_pruning_yaml(params, init_sparsity, final_sparsity):
         params: {params}
         inter_func: {inter_func}
         mask_type: {mask_type}
+        global_sparsity: {global_sparsity}
     """
     yaml_modifier = GMPruningModifier.load_obj(yaml_str)  # type: GMPruningModifier
     serialized_modifier = GMPruningModifier.load_obj(
@@ -273,11 +275,18 @@ def test_gm_pruning_yaml(params, init_sparsity, final_sparsity):
         params=params,
         inter_func=inter_func,
         mask_type=mask_type,
+        global_sparsity=global_sparsity,
     )
 
     assert isinstance(yaml_modifier, GMPruningModifier)
     pruning_modifier_serialization_vals_test(
         yaml_modifier, serialized_modifier, obj_modifier
+    )
+
+    assert (
+        yaml_modifier.global_sparsity
+        == serialized_modifier.global_sparsity
+        == obj_modifier.global_sparsity
     )
 
 
