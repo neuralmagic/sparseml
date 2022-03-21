@@ -230,7 +230,7 @@ class RecipeManagerTrainerInterface:
                 self.model,
                 self.manager,
                 steps_per_epoch=self.manager_steps_per_epoch,
-                loggers=self.logger_manager,
+                loggers=self.manager_loggers,
                 initialize_kwargs={"grad_sampler": self.grad_sampler},
             )
             if not self.manager.initialized:
