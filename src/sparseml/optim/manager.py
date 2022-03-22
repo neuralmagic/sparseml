@@ -131,7 +131,7 @@ class BaseManager(BaseObject):
             additional_recipe.modifiers, List
         ):
             # Need to generate stage names for two standard recipes
-            base_stage_name, additional_stage_name = [f"stage_{i}" for i in range(2)]
+            base_stage_name, additional_stage_name = "stage_0", "stage_1"
             base_stages = {base_stage_name: deepcopy(base_recipe.modifiers)}
 
             additional_stages = {
