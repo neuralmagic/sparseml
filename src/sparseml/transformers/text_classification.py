@@ -21,8 +21,7 @@
 Finetuning the library models for sequence classification on GLUE
 """
 
-# You can also
-# adapt this script on your own text classification task.
+# You can also adapt this script on your own text classification task.
 # Pointers for this are left as comments.
 
 import logging
