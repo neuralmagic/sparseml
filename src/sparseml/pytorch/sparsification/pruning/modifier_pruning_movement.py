@@ -24,7 +24,7 @@ import torch.distributed as dist
 from torch import Tensor
 from torch.nn import Parameter
 
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
+from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     GMPruningModifier,
 )
@@ -115,6 +115,15 @@ class MovementPruningModifier(GMPruningModifier):
         :return: param scorer object to be used by this pruning algorithm
         """
         return MovementPruningParamsScorer(params=params)
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True for global magnitude pruning, False for
+            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
+            for global magnitude pruning and MagnitudePruningModifier for layer-wise
+        """
+        return self._global_sparsity
 
 
 class MovementPruningParamsScorer(PruningParamsGradScorer):
