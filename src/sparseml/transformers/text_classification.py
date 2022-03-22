@@ -21,7 +21,8 @@
 Finetuning the library models for sequence classification on GLUE
 """
 
-# You can also adapt this script on your own text classification task.
+# You can also
+# adapt this script on your own text classification task.
 # Pointers for this are left as comments.
 
 import logging
@@ -290,7 +291,7 @@ def main():
     # Log on each process the small summary:
     _LOGGER.warning(
         f"Process rank: {training_args.local_rank}, device: {training_args.device}, "
-        f"n_gpu: {training_args.n_gpu}"
+        f"n_gpu: {training_args.n_gpu}, "
         f"distributed training: {bool(training_args.local_rank != -1)}, "
         f"16-bits training: {training_args.fp16}"
     )
