@@ -96,6 +96,7 @@ class RecipeManagerTrainerInterface:
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -104,6 +105,7 @@ class RecipeManagerTrainerInterface:
         self.model_state_path = str(model_state_path)
         self.recipe = recipe
         self.recipe_args = recipe_args
+        self.metadata = metadata
         self.teacher = teacher
 
         report_to = (
@@ -180,8 +182,10 @@ class RecipeManagerTrainerInterface:
         self.manager_applied = True
         _LOGGER.info(
             "Reloaded model state after SparseML recipe structure modifications "
-            f"from {load_path}"
-        )
+            f"from {load_path}")
+
+        # TODO: Difference arch_manager and manager.
+        # TODO: Insert manager merging in here.
 
         return True
 
@@ -365,6 +369,9 @@ class RecipeManagerTrainerInterface:
         recipe_path = os.path.join(
             output_dir, RECIPE_TEMPLATE.format(f"_{index:02d}" if index > 0 else "")
         )
+        if checkpoint:
+            self.manager = ScheduledModifierManager(checkpoint, self.manager)
+
         self.manager.save(recipe_path)
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
@@ -405,11 +412,12 @@ class RecipeManagerTrainerInterface:
 
         if self.recipe is not None:
             manager = ScheduledModifierManager.from_yaml(
-                self.recipe, recipe_variables=self.recipe_args
+                self.recipe, recipe_variables=self.recipe_args, metadata=self.metadata
             )
             _LOGGER.info(
                 "Loaded SparseML recipe variable into manager for recipe: "
-                f"{self.recipe} and recipe_variables: {self.recipe_args}"
+                f"{self.recipe}, recipe_variables: {self.recipe_args} "
+                f"and metadata {self.metadata}"
             )
 
         arch_recipe_paths = glob.glob(os.path.join(self.model_state_path, RECIPE_REGEX))
@@ -420,6 +428,7 @@ class RecipeManagerTrainerInterface:
             _LOGGER.info(
                 f"Loaded SparseML {len(arch_recipe_paths)} recipes into architecture "
                 f"managers from {arch_recipe_paths}"
+                # TODO: What is happening here
             )
 
         if manager is not None and manager in arch_managers:
@@ -560,6 +569,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -568,6 +578,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
             model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,
+            metadata = metadata,
             teacher=teacher,
             **kwargs,
         )

@@ -189,6 +189,7 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
         model_state_path: str,
         recipe: str,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         teacher: Optional[Module] = None,
         **kwargs,
     ):
@@ -197,6 +198,7 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
             model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,
+            metadata=metadata,
             teacher=teacher,
             **kwargs,
         )
