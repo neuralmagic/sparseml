@@ -428,12 +428,18 @@ class BaseManager(BaseObject):
 
         if stage:
             yaml_str_lines.append(f"  {RECIPE_METADATA_KEY}:")
-            for key, value in self._metadata[stage].items():
-                yaml_str_lines.append(f"    {key}: {value}")
+            if not isinstance(self._metadata[stage], dict):
+                yaml_str_lines[-1] += f" {self._metadata[stage]}"
+            else:
+                for key, value in self._metadata[stage].items():
+                    yaml_str_lines.append(f"    {key}: {value}")
         else:
             yaml_str_lines.append(f"{RECIPE_METADATA_KEY}:")
-            for key, value in self._metadata[RECIPE_METADATA_KEY].items():
-                yaml_str_lines.append(f"  {key}: {value}")
+            if not isinstance(self._metadata[stage], dict):
+                yaml_str_lines[-1] += f" {self._metadata[stage]}"
+            else:
+                for key, value in self._metadata[RECIPE_METADATA_KEY].items():
+                    yaml_str_lines.append(f"  {key}: {value}")
 
         yaml_str_lines.append("")
         return yaml_str_lines
