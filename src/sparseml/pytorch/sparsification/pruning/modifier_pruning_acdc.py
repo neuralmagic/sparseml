@@ -164,6 +164,9 @@ class ACDCPruningModifier(BasePruningModifier):
             should be set to different sparsities, should return a list of those values
             in the order the parameters appear in the mask manager for this object
         """
+        if epoch == float("inf"):
+            return self._compression_sparsity
+
         self._num_phase = math.floor((epoch - self.start_epoch) / self.update_frequency)
         if self._num_phase % 2 == 0:
             # entering decompression phase
