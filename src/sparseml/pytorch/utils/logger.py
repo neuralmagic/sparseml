@@ -323,7 +323,8 @@ class PythonLogger(LambdaLogger):
             dt_string = now.strftime("%d-%m-%Y_%H.%M.%S")
             os.makedirs("sparse_logs", exist_ok=True)
             handler = logging.FileHandler(
-                os.path.join("sparse_logs", f"{dt_string}.log")
+                os.path.join("sparse_logs", f"{dt_string}.log"),
+                delay=True,
             )
             self._logger.addHandler(handler)
             self._logger.propagate = False
