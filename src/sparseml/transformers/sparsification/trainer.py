@@ -153,6 +153,7 @@ class RecipeManagerTrainerInterface:
             If not supplied, falls back to self.model_state_path
         :return: True if recipes were applied, False otherwise
         """
+
         if (not self.arch_managers and self.manager is None) or self.manager_applied:
             return False
 
@@ -182,10 +183,8 @@ class RecipeManagerTrainerInterface:
         self.manager_applied = True
         _LOGGER.info(
             "Reloaded model state after SparseML recipe structure modifications "
-            f"from {load_path}")
-
-        # TODO: Difference arch_manager and manager.
-        # TODO: Insert manager merging in here.
+            f"from {load_path}"
+        )
 
         return True
 
@@ -344,12 +343,19 @@ class RecipeManagerTrainerInterface:
 
         return (loss, student_outputs) if return_outputs else loss
 
-    def save_model(self, output_dir: Optional[str] = None, _internal_call=True):
+    def save_model(
+        self,
+        output_dir: Optional[str] = None,
+        checkpoint_recipe: Optional[str] = None,
+        _internal_call=True,
+    ):
         """
         Override of the save_model function and expects it to exist in the parent.
         Calls into super() to save the model and additionally saves any recipes
         that were used with the model within the model folder.
-
+        :param checkpoint_recipe: optional checkpoint recipe if
+            current model has been trained from checkpoint.
+            Default is None.
         :param output_dir: the path to save the recipes into
         """
         """
@@ -369,9 +375,12 @@ class RecipeManagerTrainerInterface:
         recipe_path = os.path.join(
             output_dir, RECIPE_TEMPLATE.format(f"_{index:02d}" if index > 0 else "")
         )
-        if checkpoint:
-            self.manager = ScheduledModifierManager(checkpoint, self.manager)
-
+        #  compose checkpoint_recipe and manager
+        #  into a new staged checkpoint recipe
+        if checkpoint_recipe:
+            self.manager = ScheduledModifierManager.compose_staged(
+                checkpoint_recipe, self.manager
+            )
         self.manager.save(recipe_path)
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
@@ -412,7 +421,9 @@ class RecipeManagerTrainerInterface:
 
         if self.recipe is not None:
             manager = ScheduledModifierManager.from_yaml(
-                self.recipe, recipe_variables=self.recipe_args, metadata=self.metadata
+                self.recipe,
+                recipe_variables=self.recipe_args,
+                metadata=self.metadata,
             )
             _LOGGER.info(
                 "Loaded SparseML recipe variable into manager for recipe: "
@@ -428,7 +439,6 @@ class RecipeManagerTrainerInterface:
             _LOGGER.info(
                 f"Loaded SparseML {len(arch_recipe_paths)} recipes into architecture "
                 f"managers from {arch_recipe_paths}"
-                # TODO: What is happening here
             )
 
         if manager is not None and manager in arch_managers:
@@ -578,7 +588,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
             model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,
-            metadata = metadata,
+            metadata=metadata,
             teacher=teacher,
             **kwargs,
         )
