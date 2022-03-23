@@ -20,7 +20,7 @@ are implemented as modifiers.
 """
 
 import math
-from typing import Dict, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from torch import Tensor
 from torch.nn import Module
@@ -33,9 +33,9 @@ from sparseml.optim import (
     ModifierProp,
     ModifierYAML,
 )
-from sparseml.pytorch.utils import BaseLogger
+from sparseml.pytorch.utils import LOGGING_LEVELS, BaseLogger, LoggerManager
 from sparseml.sparsification import SparsificationTypes
-from sparseml.utils import ALL_TOKEN, PYTORCH_FRAMEWORK
+from sparseml.utils import PYTORCH_FRAMEWORK
 
 
 __all__ = [
@@ -77,7 +77,6 @@ class Modifier(BaseModifier):
     |
     |   - finalize
 
-    :param log_types: The loggers that can be used by the modifier instance
     :param kwargs: standard key word args, used to support multi inheritance
     """
 
@@ -99,8 +98,8 @@ class Modifier(BaseModifier):
         """
         return Modifier.load_framework_obj(yaml_str, PYTORCH_FRAMEWORK)
 
-    def __init__(self, log_types: Union[str, List[str]] = None, **kwargs):
-        super().__init__(log_types=log_types, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._loggers_initialized = False
         self._loggers = None
 
@@ -153,7 +152,7 @@ class Modifier(BaseModifier):
         self,
         module: Module,
         epoch: float = math.inf,
-        loggers: Optional[List[BaseLogger]] = None,
+        loggers: Optional[LoggerManager] = None,
         finalize: bool = True,
         **kwargs,
     ):
@@ -164,13 +163,13 @@ class Modifier(BaseModifier):
 
         :param module: the PyTorch model/module to modify
         :param epoch: the epoch to apply the modifier at, defaults to math.inf (end)
-        :param loggers: Optional list of loggers to log the modification process to
+        :param loggers: Optional logger manager to log the modification process to
         :param finalize: True to invoke finalize after initialize, False otherwise.
             If training after one shot, set finalize=False to keep modifiers applied.
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers (passed to initialize and finalize).
         """
-        self.initialize(module, epoch=epoch, loggers=loggers, **kwargs)
+        self.initialize(module, epoch, loggers=loggers, **kwargs)
 
         if finalize:
             self.finalize(module, **kwargs)
@@ -179,7 +178,7 @@ class Modifier(BaseModifier):
         self,
         module: Module,
         epoch: float = 0.0,
-        loggers: Optional[List[BaseLogger]] = None,
+        loggers: Optional[LoggerManager] = None,
         finalize: bool = False,
         **kwargs,
     ):
@@ -191,7 +190,7 @@ class Modifier(BaseModifier):
 
         :param module: the PyTorch model/module to modify
         :param epoch: the epoch to apply the modifier at, defaults to 0.0 (start)
-        :param loggers: Optional list of loggers to log the modification process to
+        :param loggers: Optional logger manager to log the modification process to
         :param finalize: True to invoke finalize after initialize, False otherwise.
             Set finalize to True and epoch to math.inf for one shot application.
         :param kwargs: Optional kwargs to support specific arguments
@@ -209,7 +208,7 @@ class Modifier(BaseModifier):
         self,
         module: Module,
         epoch: float = 0,
-        loggers: Optional[List[BaseLogger]] = None,
+        loggers: Union[None, LoggerManager, List[BaseLogger]] = None,
         **kwargs,
     ):
         """
@@ -221,30 +220,27 @@ class Modifier(BaseModifier):
         :param module: the PyTorch model/module to modify
         :param epoch: The epoch to initialize the modifier and module at.
             Defaults to 0 (start of the training process)
-        :param loggers: Optional list of loggers to log the modification process to
+        :param loggers: Optional logger manager to log the modification process to
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
         self._initialized = True
         self.initialize_loggers(loggers)
 
-    def initialize_loggers(self, loggers: Union[None, List[BaseLogger]]):
+    def initialize_loggers(self, loggers: Union[None, LoggerManager, List[BaseLogger]]):
         """
         Handles initializing and setting up the loggers for the modifier.
 
-        :param loggers: the loggers to setup this modifier with for logging important
-            info and milestones to
+        :param loggers: the logger maanger to setup this modifier with for logging
+        important info and milestones to
         """
-        self._loggers_initialized = True
-
-        if not self._log_types or not loggers:
+        if self._loggers_initialized and self._loggers:
             return
 
-        self._loggers = [
-            log
-            for log in loggers
-            if self._log_types == ALL_TOKEN or log.name in self._log_types
-        ]
+        if isinstance(loggers, List):
+            loggers = LoggerManager(loggers)
+        self._loggers_initialized = True
+        self._loggers = loggers
 
     def finalize(
         self, module: Optional[Module] = None, reset_loggers: bool = True, **kwargs
@@ -290,7 +286,11 @@ class Modifier(BaseModifier):
             raise RuntimeError("modifier must be enabled")
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
     ):
         """
         Handles logging updates for the modifier for better tracking and visualization.
@@ -403,10 +403,8 @@ class ScheduledModifier(Modifier, BaseScheduled):
     |       - optimizer_pre_step
     |       - optimizer_post_step
 
-    :param log_types: The loggers that can be used by the modifier instance
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
-    :param log_types: The loggers that can be used by the modifier instance
     :param min_start: The minimum acceptable value for start_epoch, default -1
     :param min_end: The minimum acceptable value for end_epoch, default 0
     :param end_comparator: integer value representing how the end_epoch should be
@@ -418,9 +416,72 @@ class ScheduledModifier(Modifier, BaseScheduled):
     :param kwargs: standard key word args, used to support multi inheritance
     """
 
+    @staticmethod
+    def log_call(func):
+        """
+        Logs the wrapped function using the python logger(s) assigned to the calling
+        class, if the loggers exist. The logs printed will announce when a function is
+        used and when it is exited
+        """
+
+        def wrapper(*args, **kwargs):
+            self = args[0]
+            epoch = kwargs.get("epoch", None)
+            steps_per_epoch = kwargs.get("steps_per_epoch", None)
+            # Log call state
+            if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
+                self.log_string(
+                    string=(
+                        f"Calling {func.__name__} with:\n"
+                        f"args: {format_args(args[1:])}\n"
+                        f"kwargs: {format_args(kwargs)}"
+                    ),
+                    loggers=self.loggers,
+                    epoch=epoch,
+                    steps_per_epoch=steps_per_epoch,
+                )
+            out = func(*args, **kwargs)
+            # Log return state
+            if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
+                out_print = out if isinstance(out, Tuple) else [out]
+                self.log_string(
+                    string=(f"\nReturned: {format_args(out_print)}\n"),
+                    loggers=self.loggers,
+                    epoch=epoch,
+                    steps_per_epoch=steps_per_epoch,
+                )
+            return out
+
+        def format_args(args):
+            """
+            Helper function to format call logs. Args and returns are printed in full
+            if they are of type (float, int, str, toch.Tensor), otherwise only their
+            type is printed.
+            """
+            args_string = ""
+            printable = (float, int, str, Tensor)
+            if not args:  # handles empty function returns
+                return None
+            if not isinstance(args, Iterable):  # handles single function return
+                args = [args]
+            if isinstance(args, Dict):  # handles kwargs
+                for k, v in args.items():
+                    if isinstance(v, printable):
+                        args_string += f"{k}: {v}| "
+                    else:
+                        args_string += f"{k}: {type(v)}| "
+            else:  # handles lists (args, single return) and tuples (returns)
+                for arg in args:
+                    if isinstance(arg, printable):
+                        args_string += f"{arg}| "
+                    else:
+                        args_string += f"{type(arg)}| "
+            return args_string
+
+        return wrapper
+
     def __init__(
         self,
-        log_types: Union[str, List[str]] = None,
         start_epoch: float = -1.0,
         min_start: float = -1.0,
         end_epoch: float = -1.0,
@@ -429,7 +490,6 @@ class ScheduledModifier(Modifier, BaseScheduled):
         **kwargs,
     ):
         super().__init__(
-            log_types=log_types,
             start_epoch=start_epoch,
             min_start=min_start,
             end_epoch=end_epoch,
@@ -442,6 +502,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         self._ended = False
         self._schedule_called = False
         self._scheduled_log_called = False
+        self._last_log_epoch = -1
 
         self.validate_schedule()
 
@@ -547,7 +608,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
             )
 
         self._schedule_called = True
-        self.update(module, optimizer, epoch, steps_per_epoch)
+        self.update(module, optimizer, epoch=epoch, steps_per_epoch=steps_per_epoch)
         self._schedule_called = False
 
         if self.start_pending(epoch, steps_per_epoch):
@@ -591,6 +652,7 @@ class ScheduledModifier(Modifier, BaseScheduled):
         :param steps_per_epoch: number of steps taken within each epoch
             (calculate batch number using this and epoch)
         """
+
         if not self._initialized:
             raise RuntimeError("modifier must be initialized first")
 
@@ -600,12 +662,18 @@ class ScheduledModifier(Modifier, BaseScheduled):
         if not self._enabled:
             raise RuntimeError("modifier must be enabled")
 
-        self._scheduled_log_called = True
-        self.log_update(module, optimizer, epoch, steps_per_epoch)
-        self._scheduled_log_called = False
+        if self.loggers and self.loggers.log_ready(epoch, self._last_log_epoch):
+            self._last_log_epoch = epoch
+            self._scheduled_log_called = True
+            self.log_update(module, optimizer, epoch, steps_per_epoch)
+            self._scheduled_log_called = False
 
     def log_update(
-        self, module: Module, optimizer: Optimizer, epoch: float, steps_per_epoch: int
+        self,
+        module: Module,
+        optimizer: Optimizer,
+        epoch: float,
+        steps_per_epoch: int,
     ):
         """
         Handles logging updates for the modifier for better tracking and visualization.
@@ -624,6 +692,63 @@ class ScheduledModifier(Modifier, BaseScheduled):
             raise RuntimeError(
                 "log_update should not be called directly, "
                 "call scheduled_log_update instead"
+            )
+
+    def log_string(
+        self,
+        string: str,
+        tag: Optional[str] = None,
+        loggers: Optional[LoggerManager] = None,
+        epoch: Optional[float] = None,
+        steps_per_epoch: Optional[int] = None,
+    ):
+        if not tag:
+            tag = type(self).__name__
+        if not loggers:
+            loggers = self.loggers
+        if epoch and steps_per_epoch:
+            step = loggers.epoch_to_step(epoch, steps_per_epoch)
+        else:
+            step = None
+        loggers.log_string(
+            tag=tag, string=string, step=step, level=LOGGING_LEVELS["debug"]
+        )
+
+    def log_scalar(
+        self,
+        value: float,
+        tag: Optional[str] = None,
+        loggers: Optional[LoggerManager] = None,
+        epoch: Optional[float] = None,
+        steps_per_epoch: Optional[int] = None,
+        level: Optional[int] = None,
+    ):
+        if not tag:
+            tag = type(self).__name__
+        if not loggers:
+            loggers = self.loggers
+        if epoch and steps_per_epoch:
+            step = loggers.epoch_to_step(epoch, steps_per_epoch)
+        else:
+            step = None
+        loggers.log_scalar(tag=tag, value=value, step=step, level=level)
+
+    def log_named_scalars(
+        self,
+        name_value_pairs: Iterable[Tuple[str, float]],
+        loggers: Optional[LoggerManager] = None,
+        epoch: Optional[float] = None,
+        steps_per_epoch: Optional[int] = None,
+        level: Optional[int] = None,
+    ):
+        for name, value in name_value_pairs:
+            self.log_scalar(
+                value=value,
+                tag=f"{type(self).__name__}/{name}",
+                loggers=loggers,
+                epoch=epoch,
+                steps_per_epoch=steps_per_epoch,
+                level=level,
             )
 
 
@@ -648,10 +773,8 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
     |       - optimizer_pre_step
     |       - optimizer_post_step
 
-    :param log_types: The loggers that can be used by the modifier instance
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
-    :param log_types: The loggers that can be used by the modifier instance
     :param min_start: The minimum acceptable value for start_epoch, default -1
     :param min_end: The minimum acceptable value for end_epoch, default 0
     :param end_comparator: integer value representing how the end_epoch should be
@@ -666,7 +789,6 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
 
     def __init__(
         self,
-        log_types: Union[str, List[str]] = None,
         start_epoch: float = -1.0,
         min_start: float = -1.0,
         end_epoch: float = -1.0,
@@ -677,7 +799,6 @@ class ScheduledUpdateModifier(ScheduledModifier, BaseUpdate):
         **kwargs,
     ):
         super().__init__(
-            log_types=log_types,
             start_epoch=start_epoch,
             min_start=min_start,
             end_epoch=end_epoch,

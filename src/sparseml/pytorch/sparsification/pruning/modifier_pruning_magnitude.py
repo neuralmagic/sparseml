@@ -16,13 +16,14 @@
 Modifiers classes related to magnitude pruning
 """
 
+import logging
 from typing import Dict, List, Union
 
 import torch
 from torch import Tensor
 from torch.nn import Parameter
 
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
+from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
     get_mask_creator_default,
@@ -32,7 +33,6 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
 from sparseml.sparsification import GMPruningModifier as BaseGMPruningModifier
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = [
@@ -41,6 +41,9 @@ __all__ = [
     "GMPruningModifier",
     "GlobalMagnitudePruningModifier",
 ]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class MagnitudePruningParamsScorer(PruningParamsScorer):
@@ -77,7 +80,6 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
     |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
 
     :param init_sparsity: initial sparsity for each param to start with at
@@ -101,11 +103,17 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
+    :param global_sparsity: set True to use global magnitude pruning, False for
+        layer-wise. Default is False. [DEPRECATED] - use GlobalMagnitudePruningModifier
+        for global magnitude pruning and MagnitudePruningModifier for layer-wise
+    :param phased: NO LONGER SUPPORTED - former parameter for AC/DC pruning. Will raise
+        an exception if set to True. Use ACDCPruningModifier for AC/DC pruning
+    :param score_type: NO LONGER SUPPORTED - former parameter for using different
+        sparsification algorithms, will raise an exception if set to the non default
+        value
     """
 
     def __init__(
@@ -118,9 +126,13 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: str = "unstructured",
+        global_sparsity: bool = False,
+        phased: bool = False,
+        score_type: str = "magnitude",
     ):
+        self._check_deprecated_params(global_sparsity, phased, score_type)
+
         super(GMPruningModifier, self).__init__(
             params=params,
             init_sparsity=init_sparsity,
@@ -129,11 +141,10 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
             end_epoch=end_epoch,
             update_frequency=update_frequency,
             inter_func=inter_func,
-            log_types=log_types,
             mask_type=mask_type,
             leave_enabled=leave_enabled,
+            global_sparsity=global_sparsity,
             end_comparator=-1,
-            global_sparsity=self._use_global_sparsity,
             allow_reintroduction=False,
             parent_class_kwarg_names=[
                 "init_sparsity",
@@ -161,10 +172,38 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         """
         return MagnitudePruningParamsScorer(params)
 
-    @property
-    def _use_global_sparsity(self) -> bool:
-        # base GMPruningModifier will not support global sparsity
-        return False
+    @ModifierProp()
+    def global_sparsity(self) -> bool:
+        """
+        :return: True for global magnitude pruning, False for
+            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
+            for global magnitude pruning and MagnitudePruningModifier for layer-wise
+        """
+        return self._global_sparsity
+
+    def _check_deprecated_params(
+        self,
+        global_sparsity: bool,
+        phased: bool,
+        score_type: str,
+    ):
+        if self.__class__.__name__ == "GMPruningModifier" and global_sparsity is True:
+            _LOGGER.warning(
+                "Use of global_sparsity parameter in GMPruningModifier is now "
+                "deprecated. Use GlobalMagnitudePruningModifier instead for global "
+                "magnitude pruning"
+            )
+        if phased:
+            raise ValueError(
+                f"Use of phased=True in {self.__class__.__name__} is no longer "
+                "supported use the ACDCPruningModifier for phased (AC/DC) pruning"
+            )
+        if score_type != "magnitude":
+            raise ValueError(
+                "use of score_type to specify a sparsification algorithm is no longer "
+                "supported. Use the specific pruning modifier for the desired "
+                f"sparsification algorithm instead. Found score_type={score_type}"
+            )
 
 
 @PyTorchModifierYAML()
@@ -186,7 +225,6 @@ class MagnitudePruningModifier(GMPruningModifier):
     |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
 
     :param init_sparsity: initial sparsity for each param to start with at
@@ -210,15 +248,44 @@ class MagnitudePruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
     """
 
-    # just an alias for GMPruningModifier
-    pass
+    def __init__(
+        self,
+        init_sparsity: Union[float, str],
+        final_sparsity: Union[float, Dict[float, List[str]]],
+        start_epoch: float,
+        end_epoch: float,
+        update_frequency: float,
+        params: Union[str, List[str]],
+        leave_enabled: bool = True,
+        inter_func: str = "cubic",
+        mask_type: str = "unstructured",
+    ):
+        super(MagnitudePruningModifier, self).__init__(
+            params=params,
+            init_sparsity=init_sparsity,
+            final_sparsity=final_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=end_epoch,
+            update_frequency=update_frequency,
+            inter_func=inter_func,
+            mask_type=mask_type,
+            leave_enabled=leave_enabled,
+            global_sparsity=False,
+        )
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True for global magnitude pruning, False for
+            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
+            for global magnitude pruning and MagnitudePruningModifier for layer-wise
+        """
+        return self._global_sparsity
 
 
 @PyTorchModifierYAML()
@@ -240,7 +307,6 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
     |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
 
     :param init_sparsity: initial sparsity for each param to start with at
@@ -264,8 +330,6 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
@@ -281,7 +345,6 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: str = "unstructured",
     ):
         super(GlobalMagnitudePruningModifier, self).__init__(
@@ -292,11 +355,16 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
             end_epoch=end_epoch,
             update_frequency=update_frequency,
             inter_func=inter_func,
-            log_types=log_types,
             mask_type=mask_type,
             leave_enabled=leave_enabled,
+            global_sparsity=True,
         )
 
-    @property
-    def _use_global_sparsity(self) -> bool:
-        return True
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True for global magnitude pruning, False for
+            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
+            for global magnitude pruning and MagnitudePruningModifier for layer-wise
+        """
+        return self._global_sparsity
