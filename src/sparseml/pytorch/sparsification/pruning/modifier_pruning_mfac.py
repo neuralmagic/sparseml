@@ -41,7 +41,6 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
 from sparseml.pytorch.utils import GradSampler
 from sparseml.pytorch.utils.logger import BaseLogger
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = [
@@ -80,7 +79,6 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
     |       num_grads: {0.0: 64, 0.5: 128, 0.75: 256, 0.85: 512}
     |       fisher_block_size: 10000
@@ -106,8 +104,6 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
@@ -146,7 +142,6 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         global_sparsity: bool = False,
         use_gradient_buffering: Optional[bool] = None,
         num_grads: Union[Dict[float, int], int] = 64,
@@ -165,7 +160,6 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=update_frequency,
-            log_types=log_types,
             global_sparsity=global_sparsity,
             leave_enabled=leave_enabled,
             parent_class_kwarg_names=[],

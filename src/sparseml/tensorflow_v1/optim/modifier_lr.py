@@ -35,7 +35,6 @@ from sparseml.tensorflow_v1.optim.schedule_lr import (
     step_lr_schedule,
 )
 from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = [
@@ -48,14 +47,11 @@ __all__ = [
 def _add_lr_extras(
     mod_extras: Dict,
     learning_rate: tf_compat.Tensor,
-    log_types: Union[None, str, List[str]],
 ):
     mod_extras[EXTRAS_KEY_LEARNING_RATE] = learning_rate
-
-    if log_types and (log_types == ALL_TOKEN or "tensorboard" in log_types):
-        mod_extras[EXTRAS_KEY_SUMMARIES] = [
-            tf_compat.summary.scalar("Train/learning_rate", learning_rate)
-        ]
+    mod_extras[EXTRAS_KEY_SUMMARIES] = [
+        tf_compat.summary.scalar("Train/learning_rate", learning_rate)
+    ]
 
 
 class GroupLearningRateModifier(ScheduledModifier):
@@ -71,15 +67,8 @@ class GroupLearningRateModifier(ScheduledModifier):
         lr_modifiers = sorted(lr_modifiers, key=lambda m: m.start_epoch, reverse=True)
         start_epoch = min([mod.start_epoch for mod in lr_modifiers])
         end_epoch = max([mod.end_epoch for mod in lr_modifiers])
-        log_types = None
-
-        for mod in lr_modifiers:
-            if mod.log_types == ALL_TOKEN or "tensorboard" in mod.log_types:
-                log_types = mod.log_types
-            mod._log_types = None
 
         super().__init__(
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             end_comparator=-1,
@@ -128,7 +117,7 @@ class GroupLearningRateModifier(ScheduledModifier):
                         pred_fn_pairs.append((child_select, lambda lr=child_lr: lr))
 
                 learning_rate = tf_compat.case(pred_fn_pairs)
-                _add_lr_extras(mod_extras, learning_rate, self.log_types)
+                _add_lr_extras(mod_extras, learning_rate)
 
         return mod_ops, mod_extras
 
@@ -144,13 +133,10 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
     |    !SetLearningRateModifier
     |        start_epoch: 0.0
     |        learning_rate: 0.001
-    |        log_types: __ALL__
 
     :param learning_rate: The learning rate to use once this modifier starts
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: unused and should not be set
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     def __init__(
@@ -158,11 +144,9 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
         learning_rate: float,
         start_epoch: float = -1,
         end_epoch: float = -1,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(SetLearningRateModifier, self).__init__(
             learning_rate=learning_rate,
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=-1,
             end_comparator=None,
@@ -199,7 +183,7 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
                     self.learning_rate, tf_compat.float32, name="learning_rate"
                 )
 
-            _add_lr_extras(mod_extras, learning_rate, self.log_types)
+            _add_lr_extras(mod_extras, learning_rate)
 
         return mod_ops, mod_extras
 
@@ -221,7 +205,6 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
     |            decay_rate: 0.96
     |        start_epoch: 0.0
     |        end_epoch: 10.0
-    |        log_types: __ALL__
 
     :param lr_class: The name of the lr scheduler class to use:
         [StepLR, MultiStepLR, ExponentialLR]
@@ -233,8 +216,6 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
     :param end_epoch: The epoch to end the modifier at,
         (set to -1.0 so it doesn't end)
     :param update_frequency: unused and should not be set
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     def __init__(
@@ -245,13 +226,11 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
         start_epoch: float,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(LearningRateModifier, self).__init__(
             lr_class=lr_class,
             lr_kwargs=lr_kwargs,
             init_lr=init_lr,
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1,
@@ -312,6 +291,6 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
                         "unrecognized lr_class given of {}".format(lr_class)
                     )
 
-            _add_lr_extras(mod_extras, learning_rate, self.log_types)
+            _add_lr_extras(mod_extras, learning_rate)
 
         return mod_ops, mod_extras

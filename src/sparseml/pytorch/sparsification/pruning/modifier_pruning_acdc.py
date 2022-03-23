@@ -30,7 +30,6 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     MagnitudePruningParamsScorer,
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["ACDCPruningModifier"]
@@ -67,8 +66,6 @@ class ACDCPruningModifier(BasePruningModifier):
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune. Default is True
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
@@ -94,7 +91,6 @@ class ACDCPruningModifier(BasePruningModifier):
         leave_enabled: bool = True,
         momentum_buffer_reset: bool = True,
         mask_type: str = "unstructured",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         # AC/DC assumes that variables `start_epoch`, `end_epoch`
         # and `update_frequency` are integers.
@@ -118,7 +114,6 @@ class ACDCPruningModifier(BasePruningModifier):
             global_sparsity=global_sparsity,
             params=params,
             leave_enabled=leave_enabled,
-            log_types=log_types,
         )
 
         self._momentum_buffer_empty = True

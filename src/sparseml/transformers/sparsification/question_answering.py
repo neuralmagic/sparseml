@@ -59,7 +59,13 @@ class _QuestionAnsweringTrainer(Trainer):
         self.eval_examples = eval_examples
         self.post_process_function = post_process_function
 
-    def evaluate(self, eval_dataset=None, eval_examples=None, ignore_keys=None):
+    def evaluate(
+        self,
+        eval_dataset=None,
+        eval_examples=None,
+        ignore_keys=None,
+        metric_key_prefix: str = "eval",
+    ):
         eval_dataset = self.eval_dataset if eval_dataset is None else eval_dataset
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         eval_examples = self.eval_examples if eval_examples is None else eval_examples
@@ -91,6 +97,11 @@ class _QuestionAnsweringTrainer(Trainer):
             )
             metrics = self.compute_metrics(eval_preds)
 
+            # Prefix all keys with metric_key_prefix + '_'
+            for key in list(metrics.keys()):
+                if not key.startswith(f"{metric_key_prefix}_"):
+                    metrics[f"{metric_key_prefix}_{key}"] = metrics.pop(key)
+
             self.log(metrics)
         else:
             metrics = {}
@@ -105,7 +116,13 @@ class _QuestionAnsweringTrainer(Trainer):
         )
         return metrics
 
-    def predict(self, predict_dataset, predict_examples, ignore_keys=None):
+    def predict(
+        self,
+        predict_dataset,
+        predict_examples,
+        ignore_keys=None,
+        metric_key_prefix: str = "test",
+    ):
         predict_dataloader = self.get_test_dataloader(predict_dataset)
 
         # Temporarily disable metric computation, we will do it in the loop here.
@@ -136,6 +153,11 @@ class _QuestionAnsweringTrainer(Trainer):
             predict_examples, predict_dataset, output.predictions, "predict"
         )
         metrics = self.compute_metrics(predictions)
+
+        # Prefix all keys with metric_key_prefix + '_'
+        for key in list(metrics.keys()):
+            if not key.startswith(f"{metric_key_prefix}_"):
+                metrics[f"{metric_key_prefix}_{key}"] = metrics.pop(key)
 
         return PredictionOutput(
             predictions=predictions.predictions,
@@ -190,8 +212,8 @@ def postprocess_qa_predictions(
     null_score_diff_threshold: float = 0.0,
     output_dir: Optional[str] = None,
     prefix: Optional[str] = None,
-    is_world_process_zero: bool = True,
-) -> Dict[str, Any]:
+    log_level: Optional[int] = logging.WARNING,
+):
     """
     Post-processes the predictions of a question-answering model to convert them
     to answers that are substrings of the original contexts. This is the base
@@ -222,14 +244,17 @@ def postprocess_qa_predictions(
         (used to determine if logging/saves should be done)
     :return: dictionary of prediction values
     """
-    assert (
-        len(predictions) == 2
-    ), "`predictions` should be a tuple with two elements (start_logits, end_logits)."
+    if len(predictions) != 2:
+        raise ValueError(
+            "`predictions` should be a tuple with two elements "
+            "(start_logits, end_logits)."
+        )
     all_start_logits, all_end_logits = predictions
 
-    assert len(predictions[0]) == len(
-        features
-    ), f"Got {len(predictions[0])} predictions and {len(features)} features."
+    if len(predictions[0]) != len(features):
+        raise ValueError(
+            f"Got {len(predictions[0])} predictions and {len(features)} features."
+        )
 
     # Build a map example to its corresponding features.
     example_id_to_index = {k: i for i, k in enumerate(examples["id"])}
@@ -244,7 +269,7 @@ def postprocess_qa_predictions(
         scores_diff_json = collections.OrderedDict()
 
     # Logging.
-    _LOGGER.setLevel(logging.INFO if is_world_process_zero else logging.WARN)
+    _LOGGER.setLevel(log_level)
     _LOGGER.info(
         f"Post-processing {len(examples)} example predictions split into "
         f"{len(features)} features."
@@ -274,8 +299,9 @@ def postprocess_qa_predictions(
 
             # Update minimum null prediction.
             feature_null_score = start_logits[0] + end_logits[0]
-            if min_null_prediction is None or (
-                min_null_prediction["score"] > feature_null_score
+            if (
+                min_null_prediction is None
+                or min_null_prediction["score"] > feature_null_score
             ):
                 min_null_prediction = {
                     "offsets": (0, 0),
@@ -304,16 +330,18 @@ def postprocess_qa_predictions(
                         or len(offset_mapping[end_index]) < 2
                     ):
                         continue
-                    # Don't consider answers with a length that is either < 0 or >
-                    # max_answer_length.
-                    if end_index < start_index or (
-                        end_index - start_index + 1 > max_answer_length
+                    # Don't consider answers with a length that is
+                    # either < 0 or > max_answer_length.
+                    if (
+                        end_index < start_index
+                        or end_index - start_index + 1 > max_answer_length
                     ):
                         continue
                     # Don't consider answer that don't have the maximum context
                     # available (if such information is provided).
-                    if token_is_max_context is not None and (
-                        not token_is_max_context.get(str(start_index), False)
+                    if (
+                        token_is_max_context is not None
+                        and not token_is_max_context.get(str(start_index), False)
                     ):
                         continue
                     prelim_predictions.append(
@@ -339,8 +367,8 @@ def postprocess_qa_predictions(
 
         # Add back the minimum null prediction if it was removed because of its
         # low score.
-        if version_2_with_negative and (
-            not any(p["offsets"] == (0, 0) for p in predictions)
+        if version_2_with_negative and not any(
+            p["offsets"] == (0, 0) for p in predictions
         ):
             predictions.append(min_null_prediction)
 
@@ -356,8 +384,7 @@ def postprocess_qa_predictions(
             len(predictions) == 1 and predictions[0]["text"] == ""
         ):
             predictions.insert(
-                0,
-                {"text": "empty", "start_logit": 0.0, "end_logit": 0.0, "score": 0.0},
+                0, {"text": "empty", "start_logit": 0.0, "end_logit": 0.0, "score": 0.0}
             )
 
         # Compute the softmax of all scores (we do it with numpy to stay independent
@@ -384,9 +411,11 @@ def postprocess_qa_predictions(
             score_diff = (
                 null_score
                 - best_non_null_pred["start_logit"]
-                - (best_non_null_pred["end_logit"])
+                - best_non_null_pred["end_logit"]
             )
-            scores_diff_json[example["id"]] = float(score_diff)  # JSON compatibility
+            scores_diff_json[example["id"]] = float(
+                score_diff
+            )  # To be JSON-serializable.
             if score_diff > null_score_diff_threshold:
                 all_predictions[example["id"]] = ""
             else:
@@ -407,7 +436,8 @@ def postprocess_qa_predictions(
 
     # If we have an output_dir, let's save all those dicts.
     if output_dir is not None:
-        assert os.path.isdir(output_dir), f"{output_dir} is not a directory."
+        if not os.path.isdir(output_dir):
+            raise EnvironmentError(f"{output_dir} is not a directory.")
 
         prediction_file = os.path.join(
             output_dir,
@@ -415,11 +445,9 @@ def postprocess_qa_predictions(
         )
         nbest_file = os.path.join(
             output_dir,
-            (
-                "nbest_predictions.json"
-                if prefix is None
-                else f"{prefix}_nbest_predictions.json"
-            ),
+            "nbest_predictions.json"
+            if prefix is None
+            else f"{prefix}_nbest_predictions.json",
         )
         if version_2_with_negative:
             null_odds_file = os.path.join(

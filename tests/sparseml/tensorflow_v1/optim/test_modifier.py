@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List
 
 import pytest
 
@@ -227,8 +227,8 @@ class ScheduledUpdateModifierTest(ScheduledModifierTest, BaseUpdateTest):
 
 @TensorFlowModifierYAML()
 class ModifierImpl(Modifier):
-    def __init__(self, log_types: Union[str, List[str]] = ["python"]):
-        super().__init__(log_types)
+    def __init__(self):
+        super().__init__()
 
 
 @pytest.mark.skipif(
@@ -248,11 +248,10 @@ class TestModifierImpl(ModifierTest):
 class ScheduledModifierImpl(ScheduledModifier):
     def __init__(
         self,
-        log_types: Union[str, List[str]] = ["python"],
         end_epoch: float = -1.0,
         start_epoch: float = -1.0,
     ):
-        super().__init__(log_types)
+        super().__init__()
 
 
 @pytest.mark.parametrize("modifier_lambda", [ScheduledModifierImpl], scope="function")
@@ -268,12 +267,11 @@ class TestScheduledModifierImpl(ScheduledModifierTest):
 class ScheduledUpdateModifierImpl(ScheduledUpdateModifier):
     def __init__(
         self,
-        log_types: Union[str, List[str]] = ["python"],
         end_epoch: float = -1.0,
         start_epoch: float = -1.0,
         update_frequency: float = -1,
     ):
-        super().__init__(log_types)
+        super().__init__()
 
 
 @pytest.mark.skipif(
