@@ -109,6 +109,11 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
     :param global_sparsity: set True to use global magnitude pruning, False for
         layer-wise. Default is False. [DEPRECATED] - use GlobalMagnitudePruningModifier
         for global magnitude pruning and MagnitudePruningModifier for layer-wise
+    :param phased: NO LONGER SUPPORTED - former parameter for AC/DC pruning. Will raise
+        an exception if set to True. Use ACDCPruningModifier for AC/DC pruning
+    :param score_type: NO LONGER SUPPORTED - former parameter for using different
+        sparsification algorithms, will raise an exception if set to the non default
+        value
     """
 
     def __init__(
@@ -123,8 +128,10 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         inter_func: str = "cubic",
         mask_type: str = "unstructured",
         global_sparsity: bool = False,
+        phased: bool = False,
+        score_type: str = "magnitude",
     ):
-        self._check_warn_global_sparsity(global_sparsity)
+        self._check_deprecated_params(global_sparsity, phased, score_type)
 
         super(GMPruningModifier, self).__init__(
             params=params,
@@ -174,12 +181,28 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         """
         return self._global_sparsity
 
-    def _check_warn_global_sparsity(self, global_sparsity):
+    def _check_deprecated_params(
+        self,
+        global_sparsity: bool,
+        phased: bool,
+        score_type: str,
+    ):
         if self.__class__.__name__ == "GMPruningModifier" and global_sparsity is True:
             _LOGGER.warning(
                 "Use of global_sparsity parameter in GMPruningModifier is now "
                 "deprecated. Use GlobalMagnitudePruningModifier instead for global "
                 "magnitude pruning"
+            )
+        if phased:
+            raise ValueError(
+                f"Use of phased=True in {self.__class__.__name__} is no longer "
+                "supported use the ACDCPruningModifier for phased (AC/DC) pruning"
+            )
+        if score_type != "magnitude":
+            raise ValueError(
+                "use of score_type to specify a sparsification algorithm is no longer "
+                "supported. Use the specific pruning modifier for the desired "
+                f"sparsification algorithm instead. Found score_type={score_type}"
             )
 
 
