@@ -33,7 +33,7 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
 )
 from sparseml.sparsification import GMPruningModifier as BaseGMPruningModifier
 from sparseml.sparsification import SparsificationTypes
-from sparseml.utils import ALL_PRUNABLE_TOKEN, ALL_TOKEN
+from sparseml.utils import ALL_PRUNABLE_TOKEN
 
 
 __all__ = [
@@ -307,7 +307,6 @@ class StructuredPruningModifier(GMPruningModifier):
     |       params: __ALL_PRUNABLE__
     |       leave_enabled: True
     |       inter_func: cubic
-    |       log_types: __ALL__
 
     :param init_sparsity: the initial sparsity for the param to start with at
         start_epoch
@@ -332,8 +331,6 @@ class StructuredPruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of structured sparsity (options: [
         'channel', 'filter']), or a DimensionSparsityMaskCreator object.
         default is 'filter'
@@ -350,7 +347,6 @@ class StructuredPruningModifier(GMPruningModifier):
         params: Union[str, List[str]] = ALL_PRUNABLE_TOKEN,
         leave_enabled: bool = True,
         inter_func: str = "cubic",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: str = "filter",
     ):
         if mask_type not in ["filter", "channel"]:
@@ -367,7 +363,6 @@ class StructuredPruningModifier(GMPruningModifier):
             params=params,
             leave_enabled=leave_enabled,
             inter_func=inter_func,
-            log_types=log_types,
             mask_type=mask_type,
         )
 
@@ -426,3 +421,12 @@ class StructuredPruningModifier(GMPruningModifier):
             useful for structures such as residual blocks or grouped convolutions
         """
         return self._param_groups
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True for global magnitude pruning, False for
+            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
+            for global magnitude pruning and MagnitudePruningModifier for layer-wise
+        """
+        return self._global_sparsity

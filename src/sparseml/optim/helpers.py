@@ -15,7 +15,6 @@
 """
 Helper functions for base Modifier and Manger utilities
 """
-
 import json
 import re
 from contextlib import suppress
@@ -35,6 +34,7 @@ __all__ = [
     "update_recipe_variables",
     "evaluate_recipe_yaml_str_equations",
     "parse_recipe_variables",
+    "check_if_staged_recipe",
 ]
 
 
@@ -195,10 +195,75 @@ def parse_recipe_variables(
     return recipe_variables
 
 
+def _update_staged_recipe_variable(var_name, var_value, container):
+
+    # Extends the functionality of _update_container_value to handle staged recipes.
+
+    # :param var_name: The key we are attempting to find in the container.
+    # :param var_value: The value which will overwrite the previous value
+    #     every time var_name is found in the container's keys.
+    # :param container: A container generated from a YAML string of SparseML recipe
+    # :return: (optionally mutated) container, as well as key_value
+    #     (True if var_key found in container's attributes, otherwise False)
+
+    key_found = False
+
+    for container_key, container_value in container.items():
+        if not isinstance(container_value, dict):
+            # checking contents of global variables
+            if var_name == container_key:
+                container[var_name] = var_value
+                key_found = True
+
+        else:
+            # checking contents of a stage
+            stage_container, stage_key_found = _update_recipe_variable(
+                var_name, var_value, container_value
+            )
+            container[container_key] = stage_container
+            if stage_key_found:
+                key_found = True
+
+    return container, key_found
+
+
+def _update_recipe_variable(var_name: str, var_value, container):
+
+    # Checks whether there is at least one attribute (key) in the container,
+    # with the same name as var_name.
+    # If this is the case, key_found = True, otherwise False.
+    # Additionally, during checking, when var_name key is present in any of the
+    # container's attributes, this attribute's value gets overwritten with var_value.
+
+    # :param var_name: The key we are attempting to find in the container.
+    # :param var_value: The value which will overwrite the previous value
+    #   every time var_name is found in the container's keys.
+    # :param container: A container generated from a YAML string of SparseML recipe
+    # :return: (optionally mutated) container, as well as key_value
+    #    (True if var_key found in container's attributes, otherwise False)
+
+    key_found = False
+
+    for key, value in container.items():
+        if not isinstance(value, list):
+            if var_name == key:
+                container[var_name] = var_value
+                key_found = True
+        else:
+            for idx, modifier in enumerate(value):
+                if var_name in modifier.keys():
+                    container[key][idx][var_name] = var_value
+                    key_found = True
+
+    return container, key_found
+
+
 def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> str:
     """
     :param recipe_yaml_str: YAML string of a SparseML recipe
-    :param variables: variables dictionary to update recipe top level variables with
+    :param variables: variables dictionary to update recipe top level variables with.
+        If recipe contains stages, it will parse the whole recipe
+        and substitute ANY variable with the corresponding name.
     :return: given recipe with variables updated
     """
 
@@ -207,15 +272,24 @@ def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> 
         # yaml string does not create a dict, return original string
         return recipe_yaml_str
 
-    for key in variables:
-        if key not in container:
+    for var_key, var_value in variables.items():
+        if check_if_staged_recipe(container):
+            container, key_found = _update_staged_recipe_variable(
+                var_key, var_value, container
+            )
+        else:
+            container, key_found = _update_recipe_variable(
+                var_key, var_value, container
+            )
+
+        if not key_found:
             raise ValueError(
-                f"updating recipe variable {key} but {key} is not currently "
+                f"updating recipe variable {var_key} but "
+                f"{var_key} is not currently "
                 "set in existing recipe. Set the variable in the recipe in order "
                 "to overwrite it."
             )
 
-    container.update(variables)
     return rewrite_recipe_yaml_string_with_classes(container)
 
 
@@ -230,16 +304,98 @@ def evaluate_recipe_yaml_str_equations(recipe_yaml_str: str) -> str:
         # yaml string does not create a dict, return original string
         return recipe_yaml_str
 
-    # validate and load remaining variables
-    container, variables, non_val_variables = _evaluate_recipe_variables(container)
+    # check whether the recipe is a stage recipe of not
+    if check_if_staged_recipe(container):
+        container = _evaluate_staged_recipe_yaml_str_equations(container)
 
-    # update values nested in modifier lists based on the variables
-    for key, val in container.items():
-        if "modifiers" not in key:
-            continue
-        container[key] = _maybe_evaluate_yaml_object(val, variables, non_val_variables)
+    else:
+        container, variables, non_val_variables = _evaluate_container_variables(
+            container
+        )
+
+        # update values nested in modifier lists based on the variables
+        for key, val in container.items():
+            if "modifiers" not in key:
+                continue
+            container[key] = _maybe_evaluate_yaml_object(
+                val, variables, non_val_variables
+            )
 
     return rewrite_recipe_yaml_string_with_classes(container)
+
+
+def check_if_staged_recipe(container: dict) -> bool:
+    """
+    Check whether container pertains to a staged recipe.
+    Such a "staged container" fulfills two conditions:
+    - no top level key in container contains "modifiers" in its name
+    - a stage should map to a dict that has at least one key with
+      "modifiers" in its name
+    :param container: a container generated from a YAML string of SparseML recipe
+    :return: True if stage recipe, False if normal recipe
+    """
+    for k, v in container.items():
+        if isinstance(v, dict):
+            if any([key for key in v.keys() if "modifiers" in key]):
+                return True
+    return False
+
+
+def _evaluate_staged_recipe_yaml_str_equations(container: dict) -> dict:
+    """
+    Consumes a staged container and transforms it into a valid
+    container for the manager and modifiers to consume further.
+
+    :param container: a staged container generated from a staged recipe.
+    :return: transformed container containing evaluated
+            variables, operations and objects.
+    """
+    main_container = {}
+    for k, v in container.items():
+        if isinstance(v, dict):
+            if any([key for key in v.keys() if "modifiers" in key]):
+                continue
+        main_container.update({k: v})
+
+    stages = {k: container[k] for k in set(container) - set(main_container)}
+
+    (
+        main_container,
+        global_variables,
+        global_non_val_variables,
+    ) = _evaluate_container_variables(main_container)
+
+    for stage_name, staged_container in stages.items():
+        stage_container, variables, non_val_variables = _evaluate_container_variables(
+            staged_container, main_container
+        )
+
+        """
+        if same variable is both in global_variables and variables, the
+        global_variable will get overwritten.
+        """
+        _global_variables = {
+            k: v for k, v in global_variables.items() if k not in variables.keys()
+        }
+        variables = {**variables, **_global_variables}
+
+        _global_non_val_variables = {
+            k: v
+            for k, v in global_non_val_variables.items()
+            if k not in non_val_variables.keys()
+        }
+        non_val_variables = {**non_val_variables, **_global_non_val_variables}
+
+        for key, val in staged_container.items():
+            if "modifiers" not in key:
+                continue
+            stage_container[key] = _maybe_evaluate_yaml_object(
+                val, variables, non_val_variables
+            )
+
+        container[stage_name] = staged_container
+
+    return container
 
 
 def is_eval_string(val: str) -> bool:
@@ -256,6 +412,7 @@ def _maybe_evaluate_recipe_equation(
     val: str,
     variables: Dict[str, Union[int, float]],
     non_eval_variables: Dict[str, Any],
+    global_container: Optional[Dict[str, Any]] = {},
 ) -> Union[str, float, int]:
     if is_eval_string(val):
         is_eval_str = True
@@ -265,6 +422,9 @@ def _maybe_evaluate_recipe_equation(
 
     if val in non_eval_variables:
         return non_eval_variables[val]
+
+    if val in global_container:
+        return global_container[val]
 
     evaluated_val = restricted_eval(val, variables)
 
@@ -276,8 +436,8 @@ def _maybe_evaluate_recipe_equation(
     return evaluated_val
 
 
-def _evaluate_recipe_variables(
-    recipe_dict: Dict[str, Any],
+def _evaluate_container_variables(
+    recipe_container: Dict[str, Any], global_container: Optional[Dict[str, Any]] = {}
 ) -> Tuple[Dict[str, Any], Dict[str, Union[int, float]]]:
     valid_variables = {}
     non_evaluatable_variables = {}
@@ -286,7 +446,7 @@ def _evaluate_recipe_variables(
     while prev_num_variables != len(valid_variables):
         prev_num_variables = len(valid_variables)
 
-        for name, val in recipe_dict.items():
+        for name, val in recipe_container.items():
             if name in valid_variables:
                 continue
 
@@ -301,7 +461,7 @@ def _evaluate_recipe_variables(
 
             try:
                 val = _maybe_evaluate_recipe_equation(
-                    val, valid_variables, non_evaluatable_variables
+                    val, valid_variables, non_evaluatable_variables, global_container
                 )
             except UnknownVariableException:
                 # dependant variables maybe not evaluated yet
@@ -309,18 +469,18 @@ def _evaluate_recipe_variables(
 
             if isinstance(val, (int, float)):
                 # update variable value and add to valid vars
-                recipe_dict[name] = val
+                recipe_container[name] = val
                 valid_variables[name] = val
 
     # check that all eval statements have been evaluated
-    for name, val in recipe_dict.items():
+    for name, val in recipe_container.items():
         if isinstance(val, str) and is_eval_string(val):
             raise RuntimeError(
                 f"Unable to evaluate expression: {val}. Check if any dependent "
                 "variables form a cycle or are not defined"
             )
 
-    return recipe_dict, valid_variables, non_evaluatable_variables
+    return recipe_container, valid_variables, non_evaluatable_variables
 
 
 def _maybe_evaluate_yaml_object(

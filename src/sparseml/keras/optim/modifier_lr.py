@@ -30,7 +30,6 @@ from sparseml.sparsification import LearningRateModifier as BaseLearningRateModi
 from sparseml.sparsification import (
     SetLearningRateModifier as BaseSetLearningRateModifier,
 )
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["SetLearningRateModifier", "LearningRateModifier"]
@@ -199,13 +198,10 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
     |    !SetLearningRateModifier
     |        start_epoch: 0.0
     |        learning_rate: 0.001
-    |        log_types: __ALL__
 
     :param learning_rate: The learning rate to use once this modifier starts
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: unused and should not be set
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     def __init__(
@@ -213,11 +209,9 @@ class SetLearningRateModifier(BaseSetLearningRateModifier, ScheduledModifier):
         learning_rate: float,
         start_epoch: float = -1,
         end_epoch: float = -1,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(SetLearningRateModifier, self).__init__(
             learning_rate=learning_rate,
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=-1,
             end_comparator=None,
@@ -335,7 +329,6 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
     |            decay_rate: 0.96
     |        start_epoch: 0.0
     |        end_epoch: 10.0
-    |        log_types: __ALL__
 
     :param lr_class: The name of the lr scheduler class to use:
         [StepLR, MultiStepLR, ExponentialLR]
@@ -347,8 +340,6 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
     :param end_epoch: The epoch to end the modifier at,
         (set to -1.0 so it doesn't end)
     :param update_frequency: unused and should not be set
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     """
 
     def __init__(
@@ -359,13 +350,11 @@ class LearningRateModifier(BaseLearningRateModifier, ScheduledUpdateModifier):
         start_epoch: float,
         end_epoch: float = -1.0,
         update_frequency: float = -1.0,
-        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         super(LearningRateModifier, self).__init__(
             lr_class=lr_class,
             lr_kwargs=lr_kwargs,
             init_lr=init_lr,
-            log_types=log_types,
             start_epoch=start_epoch,
             end_epoch=end_epoch,
             update_frequency=-1,

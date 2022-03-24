@@ -66,7 +66,7 @@ class ScheduledOptimizer(Optimizer):
         not strictly required and can be set to -1.
         used to calculate decimals within the epoch,
         when not using can result in irregularities
-    :param loggers: loggers to log important info to within the modifiers;
+    :param loggers: logger manager to log important info to within the modifiers;
         ex tensorboard or to the console
     :param initialize_kwargs: key word arguments and values to be passed to
         the recipe manager initialize function

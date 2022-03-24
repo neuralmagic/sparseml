@@ -16,6 +16,7 @@
 Helper methods for image classification/detection based tasks
 """
 import os
+import warnings
 from enum import Enum, auto, unique
 from typing import Any, List, Optional, Tuple, Union
 
@@ -99,7 +100,14 @@ def get_save_dir_and_loggers(
         if task == Tasks.TRAIN:
             logs_dir = os.path.join(logs_dir, model_id)
             create_dirs(logs_dir)
-            loggers.append(TensorBoardLogger(log_path=logs_dir))
+            try:
+                loggers.append(TensorBoardLogger(log_path=logs_dir))
+            except AttributeError:
+                warnings.warn(
+                    "Failed to initialize TensorBoard logger, "
+                    "it will not be used for logging",
+                )
+
         print(f"Model id is set to {model_id}")
     else:
         # do not log for non main processes
@@ -406,12 +414,10 @@ def save_recipe(
 def save_model_training(
     model: Module,
     optim: Optimizer,
-    input_shape: Tuple[int, ...],
     save_name: str,
     save_dir: str,
     epoch: int,
     val_res: Union[ModuleRunResults, None],
-    convert_qat: bool = False,
 ):
     """
     :param model: model architecture
@@ -432,12 +438,6 @@ def save_model_training(
     )
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(optim, epoch, f"{save_name}.pth")
-    exporter.export_onnx(
-        torch.randn(1, *input_shape),
-        f"{save_name}.onnx",
-        convert_qat=convert_qat,
-    )
-
     info_path = os.path.join(save_dir, f"{save_name}.txt")
 
     with open(info_path, "w") as info_file:
