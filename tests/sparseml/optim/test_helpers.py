@@ -423,7 +423,7 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
 
 
 @pytest.mark.parametrize(
-    "metadata,yaml_str, expected_metadata, raise_value_error",
+    "metadata,yaml_str, expected_metadata, raise_warning",
     [
         # Testing simple recipe
         (
@@ -434,12 +434,12 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
         ),
         # Testing simple recipe (metadata = None)
         (None, RECIPE_SIMPLE_EVAL, {RECIPE_METADATA_KEY: None}, False),
-        # Testing simple recipe, overwriting previous metadata
+        # Testing simple recipe, attempting to overwrite previous metadata
         (
             eval(METADATA.format(key="metadata", value=120)),
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=120))},
-            False,
+            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=90))},
+            True,
         ),
         # Testing simple recipe, previous metadata present but new metadata is None
         (
@@ -448,13 +448,13 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
             {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=90))},
             False,
         ),
-        # Prohibitive scenario, adding novel metadata key to recipe
-        # with previous metadata
+        # Testing simple recipe, passing new metadata
+        # which is equal to previous metadata.
         (
-            eval(METADATA.format(key="error", value=100)),
+            eval(METADATA.format(key="metadata", value=90)),
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            None,
-            True,
+            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=90))},
+            False,
         ),
         # Testing staged recipe
         (
@@ -473,15 +473,15 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
             {"first_stage": None, "next_stage": None},
             False,
         ),
-        # Testing staged recipe, overwriting previous metadata
+        # Testing staged recipe, attempting to overwrite previous metadata
         (
             eval(METADATA.format(key="metadata", value=150)),
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": eval(METADATA.format(key="metadata", value=150)),
-                "next_stage": eval(METADATA.format(key="metadata", value=150)),
+                "first_stage": eval(METADATA.format(key="metadata", value=110)),
+                "next_stage": eval(METADATA.format(key="metadata", value=120)),
             },
-            False,
+            True,
         ),
         # Testing staged recipe, previous metadata present but new metadata is None
         (
@@ -493,20 +493,27 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
             },
             False,
         ),
-        # Prohibitive scenario, adding novel metadata key to recipe
-        # with previous metadata
+        # Testing simple recipe, passing new metadata
+        # which is equal to previous metadata.
         (
-            eval(METADATA.format(key="error", value=100)),
+            {
+                "first_stage": {"this": "is", "metadata": 110},
+                "next_stage": {"this": "is", "metadata": 120},
+            },
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
-            None,
-            True,
+            {
+                "first_stage": {"this": "is", "metadata": 110},
+                "next_stage": {"this": "is", "metadata": 120},
+            },
+            False,
         ),
     ],
 )
-def test_validate_metadata(metadata, yaml_str, expected_metadata, raise_value_error):
-    if raise_value_error:
-        with pytest.raises(ValueError):
+def test_validate_metadata(metadata, yaml_str, expected_metadata, raise_warning):
+    if raise_warning:
+        with pytest.warns(UserWarning):
             metadata = validate_metadata(metadata, yaml_str)
+            assert metadata == expected_metadata
     else:
         metadata = validate_metadata(metadata, yaml_str)
         assert metadata == expected_metadata

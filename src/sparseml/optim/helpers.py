@@ -17,6 +17,7 @@ Helper functions for base Modifier and Manger utilities
 """
 import json
 import re
+import warnings
 from contextlib import suppress
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -557,22 +558,24 @@ def _get_recipe_stage_names(container):
     return stage_names
 
 
+def _check_warn_dict_difference(original_dict, new_dict):
+    if original_dict != new_dict:
+        warnings.warn(
+            f"Attempting to overwrite old metadata: {original_dict} "
+            f"with new metadata: {new_dict}. "
+            "It is prohibitive to alter the metadata of the recipe. "
+            "The new metadata will be omitted and discarded."
+        )
+
+
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     """
-    Compare the metadata carried over from the recipe (`yaml_str`) with
-    the new, incoming metadata ('metadata').
+    Compare the metadata (previous_metadata) carried over from the recipe
+    (`yaml_str`) with the new, incoming metadata ('metadata').
 
-    If yaml_str is a staged recipe, this function returns a multi-key
-        dict where:
-        -keys are stage names
-        -values are metadata for respective stage name
-    If yaml_str is a normal recipe, this function returns a single-key
-        dict where:
-        -key is RECIPE_METADATA_KEY
-        -value is metadata for the recipe
-
-    If there exists a key in new metadata which also exists in previous metadata,
-    it will overwrite the old metadata. However, it is prohibitive to pass novel keys.
+    If attempting to overwrite previous metadata with the new metadata,
+    the script throws a warning and discards the new metadata.
+    Otherwise, it propagates the new metadata in the correct form.
 
     :param metadata: New metadata
     :param yaml_str: String representation of the recipe YAML file,
@@ -591,22 +594,21 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
 
     if checkpoint_metadata:
         if metadata:
-            for var_name, var_value in metadata.items():
-                if is_container_staged:
-                    checkpoint_metadata, key_found = _update_staged_recipe_variable(
-                        var_name, var_value, checkpoint_metadata
-                    )
-                else:
-                    checkpoint_metadata, key_found = _update_recipe_variable(
-                        var_name, var_value, checkpoint_metadata
-                    )
-
-                if not key_found:
-                    raise ValueError(
-                        "Attempting to find and overwrite overwrite checkpoint metadata"
-                        f"with metadata key {var_name}, but {var_name}"
-                        "is not present in checkpoint metadata."
-                    )
+            if is_container_staged:
+                for stage_name in _get_recipe_stage_names(container):
+                    # check if metadata is staged...
+                    if _get_recipe_stage_names(container) == list(metadata.keys()):
+                        _check_warn_dict_difference(
+                            container[stage_name][RECIPE_METADATA_KEY],
+                            metadata[stage_name],
+                        )
+                    # ...or not
+                    else:
+                        _check_warn_dict_difference(
+                            container[stage_name][RECIPE_METADATA_KEY], metadata
+                        )
+            else:
+                _check_warn_dict_difference(container[RECIPE_METADATA_KEY], metadata)
 
         return (
             checkpoint_metadata
