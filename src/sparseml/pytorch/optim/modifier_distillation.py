@@ -356,8 +356,7 @@ class DistillationModifier(ScheduledUpdateModifier):
                 reduction="sum",
             )
             * (self._temperature ** 2)
-        ) / (student_val.shape[0] * student_val.shape[1])
-
+        ) / (student_val.numel() / student_val.shape[-1])
 
 def _log_losses(
     loggers: List[BaseLogger],
