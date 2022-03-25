@@ -25,6 +25,7 @@ from .generic import *
 from .recommendation import *
 from .registry import *
 from .video import *
+from .ffcv_dataset import *
 
 
 _check_torch_install()  # TODO: remove once files within package load without installs

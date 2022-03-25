@@ -459,6 +459,11 @@ class TrainingArguments:
         default=224, metadata={"help": "The size of the image input to the model"}
     )
 
+    ffcv: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Use FFCV for training."},
+    )
+
     def __post_init__(self):
         # add ddp args
         env_world_size = int(os.environ.get("WORLD_SIZE", 1))
