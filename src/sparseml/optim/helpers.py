@@ -561,8 +561,9 @@ def _check_warn_dict_difference(original_dict, new_dict):
         warnings.warn(
             f"Attempting to overwrite old metadata: {original_dict} "
             f"with new metadata: {new_dict}. "
-            "It is prohibitive to alter the metadata of the recipe. "
-            "The new metadata will be omitted and discarded."
+            "This may lead to different results than the original run of the recipe. "
+            "The previous metadata will be omitted and discarded. Ignore if a "
+            "change in metadata is expected"
         )
 
 
