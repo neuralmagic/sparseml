@@ -360,7 +360,10 @@ stage_4:
           start_epoch: 12.0
   
 """  # noqa: W293
-METADATA = """{{'metadata': None, 'level': {level}}}"""
+
+
+def _generate_fake_metadata(item1=("metadata", None), item2=("level", 1)):
+    return {k: v for (k, v) in (item1, item2)}
 
 
 @pytest.mark.parametrize(
@@ -371,7 +374,7 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
         (
             STANDARD_RECIPE_1,
             None,
-            eval(METADATA.format(level=0)),
+            _generate_fake_metadata(item2=("level", 0)),
             STANDARD_RECIPE_1_EVAL,
             False,
             False,
@@ -381,7 +384,7 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
         (
             STANDARD_RECIPE_2,
             STANDARD_RECIPE_1_EVAL,
-            eval(METADATA.format(level=1)),
+            _generate_fake_metadata(),
             TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
             False,
             False,
@@ -391,7 +394,7 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
         (
             STANDARD_RECIPE_1,
             TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
-            eval(METADATA.format(level=3)),
+            _generate_fake_metadata(item2=("level", 3)),
             THREE_STAGES_RECIPE_1,
             False,
             False,
@@ -401,7 +404,7 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
         (
             TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
             STANDARD_RECIPE_1_EVAL,
-            eval(METADATA.format(level=1)),
+            _generate_fake_metadata(),
             THREE_STAGES_RECIPE_2,
             True,
             False,
@@ -410,7 +413,7 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
         (
             TWO_STAGES_RECIPE.format(stage_0_name="stage_3", stage_1_name="stage_4"),
             TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
-            eval(METADATA.format(level=1)),
+            _generate_fake_metadata(),
             FOUR_STAGES_RECIPE,
             True,
             False,

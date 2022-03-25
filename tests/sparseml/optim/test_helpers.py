@@ -419,7 +419,8 @@ def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
     _test_nested_equality(evaluated_yaml, expected_yaml)
 
 
-METADATA = """{{"this": "is","{key}":{value}}}"""
+def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
+    return {k: v for (k, v) in (item1, item2)}
 
 
 @pytest.mark.parametrize(
@@ -427,42 +428,42 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
     [
         # Testing simple recipe
         (
-            eval(METADATA.format(key="metadata", value=100)),
+            _generate_fake_metadata(),
             RECIPE_SIMPLE_EVAL,
-            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=100))},
+            {RECIPE_METADATA_KEY: _generate_fake_metadata()},
             False,
         ),
         # Testing simple recipe (metadata = None)
         (None, RECIPE_SIMPLE_EVAL, {RECIPE_METADATA_KEY: None}, False),
         # Testing simple recipe, attempting to overwrite previous metadata
         (
-            eval(METADATA.format(key="metadata", value=120)),
+            _generate_fake_metadata(item2=("metadata", 120)),
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=120))},
+            {RECIPE_METADATA_KEY: _generate_fake_metadata(item2=("metadata", 120))},
             True,
         ),
         # Testing simple recipe, previous metadata present but new metadata is None
         (
             None,
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=90))},
+            {RECIPE_METADATA_KEY: _generate_fake_metadata(item2=("metadata", 90))},
             False,
         ),
         # Testing simple recipe, passing new metadata
         # which is equal to previous metadata.
         (
-            eval(METADATA.format(key="metadata", value=90)),
+            _generate_fake_metadata(item2=("metadata", 90)),
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=90))},
+            {RECIPE_METADATA_KEY: _generate_fake_metadata(item2=("metadata", 90))},
             False,
         ),
         # Testing staged recipe
         (
-            eval(METADATA.format(key="metadata", value=150)),
+            _generate_fake_metadata(item2=("metadata", 150)),
             STAGED_RECIPE_SIMPLE_EVAL,
             {
-                "first_stage": eval(METADATA.format(key="metadata", value=150)),
-                "next_stage": eval(METADATA.format(key="metadata", value=150)),
+                "first_stage": _generate_fake_metadata(item2=("metadata", 150)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 150)),
             },
             False,
         ),
@@ -475,11 +476,11 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
         ),
         # Testing staged recipe, attempting to overwrite previous metadata
         (
-            eval(METADATA.format(key="metadata", value=150)),
+            _generate_fake_metadata(item2=("metadata", 150)),
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": eval(METADATA.format(key="metadata", value=150)),
-                "next_stage": eval(METADATA.format(key="metadata", value=150)),
+                "first_stage": _generate_fake_metadata(item2=("metadata", 150)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 150)),
             },
             True,
         ),
@@ -488,8 +489,8 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
             None,
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": {"this": "is", "metadata": 110},
-                "next_stage": {"this": "is", "metadata": 120},
+                "first_stage": _generate_fake_metadata(item2=("metadata", 110)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 120)),
             },
             False,
         ),
@@ -497,13 +498,13 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
         # which is equal to previous metadata.
         (
             {
-                "first_stage": {"this": "is", "metadata": 110},
-                "next_stage": {"this": "is", "metadata": 120},
+                "first_stage": _generate_fake_metadata(item2=("metadata", 110)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 120)),
             },
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": {"this": "is", "metadata": 110},
-                "next_stage": {"this": "is", "metadata": 120},
+                "first_stage": _generate_fake_metadata(item2=("metadata", 110)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 120)),
             },
             False,
         ),
@@ -511,13 +512,13 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
         # which is equal to previous metadata.
         (
             {
-                "first_stage": {"this": "is", "metadata": 160},
-                "next_stage": {"this": "is", "metadata": 140},
+                "first_stage": _generate_fake_metadata(item2=("metadata", 160)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 140)),
             },
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": {"this": "is", "metadata": 160},
-                "next_stage": {"this": "is", "metadata": 140},
+                "first_stage": _generate_fake_metadata(item2=("metadata", 160)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 140)),
             },
             True,
         ),

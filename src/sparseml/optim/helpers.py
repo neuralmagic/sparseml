@@ -575,7 +575,7 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     (`yaml_str`) with the new, incoming metadata ('metadata').
 
     If attempting to overwrite previous metadata with the new metadata,
-    the script throws a warning and discards the new metadata.
+    the script throws a warning and overwrites the previous metadata.
     Otherwise, it propagates the new metadata in the correct form.
 
     :param metadata: New metadata
