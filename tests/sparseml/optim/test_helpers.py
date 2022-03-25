@@ -438,7 +438,7 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
         (
             eval(METADATA.format(key="metadata", value=120)),
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=90))},
+            {RECIPE_METADATA_KEY: eval(METADATA.format(key="metadata", value=120))},
             True,
         ),
         # Testing simple recipe, previous metadata present but new metadata is None
@@ -478,8 +478,8 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
             eval(METADATA.format(key="metadata", value=150)),
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": eval(METADATA.format(key="metadata", value=110)),
-                "next_stage": eval(METADATA.format(key="metadata", value=120)),
+                "first_stage": eval(METADATA.format(key="metadata", value=150)),
+                "next_stage": eval(METADATA.format(key="metadata", value=150)),
             },
             True,
         ),
@@ -493,7 +493,7 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
             },
             False,
         ),
-        # Testing simple recipe, passing new metadata
+        # Testing staged recipe, passing new staged metadata
         # which is equal to previous metadata.
         (
             {
@@ -506,6 +506,20 @@ METADATA = """{{"this": "is","{key}":{value}}}"""
                 "next_stage": {"this": "is", "metadata": 120},
             },
             False,
+        ),
+        # Testing staged recipe, passing new staged metadata
+        # which is equal to previous metadata.
+        (
+            {
+                "first_stage": {"this": "is", "metadata": 160},
+                "next_stage": {"this": "is", "metadata": 140},
+            },
+            STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
+            {
+                "first_stage": {"this": "is", "metadata": 160},
+                "next_stage": {"this": "is", "metadata": 140},
+            },
+            True,
         ),
     ],
 )

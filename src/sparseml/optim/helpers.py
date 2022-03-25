@@ -535,7 +535,8 @@ def _extract_metadata_from_staged_recipe(container):
             metadata[stage_name] = container[stage_name][RECIPE_METADATA_KEY]
     if metadata and (len(metadata) != len(stage_names)):
         raise ValueError(
-            "Some stages in recipe do not. Either all or no stages must "
+            "It seems that some stages in your checkpoint recipe"
+            "contain metadata and some do not. Either all or no stages must "
             f"must contain the {RECIPE_METADATA_KEY} key"
         )
 
@@ -559,12 +560,13 @@ def _get_recipe_stage_names(container):
 def _check_warn_dict_difference(original_dict, new_dict):
     if original_dict != new_dict:
         warnings.warn(
-            f"Attempting to overwrite old metadata: {original_dict} "
+            f"Attempting to overwrite the previous metadata: {original_dict} "
             f"with new metadata: {new_dict}. "
             "This may lead to different results than the original run of the recipe. "
             "The previous metadata will be omitted and discarded. Ignore if a "
-            "change in metadata is expected"
+            "change in metadata is expected."
         )
+    return new_dict
 
 
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:
@@ -594,20 +596,25 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     if checkpoint_metadata:
         if metadata:
             if is_container_staged:
+
+                is_metadata_staged = set(_get_recipe_stage_names(container)) == set(
+                    metadata.keys()
+                )
+
                 for stage_name in _get_recipe_stage_names(container):
-                    # check if metadata is staged...
-                    if _get_recipe_stage_names(container) == list(metadata.keys()):
-                        _check_warn_dict_difference(
+                    if is_metadata_staged:
+                        checkpoint_metadata[stage_name] = _check_warn_dict_difference(
                             container[stage_name][RECIPE_METADATA_KEY],
                             metadata[stage_name],
                         )
-                    # ...or not
                     else:
-                        _check_warn_dict_difference(
+                        checkpoint_metadata[stage_name] = _check_warn_dict_difference(
                             container[stage_name][RECIPE_METADATA_KEY], metadata
                         )
             else:
-                _check_warn_dict_difference(container[RECIPE_METADATA_KEY], metadata)
+                checkpoint_metadata = _check_warn_dict_difference(
+                    container[RECIPE_METADATA_KEY], metadata
+                )
 
         return (
             checkpoint_metadata

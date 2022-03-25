@@ -93,6 +93,10 @@ class BaseManager(BaseObject):
     def __eq__(self, compare: object) -> bool:
         return str(self) == str(compare)
 
+    @property
+    def metadata(self):
+        return self._metadata
+
     @classmethod
     def compose_staged(
         cls,
@@ -435,8 +439,8 @@ class BaseManager(BaseObject):
                     yaml_str_lines.append(f"    {key}: {value}")
         else:
             yaml_str_lines.append(f"{RECIPE_METADATA_KEY}:")
-            if not isinstance(self._metadata[stage], dict):
-                yaml_str_lines[-1] += f" {self._metadata[stage]}"
+            if not isinstance(self._metadata, dict):
+                yaml_str_lines[-1] += f" {self._metadata}"
             else:
                 for key, value in self._metadata[RECIPE_METADATA_KEY].items():
                     yaml_str_lines.append(f"  {key}: {value}")

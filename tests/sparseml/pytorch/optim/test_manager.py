@@ -93,6 +93,7 @@ modifiers:
     - !GMPruningModifier
         end_epoch: 3.0
         final_sparsity: 0.8
+        global_sparsity: False
         init_sparsity: 0.2
         inter_func: cubic
         leave_enabled: True
@@ -117,6 +118,7 @@ TWO_STAGES_RECIPE = """version: 1.1.0
       - !GMPruningModifier
           end_epoch: 3.0
           final_sparsity: 0.8
+          global_sparsity: False
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
@@ -160,6 +162,7 @@ stage_0:
       - !GMPruningModifier
           end_epoch: 3.0
           final_sparsity: 0.8
+          global_sparsity: False
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
@@ -199,6 +202,7 @@ stage_3:
       - !GMPruningModifier
           end_epoch: 12.0
           final_sparsity: 0.8
+          global_sparsity: False
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
@@ -223,6 +227,7 @@ pre_stage_0:
       - !GMPruningModifier
           end_epoch: 3.0
           final_sparsity: 0.8
+          global_sparsity: False
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
@@ -245,6 +250,7 @@ stage_0:
       - !GMPruningModifier
           end_epoch: 6.0
           final_sparsity: 0.8
+          global_sparsity: False
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
@@ -287,6 +293,7 @@ stage_0:
       - !GMPruningModifier
           end_epoch: 3.0
           final_sparsity: 0.8
+          global_sparsity: False
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
@@ -326,6 +333,7 @@ stage_3:
       - !GMPruningModifier
           end_epoch: 12.0
           final_sparsity: 0.8
+          global_sparsity: False
           init_sparsity: 0.2
           inter_func: cubic
           leave_enabled: True
@@ -356,14 +364,16 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
 
 
 @pytest.mark.parametrize(
-    "recipe,checkpoint_recipe,metadata,expected_recipe,raise_value_error",
+    "recipe,checkpoint_recipe,metadata,expected_recipe,"
+    "raise_warning, raise_value_error",
     [
-        # Testing saving standard recipe with metadata, no stage composing.
+        # Testing saving standard recipe with metadata, no stage composing
         (
             STANDARD_RECIPE_1,
             None,
             eval(METADATA.format(level=0)),
             STANDARD_RECIPE_1_EVAL,
+            False,
             False,
         ),
         # Testing composing standard recipe (with metadata)
@@ -374,6 +384,7 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
             eval(METADATA.format(level=1)),
             TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
             False,
+            False,
         ),
         # Testing composing standard recipe (with metadata)
         # with a staged checkpoint recipe
@@ -383,6 +394,7 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
             eval(METADATA.format(level=3)),
             THREE_STAGES_RECIPE_1,
             False,
+            False,
         ),
         # Testing composing staged recipe (with metadata)
         # with standard checkpoint recipe (with metadata)
@@ -391,6 +403,7 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
             STANDARD_RECIPE_1_EVAL,
             eval(METADATA.format(level=1)),
             THREE_STAGES_RECIPE_2,
+            True,
             False,
         ),
         # Testing composing two staged recipes
@@ -399,6 +412,7 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
             TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
             eval(METADATA.format(level=1)),
             FOUR_STAGES_RECIPE,
+            True,
             False,
         ),
         # Testing composing two stage recipes with
@@ -408,18 +422,30 @@ METADATA = """{{'metadata': None, 'level': {level}}}"""
             TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
             None,
             FOUR_STAGES_RECIPE,
+            False,
             True,
         ),
     ],
 )
 def test_lifecycle_manager_staged(
-    recipe, metadata, checkpoint_recipe, expected_recipe, raise_value_error
+    recipe,
+    metadata,
+    checkpoint_recipe,
+    expected_recipe,
+    raise_warning,
+    raise_value_error,
 ):
     temp_dir = tempfile.mkdtemp()
     recipe_path = os.path.join(temp_dir, "recipy.yaml")
-    recipe_manager = ScheduledModifierManager.from_yaml(
-        file_path=recipe, metadata=metadata
-    )
+    if raise_warning:
+        with pytest.warns(UserWarning):
+            recipe_manager = ScheduledModifierManager.from_yaml(
+                file_path=recipe, metadata=metadata
+            )
+    else:
+        recipe_manager = ScheduledModifierManager.from_yaml(
+            file_path=recipe, metadata=metadata
+        )
     if checkpoint_recipe:
         if raise_value_error:
             with pytest.raises(ValueError):
