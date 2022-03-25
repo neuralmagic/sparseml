@@ -535,10 +535,8 @@ def _extract_metadata_from_staged_recipe(container):
             metadata[stage_name] = container[stage_name][RECIPE_METADATA_KEY]
     if metadata and (len(metadata) != len(stage_names)):
         raise ValueError(
-            "It seems that some stages in your checkpoint recipe"
-            "contain metadata and some don't."
-            "This is not allowed: either all the "
-            f"stages contain {RECIPE_METADATA_KEY} key or none does."
+            "Some stages in recipe do not. Either all or no stages must "
+            f"must contain the {RECIPE_METADATA_KEY} key"
         )
 
     return metadata
