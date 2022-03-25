@@ -20,6 +20,7 @@ including unstructured and four block
 
 import random
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import List, Optional, Union
 
 import torch
@@ -459,7 +460,7 @@ class BlockMaskCreator(GroupedPruningMaskCreator):
                 ).format(block_shape)
             )
 
-        self._block_shape = block_shape
+        self._block_shape = deepcopy(block_shape)
         self._grouping_fn_name = grouping_fn_name
 
     def group_tensor(self, tensor: Tensor) -> Tensor:
