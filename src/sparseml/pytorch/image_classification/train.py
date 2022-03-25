@@ -21,7 +21,6 @@ usage: train.py [-h] --train-batch-size TRAIN_BATCH_SIZE --test-batch-size
                 --dataset-path DATASET_PATH
                 [--checkpoint-path CHECKPOINT_PATH] [--init-lr INIT_LR]
                 [--optim-args OPTIM_ARGS] [--recipe-path RECIPE_PATH]
-                [--sparse-transfer-learn [SPARSE_TRANSFER_LEARN]]
                 [--eval-mode [EVAL_MODE]] [--optim OPTIM]
                 [--logs-dir LOGS_DIR] [--save-best-after SAVE_BEST_AFTER]
                 [--save-epochs SAVE_EPOCHS]
@@ -207,10 +206,6 @@ class TrainingArguments:
     :param recipe_path: The path to the yaml file containing the modifiers and
         schedule to apply them with; Can also provide a SparseZoo stub prefixed
         with 'zoo:'.
-    :param sparse_transfer_learn: Boolean to enable sparse transfer learning
-        modifiers to enforce
-        the sparsity for already sparse layers. The modifiers are added to
-        the ones to be loaded from the recipe-path.
     :param eval_mode: bool to start evaluation mode so that the model can be
         evaluated on the desired dataset.
     :param optim: str representing the optimizer type to use, one of
@@ -328,15 +323,6 @@ class TrainingArguments:
             "schedule to apply them with. Can also provide a "
             "SparseZoo stub prefixed with 'zoo:' with an optional "
             "'?recipe_type=' argument"
-        },
-    )
-
-    sparse_transfer_learn: Optional[bool] = field(
-        default=False,
-        metadata={
-            "help": "Enable sparse transfer learning modifiers to enforce the "
-            "sparsity for already sparse layers. The modifiers are "
-            "added to the ones to be loaded from the recipe-path"
         },
     )
 
@@ -676,7 +662,6 @@ def _init_image_classification_trainer_and_save_dirs(
             ddp=ddp,
             device=device,
             use_mixed_precision=train_args.use_mixed_precision,
-            sparse_transfer_learn=train_args.sparse_transfer_learn,
             val_loader=val_loader,
             train_loader=train_loader,
             is_main_process=train_args.is_main_process,

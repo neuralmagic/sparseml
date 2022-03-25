@@ -24,7 +24,6 @@ import torch
 from torch.utils.data import DataLoader
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.sparsification import ConstantPruningModifier
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     CrossEntropyLossWrapper,
@@ -69,8 +68,6 @@ class ImageClassificationTrainer(Trainer):
     :param device: The device to train on. Defaults to torch default device.
     :param use_mixed_precision: Whether to use mixed precision FP16 training.
         Defaults to False.
-    :param sparse_transfer_learn: True if transfer learning on a sparse model,
-        else False. Defaults to False.
     :param val_loader: A DataLoader for validation data.
     :param train_loader: A DataLoader for training data.
     :param is_main_process: Whether the current process is the main process,
@@ -93,7 +90,6 @@ class ImageClassificationTrainer(Trainer):
         ddp: bool = False,
         device: str = default_device(),
         use_mixed_precision: bool = False,
-        sparse_transfer_learn: bool = False,
         val_loader: Optional[DataLoader] = None,
         train_loader: Optional[DataLoader] = None,
         is_main_process: bool = True,
@@ -118,7 +114,6 @@ class ImageClassificationTrainer(Trainer):
         self.val_loader = val_loader
         self.train_loader = train_loader
         self.loggers = loggers
-        self.sparse_transfer_learn = sparse_transfer_learn
 
         self.val_loss = loss_fn()
         _LOGGER.info(f"created loss for validation: {self.val_loss}")
@@ -210,14 +205,8 @@ class ImageClassificationTrainer(Trainer):
 
         epoch = 0
 
-        # modifier setup
-        add_mods = (
-            ConstantPruningModifier.from_sparse_model(self.model)
-            if self.sparse_transfer_learn
-            else None
-        )
         manager = ScheduledModifierManager.from_yaml(
-            file_path=self.recipe_path, add_modifiers=add_mods
+            file_path=self.recipe_path,
         )
         optim = ScheduledOptimizer(
             optim,
