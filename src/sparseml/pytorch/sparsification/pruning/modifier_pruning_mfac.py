@@ -1466,7 +1466,8 @@ def cache_return(func):
     prev_return = {"rt": []}
     safety_scale = 0.8
 
-    def wrapper(*args):
+    @wraps
+    def cached_func(*args):
         try:
             prev_return["rt"] = func(*args)
             return prev_return["rt"]
@@ -1477,7 +1478,7 @@ def cache_return(func):
             )
             return [mem * safety_scale for mem in prev_return["rt"]]
 
-    return wrapper
+    return cached_func
 
 
 @cache_return
