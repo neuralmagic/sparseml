@@ -16,23 +16,33 @@
 """
 ######
 Command help:
-usage: train.py [-h] --train-batch-size TRAIN_BATCH_SIZE --test-batch-size
-                TEST_BATCH_SIZE --arch-key ARCH_KEY --dataset DATASET
-                --dataset-path DATASET_PATH
-                [--checkpoint-path CHECKPOINT_PATH] [--init-lr INIT_LR]
-                [--optim-args OPTIM_ARGS] [--recipe-path RECIPE_PATH]
-                [--eval-mode [EVAL_MODE]] [--optim OPTIM]
-                [--logs-dir LOGS_DIR] [--save-best-after SAVE_BEST_AFTER]
-                [--save-epochs SAVE_EPOCHS]
-                [--use-mixed-precision [USE_MIXED_PRECISION]]
-                [--debug-steps DEBUG_STEPS] [--pretrained PRETRAINED]
-                [--pretrained-dataset PRETRAINED_DATASET]
-                [--model-kwargs MODEL_KWARGS]
-                [--dataset-kwargs DATASET_KWARGS] [--model-tag MODEL_TAG]
-                [--save-dir SAVE_DIR] [--device DEVICE]
-                [--loader-num-workers LOADER_NUM_WORKERS]
-                [--no-loader-pin-memory]
-                [--loader-pin-memory [LOADER_PIN_MEMORY]]
+usage: sparseml.image_classification.train [-h] --train-batch-size
+                                           TRAIN_BATCH_SIZE --test-batch-size
+                                           TEST_BATCH_SIZE --dataset DATASET
+                                           --dataset-path DATASET_PATH
+                                           [--arch-key ARCH_KEY]
+                                           [--checkpoint-path CHECKPOINT_PATH]
+                                           [--init-lr INIT_LR]
+                                           [--optim-args OPTIM_ARGS]
+                                           [--recipe-path RECIPE_PATH]
+                                           [--eval-mode [EVAL_MODE]]
+                                           [--optim OPTIM]
+                                           [--logs-dir LOGS_DIR]
+                                           [--save-best-after SAVE_BEST_AFTER]
+                                           [--save-epochs SAVE_EPOCHS [SAVE_EPOCHS ...]]
+                                           [--use-mixed-precision [USE_MIXED_PRECISION]]
+                                           [--debug-steps DEBUG_STEPS]
+                                           [--pretrained PRETRAINED]
+                                           [--pretrained-dataset PRETRAINED_DATASET]
+                                           [--model-kwargs MODEL_KWARGS]
+                                           [--dataset-kwargs DATASET_KWARGS]
+                                           [--model-tag MODEL_TAG]
+                                           [--save-dir SAVE_DIR]
+                                           [--device DEVICE]
+                                           [--loader-num-workers LOADER_NUM_WORKERS]
+                                           [--no-loader-pin-memory]
+                                           [--loader-pin-memory [LOADER_PIN_MEMORY]]
+                                           [--image-size IMAGE_SIZE]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -40,9 +50,6 @@ optional arguments:
                         The batch size to use while training
   --test-batch-size TEST_BATCH_SIZE
                         The batch size to use while testing
-  --arch-key ARCH_KEY   The type of model to use, ex: resnet50, vgg16,
-                        mobilenet put as help to see the full list (will raise
-                        an exception with the list)
   --dataset DATASET     The dataset to use for training, ex: imagenet,
                         imagenette, cifar10, etc. Set to imagefolder for a
                         generic dataset setup with an image folder structure
@@ -50,10 +57,13 @@ optional arguments:
                         sparseml.pytorch.datasets
   --dataset-path DATASET_PATH
                         The root path to where the dataset is stored
+  --arch-key ARCH_KEY   The type of model to use, ex: resnet50, vgg16,
+                        mobilenet put as help to see the full list (will raise
+                        an exceptionwith the list)
   --checkpoint-path CHECKPOINT_PATH
                         A path to a previous checkpoint to load the state from
                         and resume the state for. If provided, pretrained will
-                        be ignored. If using a SparseZoo recipe, can also
+                        be ignored . If using a SparseZoo recipe, can also
                         provide 'zoo' to load the base weights associated with
                         that recipe
   --init-lr INIT_LR     The initial learning rate to use while training, the
@@ -67,20 +77,18 @@ optional arguments:
                         schedule to apply them with. Can also provide a
                         SparseZoo stub prefixed with 'zoo:' with an optional
                         '?recipe_type=' argument
-  --sparse-transfer-learn [SPARSE_TRANSFER_LEARN]
-                        Enable sparse transfer learning modifiers to enforce
-                        the sparsity for already sparse layers. The modifiers
-                        are added to the ones to be loaded from the recipe-
-                        path
   --eval-mode [EVAL_MODE]
                         Puts into evaluation mode so that the model can be
                         evaluated on the desired dataset
-  --optim OPTIM         The optimizer type to use, one of [SGD, Adam, RMSprop]
+  --optim OPTIM         The optimizer type to use, one of ['Adadelta',
+                        'Adagrad', 'Adam', 'AdamW', 'SparseAdam', 'Adamax',
+                        'ASGD', 'SGD', 'RAdam', 'Rprop', 'RMSprop',
+                        'Optimizer', 'NAdam', 'LBFGS']. Defaults to `Adam`
   --logs-dir LOGS_DIR   The path to the directory for saving logs
   --save-best-after SAVE_BEST_AFTER
                         start saving the best validation result after the
                         given epoch completes until the end of training
-  --save-epochs SAVE_EPOCHS
+  --save-epochs SAVE_EPOCHS [SAVE_EPOCHS ...]
                         epochs to save checkpoints at
   --use-mixed-precision [USE_MIXED_PRECISION]
                         Trains model using mixed precision. Supported
@@ -118,6 +126,9 @@ optional arguments:
                         Do not use pinned memory for data loading
   --loader-pin-memory [LOADER_PIN_MEMORY]
                         Use pinned memory for data loading
+  --image-size IMAGE_SIZE
+                        The size of the image input to the model
+
 #########
 EXAMPLES
 #########
@@ -333,10 +344,13 @@ class TrainingArguments:
             "evaluated on the desired dataset"
         },
     )
-
+    optim_choices = [key for key in torch.optim.__dict__.keys() if key[0].isupper()]
     optim: str = field(
         default="SGD",
-        metadata={"help": "The optimizer type to use, one of [SGD, Adam, RMSprop]"},
+        metadata={
+            "help": f"The optimizer type to use, one of {optim_choices}."
+            " Defaults to `Adam`"
+        },
     )
 
     logs_dir: str = field(
