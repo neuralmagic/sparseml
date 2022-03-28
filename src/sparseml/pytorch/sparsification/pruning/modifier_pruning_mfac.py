@@ -1463,20 +1463,24 @@ def cache_gpu_mem_return(func):
     Cache previous return of GPUtil to be re-used in case future GPUtil call fails to
     detect available devices.
     """
-    prev_return = {"rt": []}
+    prev_return = {}
     safety_scale = 0.8
 
-    @wraps
-    def cached_gpu_mem_func(*args, **kwargs):
+    def cached_gpu_mem_func(device_idx=[], clear_cache=True):
+        key = str(device_idx)
         try:
-            prev_return["rt"] = func(*args, **kwargs)
-            return prev_return["rt"]
+            prev_return[key] = func(device_idx, clear_cache)
+            return prev_return[key]
         except Exception:
             _LOGGER.warning(
                 f"Failed to get GPU available memory. Using previous memory read, "
                 f"scaled down to {safety_scale*100:.2f}% for a safety margin"
             )
-            return [mem * safety_scale for mem in prev_return["rt"]]
+            return (
+                [mem * safety_scale for mem in prev_return[key]]
+                if key in prev_return
+                else []
+            )
 
     return cached_gpu_mem_func
 
@@ -1498,7 +1502,6 @@ def _get_free_gpu_memory(
     reading, but comes at a (small) cost to pytorch tensor allocation speed. In the case
     of very high frequency calls, it may be better to turn clear_cache off.
     """
-
     if not device_idx:
         device_idx = list(range(torch.cuda.device_count()))
     if not device_idx:
