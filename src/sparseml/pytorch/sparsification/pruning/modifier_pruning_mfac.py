@@ -1482,7 +1482,6 @@ def cache_gpu_mem_return(func):
                 if key in prev_return
                 else []
             )
-
     return cached_gpu_mem_func
 
 
