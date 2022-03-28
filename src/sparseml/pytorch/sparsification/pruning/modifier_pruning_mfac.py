@@ -1459,6 +1459,10 @@ def _get_num_grads_for_sparsity(
 
 
 def cache_return(func):
+    """
+    Cache previous return of GPUtil to be re-used in case future GPUtil call fails to
+    detect available devices.
+    """
     prev_return = {"rt": []}
     safety_scale = 0.8
 
@@ -1493,6 +1497,7 @@ def _get_free_gpu_memory(
     reading, but comes at a (small) cost to pytorch tensor allocation speed. In the case
     of very high frequency calls, it may be better to turn clear_cache off.
     """
+
     if not device_idx:
         device_idx = list(range(torch.cuda.device_count()))
     if not device_idx:
