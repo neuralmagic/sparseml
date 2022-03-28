@@ -1467,9 +1467,9 @@ def cache_return(func):
     safety_scale = 0.8
 
     @wraps
-    def cached_func(*args):
+    def cached_func(*args, **kwargs):
         try:
-            prev_return["rt"] = func(*args)
+            prev_return["rt"] = func(*args, **kwargs)
             return prev_return["rt"]
         except Exception:
             _LOGGER.warning(
