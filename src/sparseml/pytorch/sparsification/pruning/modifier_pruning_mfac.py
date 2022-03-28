@@ -1466,6 +1466,7 @@ def cache_gpu_mem_return(func):
     prev_return = {}
     safety_scale = 0.8
 
+    @wraps(func)
     def cached_gpu_mem_func(device_idx=[], clear_cache=True):
         key = str(device_idx)
         try:
@@ -1502,6 +1503,7 @@ def _get_free_gpu_memory(
     reading, but comes at a (small) cost to pytorch tensor allocation speed. In the case
     of very high frequency calls, it may be better to turn clear_cache off.
     """
+
     if not device_idx:
         device_idx = list(range(torch.cuda.device_count()))
     if not device_idx:
