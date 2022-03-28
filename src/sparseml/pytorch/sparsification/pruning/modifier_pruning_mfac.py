@@ -1458,6 +1458,25 @@ def _get_num_grads_for_sparsity(
     return num_grads[sparsity_thresholds[idx]]
 
 
+def cache_return(func):
+    prev_return = {"rt": []}
+    safety_scale = 0.8
+
+    def wrapper(*args):
+        try:
+            prev_return["rt"] = func(*args)
+            return prev_return["rt"]
+        except Exception:
+            _LOGGER.warning(
+                f"Failed to get GPU available memory. Using previous memory read, "
+                f"scaled down to {safety_scale*100:.2f}% for a safety margin"
+            )
+            return [mem * safety_scale for mem in prev_return["rt"]]
+
+    return wrapper
+
+
+@cache_return
 def _get_free_gpu_memory(
     device_idx: List[int] = [], clear_cache: bool = True
 ) -> List[float]:
@@ -1474,7 +1493,6 @@ def _get_free_gpu_memory(
     reading, but comes at a (small) cost to pytorch tensor allocation speed. In the case
     of very high frequency calls, it may be better to turn clear_cache off.
     """
-
     if not device_idx:
         device_idx = list(range(torch.cuda.device_count()))
     if not device_idx:
