@@ -73,12 +73,12 @@ class ImageClassificationTrainer(Trainer):
     :param is_main_process: Whether the current process is the main process,
         while training using DDP. Defaults to True.
     :param loggers: A list of loggers to use during training process.
-    :param loss_fn: A Callabale loss function for training and validation
+    :param loss_fn: A Callable loss function for training and validation
         losses.
     :param init_lr: The initial learning rate for the optimizer.Defaults to
         1e-9
-    :param optim_name: str respresenting the optimizer type to use, one of
-        [SGD, Adam, RMSprop]. Defaults to `adam`.
+    :param optim_name: str representing the optimizer type to use.
+        Defaults to `Adam`.
     :param optim_kwargs: dict of additional kwargs to pass to the optimizer.
     """
 
@@ -96,7 +96,7 @@ class ImageClassificationTrainer(Trainer):
         loggers: Optional[List[Any]] = None,
         loss_fn: Callable = lambda: CrossEntropyLossWrapper(),
         init_lr=1e-9,
-        optim_name="adam",
+        optim_name="Adam",
         optim_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """

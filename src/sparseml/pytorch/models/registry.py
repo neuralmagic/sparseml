@@ -77,7 +77,7 @@ class ModelRegistry(object):
         load_strict: bool = True,
         ignore_error_tensors: List[str] = None,
         **kwargs,
-    ) -> Module:
+    ) -> Union[Module, Tuple[Module, Optional[str]]]:
         """
         Create a new model for the given key
 
@@ -95,22 +95,22 @@ class ModelRegistry(object):
         :return: The instantiated model if key is given else a Tuple containing
             the instantiated model and the loaded key
         """
-        _key = key
+        key_copy = key
 
-        if _key is None:
+        if key_copy is None:
             _checkpoint = torch.load(pretrained_path)
             if "arch_key" in _checkpoint:
-                _key = _checkpoint["arch_key"]
+                key_copy = _checkpoint["arch_key"]
             else:
                 raise ValueError("No `arch_key` found in checkpoint")
 
-        if _key not in ModelRegistry._CONSTRUCTORS:
+        if key_copy not in ModelRegistry._CONSTRUCTORS:
             raise ValueError(
                 "key {} is not in the model registry; available: {}".format(
-                    _key, ModelRegistry._CONSTRUCTORS
+                    key_copy, ModelRegistry._CONSTRUCTORS
                 )
             )
-        model = ModelRegistry._CONSTRUCTORS[_key](
+        model = ModelRegistry._CONSTRUCTORS[key_copy](
             pretrained=pretrained,
             pretrained_path=pretrained_path,
             pretrained_dataset=pretrained_dataset,
@@ -118,7 +118,7 @@ class ModelRegistry(object):
             ignore_error_tensors=ignore_error_tensors,
             **kwargs,
         )
-        return (model, _key) if key is None else model
+        return (model, key_copy) if key is None else model
 
     @staticmethod
     def create_zoo_model(

@@ -145,7 +145,7 @@ def get_train_and_validation_loaders(args: Any, task: Optional[Tasks] = None):
 
 
 # Model creation Helpers
-def create_model(args: Any, num_classes: int) -> Module:
+def create_model(args: Any, num_classes: int) -> Tuple[Module, str]:
     """
     :param args: object with configuration for model classes
     :param num_classes: Integer representing the number of output classes
@@ -251,12 +251,10 @@ def save_model_training(
     """
     :param model: model architecture
     :param optim: The optimizer used
-    :param input_shape: A tuple of integers representing the input shape
     :param save_name: name to save model to
     :param save_dir: directory to save results in
     :param epoch: integer representing umber of epochs to
     :param val_res: results from validation run
-    :param convert_qat: True if model is to be quantized before saving
     :param arch_key: if provided, the `arch_key` will be saved in the
         checkpoint
     """
@@ -289,7 +287,9 @@ def save_model_training(
 
 
 # device helpers
-def device_setup(model, rank: int, local_rank: int, device: Union[str, int]):
+def device_setup(
+    model, rank: int, local_rank: int, device: Union[str, int]
+) -> Tuple[Module, int, int]:
     """
     Move the model to the correct device.
 
