@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import os
+import platform
 import tempfile
 from collections import OrderedDict
 from typing import Callable
 
 import pytest
+import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
@@ -40,6 +42,12 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_loss,
     test_steps_per_epoch,
 )
+
+# from src.sparseml import version_base
+
+# having circular dependency problem with the
+# line above, hack for now
+version_base = "0.12.0"
 
 
 STANDARD_RECIPE_1 = """
@@ -84,6 +92,9 @@ STANDARD_RECIPE_1_EVAL = """version: 1.1.0
 __metadata__:
   metadata: None
   level: 0
+  python_version: {python_version}
+  torch_version: {torch_version}
+  sparseml_version: {sparseml_version}
 
 modifiers:
     - !EpochRangeModifier
@@ -109,6 +120,9 @@ TWO_STAGES_RECIPE = """version: 1.1.0
   __metadata__:
     metadata: None
     level: 0
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   {stage_0_name}_modifiers:
       - !EpochRangeModifier
@@ -132,6 +146,9 @@ TWO_STAGES_RECIPE = """version: 1.1.0
   __metadata__:
     metadata: None
     level: 1
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   {stage_1_name}_modifiers:
       - !ConstantPruningModifier
@@ -153,6 +170,9 @@ stage_0:
   __metadata__:
     metadata: None
     level: 0
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   stage_0_modifiers:
       - !EpochRangeModifier
@@ -176,6 +196,9 @@ stage_1:
   __metadata__:
     metadata: None
     level: 1
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   stage_1_modifiers:
       - !ConstantPruningModifier
@@ -193,6 +216,9 @@ stage_3:
   __metadata__:
     metadata: None
     level: 3
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   stage_3_modifiers:
       - !EpochRangeModifier
@@ -218,6 +244,9 @@ pre_stage_0:
   __metadata__:
     metadata: None
     level: 0
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   pre_stage_0_modifiers:
       - !EpochRangeModifier
@@ -241,6 +270,9 @@ stage_0:
   __metadata__:
     metadata: None
     level: 1
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   stage_0_modifiers:
       - !EpochRangeModifier
@@ -264,6 +296,9 @@ stage_1:
   __metadata__:
     metadata: None
     level: 1
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   stage_1_modifiers:
       - !ConstantPruningModifier
@@ -284,6 +319,9 @@ stage_0:
   __metadata__:
     metadata: None
     level: 0
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   stage_0_modifiers:
       - !EpochRangeModifier
@@ -307,6 +345,9 @@ stage_1:
   __metadata__:
     metadata: None
     level: 1
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   stage_1_modifiers:
       - !ConstantPruningModifier
@@ -324,6 +365,9 @@ stage_3:
   __metadata__:
     metadata: None
     level: 1
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   stage_3_modifiers:
       - !EpochRangeModifier
@@ -347,6 +391,9 @@ stage_4:
   __metadata__:
     metadata: None
     level: 1
+    python_version: {python_version}
+    torch_version: {torch_version}
+    sparseml_version: {sparseml_version}
 
   stage_4_modifiers:
       - !ConstantPruningModifier
@@ -366,6 +413,11 @@ def _generate_fake_metadata(item1=("metadata", None), item2=("level", 1)):
     return {k: v for (k, v) in (item1, item2)}
 
 
+python_version = platform.python_version()
+torch_version = torch.__version__
+sparse_ml_version = version_base
+
+
 @pytest.mark.parametrize(
     "recipe,checkpoint_recipe,metadata,expected_recipe,"
     "raise_warning, raise_value_error",
@@ -375,7 +427,11 @@ def _generate_fake_metadata(item1=("metadata", None), item2=("level", 1)):
             STANDARD_RECIPE_1,
             None,
             _generate_fake_metadata(item2=("level", 0)),
-            STANDARD_RECIPE_1_EVAL,
+            STANDARD_RECIPE_1_EVAL.format(
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             False,
             False,
         ),
@@ -383,9 +439,19 @@ def _generate_fake_metadata(item1=("metadata", None), item2=("level", 1)):
         # with a standard checkpoint recipe
         (
             STANDARD_RECIPE_2,
-            STANDARD_RECIPE_1_EVAL,
+            STANDARD_RECIPE_1_EVAL.format(
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             _generate_fake_metadata(),
-            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            TWO_STAGES_RECIPE.format(
+                stage_0_name="stage_0",
+                stage_1_name="stage_1",
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             False,
             False,
         ),
@@ -393,38 +459,94 @@ def _generate_fake_metadata(item1=("metadata", None), item2=("level", 1)):
         # with a staged checkpoint recipe
         (
             STANDARD_RECIPE_1,
-            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            TWO_STAGES_RECIPE.format(
+                stage_0_name="stage_0",
+                stage_1_name="stage_1",
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             _generate_fake_metadata(item2=("level", 3)),
-            THREE_STAGES_RECIPE_1,
+            THREE_STAGES_RECIPE_1.format(
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             False,
             False,
         ),
         # Testing composing staged recipe (with metadata)
         # with standard checkpoint recipe (with metadata)
         (
-            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
-            STANDARD_RECIPE_1_EVAL,
+            TWO_STAGES_RECIPE.format(
+                stage_0_name="stage_0",
+                stage_1_name="stage_1",
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
+            STANDARD_RECIPE_1_EVAL.format(
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             _generate_fake_metadata(),
-            THREE_STAGES_RECIPE_2,
+            THREE_STAGES_RECIPE_2.format(
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             True,
             False,
         ),
         # Testing composing two staged recipes
         (
-            TWO_STAGES_RECIPE.format(stage_0_name="stage_3", stage_1_name="stage_4"),
-            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            TWO_STAGES_RECIPE.format(
+                stage_0_name="stage_3",
+                stage_1_name="stage_4",
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
+            TWO_STAGES_RECIPE.format(
+                stage_0_name="stage_0",
+                stage_1_name="stage_1",
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             _generate_fake_metadata(),
-            FOUR_STAGES_RECIPE,
+            FOUR_STAGES_RECIPE.format(
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             True,
             False,
         ),
         # Testing composing two stage recipes with
         # same stage names -> should raise ValueError
         (
-            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
-            TWO_STAGES_RECIPE.format(stage_0_name="stage_0", stage_1_name="stage_1"),
+            TWO_STAGES_RECIPE.format(
+                stage_0_name="stage_0",
+                stage_1_name="stage_1",
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
+            TWO_STAGES_RECIPE.format(
+                stage_0_name="stage_0",
+                stage_1_name="stage_1",
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             None,
-            FOUR_STAGES_RECIPE,
+            FOUR_STAGES_RECIPE.format(
+                python_version=python_version,
+                sparseml_version=sparse_ml_version,
+                torch_version=torch_version,
+            ),
             False,
             True,
         ),
