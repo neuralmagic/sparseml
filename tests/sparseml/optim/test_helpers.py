@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import platform
+
 import pytest
+import torch
 
 from sparseml.optim import (
     check_if_staged_recipe,
@@ -23,6 +26,7 @@ from sparseml.optim import (
     validate_metadata,
 )
 from sparseml.utils import RECIPE_METADATA_KEY
+from src.sparseml.version import version_base
 
 
 STAGED_RECIPE_COMPLEX = """
@@ -419,8 +423,18 @@ def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
     _test_nested_equality(evaluated_yaml, expected_yaml)
 
 
-def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
-    return {k: v for (k, v) in (item1, item2)}
+def _generate_fake_metadata(
+    item1=("this", "is"), item2=("metadata", 100), include_framework_metadata=False
+):
+    framework_metadata = {
+        "python_version": platform.python_version(),
+        "torch_version": torch.__version__,
+        "sparseml_version": version_base,
+    }
+    metadata = {k: v for (k, v) in (item1, item2)}
+    if include_framework_metadata:
+        metadata.update(framework_metadata)
+    return metadata
 
 
 @pytest.mark.parametrize(
@@ -430,7 +444,11 @@ def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
         (
             _generate_fake_metadata(),
             RECIPE_SIMPLE_EVAL,
-            {RECIPE_METADATA_KEY: _generate_fake_metadata()},
+            {
+                RECIPE_METADATA_KEY: _generate_fake_metadata(
+                    include_framework_metadata=True
+                )
+            },
             False,
         ),
         # Testing simple recipe (metadata = None)
@@ -439,7 +457,11 @@ def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
         (
             _generate_fake_metadata(item2=("metadata", 120)),
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {RECIPE_METADATA_KEY: _generate_fake_metadata(item2=("metadata", 120))},
+            {
+                RECIPE_METADATA_KEY: _generate_fake_metadata(
+                    item2=("metadata", 120), include_framework_metadata=True
+                )
+            },
             True,
         ),
         # Testing simple recipe, previous metadata present but new metadata is None
@@ -454,7 +476,11 @@ def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
         (
             _generate_fake_metadata(item2=("metadata", 90)),
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {RECIPE_METADATA_KEY: _generate_fake_metadata(item2=("metadata", 90))},
+            {
+                RECIPE_METADATA_KEY: _generate_fake_metadata(
+                    item2=("metadata", 90), include_framework_metadata=True
+                )
+            },
             False,
         ),
         # Testing staged recipe
@@ -462,8 +488,12 @@ def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
             _generate_fake_metadata(item2=("metadata", 150)),
             STAGED_RECIPE_SIMPLE_EVAL,
             {
-                "first_stage": _generate_fake_metadata(item2=("metadata", 150)),
-                "next_stage": _generate_fake_metadata(item2=("metadata", 150)),
+                "first_stage": _generate_fake_metadata(
+                    item2=("metadata", 150), include_framework_metadata=True
+                ),
+                "next_stage": _generate_fake_metadata(
+                    item2=("metadata", 150), include_framework_metadata=True
+                ),
             },
             False,
         ),
@@ -479,8 +509,12 @@ def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
             _generate_fake_metadata(item2=("metadata", 150)),
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": _generate_fake_metadata(item2=("metadata", 150)),
-                "next_stage": _generate_fake_metadata(item2=("metadata", 150)),
+                "first_stage": _generate_fake_metadata(
+                    item2=("metadata", 150), include_framework_metadata=True
+                ),
+                "next_stage": _generate_fake_metadata(
+                    item2=("metadata", 150), include_framework_metadata=True
+                ),
             },
             True,
         ),
@@ -503,13 +537,17 @@ def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
             },
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": _generate_fake_metadata(item2=("metadata", 110)),
-                "next_stage": _generate_fake_metadata(item2=("metadata", 120)),
+                "first_stage": _generate_fake_metadata(
+                    item2=("metadata", 110), include_framework_metadata=True
+                ),
+                "next_stage": _generate_fake_metadata(
+                    item2=("metadata", 120), include_framework_metadata=True
+                ),
             },
             False,
         ),
         # Testing staged recipe, passing new staged metadata
-        # which is equal to previous metadata.
+        # which is not equal to previous metadata.
         (
             {
                 "first_stage": _generate_fake_metadata(item2=("metadata", 160)),
@@ -517,8 +555,46 @@ def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
             },
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": _generate_fake_metadata(item2=("metadata", 160)),
-                "next_stage": _generate_fake_metadata(item2=("metadata", 140)),
+                "first_stage": _generate_fake_metadata(
+                    item2=("metadata", 160), include_framework_metadata=True
+                ),
+                "next_stage": _generate_fake_metadata(
+                    item2=("metadata", 140), include_framework_metadata=True
+                ),
+            },
+            True,
+        ),
+        # Raising warning in `_add_framework_metadata` for non-staged recipe
+        (
+            _generate_fake_metadata(
+                item2=("metadata", 90), include_framework_metadata=True
+            ),
+            RECIPE_SIMPLE_EVAL_W_METADATA,
+            {
+                RECIPE_METADATA_KEY: _generate_fake_metadata(
+                    item2=("metadata", 90), include_framework_metadata=True
+                )
+            },
+            True,
+        ),
+        # Raising warning in `_add_framework_metadata` for staged recipe
+        (
+            {
+                "first_stage": _generate_fake_metadata(
+                    item2=("metadata", 110), include_framework_metadata=True
+                ),
+                "next_stage": _generate_fake_metadata(
+                    item2=("metadata", 120), include_framework_metadata=True
+                ),
+            },
+            STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
+            {
+                "first_stage": _generate_fake_metadata(
+                    item2=("metadata", 110), include_framework_metadata=True
+                ),
+                "next_stage": _generate_fake_metadata(
+                    item2=("metadata", 120), include_framework_metadata=True
+                ),
             },
             True,
         ),

@@ -16,11 +16,14 @@
 Helper functions for base Modifier and Manger utilities
 """
 import json
+import platform
 import re
 import warnings
 from contextlib import suppress
+from copy import deepcopy
 from typing import Any, Dict, Optional, Tuple, Union
 
+import torch
 import yaml
 
 from sparseml.utils import (
@@ -30,6 +33,13 @@ from sparseml.utils import (
 )
 from sparsezoo import Zoo
 from sparsezoo.objects import Recipe
+
+
+# from src.sparseml import version_base
+
+# having circular dependency problem with the
+# line above, hack for now
+version_base = "0.12.0"
 
 
 __all__ = [
@@ -569,6 +579,41 @@ def _check_warn_dict_difference(original_dict, new_dict):
     return new_dict
 
 
+def _add_framework_metadata(metadata, is_metadata_staged):
+    framework_metadata = {
+        "python_version": platform.python_version(),
+        "torch_version": torch.__version__,
+        "sparseml_version": version_base,
+    }
+    if is_metadata_staged:
+        for stage_name, stage_value in metadata.items():
+            shared_keys = set(stage_value.keys()).intersection(
+                set(framework_metadata.keys())
+            )
+            if shared_keys:
+                warnings.warn(
+                    "Overwriting metadata stage "
+                    f"(stage name: {stage_name}) key(s) {shared_keys} "
+                    "with new value(s) "
+                    f"{ {k:v for k,v in framework_metadata.items() if k in shared_keys} }"  # noqa E501
+                )
+            _stage_value = deepcopy(stage_value)
+            _stage_value.update(framework_metadata)
+            metadata[stage_name] = _stage_value
+    else:
+        shared_keys = set(metadata.keys()).intersection(set(framework_metadata))
+        if shared_keys:
+            warnings.warn(
+                "Overwriting metadata "
+                f"key(s) {shared_keys} "
+                f"with new value(s) "
+                f"{ {k: v for k, v in framework_metadata.items() if k in shared_keys} }"  # noqa E501
+            )
+        metadata.update(framework_metadata)
+
+    return metadata
+
+
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     """
     Compare the metadata (previous_metadata) carried over from the recipe
@@ -577,6 +622,11 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     If attempting to overwrite previous metadata with the new metadata,
     the script throws a warning and overwrites the previous metadata.
     Otherwise, it propagates the new metadata in the correct form.
+
+    Note: the function `_add_framework_metadata`, only gets executed if
+        `metadata` evaluates to True. This means that if e.g. we pass
+        `metadata = None`, framework metadata will not be added to the
+        output of this function.
 
     :param metadata: New metadata
     :param yaml_str: String representation of the recipe YAML file,
@@ -611,9 +661,16 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
                         checkpoint_metadata[stage_name] = _check_warn_dict_difference(
                             container[stage_name][RECIPE_METADATA_KEY], metadata
                         )
+                checkpoint_metadata = _add_framework_metadata(
+                    metadata=checkpoint_metadata, is_metadata_staged=True
+                )
             else:
                 checkpoint_metadata = _check_warn_dict_difference(
                     container[RECIPE_METADATA_KEY], metadata
+                )
+
+                checkpoint_metadata = _add_framework_metadata(
+                    metadata=checkpoint_metadata, is_metadata_staged=False
                 )
 
         return (
@@ -624,6 +681,9 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
 
     else:
         if metadata:
+            metadata = _add_framework_metadata(
+                metadata=metadata, is_metadata_staged=False
+            )
             return (
                 {
                     stage_name: metadata
