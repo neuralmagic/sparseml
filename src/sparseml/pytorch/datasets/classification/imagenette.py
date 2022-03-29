@@ -32,6 +32,7 @@ except Exception as torchvision_error:
     ImageFolder = object  # default for constructor
     torchvision_import_error = torchvision_error
 
+from sparseml.pytorch.datasets import FFCVImageNetDataset
 from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils.datasets import (
     IMAGENET_RGB_MEANS,
@@ -54,7 +55,7 @@ __all__ = ["ImagenetteSize", "ImagenetteDataset", "ImagewoofDataset"]
         "transform_stds": IMAGENET_RGB_STDS,
     },
 )
-class ImagenetteDataset(ImagenetteDownloader, ImageFolder):
+class ImagenetteDataset(ImagenetteDownloader, ImageFolder, FFCVImageNetDataset):
     """
     Wrapper for the imagenette (10 class) dataset that fastai created.
     Handles downloading and applying standard transforms.
@@ -109,6 +110,9 @@ class ImagenetteDataset(ImagenetteDownloader, ImageFolder):
 
         ImageFolder.__init__(self, self.split_root(train), transforms.Compose(trans))
 
+        self.image_size = image_size
+        self.rand_trans = rand_trans
+
         # make sure we don't preserve the folder structure class order
         random.shuffle(self.samples)
 
@@ -121,7 +125,7 @@ class ImagenetteDataset(ImagenetteDownloader, ImageFolder):
         "transform_stds": IMAGENET_RGB_STDS,
     },
 )
-class ImagewoofDataset(ImagewoofDownloader, ImageFolder):
+class ImagewoofDataset(ImagewoofDownloader, ImageFolder, FFCVImageNetDataset):
     """
     Wrapper for the imagewoof (10 class) dataset that fastai created.
     Handles downloading and applying standard transforms.
@@ -176,6 +180,9 @@ class ImagewoofDataset(ImagewoofDownloader, ImageFolder):
         )
 
         ImageFolder.__init__(self, self.split_root(train), transforms.Compose(trans))
+
+        self.image_size = image_size
+        self.rand_trans = rand_trans
 
         # make sure we don't preserve the folder structure class order
         random.shuffle(self.samples)

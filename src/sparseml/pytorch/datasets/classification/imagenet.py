@@ -31,6 +31,7 @@ except Exception as torchvision_error:
     ImageFolder = object  # default for constructor
     torchvision_import_error = torchvision_error
 
+from sparseml.pytorch.datasets import FFCVImageNetDataset
 from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils import clean_path
 from sparseml.utils.datasets import (
@@ -51,7 +52,7 @@ __all__ = ["ImageNetDataset"]
         "transform_stds": IMAGENET_RGB_STDS,
     },
 )
-class ImageNetDataset(ImageFolder):
+class ImageNetDataset(ImageFolder, FFCVImageNetDataset):
     """
     Wrapper for the ImageNet dataset to apply standard transforms.
 
@@ -97,6 +98,8 @@ class ImageNetDataset(ImageFolder):
         )
 
         super().__init__(root, transform=transforms.Compose(trans))
+        self.image_size = image_size
+        self.rand_trans = rand_trans
 
         if train:
             # make sure we don't preserve the folder structure class order
