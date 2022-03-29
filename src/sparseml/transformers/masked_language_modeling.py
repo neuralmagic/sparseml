@@ -28,7 +28,6 @@ https://huggingface.co/models?filter=masked-lm
 
 # You can also adapt this script on your own masked language modeling task.
 # Pointers for this are left as comments
-import pdb
 import logging
 import math
 import os
