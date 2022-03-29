@@ -1474,14 +1474,17 @@ def cache_gpu_mem_return(func):
             return prev_return[key]
         except Exception:
             _LOGGER.warning(
-                f"Failed to get GPU available memory. Using previous memory read, "
-                f"scaled down to {safety_scale*100:.2f}% for a safety margin"
+                f"[M-FAC] Failed to get GPU available memory. Using previous memory "
+                f" read scaled down to {safety_scale*100:.2f}% for a safety margin"
             )
-            return (
-                [mem * safety_scale for mem in prev_return[key]]
-                if key in prev_return
-                else []
-            )
+            if key not in prev_return:
+                _LOGGER.warning(
+                    "[M-FAC] No cached memory usage found for this set of GPUs. "
+                    "Defaulting to CPU for M-FAC calculations"
+                )
+                return []
+            else:
+                return [mem * safety_scale for mem in prev_return[key]]
 
     return cached_gpu_mem_func
 
