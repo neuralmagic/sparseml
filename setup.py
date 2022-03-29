@@ -90,6 +90,7 @@ _dev_deps = [
     "pytest-mock~=3.6.0",
     "flaky~=3.7.0",
     "sphinx-rtd-theme",
+    "click<8.1",
 ]
 
 
