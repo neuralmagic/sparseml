@@ -256,13 +256,6 @@ class TrainingArguments:
     test_batch_size: int = field(
         metadata={"help": "The batch size to use while testing"}
     )
-    arch_key: str = field(
-        metadata={
-            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
-            "put as help to see the full list (will raise an exception"
-            "with the list)",
-        }
-    )
 
     dataset: str = field(
         metadata={
@@ -278,6 +271,14 @@ class TrainingArguments:
         metadata={
             "help": "The root path to where the dataset is stored",
         }
+    )
+    arch_key: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
+            "put as help to see the full list (will raise an exception"
+            "with the list)",
+        },
     )
     local_rank: int = field(
         default=-1,
@@ -474,6 +475,11 @@ class TrainingArguments:
         )
 
         self.train_batch_size = self.train_batch_size // self.world_size
+
+        self.arch_key = helpers.get_arch_key(
+            arch_key=self.arch_key,
+            checkpoint_path=self.checkpoint_path,
+        )
 
         if "preprocessing_type" not in self.dataset_kwargs and (
             "coco" in self.dataset.lower() or "voc" in self.dataset.lower()

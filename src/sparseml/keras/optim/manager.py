@@ -25,7 +25,12 @@ from tensorflow import Tensor
 from sparseml.keras.optim.modifier import Modifier, ScheduledModifier
 from sparseml.keras.utils.compat import keras
 from sparseml.keras.utils.logger import KerasLogger
-from sparseml.optim import BaseManager, load_recipe_yaml_str, parse_recipe_variables
+from sparseml.optim import (
+    BaseManager,
+    load_recipe_yaml_str,
+    parse_recipe_variables,
+    validate_metadata,
+)
 from sparsezoo.objects import Recipe
 
 
@@ -42,6 +47,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
         file_path: Union[str, Recipe],
         add_modifiers: List[Modifier] = None,
         recipe_variables: Optional[Union[Dict[str, Any], str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         """
         Convenience function used to create the manager of multiple modifiers from a
@@ -57,6 +63,8 @@ class ScheduledModifierManager(BaseManager, Modifier):
             returned manager alongside the ones loaded from the recipe file
         :param recipe_variables: additional variable values to override the recipe
             with (i.e. num_epochs, init_lr)
+        :metadata: additional (to the information provided in the recipe) data to be
+            preserved and utilized in the future - for reproducibility and completeness.
         :return: ScheduledModifierManager() created from the recipe file
         """
         recipe_variables = parse_recipe_variables(recipe_variables)
@@ -65,12 +73,18 @@ class ScheduledModifierManager(BaseManager, Modifier):
         if add_modifiers:
             modifiers.extend(add_modifiers)
 
-        manager = ScheduledModifierManager(modifiers)
+        metadata = validate_metadata(metadata, yaml_str)
+
+        manager = ScheduledModifierManager(modifiers=modifiers, metadata=metadata)
 
         return manager
 
-    def __init__(self, modifiers: List[ScheduledModifier]):
-        super().__init__(modifiers=modifiers)
+    def __init__(
+        self,
+        modifiers: List[ScheduledModifier],
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(modifiers=modifiers, metadata=metadata)
         self._optimizer = None
 
     def modify(

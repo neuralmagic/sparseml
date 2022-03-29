@@ -236,6 +236,34 @@ def get_train_and_validation_loaders(
 # Model creation Helpers
 
 
+def get_arch_key(arch_key: Optional[str], checkpoint_path: Optional[str]) -> str:
+    """
+    Utility method to read and return the arch_key from the checkpoint, if it
+    is not passed and exists in the checkpoint. if passed the passed value is
+    returned
+
+    :param arch_key: Optional[str] The arch_key to use for the model
+    :checkpoint_path: Optiona[str] The path to the checkpoint
+    """
+    if arch_key is None:
+        if checkpoint_path:
+            checkpoint = torch.load(checkpoint_path)
+        else:
+            raise ValueError(
+                "Must provide a checkpoint path if no arch_key is provided"
+            )
+        if "arch_key" in checkpoint:
+            arch_key = checkpoint["arch_key"]
+        else:
+            raise ValueError(
+                "Checkpoint does not contain "
+                "arch_key, provide one using "
+                "--arch_key"
+            )
+
+    return arch_key
+
+
 def create_model(args: Any, num_classes: int) -> Module:
     """
     :param args: object with configuration for model classes
