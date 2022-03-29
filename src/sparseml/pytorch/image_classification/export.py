@@ -151,14 +151,6 @@ class ExportArgs:
     :param save_dir: The path to the directory for saving results.
     """
 
-    arch_key: str = field(
-        metadata={
-            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
-            "put as help to see the full list (will raise an exception "
-            "with the list)",
-        }
-    )
-
     dataset: str = field(
         metadata={
             "help": "The dataset to use for exporting, "
@@ -182,6 +174,14 @@ class ExportArgs:
             "be ignored . If using a SparseZoo recipe, can also "
             "provide 'zoo' to load the base weights associated with "
             "that recipe"
+        },
+    )
+    arch_key: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The type of model to use, ex: resnet50, vgg16, mobilenet "
+            "put as help to see the full list (will raise an exception "
+            "with the list)",
         },
     )
 
@@ -260,6 +260,11 @@ class ExportArgs:
     )
 
     def __post_init__(self):
+        self.arch_key = helpers.get_arch_key(
+            arch_key=self.arch_key,
+            checkpoint_path=self.checkpoint_path,
+        )
+
         if "preprocessing_type" not in self.dataset_kwargs and (
             "coco" in self.dataset.lower() or "voc" in self.dataset.lower()
         ):

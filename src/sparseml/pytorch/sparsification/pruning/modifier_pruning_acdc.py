@@ -30,7 +30,6 @@ from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     MagnitudePruningParamsScorer,
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["ACDCPruningModifier"]
@@ -67,8 +66,6 @@ class ACDCPruningModifier(BasePruningModifier):
     :param leave_enabled: True to continue masking the weights after end_epoch,
         False to stop masking. Should be set to False if exporting the result
         immediately after or doing some other prune. Default is True
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
         for unstructured pruning or 'block4' for four block pruning or a list of two
         integers for a custom block shape. Default is 'unstructured'
@@ -94,7 +91,6 @@ class ACDCPruningModifier(BasePruningModifier):
         leave_enabled: bool = True,
         momentum_buffer_reset: bool = True,
         mask_type: str = "unstructured",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
     ):
         # AC/DC assumes that variables `start_epoch`, `end_epoch`
         # and `update_frequency` are integers.
@@ -113,14 +109,11 @@ class ACDCPruningModifier(BasePruningModifier):
 
         super(ACDCPruningModifier, self).__init__(
             start_epoch=start_epoch,
-            end_epoch=self._finish_on_compression(
-                start_epoch, end_epoch, update_frequency
-            ),
+            end_epoch=end_epoch,
             update_frequency=update_frequency,
             global_sparsity=global_sparsity,
             params=params,
             leave_enabled=leave_enabled,
-            log_types=log_types,
         )
 
         self._momentum_buffer_empty = True
@@ -169,8 +162,12 @@ class ACDCPruningModifier(BasePruningModifier):
             should be set to different sparsities, should return a list of those values
             in the order the parameters appear in the mask manager for this object
         """
+        if epoch == float("inf"):
+            return self._compression_sparsity
+
         self._num_phase = math.floor((epoch - self.start_epoch) / self.update_frequency)
-        if self._num_phase % 2 == 0:
+
+        if self._num_phase % 2 == 0 and self.end_epoch - self.update_frequency > epoch:
             # entering decompression phase
             self._is_phase_decompression = True
             applied_sparsity = self._decompression_sparsity
@@ -238,46 +235,6 @@ class ACDCPruningModifier(BasePruningModifier):
                 if "momentum_buffer" not in param_buffer:
                     continue
                 param_buffer["momentum_buffer"].mul_(0.0)
-
-    @staticmethod
-    def _finish_on_compression(
-        start_epoch: float, end_epoch: float, update_frequency: float
-    ) -> float:
-        """
-        This function asserts that training will always
-        end on compression phase. This will happen by directly removing
-        all the last decompression epochs until we encounter the final compression
-        epoch.
-        E.g. if start_epoch = 0, end_epoch = 9 and update_frequency = 2:
-        compression_phases = [0,0,1,1,0,0,1,1,0]
-        Because last epoch is decompression phase, end_epoch will be reduced to 8.
-        (so that compression_phases = [0,0,1,1,0,0,1,1]
-
-        :param start_epoch:
-            The epoch to start the modifier at
-        :param end_epoch:
-            The epoch to end the modifier at
-        :param update_frequency:
-            The length (in epochs) of each and every compression/decompression phase.
-        :return: reduced_end_epoch:
-            (If required) reduced, original end_epoch (reduced_end_epoch <= end_epoch)
-        """
-        compression_phases = [
-            math.floor(epoch / update_frequency) % 2 == 0.0
-            for epoch in range(start_epoch, end_epoch)
-        ]
-
-        for compressed_phase_epoch in reversed(compression_phases):
-            if compressed_phase_epoch:
-                # when compressed_phase_epoch encountered
-                # this function returns original 'end_epoch'
-                break
-            else:
-                # otherwise, keep subtracting last
-                # decompression epochs count from the 'end epoch'
-                end_epoch -= 1
-
-        return end_epoch
 
     @staticmethod
     def _assert_is_integer(x):

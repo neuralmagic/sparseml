@@ -174,6 +174,7 @@ def test_set_lr_yaml():
             final_lr=0.001,
             start_epoch=0,
             end_epoch=10,
+            update_frequency=0.5,
         ),
         lambda: LearningRateFunctionModifier(
             lr_func="linear",
