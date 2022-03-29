@@ -1458,6 +1458,38 @@ def _get_num_grads_for_sparsity(
     return num_grads[sparsity_thresholds[idx]]
 
 
+def cache_gpu_mem_return(func):
+    """
+    Cache previous return of GPUtil to be re-used in case future GPUtil call fails to
+    detect available devices.
+    """
+    prev_return = {}
+    safety_scale = 0.8
+
+    @wraps(func)
+    def cached_gpu_mem_func(device_idx=[], clear_cache=True):
+        key = str(device_idx)
+        try:
+            prev_return[key] = func(device_idx, clear_cache)
+            return prev_return[key]
+        except Exception:
+            _LOGGER.warning(
+                f"[M-FAC] Failed to get GPU available memory. Using previous memory "
+                f" read scaled down to {safety_scale*100:.2f}% for a safety margin"
+            )
+            if key not in prev_return:
+                _LOGGER.warning(
+                    "[M-FAC] No cached memory usage found for this set of GPUs. "
+                    "Defaulting to CPU for M-FAC calculations"
+                )
+                return []
+            else:
+                return [mem * safety_scale for mem in prev_return[key]]
+
+    return cached_gpu_mem_func
+
+
+@cache_gpu_mem_return
 def _get_free_gpu_memory(
     device_idx: List[int] = [], clear_cache: bool = True
 ) -> List[float]:
