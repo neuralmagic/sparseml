@@ -242,9 +242,15 @@ class QuantizationModifier(ScheduledModifier):
             `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         """
         if self._tensorrt:
-            fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else 'no_fuse'
+            fuse_fn = (
+                self._model_fuse_fn_name if self._model_fuse_fn_name else "no_fuse"
+            )
         else:
-            fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else 'conv_bn_relus'
+            fuse_fn = (
+                self._model_fuse_fn_name
+                if self._model_fuse_fn_name
+                else "conv_bn_relus"
+            )
         return fuse_fn
 
     @model_fuse_fn_name.setter
@@ -365,7 +371,6 @@ class QuantizationModifier(ScheduledModifier):
         """
         return self._weight_bits
 
-
     @ModifierProp()
     def activation_qconfig_kwargs(self) -> Dict[str, Any]:
         """
@@ -382,15 +387,16 @@ class QuantizationModifier(ScheduledModifier):
             for weights
 
         """
-        if self._weight_qconfig_kwargs is not None and "observer" in self._weight_qconfig_kwargs:
+        if (
+            self._weight_qconfig_kwargs is not None
+            and "observer" in self._weight_qconfig_kwargs
+        ):
             kwargs = self._weight_qconfig_kwargs.copy()
             if kwargs["observer"] == "minmaxobserver":
                 kwargs["observer"] = torch_quantization.MinMaxObserver
             return kwargs
         else:
             return self._weight_qconfig_kwargs
-
-
 
     @ModifierProp()
     def num_calibration_steps(self) -> Optional[int]:
@@ -532,7 +538,7 @@ class QuantizationModifier(ScheduledModifier):
 
     def _enable_module_qat(self, module: Module):
         # fuse module Conv-BNs
-        if self.model_fuse_fn_name == 'conv_bn_relus':
+        if self.model_fuse_fn_name == "conv_bn_relus":
             self._model_fuse_fn_kwargs["inplace"] = True
             fuse_module_conv_bn_relus(module, **self._model_fuse_fn_kwargs)
         elif self.model_fuse_fn_name != "no_fuse":
@@ -553,10 +559,20 @@ class QuantizationModifier(ScheduledModifier):
 
         if not self._quantize_conv_activations:
             to_remove_layer_name.extend(
-                ["Conv1d", "Conv2d", "Conv3d",
-                 "ConvBn1d", "ConvBn2d", "ConvBn3d",
-                 "ConvReLU1d", "ConvReLU2d", "ConvReLU3d",
-                 "ConvBnReLU1d", "ConvBnReLU2d", "ConvBnReLU3d"]
+                [
+                    "Conv1d",
+                    "Conv2d",
+                    "Conv3d",
+                    "ConvBn1d",
+                    "ConvBn2d",
+                    "ConvBn3d",
+                    "ConvReLU1d",
+                    "ConvReLU2d",
+                    "ConvReLU3d",
+                    "ConvBnReLU1d",
+                    "ConvBnReLU2d",
+                    "ConvBnReLU3d",
+                ]
             )
         if len(to_remove_layer_name) == 0:
             to_remove_layer_name = None
@@ -591,7 +607,7 @@ class QuantizationModifier(ScheduledModifier):
             activation_dtype=_activation_dtype,
             weight_dtype=_weight_dtype,
             activation_bits=self.activation_bits,
-            weight_bits=self.weight_bits
+            weight_bits=self.weight_bits,
         )
 
         # prepare each module / submodule for quantization
@@ -607,7 +623,7 @@ class QuantizationModifier(ScheduledModifier):
                 activation_dtype=_activation_dtype,
                 weight_dtype=_weight_dtype,
                 activation_bits=self.activation_bits,
-                weight_bits=self.weight_bits
+                weight_bits=self.weight_bits,
             )
 
             # set quantization config (asymmetric activations, symmetric weights)
@@ -631,7 +647,7 @@ class QuantizationModifier(ScheduledModifier):
         # if exclude_batchnorm flag is used, add batch norm layers to list of
         # modules to exclude qconfig
         if self._exclude_batchnorm:
-            to_exclude.extend(['BatchNorm1d', 'BatchNorm2d', 'BatchNorm3d'])
+            to_exclude.extend(["BatchNorm1d", "BatchNorm2d", "BatchNorm3d"])
 
         self._exclude_module_types = to_exclude
         if self._exclude_module_types:
