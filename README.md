@@ -115,22 +115,8 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 
 
 ## Tutorials
-Our growing Integrations directory contains self-documented examples of SparseML workflows and integrations with other libraries. Open a Pull Request to contribute your own. Here are several to get you started!
-- [Sparsifying YOLACT Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/dbolya-yolact/tutorials/sparsifying_yolact_using_recipes.md)
-- [Sparsifying BERT Models Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/sparsifying_bert_using_recipes.md)
-- [Sparse Transfer Learning With BERT](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/bert_sparse_transfer_learning.md)
-- [Keras Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/keras/notebooks/classification.ipynb)
-- [PyTorch Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/classification.ipynb)
-- [PyTorch Detection Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/detection.ipynb)
-- [Sparse-Quantized Transfer Learning in PyTorch Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/sparse_quantized_transfer_learning.ipynb)
-- [Torchvision Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/notebooks/torchvision.ipynb)
-- [Sparse Transfer Learning for Image Classification](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/tutorials/classification_sparse_transfer_learning_tutorial.md)
-- [Sparsifying PyTorch Models Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/pytorch/tutorials/sparsifying_pytorch_models_using_recipes.md)
-- [TensorFlow v1 Classification Model Pruning Using SparseML](https://github.com/neuralmagic/sparseml/blob/main/integrations/tensorflow_v1/notebooks/classification.ipynb)
-- [Sparsifying YOLOv3 Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/sparsifying_yolov3_using_recipes.md)
-- [Sparse Transfer Learning With YOLOv3](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov3/tutorials/yolov3_sparse_transfer_learning.md)
-- [Sparsifying YOLOv5 Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/sparsifying_yolov5_using_recipes.md)
-- [Sparse Transfer Learning With YOLOv5](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/tutorials/yolov5_sparse_transfer_learning.md)
+
+Coming soon!
 
 ## Installation
 
@@ -246,36 +232,16 @@ Find this project useful in your research or other communications? Please consid
     url = {http://proceedings.mlr.press/v119/kurtz20a.html}, 
     abstract = {Optimizing convolutional neural networks for fast inference has recently become an extremely active area of research. One of the go-to solutions in this context is weight pruning, which aims to reduce computational and memory footprint by removing large subsets of the connections in a neural network. Surprisingly, much less attention has been given to exploiting sparsity in the activation maps, which tend to be naturally sparse in many settings thanks to the structure of rectified linear (ReLU) activation functions. In this paper, we present an in-depth analysis of methods for maximizing the sparsity of the activations in a trained neural network, and show that, when coupled with an efficient sparse-input convolution algorithm, we can leverage this sparsity for significant performance gains. To induce highly sparse activation maps without accuracy loss, we introduce a new regularization technique, coupled with a new threshold-based sparsification method based on a parameterized activation function called Forced-Activation-Threshold Rectified Linear Unit (FATReLU). We examine the impact of our methods on popular image classification models, showing that most architectures can adapt to significantly sparser activation maps without any accuracy loss. Our second contribution is showing that these these compression gains can be translated into inference speedups: we provide a new algorithm to enable fast convolution operations over networks with sparse activations, and show that it can enable significant speedups for end-to-end inference on a range of popular models on the large-scale ImageNet image classification task on modern Intel CPUs, with little or no retraining cost.} 
 }
+```
 
-@article{DBLP:journals/corr/abs-2004-14340,
-  author    = {Sidak Pal Singh and
-               Dan Alistarh},
-  title     = {WoodFisher: Efficient second-order approximations for model compression},
-  journal   = {CoRR},
-  volume    = {abs/2004.14340},
-  year      = {2020},
-  url       = {https://arxiv.org/abs/2004.14340},
-  eprinttype = {arXiv},
-  eprint    = {2004.14340},
-  timestamp = {Sun, 03 May 2020 17:39:04 +0200},
-  biburl    = {https://dblp.org/rec/journals/corr/abs-2004-14340.bib},
-  bibsource = {dblp computer science bibliography, https://dblp.org}
-}
-
-@article{DBLP:journals/corr/abs-2111-13445,
-  author    = {Eugenia Iofinova and
-               Alexandra Peste and
-               Mark Kurtz and
-               Dan Alistarh},
-  title     = {How Well Do Sparse Imagenet Models Transfer?},
-  journal   = {CoRR},
-  volume    = {abs/2111.13445},
-  year      = {2021},
-  url       = {https://arxiv.org/abs/2111.13445},
-  eprinttype = {arXiv},
-  eprint    = {2111.13445},
-  timestamp = {Wed, 01 Dec 2021 15:16:43 +0100},
-  biburl    = {https://dblp.org/rec/journals/corr/abs-2111-13445.bib},
-  bibsource = {dblp computer science bibliography, https://dblp.org}
+```bibtex
+@misc{
+    singh2020woodfisher,
+    title={WoodFisher: Efficient Second-Order Approximation for Neural Network Compression}, 
+    author={Sidak Pal Singh and Dan Alistarh},
+    year={2020},
+    eprint={2004.14340},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG}
 }
 ```
