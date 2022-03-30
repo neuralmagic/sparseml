@@ -751,6 +751,10 @@ def main():
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
+    # Collect metadata
+    metadata_manager = MetadataManager(task="question_answering")
+    metadata_manager.metadata = training_args.to_dict()
+
     # Initialize our Trainer
     trainer = QuestionAnsweringTrainer(
         model=model,

@@ -24,7 +24,6 @@ from .exporter import *
 from .helpers import *
 from .logger import *
 from .loss import *
-from .metadata import *
 from .model import *
 from .module import *
 from .sparsification import *
