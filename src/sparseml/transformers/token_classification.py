@@ -656,9 +656,7 @@ def main():
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         metrics = train_result.metrics
-        trainer.save_model(
-            combine_recipes=True
-        )  # Saves the tokenizer too for easy upload
+        trainer.save_model()  # Saves the tokenizer too for easy upload
 
         max_train_samples = (
             data_args.max_train_samples

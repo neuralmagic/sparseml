@@ -361,14 +361,12 @@ class RecipeManagerTrainerInterface:
         self,
         output_dir: Optional[str] = None,
         _internal_call=True,
-        combine_recipes=False,
     ):
         """
         Override of the save_model function and expects it to exist in the parent.
         Calls into super() to save the model and additionally saves any recipes
         that were used with the model within the model folder.
-        :param combine_recipes: boolean flag to mark whether we intent to
-            combine current manager with the checkpoint recipe. Default is False.
+
         :param output_dir: the path to save the recipes into
         """
         """
@@ -389,15 +387,9 @@ class RecipeManagerTrainerInterface:
             output_dir, RECIPE_TEMPLATE.format(f"_{index:02d}" if index > 0 else "")
         )
 
-        checkpoint_recipe_path = (
-            os.path.join(get_last_checkpoint(output_dir), RECIPE_NAME)
-            if get_last_checkpoint(output_dir)
-            else ""
-        )
-
-        if checkpoint_recipe_path and combine_recipes:
+        if os.path.isfile(recipe_path):
             self.manager = ScheduledModifierManager.compose_staged(
-                checkpoint_recipe_path, self.manager
+                recipe_path, self.manager
             )
         self.manager.save(recipe_path)
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")

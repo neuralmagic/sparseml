@@ -652,7 +652,7 @@ def main():
         )
         metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
-        trainer.save_model(combine_recipes=True)
+        trainer.save_model()
 
         # Saves the tokenizer too for easy upload
 
