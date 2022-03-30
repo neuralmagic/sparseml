@@ -41,7 +41,6 @@ __all__ = [
     "add_quant_dequant",
     "remove_activation_qat_by_layer_name",
     "get_qat_qconfig",
-    "get_updated_qconfig_kwargs",
     "fix_observer_quant_range",
     "freeze_bn_stats",
     "fuse_module_conv_bn_relus",
@@ -978,36 +977,6 @@ def prepare_embeddings_qat(
     for submodule in module.modules():
         if type(submodule) is Embedding:
             _prepare_qat_embedding(submodule, qconfig)
-
-
-def get_updated_qconfig_kwargs(qconfig_kwargs, bits, mode):
-    qconfig_kwargs = qconfig_kwargs.copy() if qconfig_kwargs else {}
-
-    # update qconfig_kwargs for bits
-    if bits and (qconfig_kwargs.get("quant_min") or qconfig_kwargs.get("quant_max")):
-        raise ValueError(
-            "Cannot override quant_max and quant_min when number of bits is set"
-        )
-
-    if bits:
-        if mode == "symmetric":
-            quant_min = -(2 ** (bits - 1))
-            quant_max = 2 ** (bits - 1) - 1
-            dtype = torch.qint8
-        else:
-            quant_min = 0
-            quant_max = 2 ** bits - 1
-            dtype = torch.quint8
-
-        qconfig_kwargs.update(
-            dict(
-                quant_min=quant_min,
-                quant_max=quant_max,
-                dtype=dtype,
-            )
-        )
-
-    return qconfig_kwargs
 
 
 def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConfig"):
