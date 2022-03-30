@@ -54,9 +54,22 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
-from sparseml.pytorch.utils import MetadataManager
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
+
+
+metadata_args = [
+    "dataset_name",
+    "dataset_name_2",
+    "dataset_config_name_2",
+    "per_device_train_batch_size",
+    "per_device_eval_batch_size",
+    "fp16",
+    "learning_rate",
+    "warmup_steps",
+    "max_seq_length",
+    "num_train_epochs",
+]
 
 
 # Will error if the minimal version of Transformers is not installed.
@@ -669,16 +682,12 @@ def main():
         pad_to_multiple_of=8 if pad_to_multiple_of_8 else None,
     )
 
-    # Collect metadata
-    metadata_manager = MetadataManager(task="masked_language_modelling")
-    metadata_manager.metadata = training_args.to_dict()
-
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
-        metadata=metadata_manager.metadata,
+        metadata_args=metadata_args,
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,
@@ -694,16 +703,14 @@ def main():
 
     # Training
     if training_args.do_train:
-        checkpoint = checkpoint_recipe = None
+        checkpoint = None
         if training_args.resume_from_checkpoint is not None:
             checkpoint = training_args.resume_from_checkpoint
-            checkpoint_recipe = os.path.join(checkpoint, "recipe.yaml")
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
-            checkpoint_recipe = os.path.join(checkpoint, "recipe.yaml")
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         trainer.save_model(
-            checkpoint_recipe=checkpoint_recipe
+            combine_recipes=True
         )  # Saves the tokenizer too for easy upload
         metrics = train_result.metrics
 

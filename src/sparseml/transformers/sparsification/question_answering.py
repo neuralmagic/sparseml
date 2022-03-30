@@ -24,7 +24,7 @@ import collections
 import json
 import logging
 import os
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from torch.nn import Module
@@ -178,6 +178,8 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
+    :param metadata_args A list of arguments to be extracted from training_args
+        and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -189,7 +191,7 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
         model_state_path: str,
         recipe: str,
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata_args: Optional[List[str]] = None,
         teacher: Optional[Module] = None,
         **kwargs,
     ):
@@ -198,7 +200,7 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
             model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,
-            metadata=metadata,
+            metadata_args=metadata_args,
             teacher=teacher,
             **kwargs,
         )

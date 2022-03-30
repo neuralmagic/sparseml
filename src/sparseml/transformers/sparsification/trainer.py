@@ -22,6 +22,8 @@ import glob
 import logging
 import math
 import os
+import warnings
+from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -42,7 +44,11 @@ from sparseml.pytorch.utils import (
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
+from sparseml.transformers.utils.helpers import (
+    RECIPE_NAME,
+    RECIPE_REGEX,
+    RECIPE_TEMPLATE,
+)
 
 
 __all__ = [
@@ -85,6 +91,8 @@ class RecipeManagerTrainerInterface:
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
+    :param metadata_args A list of arguments to be extracted from training_args
+        and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -96,7 +104,7 @@ class RecipeManagerTrainerInterface:
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata_args: Optional[List[str]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -105,8 +113,14 @@ class RecipeManagerTrainerInterface:
         self.model_state_path = str(model_state_path)
         self.recipe = recipe
         self.recipe_args = recipe_args
-        self.metadata = metadata
         self.teacher = teacher
+        self.metadata = (
+            self._extract_metadata(
+                metadata_args=metadata_args, training_args=kwargs["args"]
+            )
+            if (kwargs["args"] and metadata_args)
+            else None
+        )
 
         report_to = (
             ""
@@ -346,16 +360,15 @@ class RecipeManagerTrainerInterface:
     def save_model(
         self,
         output_dir: Optional[str] = None,
-        checkpoint_recipe: Optional[str] = None,
         _internal_call=True,
+        combine_recipes=False,
     ):
         """
         Override of the save_model function and expects it to exist in the parent.
         Calls into super() to save the model and additionally saves any recipes
         that were used with the model within the model folder.
-        :param checkpoint_recipe: optional checkpoint recipe if
-            current model has been trained from checkpoint.
-            Default is None.
+        :param combine_recipes: boolean flag to mark whether we intent to
+            combine current manager with the checkpoint recipe. Default is False.
         :param output_dir: the path to save the recipes into
         """
         """
@@ -375,11 +388,16 @@ class RecipeManagerTrainerInterface:
         recipe_path = os.path.join(
             output_dir, RECIPE_TEMPLATE.format(f"_{index:02d}" if index > 0 else "")
         )
-        #  compose checkpoint_recipe and manager
-        #  into a new staged checkpoint recipe
-        if checkpoint_recipe:
+
+        checkpoint_recipe_path = (
+            os.path.join(get_last_checkpoint(output_dir), RECIPE_NAME)
+            if get_last_checkpoint(output_dir)
+            else ""
+        )
+
+        if checkpoint_recipe_path and combine_recipes:
             self.manager = ScheduledModifierManager.compose_staged(
-                checkpoint_recipe, self.manager
+                checkpoint_recipe_path, self.manager
             )
         self.manager.save(recipe_path)
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
@@ -406,6 +424,22 @@ class RecipeManagerTrainerInterface:
             f"{model_type} model detected, "
             f"all sparsification info: {sparsification_info}"
         )
+
+    def _extract_metadata(self, metadata_args: List[str], training_args) -> Dict:
+        metadata = {k: None for k in metadata_args}
+        metadata_from_training_args = {
+            k: v for k, v in training_args.to_dict().items() if k in metadata_args
+        }
+        metadata.update(metadata_from_training_args)
+
+        if None in metadata.values():
+            warnings.warn(
+                "Detected metadata keys which value is None."
+                "The following keys will not be written into "
+                "the recipe: "
+                f"{[k for k, v in metadata.items() if v is None]}"
+            )
+        return OrderedDict([(k, v) for k, v in metadata.items() if v is not None])
 
     def _check_super_defined(self, func: str):
         if not hasattr(super(), func):
@@ -568,6 +602,8 @@ class TrainerInterface(RecipeManagerTrainerInterface):
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
+    :param metadata_args A list of arguments to be extracted from training_args
+        and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -579,16 +615,17 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata_args: Optional[List[str]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
+
         super().__init__(
             model=model,
             model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,
-            metadata=metadata,
+            metadata_args=metadata_args,
             teacher=teacher,
             **kwargs,
         )

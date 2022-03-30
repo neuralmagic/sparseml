@@ -50,7 +50,6 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
-from sparseml.pytorch.utils import MetadataManager
 from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
 
@@ -620,16 +619,13 @@ def main():
     else:
         data_collator = None
 
-    metadata_manager = MetadataManager([])
-
-    metadata_manager.metadata = training_args.to_dict()
-
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
-        metadata=metadata_manager.metadata,
+        # TODO: Pass metadata_args
+        metadata_args=[],
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,
@@ -642,13 +638,11 @@ def main():
 
     # Training
     if training_args.do_train:
-        checkpoint = checkpoint_recipe = None
+        checkpoint = None
         if training_args.resume_from_checkpoint is not None:
             checkpoint = training_args.resume_from_checkpoint
-            checkpoint_recipe = os.path.join(checkpoint, "recipe.yaml")
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
-            checkpoint_recipe = os.path.join(checkpoint, "recipe.yaml")
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         metrics = train_result.metrics
         max_train_samples = (
@@ -658,9 +652,9 @@ def main():
         )
         metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
-        trainer.save_model(
-            checkpoint_recipe=checkpoint_recipe
-        )  # Saves the tokenizer too for easy upload
+        trainer.save_model(combine_recipes=True)
+
+        # Saves the tokenizer too for easy upload
 
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
