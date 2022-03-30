@@ -90,7 +90,6 @@ class FFCVCompatibleDataset(ABC):
         """
         raise NotImplementedError()
 
-    @property
     @abstractmethod
     def ffcv_pipelines(self, *args, **kwargs) -> Dict[str, List[Operation]]:
         """
@@ -178,8 +177,8 @@ class FFCVCompatibleDataset(ABC):
         write_path: str,
         num_workers: int = 16,
         batch_size: int = 32,
-        distributed: int = 0,
-        in_memory: int = 0,
+        distributed: bool = False,
+        in_memory: bool = False,
         device: Union[str, int] = default_device(),
     ):
         """
@@ -188,8 +187,9 @@ class FFCVCompatibleDataset(ABC):
         :param write_path: The path to write the dataset to.
         :param num_workers: Number of workers to use for the data loader.
         :param batch_size: Batch size for the data loader.
-        :param distributed: 1/0 Whether to use distributed data loading.
-        :param in_memory: 1/0 Does the dataset fit in memory.
+        :param distributed: bool Whether to use distributed data loading.
+        :param in_memory: bool Does the dataset fit in memory.
+        :param device: str or int The device to use for the data loader.
         """
 
         # Write the dataset if it hasn't been written already
@@ -234,7 +234,6 @@ class FFCVImageNetDataset(FFCVCompatibleDataset):
             "label": IntField(),
         }
 
-    @property
     def ffcv_pipelines(
         self,
         device: Union[str, int] = default_device(),

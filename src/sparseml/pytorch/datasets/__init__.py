@@ -21,7 +21,6 @@ Code for creating and loading datasets in PyTorch
 from ..base import check_torch_install as _check_torch_install
 from .classification import *
 from .detection import *
-from .ffcv_dataset import *
 from .generic import *
 from .recommendation import *
 from .registry import *
