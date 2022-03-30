@@ -42,20 +42,6 @@ def create_optim_sgd(
 
 
 @pytest.mark.parametrize(
-    "start_epoch,end_epoch_orig,update_frequency, expected_end_epoch",
-    [(5, 15, 3, 15), (0, 9, 2, 9), (10, 30, 5, 25)],
-    scope="function",
-)
-def test_finish_on_compression(
-    start_epoch, end_epoch_orig, update_frequency, expected_end_epoch
-):
-    end_epoch = ACDCPruningModifier._finish_on_compression(
-        start_epoch, end_epoch_orig, update_frequency
-    )
-    assert end_epoch == expected_end_epoch
-
-
-@pytest.mark.parametrize(
     "modifier_lambda",
     [
         lambda: ACDCPruningModifier(
@@ -76,8 +62,8 @@ def test_finish_on_compression(
         ),
         lambda: ACDCPruningModifier(
             compression_sparsity=0.8,
-            start_epoch=6,
-            end_epoch=26,
+            start_epoch=6.0,
+            end_epoch=26.0,
             update_frequency=1,
             params=["re:.*weight"],
             momentum_buffer_reset=True,
@@ -129,10 +115,13 @@ class TestACDCPruningModifier(ScheduledModifierTest):
             assert modifier.update_ready(epoch, test_steps_per_epoch)
             modifier.scheduled_update(model, optimizer, epoch, test_steps_per_epoch)
             if is_previous_phase_decompression is not None:
-                assert (
-                    is_previous_phase_decompression
-                    is not modifier._is_phase_decompression
-                )
+                if modifier.end_epoch - modifier.update_frequency < epoch:
+                    assert not modifier._is_phase_decompression
+                else:
+                    assert (
+                        is_previous_phase_decompression
+                        is not modifier._is_phase_decompression
+                    )
                 if not modifier._is_phase_decompression:
                     _test_compression_sparsity_applied()
 

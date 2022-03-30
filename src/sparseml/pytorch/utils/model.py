@@ -219,6 +219,8 @@ def save_model(
 
     if include_modifiers and optimizer and hasattr(optimizer, "manager_state_dict"):
         save_dict["manager"] = optimizer.manager_state_dict()
+    elif include_modifiers and optimizer and hasattr(optimizer, "wrapped_manager"):
+        save_dict["manager"] = optimizer.wrapped_manager.state_dict()
 
     if torch.__version__ < "1.6":
         torch.save(save_dict, path)

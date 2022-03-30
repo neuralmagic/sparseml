@@ -84,7 +84,6 @@ pruning_modifiers:
     update_frequency: *pruning_update_frequency
     leave_enabled: True
     mask_type: [1,4]
-    log_types: __ALL__
 
 quantization_modifiers:
   - !QuantizationModifier
