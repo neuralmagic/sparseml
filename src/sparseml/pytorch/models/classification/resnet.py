@@ -41,6 +41,7 @@ from torch.nn import (
 from sparseml.pytorch.models.registry import ModelRegistry
 from sparseml.pytorch.nn import ReLU
 
+
 try:
     from torch.nn.quantized import FloatFunctional
 except Exception:
@@ -144,12 +145,13 @@ class _AddReLU(Module):
     Wrapper for the FloatFunctional class that enables QATWrapper used to
     quantize the first input to the Add operation
     """
+
     def __init__(self, num_channels):
         super().__init__()
         if FloatFunctional:
             self.functional = FloatFunctional()
             self.wrap_qat = True
-            self.qat_wrapper_kwargs = {'num_inputs': 1, 'num_outputs': 0}
+            self.qat_wrapper_kwargs = {"num_inputs": 1, "num_outputs": 0}
         else:
             self.functional = ReLU(num_channels=num_channels, inplace=True)
 
@@ -209,12 +211,12 @@ class _BasicBlock(Module):
 
 class _BottleneckBlock(Module):
     def __init__(
-            self,
-            in_channels: int,
-            out_channels: int,
-            proj_channels: int,
-            stride: int = 1,
-            groups: int = 1,
+        self,
+        in_channels: int,
+        out_channels: int,
+        proj_channels: int,
+        stride: int = 1,
+        groups: int = 1,
     ):
         super().__init__()
 
@@ -325,12 +327,12 @@ class _BasicBlockV2(Module):
 
 class _BottleneckBlockV2(Module):
     def __init__(
-            self,
-            in_channels: int,
-            out_channels: int,
-            proj_channels: int,
-            stride: int = 1,
-            groups: int = 1,
+        self,
+        in_channels: int,
+        out_channels: int,
+        proj_channels: int,
+        stride: int = 1,
+        groups: int = 1,
     ):
         super().__init__()
 
@@ -441,15 +443,15 @@ class ResNetSectionSettings(object):
     """
 
     def __init__(
-            self,
-            num_blocks: int,
-            in_channels: int,
-            out_channels: int,
-            downsample: bool,
-            proj_channels: int = -1,
-            groups: int = 1,
-            use_se: bool = False,
-            version: int = 1,
+        self,
+        num_blocks: int,
+        in_channels: int,
+        out_channels: int,
+        downsample: bool,
+        proj_channels: int = -1,
+        groups: int = 1,
+        use_se: bool = False,
+        version: int = 1,
     ):
         if use_se:
             # TODO: add support for squeeze excite
@@ -483,10 +485,10 @@ class ResNet(Module):
     """
 
     def __init__(
-            self,
-            sec_settings: List[ResNetSectionSettings],
-            num_classes: int,
-            class_type: str,
+        self,
+        sec_settings: List[ResNetSectionSettings],
+        num_classes: int,
+        class_type: str,
     ):
         super().__init__()
         self.input = _Input()
