@@ -28,7 +28,6 @@ https://huggingface.co/models?filter=masked-lm
 
 # You can also adapt this script on your own masked language modeling task.
 # Pointers for this are left as comments
-
 import logging
 import math
 import os
@@ -416,29 +415,30 @@ def main():
     # Load extra dataset if specified, and concatenate with the original one
     if data_args.dataset_name_2 is not None:
         # Downloading and loading a dataset from the hub.
-        datasets_2 = load_dataset(
+        raw_datasets_2 = load_dataset(
             data_args.dataset_name_2,
             data_args.dataset_config_name_2,
             cache_dir=model_args.cache_dir,
         )
-        if "validation" not in datasets_2.keys():
-            datasets_2["validation"] = load_dataset(
+        if "validation" not in raw_datasets_2.keys():
+            raw_datasets_2["validation"] = load_dataset(
                 data_args.dataset_name_2,
                 data_args.dataset_config_name_2,
                 split=f"train[:{data_args.validation_split_percentage}%]",
                 cache_dir=model_args.cache_dir,
             )
-            datasets_2["train"] = load_dataset(
+            raw_datasets_2["train"] = load_dataset(
                 data_args.dataset_name_2,
                 data_args.dataset_config_name_2,
                 split=f"train[{data_args.validation_split_percentage}%:]",
                 cache_dir=model_args.cache_dir,
             )
+
         # Concatenate two datasets
         if datasets is not None:
             for split in ["validation", "train"]:
-                datasets[split] = concatenate_datasets(
-                    [datasets[split], datasets_2[split]]
+                raw_datasets[split] = concatenate_datasets(
+                    [raw_datasets[split], raw_datasets_2[split]]
                 )
 
     # Load pretrained model and tokenizer
