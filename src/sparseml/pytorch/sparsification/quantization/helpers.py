@@ -751,7 +751,7 @@ def get_qat_qconfig(
     else:
         _weight_dtype = weight_dtype
 
-    weight_observer = get_observer(_symmetric_weights, weight_dtype, weight_bits, False, weight_qconfig_kwargs)
+    weight_observer = get_observer(_symmetric_weights, _weight_dtype, weight_bits, False, weight_qconfig_kwargs)
     return torch_quantization.QConfig(
         activation=activation_observer,
         weight=weight_observer,
