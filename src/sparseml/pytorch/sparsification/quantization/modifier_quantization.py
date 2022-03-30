@@ -141,8 +141,8 @@ class QuantizationModifier(ScheduledModifier):
         model_fuse_fn_kwargs: Dict[str, Any] = None,
         quantize_embeddings: bool = True,
         reduce_range: bool = False,
-        quantize_linear_output_activations: bool = False,
-        quantize_conv_output_activations: bool = False,
+        quantize_linear_activations: bool = False,
+        quantize_conv_activations: bool = False,
         activation_bits: Optional[int] = None,
         weight_bits: Optional[int] = None,
         num_calibration_steps: Optional[int] = None,
@@ -174,8 +174,8 @@ class QuantizationModifier(ScheduledModifier):
         self._freeze_bn_stats_epoch = freeze_bn_stats_epoch
         self._quantize_embeddings = quantize_embeddings
         self._reduce_range = reduce_range
-        self._quantize_linear_output_activations = quantize_linear_output_activations
-        self._quantize_conv_output_activations = quantize_conv_output_activations
+        self._quantize_linear_activations = quantize_linear_activations
+        self._quantize_conv_activations = quantize_conv_activations
         self._activation_bits = activation_bits
         self._weight_bits = weight_bits
         self._exclude_batchnorm = exclude_batchnorm
@@ -320,7 +320,7 @@ class QuantizationModifier(ScheduledModifier):
         return self._reduce_range
 
     @ModifierProp()
-    def quantize_linear_output_activations(self) -> bool:
+    def quantize_linear_activations(self) -> bool:
         """
         :return: if False, FakeQuantize ops will not be run
             for activations of fully connected layers. this is important for quantizing
@@ -328,15 +328,15 @@ class QuantizationModifier(ScheduledModifier):
             are kept at 32 bits of precision and fake quantizing the outputs harm
             training recovery
         """
-        return self._quantize_linear_output_activations
+        return self._quantize_linear_activations
 
     @ModifierProp()
-    def quantize_conv_output_activations(self) -> bool:
+    def quantize_conv_activations(self) -> bool:
         """
         :return: if False, FakeQuantize ops will not be run
             for activations of convolutional layers.
         """
-        return self._quantize_conv_output_activations
+        return self._quantize_conv_activations
 
     @ModifierProp()
     def exclude_module_types(self) -> Union[List[str], None]:
@@ -544,10 +544,10 @@ class QuantizationModifier(ScheduledModifier):
             module_fuse_fn(**self._model_fuse_fn_kwargs)
 
         to_remove_layer_name = []
-        if not self._quantize_linear_output_activations:
+        if not self._quantize_linear_activations:
             to_remove_layer_name.extend(["Linear", "LinearReLU"])
 
-        if not self._quantize_conv_output_activations:
+        if not self._quantize_conv_activations:
             to_remove_layer_name.extend(
                 ["Conv1d", "Conv2d", "Conv3d",
                  "ConvBn1d", "ConvBn2d", "ConvBn3d",
