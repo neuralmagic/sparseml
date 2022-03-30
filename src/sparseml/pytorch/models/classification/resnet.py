@@ -140,6 +140,10 @@ class _IdentityModifier(Module):
 
 
 class _AddReLU(Module):
+    """
+    Wrapper for the FloatFunctional class that enables QATWrapper used to
+    quantize the first input to the Add operation
+    """
     def __init__(self, num_channels):
         super().__init__()
         if FloatFunctional:
