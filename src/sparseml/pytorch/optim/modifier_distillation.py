@@ -407,4 +407,3 @@ def _log_losses(
     for logger in loggers:
         for (name, loss) in losses.items():
             logger.log_scalar(f"DistillationModifier/{name}", loss.item(), global_step)
-        )
