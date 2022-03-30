@@ -44,7 +44,11 @@ from sparseml.pytorch.utils import (
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
+from sparseml.transformers.utils.helpers import (
+    RECIPE_NAME,
+    RECIPE_REGEX,
+    RECIPE_TEMPLATE,
+)
 
 
 __all__ = [
@@ -382,10 +386,11 @@ class RecipeManagerTrainerInterface:
         recipe_path = os.path.join(
             output_dir, RECIPE_TEMPLATE.format(f"_{index:02d}" if index > 0 else "")
         )
+        checkpoint_path = os.path.join(self.args.output_dir, RECIPE_NAME)
 
-        if os.path.isfile(recipe_path):
+        if os.path.isfile(checkpoint_path):
             self.manager = ScheduledModifierManager.compose_staged(
-                recipe_path, self.manager
+                base_recipe=checkpoint_path, additional_recipe=self.manager
             )
         self.manager.save(recipe_path)
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
