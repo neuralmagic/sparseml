@@ -100,7 +100,7 @@ class ImageClassificationTrainer(Trainer):
         optim_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """
-        Initializes the trainer.
+        Initializes the module_trainer.
         """
         self.recipe_path = recipe_path
         self.ddp = ddp
@@ -130,18 +130,19 @@ class ImageClassificationTrainer(Trainer):
                 self.optim,
                 self.manager,
             ) = self._initialize_scheduled_optimizer()
-            self.trainer = self._initialize_trainer()
+            self.module_trainer = self._initialize_module_trainer()
         else:
-            self.optim = self.manager = self.trainer = None
+            self.optim = self.manager = self.module_trainer = None
 
         if self.val_loader is not None:
-            self.tester = self._initialize_tester()
+            self.module_tester = self._initialize_module_tester()
         else:
-            self.tester = None
+            self.module_tester = None
 
         self.target_metric = (
             "top1acc"
-            if self.tester and "top1acc" in self.tester.loss.available_losses
+            if self.module_tester
+            and "top1acc" in self.module_tester.loss.available_losses
             else DEFAULT_LOSS_KEY
         )
 
@@ -153,7 +154,8 @@ class ImageClassificationTrainer(Trainer):
         self,
         mode: str = "train",
         max_steps: Optional[int] = None,
-    ):
+        baseline_run: bool = False,
+    ) -> Any:
         """
         Runs one epoch of training or validation.
 
@@ -161,18 +163,20 @@ class ImageClassificationTrainer(Trainer):
             ['train', 'val']
         :param max_steps: int representing the maximum number of steps to run
             in this epoch
-        :returns: Result from validation run if result is not None.
+        :param baseline_run: bool indicating whether to run the baseline run
+        :returns: Results from validation or training run
         """
         train_mode = mode == "train"
         validation_mode = not train_mode
 
         if validation_mode:
-            self._run_validation_epoch(max_steps=max_steps)
+            return self._run_validation_epoch(
+                max_steps=max_steps,
+                baseline_run=baseline_run,
+            )
 
         if train_mode:
-            val_metric = self._run_train_epoch(max_steps=max_steps)
-            if val_metric:
-                return val_metric
+            return self._run_train_epoch(max_steps=max_steps)
 
     @property
     def max_epochs(self):
@@ -181,7 +185,7 @@ class ImageClassificationTrainer(Trainer):
         """
         return self.manager.max_epochs if self.manager is not None else 0
 
-    def _initialize_tester(self):
+    def _initialize_module_tester(self):
         tester = ModuleTester(
             module=self.model,
             device=self.device,
@@ -218,7 +222,7 @@ class ImageClassificationTrainer(Trainer):
         _LOGGER.info(f"created manager: {manager}")
         return epoch, optim, manager
 
-    def _initialize_trainer(self):
+    def _initialize_module_trainer(self):
         trainer = ModuleTrainer(
             module=self.model,
             device=self.device,
@@ -236,17 +240,17 @@ class ImageClassificationTrainer(Trainer):
     def _run_validation_epoch(
         self,
         max_steps: Optional[int] = None,
+        baseline_run: bool = False,
     ):
         # Note: This method should not be called directly,
         # use run_one_epoch instead
 
         if self.is_main_process:
-            assert self.tester, "tester is not initialized"
+            assert self.module_tester, "module_tester is not initialized"
 
-            # initial baseline eval run
-            self.tester.run_epoch(
+            return self.module_tester.run_epoch(
                 self.val_loader,
-                epoch=self.epoch - 1,
+                epoch=-1 if baseline_run else self.epoch,
                 max_steps=max_steps,
             )
 
@@ -266,19 +270,9 @@ class ImageClassificationTrainer(Trainer):
             assert hasattr(self.train_loader.sampler, "set_epoch")
             self.train_loader.sampler.set_epoch(self.epoch)
 
-        self.trainer.run_epoch(
+        return self.module_trainer.run_epoch(
             data_loader=self.train_loader,
             epoch=self.epoch,
             max_steps=max_steps,
             show_progress=self.is_main_process,
         )
-
-        # testing steps
-        if self.is_main_process:
-            # only test on main process
-            val_res = self.tester.run_epoch(
-                data_loader=self.val_loader,
-                epoch=self.epoch,
-                max_steps=max_steps,
-            )
-            return val_res

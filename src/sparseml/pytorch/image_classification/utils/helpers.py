@@ -35,7 +35,6 @@ from sparseml.pytorch.utils import (
     PythonLogger,
     TensorBoardLogger,
     early_stop_data_loader,
-    model_to_device,
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
@@ -50,7 +49,6 @@ __all__ = [
     "infer_num_classes",
     "save_recipe",
     "save_model_training",
-    "device_setup",
 ]
 
 
@@ -284,29 +282,6 @@ def save_model_training(
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
-
-
-# device helpers
-def device_setup(
-    model, rank: int, local_rank: int, device: Union[str, int]
-) -> Tuple[Module, int, int]:
-    """
-    Move the model to the correct device.
-
-    :param model: The model to move to the correct device
-    :param rank: The rank of the process in network
-    :param local_rank: The rank of the process on the local machine
-    :param device: The device to move the model to
-    :return: A tuple of (model, device, ddp)
-    """
-    if rank == -1:
-        ddp = False
-    else:
-        torch.cuda.set_device(local_rank)
-        device = local_rank
-        ddp = True
-    model, device, _ = model_to_device(model=model, device=device, ddp=ddp)
-    return model, device, ddp
 
 
 # private methods

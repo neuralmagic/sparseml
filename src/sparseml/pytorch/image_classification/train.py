@@ -71,7 +71,7 @@ optional arguments:
                         sparseml recipe
   --optim-args OPTIM_ARGS
                         Additional args to be passed to the optimizer passed
-                        in as a json object
+                        in as a json object. Defaults set for SGD
   --recipe-path RECIPE_PATH
                         The path to the yaml file containing the modifiers and
                         schedule to apply them with. Can also provide a
@@ -83,7 +83,7 @@ optional arguments:
   --optim OPTIM         The optimizer type to use, one of ['Adadelta',
                         'Adagrad', 'Adam', 'AdamW', 'SparseAdam', 'Adamax',
                         'ASGD', 'SGD', 'RAdam', 'Rprop', 'RMSprop',
-                        'Optimizer', 'NAdam', 'LBFGS']. Defaults to `Adam`
+                        'Optimizer', 'NAdam', 'LBFGS']. Defaults to `SGD`
   --logs-dir LOGS_DIR   The path to the directory for saving logs
   --save-best-after SAVE_BEST_AFTER
                         start saving the best validation result after the
@@ -179,6 +179,7 @@ from sparseml.pytorch.utils import (
     TopKAccuracy,
     default_device,
     get_prunable_layers,
+    model_to_device,
     set_deterministic_seeds,
     tensor_sparsity,
 )
@@ -315,18 +316,6 @@ class TrainingArguments:
         },
     )
 
-    optim_args: json.loads = field(
-        default_factory=lambda: {
-            "momentum": 0.9,
-            "nesterov": True,
-            "weight_decay": 0.0001,
-        },
-        metadata={
-            "help": "Additional args to be passed to the optimizer passed in"
-            " as a json object",
-        },
-    )
-
     recipe_path: str = field(
         default=None,
         metadata={
@@ -345,11 +334,23 @@ class TrainingArguments:
         },
     )
     optim_choices = [key for key in torch.optim.__dict__.keys() if key[0].isupper()]
+    default_optim = "SGD"
     optim: str = field(
-        default="SGD",
+        default=default_optim,
         metadata={
             "help": f"The optimizer type to use, one of {optim_choices}."
-            " Defaults to `Adam`"
+            f" Defaults to `{default_optim}`"
+        },
+    )
+    optim_args: json.loads = field(
+        default_factory=lambda: {
+            "momentum": 0.9,
+            "nesterov": True,
+            "weight_decay": 0.0001,
+        },
+        metadata={
+            "help": "Additional args to be passed to the optimizer passed in"
+            f" as a json object. Defaults set for {default_optim}",
         },
     )
 
@@ -507,12 +508,8 @@ def train(
     :param train_args: A TrainingArguments object with
         arguments for current training task
     :param num_classes: The number of output classes in the dataset
-    :param model: model architecture to train
     :param train_loader: A DataLoader for training data
     :param val_loader: A DataLoader for validation data
-    :param input_shape: A tuple of integers representing the shape of inputs
-    :param save_dir: Directory to store checkpoints at during training process
-    :param loggers: List of loggers to use during training process
     """
 
     trainer, save_dir = _init_image_classification_trainer_and_save_dirs(
@@ -522,25 +519,34 @@ def train(
         num_classes=num_classes,
     )
 
+    # Baseline eval run
+    trainer.run_one_epoch(
+        mode="validation",
+        max_steps=train_args.debug_steps,
+        baseline_run=True,
+    )
+
     if not train_args.eval_mode:
         helpers.save_recipe(recipe_manager=trainer.manager, save_dir=save_dir)
-        LOGGER.info(f"starting training from epoch {trainer.epoch}")
+        LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
-        val_metric = None
-        best_metric = None
-        val_res = None
+        val_metric = best_metric = val_res = None
 
         while trainer.epoch < trainer.max_epochs:
-            val_res = trainer.run_one_epoch(
+            train_res = trainer.run_one_epoch(
                 mode="train",
                 max_steps=train_args.debug_steps,
             )
-
+            LOGGER.info(f"\nEpoch {trainer.epoch} training results: {train_res}")
             # testing steps
             if train_args.is_main_process:
+                val_res = trainer.run_one_epoch(
+                    mode="val",
+                    max_steps=train_args.debug_steps,
+                )
                 val_metric = val_res.result_mean(trainer.target_metric).item()
 
-                _save_epoch = trainer.epoch >= train_args.save_best_after and (
+                should_save_epoch = trainer.epoch >= train_args.save_best_after and (
                     best_metric is None
                     or (
                         val_metric <= best_metric
@@ -548,37 +554,38 @@ def train(
                         else val_metric >= best_metric
                     )
                 )
-                if _save_epoch:
+                if should_save_epoch:
                     helpers.save_model_training(
-                        trainer.model,
-                        trainer.optim,
-                        "checkpoint-best",
-                        save_dir,
-                        trainer.epoch,
-                        val_res,
+                        model=trainer.model,
+                        optim=trainer.optim,
+                        save_name="checkpoint-best",
+                        save_dir=save_dir,
+                        epoch=trainer.epoch,
+                        val_res=val_res,
                         arch_key=trainer.key,
                     )
+                    # Best metric is based on validation results
                     best_metric = val_metric
 
             # save checkpoints
-            _save_epoch = (
+            should_save_epoch = (
                 train_args.is_main_process
                 and train_args.save_epochs
                 and trainer.epoch in train_args.save_epochs
             )
-            if _save_epoch:
+            if should_save_epoch:
                 save_name = (
                     f"checkpoint-{trainer.epoch:04d}-{val_metric:.04f}"
                     if val_metric
                     else f"checkpoint-{trainer.epoch:04d}"
                 )
                 helpers.save_model_training(
-                    trainer.model,
-                    trainer.optim,
-                    save_name,
-                    save_dir,
-                    trainer.epoch,
-                    val_res,
+                    model=trainer.model,
+                    optim=trainer.optim,
+                    save_name=save_name,
+                    save_dir=save_dir,
+                    epoch=trainer.epoch,
+                    val_res=val_res,
                     arch_key=trainer.key,
                 )
 
@@ -589,12 +596,12 @@ def train(
         if train_args.is_main_process:
             # only convert qat -> quantized ONNX graph for finalized model
             helpers.save_model_training(
-                trainer.model,
-                trainer.optim,
-                "model",
-                save_dir,
-                trainer.epoch - 1,
-                val_res,
+                model=trainer.model,
+                optim=trainer.optim,
+                save_name="model",
+                save_dir=save_dir,
+                epoch=trainer.epoch - 1,
+                val_res=val_res,
             )
 
             LOGGER.info("layer sparsities:")
@@ -612,15 +619,18 @@ def main():
     """
     Driver function for the script
     """
-    _parser = NmArgumentParser(dataclass_types=TrainingArguments)
-    training_args, _ = _parser.parse_args_into_dataclasses()
+    parser = NmArgumentParser(dataclass_types=TrainingArguments)
+    training_args, _ = parser.parse_args_into_dataclasses()
 
     (
         train_dataset,
         train_loader,
         val_dataset,
         val_loader,
-    ) = helpers.get_train_and_validation_loaders(args=training_args, task=CURRENT_TASK)
+    ) = helpers.get_train_and_validation_loaders(
+        args=training_args,
+        task=CURRENT_TASK,
+    )
 
     num_classes = helpers.infer_num_classes(
         args=training_args,
@@ -660,13 +670,20 @@ def _init_image_classification_trainer_and_save_dirs(
 
     LOGGER.info(f"created model with key {key}: {model}")
 
-    model, device, ddp = helpers.device_setup(
+    if train_args.rank == -1:
+        ddp = False
+    else:
+        torch.cuda.set_device(train_args.local_rank)
+        train_args.device = train_args.local_rank
+        ddp = True
+
+    model, train_args.device, _ = model_to_device(
         model=model,
-        rank=train_args.rank,
-        local_rank=train_args.local_rank,
         device=train_args.device,
+        ddp=ddp,
     )
-    LOGGER.info(f"running on device {device}")
+
+    LOGGER.info(f"running on device {train_args.device}")
 
     return (
         ImageClassificationTrainer(
@@ -674,7 +691,7 @@ def _init_image_classification_trainer_and_save_dirs(
             key=train_args.arch_key,
             recipe_path=train_args.recipe_path,
             ddp=ddp,
-            device=device,
+            device=train_args.device,
             use_mixed_precision=train_args.use_mixed_precision,
             val_loader=val_loader,
             train_loader=train_loader,
