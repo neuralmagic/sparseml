@@ -580,6 +580,24 @@ def _check_warn_dict_difference(original_dict, new_dict):
 
 
 def _add_framework_metadata(metadata, is_metadata_staged):
+    def _add_framework_metadata_stage(
+        metadata_stage, framework_metadata, stage_name=None
+    ):
+        shared_keys = set(metadata_stage.keys()).intersection(
+            set(framework_metadata.keys())
+        )
+        if shared_keys:
+            warning_if_stage = f"stage stage name: {stage_name}" if stage_name else ""
+            warning_msg = (
+                f"Overwriting metadata {warning_if_stage} key(s) "
+                f"{shared_keys} with new value(s) "
+                f"{ {k:v for k,v in framework_metadata.items() if k in shared_keys} }"
+            )
+            warnings.warn(warning_msg)
+        _metadata_stage = deepcopy(metadata_stage)
+        _metadata_stage.update(framework_metadata)
+        return _metadata_stage
+
     framework_metadata = {
         "python_version": platform.python_version(),
         "torch_version": torch.__version__,
@@ -587,29 +605,16 @@ def _add_framework_metadata(metadata, is_metadata_staged):
     }
     if is_metadata_staged:
         for stage_name, stage_value in metadata.items():
-            shared_keys = set(stage_value.keys()).intersection(
-                set(framework_metadata.keys())
+            stage_value = _add_framework_metadata_stage(
+                metadata_stage=stage_value,
+                framework_metadata=framework_metadata,
+                stage_name=stage_name,
             )
-            if shared_keys:
-                warnings.warn(
-                    "Overwriting metadata stage "
-                    f"(stage name: {stage_name}) key(s) {shared_keys} "
-                    "with new value(s) "
-                    f"{ {k:v for k,v in framework_metadata.items() if k in shared_keys} }"  # noqa E501
-                )
-            _stage_value = deepcopy(stage_value)
-            _stage_value.update(framework_metadata)
-            metadata[stage_name] = _stage_value
+            metadata[stage_name] = stage_value
     else:
-        shared_keys = set(metadata.keys()).intersection(set(framework_metadata))
-        if shared_keys:
-            warnings.warn(
-                "Overwriting metadata "
-                f"key(s) {shared_keys} "
-                f"with new value(s) "
-                f"{ {k: v for k, v in framework_metadata.items() if k in shared_keys} }"  # noqa E501
-            )
-        metadata.update(framework_metadata)
+        metadata = _add_framework_metadata_stage(
+            metadata_stage=metadata, framework_metadata=framework_metadata
+        )
 
     return metadata
 
