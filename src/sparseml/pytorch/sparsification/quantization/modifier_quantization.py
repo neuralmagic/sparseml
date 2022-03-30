@@ -113,21 +113,26 @@ class QuantizationModifier(ScheduledModifier):
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware
         Default is False
-    :param quantize_linear_activations: if False, FakeQuantize ops will not be run
-        for activations of fully connected layers. this is important for quantizing
-        transformer based models such as BERT where the quantized MatMul outputs
-        are kept at 32 bits of precision and fake quantizing the outputs harm training
-        recovery. Default is True
+    :param quantize_linear_activations: if True, FakeQuantize ops will be run
+        for output activations of fully connected layers. Default is False.
+    :param quantize_conv_activations: if True, FakeQuantize ops will be run
+        for output activations of convolutional layers. Default is False.
     :param activation_bits: Number of bits to use for setting quant min/max values for
-            activations. Default is None, which will quantize activations to 8 bits.
+        activations. Default is None, which will quantize activations to 8 bits.
+    :param weight_bits: Number of bits to use for setting quant min/max values for
+        weights. Default is None, which will quantize weights to 8 bits.
     :param num_calibration_steps: Number of steps to run post training calibration for.
-            When None, the entire calibration_dataloader is used
+        When None, the entire calibration_dataloader is used
+    :param exclude_batchnorm: If True, do not propagate quantization qconfigs to
+        batch-normalization modules
     :param exclude_module_types: optional list of module class names
         to not propagate quantization configs to. Default is None
     :param activation_qconfig_kwargs: Additional kwargs for quantization of
-            activations.
+        activations.
     :param weight_qconfig_kwargs: Additional kwargs for quantization of
-            weights.
+        weights.
+    :param tenssorrt: if True sets quantization configuration for compatibility with
+       explict quantization as supported by TensorRT 8.2.
     """
 
     def __init__(
@@ -232,11 +237,12 @@ class QuantizationModifier(ScheduledModifier):
     def model_fuse_fn_name(self) -> Union[str, None]:
         """
         :return: Name of model function to fuse the model in place prior
-            to performing QAT. None to uses the default function
+            to performing QAT. None sets to default function.
+            If tensorrt flag is True, default is 'no_fuse', otherwise
             `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         """
         if self._tensorrt:
-            fuse_fn = 'no_fuse'
+            fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else 'no_fuse'
         else:
             fuse_fn = self._model_fuse_fn_name if self._model_fuse_fn_name else 'conv_bn_relus'
         return fuse_fn
@@ -322,19 +328,16 @@ class QuantizationModifier(ScheduledModifier):
     @ModifierProp()
     def quantize_linear_activations(self) -> bool:
         """
-        :return: if False, FakeQuantize ops will not be run
-            for activations of fully connected layers. this is important for quantizing
-            transformer based models such as BERT where the quantized MatMul outputs
-            are kept at 32 bits of precision and fake quantizing the outputs harm
-            training recovery
+        :return: if True, FakeQuantize ops will be run for output activations
+            of fully connected layers
         """
         return self._quantize_linear_activations
 
     @ModifierProp()
     def quantize_conv_activations(self) -> bool:
         """
-        :return: if False, FakeQuantize ops will not be run
-            for activations of convolutional layers.
+        :return: if True, FakeQuantize ops will be run for output activations
+            of convolutional layers
         """
         return self._quantize_conv_activations
 
@@ -358,7 +361,7 @@ class QuantizationModifier(ScheduledModifier):
     def weight_bits(self) -> Optional[int]:
         """
         :return: Number of bits to be use for setting quant min/max values for
-            activations. Default is None, which will quantize activations to 8 bits.
+            weights. Default is None, which will quantize weights to 8 bits.
         """
         return self._weight_bits
 
@@ -543,6 +546,7 @@ class QuantizationModifier(ScheduledModifier):
                 )
             module_fuse_fn(**self._model_fuse_fn_kwargs)
 
+        # build list of layer types that should not quantize output activations
         to_remove_layer_name = []
         if not self._quantize_linear_activations:
             to_remove_layer_name.extend(["Linear", "LinearReLU"])
@@ -557,9 +561,16 @@ class QuantizationModifier(ScheduledModifier):
         if len(to_remove_layer_name) == 0:
             to_remove_layer_name = None
 
+        # fix for freezing batchnorm statistics when not fusing BN with convs.
+        # pytorch only supports freezing batchnorm statistics for fused modules.
+        # this fix wraps BN modules adding with a new module class that supports
+        # methods related to freezing/unfreezing BN statistics.
         configure_module_bn_wrappers(module)
 
-        # prepare each module / submodule for quantization
+        # set qconfig.
+        # if tensorrt flag is used, set activation and weights to symmetric
+        # quantization.
+        # otherwise, use the default values set in get_qat_qconfig
         if self.tensorrt:
             _symmetric_activations = True
             _activation_dtype = torch.qint8
@@ -582,6 +593,8 @@ class QuantizationModifier(ScheduledModifier):
             activation_bits=self.activation_bits,
             weight_bits=self.weight_bits
         )
+
+        # prepare each module / submodule for quantization
         for name, quant_module in self._modules_to_quantize:
             # wrap any modules with wrap_qat set to True as QATWrapper(s)
             configure_module_qat_wrappers(
@@ -596,13 +609,17 @@ class QuantizationModifier(ScheduledModifier):
                 activation_bits=self.activation_bits,
                 weight_bits=self.weight_bits
             )
+
             # set quantization config (asymmetric activations, symmetric weights)
             quant_module.qconfig = qconfig
+
             # wrap all conv / linear blocks in with quantization observers
             torch_quantization.propagate_qconfig_(quant_module)
             configure_module_default_qconfigs(quant_module)
 
             add_quant_dequant(quant_module, name, module)
+
+            # Remove output quantization from appropriate modules
             if to_remove_layer_name:
                 remove_activation_qat_by_layer_name(quant_module, to_remove_layer_name)
 
@@ -611,6 +628,8 @@ class QuantizationModifier(ScheduledModifier):
         if self._exclude_module_types:
             to_exclude.extend(self._exclude_module_types)
 
+        # if exclude_batchnorm flag is used, add batch norm layers to list of
+        # modules to exclude qconfig
         if self._exclude_batchnorm:
             to_exclude.extend(['BatchNorm1d', 'BatchNorm2d', 'BatchNorm3d'])
 
