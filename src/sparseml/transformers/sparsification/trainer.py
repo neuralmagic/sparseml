@@ -42,7 +42,11 @@ from sparseml.pytorch.utils import (
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
+from sparseml.transformers.utils.helpers import (
+    RECIPE_NAME,
+    RECIPE_REGEX,
+    RECIPE_TEMPLATE,
+)
 
 
 __all__ = [
