@@ -17,6 +17,7 @@ import platform
 import pytest
 import torch
 
+from sparseml import version as sparseml_version
 from sparseml.optim import (
     check_if_staged_recipe,
     evaluate_recipe_yaml_str_equations,
@@ -26,7 +27,6 @@ from sparseml.optim import (
     validate_metadata,
 )
 from sparseml.utils import RECIPE_METADATA_KEY
-from src.sparseml.version import version_base
 
 
 STAGED_RECIPE_COMPLEX = """
@@ -429,7 +429,7 @@ def _generate_fake_metadata(
     framework_metadata = {
         "python_version": platform.python_version(),
         "torch_version": torch.__version__,
-        "sparseml_version": version_base,
+        "sparseml_version": sparseml_version,
     }
     metadata = {k: v for (k, v) in (item1, item2)}
     if include_framework_metadata:

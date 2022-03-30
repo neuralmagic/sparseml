@@ -26,6 +26,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import torch
 import yaml
 
+from sparseml import version as sparseml_version
 from sparseml.utils import (
     RECIPE_METADATA_KEY,
     UnknownVariableException,
@@ -33,13 +34,6 @@ from sparseml.utils import (
 )
 from sparsezoo import Zoo
 from sparsezoo.objects import Recipe
-
-
-# from src.sparseml import version_base
-
-# having circular dependency problem with the
-# line above, hack for now
-version_base = "0.12.0"
 
 
 __all__ = [
@@ -601,7 +595,7 @@ def _add_framework_metadata(metadata, is_metadata_staged):
     framework_metadata = {
         "python_version": platform.python_version(),
         "torch_version": torch.__version__,
-        "sparseml_version": version_base,
+        "sparseml_version": sparseml_version,
     }
     if is_metadata_staged:
         for stage_name, stage_value in metadata.items():
