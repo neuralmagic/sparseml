@@ -451,7 +451,7 @@ class BaseManager(BaseObject):
             yaml_str_lines.append(f"{RECIPE_METADATA_KEY}:")
             if not isinstance(self._metadata, dict):
                 yaml_str_lines[-1] += f" {self._metadata}"
-            else:
+            elif self._metadata[RECIPE_METADATA_KEY] is not None:
                 for key, value in self._metadata[RECIPE_METADATA_KEY].items():
                     yaml_str_lines.append(f"  {key}: {value}")
 
