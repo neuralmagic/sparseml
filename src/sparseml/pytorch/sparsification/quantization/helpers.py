@@ -69,8 +69,14 @@ _QUANTIZABLE_MODULE_TYPES = (
     else None
 )
 
-
+#
 class BNWrapper(Module):
+    """
+    Wraps BatchNormalization module to expose methods needed to enable
+    freezing/unfreezing of statistics
+
+    :param module: BatchNormalization module to be wrapped
+    """
     def __init__(self, module: Module):
         super().__init__()
         self.bn = module
@@ -220,14 +226,25 @@ class QATWrapper(Module):
     ) -> "QATWrapper":
         """
         :param module: torch Module to create a QATWrapper for
-        :param reduce_range: if True, the quantization range will be reduced by one
-            bit. This may prevent overflow issues with model execution on certain
-            hardware. Default is None, will only override qat_wrapper_kwargs if set
-            to a bool value
+        :param symmetric_activations: if True, activations will have a symmetric
+            quantization range with a pre-specified zero point
+            (0 if activation_dtype=torch.qint8, 128 if activation_dtype=torch.quint8).
+            Default is False.
+        :param symmetric_weights: if True, weights will have a symmetric
+            quantization range with a pre-specified zero point
+            (0 if weight_dtype=torch.qint8, 128 if weight_dtype=torch.quint8).
+            Default is True.
+        :param reduce_range: if True, the quantization range will be reduced by one bit.
+            This may prevent overflow issues with model execution on certain hardware.
+            Default is False.
         :param activation_qconfig_kwargs: Additional kwargs for quantization of
-            activations. Default is {}
+            activations.
         :param weight_qconfig_kwargs: Additional kwargs for quantization of
-            weights. Default is {}
+            weights.
+        :param activation_dtype: quantized activation data type. Default is torch.quint8.
+        :param weight_dtype: quantized weights data type. Default is torch.qint8.
+        :param activation_bits: number of bits for activations. Default is 8.
+        :param weight_bits: number of bits for weights. Default is 8.
         :return: QATWrapper object created using the given Module as the forward
             function. Will attempt to find any other named parameter of the QATWrapper
             constructor from the attributes of the given Module
@@ -293,6 +310,7 @@ class QATWrapper(Module):
             else weight_bits or qat_wrapper_kwargs["weight_bits"]
         )
 
+        # Remove qconfig from wrapped layer to avoid duplicate quantization
         module.qconfig = None
         return QATWrapper(forward_fn=module, **qat_wrapper_kwargs)
 
@@ -516,19 +534,10 @@ class QATWrapper(Module):
 
 def configure_module_bn_wrappers(module: Module):
     """
-    if any submodule of the given module has the attribute wrap_qat == True,
-    then it will be replaced by a QATWrapper of it created by QATWrapper.from_module.
-    Other named kwargs to the QATWrapper constructor must be contained in a dictionary
-    under an attributed named `qat_wrapper_kwargs`
+    Wrap any BatchNormalization modules that are not fused with convolutions
+    with BNWrapper to enable freezing/unfreezing of BN statistics
 
     :param module: module to potentially wrap the submodules of
-    :param reduce_range: if True, the quantization range will be reduced by one bit.
-        This may prevent overflow issues with model execution on certain hardware
-        Default is False
-    :param activation_qconfig_kwargs: Additional kwargs for quantization of
-            activations. Default is {}
-    :param weight_qconfig_kwargs: Additional kwargs for quantization of
-            weights. Default is {}
     """
     # wrap any children of the given module as a QATWrapper if required
     if not hasattr(module, 'freeze_bn_stats'):
@@ -562,14 +571,25 @@ def configure_module_qat_wrappers(
     under an attributed named `qat_wrapper_kwargs`
 
     :param module: module to potentially wrap the submodules of
+    :param symmetric_activations: if True, activations will have a symmetric
+        quantization range with a pre-specified zero point
+        (0 if activation_dtype=torch.qint8, 128 if activation_dtype=torch.quint8).
+        Default is False.
+    :param symmetric_weights: if True, weights will have a symmetric
+        quantization range with a pre-specified zero point
+        (0 if weight_dtype=torch.qint8, 128 if weight_dtype=torch.quint8).
+        Default is True.
     :param reduce_range: if True, the quantization range will be reduced by one bit.
-        This may prevent overflow issues with model execution on certain hardware
-        Default is False
+        This may prevent overflow issues with model execution on certain hardware.
+        Default is False.
     :param activation_qconfig_kwargs: Additional kwargs for quantization of
-            activations. Default is {}
+        activations.
     :param weight_qconfig_kwargs: Additional kwargs for quantization of
-            weights. Default is {}
-    """
+        weights.
+    :param activation_dtype: quantized activation data type. Default is torch.quint8.
+    :param weight_dtype: quantized weights data type. Default is torch.qint8.
+    :param activation_bits: number of bits for activations. Default is 8.
+    :param weight_bits: number of bits for weights. Default is 8.    """
     # wrap any children of the given module as a QATWrapper if required
     for child_name, child_module in module.named_children():
         if hasattr(child_module, "wrap_qat") and child_module.wrap_qat:
@@ -605,6 +625,13 @@ def configure_module_qat_wrappers(
 
 
 def compute_range(dtype: Optional[torch.dtype], bits: Optional[int]):
+    """
+    compute quantization limits depending on data type and number of bits
+
+    :param dtype: data type. If None dtype is set to torch.quint8.
+    :param bits: number of bits. If None is set to 8.
+    :return: minimum limit, maximum limit, data type
+    """
     dtype = dtype if dtype else torch.quint8
     bits = bits if bits else 8
     if dtype == torch.qint8:
@@ -689,18 +716,24 @@ def get_qat_qconfig(
 ) -> "torch.quantization.QConfig":
     """
     :param symmetric_activations: if True, activations will have a symmetric
-        UINT8 quantization range with zero point set to 128. Otherwise activations
-        will use asymmetric quantization with any zero point. Default is False
+        quantization range with a pre-specified zero point
+        (0 if activation_dtype=torch.qint8, 128 if activation_dtype=torch.quint8).
+        Default is False.
     :param symmetric_weights: if True, weights will have a symmetric
-        INT8 quantization range with zero point set to 0. Otherwise activations
-        will use asymmetric quantization with any zero point. Default is True
+        quantization range with a pre-specified zero point
+        (0 if weight_dtype=torch.qint8, 128 if weight_dtype=torch.quint8).
+        Default is True.
     :param reduce_range: if True, the quantization range will be reduced by one bit.
-        This may prevent overflow issues with model execution on certain hardware
-        Default is False
+        This may prevent overflow issues with model execution on certain hardware.
+        Default is False.
     :param activation_qconfig_kwargs: Additional kwargs for quantization of
-            activations.
+        activations.
     :param weight_qconfig_kwargs: Additional kwargs for quantization of
-            weights.
+        weights.
+    :param activation_dtype: quantized activation data type. Default is torch.quint8.
+    :param weight_dtype: quantized weights data type. Default is torch.qint8.
+    :param activation_bits: number of bits for activations. Default is 8.
+    :param weight_bits: number of bits for weights. Default is 8.
     :return: A QAT fake quantization config for symmetric weight quantization and
         asymmetric activation quantization.  The difference between this and
         torch.quantization.default_qat_qconfig is that the activation observer
@@ -890,14 +923,25 @@ def prepare_embeddings_qat(
     :param module: module to run QAT for the embeddings of
     :param qconfig: qconfig to generate the fake quantize ops from. Default uses INT8
         asymmetric range
-    :param activation_qconfig_kwargs: additional kwargs for quantizing activations.
-        Default is {}.
-    :param weight_qconfig_kwargs: additional kwargs for quantizing the weights.
-        Default is {}.
+    :param symmetric_activations: if True, activations will have a symmetric
+        quantization range with a pre-specified zero point
+        (0 if activation_dtype=torch.qint8, 128 if activation_dtype=torch.quint8).
+        Default is False.
+    :param symmetric_weights: if True, weights will have a symmetric
+        quantization range with a pre-specified zero point
+        (0 if weight_dtype=torch.qint8, 128 if weight_dtype=torch.quint8).
+        Default is True.
     :param reduce_range: if True, the quantization range will be reduced by one bit.
         This may prevent overflow issues with model execution on certain hardware.
-        Default is False
-    """
+        Default is False.
+    :param activation_qconfig_kwargs: Additional kwargs for quantization of
+        activations.
+    :param weight_qconfig_kwargs: Additional kwargs for quantization of
+        weights.
+    :param activation_dtype: quantized activation data type. Default is torch.quint8.
+    :param weight_dtype: quantized weights data type. Default is torch.qint8.
+    :param activation_bits: number of bits for activations. Default is 8.
+    :param weight_bits: number of bits for weights. Default is 8.    """
     if qconfig is None:
         if symmetric_weights is None:
             _symmetric_weights = False
