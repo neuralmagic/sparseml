@@ -76,7 +76,7 @@ optional arguments:
                         The path to the yaml file containing the modifiers and
                         schedule to apply them with. Can also provide a
                         SparseZoo stub prefixed with 'zoo:' with an optional
-                        '?recipe_type=' argument
+                        'recipe_type=' argument
   --eval-mode [EVAL_MODE]
                         Puts into evaluation mode so that the model can be
                         evaluated on the desired dataset
