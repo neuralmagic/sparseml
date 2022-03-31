@@ -1,7 +1,0 @@
-quantization_modifiers:
-  - !QuantizationModifier
-    start_epoch: -1.0
-    model_fuse_fn_name: no_fuse
-    submodules:
-      - input
-      - sections
