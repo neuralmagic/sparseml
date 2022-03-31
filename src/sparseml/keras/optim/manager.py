@@ -27,6 +27,7 @@ from sparseml.keras.utils.compat import keras
 from sparseml.keras.utils.logger import KerasLogger
 from sparseml.optim import (
     BaseManager,
+    add_framework_metadata,
     load_recipe_yaml_str,
     parse_recipe_variables,
     validate_metadata,
@@ -74,6 +75,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
             modifiers.extend(add_modifiers)
 
         metadata = validate_metadata(metadata, yaml_str)
+        metadata = add_framework_metadata(metadata)
 
         manager = ScheduledModifierManager(modifiers=modifiers, metadata=metadata)
 

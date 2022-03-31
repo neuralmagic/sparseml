@@ -19,6 +19,7 @@ import torch
 
 from sparseml import version as sparseml_version
 from sparseml.optim import (
+    add_framework_metadata,
     check_if_staged_recipe,
     evaluate_recipe_yaml_str_equations,
     load_recipe_yaml_str,
@@ -423,14 +424,16 @@ def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
     _test_nested_equality(evaluated_yaml, expected_yaml)
 
 
+framework_metadata = {
+    "python_version": platform.python_version(),
+    "torch_version": torch.__version__,
+    "sparseml_version": sparseml_version,
+}
+
+
 def _generate_fake_metadata(
     item1=("this", "is"), item2=("metadata", 100), include_framework_metadata=False
 ):
-    framework_metadata = {
-        "python_version": platform.python_version(),
-        "torch_version": torch.__version__,
-        "sparseml_version": sparseml_version,
-    }
     metadata = {k: v for (k, v) in (item1, item2)}
     if include_framework_metadata:
         metadata.update(framework_metadata)
@@ -438,7 +441,8 @@ def _generate_fake_metadata(
 
 
 @pytest.mark.parametrize(
-    "metadata,yaml_str, expected_metadata, raise_warning",
+    "metadata,yaml_str, expected_metadata, warning_validate_metadata, "
+    "warning_add_framework_metadata",
     [
         # Testing simple recipe
         (
@@ -450,9 +454,16 @@ def _generate_fake_metadata(
                 )
             },
             False,
+            False,
         ),
         # Testing simple recipe (metadata = None)
-        (None, RECIPE_SIMPLE_EVAL, {RECIPE_METADATA_KEY: None}, False),
+        (
+            None,
+            RECIPE_SIMPLE_EVAL,
+            {RECIPE_METADATA_KEY: framework_metadata},
+            False,
+            False,
+        ),
         # Testing simple recipe, attempting to overwrite previous metadata
         (
             _generate_fake_metadata(item2=("metadata", 120)),
@@ -463,12 +474,18 @@ def _generate_fake_metadata(
                 )
             },
             True,
+            False,
         ),
         # Testing simple recipe, previous metadata present but new metadata is None
         (
             None,
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {RECIPE_METADATA_KEY: _generate_fake_metadata(item2=("metadata", 90))},
+            {
+                RECIPE_METADATA_KEY: _generate_fake_metadata(
+                    item2=("metadata", 90), include_framework_metadata=True
+                )
+            },
+            False,
             False,
         ),
         # Testing simple recipe, passing new metadata
@@ -481,6 +498,7 @@ def _generate_fake_metadata(
                     item2=("metadata", 90), include_framework_metadata=True
                 )
             },
+            False,
             False,
         ),
         # Testing staged recipe
@@ -496,12 +514,14 @@ def _generate_fake_metadata(
                 ),
             },
             False,
+            False,
         ),
         # Testing staged recipe (metadata = None)
         (
             None,
             STAGED_RECIPE_SIMPLE_EVAL,
-            {"first_stage": None, "next_stage": None},
+            {"first_stage": framework_metadata, "next_stage": framework_metadata},
+            False,
             False,
         ),
         # Testing staged recipe, attempting to overwrite previous metadata
@@ -517,15 +537,21 @@ def _generate_fake_metadata(
                 ),
             },
             True,
+            False,
         ),
         # Testing staged recipe, previous metadata present but new metadata is None
         (
             None,
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": _generate_fake_metadata(item2=("metadata", 110)),
-                "next_stage": _generate_fake_metadata(item2=("metadata", 120)),
+                "first_stage": _generate_fake_metadata(
+                    item2=("metadata", 110), include_framework_metadata=True
+                ),
+                "next_stage": _generate_fake_metadata(
+                    item2=("metadata", 120), include_framework_metadata=True
+                ),
             },
+            False,
             False,
         ),
         # Testing staged recipe, passing new staged metadata
@@ -545,6 +571,7 @@ def _generate_fake_metadata(
                 ),
             },
             False,
+            False,
         ),
         # Testing staged recipe, passing new staged metadata
         # which is not equal to previous metadata.
@@ -563,8 +590,9 @@ def _generate_fake_metadata(
                 ),
             },
             True,
+            False,
         ),
-        # Raising warning in `_add_framework_metadata` for non-staged recipe
+        # Raising warning in `add_framework_metadata` for non-staged recipe
         (
             _generate_fake_metadata(
                 item2=("metadata", 90), include_framework_metadata=True
@@ -575,6 +603,7 @@ def _generate_fake_metadata(
                     item2=("metadata", 90), include_framework_metadata=True
                 )
             },
+            True,
             True,
         ),
         # Raising warning in `_add_framework_metadata` for staged recipe
@@ -597,17 +626,31 @@ def _generate_fake_metadata(
                 ),
             },
             True,
+            True,
         ),
     ],
 )
-def test_validate_metadata(metadata, yaml_str, expected_metadata, raise_warning):
-    if raise_warning:
+def test_validate_metadata(
+    metadata,
+    yaml_str,
+    expected_metadata,
+    warning_validate_metadata,
+    warning_add_framework_metadata,
+):
+    if warning_validate_metadata:
         with pytest.warns(UserWarning):
             metadata = validate_metadata(metadata, yaml_str)
-            assert metadata == expected_metadata
     else:
         metadata = validate_metadata(metadata, yaml_str)
-        assert metadata == expected_metadata
+
+    if warning_add_framework_metadata:
+        with pytest.warns(UserWarning):
+            metadata = add_framework_metadata(metadata)
+
+    else:
+        metadata = add_framework_metadata(metadata)
+
+    assert metadata == expected_metadata
 
 
 RECIPE_INVALID_LOOP = """

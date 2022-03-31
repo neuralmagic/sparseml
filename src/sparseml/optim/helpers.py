@@ -45,6 +45,7 @@ __all__ = [
     "parse_recipe_variables",
     "check_if_staged_recipe",
     "validate_metadata",
+    "add_framework_metadata",
 ]
 
 
@@ -573,42 +574,40 @@ def _check_warn_dict_difference(original_dict, new_dict):
     return new_dict
 
 
-def _add_framework_metadata(metadata, is_metadata_staged):
-    def _add_framework_metadata_stage(
-        metadata_stage, framework_metadata, stage_name=None
-    ):
-        shared_keys = set(metadata_stage.keys()).intersection(
-            set(framework_metadata.keys())
-        )
-        if shared_keys:
-            warning_if_stage = f"stage stage name: {stage_name}" if stage_name else ""
-            warning_msg = (
-                f"Overwriting metadata {warning_if_stage} key(s) "
-                f"{shared_keys} with new value(s) "
-                f"{ {k:v for k,v in framework_metadata.items() if k in shared_keys} }"
-            )
-            warnings.warn(warning_msg)
-        _metadata_stage = deepcopy(metadata_stage)
-        _metadata_stage.update(framework_metadata)
-        return _metadata_stage
+def add_framework_metadata(metadata: Dict[str, Dict]) -> Dict[str, Dict]:
+    """
+    Adds the information about the relevant frameworks used by the user to the metadata.
+    :param metadata: Validated metadata
+    :return: Validated metadata with framework metadata
+    """
 
     framework_metadata = {
         "python_version": platform.python_version(),
         "torch_version": torch.__version__,
         "sparseml_version": sparseml_version,
     }
-    if is_metadata_staged:
-        for stage_name, stage_value in metadata.items():
-            stage_value = _add_framework_metadata_stage(
-                metadata_stage=stage_value,
-                framework_metadata=framework_metadata,
-                stage_name=stage_name,
+    for stage_name, stage_value in metadata.items():
+        if stage_value is None:
+            _stage_value = framework_metadata
+        else:
+            shared_keys = set(stage_value.keys()).intersection(
+                set(framework_metadata.keys())
             )
-            metadata[stage_name] = stage_value
-    else:
-        metadata = _add_framework_metadata_stage(
-            metadata_stage=metadata, framework_metadata=framework_metadata
-        )
+            if shared_keys:
+                warning_if_stage = (
+                    f"stage, stage name: {stage_name}"
+                    if stage_name != RECIPE_METADATA_KEY
+                    else ""
+                )
+                warning_msg = (
+                    f"Overwriting metadata {warning_if_stage} key(s) "
+                    f"{shared_keys} with new value(s) "
+                    f"{ {k:v for k,v in framework_metadata.items() if k in shared_keys} }"  # noqa E501
+                )
+                warnings.warn(warning_msg)
+            _stage_value = deepcopy(stage_value)
+            _stage_value.update(framework_metadata)
+        metadata[stage_name] = _stage_value
 
     return metadata
 
@@ -621,11 +620,6 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
     If attempting to overwrite previous metadata with the new metadata,
     the script throws a warning and overwrites the previous metadata.
     Otherwise, it propagates the new metadata in the correct form.
-
-    Note: the function `_add_framework_metadata`, only gets executed if
-        `metadata` evaluates to True. This means that if e.g. we pass
-        `metadata = None`, framework metadata will not be added to the
-        output of this function.
 
     :param metadata: New metadata
     :param yaml_str: String representation of the recipe YAML file,
@@ -660,16 +654,10 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
                         checkpoint_metadata[stage_name] = _check_warn_dict_difference(
                             container[stage_name][RECIPE_METADATA_KEY], metadata
                         )
-                checkpoint_metadata = _add_framework_metadata(
-                    metadata=checkpoint_metadata, is_metadata_staged=True
-                )
+
             else:
                 checkpoint_metadata = _check_warn_dict_difference(
                     container[RECIPE_METADATA_KEY], metadata
-                )
-
-                checkpoint_metadata = _add_framework_metadata(
-                    metadata=checkpoint_metadata, is_metadata_staged=False
                 )
 
         return (
@@ -680,9 +668,7 @@ def validate_metadata(metadata: dict, yaml_str: str) -> dict:
 
     else:
         if metadata:
-            metadata = _add_framework_metadata(
-                metadata=metadata, is_metadata_staged=False
-            )
+
             return (
                 {
                     stage_name: metadata
