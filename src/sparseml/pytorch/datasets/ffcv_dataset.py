@@ -50,6 +50,11 @@ except ModuleNotFoundError as ffcv_error:
     ffcv = None
     ffcv_error = ffcv_error
 
+__all__ = [
+    "FFCVCompatibleDataset",
+    "FFCVImageNetDataset",
+]
+
 LOGGER = logging.getLogger(__name__)
 
 
