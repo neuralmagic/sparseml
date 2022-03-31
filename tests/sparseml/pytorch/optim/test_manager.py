@@ -468,6 +468,68 @@ def test_lifecycle_manager_staged(
     assert final_recipe == expected_recipe
 
 
+TWO_STAGES_RECIPE = """version: 1.1.0
+
+stage_0:
+
+  stage_0_modifiers:
+      - !EpochRangeModifier
+          end_epoch: 3.0
+          start_epoch: 0.0
+
+      - !GMPruningModifier
+          end_epoch: 3.0
+          final_sparsity: 0.8
+          global_sparsity: False
+          init_sparsity: 0.2
+          inter_func: cubic
+          leave_enabled: True
+          mask_type: unstructured
+          params: ['re:.*weight']
+          start_epoch: 0.0
+          update_frequency: 1.0
+
+
+stage_1:
+
+  stage_1_modifiers:
+      - !ConstantPruningModifier
+          end_epoch: 8
+          params: ['re:.*weight']
+          start_epoch: 5
+          update_frequency: -1
+
+      - !EpochRangeModifier
+          end_epoch: 9.0
+          start_epoch: 3.0
+
+"""
+
+
+@pytest.mark.parametrize(
+    "recipe",
+    [
+        STANDARD_RECIPE_1,  # passing standard recipe without metadata
+        TWO_STAGES_RECIPE,  # passing staged recipe without metadata
+    ],
+)
+def test_lifecycle_manager_staged_no_metadata(recipe):
+    temp_dir = tempfile.mkdtemp()
+    recipe_path = os.path.join(temp_dir, "recipy.yaml")
+
+    recipe_manager = ScheduledModifierManager.from_yaml(file_path=recipe)
+    recipe_manager.save(recipe_path)
+    with open(recipe_path, "r") as file:
+        recipe_old = file.read()
+
+    recipe_manager = ScheduledModifierManager.from_yaml(file_path=recipe_old)
+    recipe_manager.save(recipe_path)
+    with open(recipe_path, "r") as file:
+        recipe = file.read()
+
+    assert recipe_old == recipe
+
+
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",
