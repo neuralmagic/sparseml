@@ -46,7 +46,7 @@ try:
         ToTensor,
         ToTorchImage,
     )
-except Exception as ffcv_error:
+except ModuleNotFoundError as ffcv_error:
     ffcv = None
     ffcv_error = ffcv_error
 
@@ -84,14 +84,14 @@ class FFCVCompatibleDataset(ABC):
 
     @property
     @abstractmethod
-    def ffcv_fields(self, *args, **kwargs) -> Dict[str, Field]:
+    def ffcv_fields(self, *args, **kwargs) -> "Dict[str, Field]":
         """
         :returns A dictionary of FFCV fields to use while writing the dataset.
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def ffcv_pipelines(self, *args, **kwargs) -> Dict[str, List[Operation]]:
+    def ffcv_pipelines(self, *args, **kwargs) -> "Dict[str, List[Operation]]":
         """
         :returns: A Dict of operations to apply to the features and labels.
         """
@@ -192,6 +192,13 @@ class FFCVCompatibleDataset(ABC):
         :param device: str or int The device to use for the data loader.
         """
 
+        if not ffcv:
+            ffcv_url = "https://github.com/libffcv/ffcv#readme"
+            raise ImportError(
+                "FFCV is not installed. Please install using instructions from "
+                f"{ffcv_url}"
+            )
+
         # Write the dataset if it hasn't been written already
         self._write(write_path=write_path, num_workers=num_workers)
 
@@ -224,7 +231,7 @@ class FFCVImageNetDataset(FFCVCompatibleDataset):
     DEFAULT_CROP_RATIO = 224 / 256
 
     @property
-    def ffcv_fields(self) -> Dict[str, Field]:
+    def ffcv_fields(self) -> "Dict[str, Field]":
         """
         :returns: A dictionary of FFCV fields representing ImageNet
             based datasets.
@@ -237,7 +244,7 @@ class FFCVImageNetDataset(FFCVCompatibleDataset):
     def ffcv_pipelines(
         self,
         device: Union[str, int] = default_device(),
-    ) -> Dict[str, List[Operation]]:
+    ) -> "Dict[str, List[Operation]]":
         """
         :returns: A Dict of operations to apply to the features and labels
             for ImageNet based datasets.
