@@ -106,11 +106,17 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
+
+        # hack for now, maybe better to add training_args as
+        # an explicit argument to the constructor?
+        # this is required to make export_transformers_to_onnx
+        # at `transformers/export.py` work correctly.
+        training_args = kwargs["args"] if "args" in kwargs.keys() else None
         self.metadata = (
             self._extract_metadata(
-                metadata_args=metadata_args, training_args=kwargs["args"]
+                metadata_args=metadata_args, training_args=training_args
             )
-            if (kwargs["args"] and metadata_args)
+            if (training_args and metadata_args)
             else None
         )
 
@@ -416,13 +422,18 @@ class RecipeManagerTrainerInterface:
     ) -> Tuple[Optional[ScheduledModifierManager], List[ScheduledModifierManager]]:
         manager = None
         checkpoint_recipe = os.path.join(self.model_state_path, RECIPE_NAME)
+        # By default we should fetch checkpoint_recipe from self.model_state_path
+        # This is used for testing only
+        # checkpoint_recipe = os.path.join(
+        #    kwargs["args"].to_dict()["output_dir"], RECIPE_NAME
+        # )
         if self.recipe is not None:
             manager = ScheduledModifierManager.from_yaml(
                 self.recipe,
                 recipe_variables=self.recipe_args,
                 metadata=self.metadata,
             )
-        if checkpoint_recipe and manager:
+        if os.path.isfile(checkpoint_recipe) and manager:
             manager = ScheduledModifierManager.compose_staged(
                 base_recipe=checkpoint_recipe, additional_recipe=manager
             )

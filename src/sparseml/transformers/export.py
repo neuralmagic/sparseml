@@ -175,13 +175,21 @@ def export_transformer_to_onnx(
         )
     else:
         trainer.finalize_manager()
-        num_stages = None
-        if num_stages is None:
-            raise NotImplementedError("Not tested yet!")
-            _LOGGER.info(
-                f"Applied a recipe with {num_stages} "
-                f"stages to the model at {model_path}"
-            )
+        # if isinstance(trainer.manager.modifiers, dict)
+        # -> staged recipe
+        # else it is a list
+        # -> normal recipe
+        num_stages = (
+            len(trainer.manager.modifiers)
+            if isinstance(trainer.manager.modifiers, dict)
+            else 1
+        )
+        msg = (
+            "an unstaged_recipe"
+            if num_stages == 1
+            else f"a staged recipe with {num_stages} stages"
+        )
+        _LOGGER.info(f"Applied {msg} to the model at {model_path}")
 
     # create fake model input
     inputs = tokenizer(
