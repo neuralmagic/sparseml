@@ -23,6 +23,7 @@ import torch
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
+from sparseml import version as sparseml_version
 from sparseml.optim import BaseModifier
 from sparseml.pytorch.optim import Modifier, ScheduledModifierManager
 from tests.sparseml.pytorch.helpers import (
@@ -42,12 +43,6 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
     test_loss,
     test_steps_per_epoch,
 )
-
-# from src.sparseml import version_base
-
-# having circular dependency problem with the
-# line above, hack for now
-version_base = "0.12.0"
 
 
 STANDARD_RECIPE_1 = """
@@ -415,7 +410,6 @@ def _generate_fake_metadata(item1=("metadata", None), item2=("level", 1)):
 
 python_version = platform.python_version()
 torch_version = torch.__version__
-sparse_ml_version = version_base
 
 
 @pytest.mark.parametrize(
@@ -429,7 +423,7 @@ sparse_ml_version = version_base
             _generate_fake_metadata(item2=("level", 0)),
             STANDARD_RECIPE_1_EVAL.format(
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             False,
@@ -441,7 +435,7 @@ sparse_ml_version = version_base
             STANDARD_RECIPE_2,
             STANDARD_RECIPE_1_EVAL.format(
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             _generate_fake_metadata(),
@@ -449,7 +443,7 @@ sparse_ml_version = version_base
                 stage_0_name="stage_0",
                 stage_1_name="stage_1",
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             False,
@@ -463,13 +457,13 @@ sparse_ml_version = version_base
                 stage_0_name="stage_0",
                 stage_1_name="stage_1",
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             _generate_fake_metadata(item2=("level", 3)),
             THREE_STAGES_RECIPE_1.format(
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             False,
@@ -482,18 +476,18 @@ sparse_ml_version = version_base
                 stage_0_name="stage_0",
                 stage_1_name="stage_1",
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             STANDARD_RECIPE_1_EVAL.format(
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             _generate_fake_metadata(),
             THREE_STAGES_RECIPE_2.format(
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             True,
@@ -505,20 +499,20 @@ sparse_ml_version = version_base
                 stage_0_name="stage_3",
                 stage_1_name="stage_4",
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             TWO_STAGES_RECIPE.format(
                 stage_0_name="stage_0",
                 stage_1_name="stage_1",
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             _generate_fake_metadata(),
             FOUR_STAGES_RECIPE.format(
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             True,
@@ -531,20 +525,20 @@ sparse_ml_version = version_base
                 stage_0_name="stage_0",
                 stage_1_name="stage_1",
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             TWO_STAGES_RECIPE.format(
                 stage_0_name="stage_0",
                 stage_1_name="stage_1",
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             None,
             FOUR_STAGES_RECIPE.format(
                 python_version=python_version,
-                sparseml_version=sparse_ml_version,
+                sparseml_version=sparseml_version,
                 torch_version=torch_version,
             ),
             False,
