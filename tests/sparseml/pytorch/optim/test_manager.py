@@ -515,7 +515,7 @@ stage_1:
 )
 def test_lifecycle_manager_staged_no_metadata(recipe):
     temp_dir = tempfile.mkdtemp()
-    recipe_path = os.path.join(temp_dir, "recipy.yaml")
+    recipe_path = os.path.join(temp_dir, "recipe.yaml")
 
     recipe_manager = ScheduledModifierManager.from_yaml(file_path=recipe)
     recipe_manager.save(recipe_path)
