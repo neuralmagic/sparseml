@@ -175,8 +175,13 @@ def export_transformer_to_onnx(
         )
     else:
         trainer.finalize_manager()
-        total_recipes = (1 if trainer.manager else 0) + len(trainer.arch_managers)
-        _LOGGER.info(f"Applied {total_recipes} total recipes the model at {model_path}")
+        num_stages = None
+        if num_stages is None:
+            raise NotImplementedError("Not tested yet!")
+            _LOGGER.info(
+                f"Applied a recipe with {num_stages} "
+                f"stages to the model at {model_path}"
+            )
 
     # create fake model input
     inputs = tokenizer(

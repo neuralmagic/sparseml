@@ -382,7 +382,7 @@ def main():
     # 'text' is found. You can easily tweak this behavior (see below).
     #
     # In distributed training, the load_dataset function guarantee that
-    # only one local process can concurrentlydownload the dataset.
+    # only one local process can concurrently download the dataset.
     if data_args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
         raw_datasets = load_dataset(
