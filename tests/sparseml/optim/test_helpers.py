@@ -15,7 +15,7 @@
 import platform
 
 import pytest
-import torch
+from sparseml.pytorch import torch
 
 from sparseml import version as sparseml_version
 from sparseml.optim import (
