@@ -16,13 +16,17 @@
 Helper functions for base Modifier and Manger utilities
 """
 import json
+import platform
 import re
 import warnings
 from contextlib import suppress
+from copy import deepcopy
 from typing import Any, Dict, Optional, Tuple, Union
 
+import torch
 import yaml
 
+from sparseml import version as sparseml_version
 from sparseml.utils import (
     RECIPE_METADATA_KEY,
     UnknownVariableException,
@@ -41,6 +45,7 @@ __all__ = [
     "parse_recipe_variables",
     "check_if_staged_recipe",
     "validate_metadata",
+    "add_framework_metadata",
 ]
 
 
@@ -567,6 +572,44 @@ def _check_warn_dict_difference(original_dict, new_dict):
             "change in metadata is expected."
         )
     return new_dict
+
+
+def add_framework_metadata(metadata: Dict[str, Dict]) -> Dict[str, Dict]:
+    """
+    Adds the information about the relevant frameworks used by the user to the metadata.
+    :param metadata: Validated metadata
+    :return: Validated metadata with framework metadata
+    """
+
+    framework_metadata = {
+        "python_version": platform.python_version(),
+        "torch_version": torch.__version__,
+        "sparseml_version": sparseml_version,
+    }
+    for stage_name, stage_value in metadata.items():
+        if stage_value is None:
+            _stage_value = framework_metadata
+        else:
+            shared_keys = set(stage_value.keys()).intersection(
+                set(framework_metadata.keys())
+            )
+            if shared_keys:
+                warning_if_stage = (
+                    f"stage, stage name: {stage_name}"
+                    if stage_name != RECIPE_METADATA_KEY
+                    else ""
+                )
+                warning_msg = (
+                    f"Overwriting metadata {warning_if_stage} key(s) "
+                    f"{shared_keys} with new value(s) "
+                    f"{ {k:v for k,v in framework_metadata.items() if k in shared_keys} }"  # noqa E501
+                )
+                warnings.warn(warning_msg)
+            _stage_value = deepcopy(stage_value)
+            _stage_value.update(framework_metadata)
+        metadata[stage_name] = _stage_value
+
+    return metadata
 
 
 def validate_metadata(metadata: dict, yaml_str: str) -> dict:

@@ -15,7 +15,7 @@
 """
 Utility / helper functions
 """
-import platform
+
 import random
 import re
 import warnings
@@ -31,9 +31,6 @@ from torch.nn import Linear, Module, Parameter
 from torch.nn.modules.conv import Conv2d, Conv3d, _ConvNd
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
-
-from sparseml import version as sparseml_version
-from sparseml.utils import RECIPE_METADATA_KEY
 
 
 try:
@@ -87,7 +84,6 @@ __all__ = [
     "get_layer_param",
     "set_deterministic_seeds",
     "torch_distributed_zero_first",
-    "add_framework_metadata",
 ]
 
 
@@ -961,41 +957,3 @@ def torch_distributed_zero_first(local_rank: int):
     yield
     if local_rank == 0:
         torch.distributed.barrier()
-
-
-def add_framework_metadata(metadata: Dict[str, Dict]) -> Dict[str, Dict]:
-    """
-    Adds the information about the relevant frameworks used by the user to the metadata.
-    :param metadata: Validated metadata
-    :return: Validated metadata with framework metadata
-    """
-
-    framework_metadata = {
-        "python_version": platform.python_version(),
-        "torch_version": torch.__version__,
-        "sparseml_version": sparseml_version,
-    }
-    for stage_name, stage_value in metadata.items():
-        if stage_value is None:
-            _stage_value = framework_metadata
-        else:
-            shared_keys = set(stage_value.keys()).intersection(
-                set(framework_metadata.keys())
-            )
-            if shared_keys:
-                warning_if_stage = (
-                    f"stage, stage name: {stage_name}"
-                    if stage_name != RECIPE_METADATA_KEY
-                    else ""
-                )
-                warning_msg = (
-                    f"Overwriting metadata {warning_if_stage} key(s) "
-                    f"{shared_keys} with new value(s) "
-                    f"{ {k:v for k,v in framework_metadata.items() if k in shared_keys} }"  # noqa E501
-                )
-                warnings.warn(warning_msg)
-            _stage_value = deepcopy(stage_value)
-            _stage_value.update(framework_metadata)
-        metadata[stage_name] = _stage_value
-
-    return metadata

@@ -27,17 +27,13 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import (
     BaseManager,
+    add_framework_metadata,
     load_recipe_yaml_str,
     parse_recipe_variables,
     validate_metadata,
 )
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
-from sparseml.pytorch.utils import (
-    BaseLogger,
-    LoggerManager,
-    add_framework_metadata,
-    is_parallel_model,
-)
+from sparseml.pytorch.utils import BaseLogger, LoggerManager, is_parallel_model
 from sparsezoo.objects import Recipe
 
 

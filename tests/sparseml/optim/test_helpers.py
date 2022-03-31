@@ -15,10 +15,11 @@
 import platform
 
 import pytest
-import torch
+from sparseml.pytorch import torch
 
 from sparseml import version as sparseml_version
 from sparseml.optim import (
+    add_framework_metadata,
     check_if_staged_recipe,
     evaluate_recipe_yaml_str_equations,
     load_recipe_yaml_str,
@@ -26,7 +27,6 @@ from sparseml.optim import (
     update_recipe_variables,
     validate_metadata,
 )
-from sparseml.pytorch.utils import add_framework_metadata
 from sparseml.utils import RECIPE_METADATA_KEY
 
 
