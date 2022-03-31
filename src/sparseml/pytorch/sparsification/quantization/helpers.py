@@ -817,9 +817,9 @@ def fix_observer_quant_range(module: Module):
         # continue if fake_quantize quant range not set, or observer quant range is set
         observer = fake_quantize.activation_post_process
         if (
-                fake_quantize.quant_min is None
-                or fake_quantize.quant_max is None
-                or (observer.quant_min is not None or observer.quant_max is not None)
+            fake_quantize.quant_min is None
+            or fake_quantize.quant_max is None
+            or (observer.quant_min is not None or observer.quant_max is not None)
         ):
             continue
         observer.quant_min = fake_quantize.quant_min
