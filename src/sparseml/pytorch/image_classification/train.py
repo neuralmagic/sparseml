@@ -59,11 +59,11 @@ optional arguments:
                         The root path to where the dataset is stored
   --arch-key ARCH_KEY   The type of model to use, ex: resnet50, vgg16,
                         mobilenet put as help to see the full list (will raise
-                        an exceptionwith the list)
+                        an exception with the list)
   --checkpoint-path CHECKPOINT_PATH
                         A path to a previous checkpoint to load the state from
                         and resume the state for. If provided, pretrained will
-                        be ignored . If using a SparseZoo recipe, can also
+                        be ignored. If using a SparseZoo recipe, can also
                         provide 'zoo' to load the base weights associated with
                         that recipe
   --init-lr INIT_LR     The initial learning rate to use while training, the
