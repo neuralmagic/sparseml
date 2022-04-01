@@ -396,35 +396,18 @@ def main():
 
     args_, _ = _parser.parse_args_into_dataclasses()
 
-    save_dir, loggers = helpers.get_save_dir_and_loggers(
-        task=CURRENT_TASK,
-        is_main_process=args_.is_main_process,
-        save_dir=args_.save_dir,
-        arch_key=args_.arch_key,
-        model_tag=args_.model_tag,
-        dataset_name=args_.dataset,
-    )
+    save_dir, loggers = helpers.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
 
-    input_shape = ModelRegistry.input_shape(key=args_.arch_key)
+    input_shape = ModelRegistry.input_shape(args_.arch_key)
     # assume shape [C, S, S] where S is the image size
     image_size = input_shape[1]
 
-    train_dataset, train_loader = (
-        helpers.get_dataset_and_dataloader(
-            dataset_name=args_.dataset,
-            dataset_path=args_.dataset_path,
-            batch_size=args_.batch_size,
-            image_size=image_size,
-            dataset_kwargs=args_.dataset_kwargs,
-            training=True,
-            loader_num_workers=args_.loader_num_workers,
-            loader_pin_memory=args_.loader_pin_memory,
-        )
-        if not args_.approximate
-        else (None, None)
-    )
-
-    val_dataset = None
+    (
+        train_dataset,
+        train_loader,
+        val_dataset,
+        val_loader,
+    ) = helpers.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
 
     num_classes = helpers.infer_num_classes(
         train_dataset=train_dataset,
@@ -433,16 +416,8 @@ def main():
         model_kwargs=args_.model_kwargs,
     )
 
-    model, args_.arch_key = helpers.create_model(
-        checkpoint_path=args_.checkpoint_path,
-        recipe_path=None,
-        num_classes=num_classes,
-        arch_key=args_.arch_key,
-        pretrained=args_.pretrained,
-        pretrained_dataset=args_.pretrained_dataset,
-        local_rank=args_.local_rank,
-        **args_.model_kwargs,
-    )
+    model = helpers.create_model(args_, num_classes)
+
     pruning_loss_sensitivity(args_, model, train_loader, save_dir, loggers)
 
 

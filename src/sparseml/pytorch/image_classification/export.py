@@ -323,34 +323,15 @@ def export_setup(args_: ExportArgs) -> Tuple[Module, Optional[str], Any]:
 
     :param args_ : An ExportArgs object containing config for export task.
     """
-    save_dir, loggers = helpers.get_save_dir_and_loggers(
-        task=CURRENT_TASK,
-        is_main_process=args_.is_main_process,
-        save_dir=args_.save_dir,
-        arch_key=args_.arch_key,
-        model_tag=args_.model_tag,
-        dataset_name=args_.dataset,
-    )
-    input_shape = ModelRegistry.input_shape(key=args_.arch_key)
+    save_dir, loggers = helpers.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
+    input_shape = ModelRegistry.input_shape(args_.arch_key)
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
-
-    val_dataset, val_loader = (
-        helpers.get_dataset_and_dataloader(
-            dataset_name=args_.dataset,
-            dataset_path=args_.dataset_path,
-            batch_size=1,
-            image_size=image_size,
-            dataset_kwargs=args_.dataset_kwargs,
-            training=False,
-            loader_num_workers=1,
-            loader_pin_memory=False,
-            max_samples=args_.num_samples,
-        )
-        if args_.is_main_process
-        else (None, None)
-    )
-
-    train_dataset = None
+    (
+        train_dataset,
+        train_loader,
+        val_dataset,
+        val_loader,
+    ) = helpers.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
 
     # model creation
     num_classes = helpers.infer_num_classes(
@@ -359,16 +340,7 @@ def export_setup(args_: ExportArgs) -> Tuple[Module, Optional[str], Any]:
         dataset=args_.dataset,
         model_kwargs=args_.model_kwargs,
     )
-    model, args_.arch_key = helpers.create_model(
-        checkpoint_path=args_.checkpoint_path,
-        recipe_path=None,
-        num_classes=num_classes,
-        arch_key=args_.arch_key,
-        pretrained=args_.pretrained,
-        pretrained_dataset=args_.pretrained_dataset,
-        local_rank=args_.local_rank,
-        **args_.model_kwargs,
-    )
+    model = helpers.create_model(args_, num_classes)
     return model, save_dir, val_loader
 
 
