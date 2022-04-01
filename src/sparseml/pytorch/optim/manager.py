@@ -21,11 +21,13 @@ Also handles loading modifiers from yaml files
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import (
+from sparseml.optim import contains_framework_metadata  # noqa F401
+from sparseml.optim import (  # for now
     BaseManager,
     add_framework_metadata,
     load_recipe_yaml_str,
@@ -286,10 +288,35 @@ class ScheduledModifierManager(BaseManager, Modifier):
         if add_modifiers:
             modifiers.extend(add_modifiers)
 
-        metadata = validate_metadata(metadata, yaml_str)
-        metadata = add_framework_metadata(metadata)
+        validated_metadata = validate_metadata(metadata, yaml_str)
+        """
+        Proposal of implementation:
 
-        manager = ScheduledModifierManager(modifiers=modifiers, metadata=metadata)
+        We don't want to add framework metadata (risk of overwriting previous, valid
+        framework metadata) if:
+        - `yaml_str` already contains framework metadata (condition A)
+        AND
+        - metadata is None (condition B)
+
+        This means that we do want to add framework metadata if
+        ! (A AND B) -> !A OR !B
+
+        So:
+
+        if metadata is not None or not contains_framework_metadata(yaml_str):
+            validated_metadata = add_framework_metadata(
+                    validated_metadata, torch_version=torch.__version__
+                )
+
+        """
+
+        validated_metadata = add_framework_metadata(
+            validated_metadata, torch_version=torch.__version__
+        )
+
+        manager = ScheduledModifierManager(
+            modifiers=modifiers, metadata=validated_metadata
+        )
 
         return manager
 

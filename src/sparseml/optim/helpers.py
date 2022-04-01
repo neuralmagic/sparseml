@@ -16,6 +16,7 @@
 Helper functions for base Modifier and Manger utilities
 """
 import json
+import logging
 import platform
 import re
 import warnings
@@ -23,11 +24,11 @@ from contextlib import suppress
 from copy import deepcopy
 from typing import Any, Dict, Optional, Tuple, Union
 
-import torch
 import yaml
 
 from sparseml import version as sparseml_version
 from sparseml.utils import (
+    FRAMEWORK_METADATA_KEY,
     RECIPE_METADATA_KEY,
     UnknownVariableException,
     restricted_eval,
@@ -46,6 +47,7 @@ __all__ = [
     "check_if_staged_recipe",
     "validate_metadata",
     "add_framework_metadata",
+    "contains_framework_metadata",
 ]
 
 
@@ -574,28 +576,94 @@ def _check_warn_dict_difference(original_dict, new_dict):
     return new_dict
 
 
-def add_framework_metadata(metadata: Dict[str, Dict]) -> Dict[str, Dict]:
+def contains_framework_metadata(yaml_str: str) -> bool:
     """
-    Adds the information about the relevant frameworks used by the user to the metadata.
+    Checks whether the recipe contains framework metadata.
+    :param yaml_str: String representation of the recipe YAML file,
+        (may contain framework metadata)
+    :return: True if recipe contains framework metadata,
+        else False
+    """
+    container = load_recipe_yaml_str_no_classes(yaml_str)
+    is_container_staged = check_if_staged_recipe(container)
+
+    metadata = (
+        _extract_metadata_from_staged_recipe(container)
+        if is_container_staged
+        else _extract_metadata_from_recipe(container)
+    )
+    if not metadata:
+        return False
+
+    # returns a list of boolean values where every entry
+    # tells whether framework metadata is contained by the stage
+    is_stage_w_framework_metadata = [
+        FRAMEWORK_METADATA_KEY in stage_metadata.keys()
+        for stage_metadata in metadata.values()
+    ]
+
+    # checking for prohibitive scenario, when some stages
+    # contain metadata and some don't.
+    if (True in is_stage_w_framework_metadata) and (
+        False in is_stage_w_framework_metadata
+    ):
+        stages_w_framework_metadata = {
+            stage_name
+            for stage_name, is_framework_metadata in zip(
+                _get_recipe_stage_names(container), is_stage_w_framework_metadata
+            )
+            if is_framework_metadata
+        }
+        stages_w_o_framework_metadata = set(
+            _get_recipe_stage_names(container)
+        ).difference(stages_w_framework_metadata)
+
+        raise ValueError(
+            "Some stages in the recipe contain framework metadata, while some don't. "
+            "This is prohibited, your recipe may be potentially corrupted."
+            f"{FRAMEWORK_METADATA_KEY} is in stages: {stages_w_framework_metadata} "
+            f"while not in stages: {stages_w_o_framework_metadata} "
+        )
+    # if all stages contain metadata
+    elif all(is_stage_w_framework_metadata):
+        return True
+
+    else:
+        return False
+
+
+def add_framework_metadata(
+    metadata: Dict[str, Dict], **extra_metadata
+) -> Dict[str, Dict]:
+    """
+    Adds the information (in the form of a nested dictionary)
+    about the relevant frameworks used by the user to the metadata.
     :param metadata: Validated metadata
+    :param extra_metadata: Optional framework metadata, specific for the given framework
+        (e.g. for pytorch integration
+        'add_framework_metadata(metadata, pytorch_version = torch.__version__)')
     :return: Validated metadata with framework metadata
     """
 
     framework_metadata = {
         "python_version": platform.python_version(),
-        "torch_version": torch.__version__,
         "sparseml_version": sparseml_version,
     }
+
+    framework_metadata.update(extra_metadata)
+
     for stage_name, stage_value in metadata.items():
         if stage_value is None:
-            _stage_value = framework_metadata
+            stage_metadata = {FRAMEWORK_METADATA_KEY: framework_metadata}
         else:
-            shared_keys = set(stage_value.keys()).intersection(
-                set(framework_metadata.keys())
-            )
-            if shared_keys:
+            if (FRAMEWORK_METADATA_KEY in stage_value.keys()) and stage_value[
+                FRAMEWORK_METADATA_KEY
+            ]:
+                shared_keys = set(
+                    stage_value[FRAMEWORK_METADATA_KEY].keys()
+                ).intersection(set(framework_metadata.keys()))
                 warning_if_stage = (
-                    f"stage, stage name: {stage_name}"
+                    f"stage (stage name: {stage_name})"
                     if stage_name != RECIPE_METADATA_KEY
                     else ""
                 )
@@ -604,10 +672,10 @@ def add_framework_metadata(metadata: Dict[str, Dict]) -> Dict[str, Dict]:
                     f"{shared_keys} with new value(s) "
                     f"{ {k:v for k,v in framework_metadata.items() if k in shared_keys} }"  # noqa E501
                 )
-                warnings.warn(warning_msg)
-            _stage_value = deepcopy(stage_value)
-            _stage_value.update(framework_metadata)
-        metadata[stage_name] = _stage_value
+                logging.warning(warning_msg)
+            stage_metadata = deepcopy(stage_value)
+            stage_metadata[FRAMEWORK_METADATA_KEY] = framework_metadata
+        metadata[stage_name] = stage_metadata
 
     return metadata
 

@@ -113,6 +113,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
         metadata = validate_metadata(metadata, yaml_str)
         metadata = add_framework_metadata(metadata)
+        # TODO: implement proper logic for adding framework metadata
 
         manager = ScheduledModifierManager(modifiers=modifiers, metadata=metadata)
 

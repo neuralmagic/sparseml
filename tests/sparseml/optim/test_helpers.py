@@ -12,14 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import platform
-
 import pytest
-from sparseml.pytorch import torch
 
-from sparseml import version as sparseml_version
 from sparseml.optim import (
-    add_framework_metadata,
     check_if_staged_recipe,
     evaluate_recipe_yaml_str_equations,
     load_recipe_yaml_str,
@@ -424,68 +419,34 @@ def test_evaluate_recipe_yaml_str_equations(recipe, expected_recipe, is_staged):
     _test_nested_equality(evaluated_yaml, expected_yaml)
 
 
-framework_metadata = {
-    "python_version": platform.python_version(),
-    "torch_version": torch.__version__,
-    "sparseml_version": sparseml_version,
-}
-
-
-def _generate_fake_metadata(
-    item1=("this", "is"), item2=("metadata", 100), include_framework_metadata=False
-):
-    metadata = {k: v for (k, v) in (item1, item2)}
-    if include_framework_metadata:
-        metadata.update(framework_metadata)
-    return metadata
+def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
+    return {k: v for (k, v) in (item1, item2)}
 
 
 @pytest.mark.parametrize(
-    "metadata,yaml_str, expected_metadata, warning_validate_metadata, "
-    "warning_add_framework_metadata",
+    "metadata,yaml_str, expected_metadata, raise_warning",
     [
         # Testing simple recipe
         (
             _generate_fake_metadata(),
             RECIPE_SIMPLE_EVAL,
-            {
-                RECIPE_METADATA_KEY: _generate_fake_metadata(
-                    include_framework_metadata=True
-                )
-            },
-            False,
+            {RECIPE_METADATA_KEY: _generate_fake_metadata()},
             False,
         ),
         # Testing simple recipe (metadata = None)
-        (
-            None,
-            RECIPE_SIMPLE_EVAL,
-            {RECIPE_METADATA_KEY: framework_metadata},
-            False,
-            False,
-        ),
+        (None, RECIPE_SIMPLE_EVAL, {RECIPE_METADATA_KEY: None}, False),
         # Testing simple recipe, attempting to overwrite previous metadata
         (
             _generate_fake_metadata(item2=("metadata", 120)),
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {
-                RECIPE_METADATA_KEY: _generate_fake_metadata(
-                    item2=("metadata", 120), include_framework_metadata=True
-                )
-            },
+            {RECIPE_METADATA_KEY: _generate_fake_metadata(item2=("metadata", 120))},
             True,
-            False,
         ),
         # Testing simple recipe, previous metadata present but new metadata is None
         (
             None,
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {
-                RECIPE_METADATA_KEY: _generate_fake_metadata(
-                    item2=("metadata", 90), include_framework_metadata=True
-                )
-            },
-            False,
+            {RECIPE_METADATA_KEY: _generate_fake_metadata(item2=("metadata", 90))},
             False,
         ),
         # Testing simple recipe, passing new metadata
@@ -493,12 +454,7 @@ def _generate_fake_metadata(
         (
             _generate_fake_metadata(item2=("metadata", 90)),
             RECIPE_SIMPLE_EVAL_W_METADATA,
-            {
-                RECIPE_METADATA_KEY: _generate_fake_metadata(
-                    item2=("metadata", 90), include_framework_metadata=True
-                )
-            },
-            False,
+            {RECIPE_METADATA_KEY: _generate_fake_metadata(item2=("metadata", 90))},
             False,
         ),
         # Testing staged recipe
@@ -506,22 +462,16 @@ def _generate_fake_metadata(
             _generate_fake_metadata(item2=("metadata", 150)),
             STAGED_RECIPE_SIMPLE_EVAL,
             {
-                "first_stage": _generate_fake_metadata(
-                    item2=("metadata", 150), include_framework_metadata=True
-                ),
-                "next_stage": _generate_fake_metadata(
-                    item2=("metadata", 150), include_framework_metadata=True
-                ),
+                "first_stage": _generate_fake_metadata(item2=("metadata", 150)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 150)),
             },
-            False,
             False,
         ),
         # Testing staged recipe (metadata = None)
         (
             None,
             STAGED_RECIPE_SIMPLE_EVAL,
-            {"first_stage": framework_metadata, "next_stage": framework_metadata},
-            False,
+            {"first_stage": None, "next_stage": None},
             False,
         ),
         # Testing staged recipe, attempting to overwrite previous metadata
@@ -529,29 +479,19 @@ def _generate_fake_metadata(
             _generate_fake_metadata(item2=("metadata", 150)),
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": _generate_fake_metadata(
-                    item2=("metadata", 150), include_framework_metadata=True
-                ),
-                "next_stage": _generate_fake_metadata(
-                    item2=("metadata", 150), include_framework_metadata=True
-                ),
+                "first_stage": _generate_fake_metadata(item2=("metadata", 150)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 150)),
             },
             True,
-            False,
         ),
         # Testing staged recipe, previous metadata present but new metadata is None
         (
             None,
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": _generate_fake_metadata(
-                    item2=("metadata", 110), include_framework_metadata=True
-                ),
-                "next_stage": _generate_fake_metadata(
-                    item2=("metadata", 120), include_framework_metadata=True
-                ),
+                "first_stage": _generate_fake_metadata(item2=("metadata", 110)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 120)),
             },
-            False,
             False,
         ),
         # Testing staged recipe, passing new staged metadata
@@ -563,18 +503,13 @@ def _generate_fake_metadata(
             },
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": _generate_fake_metadata(
-                    item2=("metadata", 110), include_framework_metadata=True
-                ),
-                "next_stage": _generate_fake_metadata(
-                    item2=("metadata", 120), include_framework_metadata=True
-                ),
+                "first_stage": _generate_fake_metadata(item2=("metadata", 110)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 120)),
             },
-            False,
             False,
         ),
         # Testing staged recipe, passing new staged metadata
-        # which is not equal to previous metadata.
+        # which is equal to previous metadata.
         (
             {
                 "first_stage": _generate_fake_metadata(item2=("metadata", 160)),
@@ -582,74 +517,19 @@ def _generate_fake_metadata(
             },
             STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
             {
-                "first_stage": _generate_fake_metadata(
-                    item2=("metadata", 160), include_framework_metadata=True
-                ),
-                "next_stage": _generate_fake_metadata(
-                    item2=("metadata", 140), include_framework_metadata=True
-                ),
+                "first_stage": _generate_fake_metadata(item2=("metadata", 160)),
+                "next_stage": _generate_fake_metadata(item2=("metadata", 140)),
             },
-            True,
-            False,
-        ),
-        # Raising warning in `add_framework_metadata` for non-staged recipe
-        (
-            _generate_fake_metadata(
-                item2=("metadata", 90), include_framework_metadata=True
-            ),
-            RECIPE_SIMPLE_EVAL_W_METADATA,
-            {
-                RECIPE_METADATA_KEY: _generate_fake_metadata(
-                    item2=("metadata", 90), include_framework_metadata=True
-                )
-            },
-            True,
-            True,
-        ),
-        # Raising warning in `_add_framework_metadata` for staged recipe
-        (
-            {
-                "first_stage": _generate_fake_metadata(
-                    item2=("metadata", 110), include_framework_metadata=True
-                ),
-                "next_stage": _generate_fake_metadata(
-                    item2=("metadata", 120), include_framework_metadata=True
-                ),
-            },
-            STAGED_RECIPE_SIMPLE_EVAL_W_METADATA,
-            {
-                "first_stage": _generate_fake_metadata(
-                    item2=("metadata", 110), include_framework_metadata=True
-                ),
-                "next_stage": _generate_fake_metadata(
-                    item2=("metadata", 120), include_framework_metadata=True
-                ),
-            },
-            True,
             True,
         ),
     ],
 )
-def test_validate_metadata(
-    metadata,
-    yaml_str,
-    expected_metadata,
-    warning_validate_metadata,
-    warning_add_framework_metadata,
-):
-    if warning_validate_metadata:
+def test_validate_metadata(metadata, yaml_str, expected_metadata, raise_warning):
+    if raise_warning:
         with pytest.warns(UserWarning):
             metadata = validate_metadata(metadata, yaml_str)
     else:
         metadata = validate_metadata(metadata, yaml_str)
-
-    if warning_add_framework_metadata:
-        with pytest.warns(UserWarning):
-            metadata = add_framework_metadata(metadata)
-
-    else:
-        metadata = add_framework_metadata(metadata)
-
     assert metadata == expected_metadata
 
 
@@ -751,3 +631,8 @@ def test_update_recipe_variables(
         updated_yaml = load_recipe_yaml_str_no_classes(updated_recipe)
         target_yaml = load_recipe_yaml_str_no_classes(target_recipe)
         _test_nested_equality(updated_yaml, target_yaml)
+
+
+def test_contains_framework_metadata():
+    # TODO: To implement once we agree on the proposed logic
+    pass
