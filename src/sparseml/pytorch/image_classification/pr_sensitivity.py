@@ -409,7 +409,12 @@ def main():
         val_loader,
     ) = helpers.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
 
-    num_classes = helpers.infer_num_classes(args_, train_dataset, val_dataset)
+    num_classes = helpers.infer_num_classes(
+        train_dataset=train_dataset,
+        val_dataset=val_dataset,
+        dataset=args_.dataset,
+        model_kwargs=args_.model_kwargs,
+    )
 
     model = helpers.create_model(args_, num_classes)
 

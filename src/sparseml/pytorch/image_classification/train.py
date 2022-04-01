@@ -633,9 +633,10 @@ def main():
     )
 
     num_classes = helpers.infer_num_classes(
-        args=training_args,
         train_dataset=train_dataset,
         val_dataset=val_dataset,
+        dataset=training_args.dataset,
+        model_kwargs=training_args.model_kwargs,
     )
 
     train(

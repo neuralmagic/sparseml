@@ -18,7 +18,7 @@ Helper methods for image classification/detection based tasks
 import os
 import warnings
 from enum import Enum, auto, unique
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
@@ -173,22 +173,25 @@ def create_model(args: Any, num_classes: int) -> Tuple[Module, str]:
         return model, arch_key
 
 
-def infer_num_classes(args: Any, train_dataset, val_dataset):
+def infer_num_classes(
+    train_dataset, val_dataset, dataset: str, model_kwargs: Dict[str, Any]
+) -> int:
     """
-    :param args: Object with configuration settings
     :param train_dataset: dataset representing training data
     :param val_dataset: dataset representing validation data
+    :param dataset: name of the dataset
+    :param model_kwargs: keyword arguments used for model creation
     :return: An integer representing the number of classes
     """
-    if "num_classes" in args.model_kwargs:
+    if "num_classes" in model_kwargs:
         # handle manually overriden num classes
-        num_classes = args.model_kwargs["num_classes"]
-        del args.model_kwargs["num_classes"]
-    elif args.dataset == "imagefolder":
+        num_classes = model_kwargs["num_classes"]
+        del model_kwargs["num_classes"]
+    elif dataset == "imagefolder":
         dataset = val_dataset or train_dataset  # get non None dataset
         num_classes = dataset.num_classes
     else:
-        dataset_attributes = DatasetRegistry.attributes(args.dataset)
+        dataset_attributes = DatasetRegistry.attributes(dataset)
         num_classes = dataset_attributes["num_classes"]
     return num_classes
 
