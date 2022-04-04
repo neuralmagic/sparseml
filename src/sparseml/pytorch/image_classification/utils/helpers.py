@@ -149,30 +149,47 @@ def get_train_and_validation_loaders(args: Any, task: Optional[Tasks] = None):
 
 
 # Model creation Helpers
-def create_model(args: Any, num_classes: int) -> Tuple[Module, str]:
+def create_model(
+    checkpoint_path: str,
+    num_classes: int,
+    recipe_path: Optional[str] = None,
+    arch_key: Optional[str] = None,
+    pretrained: Union[bool, str] = False,
+    pretrained_dataset: Optional[str] = None,
+    local_rank: int = -1,
+    **model_kwargs,
+) -> Tuple[Module, str]:
     """
-    :param args: object with configuration for model classes
+    :param checkpoint_path: Path to the checkpoint to load. `zoo` for
+        downloading weights with respect to a SparseZoo recipe
     :param num_classes: Integer representing the number of output classes
+    :param recipe_path: Path or SparseZoo stub to the recipe to use for
+        downloading, respective model.
+    :param arch_key: The architecture key of the image classification model
+    :param pretrained: Whether to use pretrained weights or not
+    :param pretrained_dataset: The dataset to used for pretraining
+    :param local_rank: The local rank of the process
+    :param model_kwargs: Additional keyword arguments to pass to the model
     :returns: A tuple containing the model and the model's arch_key
     """
-    with torch_distributed_zero_first(args.local_rank):
+    with torch_distributed_zero_first(local_rank):
         # only download once locally
-        if args.checkpoint_path == "zoo":
-            args.checkpoint_path = _download_model_from_zoo_using_recipe(
-                recipe_stub=args.recipe_path,
+        if checkpoint_path and checkpoint_path.lower() == "zoo":
+            checkpoint_path = _download_model_from_zoo_using_recipe(
+                recipe_stub=recipe_path,
             )
 
         result = ModelRegistry.create(
-            key=args.arch_key,
-            pretrained=args.pretrained,
-            pretrained_path=args.checkpoint_path,
-            pretrained_dataset=args.pretrained_dataset,
+            key=arch_key,
+            pretrained=pretrained,
+            pretrained_path=checkpoint_path,
+            pretrained_dataset=pretrained_dataset,
             num_classes=num_classes,
-            **args.model_kwargs,
+            **model_kwargs,
         )
 
         if not isinstance(result, tuple):
-            model, arch_key = result, args.arch_key
+            model, arch_key = result, arch_key
         else:
             model, arch_key = result
 

@@ -659,11 +659,16 @@ def _init_image_classification_trainer_and_save_dirs(
         extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
         return CrossEntropyLossWrapper(extras=extras)
 
-    model, key = helpers.create_model(
-        args=train_args,
+    model, train_args.arch_key = helpers.create_model(
+        checkpoint_path=train_args.checkpoint_path,
+        recipe_path=train_args.recipe_path,
         num_classes=num_classes,
+        arch_key=train_args.arch_key,
+        pretrained=train_args.pretrained,
+        pretrained_dataset=train_args.pretrained_dataset,
+        local_rank=train_args.local_rank,
+        **train_args.model_kwargs,
     )
-    train_args.arch_key = key
 
     save_dir, loggers = helpers.get_save_dir_and_loggers(
         task=CURRENT_TASK,
@@ -675,7 +680,7 @@ def _init_image_classification_trainer_and_save_dirs(
         logs_dir=train_args.logs_dir,
     )
 
-    LOGGER.info(f"created model with key {key}: {model}")
+    LOGGER.info(f"created model with key {train_args.arch_key}: {model}")
 
     if train_args.rank == -1:
         ddp = False
