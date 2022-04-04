@@ -530,6 +530,8 @@ class WANDBLogger(LambdaLogger):
         else:
             wandb.init()
 
+        self.wandb = wandb
+
     def _log_lambda(
         self,
         tag: Optional[str],
