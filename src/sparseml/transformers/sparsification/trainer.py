@@ -106,7 +106,6 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
-
         self.metadata = (
             self._extract_metadata(
                 metadata_args=metadata_args, training_args=kwargs["args"]
@@ -615,12 +614,12 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
-        # output = super().train(*args, **kwargs)
+        output = super().train(*args, **kwargs)
         if applied:
             self.finalize_manager()
         self.log_model_sparsification()
 
-        return None
+        return output
 
     def evaluate(self, *args, **kwargs):
         """
@@ -737,7 +736,14 @@ class DisableHalfPrecisionCallback(TrainerCallback):
             self.disable_amp(epoch)
 
     def qat_active(self, epoch: float) -> bool:
-        return self.trainer.manager and self.trainer.manager.qat_active(epoch)
+        return (
+            self.trainer.manager
+            and self.trainer.manager.qat_active(epoch)
+            or any(
+                bool(stage.quantization_modifiers)
+                for stage in self.trainer.arch_manager.modifiers
+            )
+        )
 
     def disable_amp(self, epoch: float):
         if not self.on_begin_called:
