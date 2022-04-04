@@ -409,12 +409,22 @@ def main():
     # assume shape [C, S, S] where S is the image size
     image_size = input_shape[1]
 
-    (
-        train_dataset,
-        train_loader,
-        val_dataset,
-        val_loader,
-    ) = helpers.get_train_and_validation_loaders(args_, image_size, task=CURRENT_TASK)
+    train_dataset, train_loader = (
+        helpers.get_dataset_and_dataloader(
+            dataset_name=args_.dataset,
+            dataset_path=args_.dataset_path,
+            batch_size=args_.batch_size,
+            image_size=image_size,
+            dataset_kwargs=args_.dataset_kwargs,
+            training=True,
+            loader_num_workers=args_.loader_num_workers,
+            loader_pin_memory=args_.loader_pin_memory,
+        )
+        if not args_.approximate
+        else (None, None)
+    )
+
+    val_dataset = None
 
     num_classes = helpers.infer_num_classes(
         train_dataset=train_dataset,
