@@ -175,15 +175,12 @@ def export_transformer_to_onnx(
         )
     else:
         trainer.finalize_manager()
-        # if isinstance(trainer.manager.modifiers, dict)
-        # -> staged recipe
-        # else it is a list
-        # -> normal recipe
-        num_stages = (
-            len(trainer.manager.modifiers)
-            if isinstance(trainer.manager.modifiers, dict)
-            else 1
-        )
+        num_stages = 0
+        if trainer.manager:
+            num_stages += trainer.manager.number_stages()
+        if trainer.arch_manager:
+            num_stages += trainer.arch_manager.number_stages()
+
         msg = (
             "an unstaged_recipe"
             if num_stages == 1

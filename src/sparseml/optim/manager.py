@@ -97,6 +97,16 @@ class BaseManager(BaseObject):
     def metadata(self):
         return self._metadata
 
+    def number_stages(self) -> int:
+        """
+        Return the number of stages inside the recipe
+        :return: number of stages
+        """
+        if isinstance(self.modifiers, dict):
+            return len(self.modifiers)
+        else:
+            return 1
+
     @classmethod
     def compose_staged(
         cls,

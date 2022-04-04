@@ -107,16 +107,11 @@ class RecipeManagerTrainerInterface:
         self.recipe_args = recipe_args
         self.teacher = teacher
 
-        # hack for now, maybe better to add training_args as
-        # an explicit argument to the constructor?
-        # this is required to make export_transformers_to_onnx
-        # at `transformers/export.py` work correctly.
-        training_args = kwargs["args"] if "args" in kwargs.keys() else None
         self.metadata = (
             self._extract_metadata(
-                metadata_args=metadata_args, training_args=training_args
+                metadata_args=metadata_args, training_args=kwargs["args"]
             )
-            if (training_args and metadata_args)
+            if ("args" in kwargs and metadata_args)
             else None
         )
 
@@ -138,7 +133,7 @@ class RecipeManagerTrainerInterface:
         else:
             self.logger_manager = LoggerManager(log_python=False)
 
-        self.manager = self._setup_manager(kwargs)
+        self.manager, self.arch_manager = self._setup_manager(kwargs)
         self.manager_applied = False
         self.manager_initialized = False
         self.manager_finalized = False
@@ -165,16 +160,27 @@ class RecipeManagerTrainerInterface:
         :return: True if recipes were applied, False otherwise
         """
 
-        if self.manager is None or self.manager_applied:
+        if (not self.arch_manager and self.manager is None) or self.manager_applied:
             return False
 
         orig_state_dict = self.model.state_dict()
-        self.manager.apply_structure(self.model, epoch=epoch)
-        _LOGGER.info(
-            "Applied structure from SparseML recipe argument to model at "
-            f"epoch {epoch}"
-        )
 
+        if self.arch_manager:
+            self.arch_manager.apply_structure(self.model, epoch=epoch)
+            _LOGGER.info(
+                f"Applied structure from {self.arch_manager.number_stages()} "
+                "previous recipe stage(s) to model and finalized "
+                "(recipes saved with model_path)"
+            )
+
+        if self.manager is not None:
+            self.manager.apply_structure(self.model, epoch=epoch)
+            _LOGGER.info(
+                "Applied structure from SparseML recipe argument to model at "
+                f"epoch {epoch}"
+            )
+
+        # reload the state dict for the model now that architecture matches expected
         load_path = checkpoint or self.model_state_path
         self._reload_model_state(load_path, orig_state_dict)
         self.manager_applied = True
@@ -366,8 +372,15 @@ class RecipeManagerTrainerInterface:
             output_dir = self.args.output_dir
 
         recipe_path = os.path.join(output_dir, RECIPE_NAME)
+        if self.arch_manager:
+            ScheduledModifierManager.compose_staged(
+                base_recipe=self.arch_manager,
+                additional_recipe=self.manager,
+                save_path=recipe_path,
+            )
+        else:
 
-        self.manager.save(recipe_path)
+            self.manager.save(recipe_path)
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
     def log_model_sparsification(self):
@@ -421,29 +434,41 @@ class RecipeManagerTrainerInterface:
         self, kwargs
     ) -> Tuple[Optional[ScheduledModifierManager], List[ScheduledModifierManager]]:
         manager = None
-        checkpoint_recipe = os.path.join(self.model_state_path, RECIPE_NAME)
-        # By default we should fetch checkpoint_recipe from self.model_state_path
-        # This is used for testing only
-        # checkpoint_recipe = os.path.join(
-        #    kwargs["args"].to_dict()["output_dir"], RECIPE_NAME
-        # )
+        arch_manager = None
+
         if self.recipe is not None:
             manager = ScheduledModifierManager.from_yaml(
                 self.recipe,
                 recipe_variables=self.recipe_args,
                 metadata=self.metadata,
             )
-        if os.path.isfile(checkpoint_recipe) and manager:
-            manager = ScheduledModifierManager.compose_staged(
-                base_recipe=checkpoint_recipe, additional_recipe=manager
-            )
+
             _LOGGER.info(
                 "Loaded SparseML recipe variable into manager for recipe: "
                 f"{self.recipe}, recipe_variables: {self.recipe_args} "
                 f"and metadata {self.metadata}"
             )
 
-        return manager
+        arch_recipe = os.path.join(self.model_state_path, RECIPE_NAME)
+        if os.path.isfile(arch_recipe):
+            arch_manager = ScheduledModifierManager.from_yaml(arch_recipe)
+            _LOGGER.info(
+                f"Loaded SparseML {arch_manager.number_stages()} recipe stage(s) "
+                f"into architecture managers from {arch_recipe}"
+            )
+
+        if (
+            manager is not None
+            and manager.max_epochs
+            and "args" in kwargs
+            and (hasattr(kwargs["args"], "num_train_epochs"))
+        ):
+            _LOGGER.warning(
+                f"Overriding num_train_epochs from Recipe to {manager.max_epochs}"
+            )
+            kwargs["args"].num_train_epochs = manager.max_epochs
+
+        return manager, arch_manager
 
     def _reload_model_state(self, load_path: str, orig_state_dict: Dict[str, Any]):
         if (
@@ -590,12 +615,12 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         checkpoint, epoch = self._generate_apply_manager_params(kwargs)
         applied = self.apply_manager(epoch=epoch, checkpoint=checkpoint)
         self.callback_disable_fp16.check_disable(epoch, force=True)
-        output = super().train(*args, **kwargs)
+        # output = super().train(*args, **kwargs)
         if applied:
             self.finalize_manager()
         self.log_model_sparsification()
 
-        return output
+        return None
 
     def evaluate(self, *args, **kwargs):
         """
