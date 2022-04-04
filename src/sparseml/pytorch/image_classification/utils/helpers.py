@@ -15,8 +15,10 @@
 """
 Helper methods for image classification/detection based tasks
 """
+
 import os
 import warnings
+from contextlib import contextmanager
 from enum import Enum, auto, unique
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -63,6 +65,15 @@ class Tasks(Enum):
     ANALYSIS = auto()
     LR_ANALYSIS = auto()
     PR_SENSITIVITY = auto()
+
+
+@contextmanager
+def nullcontext(enter_result=None):
+    """
+    A context manager that does nothing. For compatibility with Python 3.6
+    Update usages to use contextlib.nullcontext on Python 3.7+
+    """
+    yield enter_result
 
 
 # loggers
@@ -163,7 +174,7 @@ def get_dataset_and_dataloader(
     download_context = (
         torch_distributed_zero_first(local_rank)  # only download once locally
         if training
-        else contextlib.nullcontext()
+        else nullcontext()
     )
     dataset_kwargs = dataset_kwargs or {}
 
