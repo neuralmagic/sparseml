@@ -26,7 +26,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import (  # for now
+from sparseml.optim import (
     BaseManager,
     add_framework_metadata,
     load_recipe_yaml_str,
