@@ -59,16 +59,9 @@ from sparseml.transformers.utils import SparseAutoModel
 
 
 metadata_args = [
-    "dataset_name",
-    "dataset_name_2",
-    "dataset_config_name_2",
     "per_device_train_batch_size",
     "per_device_eval_batch_size",
     "fp16",
-    "learning_rate",
-    "warmup_steps",
-    "max_seq_length",
-    "num_train_epochs",
 ]
 
 

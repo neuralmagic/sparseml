@@ -22,8 +22,6 @@ import glob
 import logging
 import math
 import os
-import warnings
-from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -418,21 +416,23 @@ class RecipeManagerTrainerInterface:
             f"all sparsification info: {sparsification_info}"
         )
 
-    def _extract_metadata(self, metadata_args: List[str], training_args) -> Dict:
-        metadata = {k: None for k in metadata_args}
-        metadata_from_training_args = {
-            k: v for k, v in training_args.to_dict().items() if k in metadata_args
-        }
-        metadata.update(metadata_from_training_args)
+    def _extract_metadata(
+        self, metadata_args: List[str], training_args: TrainingArguments
+    ) -> Dict:
+        metadata = {}
+        training_args_dict = training_args.to_dict()
 
-        if None in metadata.values():
-            warnings.warn(
-                "Detected metadata keys which value is None."
-                "The following keys will not be written into "
-                "the recipe: "
-                f"{[k for k, v in metadata.items() if v is None]}"
-            )
-        return OrderedDict([(k, v) for k, v in metadata.items() if v is not None])
+        for arg in metadata_args:
+            if arg not in training_args_dict.keys():
+                logging.warning(
+                    f"Required metadata argument {arg} was not found "
+                    f"in the training arguments. Setting {arg} to None."
+                )
+                metadata[arg] = None
+            else:
+                metadata[arg] = training_args_dict[arg]
+
+        return metadata
 
     def _check_super_defined(self, func: str):
         if not hasattr(super(), func):

@@ -68,14 +68,8 @@ require_version(
 _LOGGER = logging.getLogger(__name__)
 
 metadata_args = [
-    "distill_hardness",
-    "distill_temperature",
     "per_device_train_batch_size",
-    "learning_rate",
-    "max_seq_length",
     "doc_stride",
-    "num_train_epochs",
-    "warmup_steps",
     "fp16",
 ]
 
