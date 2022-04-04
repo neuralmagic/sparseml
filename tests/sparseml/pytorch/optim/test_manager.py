@@ -26,9 +26,7 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml import version as sparseml_version
 from sparseml.optim import BaseModifier
-from sparseml.optim.helpers import add_framework_metadata
 from sparseml.pytorch.optim import Modifier, ScheduledModifierManager
-from sparseml.utils import FRAMEWORK_METADATA_KEY, RECIPE_METADATA_KEY
 from tests.sparseml.pytorch.helpers import (
     SAMPLE_STAGED_RECIPE,
     LinearNet,
@@ -569,18 +567,16 @@ def test_lifecycle_manager_staged(
     expected_recipe,
     raise_warning,
     raise_value_error,
+    caplog,
 ):
     temp_dir = tempfile.mkdtemp()
     recipe_path = os.path.join(temp_dir, "recipy.yaml")
-    if raise_warning:
-        with pytest.warns(UserWarning):
-            recipe_manager = ScheduledModifierManager.from_yaml(
-                file_path=recipe, metadata=metadata
-            )
-    else:
+    with caplog.at_level(logging.WARNING):
         recipe_manager = ScheduledModifierManager.from_yaml(
             file_path=recipe, metadata=metadata
         )
+        assert raise_warning == bool(caplog.text)
+
     if checkpoint_recipe:
         if raise_value_error:
             with pytest.raises(ValueError):
@@ -598,68 +594,6 @@ def test_lifecycle_manager_staged(
     with open(recipe_path, "r") as file:
         final_recipe = file.read()
     assert final_recipe == expected_recipe
-
-
-def _generate_fake_validated_metadata(include_framework_metadata, is_staged=False):
-    framework_metadata = {
-        "python_version": platform.python_version(),
-        "torch_version": torch.__version__,
-        "sparseml_version": sparseml_version,
-    }
-    stage_metadata = {"batch_size": 16, "learning_rate": 0.005}
-    if include_framework_metadata:
-        stage_metadata[FRAMEWORK_METADATA_KEY] = framework_metadata
-    metadata = (
-        {"stage_0": stage_metadata, "stage_1": stage_metadata}
-        if is_staged
-        else {RECIPE_METADATA_KEY: stage_metadata}
-    )
-    return metadata
-
-
-@pytest.mark.parametrize(
-    "metadata,expected_metadata, raise_warning",
-    [
-        # Unstaged metadata without previous framework_metadata
-        (
-            _generate_fake_validated_metadata(include_framework_metadata=False),
-            _generate_fake_validated_metadata(include_framework_metadata=True),
-            False,
-        ),
-        # Unstaged metadata with previous framework_metadata
-        (
-            _generate_fake_validated_metadata(include_framework_metadata=True),
-            _generate_fake_validated_metadata(include_framework_metadata=True),
-            True,
-        ),
-        # Staged metadata without previous framework_metadata
-        (
-            _generate_fake_validated_metadata(
-                include_framework_metadata=False, is_staged=True
-            ),
-            _generate_fake_validated_metadata(
-                include_framework_metadata=True, is_staged=True
-            ),
-            False,
-        ),
-        # Staged metadata with previous framework_metadata
-        (
-            _generate_fake_validated_metadata(
-                include_framework_metadata=True, is_staged=True
-            ),
-            _generate_fake_validated_metadata(
-                include_framework_metadata=True, is_staged=True
-            ),
-            True,
-        ),
-    ],
-)
-def test_add_framework_metadata(metadata, expected_metadata, raise_warning, caplog):
-    with caplog.at_level(logging.WARNING):
-        metadata = add_framework_metadata(metadata, torch_version=torch.__version__)
-        assert raise_warning == bool(caplog.text)
-
-    assert metadata == expected_metadata
 
 
 @pytest.mark.skipif(

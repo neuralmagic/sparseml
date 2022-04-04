@@ -26,7 +26,6 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
-from sparseml.optim import contains_framework_metadata  # noqa F401
 from sparseml.optim import (  # for now
     BaseManager,
     add_framework_metadata,
@@ -36,6 +35,7 @@ from sparseml.optim import (  # for now
 )
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, LoggerManager, is_parallel_model
+from sparseml.utils import FRAMEWORK_METADATA_KEY
 from sparsezoo.objects import Recipe
 
 
@@ -284,40 +284,25 @@ class ScheduledModifierManager(BaseManager, Modifier):
         recipe_variables = parse_recipe_variables(recipe_variables)
         yaml_str = load_recipe_yaml_str(file_path, **recipe_variables)
         modifiers = Modifier.load_list(yaml_str)
-
         if add_modifiers:
             modifiers.extend(add_modifiers)
 
         validated_metadata = validate_metadata(metadata, yaml_str)
-        """
-        Proposal of implementation:
 
-        We don't want to add framework metadata (risk of overwriting previous, valid
-        framework metadata) if:
-        - `yaml_str` already contains framework metadata (condition A)
-        AND
-        - metadata is None (condition B)
-
-        This means that we do want to add framework metadata if
-        ! (A AND B) -> !A OR !B
-
-        So:
-
-        if metadata is not None or not contains_framework_metadata(yaml_str):
+        if metadata:
+            logging.info(
+                "The new `metadata` has been passed to the manager. "
+                f"This will change the metadata in the recipe {file_path}"
+                f"including updating the metadata key {FRAMEWORK_METADATA_KEY} "
+                "to reflect your current setup."
+            )
             validated_metadata = add_framework_metadata(
-                    validated_metadata, torch_version=torch.__version__
-                )
-
-        """
-
-        validated_metadata = add_framework_metadata(
-            validated_metadata, torch_version=torch.__version__
-        )
+                validated_metadata, torch_version=torch.__version__
+            )
 
         manager = ScheduledModifierManager(
             modifiers=modifiers, metadata=validated_metadata
         )
-
         return manager
 
     def __init__(

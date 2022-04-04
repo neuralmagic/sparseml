@@ -528,19 +528,19 @@ def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:
     return sorted(modifiers, key=cmp_to_key(BaseModifier.comparator))
 
 
-# Not sure whether this is the best way to avoid boilerplate code,
-# but definitely helps with the heavy lifting, especially after introducing
-# nested metadata.
 def _nested_dict_to_lines(
     dict1: dict, yaml_str_lines: List[str], nesting_depth: int = 1
 ) -> List[str]:
     indentation = "  "
     for key, value in dict1.items():
         if isinstance(value, dict):
+            # add data for the current nesting level and
+            # move deeper to the next nesting level
             yaml_str_lines.append(indentation * nesting_depth + f"{key}:")
             yaml_str_lines = _nested_dict_to_lines(
                 value, yaml_str_lines, nesting_depth + 1
             )
         else:
+            # reached maximum nesting level.
             yaml_str_lines.append(indentation * nesting_depth + f"{key}: {value}")
     return yaml_str_lines

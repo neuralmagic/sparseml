@@ -19,7 +19,6 @@ import json
 import logging
 import platform
 import re
-import warnings
 from contextlib import suppress
 from copy import deepcopy
 from typing import Any, Dict, Optional, Tuple, Union
@@ -47,7 +46,6 @@ __all__ = [
     "check_if_staged_recipe",
     "validate_metadata",
     "add_framework_metadata",
-    "contains_framework_metadata",
 ]
 
 
@@ -566,7 +564,7 @@ def _get_recipe_stage_names(container):
 
 def _check_warn_dict_difference(original_dict, new_dict):
     if original_dict != new_dict:
-        warnings.warn(
+        logging.warning(
             f"Attempting to overwrite the previous metadata: {original_dict} "
             f"with new metadata: {new_dict}. "
             "This may lead to different results than the original run of the recipe. "
@@ -574,62 +572,6 @@ def _check_warn_dict_difference(original_dict, new_dict):
             "change in metadata is expected."
         )
     return new_dict
-
-
-def contains_framework_metadata(yaml_str: str) -> bool:
-    """
-    Checks whether the recipe contains framework metadata.
-    :param yaml_str: String representation of the recipe YAML file,
-        (may contain framework metadata)
-    :return: True if recipe contains framework metadata,
-        else False
-    """
-    container = load_recipe_yaml_str_no_classes(yaml_str)
-    is_container_staged = check_if_staged_recipe(container)
-
-    metadata = (
-        _extract_metadata_from_staged_recipe(container)
-        if is_container_staged
-        else _extract_metadata_from_recipe(container)
-    )
-    if not metadata:
-        return False
-
-    # returns a list of boolean values where every entry
-    # tells whether framework metadata is contained by the stage
-    is_stage_w_framework_metadata = [
-        FRAMEWORK_METADATA_KEY in stage_metadata.keys()
-        for stage_metadata in metadata.values()
-    ]
-
-    # checking for prohibitive scenario, when some stages
-    # contain metadata and some don't.
-    if (True in is_stage_w_framework_metadata) and (
-        False in is_stage_w_framework_metadata
-    ):
-        stages_w_framework_metadata = {
-            stage_name
-            for stage_name, is_framework_metadata in zip(
-                _get_recipe_stage_names(container), is_stage_w_framework_metadata
-            )
-            if is_framework_metadata
-        }
-        stages_w_o_framework_metadata = set(
-            _get_recipe_stage_names(container)
-        ).difference(stages_w_framework_metadata)
-
-        raise ValueError(
-            "Some stages in the recipe contain framework metadata, while some don't. "
-            "This is prohibited, your recipe may be potentially corrupted."
-            f"{FRAMEWORK_METADATA_KEY} is in stages: {stages_w_framework_metadata} "
-            f"while not in stages: {stages_w_o_framework_metadata} "
-        )
-    # if all stages contain metadata
-    elif all(is_stage_w_framework_metadata):
-        return True
-
-    else:
-        return False
 
 
 def add_framework_metadata(
