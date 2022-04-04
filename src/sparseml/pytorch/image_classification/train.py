@@ -666,7 +666,13 @@ def _init_image_classification_trainer_and_save_dirs(
     train_args.arch_key = key
 
     save_dir, loggers = helpers.get_save_dir_and_loggers(
-        args=train_args, task=CURRENT_TASK
+        task=CURRENT_TASK,
+        is_main_process=train_args.is_main_process,
+        save_dir=train_args.save_dir,
+        arch_key=train_args.arch_key,
+        model_tag=train_args.model_tag,
+        dataset_name=train_args.dataset,
+        logs_dir=train_args.logs_dir,
     )
 
     LOGGER.info(f"created model with key {key}: {model}")

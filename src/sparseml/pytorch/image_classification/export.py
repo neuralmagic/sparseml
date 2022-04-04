@@ -323,8 +323,15 @@ def export_setup(args_: ExportArgs) -> Tuple[Module, Optional[str], Any]:
 
     :param args_ : An ExportArgs object containing config for export task.
     """
-    save_dir, loggers = helpers.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
-    input_shape = ModelRegistry.input_shape(args_.arch_key)
+    save_dir, loggers = helpers.get_save_dir_and_loggers(
+        task=CURRENT_TASK,
+        is_main_process=args_.is_main_process,
+        save_dir=args_.save_dir,
+        arch_key=args_.arch_key,
+        model_tag=args_.model_tag,
+        dataset_name=args_.dataset,
+    )
+    input_shape = ModelRegistry.input_shape(key=args_.arch_key)
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
     (
         train_dataset,

@@ -396,9 +396,16 @@ def main():
 
     args_, _ = _parser.parse_args_into_dataclasses()
 
-    save_dir, loggers = helpers.get_save_dir_and_loggers(args_, task=CURRENT_TASK)
+    save_dir, loggers = helpers.get_save_dir_and_loggers(
+        task=CURRENT_TASK,
+        is_main_process=args_.is_main_process,
+        save_dir=args_.save_dir,
+        arch_key=args_.arch_key,
+        model_tag=args_.model_tag,
+        dataset_name=args_.dataset,
+    )
 
-    input_shape = ModelRegistry.input_shape(args_.arch_key)
+    input_shape = ModelRegistry.input_shape(key=args_.arch_key)
     # assume shape [C, S, S] where S is the image size
     image_size = input_shape[1]
 

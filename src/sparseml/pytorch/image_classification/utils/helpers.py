@@ -67,29 +67,35 @@ class Tasks(Enum):
 
 # loggers
 def get_save_dir_and_loggers(
-    args: Any, task: Optional[Tasks] = None
+    task: Optional[Tasks] = None,
+    is_main_process: bool = True,
+    save_dir: Optional[str] = None,
+    logs_dir: Optional[str] = None,
+    arch_key: Optional[str] = "",
+    model_tag: Optional[str] = None,
+    dataset_name: Optional[str] = "",
 ) -> Tuple[Union[str, None], List]:
     """
-    :param args: Object containing relevant configuration for the task
     :param task: The current task being performed
-
+    :param is_main_process: Whether this is the main process or not
+    :param save_dir: The directory to save the model
+    :param logs_dir: The directory to save logs
+    :param arch_key: The architecture key of the image classification model
+    :param model_tag: A str tag to optionally tag this model with
+    :param dataset_name: The name of the dataset used to tag a model
+        if model_tag not given
     :return: A tuple of the save directory and a list of loggers
     """
-    if args.is_main_process:
-        save_dir = os.path.abspath(os.path.expanduser(args.save_dir))
+    if is_main_process:
+        save_dir = os.path.abspath(os.path.expanduser(save_dir))
         logs_dir = (
-            os.path.abspath(os.path.expanduser(os.path.join(args.logs_dir)))
+            os.path.abspath(os.path.expanduser(os.path.join(logs_dir)))
             if task == Tasks.TRAIN
             else None
         )
 
-        if not args.model_tag:
-            dataset_name = (
-                f"{args.dataset}-{args.dataset_kwargs['year']}"
-                if "year" in args.dataset_kwargs
-                else args.dataset
-            )
-            model_tag = f"{args.arch_key.replace('/', '.')}_{dataset_name}"
+        if not model_tag:
+            model_tag = f"{arch_key.replace('/', '.')}_{dataset_name}"
             model_id = model_tag
             model_inc = 0
             # set location to check for models with same name
@@ -99,7 +105,7 @@ def get_save_dir_and_loggers(
                 model_inc += 1
                 model_id = f"{model_tag}__{model_inc:02d}"
         else:
-            model_id = args.model_tag
+            model_id = model_tag
 
         save_dir = os.path.join(save_dir, model_id)
         create_dirs(save_dir)
