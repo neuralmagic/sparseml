@@ -622,14 +622,29 @@ def main():
     parser = NmArgumentParser(dataclass_types=TrainingArguments)
     training_args, _ = parser.parse_args_into_dataclasses()
 
-    (
-        train_dataset,
-        train_loader,
-        val_dataset,
-        val_loader,
-    ) = helpers.get_train_and_validation_loaders(
-        args=training_args,
-        task=CURRENT_TASK,
+    train_dataset, train_loader, = helpers.get_dataset_and_dataloader(
+        dataset_name=training_args.dataset,
+        dataset_path=training_args.dataset_path,
+        batch_size=training_args.train_batch_size,
+        image_size=training_args.image_size,
+        dataset_kwargs=training_args.dataset_kwargs,
+        training=True,
+        loader_num_workers=training_args.loader_num_workers,
+        loader_pin_memory=training_args.loader_pin_memory,
+    )
+    val_dataset, val_loader = (
+        helpers.get_dataset_and_dataloader(
+            dataset_name=training_args.dataset,
+            dataset_path=training_args.dataset_path,
+            batch_size=training_args.test_batch_size,
+            image_size=training_args.image_size,
+            dataset_kwargs=training_args.dataset_kwargs,
+            training=False,
+            loader_num_workers=training_args.loader_num_workers,
+            loader_pin_memory=training_args.loader_pin_memory,
+        )
+        if training_args.is_main_process
+        else (None, None)
     )
 
     num_classes = helpers.infer_num_classes(

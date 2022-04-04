@@ -23,9 +23,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
-from sparseml.pytorch.datasets import DatasetRegistry, ssd_collate_fn, yolo_collate_fn
+from sparseml.pytorch.datasets import DatasetRegistry
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import (
@@ -44,7 +44,7 @@ from sparsezoo import Zoo
 __all__ = [
     "Tasks",
     "get_save_dir_and_loggers",
-    "get_train_and_validation_loaders",
+    "get_dataset_and_dataloader",
     "create_model",
     "infer_num_classes",
     "save_recipe",
@@ -132,20 +132,74 @@ def get_save_dir_and_loggers(
 
 
 # data helpers
-def get_train_and_validation_loaders(args: Any, task: Optional[Tasks] = None):
+def get_dataset_and_dataloader(
+    dataset_name: str,
+    dataset_path: str,
+    batch_size: int,
+    image_size: int,
+    dataset_kwargs: Optional[Dict[str, Any]] = None,
+    training: bool = False,
+    rank: int = -1,
+    local_rank: int = -1,
+    loader_num_workers: int = 0,
+    loader_pin_memory: bool = False,
+    max_samples: Optional[int] = None,
+) -> Tuple[Dataset, DataLoader]:
     """
-    :param args: Object containing relevant configuration for the task
-    :param task: The current task being performed
-    :return: 4 element tuple with the following format (train_dataset,
-        train_loader, val_dataset, val_loader)
+    :param dataset_name: The name of the dataset
+    :param dataset_path: The path to the dataset
+    :param batch_size: The batch size
+    :param image_size: A tuple of ints representing the image size
+    :param dataset_kwargs: A dict of kwargs for dataset creation
+    :param training: Whether this is training or validation
+    :param rank: The rank of the current process
+    :param local_rank: The local rank of the current process
+    :param loader_num_workers: The number of workers to use for the data loader
+    :param loader_pin_memory: Whether to pin memory for the data loader
+    :param max_samples: The maximum number of samples to use
+    :return: Tuple with the following format (dataset, dataloader)
     """
-    train_dataset, train_loader = _create_train_dataset_and_loader(
-        args, args.image_size, task=task
+
+    download_context = (
+        torch_distributed_zero_first(local_rank)  # only download once locally
+        if training
+        else contextlib.nullcontext()
     )
-    val_dataset, val_loader = _create_val_dataset_and_loader(
-        args, args.image_size, task=task
+    dataset_kwargs = dataset_kwargs or {}
+
+    with download_context:
+        dataset = DatasetRegistry.create(
+            dataset_name,
+            root=dataset_path,
+            train=training,
+            rand_trans=training,
+            image_size=image_size,
+            **dataset_kwargs,
+        )
+
+    sampler = (
+        torch.utils.data.distributed.DistributedSampler(dataset)
+        if rank != -1 and training  # only run on DDP + training
+        else None
     )
-    return train_dataset, train_loader, val_dataset, val_loader
+    shuffle = sampler is None and not training
+
+    data_loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=loader_num_workers,
+        pin_memory=loader_pin_memory,
+        sampler=sampler,
+    )
+
+    if max_samples is not None:
+
+        data_loader = early_stop_data_loader(
+            data_loader, max_samples if max_samples > 1 else 1
+        )
+
+    return dataset, data_loader
 
 
 # Model creation Helpers
@@ -308,108 +362,6 @@ def save_model_training(
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
-
-
-# private methods
-def _get_collate_fn(arch_key: Optional[str] = None, task: Optional[Tasks] = None):
-    if not arch_key:
-        return None
-
-    is_ssd = "ssd" in arch_key.lower()
-    need_collate_function = (
-        is_ssd or "yolo" in arch_key.lower()
-    ) and task != Tasks.EXPORT
-    if need_collate_function:
-        return ssd_collate_fn if is_ssd else yolo_collate_fn
-    return None
-
-
-def _create_train_dataset_and_loader(
-    args: Any,
-    image_size: Tuple[int, ...],
-    task: Optional[Tasks] = None,
-) -> Tuple[Any, Any]:
-    need_train_data = not (
-        task == Tasks.EXPORT
-        or task == Tasks.PR_SENSITIVITY
-        and args.approximate
-        or task == Tasks.TRAIN
-        and args.eval_mode
-    )
-
-    if need_train_data:
-        with torch_distributed_zero_first(
-            args.local_rank,
-        ):  # only download once locally
-            train_dataset = DatasetRegistry.create(
-                args.dataset,
-                root=args.dataset_path,
-                train=True,
-                rand_trans=True,
-                image_size=image_size,
-                **args.dataset_kwargs,
-            )
-        sampler = (
-            torch.utils.data.distributed.DistributedSampler(train_dataset)
-            if args.rank != -1
-            else None
-        )
-        shuffle = True if sampler is None else False
-        batch_size = args.train_batch_size if task == Tasks.TRAIN else args.batch_size
-
-        arch_key = args.arch_key if hasattr(args, "arch_key") else None
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            num_workers=args.loader_num_workers,
-            pin_memory=args.loader_pin_memory,
-            sampler=sampler,
-            collate_fn=_get_collate_fn(arch_key=arch_key, task=task),
-        )
-        print(f"created train_dataset: {train_dataset}")
-        return train_dataset, train_loader
-
-    return None, None
-
-
-def _create_val_dataset_and_loader(
-    args, image_size: Tuple[int, ...], task: Optional[Tasks] = None
-) -> Tuple[Any, Any]:
-    need_val_data = not (
-        task == Tasks.PR_SENSITIVITY
-        or task == Tasks.LR_ANALYSIS
-        or not (args.is_main_process and args.dataset != "imagefolder")
-    )
-
-    if need_val_data:
-        val_dataset = DatasetRegistry.create(
-            args.dataset,
-            root=args.dataset_path,
-            train=False,
-            rand_trans=False,
-            image_size=image_size,
-            **args.dataset_kwargs,
-        )
-        if args.is_main_process:
-            is_training = task == Tasks.TRAIN
-            val_loader = DataLoader(
-                val_dataset,
-                batch_size=args.test_batch_size if is_training else 1,
-                shuffle=False,
-                num_workers=args.loader_num_workers if is_training else 1,
-                pin_memory=args.loader_pin_memory if is_training else False,
-                collate_fn=_get_collate_fn(arch_key=args.arch_key, task=task),
-            )
-            if task == Tasks.EXPORT:
-                val_loader = early_stop_data_loader(
-                    val_loader, args.num_samples if args.num_samples > 1 else 1
-                )
-            print(f"created val_dataset: {val_dataset}")
-        else:
-            val_loader = None  # only val dataset needed to get the number of classes
-        return val_dataset, val_loader
-    return None, None  # val dataset not needed
 
 
 def _download_model_from_zoo_using_recipe(
