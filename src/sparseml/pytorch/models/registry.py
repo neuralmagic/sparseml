@@ -16,8 +16,9 @@
 Code related to the PyTorch model registry for easily creating models.
 """
 
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
+import torch
 from torch.nn import Module
 
 from merge_args import merge_args
@@ -31,7 +32,6 @@ from sparsezoo.objects import Model
 __all__ = [
     "ModelRegistry",
 ]
-
 
 """
 Simple named tuple object to store model info
@@ -70,18 +70,19 @@ class ModelRegistry(object):
 
     @staticmethod
     def create(
-        key: str,
+        key: Optional[str] = None,
         pretrained: Union[bool, str] = False,
         pretrained_path: str = None,
         pretrained_dataset: str = None,
         load_strict: bool = True,
         ignore_error_tensors: List[str] = None,
         **kwargs,
-    ) -> Module:
+    ) -> Union[Module, Tuple[Module, Optional[str]]]:
         """
         Create a new model for the given key
 
-        :param key: the model key (name) to create
+        :param key: the model key (name) to create. If None, the key is read
+            from the state_dict['arch_key'] of the model.
         :param pretrained: True to load pretrained weights; to load a specific version
             give a string with the name of the version (pruned-moderate, base).
             Default None
@@ -91,16 +92,25 @@ class ModelRegistry(object):
             loaded in model, False otherwise; default True
         :param ignore_error_tensors: tensors to ignore if there are errors in loading
         :param kwargs: any keyword args to supply to the model constructor
-        :return: the instantiated model
+        :return: The instantiated model if key is given else a Tuple containing
+            the instantiated model and the loaded key
         """
-        if key not in ModelRegistry._CONSTRUCTORS:
+        key_copy = key
+
+        if key_copy is None:
+            _checkpoint = torch.load(pretrained_path)
+            if "arch_key" in _checkpoint:
+                key_copy = _checkpoint["arch_key"]
+            else:
+                raise ValueError("No `arch_key` found in checkpoint")
+
+        if key_copy not in ModelRegistry._CONSTRUCTORS:
             raise ValueError(
                 "key {} is not in the model registry; available: {}".format(
-                    key, ModelRegistry._CONSTRUCTORS
+                    key_copy, ModelRegistry._CONSTRUCTORS
                 )
             )
-
-        return ModelRegistry._CONSTRUCTORS[key](
+        model = ModelRegistry._CONSTRUCTORS[key_copy](
             pretrained=pretrained,
             pretrained_path=pretrained_path,
             pretrained_dataset=pretrained_dataset,
@@ -108,6 +118,7 @@ class ModelRegistry(object):
             ignore_error_tensors=ignore_error_tensors,
             **kwargs,
         )
+        return (model, key_copy) if key is None else model
 
     @staticmethod
     def create_zoo_model(
@@ -124,6 +135,7 @@ class ModelRegistry(object):
         :param pretrained_dataset: The dataset to load for the model
         :return: the sparsezoo Model reference for the given model
         """
+
         if key not in ModelRegistry._CONSTRUCTORS:
             raise ValueError(
                 "key {} is not in the model registry; available: {}".format(
@@ -207,8 +219,11 @@ class ModelRegistry(object):
         if not isinstance(key, List):
             key = [key]
 
-        def decorator(const_func):
-            wrapped_constructor = ModelRegistry._registered_wrapper(key[0], const_func)
+        def decorator(constructor_func):
+            wrapped_constructor = ModelRegistry._registered_wrapper(
+                key[0],
+                constructor_func,
+            )
 
             ModelRegistry.register_wrapped_model_constructor(
                 wrapped_constructor,
@@ -293,10 +308,10 @@ class ModelRegistry(object):
     @staticmethod
     def _registered_wrapper(
         key: str,
-        const_func: Callable,
+        constructor_func: Callable,
     ):
-        @merge_args(const_func)
-        @wrapper_decorator(const_func)
+        @merge_args(constructor_func)
+        @wrapper_decorator(constructor_func)
         def wrapper(
             pretrained_path: str = None,
             pretrained: Union[bool, str] = False,
@@ -329,7 +344,7 @@ class ModelRegistry(object):
             if attributes.args and pretrained in attributes.args:
                 kwargs[attributes.args[pretrained][0]] = attributes.args[pretrained][1]
 
-            model = const_func(*args, **kwargs)
+            model = constructor_func(*args, **kwargs)
             ignore = []
 
             if ignore_error_tensors:
