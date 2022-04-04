@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import tempfile
 from collections import OrderedDict
 from typing import Callable
 
@@ -510,18 +509,11 @@ stage_1:
     ],
 )
 def test_lifecycle_manager_staged_no_metadata(recipe):
-    temp_dir = tempfile.mkdtemp()
-    recipe_path = os.path.join(temp_dir, "recipe.yaml")
-
     recipe_manager = ScheduledModifierManager.from_yaml(file_path=recipe)
-    recipe_manager.save(recipe_path)
-    with open(recipe_path, "r") as file:
-        recipe_old = file.read()
+    recipe_old = str(recipe_manager)
 
     recipe_manager = ScheduledModifierManager.from_yaml(file_path=recipe_old)
-    recipe_manager.save(recipe_path)
-    with open(recipe_path, "r") as file:
-        recipe = file.read()
+    recipe = str(recipe_manager)
 
     assert recipe_old == recipe
 
