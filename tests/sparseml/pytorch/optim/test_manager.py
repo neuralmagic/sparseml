@@ -438,8 +438,6 @@ def test_lifecycle_manager_staged(
     raise_warning,
     raise_value_error,
 ):
-    temp_dir = tempfile.mkdtemp()
-    recipe_path = os.path.join(temp_dir, "recipy.yaml")
     if raise_warning:
         with pytest.warns(UserWarning):
             recipe_manager = ScheduledModifierManager.from_yaml(
@@ -461,10 +459,8 @@ def test_lifecycle_manager_staged(
                 base_recipe=checkpoint_recipe,
                 additional_recipe=recipe_manager,
             )
-    recipe_manager.save(recipe_path)
 
-    with open(recipe_path, "r") as file:
-        final_recipe = file.read()
+    final_recipe = str(recipe_manager)
     assert final_recipe == expected_recipe
 
 
