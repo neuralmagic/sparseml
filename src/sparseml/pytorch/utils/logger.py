@@ -22,6 +22,7 @@ import time
 from abc import ABC
 from datetime import datetime
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARN, Logger
+from types import ModuleType
 from typing import Callable, Dict, List, Optional, Union
 
 
@@ -797,6 +798,16 @@ class LoggerManager(ABC):
         :return: name given to the logger, used for identification
         """
         return self._name
+
+    @property
+    def wandb(self) -> Optional[ModuleType]:
+        """
+        :return: wandb module if initialized
+        """
+        for log in self.loggers:
+            if isinstance(log, WANDBLogger) and log.enabled:
+                return log.wandb
+        return None
 
     def log_scalar(
         self,
