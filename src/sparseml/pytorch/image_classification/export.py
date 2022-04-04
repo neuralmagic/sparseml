@@ -347,7 +347,16 @@ def export_setup(args_: ExportArgs) -> Tuple[Module, Optional[str], Any]:
         dataset=args_.dataset,
         model_kwargs=args_.model_kwargs,
     )
-    model = helpers.create_model(args_, num_classes)
+    model, args_.arch_key = helpers.create_model(
+        checkpoint_path=args_.checkpoint_path,
+        recipe_path=None,
+        num_classes=num_classes,
+        arch_key=args_.arch_key,
+        pretrained=args_.pretrained,
+        pretrained_dataset=args_.pretrained_dataset,
+        local_rank=args_.local_rank,
+        **args_.model_kwargs,
+    )
     return model, save_dir, val_loader
 
 
