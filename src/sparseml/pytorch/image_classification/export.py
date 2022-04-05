@@ -334,20 +334,16 @@ def export_setup(args_: ExportArgs) -> Tuple[Module, Optional[str], Any]:
     input_shape = ModelRegistry.input_shape(key=args_.arch_key)
     image_size = input_shape[1]  # assume shape [C, S, S] where S is the image size
 
-    val_dataset, val_loader = (
-        helpers.get_dataset_and_dataloader(
-            dataset_name=args_.dataset,
-            dataset_path=args_.dataset_path,
-            batch_size=1,
-            image_size=image_size,
-            dataset_kwargs=args_.dataset_kwargs,
-            training=False,
-            loader_num_workers=1,
-            loader_pin_memory=False,
-            max_samples=args_.num_samples,
-        )
-        if args_.is_main_process
-        else (None, None)
+    val_dataset, val_loader = helpers.get_dataset_and_dataloader(
+        dataset_name=args_.dataset,
+        dataset_path=args_.dataset_path,
+        batch_size=1,
+        image_size=image_size,
+        dataset_kwargs=args_.dataset_kwargs,
+        training=False,
+        loader_num_workers=1,
+        loader_pin_memory=False,
+        max_samples=args_.num_samples,
     )
 
     train_dataset = None

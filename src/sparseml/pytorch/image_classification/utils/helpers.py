@@ -67,16 +67,6 @@ class Tasks(Enum):
     PR_SENSITIVITY = auto()
 
 
-@contextmanager
-def nullcontext(enter_result=None):
-    """
-    A context manager that does nothing. For compatibility with Python 3.6
-    Update usages to use contextlib.nullcontext on Python 3.7+
-    """
-    yield enter_result
-
-
-# loggers
 def get_save_dir_and_loggers(
     task: Optional[Tasks] = None,
     is_main_process: bool = True,
@@ -174,7 +164,7 @@ def get_dataset_and_dataloader(
     download_context = (
         torch_distributed_zero_first(local_rank)  # only download once locally
         if training
-        else nullcontext()
+        else _nullcontext()
     )
     dataset_kwargs = dataset_kwargs or {}
 
@@ -404,3 +394,12 @@ def _download_model_from_zoo_using_recipe(
 
     checkpoint_path = files[0]
     return checkpoint_path
+
+
+@contextmanager
+def _nullcontext(enter_result=None):
+    """
+    A context manager that does nothing. For compatibility with Python 3.6
+    Update usages to use contextlib.nullcontext on Python 3.7+
+    """
+    yield enter_result
