@@ -205,7 +205,6 @@ def get_dataset_and_dataloader(
     )
 
     if max_samples is not None:
-
         data_loader = early_stop_data_loader(
             data_loader, max_samples if max_samples > 1 else 1
         )
@@ -228,12 +227,15 @@ def create_model(
     :param checkpoint_path: Path to the checkpoint to load. `zoo` for
         downloading weights with respect to a SparseZoo recipe
     :param num_classes: Integer representing the number of output classes
-    :param recipe_path: Path or SparseZoo stub to the recipe to use for
-        downloading, respective model.
-    :param arch_key: The architecture key of the image classification model
-    :param pretrained: Whether to use pretrained weights or not
-    :param pretrained_dataset: The dataset to used for pretraining
-    :param local_rank: The local rank of the process
+    :param recipe_path: Path or SparseZoo stub to the recipe for downloading,
+        respective model. Defaults to `None`
+    :param arch_key: The architecture key of the image classification model.
+        Defaults to `None`
+    :param pretrained: Whether to use pretrained weights or not. Defaults to
+        False
+    :param pretrained_dataset: The dataset to used for pretraining. Defaults to
+        None
+    :param local_rank: The local rank of the process. Defaults to -1
     :param model_kwargs: Additional keyword arguments to pass to the model
     :returns: A tuple containing the model and the model's arch_key
     """
@@ -262,7 +264,10 @@ def create_model(
 
 
 def infer_num_classes(
-    train_dataset, val_dataset, dataset: str, model_kwargs: Dict[str, Any]
+    train_dataset: Optional[Dataset],
+    val_dataset: Optional[Dataset],
+    dataset: str,
+    model_kwargs: Dict[str, Any],
 ) -> int:
     """
     :param train_dataset: dataset representing training data
@@ -291,7 +296,9 @@ def get_arch_key(arch_key: Optional[str], checkpoint_path: Optional[str]) -> str
     returned
 
     :param arch_key: Optional[str] The arch_key to use for the model
-    :checkpoint_path: Optiona[str] The path to the checkpoint
+    :param checkpoint_path: Optional[str] The path to the checkpoint
+    :return: str The arch_key to use for the model if present in the
+        checkpoint
     """
     if arch_key is None:
         if checkpoint_path:
