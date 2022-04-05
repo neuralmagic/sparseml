@@ -588,27 +588,25 @@ class QuantizationModifier(ScheduledModifier):
         # quantization.
         # otherwise, use the default values set in get_qat_qconfig
         if self.tensorrt:
-            _symmetric_activations = True
-            _activation_dtype = torch.qint8
-            _symmetric_weights = True
-            _weight_dtype = torch.qint8
+            qconfig = get_qat_qconfig(
+                symmetric_activations=True,
+                symmetric_weights=True,
+                reduce_range=self._reduce_range,
+                activation_qconfig_kwargs=self.activation_qconfig_kwargs,
+                weight_qconfig_kwargs=self.weight_qconfig_kwargs,
+                activation_dtype=torch.qint8,
+                weight_dtype=torch.qint8,
+                activation_bits=self.activation_bits,
+                weight_bits=self.weight_bits,
+            )
         else:
-            _symmetric_activations = None
-            _activation_dtype = None
-            _symmetric_weights = None
-            _weight_dtype = None
-
-        qconfig = get_qat_qconfig(
-            symmetric_activations=_symmetric_activations,
-            symmetric_weights=_symmetric_weights,
-            reduce_range=self._reduce_range,
-            activation_qconfig_kwargs=self.activation_qconfig_kwargs,
-            weight_qconfig_kwargs=self.weight_qconfig_kwargs,
-            activation_dtype=_activation_dtype,
-            weight_dtype=_weight_dtype,
-            activation_bits=self.activation_bits,
-            weight_bits=self.weight_bits,
-        )
+            qconfig = get_qat_qconfig(
+                reduce_range=self._reduce_range,
+                activation_qconfig_kwargs=self.activation_qconfig_kwargs,
+                weight_qconfig_kwargs=self.weight_qconfig_kwargs,
+                activation_bits=self.activation_bits,
+                weight_bits=self.weight_bits,
+            )
 
         # prepare each module / submodule for quantization
         for name, quant_module in self._modules_to_quantize:
