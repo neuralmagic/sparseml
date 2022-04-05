@@ -28,7 +28,9 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 
 from sparseml.pytorch.datasets import DatasetRegistry
-from sparseml.pytorch.datasets.ffcv_dataset import FFCVCompatibleDataset
+from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
+    FFCVCompatibleDataset,
+)
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import (
@@ -149,7 +151,7 @@ def get_dataset_and_dataloader(
     max_samples: Optional[int] = None,
     ffcv: bool = False,
     device: Optional[torch.device] = default_device(),
-) -> Tuple[Dataset, DataLoader]:
+) -> Tuple[Dataset, Union[DataLoader, Any]]:
     """
     :param dataset_name: The name of the dataset
     :param dataset_path: The path to the dataset

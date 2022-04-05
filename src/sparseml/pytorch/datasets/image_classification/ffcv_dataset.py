@@ -59,16 +59,16 @@ LOGGER = logging.getLogger(__name__)
 
 
 def timeit(func):
-    """Decorator to time a function."""
+    """Decorator to time a function"""
 
     @functools.wraps(func)
     def time_closure(*args, **kwargs):
-        """Function that actually does the timing."""
+        """Function that actually does the timing"""
 
         start = time.perf_counter()
         result = func(*args, **kwargs)
         time_elapsed = time.perf_counter() - start
-        LOGGER.info(f"Function: {func.__name__}, Time: {time_elapsed}")
+        LOGGER.debug(f"Function: {func.__name__}, Time: {time_elapsed}")
         return result
 
     return time_closure
@@ -76,106 +76,31 @@ def timeit(func):
 
 class FFCVCompatibleDataset(ABC):
     """
-    Contract for adding FFCV functionality to a dataset.
+    Contract for adding FFCV functionality to a dataset
     """
 
     @property
     @abstractmethod
     def validation(self):
         """
-        :returns The dataset to use
+        :returns if the dataset is being used for validation
         """
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def ffcv_fields(self, *args, **kwargs) -> "Dict[str, Field]":
+    def ffcv_fields(self, *args, **kwargs) -> Dict[str, "Field"]:
         """
-        :returns A dictionary of FFCV fields to use while writing the dataset.
+        :returns A dictionary of FFCV fields to use while writing the dataset
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def ffcv_pipelines(self, *args, **kwargs) -> "Dict[str, List[Operation]]":
+    def ffcv_pipelines(self, *args, **kwargs) -> Dict[str, List["Operation"]]:
         """
-        :returns: A Dict of operations to apply to the features and labels.
+        :returns: A Dict of operations to apply to the features and labels
         """
         raise NotImplementedError()
-
-    def _write(self, write_path: str, num_workers: int = 16) -> None:
-        """
-        Write the dataset to disk.
-        Notes:
-             - if the dataset is already written to disk, this will **NOT**
-                overwrite the existing file.
-             - This method must not be invoked directly. Use
-                get_ffcv_loader(...) instead
-
-        :pre-condition: The dataset has been initialized,
-            and it's corresponding FFCV fields have been defined.
-        """
-
-        with self.switch_off_dataset_arg("transform"), self.switch_off_dataset_arg(
-            "target_transform"
-        ):
-            self._write_if_not_written_already(
-                write_path=write_path,
-                num_workers=num_workers,
-            )
-
-        LOGGER.info("Dataset successfully written to disk.")
-
-    @timeit
-    def _write_if_not_written_already(
-        self,
-        write_path: str,
-        num_workers: int = 16,
-    ):
-        dataset_path = Path(write_path)
-
-        # Skip if dataset is already written
-        if dataset_path.exists():
-            LOGGER.info("Dataset already written to disk. Skipping _write.")
-            return
-
-        # Make parents if they don't exist
-        dataset_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Initialize the writer
-        writer = DatasetWriter(
-            fname=write_path,
-            fields=self.ffcv_fields,
-            num_workers=num_workers,
-        )
-
-        LOGGER.info(f"Writing dataset to {write_path}")
-
-        # self is the dataset
-        writer.from_indexed_dataset(self)
-
-    @contextmanager
-    def switch_off_dataset_arg(self, arg):
-        """
-        Context manager to perform an operation with a dataset argument turned
-        to None
-        """
-
-        old_arg_value = None
-
-        try:
-            # Set dataset attribute to None
-            if hasattr(self, arg):
-                old_arg_value = getattr(self, arg)
-                setattr(self, arg, None)
-                LOGGER.info(f"Dataset attribute {arg} set to {None}")
-            # Give back control
-            yield
-
-        finally:
-            # Restore dataset attribute to its original state
-            if old_arg_value is not None and hasattr(self, arg):
-                setattr(self, arg, old_arg_value)
-                LOGGER.info(f"Dataset attribute {arg} restored to old state")
 
     def get_ffcv_loader(
         self,
@@ -185,23 +110,22 @@ class FFCVCompatibleDataset(ABC):
         distributed: bool = False,
         in_memory: bool = False,
         device: Union[str, int] = default_device(),
-    ):
+    ) -> "Loader":
         """
-        Initialize the data loader.
+        Initialize FFCV data loader
 
-        :param write_path: The path to write the dataset to.
-        :param num_workers: Number of workers to use for the data loader.
-        :param batch_size: Batch size for the data loader.
-        :param distributed: bool Whether to use distributed data loading.
-        :param in_memory: bool Does the dataset fit in memory.
-        :param device: str or int The device to use for the data loader.
+        :param write_path: The path to write the dataset to
+        :param num_workers: Number of workers to use for the data loader
+        :param batch_size: Batch size for the data loader
+        :param distributed: bool Whether to use distributed data loading
+        :param in_memory: bool Does the dataset fit in memory
+        :param device: str or int The device to use for the data loader
+        :return: A FFCV data loader
         """
 
         if not ffcv:
-            ffcv_url = "https://github.com/libffcv/ffcv#readme"
             raise ImportError(
-                "FFCV is not installed. Please install using instructions from "
-                f"{ffcv_url}"
+                "FFCV not found. Please install FFCV to use this feature."
             )
 
         # Write the dataset if it hasn't been written already
@@ -225,10 +149,85 @@ class FFCVCompatibleDataset(ABC):
         )
         return loader
 
+    def _write(self, write_path: str, num_workers: int = 16) -> None:
+        """
+        Write the dataset to disk
+        Notes:
+             - if the dataset is already written to disk, this will **NOT**
+                overwrite the existing file
+             - This method must not be invoked directly; Use
+                get_ffcv_loader(...) instead
+
+        :pre-condition: The dataset has been initialized,
+            and it's corresponding FFCV fields have been defined
+        """
+
+        with self._switch_off_dataset_arg("transform"), self._switch_off_dataset_arg(
+            "target_transform"
+        ):
+            self._write_if_not_written_already(
+                write_path=write_path,
+                num_workers=num_workers,
+            )
+
+        LOGGER.info("Dataset successfully written to disk.")
+
+    @timeit
+    def _write_if_not_written_already(
+        self,
+        write_path: str,
+        num_workers: int = 16,
+    ):
+        dataset_path = Path(write_path)
+
+        # Skip if dataset is already written
+        if dataset_path.exists():
+            LOGGER.info("Dataset already written to disk. Skipping ffcv_write.")
+            return
+
+        # Make parents if they don't exist
+        dataset_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Initialize the writer
+        writer = DatasetWriter(
+            fname=write_path,
+            fields=self.ffcv_fields,
+            num_workers=num_workers,
+        )
+
+        LOGGER.debug(f"Writing dataset to {write_path}")
+
+        # self is the dataset
+        writer.from_indexed_dataset(self)
+
+    @contextmanager
+    def _switch_off_dataset_arg(self, arg):
+        """
+        Context manager to perform an operation with a dataset argument turned
+        to None
+        """
+
+        old_arg_value = None
+
+        try:
+            # Set dataset attribute to None
+            if hasattr(self, arg):
+                old_arg_value = getattr(self, arg)
+                setattr(self, arg, None)
+                LOGGER.debug(f"Dataset attribute {arg} set to {None}")
+            # Give back control
+            yield
+
+        finally:
+            # Restore dataset attribute to its original state
+            if old_arg_value is not None and hasattr(self, arg):
+                setattr(self, arg, old_arg_value)
+                LOGGER.debug(f"Dataset attribute {arg} restored to old state")
+
 
 class FFCVImageNetDataset(FFCVCompatibleDataset):
     """
-    A concrete implementation of the FFCVCompatibleDataset class for ImageNet.
+    A concrete implementation of the FFCVCompatibleDataset class for ImageNet
     """
 
     IMAGENET_MEAN = np.array(IMAGENET_RGB_MEANS) * 255
@@ -236,10 +235,10 @@ class FFCVImageNetDataset(FFCVCompatibleDataset):
     DEFAULT_CROP_RATIO = 224 / 256
 
     @property
-    def ffcv_fields(self) -> "Dict[str, Field]":
+    def ffcv_fields(self) -> Dict[str, "Field"]:
         """
         :returns: A dictionary of FFCV fields representing ImageNet
-            based datasets.
+            based datasets
         """
         return {
             "image": RGBImageField(),
@@ -249,10 +248,10 @@ class FFCVImageNetDataset(FFCVCompatibleDataset):
     def ffcv_pipelines(
         self,
         device: Union[str, int] = default_device(),
-    ) -> "Dict[str, List[Operation]]":
+    ) -> Dict[str, List["Operation"]]:
         """
         :returns: A Dict of operations to apply to the features and labels
-            for ImageNet based datasets.
+            for ImageNet based datasets
         """
         assert hasattr(self, "image_size"), "image_size not set"
         resolution = (self.image_size, self.image_size)
@@ -291,9 +290,27 @@ class FFCVImageNetDataset(FFCVCompatibleDataset):
         }
 
     @property
-    def validation(self):
+    def validation(self) -> bool:
         """
-        :returns: True if the dataset is used for validation.
+        :returns: True if the dataset is being used for validation
         """
         # rand_trans are applied while training
         return not (hasattr(self, "rand_trans") and self.rand_trans)
+
+    def override_means(self, new_mean):
+        """
+        Override means with new value
+        """
+        self.IMAGENET_MEAN = new_mean
+
+    def override_std(self, new_std):
+        """
+        Override std with new value
+        """
+        self.IMAGENET_STD = new_std
+
+    def override_default_crop_rati(self, new_ratio):
+        """
+        Override default crop ratio with new value
+        """
+        self.DEFAULT_CROP_RATIO = new_ratio

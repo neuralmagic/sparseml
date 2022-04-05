@@ -31,7 +31,9 @@ except Exception as torchvision_error:
     ImageFolder = object  # default for constructor
     torchvision_import_error = torchvision_error
 
-from sparseml.pytorch.datasets.ffcv_dataset import FFCVImageNetDataset
+from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
+    FFCVImageNetDataset,
+)
 from sparseml.pytorch.datasets.registry import DatasetRegistry
 from sparseml.utils import clean_path
 from sparseml.utils.datasets import (
