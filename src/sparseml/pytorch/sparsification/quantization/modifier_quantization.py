@@ -47,6 +47,9 @@ except Exception:
 from sparseml.optim import BaseModifier, ModifierProp
 from sparseml.pytorch.optim.modifier import PyTorchModifierYAML, ScheduledModifier
 from sparseml.pytorch.sparsification.quantization.helpers import (
+    CONV_ACTIVATION_NAMES,
+    LINEAR_ACTIVATION_NAMES,
+    QConfigProperties,
     add_quant_dequant,
     configure_module_bn_wrappers,
     configure_module_default_qconfigs,
@@ -555,25 +558,11 @@ class QuantizationModifier(ScheduledModifier):
         # build list of layer types that should not quantize output activations
         to_remove_layer_name = []
         if not self._quantize_linear_activations:
-            to_remove_layer_name.extend(["Linear", "LinearReLU"])
+            to_remove_layer_name.extend(LINEAR_ACTIVATION_NAMES)
 
         if not self._quantize_conv_activations:
-            to_remove_layer_name.extend(
-                [
-                    "Conv1d",
-                    "Conv2d",
-                    "Conv3d",
-                    "ConvBn1d",
-                    "ConvBn2d",
-                    "ConvBn3d",
-                    "ConvReLU1d",
-                    "ConvReLU2d",
-                    "ConvReLU3d",
-                    "ConvBnReLU1d",
-                    "ConvBnReLU2d",
-                    "ConvBnReLU3d",
-                ]
-            )
+            to_remove_layer_name.extend(CONV_ACTIVATION_NAMES)
+
         if len(to_remove_layer_name) == 0:
             to_remove_layer_name = None
 
@@ -586,45 +575,20 @@ class QuantizationModifier(ScheduledModifier):
         # set qconfig.
         # if tensorrt flag is used, set activation and weights to symmetric
         # quantization.
-        # otherwise, use the default values set in get_qat_qconfig
+        # otherwise, use the default values set in QConfigProperties
+        qproperties = QConfigProperties()
         if self.tensorrt:
-            _symmetric_activations = True
-            _activation_dtype = torch.qint8
-            _symmetric_weights = True
-            _weight_dtype = torch.qint8
-        else:
-            _symmetric_activations = None
-            _activation_dtype = None
-            _symmetric_weights = None
-            _weight_dtype = None
+            qproperties.symmetric_activations = True
+            qproperties.activation_dtype = torch.qint8
+            qproperties.symmetric_weights = True
+            qproperties.weight_dtype = torch.qint8
 
-        qconfig = get_qat_qconfig(
-            symmetric_activations=_symmetric_activations,
-            symmetric_weights=_symmetric_weights,
-            reduce_range=self._reduce_range,
-            activation_qconfig_kwargs=self.activation_qconfig_kwargs,
-            weight_qconfig_kwargs=self.weight_qconfig_kwargs,
-            activation_dtype=_activation_dtype,
-            weight_dtype=_weight_dtype,
-            activation_bits=self.activation_bits,
-            weight_bits=self.weight_bits,
-        )
+        qconfig = get_qat_qconfig(qproperties)
 
         # prepare each module / submodule for quantization
         for name, quant_module in self._modules_to_quantize:
             # wrap any modules with wrap_qat set to True as QATWrapper(s)
-            configure_module_qat_wrappers(
-                quant_module,
-                symmetric_activations=_symmetric_activations,
-                symmetric_weights=_symmetric_weights,
-                reduce_range=self._reduce_range,
-                activation_qconfig_kwargs=self.activation_qconfig_kwargs,
-                weight_qconfig_kwargs=self.weight_qconfig_kwargs,
-                activation_dtype=_activation_dtype,
-                weight_dtype=_weight_dtype,
-                activation_bits=self.activation_bits,
-                weight_bits=self.weight_bits,
-            )
+            configure_module_qat_wrappers(quant_module, qproperties)
 
             # set quantization config (asymmetric activations, symmetric weights)
             quant_module.qconfig = qconfig
@@ -656,18 +620,7 @@ class QuantizationModifier(ScheduledModifier):
         # set modules with proper qconfigs to QAT mode
         torch_quantization.prepare_qat(module, inplace=True)
         if self._quantize_embeddings:
-            prepare_embeddings_qat(
-                module,
-                symmetric_activations=_symmetric_activations,
-                symmetric_weights=_symmetric_weights,
-                reduce_range=self._reduce_range,
-                activation_qconfig_kwargs=self.activation_qconfig_kwargs,
-                weight_qconfig_kwargs=self.weight_qconfig_kwargs,
-                activation_dtype=_activation_dtype,
-                weight_dtype=_weight_dtype,
-                activation_bits=self.activation_bits,
-                weight_bits=self.weight_bits,
-            )
+            prepare_embeddings_qat(module, qproperties)
 
         # propagate custom quant min/max range from FakeQuantize to Observer objects
         fix_observer_quant_range(module)

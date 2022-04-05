@@ -30,8 +30,10 @@ except Exception:
     nni = None
     torch_quantization = None
 
-from sparseml.pytorch.nn import ReLU as ReLU_nm
 from dataclasses import dataclass, field
+
+from sparseml.pytorch.nn import ReLU as ReLU_nm
+
 
 __all__ = [
     "QATWrapper",
@@ -45,6 +47,25 @@ __all__ = [
     "freeze_bn_stats",
     "fuse_module_conv_bn_relus",
     "prepare_embeddings_qat",
+    "QConfigProperties",
+    "LINEAR_ACTIVATION_NAMES",
+    "CONV_ACTIVATION_NAMES",
+]
+
+LINEAR_ACTIVATION_NAMES = ["Linear", "LinearReLU"]
+CONV_ACTIVATION_NAMES = [
+    "Conv1d",
+    "Conv2d",
+    "Conv3d",
+    "ConvBn1d",
+    "ConvBn2d",
+    "ConvBn3d",
+    "ConvReLU1d",
+    "ConvReLU2d",
+    "ConvReLU3d",
+    "ConvBnReLU1d",
+    "ConvBnReLU2d",
+    "ConvBnReLU3d",
 ]
 
 _QUANTIZABLE_MODULE_TYPES = (
@@ -99,15 +120,16 @@ class QConfigProperties:
     :param activation_bits: number of bits for activations. Default is 8.
     :param weight_bits: number of bits for weights. Default is 8.
     """
+
     _symmetric_activations: Optional[bool] = None
     _symmetric_weights: Optional[bool] = None
     reduce_range: bool = False
-    activation_qconfig_kwargs: Dict[str, Any] = field(default_factory=dict)
-    weight_qconfig_kwargs: Dict[str, Any] = field(default_factory=dict)
-    activation_dtype: torch.quint8
+    activation_dtype: torch.dtype = torch.quint8
     weight_dtype: torch.dtype = torch.qint8
     activation_bits: int = 8
     weight_bits: int = 8
+    activation_qconfig_kwargs: Dict[str, Any] = field(default_factory=dict)
+    weight_qconfig_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def symmetric_activations(self) -> bool:
@@ -289,7 +311,9 @@ class QATWrapper(Module):
 
         # Remove qconfig from wrapped layer to avoid duplicate quantization
         module.qconfig = None
-        return QATWrapper(forward_fn=module, qproperties=qproperties, **qat_wrapper_kwargs)
+        return QATWrapper(
+            forward_fn=module, qproperties=qproperties, **qat_wrapper_kwargs
+        )
 
     def __init__(
         self,
@@ -584,8 +608,7 @@ def remove_activation_qat_by_layer_name(module: Module, layer_class_names: List[
             )
 
 
-def get_qat_qconfig(qproperties: QConfigProperties
-) -> "torch.quantization.QConfig":
+def get_qat_qconfig(qproperties: QConfigProperties) -> "torch.quantization.QConfig":
     """
     :param qproperties: properties used to define QConfig.
     """
@@ -602,7 +625,7 @@ def get_qat_qconfig(qproperties: QConfigProperties
         qproperties.weight_dtype,
         qproperties.weight_bits,
         False,
-        qproperties.weight_qconfig_kwargs
+        qproperties.weight_qconfig_kwargs,
     )
 
     return torch_quantization.QConfig(
