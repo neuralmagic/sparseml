@@ -117,13 +117,13 @@ class QuantizationModifier(ScheduledModifier):
         This may prevent overflow issues with model execution on certain hardware
         Default is False
     :param quantize_linear_activations: if True, FakeQuantize ops will be run
-        for output activations of fully connected layers. Default is False.
+        for output activations of fully connected layers. Default is True.
     :param quantize_conv_activations: if True, FakeQuantize ops will be run
-        for output activations of convolutional layers. Default is False.
+        for output activations of convolutional layers. Default is True.
     :param activation_bits: Number of bits to use for setting quant min/max values for
-        activations. Default is None, which will quantize activations to 8 bits.
+        activations. Default 8.
     :param weight_bits: Number of bits to use for setting quant min/max values for
-        weights. Default is None, which will quantize weights to 8 bits.
+        weights. Default is 8.
     :param num_calibration_steps: Number of steps to run post training calibration for.
         When None, the entire calibration_dataloader is used
     :param exclude_batchnorm: If True, do not propagate quantization qconfigs to
@@ -149,10 +149,10 @@ class QuantizationModifier(ScheduledModifier):
         model_fuse_fn_kwargs: Dict[str, Any] = None,
         quantize_embeddings: bool = True,
         reduce_range: bool = False,
-        quantize_linear_activations: bool = False,
-        quantize_conv_activations: bool = False,
-        activation_bits: Optional[int] = None,
-        weight_bits: Optional[int] = None,
+        quantize_linear_activations: bool = True,
+        quantize_conv_activations: bool = True,
+        activation_bits: int = 8,
+        weight_bits: int = 8,
         num_calibration_steps: Optional[int] = None,
         exclude_batchnorm: bool = True,
         exclude_module_types: Optional[List[str]] = None,
@@ -340,7 +340,10 @@ class QuantizationModifier(ScheduledModifier):
         :return: if True, FakeQuantize ops will be run for output activations
             of fully connected layers
         """
-        return self._quantize_linear_activations
+        if self._tensorrt:
+            return False
+        else:
+            return self._quantize_linear_activations
 
     @ModifierProp()
     def quantize_conv_activations(self) -> bool:
@@ -348,7 +351,10 @@ class QuantizationModifier(ScheduledModifier):
         :return: if True, FakeQuantize ops will be run for output activations
             of convolutional layers
         """
-        return self._quantize_conv_activations
+        if self._tensorrt:
+            return False
+        else:
+            return self._quantize_conv_activations
 
     @ModifierProp()
     def exclude_module_types(self) -> Union[List[str], None]:
@@ -557,10 +563,10 @@ class QuantizationModifier(ScheduledModifier):
 
         # build list of layer types that should not quantize output activations
         to_remove_layer_name = []
-        if not self._quantize_linear_activations:
+        if not self.quantize_linear_activations:
             to_remove_layer_name.extend(LINEAR_ACTIVATION_NAMES)
 
-        if not self._quantize_conv_activations:
+        if not self.quantize_conv_activations:
             to_remove_layer_name.extend(CONV_ACTIVATION_NAMES)
 
         if len(to_remove_layer_name) == 0:
@@ -576,7 +582,13 @@ class QuantizationModifier(ScheduledModifier):
         # if tensorrt flag is used, set activation and weights to symmetric
         # quantization.
         # otherwise, use the default values set in QConfigProperties
-        qproperties = QConfigProperties()
+        qproperties = QConfigProperties(
+            activation_bits=self.activation_bits,
+            weight_bits=self.weight_bits,
+            activation_qconfig_kwargs=self.activation_qconfig_kwargs,
+            weight_qconfig_kwargs=self.weight_qconfig_kwargs,
+            reduce_range=self.reduce_range,
+        )
         if self.tensorrt:
             qproperties.symmetric_activations = True
             qproperties.activation_dtype = torch.qint8
