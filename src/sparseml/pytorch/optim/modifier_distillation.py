@@ -220,7 +220,7 @@ class DistillationModifier(ScheduledUpdateModifier):
                 f"{distillation_teacher}. "
                 "To disable set to 'disable' and for self attention set to 'self'"
             )
-        self._latest_student__loss = None
+        self._latest_student_loss = None
         self._latest_teacher_loss = None
         self._latest_distillation_loss = None
 
@@ -261,15 +261,15 @@ class DistillationModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         :return: loss tensor with knowledge distillation loss added
         """
-        self._latest_student__loss = None
+        self._latest_student_loss = None
         self._latest_teacher_loss = None
         self._latest_distillation_loss = None
-        self._latest_student__loss = super().loss_update(
+        self._latest_student_loss = super().loss_update(
             loss, module, optimizer, epoch, steps_per_epoch, **kwargs
         )
 
         if not self.update_ready(epoch, steps_per_epoch):
-            return self._latest_student__loss
+            return self._latest_student_loss
 
         if student_outputs is None or student_inputs is None:
             raise ValueError(
@@ -355,7 +355,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
         losses = {
-            "original_loss": self._latest_student__loss,
+            "original_loss": self._latest_student_loss,
             "teacher_loss": self._latest_teacher_loss,
             "distillation_loss": self._latest_distillation_loss,
         }
