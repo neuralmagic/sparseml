@@ -673,6 +673,12 @@ class QuantizationModifier(ScheduledModifier):
         self._qat_enabled = True
         self._calibrate_if_possible(module)
 
+        # mark export mode for module Conv layers
+        module.export_with_qlinearconv = self._quantize_conv_activations
+        if hasattr(module, "module"):
+            # for DP/DDP unwrapping
+            module.module.export_with_qlinearconv = self._quantize_conv_activations
+
     def _calibrate_if_possible(self, module):
         if self.num_calibration_steps == 0 and self._calibration_dataloader:
             warnings.warn(
