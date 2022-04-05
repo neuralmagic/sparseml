@@ -118,9 +118,9 @@ class QuantizationModifier(ScheduledModifier):
     :param quantize_conv_activations: if True, FakeQuantize ops will be run
         for output activations of convolutional layers. Default is False.
     :param activation_bits: Number of bits to use for setting quant min/max values for
-        activations. Default is 8.
+        activations. Default is None, which will quantize activations to 8 bits.
     :param weight_bits: Number of bits to use for setting quant min/max values for
-        weights. Default is 8.
+        weights. Default is None, which will quantize weights to 8 bits.
     :param num_calibration_steps: Number of steps to run post training calibration for.
         When None, the entire calibration_dataloader is used
     :param exclude_batchnorm: If True, do not propagate quantization qconfigs to
@@ -148,8 +148,8 @@ class QuantizationModifier(ScheduledModifier):
         reduce_range: bool = False,
         quantize_linear_activations: bool = False,
         quantize_conv_activations: bool = False,
-        activation_bits: int = 8,
-        weight_bits: int = 8,
+        activation_bits: Optional[int] = None,
+        weight_bits: Optional[int] = None,
         num_calibration_steps: Optional[int] = None,
         exclude_batchnorm: bool = True,
         exclude_module_types: Optional[List[str]] = None,
