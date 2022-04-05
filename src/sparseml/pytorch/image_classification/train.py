@@ -636,6 +636,8 @@ def main():
         training=True,
         loader_num_workers=training_args.loader_num_workers,
         loader_pin_memory=training_args.loader_pin_memory,
+        ffcv=training_args.ffcv,
+        device=training_args.device,
     )
     val_dataset, val_loader = (
         helpers.get_dataset_and_dataloader(
@@ -647,6 +649,8 @@ def main():
             training=False,
             loader_num_workers=training_args.loader_num_workers,
             loader_pin_memory=training_args.loader_pin_memory,
+            ffcv=training_args.ffcv,
+            device=training_args.device,
         )
         if training_args.is_main_process
         else (None, None)
