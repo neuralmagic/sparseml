@@ -17,8 +17,9 @@ Helper methods for image classification/detection based tasks
 """
 import os
 import warnings
+import logging
 from enum import Enum, auto, unique
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, Dict
 
 import torch
 from torch.nn import Module
@@ -233,6 +234,10 @@ def save_recipe(
     :param save_dir: The directory to save the recipe
     """
     recipe_save_path = os.path.join(save_dir, "recipe.yaml")
+    ch_path = None
+    if os.path.exists(ch_path):
+        combined_manager = ScheduledModifierManager.compose_staged(base_recipe=ch_path, additional_recipe=recipe_manager, save_path=recipe_save_path)
+
     recipe_manager.save(recipe_save_path)
     print(f"Saved recipe to {recipe_save_path}")
 
@@ -282,6 +287,32 @@ def save_model_training(
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
+from dataclasses import asdict
+# TODO: Add type for training_args
+def extract_metadata(metadata_args: List[str], training_args)-> Dict[str, Any]:
+    """
+    Extract metadata from the training arguments.
+
+    :param metadata_args: List of keys we are attempting to retrieve from `training_args`
+        and pass as metadata
+    :param training_args: TrainingArguments of the pipeline
+    :return: metadata
+    """
+    # TODO: Possibly share this functionality among IC and transformers (and future pipelines)
+    metadata = {}
+    training_args_dict = asdict(training_args)
+
+    for arg in metadata_args:
+        if arg not in training_args_dict.keys():
+            logging.warning(
+                f"Required metadata argument {arg} was not found "
+                f"in the training arguments. Setting {arg} to None."
+            )
+            metadata[arg] = None
+        else:
+            metadata[arg] = training_args_dict[arg]
+
+    return metadata
 
 
 # private methods

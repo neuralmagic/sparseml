@@ -187,6 +187,7 @@ from sparseml.pytorch.utils import (
 
 CURRENT_TASK = helpers.Tasks.TRAIN
 LOGGER = get_main_logger()
+METADATA_ARGS = ["arch_key", "dataset", "device","pretrained", "test_batch_size", "train_batch_size"]
 
 
 @dataclass
@@ -682,6 +683,7 @@ def _init_image_classification_trainer_and_save_dirs(
         device=train_args.device,
         ddp=ddp,
     )
+    metadata = helpers.extract_metadata(metadata_args=METADATA_ARGS, training_args=train_args)
 
     LOGGER.info(f"running on device {train_args.device}")
 
@@ -690,6 +692,7 @@ def _init_image_classification_trainer_and_save_dirs(
             model=model,
             key=train_args.arch_key,
             recipe_path=train_args.recipe_path,
+            metadata=metadata,
             ddp=ddp,
             device=train_args.device,
             use_mixed_precision=train_args.use_mixed_precision,
