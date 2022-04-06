@@ -97,9 +97,9 @@ class BaseManager(BaseObject):
     def metadata(self):
         return self._metadata
 
-    def number_stages(self) -> int:
+    def num_stages(self) -> int:
         """
-        Return the number of stages inside the recipe
+        Return the number of stages of the recipe
         :return: number of stages
         """
         if isinstance(self.modifiers, dict):
@@ -409,7 +409,7 @@ class BaseManager(BaseObject):
             for mod in modifiers_list:
                 yield mod
 
-    def to_string_lines(self, include_metadata: bool = False) -> List[str]:
+    def to_string_lines(self, include_metadata: bool = True) -> List[str]:
         """
         :param include_metadata: boolean indicator whether metadata shall be
             appended to the yaml file before saving. Default is False.

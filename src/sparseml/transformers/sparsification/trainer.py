@@ -167,7 +167,7 @@ class RecipeManagerTrainerInterface:
         if self.arch_manager:
             self.arch_manager.apply_structure(self.model, epoch=epoch)
             _LOGGER.info(
-                f"Applied structure from {self.arch_manager.number_stages()} "
+                f"Applied structure from {self.arch_manager.num_stages()} "
                 "previous recipe stage(s) to model and finalized "
                 "(recipes saved with model_path)"
             )
@@ -372,11 +372,11 @@ class RecipeManagerTrainerInterface:
 
         recipe_path = os.path.join(output_dir, RECIPE_NAME)
         if self.arch_manager:
-            ScheduledModifierManager.compose_staged(
-                base_recipe=self.arch_manager,
-                additional_recipe=self.manager,
-                save_path=recipe_path,
+            composed_manager = ScheduledModifierManager.compose_staged(
+                base_recipe=str(self.arch_manager),
+                additional_recipe=str(self.manager),
             )
+            composed_manager.save(recipe_path)
         else:
 
             self.manager.save(recipe_path)
@@ -452,7 +452,7 @@ class RecipeManagerTrainerInterface:
         if os.path.isfile(arch_recipe):
             arch_manager = ScheduledModifierManager.from_yaml(arch_recipe)
             _LOGGER.info(
-                f"Loaded SparseML {arch_manager.number_stages()} recipe stage(s) "
+                f"Loaded SparseML {arch_manager.num_stages()} recipe stage(s) "
                 f"into architecture managers from {arch_recipe}"
             )
 
@@ -739,10 +739,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         return (
             self.trainer.manager
             and self.trainer.manager.qat_active(epoch)
-            or any(
-                bool(stage.quantization_modifiers)
-                for stage in self.trainer.arch_manager.modifiers
-            )
+            or self.trainer.arch_manager.quantization_modifiers
         )
 
     def disable_amp(self, epoch: float):

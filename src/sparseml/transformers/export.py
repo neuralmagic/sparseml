@@ -177,12 +177,12 @@ def export_transformer_to_onnx(
         trainer.finalize_manager()
         num_stages = 0
         if trainer.manager:
-            num_stages += trainer.manager.number_stages()
+            num_stages += trainer.manager.num_stages()
         if trainer.arch_manager:
-            num_stages += trainer.arch_manager.number_stages()
+            num_stages += trainer.arch_manager.num_stages()
 
         msg = (
-            "an unstaged_recipe"
+            "an unstaged recipe"
             if num_stages == 1
             else f"a staged recipe with {num_stages} stages"
         )
