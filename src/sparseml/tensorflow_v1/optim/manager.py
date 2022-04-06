@@ -117,7 +117,7 @@ class ScheduledModifierManager(BaseManager, Modifier):
 
         validated_metadata = validate_metadata(metadata, yaml_str)
 
-        if metadata:
+        if metadata is not None:
             logging.info(
                 "The new `metadata` has been passed to the manager. "
                 f"This will change the metadata in the recipe {file_path}"
