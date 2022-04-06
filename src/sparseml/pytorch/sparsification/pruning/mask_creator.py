@@ -567,5 +567,5 @@ def get_mask_creator_default(mask_type: Union[str, List[int]]) -> PruningMaskCre
     else:
         raise ValueError(
             f"Unknown mask_type {mask_type}. Supported mask types include "
-            "'unstructured' and 'block'"
+            "'unstructured' and 'block4'"
         )
