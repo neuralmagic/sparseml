@@ -101,12 +101,12 @@ Afterward, you will have a model that achieves roughly 0.556 mAP@0.5 or 0.654 mA
    
    YOLOv5s:
    ```bash
-   python train.py --cfg ../models/yolov5s.yaml --weights "" --data coco.yaml --hyp data/hyp.scratch.yaml
+   python train.py --cfg ../models_v5.0/yolov5s.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch-low.yaml
    ```    
 
    YOLOv5l:
    ```bash
-   python train.py --cfg ../models/yolov5l.yaml --weights "" --data coco.yaml --hyp data/hyp.scratch.yaml
+   python train.py --cfg ../models_v5.0/yolov5l.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch-low.yaml
    ```
 2. Validate that the training commands completed successfully by checking under the newly created `runs/train/exp` path for the trained weights.
    The best trained weights will be found at `runs/train/exp/weights/best.pt` and will be used later for further sparsification.
@@ -150,12 +150,12 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 
     | Recipe Name                                                                                                                                              | Description                                                                                                                     | Train Command                                                                                                                                                                               | COCO mAP@0.5 | Size on Disk | DeepSparse Performance** |
     |----------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|--------------|--------------------------|
-    | YOLOv5s Baseline                                                                                                                                         | The baseline, small YOLOv5 model used as the starting point for sparsification.                                                 | ``` python train.py --cfg ../models/yolov5s.yaml --weights "" --data coco.yaml --hyp data/hyp.scratch.yaml ```                                                                              | 0.556        | 24.8 MB       | 78.2 img/sec             |
-    | [YOLOv5s Pruned](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5s.pruned.md)                            | Creates a highly sparse, FP32 YOLOv5s model that recovers close to the baseline model.                                          | ``` python train.py --cfg ../models/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyp.scratch.yaml --recipe ../recipes/yolov5s.pruned.md ```           | 0.534        | 8.4 MB      | 100.5 img/sec            |
-    | [YOLOv5s Pruned Quantized](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5s.pruned_quantized.md)        | Creates a highly sparse, INT8 YOLOv5s model that recovers reasonably close to the baseline model.                               | ``` python train.py --cfg ../models/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyp.scratch.yaml --recipe ../recipes/yolov5s.pruned_quantized.md ``` | 0.525        | 3.3 MB      | 198.2 img/sec            |
-    | YOLOv5l Baseline                                                                                                                                         | The baseline, large YOLOv5 model used as the starting point for sparsification.                                                 | ``` python train.py --cfg ../models/yolov5l.yaml --weights "" --data coco.yaml --hyp data/hyp.scratch.yaml ```                                                                              | 0.654        | 154 MB      | 22.7 img/sec             |
-    | [YOLOv5l Pruned](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5l.pruned.md)                            | Creates a highly sparse, FP32 YOLOv5l model that recovers close to the baseline model.                                          | ``` python train.py --cfg ../models/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyp.scratch.yaml --recipe ../recipes/yolov5l.pruned.md ```           | 0.643        | 32.8 MB       | 40.1 img/sec             |
-    | [YOLOv5l Pruned Quantized](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5l.pruned_quantized.md)        | Creates a highly sparse, INT8 YOLOv5l model that recovers reasonably close to the baseline model.                               | ``` python train.py --cfg ../models/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyp.scratch.yaml --recipe ../recipes/yolov5l.pruned_quantized.md ``` | 0.623        | 12.7 MB       | 98.6 img/sec             |
+    | YOLOv5s Baseline                                                                                                                                         | The baseline, small YOLOv5 model used as the starting point for sparsification.                                                 | ``` python train.py --cfg ../models_v5.0/yolov5s.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch-low.yaml ```                                                                              | 0.556        | 24.8 MB       | 78.2 img/sec             |
+    | [YOLOv5s Pruned](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5s.pruned.md)                            | Creates a highly sparse, FP32 YOLOv5s model that recovers close to the baseline model.                                          | ``` python train.py --cfg ../models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch-low.yaml --recipe ../recipes/yolov5s.pruned.md ```           | 0.534        | 8.4 MB      | 100.5 img/sec            |
+    | [YOLOv5s Pruned Quantized](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5s.pruned_quantized.md)        | Creates a highly sparse, INT8 YOLOv5s model that recovers reasonably close to the baseline model.                               | ``` python train.py --cfg ../models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch-low.yaml --recipe ../recipes/yolov5s.pruned_quantized.md ``` | 0.525        | 3.3 MB      | 198.2 img/sec            |
+    | YOLOv5l Baseline                                                                                                                                         | The baseline, large YOLOv5 model used as the starting point for sparsification.                                                 | ``` python train.py --cfg ../models_v5.0/yolov5l.yaml --weights "" --data coco.yaml --hyp data/hyps/hyp.scratch-low.yaml ```                                                                              | 0.654        | 154 MB      | 22.7 img/sec             |
+    | [YOLOv5l Pruned](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5l.pruned.md)                            | Creates a highly sparse, FP32 YOLOv5l model that recovers close to the baseline model.                                          | ``` python train.py --cfg ../models_v5.0/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch-low.yaml --recipe ../recipes/yolov5l.pruned.md ```           | 0.643        | 32.8 MB       | 40.1 img/sec             |
+    | [YOLOv5l Pruned Quantized](https://github.com/neuralmagic/sparseml/blob/main/integrations/ultralytics-yolov5/recipes/yolov5l.pruned_quantized.md)        | Creates a highly sparse, INT8 YOLOv5l model that recovers reasonably close to the baseline model.                               | ``` python train.py --cfg ../models_v5.0/yolov5l.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch-low.yaml --recipe ../recipes/yolov5l.pruned_quantized.md ``` | 0.623        | 12.7 MB       | 98.6 img/sec             |
 
     ** DeepSparse Performance measured on an AWS C5 instance with 24 cores, batch size 64, and 640x640 input with version 1.6 of the DeepSparse Engine.
 
@@ -175,7 +175,7 @@ The table below compares these tradeoffs and shows how to run them on the COCO d
 3. To begin applying one of the recipes, use the `--recipe` argument within the Ultralytics [train script](https://github.com/neuralmagic/yolov5/blob/master/train.py).
    The recipe argument is combined with our previous training command and COCO pre-trained weights to run the recipes over the model. For example, a command for YOLOv5s would look like this:
    ```bash
-   python train.py --cfg ../models/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyp.scratch.yaml --recipe PATH_TO_SPARSIFICATION_RECIPE
+   python train.py --cfg ../models_v5.0/yolov5s.yaml --weights PATH_TO_COCO_PRETRAINED_WEIGHTS --data coco.yaml --hyp data/hyps/hyp.scratch-low.yaml --recipe PATH_TO_SPARSIFICATION_RECIPE
    ```
     After applying a recipe, you are ready to export for inference.
 
@@ -218,12 +218,12 @@ The `best.pt` file contains a checkpoint of the best weights measured on the val
 These weights can be loaded into the `train.py` and `test.py` scripts now. 
 However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
 
-The [`export.py` script](https://github.com/neuralmagic/yolov5/blob/master/models/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
+The [`export.py` script](https://github.com/neuralmagic/yolov5/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
 
 1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
 
     ```bash
-    python models/export.py --weights PATH_TO_SPARSIFIED_WEIGHTS --dynamic
+    python export.py --weights PATH_TO_SPARSIFIED_WEIGHTS --dynamic
     ```
     
     The result is a new file added next to the sparsified checkpoint with a `.onnx` extension:
