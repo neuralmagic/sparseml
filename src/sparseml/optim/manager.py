@@ -18,6 +18,8 @@ Managers control groups of modifiers to allow modifying the training process of 
 ex to perform model pruning.
 """
 
+import json
+import logging
 import math
 from collections import OrderedDict
 from copy import deepcopy
@@ -51,6 +53,8 @@ class BaseManager(BaseObject):
         super().__init__(**kwargs)
 
         self._metadata = metadata if metadata else None
+        if self._metadata is not None:
+            self._info_log_metadata()
 
         if isinstance(modifiers, List):
             # sort modifiers by when they start and end so that later modifiers
@@ -522,6 +526,13 @@ class BaseManager(BaseObject):
             if quant_modifiers
             else False
         )
+
+    def _info_log_metadata(self):
+        logging.info(
+            "The new `metadata` has been passed to the manager. "
+            "Metadata supplied to the recipe:\t"
+        )
+        logging.info(json.dumps(self._metadata, indent=1))
 
 
 def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:

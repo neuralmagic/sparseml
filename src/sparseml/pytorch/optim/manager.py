@@ -35,7 +35,6 @@ from sparseml.optim import (
 )
 from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, LoggerManager, is_parallel_model
-from sparseml.utils import FRAMEWORK_METADATA_KEY
 from sparsezoo.objects import Recipe
 
 
@@ -290,12 +289,6 @@ class ScheduledModifierManager(BaseManager, Modifier):
         validated_metadata = validate_metadata(metadata, yaml_str)
 
         if metadata is not None:
-            logging.info(
-                "The new `metadata` has been passed to the manager. "
-                f"This will change the metadata in the recipe {file_path}"
-                f"including updating the metadata key {FRAMEWORK_METADATA_KEY} "
-                "to reflect your current setup."
-            )
             validated_metadata = add_framework_metadata(
                 validated_metadata, torch_version=torch.__version__
             )

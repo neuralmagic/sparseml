@@ -19,7 +19,6 @@ Also handles loading modifiers from yaml files
 """
 
 import itertools
-import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import tensorflow as tf
@@ -34,7 +33,6 @@ from sparseml.optim import (
 )
 from sparseml.tensorflow_v1.optim.modifier import NM_RECAL, Modifier, ScheduledModifier
 from sparseml.tensorflow_v1.utils import tf_compat
-from sparseml.utils import FRAMEWORK_METADATA_KEY
 from sparsezoo.objects import Recipe
 
 
@@ -118,12 +116,6 @@ class ScheduledModifierManager(BaseManager, Modifier):
         validated_metadata = validate_metadata(metadata, yaml_str)
 
         if metadata is not None:
-            logging.info(
-                "The new `metadata` has been passed to the manager. "
-                f"This will change the metadata in the recipe {file_path}"
-                f"including updating the metadata key {FRAMEWORK_METADATA_KEY} "
-                "to reflect your current setup."
-            )
             validated_metadata = add_framework_metadata(
                 validated_metadata, tensorflow_version=tf.__version__
             )

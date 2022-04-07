@@ -18,7 +18,7 @@ grouping modifiers and running them together.
 Also handles loading modifiers from yaml files
 """
 
-import logging
+
 from typing import Any, Dict, List, Optional, Union
 
 from tensorflow import Tensor
@@ -33,7 +33,6 @@ from sparseml.optim import (
     parse_recipe_variables,
     validate_metadata,
 )
-from sparseml.utils import FRAMEWORK_METADATA_KEY
 from sparsezoo.objects import Recipe
 
 
@@ -79,12 +78,6 @@ class ScheduledModifierManager(BaseManager, Modifier):
         validated_metadata = validate_metadata(metadata, yaml_str)
 
         if metadata is not None:
-            logging.info(
-                "The new `metadata` has been passed to the manager. "
-                f"This will change the metadata in the recipe {file_path}"
-                f"including updating the metadata key {FRAMEWORK_METADATA_KEY} "
-                "to reflect your current setup."
-            )
             validated_metadata = add_framework_metadata(
                 validated_metadata, keras_version=keras.__version__
             )
