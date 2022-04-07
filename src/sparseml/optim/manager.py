@@ -33,6 +33,8 @@ from sparseml.utils import RECIPE_METADATA_KEY, clean_path, create_parent_dirs
 
 __all__ = ["BaseManager"]
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class BaseManager(BaseObject):
     """
@@ -528,11 +530,8 @@ class BaseManager(BaseObject):
         )
 
     def _info_log_metadata(self):
-        logging.info(
-            "The new `metadata` has been passed to the manager. "
-            "Metadata supplied to the recipe:\t"
-        )
-        logging.info(json.dumps(self._metadata, indent=1))
+        metadata_str = json.dumps(self._metadata, indent=1)
+        _LOGGER.info(f"Created recipe manager with metadata: {metadata_str}")
 
 
 def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:
