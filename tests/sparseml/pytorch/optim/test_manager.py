@@ -361,6 +361,88 @@ stage_4:
   
 """  # noqa: W293
 
+RECIPE_END_EPOCH_IMPLICIT = """
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 52
+
+  - !SetLearningRateModifier
+    start_epoch: 50
+    learning_rate: 0.000002
+
+pruning_modifiers:
+  - !ConstantPruningModifier
+    start_epoch: 0.0
+    params: __ALL_PRUNABLE__
+
+quantization_modifiers:
+  - !QuantizationModifier
+    start_epoch: 50
+    submodules: ['model.0']
+"""
+
+COMPOSED_RECIPE_END_EPOCH_IMPLICIT = """version: 1.1.0
+
+stage_0:
+  __metadata__: None
+
+  stage_0_modifiers:
+      - !ConstantPruningModifier
+          end_epoch: 52
+          params: __ALL_PRUNABLE__
+          start_epoch: 0.0
+          update_frequency: -1
+  
+      - !EpochRangeModifier
+          end_epoch: 52
+          start_epoch: 0.0
+  
+      - !QuantizationModifier
+          end_epoch: 52
+          quantize_embeddings: True
+          quantize_linear_activations: True
+          reduce_range: False
+          start_epoch: 50
+          submodules: ['model.0']
+  
+      - !SetLearningRateModifier
+          constant_logging: False
+          end_epoch: 52
+          learning_rate: 2e-06
+          start_epoch: 50
+  
+
+stage_1:
+  __metadata__: None
+
+  stage_1_modifiers:
+      - !EpochRangeModifier
+          end_epoch: 104
+          start_epoch: 52.0
+  
+      - !ConstantPruningModifier
+          end_epoch: -1.0
+          params: __ALL_PRUNABLE__
+          start_epoch: 52.0
+          update_frequency: -1
+  
+      - !QuantizationModifier
+          end_epoch: -1.0
+          quantize_embeddings: True
+          quantize_linear_activations: True
+          reduce_range: False
+          start_epoch: 102
+          submodules: ['model.0']
+  
+      - !SetLearningRateModifier
+          constant_logging: False
+          end_epoch: -1.0
+          learning_rate: 2e-06
+          start_epoch: 102
+  
+"""  # noqa: W293
+
 
 def _generate_fake_metadata(item1=("metadata", None), item2=("level", 1)):
     return {k: v for (k, v) in (item1, item2)}
@@ -427,6 +509,16 @@ def _generate_fake_metadata(item1=("metadata", None), item2=("level", 1)):
             FOUR_STAGES_RECIPE,
             False,
             True,
+        ),
+        # Testing composing two recipes with modifiers containing
+        # implicit `end_epoch` attribution (i.e. `end_epoch = -1`)
+        (
+            RECIPE_END_EPOCH_IMPLICIT,
+            RECIPE_END_EPOCH_IMPLICIT,
+            None,
+            COMPOSED_RECIPE_END_EPOCH_IMPLICIT,
+            False,
+            False,
         ),
     ],
 )
@@ -535,100 +627,3 @@ def test_manager_staged_recipe_serialization(staged_recipe):
         assert [type(mod) for mod in stage_modifiers] == (
             [type(mod) for mod in reloaded_stage_modifiers]
         )
-
-
-SIMPLE_RECIPE = """
-training_modifiers:
-  - !EpochRangeModifier
-    start_epoch: 0.0
-    end_epoch: 52
-
-  - !SetLearningRateModifier
-    start_epoch: 50
-    learning_rate: 0.000002
-
-pruning_modifiers:
-  - !ConstantPruningModifier
-    start_epoch: 0.0
-    params: __ALL_PRUNABLE__
-
-quantization_modifiers:
-  - !QuantizationModifier
-    start_epoch: 50
-    submodules: ['model.0']
-"""
-
-COMPOSED_RECIPE = """version: 1.1.0
-
-stage_0:
-  __metadata__: None
-
-  stage_0_modifiers:
-      - !ConstantPruningModifier
-          end_epoch: 52
-          params: __ALL_PRUNABLE__
-          start_epoch: 0.0
-          update_frequency: -1
-  
-      - !EpochRangeModifier
-          end_epoch: 52
-          start_epoch: 0.0
-  
-      - !QuantizationModifier
-          end_epoch: 52
-          quantize_embeddings: True
-          quantize_linear_activations: True
-          reduce_range: False
-          start_epoch: 50
-          submodules: ['model.0']
-  
-      - !SetLearningRateModifier
-          constant_logging: False
-          end_epoch: 52
-          learning_rate: 2e-06
-          start_epoch: 50
-  
-
-stage_1:
-  __metadata__: None
-
-  stage_1_modifiers:
-      - !EpochRangeModifier
-          end_epoch: 104
-          start_epoch: 52.0
-  
-      - !ConstantPruningModifier
-          end_epoch: -1.0
-          params: __ALL_PRUNABLE__
-          start_epoch: 52.0
-          update_frequency: -1
-  
-      - !QuantizationModifier
-          end_epoch: -1.0
-          quantize_embeddings: True
-          quantize_linear_activations: True
-          reduce_range: False
-          start_epoch: 102
-          submodules: ['model.0']
-  
-      - !SetLearningRateModifier
-          constant_logging: False
-          end_epoch: -1.0
-          learning_rate: 2e-06
-          start_epoch: 102
-  
-"""  # noqa: W293
-
-
-@pytest.mark.parametrize(
-    "base_recipe, additional_recipe, expected_composed_recipe",
-    [
-        # Testing modifiers with dynamic `end_epoch` attribute
-        (SIMPLE_RECIPE, SIMPLE_RECIPE, COMPOSED_RECIPE),
-    ],
-)
-def test_composed_staged(base_recipe, additional_recipe, expected_composed_recipe):
-    composed_recipe = ScheduledModifierManager.compose_staged(
-        base_recipe=base_recipe, additional_recipe=additional_recipe
-    )
-    assert str(composed_recipe) == expected_composed_recipe
