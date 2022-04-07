@@ -299,7 +299,7 @@ class DistillationModifier(ScheduledUpdateModifier):
                 f"Teacher device {teacher_device} does not match "
                 f"inputs device {inputs_device}, moving teacher to correct device"
             )
-            self._teacher.to(device_of(teacher_inputs))
+            self._teacher.to(inputs_device)
 
         with torch.no_grad():
             teacher_outputs = tensors_module_forward(
