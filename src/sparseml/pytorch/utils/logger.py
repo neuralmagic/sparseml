@@ -133,7 +133,7 @@ class BaseLogger(ABC):
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
         **kwargs,
-    ):
+    ) -> bool:
         """
         :param tag: identifying tag to log the values with
         :param values: values to save
@@ -151,7 +151,7 @@ class BaseLogger(ABC):
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
         **kwargs,
-    ):
+    ) -> bool:
         """
         :param tag: identifying tag to log the values with
         :param values: values to save
@@ -244,7 +244,7 @@ class LambdaLogger(BaseLogger):
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
         level: Optional[int] = None,
-    ):
+    ) -> bool:
         """
         :param tag: identifying tag to log the value with
         :param value: value to save
@@ -273,7 +273,7 @@ class LambdaLogger(BaseLogger):
         step: Optional[int] = None,
         wall_time: Optional[float] = None,
         level: Optional[int] = None,
-    ):
+    ) -> bool:
         """
         :param tag: identifying tag to log the values with
         :param values: values to save
@@ -394,7 +394,7 @@ class PythonLogger(LambdaLogger):
         step: Optional[int],
         wall_time: Optional[float] = None,
         level: Optional[int] = None,
-    ):
+    ) -> bool:
         """
         :param tag: identifying tag to log the values with
         :param string: string to log
