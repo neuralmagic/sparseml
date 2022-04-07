@@ -452,8 +452,8 @@ class RecipeManagerTrainerInterface:
         if os.path.isfile(arch_recipe):
             arch_manager = ScheduledModifierManager.from_yaml(arch_recipe)
             _LOGGER.info(
-                f"Loaded SparseML {arch_manager.num_stages()} recipe stage(s) "
-                f"into architecture managers from {arch_recipe}"
+                f"Loaded {arch_manager.num_stages()} SparseML checkpoint recipe stage(s) "
+                f"from {arch_recipe} to replicate model sparse state"
             )
 
         if (
