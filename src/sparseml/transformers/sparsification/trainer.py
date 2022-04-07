@@ -17,6 +17,7 @@ SparseML transformers trainer classes and interfaces to be plugged in with
 existing or similiar HF trainer flows
 """
 
+import inspect
 import logging
 import math
 import os
@@ -146,6 +147,15 @@ class RecipeManagerTrainerInterface:
         self.grad_sampler = GradSampler(
             self._mfac_data_loader(), self._mfac_loss_function
         )
+
+        model_signature = inspect.signature(self.model.forward)
+        self._model_signature_columns = list(model_signature.parameters.keys())
+
+        if self.teacher is not None:
+            teacher_signature = inspect.signature(self.teacher.forward)
+            self._teacher_signature_columns = list(teacher_signature.parameters.keys())
+        else:
+            self._teacher_signature_columns = None
 
     def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
         """
@@ -331,7 +341,15 @@ class RecipeManagerTrainerInterface:
         ):
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
-        student_outputs = model(**inputs)
+        student_inputs = {
+            k: inputs[k] for k in inputs if k in self._model_signature_columns
+        }
+        student_outputs = model(**student_inputs)
+
+        teacher_inputs = {
+            k: inputs[k] for k in inputs if k in self._teacher_signature_columns
+        }
+
         loss = student_outputs["loss"]
         loss = self.manager.loss_update(
             loss,
@@ -340,7 +358,8 @@ class RecipeManagerTrainerInterface:
             self.state.epoch,
             self.manager_steps_per_epoch,
             student_outputs=student_outputs,
-            student_inputs=inputs,
+            student_inputs=student_inputs,
+            teacher_inputs=teacher_inputs,
         )
 
         return (loss, student_outputs) if return_outputs else loss

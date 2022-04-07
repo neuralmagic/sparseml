@@ -482,6 +482,10 @@ def main():
         tokenizer = AutoTokenizer.from_pretrained(
             model_args.tokenizer_name, **tokenizer_kwargs
         )
+    elif model_args.distill_teacher is not None:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_args.distill_teacher, **tokenizer_kwargs
+        )
     elif model_args.model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(
             model_args.model_name_or_path, **tokenizer_kwargs

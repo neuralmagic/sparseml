@@ -21,6 +21,7 @@ Training and post-processing utilities for question answering.
 """
 
 import collections
+import inspect
 import json
 import logging
 import os
@@ -204,6 +205,25 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
             teacher=teacher,
             **kwargs,
         )
+
+    def _remove_unused_columns(
+        self, dataset: "datasets.Dataset", description: Optional[str] = None
+    ):
+        if self._signature_columns is None and self.teacher is not None:
+            model_signature = inspect.signature(self.model.forward)
+            model_signature_columns = set(model_signature.parameters.keys())
+
+            teacher_signature = inspect.signature(self.teacher.forward)
+            teacher_signature_columns = set(teacher_signature.parameters.keys())
+
+            self._signature_columns = list(
+                model_signature_columns | teacher_signature_columns
+            )
+
+            # Labels may be named label or label_ids, the default data collator handles that.
+            self._signature_columns += ["label", "label_ids"]
+
+        return super()._remove_unused_columns(dataset, description)
 
 
 def postprocess_qa_predictions(
