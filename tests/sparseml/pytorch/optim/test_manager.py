@@ -569,11 +569,11 @@ stage_0:
           params: __ALL_PRUNABLE__
           start_epoch: 0.0
           update_frequency: -1
-
+  
       - !EpochRangeModifier
           end_epoch: 52
           start_epoch: 0.0
-
+  
       - !QuantizationModifier
           end_epoch: 52
           quantize_embeddings: True
@@ -581,13 +581,13 @@ stage_0:
           reduce_range: False
           start_epoch: 50
           submodules: ['model.0']
-
+  
       - !SetLearningRateModifier
           constant_logging: False
           end_epoch: 52
           learning_rate: 2e-06
           start_epoch: 50
-
+  
 
 stage_1:
   __metadata__: None
@@ -596,13 +596,13 @@ stage_1:
       - !EpochRangeModifier
           end_epoch: 104
           start_epoch: 52.0
-
+  
       - !ConstantPruningModifier
           end_epoch: -1.0
           params: __ALL_PRUNABLE__
           start_epoch: 52.0
           update_frequency: -1
-
+  
       - !QuantizationModifier
           end_epoch: -1.0
           quantize_embeddings: True
@@ -610,13 +610,14 @@ stage_1:
           reduce_range: False
           start_epoch: 102
           submodules: ['model.0']
-
+  
       - !SetLearningRateModifier
           constant_logging: False
           end_epoch: -1.0
           learning_rate: 2e-06
           start_epoch: 102
-"""
+  
+""" # noqa: W293
 
 
 @pytest.mark.parametrize(
