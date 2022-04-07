@@ -617,7 +617,7 @@ stage_1:
           learning_rate: 2e-06
           start_epoch: 102
   
-""" # noqa: W293
+"""  # noqa: W293
 
 
 @pytest.mark.parametrize(
