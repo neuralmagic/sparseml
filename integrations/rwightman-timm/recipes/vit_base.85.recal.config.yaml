@@ -8,7 +8,6 @@ modifiers:
         init_sparsity: 0.25
         inter_func: cubic
         leave_enabled: True
-        log_types: __ALL__
         mask_type: unstructured
         params: 
             - blocks.0.attn.qkv.weight
@@ -72,14 +71,12 @@ modifiers:
         constant_logging: False
         end_epoch: -1
         learning_rate: 0.002505
-        log_types: __ALL__
         start_epoch: 0.0
 
     - !LearningRateModifier
         constant_logging: False
         end_epoch: -1.0
         init_lr: 0.00062625
-        log_types: __ALL__
         lr_class: StepLR
         lr_kwargs: {'step_size': 10, 'gamma': 0.25}
         start_epoch: 40.0

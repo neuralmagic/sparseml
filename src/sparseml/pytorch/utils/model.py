@@ -17,7 +17,7 @@ Code related to interacting with a trained model such as saving, loading, etc
 """
 
 from collections import OrderedDict
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import DataParallel, Module
@@ -180,9 +180,10 @@ def save_model(
     path: str,
     model: Module,
     optimizer: Optimizer = None,
-    epoch: Union[int, None] = None,
+    epoch: Optional[int] = None,
     use_zipfile_serialization_if_available: bool = True,
     include_modifiers: bool = False,
+    arch_key: Optional[str] = None,
 ):
     """
     Save a model's state dict into a file at the given path.
@@ -197,6 +198,8 @@ def save_model(
     :param include_modifiers: if True, and a ScheduledOptimizer is provided
         as the optimizer, the associated ScheduledModifierManager and its
         Modifiers will be exported under the 'manager' key. Default is False
+    :param arch_key: if provided, the `arch_key` will be saved in the
+        checkpoint
     """
     create_parent_dirs(path)
 
@@ -214,11 +217,16 @@ def save_model(
     if optimizer:
         save_dict["optimizer"] = optimizer.state_dict()
 
-    if epoch:
+    if epoch is not None:
         save_dict["epoch"] = epoch
 
     if include_modifiers and optimizer and hasattr(optimizer, "manager_state_dict"):
         save_dict["manager"] = optimizer.manager_state_dict()
+    elif include_modifiers and optimizer and hasattr(optimizer, "wrapped_manager"):
+        save_dict["manager"] = optimizer.wrapped_manager.state_dict()
+
+    if arch_key:
+        save_dict["arch_key"] = arch_key
 
     if torch.__version__ < "1.6":
         torch.save(save_dict, path)

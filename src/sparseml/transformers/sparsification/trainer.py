@@ -13,8 +13,8 @@
 # limitations under the License.
 
 """
-SparseML transformers trainer classes and interfaces to be plugged in with existing
-or similiar HF trainer flows
+SparseML transformers trainer classes and interfaces to be plugged in with
+existing or similiar HF trainer flows
 """
 
 
@@ -25,6 +25,7 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
+from torch import distributed as dist
 from torch.nn import Module
 from torch.utils.data import RandomSampler
 from transformers import Trainer as TransformersTrainer
@@ -34,7 +35,12 @@ from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
 from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.utils import GradSampler, ModuleSparsificationInfo, WANDBLogger
+from sparseml.pytorch.utils import (
+    GradSampler,
+    LoggerManager,
+    ModuleSparsificationInfo,
+    WANDBLogger,
+)
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
 
@@ -107,7 +113,16 @@ class RecipeManagerTrainerInterface:
             or not kwargs["args"].report_to
             else kwargs["args"].report_to
         )
-        self.manager_loggers = [WANDBLogger()] if "wandb" in report_to else None
+        if not dist.is_initialized() or dist.get_rank() == 0:
+            loggers = [WANDBLogger()] if "wandb" in report_to else None
+            if "modifier_log_frequency" in kwargs:
+                self.logger_manager = LoggerManager(
+                    loggers, log_frequency=kwargs["modifier_log_frequency"]
+                )
+            else:
+                self.logger_manager = LoggerManager(loggers)
+        else:
+            self.logger_manager = LoggerManager(log_python=False)
 
         # remove arch_managers once recipe stages are supported
         self.manager, self.arch_managers = self._setup_manager(kwargs)
@@ -134,7 +149,7 @@ class RecipeManagerTrainerInterface:
         :param checkpoint: the optional checkpoint to use to reload model state
             from after the model's architecture has been modified.
             If not supplied, falls back to self.model_state_path
-        :return: True if recipes were applied, Flase otherwise
+        :return: True if recipes were applied, False otherwise
         """
         if (not self.arch_managers and self.manager is None) or self.manager_applied:
             return False
@@ -202,6 +217,7 @@ class RecipeManagerTrainerInterface:
         if not self.manager:
             return
 
+
         num_devices = (
             torch.distributed.get_world_size()
             if torch.distributed.is_initialized()
@@ -226,7 +242,7 @@ class RecipeManagerTrainerInterface:
                 steps_per_epoch=self.manager_steps_per_epoch,
                 allow_parallel_module=False,
                 wrap_optim=self.scaler,
-                loggers=self.manager_loggers,
+                loggers=self.logger_manager,
                 distillation_teacher=self.teacher,
                 grad_sampler=self.grad_sampler,
             )
@@ -237,14 +253,18 @@ class RecipeManagerTrainerInterface:
                 self.model,
                 self.manager,
                 steps_per_epoch=self.manager_steps_per_epoch,
-                loggers=self.manager_loggers,
-                grad_sampler=self.grad_sampler,
+                loggers=self.logger_manager,
+                initialize_kwargs={
+                    "grad_sampler": self.grad_sampler,
+                    "distillation_teacher": self.teacher,
+                },
             )
             if not self.manager.initialized:
                 self.manager.initialize(
                     self.model,
-                    loggers=self.manager_loggers,
+                    loggers=self.logger_manager,
                     distillation_teacher=self.teacher,
+                    grad_sampler=self.grad_sampler,
                 )
         self.manager_initialized = True
         _LOGGER.info(
@@ -253,15 +273,18 @@ class RecipeManagerTrainerInterface:
             f"steps_per_epoch: {self.manager_steps_per_epoch}"
         )
 
-    def create_scheduler(self, num_training_steps: int):
+    def create_scheduler(
+        self, num_training_steps: int, optimizer: torch.optim.Optimizer = None
+    ):
         """
-        Create an LR scheduler to work with the applied recipes.
-        If the recipe specifies LR modifiers, then will set lr_scheduler
-        to a placeholder lr scheduler.
-        Expects create_scheduler to be defined in the super class.
-        Additionally expects self.lr_scheduler argument to be available.
+        Create an LR scheduler to work with the applied recipes. If the
+        recipe specifies LR modifiers, then will set lr_scheduler to a
+        placeholder lr scheduler. Expects create_scheduler to be defined in the
+        super class. Additionally expects self.lr_scheduler argument to be
+        available
 
         :param num_training_steps: the total number of training steps
+        :param optimizer: pre-initialized optimizer
         """
         self._check_super_defined("create_scheduler")
 
@@ -270,7 +293,7 @@ class RecipeManagerTrainerInterface:
             or self.manager is None
             or not self.manager.learning_rate_modifiers
         ):
-            super().create_scheduler(num_training_steps)
+            super().create_scheduler(num_training_steps, optimizer)
             return
 
         # allow SparseML to manage LR and set a dummy scheduler
@@ -320,7 +343,7 @@ class RecipeManagerTrainerInterface:
 
         return (loss, student_outputs) if return_outputs else loss
 
-    def save_model(self, output_dir: Optional[str] = None):
+    def save_model(self, output_dir: Optional[str] = None, _internal_call=True):
         """
         Override of the save_model function and expects it to exist in the parent.
         Calls into super() to save the model and additionally saves any recipes
@@ -333,7 +356,7 @@ class RecipeManagerTrainerInterface:
         architecture will also be saved
         """
         self._check_super_defined("save_model")
-        super().save_model(output_dir=output_dir)
+        super().save_model(output_dir=output_dir, _internal_call=_internal_call)
 
         if self.manager is None:
             return
@@ -447,7 +470,7 @@ class RecipeManagerTrainerInterface:
         load_state_dict = torch.load(
             os.path.join(load_path, WEIGHTS_NAME), map_location="cpu"
         )
-        _, missing, unexpected, __ = self.model._load_state_dict_into_model(
+        _, missing, unexpected, _, _ = self.model._load_state_dict_into_model(
             self.model, load_state_dict, load_path, _fast_init=False
         )
 
@@ -634,7 +657,6 @@ class TrainerInterface(RecipeManagerTrainerInterface):
 class Trainer(TrainerInterface, TransformersTrainer):
     """
     Training implementation for running sparsification recipes with transformers flows.
-
     :param model: the model to use with the trainer and apply sparsification to
     :param model_state_path: the state path to the model,
         used to load config and tokenizer settings
@@ -670,7 +692,6 @@ class Trainer(TrainerInterface, TransformersTrainer):
 class DisableHalfPrecisionCallback(TrainerCallback):
     """
     TrainerCallback for disabling FP16 training before QAT training begins
-
     :param sparseml_trainer: SparseML trainer that will call back into this object
     :param args: args to be passed to base TrainerCallback
     :param kwargs: key word arguments to be passed to base TrainerCallback

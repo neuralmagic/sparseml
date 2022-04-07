@@ -56,7 +56,6 @@ training_modifiers:
     constant_logging: False
     end_epoch: *quantization_start_epoch
     init_lr: *pruning_recovery_start_lr
-    log_types: __ALL__
     lr_class: StepLR
     lr_kwargs: {
         'step_size': *pruning_recovery_lr_step_size,

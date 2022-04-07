@@ -17,12 +17,17 @@ Helper functions for base Modifier and Manger utilities
 """
 import json
 import re
+import warnings
 from contextlib import suppress
 from typing import Any, Dict, Optional, Tuple, Union
 
 import yaml
 
-from sparseml.utils import UnknownVariableException, restricted_eval
+from sparseml.utils import (
+    RECIPE_METADATA_KEY,
+    UnknownVariableException,
+    restricted_eval,
+)
 from sparsezoo import Zoo
 from sparsezoo.objects import Recipe
 
@@ -35,6 +40,7 @@ __all__ = [
     "evaluate_recipe_yaml_str_equations",
     "parse_recipe_variables",
     "check_if_staged_recipe",
+    "validate_metadata",
 ]
 
 
@@ -195,10 +201,75 @@ def parse_recipe_variables(
     return recipe_variables
 
 
+def _update_staged_recipe_variable(var_name, var_value, container):
+
+    # Extends the functionality of _update_container_value to handle staged recipes.
+
+    # :param var_name: The key we are attempting to find in the container.
+    # :param var_value: The value which will overwrite the previous value
+    #     every time var_name is found in the container's keys.
+    # :param container: A container generated from a YAML string of SparseML recipe
+    # :return: (optionally mutated) container, as well as key_value
+    #     (True if var_key found in container's attributes, otherwise False)
+
+    key_found = False
+
+    for container_key, container_value in container.items():
+        if not isinstance(container_value, dict):
+            # checking contents of global variables
+            if var_name == container_key:
+                container[var_name] = var_value
+                key_found = True
+
+        else:
+            # checking contents of a stage
+            stage_container, stage_key_found = _update_recipe_variable(
+                var_name, var_value, container_value
+            )
+            container[container_key] = stage_container
+            if stage_key_found:
+                key_found = True
+
+    return container, key_found
+
+
+def _update_recipe_variable(var_name: str, var_value, container):
+
+    # Checks whether there is at least one attribute (key) in the container,
+    # with the same name as var_name.
+    # If this is the case, key_found = True, otherwise False.
+    # Additionally, during checking, when var_name key is present in any of the
+    # container's attributes, this attribute's value gets overwritten with var_value.
+
+    # :param var_name: The key we are attempting to find in the container.
+    # :param var_value: The value which will overwrite the previous value
+    #   every time var_name is found in the container's keys.
+    # :param container: A container generated from a YAML string of SparseML recipe
+    # :return: (optionally mutated) container, as well as key_value
+    #    (True if var_key found in container's attributes, otherwise False)
+
+    key_found = False
+
+    for key, value in container.items():
+        if not isinstance(value, list):
+            if var_name == key:
+                container[var_name] = var_value
+                key_found = True
+        else:
+            for idx, modifier in enumerate(value):
+                if var_name in modifier.keys():
+                    container[key][idx][var_name] = var_value
+                    key_found = True
+
+    return container, key_found
+
+
 def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> str:
     """
     :param recipe_yaml_str: YAML string of a SparseML recipe
-    :param variables: variables dictionary to update recipe top level variables with
+    :param variables: variables dictionary to update recipe top level variables with.
+        If recipe contains stages, it will parse the whole recipe
+        and substitute ANY variable with the corresponding name.
     :return: given recipe with variables updated
     """
 
@@ -207,15 +278,24 @@ def update_recipe_variables(recipe_yaml_str: str, variables: Dict[str, Any]) -> 
         # yaml string does not create a dict, return original string
         return recipe_yaml_str
 
-    for key in variables:
-        if key not in container:
+    for var_key, var_value in variables.items():
+        if check_if_staged_recipe(container):
+            container, key_found = _update_staged_recipe_variable(
+                var_key, var_value, container
+            )
+        else:
+            container, key_found = _update_recipe_variable(
+                var_key, var_value, container
+            )
+
+        if not key_found:
             raise ValueError(
-                f"updating recipe variable {key} but {key} is not currently "
+                f"updating recipe variable {var_key} but "
+                f"{var_key} is not currently "
                 "set in existing recipe. Set the variable in the recipe in order "
                 "to overwrite it."
             )
 
-    container.update(variables)
     return rewrite_recipe_yaml_string_with_classes(container)
 
 
@@ -438,3 +518,124 @@ def _maybe_parse_number(val: str) -> Union[str, float, int]:
             return float(val)
         except Exception:
             return val
+
+
+def _extract_metadata_from_recipe(container):
+    metadata = {}
+    if RECIPE_METADATA_KEY in container.keys():
+        metadata = container[RECIPE_METADATA_KEY]
+    return metadata
+
+
+def _extract_metadata_from_staged_recipe(container):
+    metadata = {}
+    stage_names = _get_recipe_stage_names(container)
+    for stage_name in stage_names:
+        if RECIPE_METADATA_KEY in container[stage_name].keys():
+            metadata[stage_name] = container[stage_name][RECIPE_METADATA_KEY]
+    if metadata and (len(metadata) != len(stage_names)):
+        raise ValueError(
+            "It seems that some stages in your checkpoint recipe"
+            "contain metadata and some do not. Either all or no stages must "
+            f"must contain the {RECIPE_METADATA_KEY} key"
+        )
+
+    return metadata
+
+
+def _get_recipe_stage_names(container):
+    # Extracts valid stage names from a container.
+    # Valid stage name (key) is the one which corresponds to a value, which is
+    # a dictionary where at least one of the keys contains a string 'modifiers'.
+
+    stage_names = [
+        stage_name
+        for stage_name, stage_dict in container.items()
+        if isinstance(stage_dict, dict)
+        and any([key for key in stage_dict.keys() if "modifiers" in key])
+    ]
+    return stage_names
+
+
+def _check_warn_dict_difference(original_dict, new_dict):
+    if original_dict != new_dict:
+        warnings.warn(
+            f"Attempting to overwrite the previous metadata: {original_dict} "
+            f"with new metadata: {new_dict}. "
+            "This may lead to different results than the original run of the recipe. "
+            "The previous metadata will be omitted and discarded. Ignore if a "
+            "change in metadata is expected."
+        )
+    return new_dict
+
+
+def validate_metadata(metadata: dict, yaml_str: str) -> dict:
+    """
+    Compare the metadata (previous_metadata) carried over from the recipe
+    (`yaml_str`) with the new, incoming metadata ('metadata').
+
+    If attempting to overwrite previous metadata with the new metadata,
+    the script throws a warning and overwrites the previous metadata.
+    Otherwise, it propagates the new metadata in the correct form.
+
+    :param metadata: New metadata
+    :param yaml_str: String representation of the recipe YAML file,
+        (may contain previous metadata)
+    :return: Validated metadata
+    """
+
+    container = load_recipe_yaml_str_no_classes(yaml_str)
+    is_container_staged = check_if_staged_recipe(container)
+
+    checkpoint_metadata = (
+        _extract_metadata_from_staged_recipe(container)
+        if is_container_staged
+        else _extract_metadata_from_recipe(container)
+    )
+
+    if checkpoint_metadata:
+        if metadata:
+            if is_container_staged:
+
+                is_metadata_staged = set(_get_recipe_stage_names(container)) == set(
+                    metadata.keys()
+                )
+
+                for stage_name in _get_recipe_stage_names(container):
+                    if is_metadata_staged:
+                        checkpoint_metadata[stage_name] = _check_warn_dict_difference(
+                            container[stage_name][RECIPE_METADATA_KEY],
+                            metadata[stage_name],
+                        )
+                    else:
+                        checkpoint_metadata[stage_name] = _check_warn_dict_difference(
+                            container[stage_name][RECIPE_METADATA_KEY], metadata
+                        )
+            else:
+                checkpoint_metadata = _check_warn_dict_difference(
+                    container[RECIPE_METADATA_KEY], metadata
+                )
+
+        return (
+            checkpoint_metadata
+            if is_container_staged
+            else {RECIPE_METADATA_KEY: checkpoint_metadata}
+        )
+
+    else:
+        if metadata:
+            return (
+                {
+                    stage_name: metadata
+                    for stage_name in _get_recipe_stage_names(container)
+                }
+                if is_container_staged
+                else {RECIPE_METADATA_KEY: metadata}
+            )
+
+        else:
+            return (
+                {stage_name: None for stage_name in _get_recipe_stage_names(container)}
+                if is_container_staged
+                else {RECIPE_METADATA_KEY: None}
+            )

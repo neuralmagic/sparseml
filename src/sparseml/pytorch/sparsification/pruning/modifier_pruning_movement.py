@@ -24,12 +24,11 @@ import torch.distributed as dist
 from torch import Tensor
 from torch.nn import Parameter
 
-from sparseml.pytorch.optim.modifier import PyTorchModifierYAML
+from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     GMPruningModifier,
 )
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsGradScorer
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = [
@@ -59,7 +58,6 @@ class MovementPruningModifier(GMPruningModifier):
     |       params: ["re:.*weight"]
     |       leave_enabled: True
     |       inter_func: cubic
-    |       log_types: __ALL__
     |       mask_type: unstructured
 
     :param init_sparsity: the initial sparsity for the param to start with at
@@ -82,8 +80,6 @@ class MovementPruningModifier(GMPruningModifier):
         immediately after or doing some other prune
     :param inter_func: the type of interpolation function to use:
         [linear, cubic, inverse_cubic]
-    :param log_types: The loggers to allow the learning rate to be logged to,
-        default is __ALL__
     :param mask_type: String to define type of sparsity (options: ['unstructured',
         'block']), List to define block shape of a parameters in and out
         channels, or a SparsityMaskCreator object. default is 'unstructured'
@@ -99,7 +95,6 @@ class MovementPruningModifier(GMPruningModifier):
         params: Union[str, List[str]],
         leave_enabled: bool = True,
         inter_func: str = "cubic",
-        log_types: Union[str, List[str]] = ALL_TOKEN,
         mask_type: str = "unstructured",
     ):
         super(MovementPruningModifier, self).__init__(
@@ -111,7 +106,6 @@ class MovementPruningModifier(GMPruningModifier):
             params=params,
             leave_enabled=leave_enabled,
             inter_func=inter_func,
-            log_types=log_types,
             mask_type=mask_type,
         )
 
@@ -121,6 +115,15 @@ class MovementPruningModifier(GMPruningModifier):
         :return: param scorer object to be used by this pruning algorithm
         """
         return MovementPruningParamsScorer(params=params)
+
+    @ModifierProp(serializable=False)
+    def global_sparsity(self) -> bool:
+        """
+        :return: True for global magnitude pruning, False for
+            layer-wise. [DEPRECATED] - use GlobalMagnitudePruningModifier
+            for global magnitude pruning and MagnitudePruningModifier for layer-wise
+        """
+        return self._global_sparsity
 
 
 class MovementPruningParamsScorer(PruningParamsGradScorer):
