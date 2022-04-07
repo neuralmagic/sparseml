@@ -365,6 +365,14 @@ class QuantizationModifier(ScheduledModifier):
         return self._exclude_module_types
 
     @ModifierProp()
+    def exclude_batchnorm(self) -> bool:
+        """
+        :return: if True, do not propagate quantization qconfigs to
+        batch-normalization modules
+        """
+        return self._exclude_batchnorm
+
+    @ModifierProp()
     def activation_bits(self) -> Optional[int]:
         """
         :return: Number of bits to be use for setting quant min/max values for
