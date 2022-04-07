@@ -207,14 +207,29 @@ class BaseManager(BaseObject):
         if not keep_original_epochs:
             # update additional modifier epochs
             base_end_epoch = base_recipe.max_epochs
+
+            # make sure that for the modifiers in base_stages
+            # with the initial attribute `end_epoch` = -1,
+            # this attribute value is replaced with `base_end_epoch`
+            for base_modifiers in base_stages.values():
+                for base_modifier in base_modifiers:
+                    if (
+                        hasattr(base_modifier, "end_epoch")
+                        and base_modifier.end_epoch == -1
+                    ):
+                        base_modifier._init_end = base_end_epoch
+                        base_modifier.end_epoch = base_end_epoch
+
             for additional_modifiers in additional_stages.values():
                 for additional_modifier in additional_modifiers:
-                    if hasattr(additional_modifier, "end_epoch"):
+                    if (
+                        hasattr(additional_modifier, "end_epoch")
+                        and additional_modifier.end_epoch != -1
+                    ):
                         # if end_epoch == -1, the .end_epoch is being
                         # assumed implicitly and does not need to be
                         # incremented
-                        if not additional_modifier.end_epoch == -1:
-                            additional_modifier.end_epoch += base_end_epoch
+                        additional_modifier.end_epoch += base_end_epoch
                     if hasattr(additional_modifier, "start_epoch"):
                         additional_modifier.start_epoch += base_end_epoch
 
