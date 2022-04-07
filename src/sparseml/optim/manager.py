@@ -210,7 +210,11 @@ class BaseManager(BaseObject):
             for additional_modifiers in additional_stages.values():
                 for additional_modifier in additional_modifiers:
                     if hasattr(additional_modifier, "end_epoch"):
-                        additional_modifier.end_epoch += base_end_epoch
+                        # if end_epoch == -1, the .end_epoch is being
+                        # assumed implicitly and does not need to be
+                        # incremented
+                        if not additional_modifier.end_epoch == -1:
+                            additional_modifier.end_epoch += base_end_epoch
                     if hasattr(additional_modifier, "start_epoch"):
                         additional_modifier.start_epoch += base_end_epoch
 
