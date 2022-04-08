@@ -119,27 +119,27 @@ The recipes are specific to the sparsification type, so the training command wil
 
    - YOLOv5s Pruned transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96?recipe_type=transfer --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned.md
+     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned-aggressive_96?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned.md
      ```
    - YOLOv5s Pruned-Quantized transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94?recipe_type=transfer --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned_quantized.md
+     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/pruned_quant-aggressive_94?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned_quantized.md
      ```
    - YOLOv5s Baseline transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none --hyp data/hyp.finetune.yaml --epochs 50
+     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5s.yaml --weights zoo:cv/detection/yolov5-s/pytorch/ultralytics/coco/base-none --hyp data/hyps/hyp.finetune.yaml --epochs 50
      ```
    - YOLOv5l Pruned transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98?recipe_type=transfer --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned.md
+     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned-aggressive_98?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned.md
      ```
    - YOLOv5l Pruned-Quantized transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95?recipe_type=transfer --hyp data/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned_quantized.md
+     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/pruned_quant-aggressive_95?recipe_type=transfer --hyp data/hyps/hyp.finetune.yaml --recipe ../recipes/yolov5.transfer_learn_pruned_quantized.md
      ```
    - YOLOv5l Baseline transfer learning:
      ```bash
-     python train.py --data voc.yaml --cfg ../models/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/base-none --hyp data/hyp.finetune.yaml --epochs 50
+     python train.py --data VOC.yaml --cfg ../models_v5.0/yolov5l.yaml --weights zoo:cv/detection/yolov5-l/pytorch/ultralytics/coco/base-none --hyp data/hyps/hyp.finetune.yaml --epochs 50
      ```
 
    **_Notes About Transfer Learning_**
@@ -200,11 +200,11 @@ The `best.pt` file, located in the previous step, contains a checkpoint of the b
 These weights can be loaded into the `train.py` and `test.py` scripts now.
 However, other formats are generally more friendly for other inference deployment platforms, such as [ONNX](https://onnx.ai/).
 
-The [export.py script](https://github.com/neuralmagic/yolov5/blob/master/models/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
+The [export.py script](https://github.com/neuralmagic/yolov5/blob/master/export.py) handles the logic behind loading the checkpoint and converting it into the more common inference formats, as described here.
 
 1. Enter the following command to load the PyTorch graph, convert to ONNX, and correct any misformatted pieces of the graph for the pruned and quantized models.
    ```bash
-   python models/export.py --weights PATH_TO_SPARSIFIED_WEIGHTS  --dynamic
+   python export.py --weights PATH_TO_SPARSIFIED_WEIGHTS  --dynamic
    ```
    The result is a new file added next to the sparsified checkpoint with a `.onnx` extension:
    ```
