@@ -18,6 +18,7 @@ grouping modifiers and running them together.
 Also handles loading modifiers from yaml files
 """
 
+
 from typing import Any, Dict, List, Optional, Union
 
 from tensorflow import Tensor
@@ -27,6 +28,7 @@ from sparseml.keras.utils.compat import keras
 from sparseml.keras.utils.logger import KerasLogger
 from sparseml.optim import (
     BaseManager,
+    add_framework_metadata,
     load_recipe_yaml_str,
     parse_recipe_variables,
     validate_metadata,
@@ -73,10 +75,16 @@ class ScheduledModifierManager(BaseManager, Modifier):
         if add_modifiers:
             modifiers.extend(add_modifiers)
 
-        metadata = validate_metadata(metadata, yaml_str)
+        validated_metadata = validate_metadata(metadata, yaml_str)
 
-        manager = ScheduledModifierManager(modifiers=modifiers, metadata=metadata)
+        if metadata is not None:
+            validated_metadata = add_framework_metadata(
+                validated_metadata, keras_version=keras.__version__
+            )
 
+        manager = ScheduledModifierManager(
+            modifiers=modifiers, metadata=validated_metadata
+        )
         return manager
 
     def __init__(
