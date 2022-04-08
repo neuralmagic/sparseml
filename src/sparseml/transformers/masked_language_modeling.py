@@ -57,6 +57,13 @@ from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
 
 
+metadata_args = [
+    "per_device_train_batch_size",
+    "per_device_eval_batch_size",
+    "fp16",
+]
+
+
 # Will error if the minimal version of Transformers is not installed.
 # Remove at your own risks
 check_min_version("4.18.0.dev0")
@@ -673,6 +680,7 @@ def main():
         model=model,
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
+        metadata_args=metadata_args,
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,
