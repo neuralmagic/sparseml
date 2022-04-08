@@ -166,7 +166,10 @@ def _fold_conv_bn_bias(model: ModelProto, conv_node: NodeProto, bn_node: NodePro
     folded_bias = folded_bias.astype(numpy.float32)
 
     bias_name = conv_node.name + ".bias"
-    conv_node.input.append(bias_name)
+    if len(conv_node.input) > 2:
+        conv_node.input[2] = bias_name
+    else:
+        conv_node.input.append(bias_name)
     update_model_param(model, bias_name, folded_bias)
 
     # forward conv output to bn children
