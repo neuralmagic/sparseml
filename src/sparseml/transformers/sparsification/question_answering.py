@@ -27,6 +27,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import datasets
 import numpy as np
 from torch.nn import Module
 from tqdm.auto import tqdm
@@ -220,7 +221,8 @@ class QuestionAnsweringTrainer(TrainerInterface, _QuestionAnsweringTrainer):
                 model_signature_columns | teacher_signature_columns
             )
 
-            # Labels may be named label or label_ids, the default data collator handles that.
+            # Labels may be named label or label_ids, the default data
+            # collator handles that.
             self._signature_columns += ["label", "label_ids"]
 
         return super()._remove_unused_columns(dataset, description)

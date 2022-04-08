@@ -24,6 +24,7 @@ Finetuning the library models for sequence classification on GLUE
 # You can also adapt this script on your own text classification task.
 # Pointers for this are left as comments.
 
+import inspect
 import logging
 import os
 import random
@@ -431,22 +432,6 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
-    if model_args.distill_teacher is not None:
-        tokenizer_src = model_args.distill_teacher
-    else:
-        tokenizer_src = (
-            model_args.tokenizer_name
-            if model_args.tokenizer_name
-            else model_args.model_name_or_path
-        )
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        tokenizer_src,
-        cache_dir=model_args.cache_dir,
-        use_fast=model_args.use_fast_tokenizer,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
     model, teacher = SparseAutoModel.text_classification_from_pretrained_distil(
         model_name_or_path=(
             model_args.tokenizer_name
@@ -464,6 +449,30 @@ def main():
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
+    )
+
+    if model_args.distill_teacher is not None:
+        model_forward_params = list(inspect.signature(model.forward).parameters.keys())
+        teacher_forward_params = list(
+            inspect.signature(teacher.forward).parameters.keys()
+        )
+        diff = [p for p in model_forward_params if p not in teacher_forward_params]
+        if diff:
+            raise RuntimeError("Teacher tokenizer cannot be used for student.")
+        tokenizer_src = model_args.distill_teacher
+    else:
+        tokenizer_src = (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else model_args.model_name_or_path
+        )
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_src,
+        cache_dir=model_args.cache_dir,
+        use_fast=model_args.use_fast_tokenizer,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
     )
 
     # Preprocessing the datasets

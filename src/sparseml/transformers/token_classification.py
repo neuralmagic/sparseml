@@ -23,6 +23,7 @@ Fine-tuning the library models for token classification
 # You can also adapt this script on your own token classification task and datasets.
 # Pointers for this are left as comments
 
+import inspect
 import logging
 import os
 import sys
@@ -420,7 +421,33 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
+    model, teacher = SparseAutoModel.token_classification_from_pretrained_distil(
+        model_name_or_path=(
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else model_args.model_name_or_path
+        ),
+        model_kwargs={
+            "config": config,
+            "cache_dir": model_args.cache_dir,
+            "revision": model_args.model_revision,
+            "use_auth_token": True if model_args.use_auth_token else None,
+        },
+        teacher_name_or_path=model_args.distill_teacher,
+        teacher_kwargs={
+            "cache_dir": model_args.cache_dir,
+            "use_auth_token": True if model_args.use_auth_token else None,
+        },
+    )
+
     if model_args.distill_teacher is not None:
+        model_forward_params = list(inspect.signature(model.forward).parameters.keys())
+        teacher_forward_params = list(
+            inspect.signature(teacher.forward).parameters.keys()
+        )
+        diff = [p for p in model_forward_params if p not in teacher_forward_params]
+        if diff:
+            raise RuntimeError("Teacher tokenizer cannot be used for student.")
         tokenizer_src = model_args.distill_teacher
     else:
         tokenizer_src = (
@@ -446,24 +473,6 @@ def main():
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-    model, teacher = SparseAutoModel.token_classification_from_pretrained_distil(
-        model_name_or_path=(
-            model_args.tokenizer_name
-            if model_args.tokenizer_name
-            else model_args.model_name_or_path
-        ),
-        model_kwargs={
-            "config": config,
-            "cache_dir": model_args.cache_dir,
-            "revision": model_args.model_revision,
-            "use_auth_token": True if model_args.use_auth_token else None,
-        },
-        teacher_name_or_path=model_args.distill_teacher,
-        teacher_kwargs={
-            "cache_dir": model_args.cache_dir,
-            "use_auth_token": True if model_args.use_auth_token else None,
-        },
-    )
 
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):

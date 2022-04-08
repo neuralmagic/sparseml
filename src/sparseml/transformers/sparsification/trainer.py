@@ -23,6 +23,7 @@ import math
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import datasets
 import torch
 from torch import distributed as dist
 from torch.nn import Module
@@ -736,6 +737,8 @@ class Trainer(TrainerInterface, TransformersTrainer):
     def _remove_unused_columns(
         self, dataset: "datasets.Dataset", description: Optional[str] = None
     ):
+        if not self.args.remove_unused_columns:
+            return dataset
         if self._signature_columns is None and self.teacher is not None:
             model_signature = inspect.signature(self.model.forward)
             model_signature_columns = set(model_signature.parameters.keys())
@@ -747,7 +750,8 @@ class Trainer(TrainerInterface, TransformersTrainer):
                 model_signature_columns | teacher_signature_columns
             )
 
-            # Labels may be named label or label_ids, the default data collator handles that.
+            # Labels may be named label or label_ids, the default data
+            # collator handles that.
             self._signature_columns += ["label", "label_ids"]
 
         return super()._remove_unused_columns(dataset, description)

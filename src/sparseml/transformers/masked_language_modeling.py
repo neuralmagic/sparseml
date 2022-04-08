@@ -28,6 +28,7 @@ https://huggingface.co/models?filter=masked-lm
 
 # You can also adapt this script on your own masked language modeling task.
 # Pointers for this are left as comments
+import inspect
 import logging
 import math
 import os
@@ -472,31 +473,6 @@ def main():
             config.update_from_string(model_args.config_overrides)
             _LOGGER.info(f"New config: {config}")
 
-    tokenizer_kwargs = {
-        "cache_dir": model_args.cache_dir,
-        "use_fast": model_args.use_fast_tokenizer,
-        "revision": model_args.model_revision,
-        "use_auth_token": True if model_args.use_auth_token else None,
-    }
-    if model_args.tokenizer_name:
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_args.tokenizer_name, **tokenizer_kwargs
-        )
-    elif model_args.distill_teacher is not None:
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_args.distill_teacher, **tokenizer_kwargs
-        )
-    elif model_args.model_name_or_path:
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_args.model_name_or_path, **tokenizer_kwargs
-        )
-    else:
-        raise ValueError(
-            "You are instantiating a new tokenizer from scratch. This is not "
-            "supported by this script. You can do it from another script, save "
-            "it, and load it from here, using --tokenizer_name."
-        )
-
     model, teacher = SparseAutoModel.masked_language_modeling_from_pretrained_distil(
         model_name_or_path=model_args.model_name_or_path,
         model_kwargs={
@@ -511,6 +487,38 @@ def main():
             "use_auth_token": True if model_args.use_auth_token else None,
         },
     )
+
+    tokenizer_kwargs = {
+        "cache_dir": model_args.cache_dir,
+        "use_fast": model_args.use_fast_tokenizer,
+        "revision": model_args.model_revision,
+        "use_auth_token": True if model_args.use_auth_token else None,
+    }
+    if model_args.tokenizer_name:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_args.tokenizer_name, **tokenizer_kwargs
+        )
+    elif model_args.distill_teacher is not None:
+        model_forward_params = list(inspect.signature(model.forward).parameters.keys())
+        teacher_forward_params = list(
+            inspect.signature(teacher.forward).parameters.keys()
+        )
+        diff = [p for p in model_forward_params if p not in teacher_forward_params]
+        if diff:
+            raise RuntimeError("Teacher tokenizer cannot be used for student.")
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_args.distill_teacher, **tokenizer_kwargs
+        )
+    elif model_args.model_name_or_path:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_args.model_name_or_path, **tokenizer_kwargs
+        )
+    else:
+        raise ValueError(
+            "You are instantiating a new tokenizer from scratch. This is not "
+            "supported by this script. You can do it from another script, save "
+            "it, and load it from here, using --tokenizer_name."
+        )
 
     model.resize_token_embeddings(len(tokenizer))
 

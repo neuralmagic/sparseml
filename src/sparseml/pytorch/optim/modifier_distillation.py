@@ -278,15 +278,12 @@ class DistillationModifier(ScheduledUpdateModifier):
                 "distillation loss update"
             )
 
-        teacher_inputs = (
-            (
+        if teacher_inputs is None:
+            teacher_inputs = (
                 student_inputs
                 if not self._teacher_input_keys
                 else {key: student_inputs[key] for key in self._teacher_input_keys}
             )
-            if teacher_inputs is None
-            else teacher_inputs
-        )
 
         # copy to keep from updating student's inputs
         teacher_inputs = deepcopy(teacher_inputs)
