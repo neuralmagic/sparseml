@@ -22,7 +22,7 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseModifier
-from sparseml.pytorch.optim import (
+from sparseml.pytorch.sparsification import (
     PYTORCH_FRAMEWORK,
     Modifier,
     PyTorchModifierYAML,
