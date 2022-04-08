@@ -168,6 +168,8 @@ class GMPruningModifier(BaseModifier, BaseScheduled, BaseUpdate):
         self._leave_enabled = convert_to_bool(leave_enabled)
         self._inter_func = inter_func
         self._mask_type = mask_type
+        if len(self._mask_type) > 2 and all(i == 1 for i in self.mask_type[2:]):
+            self._mask_type = self._mask_type[:2]
         self._leave_enabled = convert_to_bool(leave_enabled)
 
         self.validate()
