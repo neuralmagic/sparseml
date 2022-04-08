@@ -17,8 +17,6 @@ SparseML transformers trainer classes and interfaces to be plugged in with
 existing or similiar HF trainer flows
 """
 
-
-import glob
 import logging
 import math
 import os
@@ -42,11 +40,7 @@ from sparseml.pytorch.utils import (
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.utils.helpers import (
-    RECIPE_NAME,
-    RECIPE_REGEX,
-    RECIPE_TEMPLATE,
-)
+from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
 __all__ = [
@@ -116,7 +110,7 @@ class RecipeManagerTrainerInterface:
             self._extract_metadata(
                 metadata_args=metadata_args, training_args=kwargs["args"]
             )
-            if (kwargs["args"] and metadata_args)
+            if ("args" in kwargs and metadata_args)
             else None
         )
 
@@ -138,8 +132,7 @@ class RecipeManagerTrainerInterface:
         else:
             self.logger_manager = LoggerManager(log_python=False)
 
-        # remove arch_managers once recipe stages are supported
-        self.manager, self.arch_managers = self._setup_manager(kwargs)
+        self.manager, self.arch_manager = self._setup_manager(kwargs)
         self.manager_applied = False
         self.manager_initialized = False
         self.manager_finalized = False
@@ -166,19 +159,16 @@ class RecipeManagerTrainerInterface:
         :return: True if recipes were applied, False otherwise
         """
 
-        if (not self.arch_managers and self.manager is None) or self.manager_applied:
+        if (not self.arch_manager and self.manager is None) or self.manager_applied:
             return False
 
         orig_state_dict = self.model.state_dict()
 
-        # apply architecture changes to prep for reload of weights to handle
-        # things like layer dropping and quantization which changes param names
-        if self.arch_managers:
-            for arch_manager in self.arch_managers:
-                arch_manager.apply_structure(self.model, epoch=math.inf, finalize=True)
+        if self.arch_manager:
+            self.arch_manager.apply_structure(self.model, epoch=epoch)
             _LOGGER.info(
-                f"Applied structure from {len(self.arch_managers)} "
-                "SparseML recipes to model and finalized "
+                f"Applied structure from {self.arch_manager.num_stages()} "
+                "previous recipe stage(s) to model and finalized "
                 "(recipes saved with model_path)"
             )
 
@@ -380,17 +370,17 @@ class RecipeManagerTrainerInterface:
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        index = len(self.arch_managers)
-        recipe_path = os.path.join(
-            output_dir, RECIPE_TEMPLATE.format(f"_{index:02d}" if index > 0 else "")
-        )
-        checkpoint_path = os.path.join(self.args.output_dir, RECIPE_NAME)
-
-        if os.path.isfile(checkpoint_path):
-            self.manager = ScheduledModifierManager.compose_staged(
-                base_recipe=checkpoint_path, additional_recipe=self.manager
+        recipe_path = os.path.join(output_dir, RECIPE_NAME)
+        if self.arch_manager:
+            composed_manager = ScheduledModifierManager.compose_staged(
+                base_recipe=str(self.arch_manager),
+                additional_recipe=str(self.manager),
             )
-        self.manager.save(recipe_path)
+            composed_manager.save(recipe_path)
+        else:
+
+            self.manager.save(recipe_path)
+
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
     def log_model_sparsification(self):
@@ -444,7 +434,7 @@ class RecipeManagerTrainerInterface:
         self, kwargs
     ) -> Tuple[Optional[ScheduledModifierManager], List[ScheduledModifierManager]]:
         manager = None
-        arch_managers = []
+        arch_manager = None
 
         if self.recipe is not None:
             manager = ScheduledModifierManager.from_yaml(
@@ -458,24 +448,12 @@ class RecipeManagerTrainerInterface:
                 f"and metadata {self.metadata}"
             )
 
-        arch_recipe_paths = glob.glob(os.path.join(self.model_state_path, RECIPE_REGEX))
-        if arch_recipe_paths:
-            arch_managers = [
-                ScheduledModifierManager.from_yaml(path) for path in arch_recipe_paths
-            ]
+        arch_recipe = os.path.join(self.model_state_path, RECIPE_NAME)
+        if os.path.isfile(arch_recipe):
+            arch_manager = ScheduledModifierManager.from_yaml(arch_recipe)
             _LOGGER.info(
-                f"Loaded SparseML {len(arch_recipe_paths)} recipes into architecture "
-                f"managers from {arch_recipe_paths}"
-            )
-
-        if manager is not None and manager in arch_managers:
-            # new recipe and the one stored with model are the same,
-            # keep manager and remove from arch_managers to keep from applying twice.
-            # remove this logic once recipe stages land
-            arch_managers.remove(manager)
-            _LOGGER.info(
-                "Removed duplicate SparseML recipe from arch_managers that matched "
-                "the recipe variable to prevent double application"
+                f"Loaded {arch_manager.num_stages()} SparseML checkpoint recipe "
+                f"stage(s) from {arch_recipe} to replicate model sparse state"
             )
 
         if (
@@ -489,7 +467,7 @@ class RecipeManagerTrainerInterface:
             )
             kwargs["args"].num_train_epochs = manager.max_epochs
 
-        return manager, arch_managers
+        return manager, arch_manager
 
     def _reload_model_state(self, load_path: str, orig_state_dict: Dict[str, Any]):
         if (
@@ -758,9 +736,14 @@ class DisableHalfPrecisionCallback(TrainerCallback):
             self.disable_amp(epoch)
 
     def qat_active(self, epoch: float) -> bool:
-        return (self.trainer.manager and self.trainer.manager.qat_active(epoch)) or any(
-            bool(man.quantization_modifiers) for man in self.trainer.arch_managers
-        )
+        manager_q_active = arch_manager_q_active = False
+        if self.trainer.manager:
+            manager_q_active = bool(self.trainer.manager.qat_active(epoch))
+        if self.trainer.arch_manager:
+            arch_manager_q_active = bool(
+                self.trainer.arch_manager.quantization_modifiers
+            )
+        return manager_q_active or arch_manager_q_active
 
     def disable_amp(self, epoch: float):
         if not self.on_begin_called:

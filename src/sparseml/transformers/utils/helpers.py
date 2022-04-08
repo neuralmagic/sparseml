@@ -19,11 +19,7 @@ flows
 
 __all__ = [
     "RECIPE_NAME",
-    "RECIPE_REGEX",
-    "RECIPE_TEMPLATE",
 ]
 
 
 RECIPE_NAME = "recipe.yaml"
-RECIPE_REGEX = r"recipe*.yaml"
-RECIPE_TEMPLATE = "recipe{}.yaml"
