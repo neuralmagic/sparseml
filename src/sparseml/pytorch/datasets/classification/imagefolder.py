@@ -20,8 +20,10 @@ More info for the dataset can be found `here <http://www.image-net.org/>`__.
 import os
 import random
 
-from sparseml.pytorch.datasets.image_classification.ffcv_dataset import \
-    FFCVImageNetDataset
+from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
+    FFCVImageNetDataset,
+)
+
 
 try:
     from torchvision import transforms
