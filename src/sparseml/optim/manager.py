@@ -103,6 +103,16 @@ class BaseManager(BaseObject):
     def metadata(self):
         return self._metadata
 
+    def num_stages(self) -> int:
+        """
+        Return the number of stages of the recipe
+        :return: number of stages
+        """
+        if isinstance(self.modifiers, dict):
+            return len(self.modifiers)
+        else:
+            return 1
+
     @metadata.setter
     def metadata(self, value):
         self._metadata = value
