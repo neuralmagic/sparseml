@@ -187,9 +187,9 @@ class _BasicBlock(Module):
 
         # self.add_relu = _AddReLU(out_channels)
         if FloatFunctional:
-            self.self.add_relu = FloatFunctional()
+            self.add_relu = FloatFunctional()
         else:
-            self.self.add_relu = ReLU(num_channels=out_channels, inplace=True)
+            self.add_relu = ReLU(num_channels=out_channels, inplace=True)
 
         self.initialize()
 
@@ -252,9 +252,9 @@ class _BottleneckBlock(Module):
 
         # self.add_relu = _AddReLU(out_channels)
         if FloatFunctional:
-            self.self.add_relu = FloatFunctional()
+            self.add_relu = FloatFunctional()
         else:
-            self.self.add_relu = ReLU(num_channels=out_channels, inplace=True)
+            self.add_relu = ReLU(num_channels=out_channels, inplace=True)
 
         self.initialize()
 
