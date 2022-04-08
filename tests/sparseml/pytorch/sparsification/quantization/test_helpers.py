@@ -20,6 +20,7 @@ import torch
 from sparseml.pytorch.models import mobilenet, resnet50
 from sparseml.pytorch.sparsification.quantization import (
     QATWrapper,
+    QConfigProperties,
     add_quant_dequant,
     configure_module_default_qconfigs,
     configure_module_qat_wrappers,
@@ -87,7 +88,7 @@ def test_configure_module_qat_wrappers():
 
     assert not _module_has_quant_stubs(module)
 
-    configure_module_qat_wrappers(module)
+    configure_module_qat_wrappers(module, QConfigProperties())
 
     qat_matmul = module.module.module
 
@@ -122,7 +123,7 @@ def _assert_module_quant_stub_configs_exist(module, should_exist):
     reason="torch quantization not available",
 )
 def test_configure_module_default_qconfigs():
-    module = QATWrapper.from_module(_QATMatMul())
+    module = QATWrapper.from_module(_QATMatMul(), QConfigProperties())
     _assert_module_quant_stub_configs_exist(module, False)
 
     configure_module_default_qconfigs(module)
@@ -142,7 +143,7 @@ def test_configure_module_default_qconfigs():
     reason="torch quantization not available",
 )
 def test_configure_module_default_qconfigs_no_config():
-    module = QATWrapper.from_module(_QATMatMul())
+    module = QATWrapper.from_module(_QATMatMul(), QConfigProperties())
     _assert_module_quant_stub_configs_exist(module, False)
 
     module.configure_qconfig = None
@@ -191,7 +192,7 @@ def test_add_quant_dequant(model_lambda, num_quantizable_ops):
     reason="torch quantization not available",
 )
 def test_get_qat_qconfig():
-    assert isinstance(get_qat_qconfig(), torch_quantization.QConfig)
+    assert isinstance(get_qat_qconfig(QConfigProperties()), torch_quantization.QConfig)
 
 
 def _get_fake_conv_relus(num_blocks=1):
@@ -273,7 +274,7 @@ def test_prepare_embeddings_qat():
 
     # check that fake quant observer is properly added
     assert not hasattr(module.module, "weight_fake_quant")
-    prepare_embeddings_qat(module)
+    prepare_embeddings_qat(module, QConfigProperties())
     assert hasattr(module.module, "weight_fake_quant")
 
     # check that the observer is updated on embedding forward pass
