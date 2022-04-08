@@ -28,6 +28,9 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 
 from sparseml.pytorch.datasets import DatasetRegistry
+from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
+    FFCVCompatibleDataset,
+)
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import (
@@ -36,6 +39,7 @@ from sparseml.pytorch.utils import (
     ModuleRunResults,
     PythonLogger,
     TensorBoardLogger,
+    default_device,
     early_stop_data_loader,
     torch_distributed_zero_first,
 )
@@ -145,7 +149,9 @@ def get_dataset_and_dataloader(
     loader_num_workers: int = 0,
     loader_pin_memory: bool = False,
     max_samples: Optional[int] = None,
-) -> Tuple[Dataset, DataLoader]:
+    ffcv: bool = False,
+    device: Optional[torch.device] = default_device(),
+) -> Tuple[Dataset, Union[DataLoader, Any]]:
     """
     :param dataset_name: The name of the dataset
     :param dataset_path: The path to the dataset
@@ -158,6 +164,8 @@ def get_dataset_and_dataloader(
     :param loader_num_workers: The number of workers to use for the data loader
     :param loader_pin_memory: Whether to pin memory for the data loader
     :param max_samples: The maximum number of samples to use
+    :param ffcv: Whether to use ffcv dataset and data loaders
+    :param device: The device to use for the data loader. Required for ffcv
     :return: Tuple with the following format (dataset, dataloader)
     """
 
@@ -185,14 +193,32 @@ def get_dataset_and_dataloader(
     )
     shuffle = sampler is None and not training
 
-    data_loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=loader_num_workers,
-        pin_memory=loader_pin_memory,
-        sampler=sampler,
-    )
+    if ffcv:
+        if not isinstance(dataset, FFCVCompatibleDataset):
+            raise ValueError(f"Dataset {dataset} must implement FFCVCompatibleDataset")
+        dataset_type = "train" if training else "val"
+        write_path = os.path.join(
+            dataset_path,
+            "ffcv_cache",
+            f"{dataset_type}.beton",
+        )
+
+        data_loader = dataset.get_ffcv_loader(
+            write_path=write_path,
+            batch_size=batch_size,
+            num_workers=loader_num_workers,
+            device=device,
+        )
+
+    else:
+        data_loader = DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_workers=loader_num_workers,
+            pin_memory=loader_pin_memory,
+            sampler=sampler,
+        )
 
     if max_samples is not None:
         data_loader = early_stop_data_loader(

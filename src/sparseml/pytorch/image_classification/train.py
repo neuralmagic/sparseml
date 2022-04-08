@@ -128,6 +128,7 @@ optional arguments:
                         Use pinned memory for data loading
   --image-size IMAGE_SIZE
                         The size of the image input to the model
+  --ffcv [FFCV]         Use FFCv for training. Defaults to False
 
 #########
 EXAMPLES
@@ -255,6 +256,7 @@ class TrainingArguments:
         default=True.
     :param image_size: int representing the size of the image input to the model
         default=224.
+    :param ffcv: bool Use ffcv for training, Defaults to False
     """
 
     train_batch_size: int = field(
@@ -459,6 +461,11 @@ class TrainingArguments:
         default=224, metadata={"help": "The size of the image input to the model"}
     )
 
+    ffcv: bool = field(
+        default=False,
+        metadata={"help": "Use ffcv for training, Defaults to False"},
+    )
+
     def __post_init__(self):
         # add ddp args
         env_world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -631,6 +638,8 @@ def main():
         training=True,
         loader_num_workers=training_args.loader_num_workers,
         loader_pin_memory=training_args.loader_pin_memory,
+        ffcv=training_args.ffcv,
+        device=training_args.device,
     )
     val_dataset, val_loader = (
         helpers.get_dataset_and_dataloader(
@@ -642,6 +651,8 @@ def main():
             training=False,
             loader_num_workers=training_args.loader_num_workers,
             loader_pin_memory=training_args.loader_pin_memory,
+            ffcv=training_args.ffcv,
+            device=training_args.device,
         )
         if training_args.is_main_process
         else (None, None)
