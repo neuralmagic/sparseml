@@ -156,113 +156,6 @@ class QConfigProperties:
             self._symmetric_weights = value
 
 
-class BNWrapper(Module):
-    """
-    Wraps BatchNormalization module to expose methods needed to enable
-    freezing/unfreezing of statistics
-
-    :param module: BatchNormalization module to be wrapped
-    """
-
-    def __init__(self, module: Module):
-        super().__init__()
-        self.bn = module
-        self.freeze_bn = False
-
-    @property
-    def running_mean(self):
-        return self.bn.running_mean
-
-    @running_mean.setter
-    def running_mean(self, value):
-        self.bn.running_mean = value
-
-    @property
-    def running_var(self):
-        return self.bn.running_var
-
-    @running_var.setter
-    def running_var(self, value):
-        self.bn.running_var = value
-
-    @property
-    def weight(self):
-        return self.bn.weight
-
-    @weight.setter
-    def weight(self, value):
-        self.bn.weight = value
-
-    @property
-    def bias(self):
-        return self.bn.bias
-
-    @bias.setter
-    def bias(self, value):
-        self.bn.bias = value
-
-    @property
-    def gamma(self):
-        return self.bn.gamma
-
-    @gamma.setter
-    def gamma(self, value):
-        self.bn.gamma = value
-
-    @property
-    def beta(self):
-        return self.bn.beta
-
-    @beta.setter
-    def beta(self, value):
-        self.bn.beta = value
-
-    @property
-    def num_batches_tracked(self):
-        return self.bn.num_batches_tracked
-
-    @num_batches_tracked.setter
-    def num_batches_tracked(self, value):
-        self.bn.num_batches_tracked = value
-
-    @property
-    def eps(self):
-        return self.bn.eps
-
-    @eps.setter
-    def eps(self, value):
-        self.bn.eps = value
-
-    @property
-    def momentum(self):
-        return self.bn.momentum
-
-    @momentum.setter
-    def momentum(self, value):
-        self.bn.momentum = value
-
-    def forward(self, x):
-        return self.bn(x)
-
-    def freeze_bn_stats(self):
-        self.freeze_bn = True
-        self.bn.training = False
-        return self
-
-    def reset_running_stats(self):
-        self.bn.reset_running_stats()
-
-    def train(self, mode=True):
-        if not self.freeze_bn:
-            self.bn.train(mode)
-        return self
-
-    def update_bn_stats(self):
-        self.freeze_bn = False
-        self.bn.training = True
-        return self
-
-
 class QATWrapper(Module):
     """
     Wraps inputs and outputs of a Module or function with QuantStubs for
@@ -494,7 +387,7 @@ def configure_module_bn_wrappers(module: Module):
                 torch.nn.BatchNorm2d,
                 torch.nn.BatchNorm3d,
             ]:
-                setattr(module, child_name, BNWrapper(child_module))
+                setattr(module, child_name, _BNWrapper(child_module))
             # recurse on child module
             configure_module_bn_wrappers(child_module)
 
@@ -834,3 +727,110 @@ def _wrap_bn_sub_class(bn_subclass, override_forward=True):
         batch_norm.forward = bn_subclass.forward
     del bn_subclass
     return batch_norm
+
+
+class _BNWrapper(Module):
+    """
+    Wraps BatchNormalization module to expose methods needed to enable
+    freezing/unfreezing of statistics
+
+    :param module: BatchNormalization module to be wrapped
+    """
+
+    def __init__(self, module: Module):
+        super().__init__()
+        self.bn = module
+        self.freeze_bn = False
+
+    @property
+    def running_mean(self):
+        return self.bn.running_mean
+
+    @running_mean.setter
+    def running_mean(self, value):
+        self.bn.running_mean = value
+
+    @property
+    def running_var(self):
+        return self.bn.running_var
+
+    @running_var.setter
+    def running_var(self, value):
+        self.bn.running_var = value
+
+    @property
+    def weight(self):
+        return self.bn.weight
+
+    @weight.setter
+    def weight(self, value):
+        self.bn.weight = value
+
+    @property
+    def bias(self):
+        return self.bn.bias
+
+    @bias.setter
+    def bias(self, value):
+        self.bn.bias = value
+
+    @property
+    def gamma(self):
+        return self.bn.gamma
+
+    @gamma.setter
+    def gamma(self, value):
+        self.bn.gamma = value
+
+    @property
+    def beta(self):
+        return self.bn.beta
+
+    @beta.setter
+    def beta(self, value):
+        self.bn.beta = value
+
+    @property
+    def num_batches_tracked(self):
+        return self.bn.num_batches_tracked
+
+    @num_batches_tracked.setter
+    def num_batches_tracked(self, value):
+        self.bn.num_batches_tracked = value
+
+    @property
+    def eps(self):
+        return self.bn.eps
+
+    @eps.setter
+    def eps(self, value):
+        self.bn.eps = value
+
+    @property
+    def momentum(self):
+        return self.bn.momentum
+
+    @momentum.setter
+    def momentum(self, value):
+        self.bn.momentum = value
+
+    def forward(self, x):
+        return self.bn(x)
+
+    def freeze_bn_stats(self):
+        self.freeze_bn = True
+        self.bn.training = False
+        return self
+
+    def reset_running_stats(self):
+        self.bn.reset_running_stats()
+
+    def train(self, mode=True):
+        if not self.freeze_bn:
+            self.bn.train(mode)
+        return self
+
+    def update_bn_stats(self):
+        self.freeze_bn = False
+        self.bn.training = True
+        return self
