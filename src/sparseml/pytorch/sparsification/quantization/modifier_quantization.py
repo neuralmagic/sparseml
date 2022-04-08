@@ -244,7 +244,8 @@ class QuantizationModifier(ScheduledModifier):
             If tensorrt flag is True, default is 'no_fuse', otherwise
             `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
         """
-        if self._tensorrt:
+        if self.tensorrt:
+            _LOGGER.info("Overriding model_fuse_fn_name to False because tensorrt flag is True.")
             fuse_fn = (
                 self._model_fuse_fn_name if self._model_fuse_fn_name else "no_fuse"
             )
@@ -340,7 +341,8 @@ class QuantizationModifier(ScheduledModifier):
         :return: if True, FakeQuantize ops will be run for output activations
             of fully connected layers
         """
-        if self._tensorrt:
+        if self.tensorrt:
+            _LOGGER.info("Overriding quantize_linear_activations to False because tensorrt flag is True.")
             return False
         else:
             return self._quantize_linear_activations
@@ -351,7 +353,8 @@ class QuantizationModifier(ScheduledModifier):
         :return: if True, FakeQuantize ops will be run for output activations
             of convolutional layers
         """
-        if self._tensorrt:
+        if self.tensorrt:
+            _LOGGER.info("Overriding quantize_conv_activations to False because tensorrt flag is True.")
             return False
         else:
             return self._quantize_conv_activations
@@ -416,11 +419,10 @@ class QuantizationModifier(ScheduledModifier):
         return self._num_calibration_steps
 
     @ModifierProp()
-    def tensorrt(self) -> Dict[str, Any]:
+    def tensorrt(self) -> bool:
         """
-        :return: Dictionary with correct quant_min, quant_max, and dtype values
-            for activations
-
+        :return: boolean. When set to True overrides quantization configs
+        to be compatible with TensorRT.
         """
         return self._tensorrt
 
@@ -590,6 +592,7 @@ class QuantizationModifier(ScheduledModifier):
             reduce_range=self.reduce_range,
         )
         if self.tensorrt:
+            _LOGGER.info("Overriding quantization scheme to symmetric int8 for both weights and activations because tensorrt flag is True.")
             qproperties.symmetric_activations = True
             qproperties.activation_dtype = torch.qint8
             qproperties.symmetric_weights = True
