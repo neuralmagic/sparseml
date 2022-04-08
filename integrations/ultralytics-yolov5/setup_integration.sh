@@ -6,6 +6,5 @@
 
 git clone https://github.com/neuralmagic/yolov5.git
 cd yolov5
-git checkout release/0.12
+git checkout update-6.1
 pip install -r requirements.txt
-pip install sparseml[torch,torchvision]
