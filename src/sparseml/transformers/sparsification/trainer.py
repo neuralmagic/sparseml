@@ -42,7 +42,6 @@ from sparseml.pytorch.utils import (
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 
-
 __all__ = [
     "RecipeManagerTrainerInterface",
     "TrainerInterface",
@@ -380,6 +379,7 @@ class RecipeManagerTrainerInterface:
         else:
 
             self.manager.save(recipe_path)
+
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
     def log_model_sparsification(self):
@@ -440,6 +440,11 @@ class RecipeManagerTrainerInterface:
                 self.recipe,
                 recipe_variables=self.recipe_args,
                 metadata=self.metadata,
+            )
+            _LOGGER.info(
+                "Loaded SparseML recipe variable into manager for recipe: "
+                f"{self.recipe}, recipe_variables: {self.recipe_args} "
+                f"and metadata {self.metadata}"
             )
 
             _LOGGER.info(

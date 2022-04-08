@@ -71,13 +71,13 @@ from sparseml.transformers.sparsification import Trainer
 from sparseml.transformers.utils import SparseAutoModel
 
 
-__all__ = ["export_transformer_to_onnx"]
+__all__ = ["export_transformer_to_onnx", "load_task_model"]
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _load_task_model(task: str, model_path: str, config: Any) -> Module:
+def load_task_model(task: str, model_path: str, config: Any) -> Module:
     if task == "masked-language-modeling" or task == "mlm":
         return SparseAutoModel.masked_language_modeling_from_pretrained(
             model_name_or_path=model_path,
@@ -156,7 +156,7 @@ def export_transformer_to_onnx(
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, model_max_length=sequence_length
     )
-    model = _load_task_model(task, model_path, config)
+    model = load_task_model(task, model_path, config)
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
     trainer = Trainer(

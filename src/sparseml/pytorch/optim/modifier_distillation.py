@@ -220,7 +220,7 @@ class DistillationModifier(ScheduledUpdateModifier):
                 f"{distillation_teacher}. "
                 "To disable set to 'disable' and for self attention set to 'self'"
             )
-        self._latest_student__loss = None
+        self._latest_student_loss = None
         self._latest_teacher_loss = None
         self._latest_distillation_loss = None
 
@@ -261,15 +261,15 @@ class DistillationModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         :return: loss tensor with knowledge distillation loss added
         """
-        self._latest_student__loss = None
+        self._latest_student_loss = None
         self._latest_teacher_loss = None
         self._latest_distillation_loss = None
-        self._latest_student__loss = super().loss_update(
+        self._latest_student_loss = super().loss_update(
             loss, module, optimizer, epoch, steps_per_epoch, **kwargs
         )
 
         if not self.update_ready(epoch, steps_per_epoch):
-            return self._latest_student__loss
+            return self._latest_student_loss
 
         if student_outputs is None or student_inputs is None:
             raise ValueError(
@@ -299,7 +299,7 @@ class DistillationModifier(ScheduledUpdateModifier):
                 f"Teacher device {teacher_device} does not match "
                 f"inputs device {inputs_device}, moving teacher to correct device"
             )
-            self._teacher.to(device_of(teacher_inputs))
+            self._teacher.to(inputs_device)
 
         with torch.no_grad():
             teacher_outputs = tensors_module_forward(
@@ -355,7 +355,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
         losses = {
-            "original_loss": self._latest_student__loss,
+            "original_loss": self._latest_student_loss,
             "teacher_loss": self._latest_teacher_loss,
             "distillation_loss": self._latest_distillation_loss,
         }
@@ -388,7 +388,8 @@ class DistillationModifier(ScheduledUpdateModifier):
             TF.kl_div(
                 input=TF.log_softmax(student_val / self._temperature, dim=-1),
                 target=TF.softmax(teacher_val / self._temperature, dim=-1),
-                reduction="batchmean",
+                reduction="sum",
             )
+            / (student_val.numel() / student_val.shape[-1])  # scale "sum" w/ batchsize
             * (self._temperature ** 2)
         )

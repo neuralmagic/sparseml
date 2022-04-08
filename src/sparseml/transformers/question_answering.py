@@ -69,8 +69,10 @@ _LOGGER = logging.getLogger(__name__)
 
 metadata_args = [
     "per_device_train_batch_size",
+    "per_device_eval_batch_size",
     "doc_stride",
     "fp16",
+    "max_seq_length",
 ]
 
 
