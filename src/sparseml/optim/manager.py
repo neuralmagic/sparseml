@@ -18,6 +18,8 @@ Managers control groups of modifiers to allow modifying the training process of 
 ex to perform model pruning.
 """
 
+import json
+import logging
 import math
 from collections import OrderedDict
 from copy import deepcopy
@@ -30,6 +32,8 @@ from sparseml.utils import RECIPE_METADATA_KEY, clean_path, create_parent_dirs
 
 
 __all__ = ["BaseManager"]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class BaseManager(BaseObject):
@@ -51,6 +55,8 @@ class BaseManager(BaseObject):
         super().__init__(**kwargs)
 
         self._metadata = metadata if metadata else None
+        if self._metadata is not None:
+            self._info_log_metadata()
 
         if isinstance(modifiers, List):
             # sort modifiers by when they start and end so that later modifiers
@@ -96,6 +102,16 @@ class BaseManager(BaseObject):
     @property
     def metadata(self):
         return self._metadata
+
+    def num_stages(self) -> int:
+        """
+        Return the number of stages of the recipe
+        :return: number of stages
+        """
+        if isinstance(self.modifiers, dict):
+            return len(self.modifiers)
+        else:
+            return 1
 
     @metadata.setter
     def metadata(self, value):
@@ -443,15 +459,18 @@ class BaseManager(BaseObject):
             if not isinstance(self._metadata[stage], dict):
                 yaml_str_lines[-1] += f" {self._metadata[stage]}"
             else:
-                for key, value in self._metadata[stage].items():
-                    yaml_str_lines.append(f"    {key}: {value}")
+                yaml_str_lines = _nested_dict_to_lines(
+                    self._metadata[stage], yaml_str_lines, nesting_depth=2
+                )
+
         else:
             yaml_str_lines.append(f"{RECIPE_METADATA_KEY}:")
             if not isinstance(self._metadata, dict):
                 yaml_str_lines[-1] += f" {self._metadata}"
-            elif self._metadata[RECIPE_METADATA_KEY] is not None:
-                for key, value in self._metadata[RECIPE_METADATA_KEY].items():
-                    yaml_str_lines.append(f"  {key}: {value}")
+            else:
+                yaml_str_lines = _nested_dict_to_lines(
+                    self._metadata[RECIPE_METADATA_KEY], yaml_str_lines
+                )
 
         yaml_str_lines.append("")
         return yaml_str_lines
@@ -528,6 +547,32 @@ class BaseManager(BaseObject):
             else False
         )
 
+    def _info_log_metadata(self):
+        metadata_str = json.dumps(self._metadata, indent=1)
+        _LOGGER.info(f"Created recipe manager with metadata: {metadata_str}")
+
 
 def _sort_modifiers_list(modifiers: List[BaseModifier]) -> List[BaseModifier]:
     return sorted(modifiers, key=cmp_to_key(BaseModifier.comparator))
+
+
+def _nested_dict_to_lines(
+    dict1: dict, yaml_str_lines: List[str], nesting_depth: int = 1
+) -> List[str]:
+    indentation = "  "
+
+    if dict1 is None:
+        return yaml_str_lines
+
+    for key, value in dict1.items():
+        if isinstance(value, dict):
+            # add data for the current nesting level and
+            # move deeper to the next nesting level
+            yaml_str_lines.append(indentation * nesting_depth + f"{key}:")
+            yaml_str_lines = _nested_dict_to_lines(
+                value, yaml_str_lines, nesting_depth + 1
+            )
+        else:
+            # reached maximum nesting level.
+            yaml_str_lines.append(indentation * nesting_depth + f"{key}: {value}")
+    return yaml_str_lines
