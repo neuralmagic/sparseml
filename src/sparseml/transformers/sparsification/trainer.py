@@ -42,6 +42,7 @@ from sparseml.pytorch.utils import (
 from sparseml.transformers.utils import SparseAutoModel
 from sparseml.transformers.utils.helpers import RECIPE_NAME
 
+
 __all__ = [
     "RecipeManagerTrainerInterface",
     "TrainerInterface",
@@ -447,12 +448,6 @@ class RecipeManagerTrainerInterface:
                 f"and metadata {self.metadata}"
             )
 
-            _LOGGER.info(
-                "Loaded SparseML recipe variable into manager for recipe: "
-                f"{self.recipe}, recipe_variables: {self.recipe_args} "
-                f"and metadata {self.metadata}"
-            )
-
         arch_recipe = os.path.join(self.model_state_path, RECIPE_NAME)
         if os.path.isfile(arch_recipe):
             arch_manager = ScheduledModifierManager.from_yaml(arch_recipe)
@@ -741,11 +736,14 @@ class DisableHalfPrecisionCallback(TrainerCallback):
             self.disable_amp(epoch)
 
     def qat_active(self, epoch: float) -> bool:
-        return (
-            self.trainer.manager
-            and self.trainer.manager.qat_active(epoch)
-            or self.trainer.arch_manager.quantization_modifiers
-        )
+        manager_q_active = arch_manager_q_active = False
+        if self.trainer.manager:
+            manager_q_active = bool(self.trainer.manager.qat_active(epoch))
+        if self.trainer.arch_manager:
+            arch_manager_q_active = bool(
+                self.trainer.arch_manager.quantization_modifiers
+            )
+        return manager_q_active or arch_manager_q_active
 
     def disable_amp(self, epoch: float):
         if not self.on_begin_called:
