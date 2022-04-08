@@ -31,6 +31,7 @@ from sparseml.pytorch.utils import (
     ModuleTester,
     ModuleTrainer,
     default_device,
+    is_parallel_model,
 )
 
 
@@ -212,9 +213,10 @@ class ImageClassificationTrainer(Trainer):
         manager = ScheduledModifierManager.from_yaml(
             file_path=self.recipe_path,
         )
+
         optim = ScheduledOptimizer(
             optim,
-            self.model,
+            self.model.module if is_parallel_model(self.model) else self.model,
             manager,
             steps_per_epoch=len(self.train_loader),
             loggers=self.loggers,
