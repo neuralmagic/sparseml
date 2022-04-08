@@ -30,7 +30,7 @@ from torch.nn import (
 from torch.optim import SGD, Adam
 from torch.utils.data import Dataset
 
-from sparseml.pytorch.optim import PYTORCH_FRAMEWORK
+from sparseml.pytorch.sparsification import PYTORCH_FRAMEWORK
 
 
 __all__ = [

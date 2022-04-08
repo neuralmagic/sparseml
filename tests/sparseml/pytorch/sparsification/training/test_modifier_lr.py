@@ -19,14 +19,14 @@ import sys
 import pytest
 from torch.optim import SGD, Adam
 
-from sparseml.pytorch.optim import (
+from sparseml.pytorch.sparsification import (
     LearningRateFunctionModifier,
     LearningRateModifier,
     SetLearningRateModifier,
 )
 from sparseml.pytorch.utils import get_optim_learning_rate
 from tests.sparseml.pytorch.helpers import LinearNet
-from tests.sparseml.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.sparsification.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
 )
