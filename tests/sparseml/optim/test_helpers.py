@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import platform
+from copy import deepcopy
+
 import pytest
 
+from sparseml import version as sparseml_version
 from sparseml.optim import (
+    add_framework_metadata,
     check_if_staged_recipe,
     evaluate_recipe_yaml_str_equations,
     load_recipe_yaml_str,
@@ -22,7 +28,7 @@ from sparseml.optim import (
     update_recipe_variables,
     validate_metadata,
 )
-from sparseml.utils import RECIPE_METADATA_KEY
+from sparseml.utils import FRAMEWORK_METADATA_KEY, RECIPE_METADATA_KEY
 
 
 STAGED_RECIPE_COMPLEX = """
@@ -524,14 +530,62 @@ def _generate_fake_metadata(item1=("this", "is"), item2=("metadata", 100)):
         ),
     ],
 )
-def test_validate_metadata(metadata, yaml_str, expected_metadata, raise_warning):
-    if raise_warning:
-        with pytest.warns(UserWarning):
-            metadata = validate_metadata(metadata, yaml_str)
-            assert metadata == expected_metadata
-    else:
+def test_validate_metadata(
+    metadata, yaml_str, expected_metadata, raise_warning, caplog
+):
+    with caplog.at_level(logging.WARNING):
         metadata = validate_metadata(metadata, yaml_str)
-        assert metadata == expected_metadata
+        assert raise_warning == bool(caplog.text)
+    assert metadata == expected_metadata
+
+
+metadata_w_framework_1 = _generate_fake_metadata()
+metadata_w_framework_1[FRAMEWORK_METADATA_KEY] = {
+    "python_version": platform.python_version(),
+    "sparseml_version": sparseml_version,
+}
+metadata_w_framework_2 = deepcopy(metadata_w_framework_1)
+metadata_w_framework_2[FRAMEWORK_METADATA_KEY]["python_version"] = "placeholder"
+
+
+@pytest.mark.parametrize(
+    "metadata, expected_metadata, raise_warning",
+    [
+        # pass unstaged metadata without framework metadata
+        (
+            {RECIPE_METADATA_KEY: _generate_fake_metadata()},
+            {RECIPE_METADATA_KEY: metadata_w_framework_1},
+            False,
+        ),
+        # pass staged metadata without framework metadata
+        (
+            {
+                "stage_0": _generate_fake_metadata(),
+                "stage_1": _generate_fake_metadata(),
+            },
+            {"stage_0": metadata_w_framework_1, "stage_1": metadata_w_framework_1},
+            False,
+        ),
+        # pass unstaged metadata with framework metadata
+        (
+            {RECIPE_METADATA_KEY: metadata_w_framework_2},
+            {RECIPE_METADATA_KEY: metadata_w_framework_1},
+            True,
+        ),
+        # pass staged metadata with framework metadata
+        (
+            {"stage_0": metadata_w_framework_2, "stage_1": metadata_w_framework_2},
+            {"stage_0": metadata_w_framework_1, "stage_1": metadata_w_framework_1},
+            True,
+        ),
+    ],
+)
+def test_add_framework_metadata(metadata, expected_metadata, raise_warning, caplog):
+    with caplog.at_level(logging.WARNING):
+        metadata = add_framework_metadata(metadata)
+        assert raise_warning == bool(caplog.text)
+
+    assert metadata == expected_metadata
 
 
 RECIPE_INVALID_LOOP = """
