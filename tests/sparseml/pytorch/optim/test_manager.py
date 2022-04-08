@@ -25,14 +25,15 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml import version as sparseml_version
 from sparseml.optim import BaseModifier
-from sparseml.pytorch.optim import Modifier, ScheduledModifierManager
+from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.sparsification import Modifier
 from tests.sparseml.pytorch.helpers import (
     SAMPLE_STAGED_RECIPE,
     LinearNet,
     create_optim_adam,
     create_optim_sgd,
 )
-from tests.sparseml.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.sparsification.test_modifier import (
     ModifierTest,
     ScheduledModifierImpl,
 )
