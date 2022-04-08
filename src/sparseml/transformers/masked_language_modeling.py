@@ -28,7 +28,7 @@ https://huggingface.co/models?filter=masked-lm
 
 # You can also adapt this script on your own masked language modeling task.
 # Pointers for this are left as comments
-import inspect
+
 import logging
 import math
 import os
@@ -55,7 +55,7 @@ from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml.transformers.sparsification import Trainer
-from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
 
 metadata_args = [
@@ -494,31 +494,12 @@ def main():
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
-    if model_args.tokenizer_name:
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_args.tokenizer_name, **tokenizer_kwargs
-        )
-    elif model_args.distill_teacher is not None:
-        model_forward_params = list(inspect.signature(model.forward).parameters.keys())
-        teacher_forward_params = list(
-            inspect.signature(teacher.forward).parameters.keys()
-        )
-        diff = [p for p in model_forward_params if p not in teacher_forward_params]
-        if diff:
-            raise RuntimeError("Teacher tokenizer cannot be used for student.")
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_args.distill_teacher, **tokenizer_kwargs
-        )
-    elif model_args.model_name_or_path:
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_args.model_name_or_path, **tokenizer_kwargs
-        )
-    else:
-        raise ValueError(
-            "You are instantiating a new tokenizer from scratch. This is not "
-            "supported by this script. You can do it from another script, save "
-            "it, and load it from here, using --tokenizer_name."
-        )
+    tokenizer_src = (
+        model_args.tokenizer_name
+        if model_args.tokenizer_name
+        else get_shared_tokenizer_src(model, teacher)
+    )
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_src, **tokenizer_kwargs)
 
     model.resize_token_embeddings(len(tokenizer))
 

@@ -24,7 +24,6 @@ Fine-tuning the library models for question answering integrated with sparseml
 # You can also adapt this script on your own question answering task.
 # Pointers for this are left as comments.
 
-import inspect
 import logging
 import os
 import sys
@@ -53,7 +52,7 @@ from sparseml.transformers.sparsification import (
     QuestionAnsweringTrainer,
     postprocess_qa_predictions,
 )
-from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your
@@ -444,22 +443,11 @@ def main():
         },
     )
 
-    if model_args.distill_teacher is not None:
-        model_forward_params = list(inspect.signature(model.forward).parameters.keys())
-        teacher_forward_params = list(
-            inspect.signature(teacher.forward).parameters.keys()
-        )
-        diff = [p for p in model_forward_params if p not in teacher_forward_params]
-        if diff:
-            raise RuntimeError("Teacher tokenizer cannot be used for student.")
-        tokenizer_src = model_args.distill_teacher
-    else:
-        tokenizer_src = (
-            model_args.tokenizer_name
-            if model_args.tokenizer_name
-            else model_args.model_name_or_path
-        )
-
+    tokenizer_src = (
+        model_args.tokenizer_name
+        if model_args.tokenizer_name
+        else get_shared_tokenizer_src(model, teacher)
+    )
     tokenizer = AutoTokenizer.from_pretrained(
         tokenizer_src,
         cache_dir=model_args.cache_dir,
