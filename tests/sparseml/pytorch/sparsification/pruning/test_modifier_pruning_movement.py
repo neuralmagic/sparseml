@@ -21,13 +21,13 @@ from flaky import flaky
 from sparseml.pytorch.sparsification import MovementPruningModifier
 from sparseml.pytorch.utils import tensor_sparsity
 from tests.sparseml.pytorch.helpers import LinearNet
-from tests.sparseml.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.sparsification.pruning.helpers import (
+    pruning_modifier_serialization_vals_test,
+)
+from tests.sparseml.pytorch.sparsification.test_modifier import (
     ScheduledUpdateModifierTest,
     create_optim_adam,
     create_optim_sgd,
-)
-from tests.sparseml.pytorch.sparsification.pruning.helpers import (
-    pruning_modifier_serialization_vals_test,
 )
 
 

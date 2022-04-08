@@ -33,7 +33,7 @@ from sparseml.optim import (
     parse_recipe_variables,
     validate_metadata,
 )
-from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
+from sparseml.pytorch.sparsification.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, LoggerManager, is_parallel_model
 from sparsezoo.objects import Recipe
 
