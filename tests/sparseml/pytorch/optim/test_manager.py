@@ -25,14 +25,15 @@ from torch.optim.optimizer import Optimizer
 
 from sparseml import version as sparseml_version
 from sparseml.optim import BaseModifier
-from sparseml.pytorch.optim import Modifier, ScheduledModifierManager
+from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.sparsification import Modifier
 from tests.sparseml.pytorch.helpers import (
     SAMPLE_STAGED_RECIPE,
     LinearNet,
     create_optim_adam,
     create_optim_sgd,
 )
-from tests.sparseml.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.sparsification.test_modifier import (
     ModifierTest,
     ScheduledModifierImpl,
 )
@@ -416,6 +417,88 @@ stage_4:
   
 """  # noqa: W293
 
+RECIPE_END_EPOCH_IMPLICIT = """
+training_modifiers:
+  - !EpochRangeModifier
+    start_epoch: 0.0
+    end_epoch: 52
+
+  - !SetLearningRateModifier
+    start_epoch: 50
+    learning_rate: 0.000002
+
+pruning_modifiers:
+  - !ConstantPruningModifier
+    start_epoch: 0.0
+    params: __ALL_PRUNABLE__
+
+quantization_modifiers:
+  - !QuantizationModifier
+    start_epoch: 50
+    submodules: ['model.0']
+"""
+
+COMPOSED_RECIPE_END_EPOCH_IMPLICIT = """version: 1.1.0
+
+stage_0:
+  __metadata__: None
+
+  stage_0_modifiers:
+      - !ConstantPruningModifier
+          end_epoch: 52
+          params: __ALL_PRUNABLE__
+          start_epoch: 0.0
+          update_frequency: -1
+  
+      - !EpochRangeModifier
+          end_epoch: 52
+          start_epoch: 0.0
+  
+      - !QuantizationModifier
+          end_epoch: 52
+          quantize_embeddings: True
+          quantize_linear_activations: True
+          reduce_range: False
+          start_epoch: 50
+          submodules: ['model.0']
+  
+      - !SetLearningRateModifier
+          constant_logging: False
+          end_epoch: 52
+          learning_rate: 2e-06
+          start_epoch: 50
+  
+
+stage_1:
+  __metadata__: None
+
+  stage_1_modifiers:
+      - !EpochRangeModifier
+          end_epoch: 104
+          start_epoch: 52.0
+  
+      - !ConstantPruningModifier
+          end_epoch: -1.0
+          params: __ALL_PRUNABLE__
+          start_epoch: 52.0
+          update_frequency: -1
+  
+      - !QuantizationModifier
+          end_epoch: -1.0
+          quantize_embeddings: True
+          quantize_linear_activations: True
+          reduce_range: False
+          start_epoch: 102
+          submodules: ['model.0']
+  
+      - !SetLearningRateModifier
+          constant_logging: False
+          end_epoch: -1.0
+          learning_rate: 2e-06
+          start_epoch: 102
+  
+"""  # noqa: W293
+
 
 def _generate_fake_metadata(item1=("metadata", None), item2=("level", 1)):
     return {k: v for (k, v) in (item1, item2)}
@@ -556,6 +639,16 @@ torch_version = torch.__version__
             ),
             False,
             True,
+        ),
+        # Testing composing two recipes with modifiers containing
+        # implicit `end_epoch` attribution (i.e. `end_epoch = -1`)
+        (
+            RECIPE_END_EPOCH_IMPLICIT,
+            RECIPE_END_EPOCH_IMPLICIT,
+            None,
+            COMPOSED_RECIPE_END_EPOCH_IMPLICIT,
+            False,
+            False,
         ),
     ],
 )

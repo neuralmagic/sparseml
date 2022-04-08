@@ -26,7 +26,7 @@ from sparseml.pytorch.sparsification import (
 )
 from sparseml.pytorch.utils import export_onnx
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
-from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
+from tests.sparseml.pytorch.sparsification.test_modifier import ScheduledModifierTest
 
 
 from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
