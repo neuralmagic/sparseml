@@ -128,6 +128,7 @@ optional arguments:
                         Use pinned memory for data loading
   --image-size IMAGE_SIZE
                         The size of the image input to the model
+  --ffcv [FFCV]         Use FFCv for training. Defaults to False
 
 #########
 EXAMPLES
@@ -255,6 +256,7 @@ class TrainingArguments:
         default=True.
     :param image_size: int representing the size of the image input to the model
         default=224.
+    :param ffcv: bool Use ffcv for training, Defaults to False
     """
 
     train_batch_size: int = field(
@@ -459,6 +461,11 @@ class TrainingArguments:
         default=224, metadata={"help": "The size of the image input to the model"}
     )
 
+    ffcv: bool = field(
+        default=False,
+        metadata={"help": "Use ffcv for training, Defaults to False"},
+    )
+
     def __post_init__(self):
         # add ddp args
         env_world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -622,20 +629,40 @@ def main():
     parser = NmArgumentParser(dataclass_types=TrainingArguments)
     training_args, _ = parser.parse_args_into_dataclasses()
 
-    (
-        train_dataset,
-        train_loader,
-        val_dataset,
-        val_loader,
-    ) = helpers.get_train_and_validation_loaders(
-        args=training_args,
-        task=CURRENT_TASK,
+    train_dataset, train_loader, = helpers.get_dataset_and_dataloader(
+        dataset_name=training_args.dataset,
+        dataset_path=training_args.dataset_path,
+        batch_size=training_args.train_batch_size,
+        image_size=training_args.image_size,
+        dataset_kwargs=training_args.dataset_kwargs,
+        training=True,
+        loader_num_workers=training_args.loader_num_workers,
+        loader_pin_memory=training_args.loader_pin_memory,
+        ffcv=training_args.ffcv,
+        device=training_args.device,
+    )
+    val_dataset, val_loader = (
+        helpers.get_dataset_and_dataloader(
+            dataset_name=training_args.dataset,
+            dataset_path=training_args.dataset_path,
+            batch_size=training_args.test_batch_size,
+            image_size=training_args.image_size,
+            dataset_kwargs=training_args.dataset_kwargs,
+            training=False,
+            loader_num_workers=training_args.loader_num_workers,
+            loader_pin_memory=training_args.loader_pin_memory,
+            ffcv=training_args.ffcv,
+            device=training_args.device,
+        )
+        if training_args.is_main_process
+        else (None, None)
     )
 
     num_classes = helpers.infer_num_classes(
-        args=training_args,
         train_dataset=train_dataset,
         val_dataset=val_dataset,
+        dataset=training_args.dataset,
+        model_kwargs=training_args.model_kwargs,
     )
 
     train(
@@ -658,17 +685,28 @@ def _init_image_classification_trainer_and_save_dirs(
         extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
         return CrossEntropyLossWrapper(extras=extras)
 
-    model, key = helpers.create_model(
-        args=train_args,
+    model, train_args.arch_key = helpers.create_model(
+        checkpoint_path=train_args.checkpoint_path,
+        recipe_path=train_args.recipe_path,
         num_classes=num_classes,
+        arch_key=train_args.arch_key,
+        pretrained=train_args.pretrained,
+        pretrained_dataset=train_args.pretrained_dataset,
+        local_rank=train_args.local_rank,
+        **train_args.model_kwargs,
     )
-    train_args.arch_key = key
 
     save_dir, loggers = helpers.get_save_dir_and_loggers(
-        args=train_args, task=CURRENT_TASK
+        task=CURRENT_TASK,
+        is_main_process=train_args.is_main_process,
+        save_dir=train_args.save_dir,
+        arch_key=train_args.arch_key,
+        model_tag=train_args.model_tag,
+        dataset_name=train_args.dataset,
+        logs_dir=train_args.logs_dir,
     )
 
-    LOGGER.info(f"created model with key {key}: {model}")
+    LOGGER.info(f"created model with key {train_args.arch_key}: {model}")
 
     if train_args.rank == -1:
         ddp = False

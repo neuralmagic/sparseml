@@ -37,6 +37,7 @@ __all__ = [
     "ALL_PRUNABLE_TOKEN",
     "FROM_PARAM_TOKEN",
     "RECIPE_METADATA_KEY",
+    "FRAMEWORK_METADATA_KEY",
     "flatten_iterable",
     "convert_to_bool",
     "validate_str_iterable",
@@ -68,6 +69,7 @@ ALL_TOKEN = "__ALL__"
 ALL_PRUNABLE_TOKEN = "__ALL_PRUNABLE__"
 FROM_PARAM_TOKEN = "__FROM_PARAM__"
 RECIPE_METADATA_KEY = "__metadata__"
+FRAMEWORK_METADATA_KEY = "framework_metadata"
 _LOGGER = logging.getLogger(__name__)
 
 

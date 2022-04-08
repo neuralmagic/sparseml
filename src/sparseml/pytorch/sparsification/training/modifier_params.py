@@ -24,7 +24,7 @@ from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.pytorch.optim.modifier import (
+from sparseml.pytorch.sparsification.modifier import (
     PyTorchModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
