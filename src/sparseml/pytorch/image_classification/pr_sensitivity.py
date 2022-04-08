@@ -102,7 +102,7 @@ EXAMPLES
 ##########
 Example command for running one shot KS sens analysis on ssd300_resnet50 for
 coco:
-python sparseml.image_classification.pr_sensitivity \
+sparseml.image_classification.pr_sensitivity \
     --arch-key ssd300_resnet50 --dataset coco \
     --dataset-path ~/datasets/coco-detection
 
@@ -122,7 +122,11 @@ from sparseml.pytorch.optim import (
     pruning_loss_sens_magnitude,
     pruning_loss_sens_one_shot,
 )
-from sparseml.pytorch.utils import default_device, model_to_device
+from sparseml.pytorch.utils import (
+    CrossEntropyLossWrapper,
+    default_device,
+    model_to_device,
+)
 
 
 CURRENT_TASK = helpers.Tasks.PR_SENSITIVITY
@@ -333,7 +337,7 @@ def pruning_loss_sensitivity(
     """
     # loss setup
     if not args.approximate:
-        loss = helpers.get_loss_wrapper(args)
+        loss = CrossEntropyLossWrapper()
         LOGGER.info(f"created loss: {loss}")
     else:
         loss = None

@@ -88,8 +88,10 @@ optional arguments:
   --save-dir SAVE_DIR   The path to the directory for saving results
 ##########
 Example command for exporting ResNet50:
-python sparseml.image_classification.export_onnx \
-    --arch-key resnet50 --dataset imagenet --dataset-path ~/datasets/ILSVRC2012
+sparseml.image_classification.export_onnx \
+    --arch-key resnet50 --dataset imagenet \
+    --dataset-path ~/datasets/ILSVRC2012 \
+    --checkpoint-path ~/checkpoints/resnet50_checkpoint.pth
 """
 import json
 from dataclasses import dataclass, field

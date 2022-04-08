@@ -102,7 +102,7 @@ python sparseml.image_classification.lr_analysis \
 
 Example command for running LR sensitivity analysis on mobilenet using
 imagenette:
-python sparseml.image_classification.lr_analysis \
+sparseml.image_classification.lr_analysis \
     --arch-key mobilenet --dataset imagenette \
     --dataset-path ~/datasets/ --batch-size 2
 """
@@ -120,7 +120,12 @@ from sparseml import get_main_logger
 from sparseml.pytorch.image_classification.utils import NmArgumentParser, helpers
 from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import default_exponential_check_lrs, lr_loss_sensitivity
-from sparseml.pytorch.utils import PythonLogger, default_device, model_to_device
+from sparseml.pytorch.utils import (
+    CrossEntropyLossWrapper,
+    PythonLogger,
+    default_device,
+    model_to_device,
+)
 
 
 CURRENT_TASK = helpers.Tasks.LR_ANALYSIS
@@ -347,7 +352,7 @@ def lr_sensitivity(
     LOGGER.info(f"created optimizer: {optim}")
 
     # loss setup
-    loss = helpers.get_loss_wrapper(args.arch_key)
+    loss = CrossEntropyLossWrapper()
     LOGGER.info(f"created loss: {loss}")
 
     # device setup
