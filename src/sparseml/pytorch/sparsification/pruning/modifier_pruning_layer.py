@@ -24,7 +24,7 @@ from torch.optim.optimizer import Optimizer
 from sparseml.optim import BaseModifier
 from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.optim.analyzer_pruning import ModulePruningAnalyzer
-from sparseml.pytorch.optim.modifier import (
+from sparseml.pytorch.sparsification.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
     ScheduledModifier,
