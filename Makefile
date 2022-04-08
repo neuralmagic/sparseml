@@ -14,6 +14,9 @@ PYTEST_ARGS ?= ""
 ifneq ($(findstring deepsparse,$(TARGETS)),deepsparse)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/deepsparse
 endif
+ifneq ($(findstring transformers,$(TARGETS)),transformers)
+    PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/transformers
+endif
 ifneq ($(findstring keras,$(TARGETS)),keras)
     PYTEST_ARGS := $(PYTEST_ARGS) --ignore tests/sparseml/keras
 endif
