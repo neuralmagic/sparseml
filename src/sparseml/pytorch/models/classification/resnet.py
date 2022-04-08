@@ -47,7 +47,6 @@ try:
 except Exception:
     FloatFunctional = None
 
-
 __all__ = [
     "ResNetSectionSettings",
     "ResNet",
@@ -141,6 +140,28 @@ class _IdentityModifier(Module):
         return in_channels != out_channels or stride > 1
 
 
+class _AddReLU(Module):
+    """
+    Wrapper for the FloatFunctional class that enables QATWrapper used to
+    quantize the first input to the Add operation
+    """
+
+    def __init__(self, num_channels):
+        super().__init__()
+        if FloatFunctional:
+            self.functional = FloatFunctional()
+            self.wrap_qat = True
+            self.qat_wrapper_kwargs = {"num_inputs": 1, "num_outputs": 0}
+        else:
+            self.functional = ReLU(num_channels=num_channels, inplace=True)
+
+    def forward(self, x, y):
+        if isinstance(self.functional, FloatFunctional):
+            return self.functional.add_relu(x, y)
+        else:
+            return self.functional(x + y)
+
+
 class _BasicBlock(Module):
     def __init__(self, in_channels: int, out_channels: int, stride: int = 1):
         super().__init__()
@@ -164,11 +185,7 @@ class _BasicBlock(Module):
             else None
         )
 
-        self.add_relu = (
-            FloatFunctional()
-            if FloatFunctional is not None
-            else ReLU(num_channels=out_channels, inplace=True)
-        )
+        self.add_relu = _AddReLU(out_channels)
 
         self.initialize()
 
@@ -181,12 +198,7 @@ class _BasicBlock(Module):
         out = self.bn2(out)
 
         identity_val = self.identity(inp) if self.identity is not None else inp
-
-        if isinstance(self.add_relu, FloatFunctional):
-            out = self.add_relu.add_relu(out, identity_val)
-        else:
-            out += identity_val
-            out = self.add_relu(out)
+        out = self.add_relu(identity_val, out)
 
         return out
 
@@ -230,11 +242,7 @@ class _BottleneckBlock(Module):
             else None
         )
 
-        self.add_relu = (
-            FloatFunctional()
-            if FloatFunctional is not None
-            else ReLU(num_channels=out_channels, inplace=True)
-        )
+        self.add_relu = _AddReLU(out_channels)
 
         self.initialize()
 
@@ -252,11 +260,7 @@ class _BottleneckBlock(Module):
 
         identity_val = self.identity(inp) if self.identity is not None else inp
 
-        if isinstance(self.add_relu, FloatFunctional):
-            out = self.add_relu.add_relu(out, identity_val)
-        else:
-            out += identity_val
-            out = self.add_relu(out)
+        out = self.add_relu(identity_val, out)
 
         return out
 

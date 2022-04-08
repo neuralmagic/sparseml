@@ -455,12 +455,18 @@ stage_0:
           start_epoch: 0.0
   
       - !QuantizationModifier
+          activation_bits: 8
           end_epoch: 52
+          exclude_batchnorm: True
+          model_fuse_fn_name: conv_bn_relus
+          quantize_conv_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
           reduce_range: False
           start_epoch: 50
           submodules: ['model.0']
+          tensorrt: False
+          weight_bits: 8
   
       - !SetLearningRateModifier
           constant_logging: False
@@ -484,12 +490,18 @@ stage_1:
           update_frequency: -1
   
       - !QuantizationModifier
+          activation_bits: 8
           end_epoch: -1.0
+          exclude_batchnorm: True
+          model_fuse_fn_name: conv_bn_relus
+          quantize_conv_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
           reduce_range: False
           start_epoch: 102
           submodules: ['model.0']
+          tensorrt: False
+          weight_bits: 8
   
       - !SetLearningRateModifier
           constant_logging: False
