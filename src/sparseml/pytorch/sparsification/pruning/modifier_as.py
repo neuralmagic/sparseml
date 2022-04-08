@@ -24,8 +24,8 @@ from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import BaseModifier
-from sparseml.pytorch.optim.modifier import ModifierProp, ScheduledModifier
 from sparseml.pytorch.optim.sensitivity_as import ASLayerTracker
+from sparseml.pytorch.sparsification.modifier import ModifierProp, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, get_layer, get_terminal_layers
 from sparseml.sparsification import SparsificationTypes
 from sparseml.utils import ALL_TOKEN, convert_to_bool, validate_str_iterable
