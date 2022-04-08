@@ -18,7 +18,7 @@ import pytest
 from torch.nn import Conv2d, Identity, Linear
 
 from sparseml.pytorch.sparsification import QuantizationModifier
-from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
+from tests.sparseml.pytorch.helpers import ConvNet, LinearNet, create_optim_sgd
 from tests.sparseml.pytorch.optim.test_modifier import ScheduledModifierTest
 
 
@@ -33,6 +33,7 @@ try:
 except Exception:
     torch_quantization = None
 
+
 QUANTIZATION_MODIFIERS = [
     lambda: QuantizationModifier(
         start_epoch=0.0,
@@ -40,6 +41,18 @@ QUANTIZATION_MODIFIERS = [
         freeze_bn_stats_epoch=3.0,
     ),
     lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq"]),
+    lambda: QuantizationModifier(
+        start_epoch=0.0,
+        quantize_linear_activations=False,
+        quantize_conv_activations=False,
+    ),
+    lambda: QuantizationModifier(
+        start_epoch=0.0,
+        activation_bits=4,
+    ),
+]
+
+QUANTIZATION_MODIFIERS_LINEAR = QUANTIZATION_MODIFIERS + [
     lambda: QuantizationModifier(start_epoch=2.0, submodules=["seq.fc1"]),
     lambda: QuantizationModifier(
         start_epoch=2.0, submodules=["seq.fc1", "seq.block1.fc2"]
@@ -48,14 +61,6 @@ QUANTIZATION_MODIFIERS = [
         start_epoch=2.0,
         submodules=["seq.fc1", "seq.block1.fc2"],
         reduce_range=True,
-    ),
-    lambda: QuantizationModifier(
-        start_epoch=0.0,
-        quantize_linear_activations=False,
-    ),
-    lambda: QuantizationModifier(
-        start_epoch=0.0,
-        activation_bits=4,
     ),
     lambda: QuantizationModifier(
         start_epoch=0.0,
@@ -90,16 +95,13 @@ def _test_quantizable_module(module, qat_expected, modifier):
         )
         if module.qconfig.activation is not Identity:
             assert module.qconfig.activation.p.keywords["reduce_range"] == reduce_range
-        if modifier.activation_bits is not None:
-            expected_quant_min = 0
-            expected_quant_max = (1 << modifier.activation_bits) - 1
+            if modifier.activation_bits is not None:
+                expected_quant_min = 0
+                expected_quant_max = (1 << modifier.activation_bits) - 1
+                activation_quant_properties = module.qconfig.activation.p.keywords
 
-            assert (
-                module.qconfig.activation.p.keywords["quant_min"] == expected_quant_min
-            )
-            assert (
-                module.qconfig.activation.p.keywords["quant_max"] == expected_quant_max
-            )
+                assert activation_quant_properties["quant_min"] == expected_quant_min
+                assert activation_quant_properties["quant_max"] == expected_quant_max
 
         if isinstance(module, Linear):
             assert isinstance(module.activation_post_process, Identity) == (
@@ -143,8 +145,17 @@ def _test_qat_applied(modifier, model):
     torch_quantization is None,
     reason="torch quantization not available",
 )
-@pytest.mark.parametrize("modifier_lambda", QUANTIZATION_MODIFIERS, scope="function")
-@pytest.mark.parametrize("model_lambda", [LinearNet], scope="function")
+@pytest.mark.parametrize(
+    "modifier_lambda,model_lambda",
+    list(
+        zip(
+            QUANTIZATION_MODIFIERS_LINEAR,
+            [LinearNet] * len(QUANTIZATION_MODIFIERS_LINEAR),
+        )
+    )
+    + list(zip(QUANTIZATION_MODIFIERS, [ConvNet] * len(QUANTIZATION_MODIFIERS))),
+    scope="function",
+)
 @pytest.mark.parametrize("optim_lambda", [create_optim_sgd], scope="function")
 class TestQuantizationModifierImpl(ScheduledModifierTest):
     def test_lifecycle(
@@ -152,7 +163,7 @@ class TestQuantizationModifierImpl(ScheduledModifierTest):
         modifier_lambda,
         model_lambda,
         optim_lambda,
-        test_steps_per_epoch,  # noqa: F811
+        test_steps_per_epoch,  # noqa: F811,
     ):
         modifier = modifier_lambda()
         model = model_lambda()
@@ -221,10 +232,13 @@ def test_quantization_modifier_yaml():
     quantize_embeddings = False
     reduce_range = True
     quantize_linear_activations = False
+    quantize_conv_activations = False
     num_calibration_steps = 2
     exclude_module_types = ["LayerNorm", "Tanh"]
     activation_bits = 4
     averaging_constant = 0.05
+    tensorrt = False
+    exclude_batchnorm = False
     activation_qconfig_kwargs = dict(
         averaging_constant=averaging_constant,
     )
@@ -238,10 +252,13 @@ def test_quantization_modifier_yaml():
             quantize_embeddings: {quantize_embeddings}
             reduce_range: {reduce_range}
             quantize_linear_activations: {quantize_linear_activations}
+            quantize_conv_activations: {quantize_conv_activations}
             num_calibration_steps: {num_calibration_steps}
             exclude_module_types: {exclude_module_types}
             activation_bits: {activation_bits}
             activation_qconfig_kwargs: {activation_qconfig_kwargs}
+            tensorrt: {tensorrt}
+            exclude_batchnorm: {exclude_batchnorm}
         """
     yaml_modifier = QuantizationModifier.load_obj(
         yaml_str
@@ -258,10 +275,13 @@ def test_quantization_modifier_yaml():
         quantize_embeddings=quantize_embeddings,
         reduce_range=reduce_range,
         quantize_linear_activations=quantize_linear_activations,
+        quantize_conv_activations=quantize_conv_activations,
         activation_bits=activation_bits,
         num_calibration_steps=num_calibration_steps,
         exclude_module_types=exclude_module_types,
         activation_qconfig_kwargs=activation_qconfig_kwargs,
+        tensorrt=tensorrt,
+        exclude_batchnorm=exclude_batchnorm,
     )
 
     assert isinstance(yaml_modifier, QuantizationModifier)
@@ -306,6 +326,11 @@ def test_quantization_modifier_yaml():
         == obj_modifier.quantize_linear_activations
     )
     assert (
+        yaml_modifier.quantize_conv_activations
+        == serialized_modifier.quantize_conv_activations
+        == obj_modifier.quantize_conv_activations
+    )
+    assert (
         yaml_modifier.activation_bits
         == serialized_modifier.activation_bits
         == obj_modifier.activation_bits
@@ -324,4 +349,12 @@ def test_quantization_modifier_yaml():
         yaml_modifier.activation_qconfig_kwargs
         == serialized_modifier.activation_qconfig_kwargs
         == obj_modifier.activation_qconfig_kwargs
+    )
+    assert (
+        yaml_modifier.tensorrt == serialized_modifier.tensorrt == obj_modifier.tensorrt
+    )
+    assert (
+        yaml_modifier.exclude_batchnorm
+        == serialized_modifier.exclude_batchnorm
+        == obj_modifier.exclude_batchnorm
     )
