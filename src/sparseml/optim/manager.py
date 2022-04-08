@@ -550,6 +550,10 @@ def _nested_dict_to_lines(
     dict1: dict, yaml_str_lines: List[str], nesting_depth: int = 1
 ) -> List[str]:
     indentation = "  "
+
+    if dict1 is None:
+        return yaml_str_lines
+
     for key, value in dict1.items():
         if isinstance(value, dict):
             # add data for the current nesting level and
