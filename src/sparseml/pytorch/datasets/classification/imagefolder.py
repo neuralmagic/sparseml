@@ -20,6 +20,8 @@ More info for the dataset can be found `here <http://www.image-net.org/>`__.
 import os
 import random
 
+from sparseml.pytorch.datasets.image_classification.ffcv_dataset import \
+    FFCVImageNetDataset
 
 try:
     from torchvision import transforms
@@ -50,7 +52,7 @@ __all__ = ["ImageFolderDataset"]
         "transform_stds": IMAGENET_RGB_STDS,
     },
 )
-class ImageFolderDataset(ImageFolder):
+class ImageFolderDataset(ImageFolder, FFCVImageNetDataset):
     """
     Wrapper for the ImageFolder dataset to apply standard transforms.
     Additionally scales the inputs based off of the imagenet means and stds.
