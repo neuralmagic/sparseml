@@ -967,7 +967,7 @@ def torch_distributed_zero_first(local_rank: int):
 def thin_model_from_checkpoint(model: Module, state_dict: Dict[str, Any]):
     """
     Updates any Linear/Conv/BN layers in the given model to match their
-    respective shapes in the given state dict. Purpose of for compatibility
+    respective shapes in the given state dict. Purpose of compatibility
     when loading weight for a model from a checkpoint of the same architecture
     but with potentially structured thinning applied. Note that this function
     has no guarantees on accuracy, will only resize model parameters for
