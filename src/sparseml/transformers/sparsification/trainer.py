@@ -42,7 +42,11 @@ from sparseml.pytorch.utils import (
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
+from sparseml.transformers.utils.helpers import (
+    RECIPE_NAME,
+    RECIPE_REGEX,
+    RECIPE_TEMPLATE,
+)
 
 
 __all__ = [
@@ -85,6 +89,8 @@ class RecipeManagerTrainerInterface:
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
+    :param metadata_args A list of arguments to be extracted from training_args
+        and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -96,6 +102,7 @@ class RecipeManagerTrainerInterface:
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        metadata_args: Optional[List[str]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -105,6 +112,13 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
+        self.metadata = (
+            self._extract_metadata(
+                metadata_args=metadata_args, training_args=kwargs["args"]
+            )
+            if (kwargs["args"] and metadata_args)
+            else None
+        )
 
         report_to = (
             ""
@@ -151,6 +165,7 @@ class RecipeManagerTrainerInterface:
             If not supplied, falls back to self.model_state_path
         :return: True if recipes were applied, False otherwise
         """
+
         if (not self.arch_managers and self.manager is None) or self.manager_applied:
             return False
 
@@ -340,7 +355,11 @@ class RecipeManagerTrainerInterface:
 
         return (loss, student_outputs) if return_outputs else loss
 
-    def save_model(self, output_dir: Optional[str] = None, _internal_call=True):
+    def save_model(
+        self,
+        output_dir: Optional[str] = None,
+        _internal_call=True,
+    ):
         """
         Override of the save_model function and expects it to exist in the parent.
         Calls into super() to save the model and additionally saves any recipes
@@ -365,6 +384,12 @@ class RecipeManagerTrainerInterface:
         recipe_path = os.path.join(
             output_dir, RECIPE_TEMPLATE.format(f"_{index:02d}" if index > 0 else "")
         )
+        checkpoint_path = os.path.join(self.args.output_dir, RECIPE_NAME)
+
+        if os.path.isfile(checkpoint_path):
+            self.manager = ScheduledModifierManager.compose_staged(
+                base_recipe=checkpoint_path, additional_recipe=self.manager
+            )
         self.manager.save(recipe_path)
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
@@ -391,6 +416,24 @@ class RecipeManagerTrainerInterface:
             f"all sparsification info: {sparsification_info}"
         )
 
+    def _extract_metadata(
+        self, metadata_args: List[str], training_args: TrainingArguments
+    ) -> Dict:
+        metadata = {}
+        training_args_dict = training_args.to_dict()
+
+        for arg in metadata_args:
+            if arg not in training_args_dict.keys():
+                logging.warning(
+                    f"Required metadata argument {arg} was not found "
+                    f"in the training arguments. Setting {arg} to None."
+                )
+                metadata[arg] = None
+            else:
+                metadata[arg] = training_args_dict[arg]
+
+        return metadata
+
     def _check_super_defined(self, func: str):
         if not hasattr(super(), func):
             raise NotImplementedError(
@@ -405,11 +448,14 @@ class RecipeManagerTrainerInterface:
 
         if self.recipe is not None:
             manager = ScheduledModifierManager.from_yaml(
-                self.recipe, recipe_variables=self.recipe_args
+                self.recipe,
+                recipe_variables=self.recipe_args,
+                metadata=self.metadata,
             )
             _LOGGER.info(
                 "Loaded SparseML recipe variable into manager for recipe: "
-                f"{self.recipe} and recipe_variables: {self.recipe_args}"
+                f"{self.recipe}, recipe_variables: {self.recipe_args} "
+                f"and metadata {self.metadata}"
             )
 
         arch_recipe_paths = glob.glob(os.path.join(self.model_state_path, RECIPE_REGEX))
@@ -549,6 +595,8 @@ class TrainerInterface(RecipeManagerTrainerInterface):
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
+    :param metadata_args A list of arguments to be extracted from training_args
+        and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -560,14 +608,17 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        metadata_args: Optional[List[str]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
+
         super().__init__(
             model=model,
             model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,
+            metadata_args=metadata_args,
             teacher=teacher,
             **kwargs,
         )
