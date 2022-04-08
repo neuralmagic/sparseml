@@ -6,7 +6,7 @@ provides experimental support for FFCV with it's [ImageNet] based datasets.
 
 ### Installation
 
-Use conda to install all requirements; install conda using instructions from
+Use conda to install all ffcv dependencies; install conda using instructions from
 [conda.io](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html)
 
 ```bash
