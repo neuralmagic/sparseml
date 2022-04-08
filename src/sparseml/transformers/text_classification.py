@@ -77,6 +77,12 @@ _TASK_TO_KEYS = {
 
 _LOGGER = logging.getLogger(__name__)
 
+metadata_args = [
+    "per_device_train_batch_size",
+    "per_device_eval_batch_size",
+    "fp16",
+]
+
 
 @dataclass
 class DataTrainingArguments:
@@ -624,6 +630,7 @@ def main():
         model=model,
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
+        metadata_args=metadata_args,
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,

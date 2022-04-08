@@ -67,6 +67,14 @@ require_version(
 
 _LOGGER = logging.getLogger(__name__)
 
+metadata_args = [
+    "per_device_train_batch_size",
+    "per_device_eval_batch_size",
+    "doc_stride",
+    "fp16",
+    "max_seq_length",
+]
+
 
 @dataclass
 class ModelArguments:
@@ -376,7 +384,7 @@ def main():
     # 'text' is found. You can easily tweak this behavior (see below).
     #
     # In distributed training, the load_dataset function guarantee that
-    # only one local process can concurrentlydownload the dataset.
+    # only one local process can concurrently download the dataset.
     if data_args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
         raw_datasets = load_dataset(
@@ -751,6 +759,7 @@ def main():
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
         recipe_args=data_args.recipe_args,
+        metadata_args=metadata_args,
         teacher=teacher,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
