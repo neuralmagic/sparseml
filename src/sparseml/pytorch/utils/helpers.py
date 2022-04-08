@@ -16,6 +16,7 @@
 Utility / helper functions
 """
 
+import logging
 import random
 import re
 import warnings
@@ -84,7 +85,11 @@ __all__ = [
     "get_layer_param",
     "set_deterministic_seeds",
     "torch_distributed_zero_first",
+    "thin_model_from_checkpoint",
 ]
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 ##############################
@@ -957,3 +962,99 @@ def torch_distributed_zero_first(local_rank: int):
     yield
     if local_rank == 0:
         torch.distributed.barrier()
+
+
+def thin_model_from_checkpoint(model: Module, state_dict: Dict[str, Any]):
+    """
+    Updates any Linear/Conv/BN layers in the given model to match their
+    respective shapes in the given state dict. Purpose of for compatibility
+    when loading weight for a model from a checkpoint of the same architecture
+    but with potentially structured thinning applied. Note that this function
+    has no guarantees on accuracy, will only resize model parameters for
+    loading compatibility. All adjustments done in place
+
+    :param model: model to potentially adjust parameter shapes of
+    :param state_dict: state dict to infer parameter shapes from
+    """
+    first_thinned = True
+    for param_name, checkpoint_tens in state_dict.items():
+        if not param_name.endswith(".weight"):
+            continue  # only deal with weight params of modules
+        layer_name = param_name[:-7]
+        layer = get_layer(layer_name, model)
+
+        if not hasattr(layer, "weight") or (
+            layer.weight.shape == checkpoint_tens.shape
+        ):
+            continue  # skip if there is no update to shape
+
+        # quick check that target layer is some flavor of FC/Conv/BN
+        layer_type = layer.__class__.__name__
+        if not (
+            "Linear" not in layer_type
+            or "Conv" not in layer_type
+            or ("BatchNorm" not in layer_type)
+        ):
+            continue
+
+        orig_shape = layer.weight.shape
+        target_shape = checkpoint_tens.shape
+
+        # update weight param + grad
+        if len(target_shape) > 1:
+            layer.weight.data = layer.weight.data[
+                : target_shape[0], : target_shape[1], ...
+            ]
+            if layer.weight.grad is not None:
+                layer.weight.grad = layer.weight.grad[
+                    : target_shape[0], : target_shape[1], ...
+                ]
+        else:
+            layer.weight.data = layer.weight.data[: target_shape[0]]
+            if layer.weight.grad is not None:
+                layer.weight.grad = layer.weight.grad[: target_shape[0]]
+
+        # update bias param + grad
+        if hasattr(layer, "bias") and layer.bias is not None:
+            # target output channels should be the first dim of target shape
+            layer.bias.data = layer.bias.data[: target_shape[0]]
+            if layer.bias.grad is not None:
+                layer.bias.grad = layer.bias.grad[: target_shape[0]]
+
+        # update layer attributes
+        if "BatchNorm" in layer_type:
+            if hasattr(layer, "num_features"):
+                layer.num_features = layer.weight.size(0)
+            # BN running mean and var are not stored as Parameters
+            if hasattr(layer, "running_mean"):
+                layer.running_mean = torch.zeros_like(layer.running_mean)[
+                    : target_shape[0]
+                ]
+            if hasattr(layer, "running_var"):
+                layer.running_var = torch.zeros_like(layer.running_var)[
+                    : target_shape[0]
+                ]
+
+        if "Linear" in layer_type:
+            if hasattr(layer, "out_features"):
+                layer.out_features = layer.weight.shape[0]
+            if hasattr(layer, "in_features"):
+                layer.in_features = layer.weight.shape[1]
+
+        if "Conv" in layer_type:
+            if hasattr(layer, "out_channels"):
+                layer.out_channels = layer.weight.shape[0]
+            if hasattr(layer, "in_channels"):
+                layer.in_channels = layer.weight.shape[1]
+            if hasattr(layer, "groups") and layer.groups > 1:
+                layer.groups = layer.weight.shape[0] // layer.weight.shape[1]
+
+        if first_thinned:
+            _LOGGER.info(
+                "Thinning module layers for compatibility with given state dict:"
+            )
+            first_thinned = False
+        _LOGGER.info(
+            f"Thinned layer {layer_name} from shape {orig_shape} to "
+            f"{layer.weight.shape}"
+        )
