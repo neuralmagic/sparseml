@@ -128,6 +128,7 @@ optional arguments:
                         Use pinned memory for data loading
   --image-size IMAGE_SIZE
                         The size of the image input to the model
+  --ffcv [FFCV]         Use FFCv for training. Defaults to False
 
 #########
 EXAMPLES
@@ -255,6 +256,7 @@ class TrainingArguments:
         default=True.
     :param image_size: int representing the size of the image input to the model
         default=224.
+    :param ffcv: bool Use ffcv for training, Defaults to False
     """
 
     train_batch_size: int = field(
@@ -459,9 +461,9 @@ class TrainingArguments:
         default=224, metadata={"help": "The size of the image input to the model"}
     )
 
-    ffcv: Optional[bool] = field(
+    ffcv: bool = field(
         default=False,
-        metadata={"help": "Use FFCV for training."},
+        metadata={"help": "Use ffcv for training, Defaults to False"},
     )
 
     def __post_init__(self):
