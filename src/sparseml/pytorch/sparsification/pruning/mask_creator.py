@@ -186,7 +186,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             return tensor.new_tensor([])
 
         sorted_vals, _ = torch.sort(tensor.view(-1))
-        lookup_index = round(sparsity * (tensor.numel() - 1))
+        lookup_index = round(sparsity * tensor.numel()) - 1
 
         if lookup_index < 0:
             lookup_index = 0
