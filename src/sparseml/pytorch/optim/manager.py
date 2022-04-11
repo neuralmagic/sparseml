@@ -21,17 +21,19 @@ Also handles loading modifiers from yaml files
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.optim.optimizer import Optimizer
 
 from sparseml.optim import (
     BaseManager,
+    add_framework_metadata,
     load_recipe_yaml_str,
     parse_recipe_variables,
     validate_metadata,
 )
-from sparseml.pytorch.optim.modifier import Modifier, ScheduledModifier
+from sparseml.pytorch.sparsification.modifier import Modifier, ScheduledModifier
 from sparseml.pytorch.utils import BaseLogger, LoggerManager, is_parallel_model
 from sparsezoo.objects import Recipe
 
@@ -281,14 +283,19 @@ class ScheduledModifierManager(BaseManager, Modifier):
         recipe_variables = parse_recipe_variables(recipe_variables)
         yaml_str = load_recipe_yaml_str(file_path, **recipe_variables)
         modifiers = Modifier.load_list(yaml_str)
-
         if add_modifiers:
             modifiers.extend(add_modifiers)
 
-        metadata = validate_metadata(metadata, yaml_str)
+        validated_metadata = validate_metadata(metadata, yaml_str)
 
-        manager = ScheduledModifierManager(modifiers=modifiers, metadata=metadata)
+        if metadata is not None:
+            validated_metadata = add_framework_metadata(
+                validated_metadata, torch_version=torch.__version__
+            )
 
+        manager = ScheduledModifierManager(
+            modifiers=modifiers, metadata=validated_metadata
+        )
         return manager
 
     def __init__(
