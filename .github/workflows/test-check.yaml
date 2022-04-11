@@ -20,6 +20,7 @@ jobs:
       onnx: ${{ steps.onnx-check.outputs.output }}
       pytorch: ${{ steps.pytorch-check.outputs.output }}
       tensorflow_v1: ${{ steps.tensorflow_v1-check.outputs.output }}
+      transformers: ${{ steps.transformers-check.outputs.output }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -37,7 +38,7 @@ jobs:
           ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml|setup.py")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
-      - name: "Checking if sparseml.deepsaprse was changed"
+      - name: "Checking if sparseml.deepsparse was changed"
         id: deepsparse-check
         run: >
           ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/deepsparse|setup.py")
@@ -65,6 +66,12 @@ jobs:
         id: tensorflow_v1-check
         run: >
           ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/tensorflow_v1|setup.py")
+          || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
+          && echo "::set-output name=output::1" || echo "::set-output name=output::0"
+      - name: "Checking if sparseml.transformers was changed"
+        id: transformers-check
+        run: >
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/transformers|setup.py")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
   base-tests:
@@ -155,6 +162,27 @@ jobs:
         run: pip3 install .[dev,torchvision]
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
+  transformers-tests:
+    runs-on: ubuntu-18.04
+    env:
+      SPARSEZOO_TEST_MODE: "true"
+    needs: test-setup
+    if: ${{needs.test-setup.outputs.transformers == 1}}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/sparsezoo"
+          path: "sparsezoo"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install sparsezoo dependencies"
+        run: pip3 install -U pip && pip3 install setuptools sparsezoo/
+      - name: "Clean sparsezoo directory"
+        run: rm -r sparsezoo/
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,torch]
+      - name: "🔬 Running transformers tests"
+        run: make test TARGETS=transformers
   pytorch-tests:
     runs-on: ubuntu-18.04
     env:
