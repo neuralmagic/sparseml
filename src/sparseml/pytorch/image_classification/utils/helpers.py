@@ -237,8 +237,9 @@ def create_model(
     pretrained: Union[bool, str] = False,
     pretrained_dataset: Optional[str] = None,
     local_rank: int = -1,
+    resume: bool = False,
     **model_kwargs,
-) -> Tuple[Module, str]:
+) -> Tuple[Module, str, int]:
     """
     :param checkpoint_path: Path to the checkpoint to load. `zoo` for
         downloading weights with respect to a SparseZoo recipe
@@ -253,7 +254,10 @@ def create_model(
         None
     :param local_rank: The local rank of the process. Defaults to -1
     :param model_kwargs: Additional keyword arguments to pass to the model
-    :returns: A tuple containing the model and the model's arch_key
+    :param resume: Whether to resume training from a checkpoint.
+        Defaults to False
+    :returns: A tuple containing the model, the model's arch_key and the
+        loaded epoch if resume is True
     """
     with torch_distributed_zero_first(local_rank):
         # only download once locally
@@ -268,15 +272,19 @@ def create_model(
             pretrained_path=checkpoint_path,
             pretrained_dataset=pretrained_dataset,
             num_classes=num_classes,
+            return_extras=True,
             **model_kwargs,
         )
 
+        epoch = 0
         if not isinstance(result, tuple):
             model, arch_key = result, arch_key
-        else:
+        elif len(result) == 2:
             model, arch_key = result
+        elif len(result) == 3:
+            model, arch_key, epoch = result
 
-        return model, arch_key
+        return model, arch_key, epoch if resume else 0
 
 
 def infer_num_classes(

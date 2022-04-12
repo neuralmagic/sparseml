@@ -76,8 +76,9 @@ class ModelRegistry(object):
         pretrained_dataset: str = None,
         load_strict: bool = True,
         ignore_error_tensors: List[str] = None,
+        return_extras: bool = False,
         **kwargs,
-    ) -> Union[Module, Tuple[Module, Optional[str]]]:
+    ) -> Union[Module, Tuple[Module, Optional[str], Optional[int]]]:
         """
         Create a new model for the given key
 
@@ -91,18 +92,27 @@ class ModelRegistry(object):
         :param load_strict: True to make sure all states are found in and
             loaded in model, False otherwise; default True
         :param ignore_error_tensors: tensors to ignore if there are errors in loading
+        :param return_extras: True to return the epoch of the loaded model
         :param kwargs: any keyword args to supply to the model constructor
         :return: The instantiated model if key is given else a Tuple containing
-            the instantiated model and the loaded key
+            the instantiated model and the loaded key along with the loaded
+            epoch if present in the checkpoint
         """
         key_copy = key
+        checkpoint = torch.load(pretrained_path)
+        extras = []
 
         if key_copy is None:
-            _checkpoint = torch.load(pretrained_path)
-            if "arch_key" in _checkpoint:
-                key_copy = _checkpoint["arch_key"]
+            if "arch_key" in checkpoint:
+                key_copy = checkpoint["arch_key"]
             else:
                 raise ValueError("No `arch_key` found in checkpoint")
+
+        extras.append(key or key_copy)
+
+        if "epoch" in checkpoint:
+            epoch = checkpoint["epoch"]
+            extras.append(epoch)
 
         if key_copy not in ModelRegistry._CONSTRUCTORS:
             raise ValueError(
@@ -118,7 +128,7 @@ class ModelRegistry(object):
             ignore_error_tensors=ignore_error_tensors,
             **kwargs,
         )
-        return (model, key_copy) if key is None else model
+        return (model, *extras) if return_extras else model
 
     @staticmethod
     def create_zoo_model(

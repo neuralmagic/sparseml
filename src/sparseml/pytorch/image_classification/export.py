@@ -357,7 +357,7 @@ def export_setup(args_: ExportArgs) -> Tuple[Module, Optional[str], Any]:
         dataset=args_.dataset,
         model_kwargs=args_.model_kwargs,
     )
-    model, args_.arch_key = helpers.create_model(
+    model, args_.arch_key, _ = helpers.create_model(
         checkpoint_path=args_.checkpoint_path,
         recipe_path=None,
         num_classes=num_classes,

@@ -257,6 +257,7 @@ class TrainingArguments:
     :param image_size: int representing the size of the image input to the model
         default=224.
     :param ffcv: bool Use ffcv for training, Defaults to False
+    :param resume: bool to resume training from a checkpoint, default=False.
     """
 
     train_batch_size: int = field(
@@ -464,6 +465,10 @@ class TrainingArguments:
     ffcv: bool = field(
         default=False,
         metadata={"help": "Use ffcv for training, Defaults to False"},
+    )
+    resume: bool = field(
+        default=False,
+        metadata={"help": "Resume training from a checkpoint"},
     )
 
     def __post_init__(self):
@@ -685,7 +690,7 @@ def _init_image_classification_trainer_and_save_dirs(
         extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
         return CrossEntropyLossWrapper(extras=extras)
 
-    model, train_args.arch_key = helpers.create_model(
+    model, train_args.arch_key, epoch = helpers.create_model(
         checkpoint_path=train_args.checkpoint_path,
         recipe_path=train_args.recipe_path,
         num_classes=num_classes,
@@ -693,6 +698,7 @@ def _init_image_classification_trainer_and_save_dirs(
         pretrained=train_args.pretrained,
         pretrained_dataset=train_args.pretrained_dataset,
         local_rank=train_args.local_rank,
+        resume=train_args.resume,
         **train_args.model_kwargs,
     )
 
@@ -728,6 +734,7 @@ def _init_image_classification_trainer_and_save_dirs(
             model=model,
             key=train_args.arch_key,
             recipe_path=train_args.recipe_path,
+            start_epoch=epoch,
             ddp=ddp,
             device=train_args.device,
             use_mixed_precision=train_args.use_mixed_precision,

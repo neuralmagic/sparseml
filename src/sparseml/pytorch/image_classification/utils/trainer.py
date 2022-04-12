@@ -88,6 +88,7 @@ class ImageClassificationTrainer(Trainer):
         model: torch.nn.Module,
         key: str,
         recipe_path: str,
+        start_epoch: int = 0,
         ddp: bool = False,
         device: str = default_device(),
         use_mixed_precision: bool = False,
@@ -123,14 +124,10 @@ class ImageClassificationTrainer(Trainer):
         _LOGGER.info(f"created loss for training: {self.train_loss}")
 
         self.optim_name = optim_name
-        self.epoch = 0
+        self.epoch = start_epoch
 
         if self.train_loader is not None:
-            (
-                self.epoch,
-                self.optim,
-                self.manager,
-            ) = self._initialize_scheduled_optimizer()
+            self.optim, self.manager = self._initialize_scheduled_optimizer()
             self.module_trainer = self._initialize_module_trainer()
         else:
             self.optim = self.manager = self.module_trainer = None
@@ -208,8 +205,6 @@ class ImageClassificationTrainer(Trainer):
             "yet until the recipe config is created and run"
         )
 
-        epoch = 0
-
         manager = ScheduledModifierManager.from_yaml(
             file_path=self.recipe_path,
         )
@@ -222,7 +217,7 @@ class ImageClassificationTrainer(Trainer):
             loggers=self.loggers,
         )
         _LOGGER.info(f"created manager: {manager}")
-        return epoch, optim, manager
+        return optim, manager
 
     def _initialize_module_trainer(self):
         trainer = ModuleTrainer(
