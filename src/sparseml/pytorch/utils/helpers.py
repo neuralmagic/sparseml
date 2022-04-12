@@ -932,7 +932,7 @@ def validate_all_params_found(
 
         raise RuntimeError(
             "All supplied parameter names or regex patterns not found."
-            "No match for {} in found parameters {}.  Supplied {}".format(
+            "No match for {} in found parameters {}. \nSupplied {}".format(
                 name_or_regex, found_param_names, name_or_regex_patterns
             )
         )
