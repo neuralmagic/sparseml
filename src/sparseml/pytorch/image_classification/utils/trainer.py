@@ -124,7 +124,7 @@ class ImageClassificationTrainer(Trainer):
 
         self.optim_name = optim_name
         self.epoch = 0
-        self.device_context = ModuleDeviceContext(
+        self._device_context = ModuleDeviceContext(
             use_mixed_precision=self.use_mixed_precision,
         )
         if self.train_loader is not None:
@@ -174,7 +174,7 @@ class ImageClassificationTrainer(Trainer):
 
         if self.manager.qat_active(epoch=self.epoch):
             # switch off fp16
-            self.device_context.use_mixed_precision = False
+            self._device_context.use_mixed_precision = False
 
         if validation_mode:
             return self._run_validation_epoch(
@@ -238,7 +238,7 @@ class ImageClassificationTrainer(Trainer):
             loss=self.train_loss,
             optimizer=self.optim,
             loggers=self.loggers,
-            device_context=self.device_context,
+            device_context=self._device_context,
         )
         _LOGGER.info(f"created Module Trainer: {trainer}")
 
