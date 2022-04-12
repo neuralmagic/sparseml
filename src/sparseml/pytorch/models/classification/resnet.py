@@ -151,7 +151,7 @@ class _AddReLU(Module):
         if FloatFunctional:
             self.functional = FloatFunctional()
             self.wrap_qat = True
-            self.qat_wrapper_kwargs = {"num_inputs": 1, "num_outputs": 1}
+            self.qat_wrapper_kwargs = {"num_inputs": 1, "num_outputs": 0}
         else:
             self.functional = ReLU(num_channels=num_channels, inplace=True)
 
