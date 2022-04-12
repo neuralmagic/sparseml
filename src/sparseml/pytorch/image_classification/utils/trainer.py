@@ -172,7 +172,7 @@ class ImageClassificationTrainer(Trainer):
         train_mode = mode == "train"
         validation_mode = not train_mode
 
-        if self.manager.qat_active(epoch=self.epoch):
+        if torch.__version__ < "1.9" and self.manager.qat_active(epoch=self.epoch):
             # switch off fp16
             self._device_context.use_mixed_precision = False
 

@@ -370,13 +370,14 @@ def save_model_training(
     :param arch_key: if provided, the `arch_key` will be saved in the
         checkpoint
     """
-    has_top1 = "top1acc" in val_res.results
-    metric_name = "top-1 accuracy" if has_top1 else "val_loss"
-    metric = val_res.result_mean("top1acc" if has_top1 else DEFAULT_LOSS_KEY).item()
-    print(
-        f"Saving model for epoch {epoch} and {metric_name} "
-        f"{metric} to {save_dir} for {save_name}"
-    )
+    if val_res is not None:
+        has_top1 = "top1acc" in val_res.results
+        metric_name = "top-1 accuracy" if has_top1 else "val_loss"
+        metric = val_res.result_mean("top1acc" if has_top1 else DEFAULT_LOSS_KEY).item()
+        print(
+            f"Saving model for epoch {epoch} and {metric_name} "
+            f"{metric} to {save_dir} for {save_name}"
+        )
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(
         optim,
