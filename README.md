@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-<h1><img alt="tool icon" src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" />&nbsp;&nbsp;SparseML</h1>
+<div align="center">
+    <h1><img alt="tool icon" src="https://raw.githubusercontent.com/neuralmagic/sparseml/main/docs/source/icon-sparseml.png" />&nbsp;&nbsp;SparseML</h1>
 
-<h3>Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models</h3>
+<h3>Libraries for training neural networks with sparsification recipes with a few lines of code, enabling faster and smaller models</h3>
 
 <p>
     <a href="https://docs.neuralmagic.com/sparseml/">
@@ -50,17 +51,13 @@ limitations under the License.
         <img src="https://img.shields.io/twitter/follow/neuralmagic?color=darkgreen&label=Follow&style=social" height=25>
     </a>
 </p>
+</div>
 
-## Overview
-
-SparseML is a toolkit that includes APIs, CLIs, scripts and libraries that apply state-of-the-art [sparsification](https://docs.neuralmagic.com/main/source/getstarted.html#sparsification) algorithms such as pruning and quantization to any neural network. 
-General, recipe-driven approaches built around these algorithms enable the simplification of creating faster and smaller models for the ML performance community at large.
+SparseML is a toolkit for training neural networks with state-of-the-art [sparsification](https://docs.neuralmagic.com/main/source/getstarted.html#sparsification) algorithms such as pruning and quantization. SparseML allows you to integrate into leading deep learning libraries (e.g., Ultralytics, Hugging Face) and conducting sparse transfer learning onto leading deep learning models.
 
 The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integrations within the PyTorch, Keras, and TensorFlow V1 ecosystems, allowing for seamless model sparsification.
 
-<img alt="SparseML Flow" src="https://docs.neuralmagic.com/docs/source/infographics/sparseml.png" width="960px" />
-
-## Highlights
+<!-- <img alt="SparseML Flow" src="https://docs.neuralmagic.com/docs/source/infographics/sparseml.png" width="960px" /> -->
 
 ### Integrations
 
@@ -142,55 +139,84 @@ The [GitHub repository](https://github.com/neuralmagic/sparseml) contains integr
 
 ## Installation
 
-This repository is tested on Python 3.6-3.9, and Linux/Debian systems.
-It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
-Currently supported ML Frameworks are the following: `torch>=1.1.0,<=1.9.0`, `tensorflow>=1.8.0,<=2.0.0`, `tensorflow.keras >= 2.2.0`.
-
-Install with pip using:
+This repository is tested on Python 3.6-3.9, and Linux/Debian systems. Using a virtual environment is highly recommended. Install the SparseML using the following command:
 
 ```bash
 pip install sparseml
 ```
 
+Supported deep learning frameworks: 
+- `torch>=1.1.0,<=1.9.0`
+- `tensorflow>=1.8.0,<=2.0.0`
+- `tensorflow.keras >= 2.2.0`
+
 More information on installation such as optional dependencies and requirements can be found [here.](https://docs.neuralmagic.com/sparseml/source/installation.html)
 
-## Quick Tour
+## Training
 
-To enable flexibility, ease of use, and repeatability, sparsifying a model is done using a recipe.
-The recipes encode the instructions needed for modifying the model and/or training process as a list of modifiers.
-Example modifiers can be anything from setting the learning rate for the optimizer to gradual magnitude pruning.
-The files are written in [YAML](https://yaml.org/) and stored in YAML or [markdown](https://www.markdownguide.org/) files using [YAML front matter.](https://assemble.io/docs/YAML-front-matter.html) The rest of the SparseML system is coded to parse the recipes into a native format for the desired framework and apply the modifications to the model and training pipeline.
+The following steps can be used for either the Computer Vision and NLP domains. The sections below will observe an example of using SparseML in the NLP domain for the token classification task (NER) even though you can apply any of these steps across domains and tasks.
 
-`ScheduledModifierManager` classes can be created from recipes in all supported ML frameworks.
-The manager classes handle overriding the training graphs to apply the modifiers as described in the desired recipe.
-Managers can apply recipes in one shot or training aware ways. 
-One shot is invoked by calling `.apply(...)` on the manager while training aware requires calls into `initialize(...)` (optional), `modify(...)`, and `finalize(...)`.
+### Step 1: Obtaining a Dense Teacher Model
 
-For the frameworks, this means only a few lines of code need to be added to begin supporting pruning, quantization, and other modifications to most training pipelines.
-For example, the following applies a recipe in a training aware manner:
-```python
-model = Model()  # model definition
-optimizer = Optimizer()  # optimizer definition
-train_data = TrainData()  # train data definition
-batch_size = BATCH_SIZE  # training batch size
-steps_per_epoch = len(train_data) // batch_size
+Before applying sparse transfer learning, a dense teacher model must first be included in the process in order to distill its "knowledge" to a student model. You have two options for obtaining a dense teacher:
 
-from sparseml.pytorch.optim import ScheduledModifierManager
-manager = ScheduledModifierManager.from_yaml(PATH_TO_RECIPE)
-optimizer = manager.modify(model, optimizer, steps_per_epoch)
+- Train your own teacher model.
+- Download an available teacher model from the SparseZoo. For NLP, please take a look at the select list of [masked language models](https://sparsezoo.neuralmagic.com/?page=1&domain=nlp&sub_domain=masked_language_modeling) and for Computer Vision please see [placeholder]
 
-# PyTorch training code
+If you prefer to train your own dense teacher model, the following is an example of using a script for training BERT for the token classification task (NER):
 
-manager.finalize(model)
+```bash
+sparseml.transformers.token_classification \
+    --output_dir models/teacher \
+    --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none \
+    --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none?recipe_type=transfer-token_classification \
+    --recipe_args '{"init_lr":0.00003}' \
+    --dataset_name conll2003 \
+    --per_device_train_batch_size 32 \
+    --per_device_eval_batch_size 32 \
+    --preprocessing_num_workers 6 \
+    --do_train \
+    --do_eval \
+    --evaluation_strategy epoch \
+    --fp16 \
+    --save_strategy epoch \
+    --save_total_limit 1
 ```
 
-Instead of training aware, the following example code shows how to execute a recipe in a one shot manner:
-```python
-model = Model()  # model definition
+The training command should run to completion in less than a few hours. Once the command has completed, you will have a deployable sparse model located in `models/teacher`.
 
-from sparseml.pytorch.optim import ScheduledModifierManager
-manager = ScheduledModifierManager.from_yaml(PATH_TO_RECIPE)
-manager.apply(model)
+### Step 2: Distilling Teacher Model to Student Model
+
+Now that we have a dense teacher model, we'll use the 80% sparse-quantized BERT model from the SparseZoo and fine-tune it on the CoNLL-2003 dataset, resulting in a model that achieves 98.59% F1 on the validation set. Keep in mind that the `--distill_teacher` argument is set to pull a dense CoNLL-2003 model from the SparseZoo to enable it to run independent of the dense teacher step above.
+
+```bash
+sparseml.transformers.train.token_classification \
+    --output_dir models/sparse_quantized \
+    --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni \
+    --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni?recipe_type=transfer-token_classification \
+    --recipe_args '{"init_lr":0.00005}' \
+    --distill_teacher zoo:nlp/token_classification/bert-base/pytorch/huggingface/conll2003/base-none \
+    --dataset_name conll2003 \
+    --per_device_train_batch_size 32 \
+    --per_device_eval_batch_size 32 \
+    --preprocessing_num_workers 6 \
+    --do_train \
+    --do_eval \
+    --evaluation_strategy epoch \
+    --fp16 \
+    --save_strategy epoch \
+    --save_total_limit 1
+```
+
+### STEP 3: Export Student Model to ONNX
+
+The SparseML installation additionally provided a sparseml.transformers.export_onnx command. You will use this to load the training model folder and create a new model.onnx file within. Be sure the --model_path argument points to your trained model. By default, it is set to the result from transfer learning a sparse-quantized BERT model: --model_path "models/sparse_quantized".
+
+```bash
+sparseml.transformers.export_onnx \
+    --model_path "models/sparse_quantized" \
+    --task 'token-classification' \
+    --sequence_length 128   
 ```
 
 More information on the codebase and contained processes can be found in the SparseML docs:
@@ -220,17 +246,17 @@ The project is licensed under the [Apache License Version 2.0.](https://github.c
 
 ## Community
 
-### Contribute
+### Be Part of the Future... And the Future is Sparse!
 
-We appreciate contributions to the code, examples, integrations, and documentation as well as bug reports and feature requests! [Learn how here.](https://github.com/neuralmagic/sparseml/blob/main/CONTRIBUTING.md)
+Contribute with code, examples, integrations, and documentation as well as bug reports and feature requests! [Learn how here.](https://github.com/neuralmagic/sparseml/blob/main/CONTRIBUTING.md)
 
-### Join
+For user help or questions about SparseML, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). We are growing the community member by member and happy to see you there. Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues) You can get the latest news, webinar and event invites, research papers, and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
 
-For user help or questions about SparseML, sign up or log in to our [**Deep Sparse Community Slack**](https://join.slack.com/t/discuss-neuralmagic/shared_invite/zt-q1a1cnvo-YBoICSIw3L1dmQpjBeDurQ). We are growing the community member by member and happy to see you there. Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
+For more general questions about Neural Magic, complete this [form.](http://neuralmagic.com/contact/)
 
-You can get the latest news, webinar and event invites, research papers, and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
+### License
 
-For more general questions about Neural Magic, please fill out this [form.](http://neuralmagic.com/contact/)
+The project is licensed under the [Apache License Version 2.0.](https://github.com/neuralmagic/sparseml/blob/main/LICENSE)
 
 ### Cite
 
@@ -251,8 +277,7 @@ Find this project useful in your research or other communications? Please consid
     month = {13--18 Jul}, 
     publisher = {PMLR}, 
     pdf = {http://proceedings.mlr.press/v119/kurtz20a/kurtz20a.pdf},
-    url = {http://proceedings.mlr.press/v119/kurtz20a.html}, 
-    abstract = {Optimizing convolutional neural networks for fast inference has recently become an extremely active area of research. One of the go-to solutions in this context is weight pruning, which aims to reduce computational and memory footprint by removing large subsets of the connections in a neural network. Surprisingly, much less attention has been given to exploiting sparsity in the activation maps, which tend to be naturally sparse in many settings thanks to the structure of rectified linear (ReLU) activation functions. In this paper, we present an in-depth analysis of methods for maximizing the sparsity of the activations in a trained neural network, and show that, when coupled with an efficient sparse-input convolution algorithm, we can leverage this sparsity for significant performance gains. To induce highly sparse activation maps without accuracy loss, we introduce a new regularization technique, coupled with a new threshold-based sparsification method based on a parameterized activation function called Forced-Activation-Threshold Rectified Linear Unit (FATReLU). We examine the impact of our methods on popular image classification models, showing that most architectures can adapt to significantly sparser activation maps without any accuracy loss. Our second contribution is showing that these these compression gains can be translated into inference speedups: we provide a new algorithm to enable fast convolution operations over networks with sparse activations, and show that it can enable significant speedups for end-to-end inference on a range of popular models on the large-scale ImageNet image classification task on modern Intel CPUs, with little or no retraining cost.} 
+    url = {http://proceedings.mlr.press/v119/kurtz20a.html},
 }
 ```
 
