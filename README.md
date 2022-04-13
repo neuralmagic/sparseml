@@ -226,17 +226,21 @@ More information on the codebase and contained processes can be found in the Spa
 
 ## Resources
 
-### Learning More
+#### Libraries
+- [DeepSparse](https://docs.neuralmagic.com/deepsparse/)
+- [SparseML](https://docs.neuralmagic.com/sparseml/)
+- [SparseZoo](https://docs.neuralmagic.com/sparsezoo/)
+- [Sparsify](https://docs.neuralmagic.com/sparsify/)
 
-- Documentation: [SparseML,](https://docs.neuralmagic.com/sparseml/) [SparseZoo,](https://docs.neuralmagic.com/sparsezoo/) [Sparsify,](https://docs.neuralmagic.com/sparsify/) [DeepSparse](https://docs.neuralmagic.com/deepsparse/)
-- Neural Magic: [Blog,](https://www.neuralmagic.com/blog/) [Resources](https://www.neuralmagic.com/resources/)
+#### Versions
 
-### Release History
+- [sparseml](https://pypi.org/project/sparseml/) | stable
+- [sparseml-nightly](https://pypi.org/project/sparseml-nightly/) | nightly (dev)
 
-Official builds are hosted on PyPI
+#### Info
 
-- stable: [sparseml](https://pypi.org/project/sparseml/)
-- nightly (dev): [sparseml-nightly](https://pypi.org/project/sparseml-nightly/)
+- [Blog](https://www.neuralmagic.com/blog/) 
+- [Resources](https://www.neuralmagic.com/resources/)
 
 Additionally, more information can be found via [GitHub Releases.](https://github.com/neuralmagic/sparseml/releases)
 
