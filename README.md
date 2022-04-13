@@ -152,7 +152,7 @@ Supported deep learning frameworks:
 
 More information on installation such as optional dependencies and requirements can be found [here.](https://docs.neuralmagic.com/sparseml/source/installation.html)
 
-## Training
+## Training ⚒️
 
 The following steps can be used for either the Computer Vision and NLP domains. The sections below will observe an example of using SparseML in the NLP domain for the token classification task (NER) even though you can apply any of these steps across domains and tasks.
 
@@ -184,6 +184,7 @@ sparseml.transformers.token_classification \
 ```
 
 The training command should run to completion in less than a few hours. Once the command has completed, you will have a deployable sparse model located in `models/teacher`.
+</br>
 
 ### Step 2: Distilling Teacher Model to Student Model
 
@@ -207,6 +208,7 @@ sparseml.transformers.train.token_classification \
     --save_strategy epoch \
     --save_total_limit 1
 ```
+</br>
 
 ### STEP 3: Export Student Model to ONNX
 
@@ -223,6 +225,7 @@ More information on the codebase and contained processes can be found in the Spa
 - [Sparsification Code](https://docs.neuralmagic.com/sparseml/source/code)
 - [Sparsification Recipes](https://docs.neuralmagic.com/sparseml/source/recipes)
 - [Exporting to ONNX](https://docs.neuralmagic.com/sparseml/source/onnx_export)
+</br>
 
 ## Resources
 
