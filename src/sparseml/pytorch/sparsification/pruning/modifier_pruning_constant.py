@@ -23,7 +23,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from sparseml.pytorch.optim.modifier import (
+from sparseml.pytorch.sparsification.modifier import (
     ModifierProp,
     PyTorchModifierYAML,
     ScheduledModifier,
