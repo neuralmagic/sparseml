@@ -18,6 +18,7 @@ Helper methods for image classification/detection based tasks
 import os
 import warnings
 import logging
+from dataclasses import asdict
 from enum import Enum, auto, unique
 from typing import Any, List, Optional, Tuple, Union, Dict
 
@@ -224,27 +225,33 @@ def get_arch_key(arch_key: Optional[str], checkpoint_path: Optional[str]) -> str
 
 # saving helpers
 
-
+from copy import deepcopy
 def save_recipe(
     recipe_manager: ScheduledModifierManager,
     save_dir: str,
+    checkpoint_path: Optional[str] = None
 ):
     """
     :param recipe_manager: The ScheduleModified manager to save recipes
     :param save_dir: The directory to save the recipe
     """
     recipe_save_path = os.path.join(save_dir, "recipe.yaml")
-    ch_path = None
-    if os.path.exists(ch_path):
-        combined_manager = ScheduledModifierManager.compose_staged(base_recipe=ch_path, additional_recipe=recipe_manager, save_path=recipe_save_path)
+    if checkpoint_path:
+        checkpoint_recipe = torch.load(checkpoint_path)['recipe']
+        composed_manager = ScheduledModifierManager.compose_staged(base_recipe=deepcopy(checkpoint_recipe),
+                                                                   additional_recipe=recipe_manager)
+        composed_manager.save(recipe_save_path)
 
-    recipe_manager.save(recipe_save_path)
+    else:
+        recipe_manager.save(recipe_save_path)
     print(f"Saved recipe to {recipe_save_path}")
 
 
 def save_model_training(
     model: Module,
     optim: Optimizer,
+    manager,
+    checkpoint_manager,
     save_name: str,
     save_dir: str,
     epoch: int,
@@ -253,7 +260,8 @@ def save_model_training(
 ):
     """
     :param model: model architecture
-    :param optim: The optimizer used
+    :param optim: the optimizer used
+    :param recipe: the recipe used to obtain the model
     :param save_name: name to save model to
     :param save_dir: directory to save results in
     :param epoch: integer representing umber of epochs to
@@ -261,6 +269,12 @@ def save_model_training(
     :param arch_key: if provided, the `arch_key` will be saved in the
         checkpoint
     """
+    if checkpoint_manager:
+        recipe = str(ScheduledModifierManager.compose_staged(base_recipe=checkpoint_manager,
+                                                             additional_recipe=manager))
+    else:
+        recipe = str(manager)
+
     has_top1 = "top1acc" in val_res.results
     metric_name = "top-1 accuracy" if has_top1 else "val_loss"
     metric = val_res.result_mean("top1acc" if has_top1 else DEFAULT_LOSS_KEY).item()
@@ -270,9 +284,10 @@ def save_model_training(
     )
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(
-        optim,
-        epoch,
-        f"{save_name}.pth",
+        optimizer=optim,
+        epoch=epoch,
+        recipe=recipe,
+        name = f"{save_name}.pth",
         arch_key=arch_key,
     )
     info_path = os.path.join(save_dir, f"{save_name}.txt")
@@ -287,7 +302,8 @@ def save_model_training(
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
-from dataclasses import asdict
+
+
 # TODO: Add type for training_args
 def extract_metadata(metadata_args: List[str], training_args)-> Dict[str, Any]:
     """

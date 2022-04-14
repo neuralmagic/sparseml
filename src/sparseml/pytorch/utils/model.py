@@ -180,6 +180,7 @@ def save_model(
     path: str,
     model: Module,
     optimizer: Optimizer = None,
+    recipe: Optional[str] = None,
     epoch: Optional[int] = None,
     use_zipfile_serialization_if_available: bool = True,
     include_modifiers: bool = False,
@@ -192,6 +193,7 @@ def save_model(
     :param path: the path to save the file the states to
     :param model: the model to save state for
     :param optimizer: the optimizer, if any, to save state for
+    :param recipe: the recipe used to obtain the model
     :param epoch: the epoch to save
     :param use_zipfile_serialization_if_available: for torch >= 1.6.0 only
         exports the model's state dict using the new zipfile serialization
@@ -216,6 +218,9 @@ def save_model(
 
     if optimizer:
         save_dict["optimizer"] = optimizer.state_dict()
+
+    if recipe:
+        save_dict["recipe"] = recipe
 
     if epoch is not None:
         save_dict["epoch"] = epoch

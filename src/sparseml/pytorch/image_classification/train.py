@@ -528,7 +528,9 @@ def train(
     )
 
     if not train_args.eval_mode:
-        helpers.save_recipe(recipe_manager=trainer.manager, save_dir=save_dir)
+        helpers.save_recipe(recipe_manager=trainer.manager,
+                            save_dir=save_dir,
+                            checkpoint_path=train_args.checkpoint_path)
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
         val_metric = best_metric = val_res = None
@@ -559,6 +561,8 @@ def train(
                     helpers.save_model_training(
                         model=trainer.model,
                         optim=trainer.optim,
+                        manager= trainer.manager,
+                        checkpoint_manager = trainer.checkpoint_manager,
                         save_name="checkpoint-best",
                         save_dir=save_dir,
                         epoch=trainer.epoch,
@@ -583,6 +587,8 @@ def train(
                 helpers.save_model_training(
                     model=trainer.model,
                     optim=trainer.optim,
+                    manager=trainer.manager,
+                    checkpoint_manager=trainer.checkpoint_manager,
                     save_name=save_name,
                     save_dir=save_dir,
                     epoch=trainer.epoch,
@@ -599,6 +605,8 @@ def train(
             helpers.save_model_training(
                 model=trainer.model,
                 optim=trainer.optim,
+                manager=trainer.manager,
+                checkpoint_manager=trainer.checkpoint_manager,
                 save_name="model",
                 save_dir=save_dir,
                 epoch=trainer.epoch - 1,
@@ -693,6 +701,7 @@ def _init_image_classification_trainer_and_save_dirs(
             key=train_args.arch_key,
             recipe_path=train_args.recipe_path,
             metadata=metadata,
+            checkpoint_path = train_args.checkpoint_path,
             ddp=ddp,
             device=train_args.device,
             use_mixed_precision=train_args.use_mixed_precision,

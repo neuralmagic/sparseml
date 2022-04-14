@@ -17,7 +17,6 @@ Trainers for image classification.
 """
 
 import logging
-import os.path
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional
 
@@ -32,6 +31,7 @@ from sparseml.pytorch.utils import (
     ModuleTester,
     ModuleTrainer,
     default_device,
+    is_parallel_model,
 )
 
 
@@ -88,7 +88,8 @@ class ImageClassificationTrainer(Trainer):
         model: torch.nn.Module,
         key: str,
         recipe_path: str,
-        metadata: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]],
+        checkpoint_path: Optional[str],
         ddp: bool = False,
         device: str = default_device(),
         use_mixed_precision: bool = False,
@@ -106,6 +107,7 @@ class ImageClassificationTrainer(Trainer):
         """
         self.recipe_path = recipe_path
         self.metadata = metadata
+        self.checkpoint_path = checkpoint_path
         self.ddp = ddp
         self.is_main_process = is_main_process
         self.optim_kwargs = optim_kwargs or {}
@@ -128,13 +130,18 @@ class ImageClassificationTrainer(Trainer):
         self.epoch = 0
 
         if self.train_loader is not None:
-            self.manager, self.ch_manager = self._initialize_manager()
-            self._apply_manager()
-            self.optim = self._initialize_scheduled_optimizer()
-
+            (
+                self.epoch,
+                self.optim,
+                self.manager,
+            ) = self._initialize_scheduled_optimizer()
             self.module_trainer = self._initialize_module_trainer()
         else:
-            self.optim = self.manager = self.ch_manager = self.module_trainer = None
+            self.optim = self.manager = self.module_trainer = None
+
+
+        self.checkpoint_manager = self._load_checkpoint() if self.checkpoint_path else None
+
 
         if self.val_loader is not None:
             self.module_tester = self._initialize_module_tester()
@@ -152,45 +159,20 @@ class ImageClassificationTrainer(Trainer):
             _LOGGER.info("adjusting ScheduledOptimizer to restore point")
             self.optim.adjust_current_step(self.epoch, 0)
 
-    def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
-        """
-        Apply the recipe(s) to the model and training/validation process.
-        :param epoch: the training epoch to apply the recipe(s) at.
-            If loading after training, set epoch=math.inf
-        :param checkpoint: the optional checkpoint to use to reload model state
-            from after the model's architecture has been modified.
-            If not supplied, falls back to self.model_state_path
-        :return: True if recipes were applied, False otherwise
-        """
+    def _load_checkpoint(self):
+        checkpoint_state = torch.load(self.checkpoint_path)
+        required_keys = ['recipe', 'state_dict']
+        for key in required_keys:
+            if key not in checkpoint_state.keys():
+                raise ValueError(f"The expected key {key} was not found "
+                                 f"in the checkpoint from {self.checkpoint_path}")
+        checkpoint_recipe = checkpoint_state['recipe']
+        checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint_recipe)
+        checkpoint_manager.apply(self.model)
+        self.model.load_state_dict(checkpoint_state['state_dict'])
+        _LOGGER.info(f"successfully loaded checkpoint from {self.checkpoint_path}")
+        return checkpoint_manager
 
-        if (not self.ch_manager and self.manager is None):
-            return False
-
-        if self.arch_manager:
-            self.arch_manager.apply_structure(self.model, epoch=epoch)
-            _LOGGER.info(
-                f"Applied structure from {self.arch_manager.number_stages()} "
-                "previous recipe stage(s) to model and finalized "
-                "(recipes saved with model_path)"
-            )
-
-        if self.manager is not None:
-            self.manager.apply_structure(self.model, epoch=epoch)
-            _LOGGER.info(
-                "Applied structure from SparseML recipe argument to model at "
-                f"epoch {epoch}"
-            )
-
-        # reload the state dict for the model now that architecture matches expected
-        load_path = checkpoint or self.model_state_path
-        self._reload_model_state(load_path, orig_state_dict)
-        self.manager_applied = True
-        _LOGGER.info(
-            "Reloaded model state after SparseML recipe structure modifications "
-            f"from {load_path}"
-        )
-
-        return True
 
     def run_one_epoch(
         self,
@@ -237,20 +219,6 @@ class ImageClassificationTrainer(Trainer):
         )
         return tester
 
-    def _initialize_manager(self):
-        # manager setup
-        manager = ScheduledModifierManager.from_yaml(
-            file_path=self.recipe_path,
-        )
-        _LOGGER.info(f"created manager: {manager}")
-        ch_path = "/home/damian/sparseml/original.md"
-        if os.path.exists(ch_path):
-            ch_manager = ScheduledModifierManager.from_yaml(
-                file_path=self.recipe_path,
-            )
-        _LOGGER.info(f"created ch_manager: {ch_manager}")
-        return manager, ch_manager
-
     def _initialize_scheduled_optimizer(self):
         # optimizer setup
         optim_constructor = torch.optim.__dict__[self.optim_name]
@@ -263,14 +231,21 @@ class ImageClassificationTrainer(Trainer):
             "yet until the recipe config is created and run"
         )
 
+        epoch = 0
+
+        manager = ScheduledModifierManager.from_yaml(
+            file_path=self.recipe_path,
+        )
+
         optim = ScheduledOptimizer(
             optim,
-            self.model,
-            self.manager,
+            self.model.module if is_parallel_model(self.model) else self.model,
+            manager,
             steps_per_epoch=len(self.train_loader),
             loggers=self.loggers,
         )
-        return optim
+        _LOGGER.info(f"created manager: {manager}")
+        return epoch, optim, manager
 
     def _initialize_module_trainer(self):
         trainer = ModuleTrainer(
