@@ -20,7 +20,7 @@ This directory combines the SparseML recipe-driven approach with the [huggingfac
 
 - Pruning
 - Quantization
-- Pruning and Quantization
+- Knowledge Distillation
 - Sparse Transfer Learning
 
 ## Highlights
@@ -44,11 +44,14 @@ It is recommended to run Python 3.8 as some of the scripts within the transforme
 
 ## SparseML CLI
 
-The SparseML installation provides a CLI for sparsifying your models; appending the `--help` argument will provide a full list of options for training in SparseML:
+The SparseML installation provides a CLI for sparsifying your models for a specific task; appending the `--help` argument will provide a full list of options for training in SparseML:
 
 ```bash
-sparseml.transformers.question_answering --help
+sparseml.transformers.[task] --help
 ```
+
+e.g. `sparseml.transformers.question_answering --help`
+
 output:
 
 ```bash
@@ -91,7 +94,7 @@ With the dense teacher trained to convergence, you can begin the sparse transfer
 
 Once the command has completed, you will have a sparse checkpoint located in `models/sparse_quantized`.
 
-### Quantization-Compatible Deployment Environment
+### Transfer Learn the Model
 
 The following command will use the 80% sparse-quantized BERT model from the SparseZoo and fine-tune it on the SQuAD dataset, resulting in a model that achieves an F1 of 0.885 on the validation set. Keep in mind that the `--distill_teacher` argument is set to pull a dense SQuAD model from the SparseZoo to enable it to run independent of the dense teacher step. If you trained a dense teacher, change this out for the path to your model folder:
 
@@ -121,9 +124,7 @@ sparseml.transformers.question_answering \
 
 The DeepSparse Engine uses the ONNX format to load neural networks and then deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
 
-You will first export the trained BERT model to an ONNX format. The SparseML installation additionally provided a `sparseml.transformers.export_onnx` command. You will use this to load the training model folder and create a new model.onnx file within. Be sure the `--model_path` argument points to your trained model. By default, it is set to the result from transfer learning a sparse-quantized BERT model: 
-
-    --model_path "models/sparse_quantized".
+The SparseML installation provides a `sparseml.transformers.export_onnx` command that you can use to load the training model folder and create a new model.onnx file within. Be sure the `--model_path` argument points to your trained model. By default, it is set to the result from transfer learning a sparse-quantized BERT model:
 
 ```bash
 sparseml.transformers.export_onnx \
@@ -163,7 +164,11 @@ qa_pipeline = pipeline(
 )
 
 inference = qa_pipeline(question="What's my name?", context="My name is Snorlax")
+print(inference)
 ```
+printout:
+
+    {'score': 0.9947717785835266, 'start': 11, 'end': 18, 'answer': 'Snorlax'}
 
 ### 🔌DeepSparse Server
 
