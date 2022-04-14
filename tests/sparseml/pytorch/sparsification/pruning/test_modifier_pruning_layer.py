@@ -19,7 +19,7 @@ from sparseml.pytorch.nn import Identity
 from sparseml.pytorch.sparsification import LayerPruningModifier
 from sparseml.pytorch.utils import get_layer
 from tests.sparseml.pytorch.helpers import FlatMLPNet
-from tests.sparseml.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.sparsification.test_modifier import (
     ScheduledUpdateModifierTest,
     create_optim_adam,
     create_optim_sgd,
