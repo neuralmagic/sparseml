@@ -132,6 +132,7 @@ def _setup_entry_points() -> Dict:
 
     # transformers integration
     for task in [
+        "masked_language_modeling",
         "question_answering",
         "text_classification",
         "token_classification",
