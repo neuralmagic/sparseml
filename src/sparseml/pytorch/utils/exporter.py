@@ -501,7 +501,15 @@ def export_onnx(
             quantize_torch_qat_export,
         )
 
-        quantize_torch_qat_export(model=file_path, output_file_path=file_path)
+        use_qlinearconv = hasattr(module, "export_with_qlinearconv") and (
+            module.export_with_qlinearconv
+        )
+
+        quantize_torch_qat_export(
+            model=file_path,
+            output_file_path=file_path,
+            use_qlinearconv=use_qlinearconv,
+        )
 
     if skip_input_quantize:
         try:

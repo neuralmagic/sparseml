@@ -126,18 +126,35 @@ def sparsity_mask_creator_test(tensor_shapes, mask_creator, sparsity_val, device
     for update_mask, target_sparsity in zip(update_masks, sparsity_val):
         assert abs(tensor_sparsity(update_mask) - target_sparsity) < 1e-2
 
+        if not isinstance(mask_creator, GroupedPruningMaskCreator):
+            _test_num_masked(update_mask, target_sparsity)
+
     if isinstance(mask_creator, GroupedPruningMaskCreator):
-        grouped_masks_test(update_masks, mask_creator)
+        grouped_masks_test(update_masks, mask_creator, sparsity_val)
 
     return update_masks
 
 
-def grouped_masks_test(masks, mask_creator):
+def grouped_masks_test(masks, mask_creator, sparsity_val=None):
     # Check that every value in the mask_creator grouping
     # is the same within the mask.  Assumes grouping applies
-    # an absolte mean to each grouping
-    for mask in masks:
+    # an absolute mean to each grouping
+    # also checks that the grouped mask matches the target sparsity exactly
+
+    if sparsity_val is None:
+        sparsity_val = [sparsity_val] * len(masks)
+
+    for mask, target_sparsity in zip(masks, sparsity_val):
         grouped_mask = mask_creator.group_tensor(mask)
         grouped_mask /= max(torch.max(grouped_mask).item(), 1.0)
         mask_vals_are_grouped = torch.all((grouped_mask == 0.0) | (grouped_mask == 1.0))
         assert mask_vals_are_grouped
+
+        if target_sparsity is not None:
+            _test_num_masked(grouped_mask, target_sparsity)
+
+
+def _test_num_masked(mask, target_sparsity):
+    # tests that the number of masked values is exactly the number expected
+    expected_num_masked = round(target_sparsity * mask.numel())
+    assert torch.sum(1 - mask).item() == expected_num_masked

@@ -23,6 +23,7 @@ import torch
 from torch.nn import DataParallel, Module
 from torch.optim.optimizer import Optimizer
 
+from sparseml.pytorch.utils.helpers import thin_model_from_checkpoint
 from sparseml.utils.helpers import create_parent_dirs
 from sparsezoo import Zoo
 
@@ -116,6 +117,9 @@ def load_model(
             model_dict[ignore] = current_dict[ignore]
         elif ignore in model_dict and ignore not in current_dict:
             del model_dict[ignore]
+
+    # safety pass for updating layer param shapes when loading a thinned model
+    thin_model_from_checkpoint(model, model_dict)
 
     model.load_state_dict(model_dict, strict)
 

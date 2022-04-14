@@ -28,7 +28,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 
 from sparseml.optim import BaseModifier, ModifierProp
-from sparseml.pytorch.optim.modifier import (
+from sparseml.pytorch.sparsification.modifier import (
     PyTorchModifierYAML,
     ScheduledModifier,
     ScheduledUpdateModifier,
@@ -98,6 +98,8 @@ class DistillationModifier(ScheduledUpdateModifier):
 
         self._teacher = None
         self._distillation_enabled = False
+
+        self._logged_loss_terms = {}
 
     @BaseModifier.sparsification_types.getter
     def sparsification_types(self) -> List[SparsificationTypes]:
@@ -220,7 +222,7 @@ class DistillationModifier(ScheduledUpdateModifier):
                 f"{distillation_teacher}. "
                 "To disable set to 'disable' and for self attention set to 'self'"
             )
-        self._latest_student__loss = None
+        self._latest_student_loss = None
         self._latest_teacher_loss = None
         self._latest_distillation_loss = None
 
@@ -248,6 +250,7 @@ class DistillationModifier(ScheduledUpdateModifier):
         steps_per_epoch: int,
         student_outputs: Union[Tensor, Dict, Iterable] = None,
         student_inputs: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]] = None,
+        teacher_inputs: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]] = None,
         **kwargs,
     ) -> Tensor:
         """
@@ -261,27 +264,27 @@ class DistillationModifier(ScheduledUpdateModifier):
             (calculate batch number using this and epoch)
         :return: loss tensor with knowledge distillation loss added
         """
-        self._latest_student__loss = None
-        self._latest_teacher_loss = None
-        self._latest_distillation_loss = None
-        self._latest_student__loss = super().loss_update(
+        loss = super().loss_update(
             loss, module, optimizer, epoch, steps_per_epoch, **kwargs
         )
+        self._logged_loss_terms["task_loss"] = loss
 
         if not self.update_ready(epoch, steps_per_epoch):
-            return self._latest_student__loss
+            return loss
 
         if student_outputs is None or student_inputs is None:
             raise ValueError(
-                "Student outputs and teacher inputs are required for "
+                "Student outputs and student inputs are required for "
                 "distillation loss update"
             )
 
-        teacher_inputs = (
-            student_inputs
-            if not self._teacher_input_keys
-            else {key: student_inputs[key] for key in self._teacher_input_keys}
-        )
+        if teacher_inputs is None:
+            teacher_inputs = (
+                student_inputs
+                if not self._teacher_input_keys
+                else {key: student_inputs[key] for key in self._teacher_input_keys}
+            )
+
         # copy to keep from updating student's inputs
         teacher_inputs = deepcopy(teacher_inputs)
 
@@ -299,7 +302,7 @@ class DistillationModifier(ScheduledUpdateModifier):
                 f"Teacher device {teacher_device} does not match "
                 f"inputs device {inputs_device}, moving teacher to correct device"
             )
-            self._teacher.to(device_of(teacher_inputs))
+            self._teacher.to(inputs_device)
 
         with torch.no_grad():
             teacher_outputs = tensors_module_forward(
@@ -312,29 +315,13 @@ class DistillationModifier(ScheduledUpdateModifier):
                 f"teacher output type of {type(teacher_outputs)}"
             )
 
-        distill_losses = []
-        if isinstance(student_outputs, Tensor):
-            distill_losses.append(
-                self._calc_distill_loss(student_outputs, teacher_outputs)
-            )
-        elif isinstance(student_outputs, Dict):
-            for key in self._distill_output_keys or student_outputs:
-                distill_losses.append(
-                    self._calc_distill_loss(student_outputs[key], teacher_outputs[key])
-                )
-        elif isinstance(student_outputs, Iterable):
-            for idx in self._distill_output_keys or range(len(student_outputs)):
-                distill_losses.append(
-                    self._calc_distill_loss(student_outputs[idx], teacher_outputs[idx])
-                )
-
-        # get distillation loss as average of individual output distillation loss values
-        self._latest_teacher_loss = sum(distill_losses) / len(distill_losses)
-        self._latest_distillation_loss = ((1.0 - self._hardness) * loss) + (
-            self._hardness * self._latest_teacher_loss
+        teacher_loss = self._kldiv_output_loss(student_outputs, teacher_outputs)
+        total_loss = ((1.0 - self._hardness) * loss) + (self._hardness * teacher_loss)
+        self._logged_loss_terms.update(
+            {"teacher_loss": teacher_loss, "total_loss": total_loss}
         )
 
-        return self._latest_distillation_loss
+        return total_loss
 
     def log_update(
         self,
@@ -354,13 +341,8 @@ class DistillationModifier(ScheduledUpdateModifier):
         """
         super().log_update(module, optimizer, epoch, steps_per_epoch)
 
-        losses = {
-            "original_loss": self._latest_student__loss,
-            "teacher_loss": self._latest_teacher_loss,
-            "distillation_loss": self._latest_distillation_loss,
-        }
         self.log_named_scalars(
-            name_value_pairs=losses.items(),
+            name_value_pairs=self._logged_loss_terms.items(),
             epoch=epoch,
             steps_per_epoch=steps_per_epoch,
         )
@@ -383,12 +365,45 @@ class DistillationModifier(ScheduledUpdateModifier):
         self._teacher = None
         self._distillation_enabled = False
 
-    def _calc_distill_loss(self, student_val: Tensor, teacher_val: Tensor) -> Tensor:
-        return (
+    def _calc_distill_head_output_loss(
+        self, student_val: Tensor, teacher_val: Tensor
+    ) -> Tensor:
+        v = (
             TF.kl_div(
                 input=TF.log_softmax(student_val / self._temperature, dim=-1),
-                target=TF.softmax(teacher_val / self._temperature, dim=-1),
-                reduction="batchmean",
+                target=TF.log_softmax(teacher_val / self._temperature, dim=-1),
+                log_target=True,
+                reduction="sum",
             )
             * (self._temperature ** 2)
+            / (student_val.numel() / student_val.shape[-1])
         )
+        return v
+
+    def _kldiv_output_loss(self, student_outputs, teacher_outputs):
+        # Distillation loss from the head outputs
+        distill_head_output_losses = []
+        if isinstance(student_outputs, Tensor):
+            distill_head_output_losses.append(
+                self._calc_distill_head_output_loss(student_outputs, teacher_outputs)
+            )
+        elif isinstance(student_outputs, Dict):
+            for key in self._distill_output_keys or student_outputs:
+                distill_head_output_losses.append(
+                    self._calc_distill_head_output_loss(
+                        student_outputs[key], teacher_outputs[key]
+                    )
+                )
+        elif isinstance(student_outputs, Iterable):
+            for idx in self._distill_output_keys or range(len(student_outputs)):
+                distill_head_output_losses.append(
+                    self._calc_distill_head_output_loss(
+                        student_outputs[idx], teacher_outputs[idx]
+                    )
+                )
+        kldiv_output_loss = (
+            sum(distill_head_output_losses) / len(distill_head_output_losses)
+            if distill_head_output_losses
+            else 0.0
+        )
+        return kldiv_output_loss
