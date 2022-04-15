@@ -20,7 +20,6 @@ import logging
 import os
 import warnings
 from contextlib import contextmanager
-from dataclasses import asdict
 from enum import Enum, auto, unique
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -29,6 +28,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 
+from sparseml.optim.manager import BaseManager
 from sparseml.pytorch.datasets import DatasetRegistry
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVCompatibleDataset,
@@ -340,33 +340,34 @@ def get_arch_key(arch_key: Optional[str], checkpoint_path: Optional[str]) -> str
 def save_model_training(
     model: Module,
     optim: Optimizer,
-    manager,
-    checkpoint_manager,
+    manager: BaseManager,
     save_name: str,
     save_dir: str,
     epoch: int,
     val_res: Optional[ModuleRunResults],
+    checkpoint_manager: Optional[BaseManager] = None,
     arch_key: Optional[str] = None,
 ):
     """
     :param model: model architecture
     :param optim: the optimizer used
-    :param recipe: the recipe used to obtain the model
+    :param manager: manager created from the training recipe
     :param save_name: name to save model to
     :param save_dir: directory to save results in
     :param epoch: integer representing umber of epochs to
     :param val_res: results from validation run
+    :param checkpoint_manager: manager created from the checkpoint recipe
     :param arch_key: if provided, the `arch_key` will be saved in the
         checkpoint
     """
-    if checkpoint_manager:
-        recipe = str(
-            ScheduledModifierManager.compose_staged(
-                base_recipe=checkpoint_manager, additional_recipe=manager
-            )
+
+    recipe = str(
+        ScheduledModifierManager.compose_staged(
+            base_recipe=checkpoint_manager, additional_recipe=manager
         )
-    else:
-        recipe = str(manager)
+        if checkpoint_manager
+        else str(manager)
+    )
 
     has_top1 = "top1acc" in val_res.results
     metric_name = "top-1 accuracy" if has_top1 else "val_loss"
@@ -397,20 +398,21 @@ def save_model_training(
         info_file.write("\n".join(info_lines))
 
 
-# TODO: Add type for training_args
-def extract_metadata(metadata_args: List[str], training_args) -> Dict[str, Any]:
+def extract_metadata(
+    metadata_args: List[str], training_args_dict: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Extract metadata from the training arguments.
 
     :param metadata_args: List of keys we are attempting to retrieve from
         `training_arg` and pass as metadata
-    :param training_args: TrainingArguments of the pipeline
+    :param training_args_dict: Dictionary extracted from
+        the TrainingArguments of the pipeline
     :return: metadata
     """
-    # TODO: Possibly share this functionality among IC
-    #  and transformers (and future pipelines)
+    # TODO: Possibly share this functionality among
+    #  IC and transformers (and future pipelines)
     metadata = {}
-    training_args_dict = asdict(training_args)
 
     for arg in metadata_args:
         if arg not in training_args_dict.keys():
@@ -423,108 +425,6 @@ def extract_metadata(metadata_args: List[str], training_args) -> Dict[str, Any]:
             metadata[arg] = training_args_dict[arg]
 
     return metadata
-
-
-# private methods
-def _get_collate_fn(arch_key: Optional[str] = None, task: Optional[Tasks] = None):
-    if not arch_key:
-        return None
-
-    is_ssd = "ssd" in arch_key.lower()
-    need_collate_function = (
-        is_ssd or "yolo" in arch_key.lower()
-    ) and task != Tasks.EXPORT
-    if need_collate_function:
-        return ssd_collate_fn if is_ssd else yolo_collate_fn
-    return None
-
-
-def _create_train_dataset_and_loader(
-    args: Any,
-    image_size: Tuple[int, ...],
-    task: Optional[Tasks] = None,
-) -> Tuple[Any, Any]:
-    need_train_data = not (
-        task == Tasks.EXPORT
-        or task == Tasks.PR_SENSITIVITY
-        and args.approximate
-        or task == Tasks.TRAIN
-        and args.eval_mode
-    )
-
-    if need_train_data:
-        with torch_distributed_zero_first(
-            args.local_rank,
-        ):  # only download once locally
-            train_dataset = DatasetRegistry.create(
-                args.dataset,
-                root=args.dataset_path,
-                train=True,
-                rand_trans=True,
-                image_size=image_size,
-                **args.dataset_kwargs,
-            )
-        sampler = (
-            torch.utils.data.distributed.DistributedSampler(train_dataset)
-            if args.rank != -1
-            else None
-        )
-        shuffle = True if sampler is None else False
-        batch_size = args.train_batch_size if task == Tasks.TRAIN else args.batch_size
-
-        arch_key = args.arch_key if hasattr(args, "arch_key") else None
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            num_workers=args.loader_num_workers,
-            pin_memory=args.loader_pin_memory,
-            sampler=sampler,
-            collate_fn=_get_collate_fn(arch_key=arch_key, task=task),
-        )
-        print(f"created train_dataset: {train_dataset}")
-        return train_dataset, train_loader
-
-    return None, None
-
-
-def _create_val_dataset_and_loader(
-    args, image_size: Tuple[int, ...], task: Optional[Tasks] = None
-) -> Tuple[Any, Any]:
-    need_val_data = not (
-        task == Tasks.PR_SENSITIVITY
-        or task == Tasks.LR_ANALYSIS
-        or not (args.is_main_process and args.dataset != "imagefolder")
-    )
-
-    if need_val_data:
-        val_dataset = DatasetRegistry.create(
-            args.dataset,
-            root=args.dataset_path,
-            train=False,
-            rand_trans=False,
-            image_size=image_size,
-            **args.dataset_kwargs,
-        )
-        if args.is_main_process:
-            is_training = task == Tasks.TRAIN
-            val_loader = DataLoader(
-                val_dataset,
-                batch_size=args.test_batch_size if is_training else 1,
-                shuffle=False,
-                num_workers=args.loader_num_workers if is_training else 1,
-                pin_memory=args.loader_pin_memory if is_training else False,
-                collate_fn=_get_collate_fn(arch_key=args.arch_key, task=task),
-            )
-            if task == Tasks.EXPORT:
-                val_loader = early_stop_data_loader(
-                    val_loader, args.num_samples if args.num_samples > 1 else 1
-                )
-            print(f"created val_dataset: {val_dataset}")
-        else:
-            val_loader = None  # only val dataset needed to get the number of classes
-        return val_dataset, val_loader
-    return None, None  # val dataset not needed
 
 
 def _download_model_from_zoo_using_recipe(

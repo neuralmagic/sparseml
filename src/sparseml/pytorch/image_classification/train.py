@@ -163,7 +163,7 @@ sparseml.image_classification.train \
 import argparse
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import List, Optional, Tuple
 
 import torch
@@ -734,7 +734,7 @@ def _init_image_classification_trainer_and_save_dirs(
         ddp=ddp,
     )
     metadata = helpers.extract_metadata(
-        metadata_args=METADATA_ARGS, training_args=train_args
+        metadata_args=METADATA_ARGS, training_args_dict=asdict(train_args)
     )
 
     LOGGER.info(f"running on device {train_args.device}")
