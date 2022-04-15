@@ -16,9 +16,11 @@
 Helper methods for image classification/detection based tasks
 """
 
+import logging
 import os
 import warnings
 from contextlib import contextmanager
+from dataclasses import asdict
 from enum import Enum, auto, unique
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -53,7 +55,6 @@ __all__ = [
     "get_dataset_and_dataloader",
     "create_model",
     "infer_num_classes",
-    "save_recipe",
     "save_model_training",
 ]
 
@@ -336,29 +337,6 @@ def get_arch_key(arch_key: Optional[str], checkpoint_path: Optional[str]) -> str
 
 
 # saving helpers
-
-
-def save_recipe(
-    recipe_manager: ScheduledModifierManager,
-    save_dir: str,
-    checkpoint_path: Optional[str] = None
-):
-    """
-    :param recipe_manager: The ScheduleModified manager to save recipes
-    :param save_dir: The directory to save the recipe
-    """
-    recipe_save_path = os.path.join(save_dir, "recipe.yaml")
-    if checkpoint_path:
-        checkpoint_recipe = torch.load(checkpoint_path)['recipe']
-        composed_manager = ScheduledModifierManager.compose_staged(base_recipe=deepcopy(checkpoint_recipe),
-                                                                   additional_recipe=recipe_manager)
-        composed_manager.save(recipe_save_path)
-
-    else:
-        recipe_manager.save(recipe_save_path)
-    print(f"Saved recipe to {recipe_save_path}")
-
-
 def save_model_training(
     model: Module,
     optim: Optimizer,
@@ -382,8 +360,11 @@ def save_model_training(
         checkpoint
     """
     if checkpoint_manager:
-        recipe = str(ScheduledModifierManager.compose_staged(base_recipe=checkpoint_manager,
-                                                             additional_recipe=manager))
+        recipe = str(
+            ScheduledModifierManager.compose_staged(
+                base_recipe=checkpoint_manager, additional_recipe=manager
+            )
+        )
     else:
         recipe = str(manager)
 
@@ -399,7 +380,7 @@ def save_model_training(
         optimizer=optim,
         epoch=epoch,
         recipe=recipe,
-        name = f"{save_name}.pth",
+        name=f"{save_name}.pth",
         arch_key=arch_key,
     )
     info_path = os.path.join(save_dir, f"{save_name}.txt")
@@ -417,16 +398,17 @@ def save_model_training(
 
 
 # TODO: Add type for training_args
-def extract_metadata(metadata_args: List[str], training_args)-> Dict[str, Any]:
+def extract_metadata(metadata_args: List[str], training_args) -> Dict[str, Any]:
     """
     Extract metadata from the training arguments.
 
-    :param metadata_args: List of keys we are attempting to retrieve from `training_args`
-        and pass as metadata
+    :param metadata_args: List of keys we are attempting to retrieve from
+        `training_arg` and pass as metadata
     :param training_args: TrainingArguments of the pipeline
     :return: metadata
     """
-    # TODO: Possibly share this functionality among IC and transformers (and future pipelines)
+    # TODO: Possibly share this functionality among IC
+    #  and transformers (and future pipelines)
     metadata = {}
     training_args_dict = asdict(training_args)
 

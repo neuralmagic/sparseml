@@ -188,7 +188,14 @@ from sparseml.pytorch.utils import (
 
 CURRENT_TASK = helpers.Tasks.TRAIN
 LOGGER = get_main_logger()
-METADATA_ARGS = ["arch_key", "dataset", "device","pretrained", "test_batch_size", "train_batch_size"]
+METADATA_ARGS = [
+    "arch_key",
+    "dataset",
+    "device",
+    "pretrained",
+    "test_batch_size",
+    "train_batch_size",
+]
 
 
 @dataclass
@@ -535,9 +542,6 @@ def train(
     )
 
     if not train_args.eval_mode:
-        helpers.save_recipe(recipe_manager=trainer.manager,
-                            save_dir=save_dir,
-                            checkpoint_path=train_args.checkpoint_path)
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
         val_metric = best_metric = val_res = None
@@ -568,8 +572,8 @@ def train(
                     helpers.save_model_training(
                         model=trainer.model,
                         optim=trainer.optim,
-                        manager= trainer.manager,
-                        checkpoint_manager = trainer.checkpoint_manager,
+                        manager=trainer.manager,
+                        checkpoint_manager=trainer.checkpoint_manager,
                         save_name="checkpoint-best",
                         save_dir=save_dir,
                         epoch=trainer.epoch,
@@ -729,7 +733,9 @@ def _init_image_classification_trainer_and_save_dirs(
         device=train_args.device,
         ddp=ddp,
     )
-    metadata = helpers.extract_metadata(metadata_args=METADATA_ARGS, training_args=train_args)
+    metadata = helpers.extract_metadata(
+        metadata_args=METADATA_ARGS, training_args=train_args
+    )
 
     LOGGER.info(f"running on device {train_args.device}")
 
@@ -739,7 +745,7 @@ def _init_image_classification_trainer_and_save_dirs(
             key=train_args.arch_key,
             recipe_path=train_args.recipe_path,
             metadata=metadata,
-            checkpoint_path = train_args.checkpoint_path,
+            checkpoint_path=train_args.checkpoint_path,
             ddp=ddp,
             device=train_args.device,
             use_mixed_precision=train_args.use_mixed_precision,

@@ -139,9 +139,9 @@ class ImageClassificationTrainer(Trainer):
         else:
             self.optim = self.manager = self.module_trainer = None
 
-
-        self.checkpoint_manager = self._load_checkpoint() if self.checkpoint_path else None
-
+        self.checkpoint_manager = (
+            self._load_checkpoint() if self.checkpoint_path else None
+        )
 
         if self.val_loader is not None:
             self.module_tester = self._initialize_module_tester()
@@ -161,18 +161,19 @@ class ImageClassificationTrainer(Trainer):
 
     def _load_checkpoint(self):
         checkpoint_state = torch.load(self.checkpoint_path)
-        required_keys = ['recipe', 'state_dict']
+        required_keys = ["recipe", "state_dict"]
         for key in required_keys:
             if key not in checkpoint_state.keys():
-                raise ValueError(f"The expected key {key} was not found "
-                                 f"in the checkpoint from {self.checkpoint_path}")
-        checkpoint_recipe = checkpoint_state['recipe']
+                raise ValueError(
+                    f"The expected key {key} was not found "
+                    f"in the checkpoint from {self.checkpoint_path}"
+                )
+        checkpoint_recipe = checkpoint_state["recipe"]
         checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint_recipe)
         checkpoint_manager.apply(self.model)
-        self.model.load_state_dict(checkpoint_state['state_dict'])
+        self.model.load_state_dict(checkpoint_state["state_dict"])
         _LOGGER.info(f"successfully loaded checkpoint from {self.checkpoint_path}")
         return checkpoint_manager
-
 
     def run_one_epoch(
         self,
@@ -234,7 +235,7 @@ class ImageClassificationTrainer(Trainer):
         epoch = 0
 
         manager = ScheduledModifierManager.from_yaml(
-            file_path=self.recipe_path,
+            file_path=self.recipe_path, metadata=self.metadata
         )
 
         optim = ScheduledOptimizer(
