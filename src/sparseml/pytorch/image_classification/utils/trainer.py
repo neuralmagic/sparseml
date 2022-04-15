@@ -125,6 +125,9 @@ class ImageClassificationTrainer(Trainer):
 
         self.optim_name = optim_name
         self.epoch = start_epoch
+        self._device_context = ModuleDeviceContext(
+            use_mixed_precision=self.use_mixed_precision,
+        )
 
         if self.train_loader is not None:
             self.optim, self.manager = self._initialize_scheduled_optimizer()
@@ -166,6 +169,10 @@ class ImageClassificationTrainer(Trainer):
         """
         train_mode = mode == "train"
         validation_mode = not train_mode
+
+        if torch.__version__ < "1.9" and self.manager.qat_active(epoch=self.epoch):
+            # switch off fp16
+            self._device_context.use_mixed_precision = False
 
         if validation_mode:
             return self._run_validation_epoch(
@@ -220,15 +227,14 @@ class ImageClassificationTrainer(Trainer):
         return optim, manager
 
     def _initialize_module_trainer(self):
+
         trainer = ModuleTrainer(
             module=self.model,
             device=self.device,
             loss=self.train_loss,
             optimizer=self.optim,
             loggers=self.loggers,
-            device_context=ModuleDeviceContext(
-                use_mixed_precision=self.use_mixed_precision,
-            ),
+            device_context=self._device_context,
         )
         _LOGGER.info(f"created Module Trainer: {trainer}")
 
