@@ -73,6 +73,13 @@ _TASK_TO_KEYS = {
     "sst2": ("sentence", None),
     "stsb": ("sentence1", "sentence2"),
     "wnli": ("sentence1", "sentence2"),
+    "chemprot": ("sentence", None),
+    "DDI": ("sentence", None),
+    "GAD": ("sentence", None),
+    "biosses":("sentence1","sentence2"),
+    "hoc": ("sentence",None),
+    "pubmedqa": ("query","context"),
+    "bioasq":("query","context"),
 }
 
 _LOGGER = logging.getLogger(__name__)
@@ -186,7 +193,7 @@ class DataTrainingArguments:
 
     def __post_init__(self):
         if self.task_name is not None:
-            self.task_name = self.task_name.lower()
+            #self.task_name = self.task_name.lower()
             if self.task_name not in _TASK_TO_KEYS.keys():
                 raise ValueError(
                     "Unknown task, you should pick one in "
@@ -342,12 +349,12 @@ def main():
     #
     # In distributed training, the load_dataset function guarantee that only one local
     # process can concurrently download the dataset.
-    if data_args.task_name is not None:
+    if data_args.task_name is not None and data_args.train_file is None:
         # Downloading and loading a dataset from the hub.
         raw_datasets = load_dataset(
             "glue", data_args.task_name, cache_dir=model_args.cache_dir
         )
-    elif data_args.dataset_name is not None:
+    elif data_args.dataset_name is not None and data_args.train_file is None:
         # Downloading and loading a dataset from the hub.
         raw_datasets = load_dataset(
             data_args.dataset_name,
@@ -396,9 +403,14 @@ def main():
 
     # Labels
     if data_args.task_name is not None:
-        is_regression = data_args.task_name == "stsb"
-        if not is_regression:
-            label_list = raw_datasets["train"].features["label"].names
+        is_regression = data_args.task_name in ["stsb","biosses"]
+        if  data_args.task_name == "hoc":
+            num_labels = 10
+        elif not is_regression:
+            if data_args.task_name in ["pubmedqa","chemprot","DDI","GAD","bioasq"]:
+                label_list = datasets["train"].unique("label")                
+            else:
+                label_list = datasets["train"].features["label"].names
             num_labels = len(label_list)
         else:
             num_labels = 1
@@ -428,6 +440,7 @@ def main():
         finetuning_task=data_args.task_name,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
+        problem_type= "multi_label_classification" if data_args.task_name == 'hoc' else "single_label_classification",
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
@@ -493,6 +506,7 @@ def main():
 
     # Some models have set the order of the labels to use, so let's make sure
     # we do use it
+    
     label_to_id = None
     if (
         model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
@@ -513,6 +527,8 @@ def main():
                 f"labels: {list(sorted(label_list))}."
                 "\nIgnoring the model labels as a result.",
             )
+
+            
     elif data_args.task_name is None and not is_regression:
         label_to_id = {v: i for i, v in enumerate(label_list)}
 
@@ -530,9 +546,9 @@ def main():
             f"Using max_seq_length={tokenizer.model_max_length}."
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
-
     def preprocess_function(examples):
         # Tokenize the texts
+
         args = (
             (examples[sentence1_key],)
             if sentence2_key is None
@@ -592,14 +608,17 @@ def main():
                 range(data_args.max_predict_samples)
             )
 
-    # Log a few random samples from the training set:
-    if training_args.do_train:
-        for index in random.sample(range(len(train_dataset)), 3):
-            _LOGGER.info(f"Sample {index} of training set: {train_dataset[index]}.")
-
+    
+    
     # Get the metric function
-    if data_args.task_name is not None:
+    if data_args.task_name is not None and data_args.task_name not in ["biosses","pubmedqa","chemprot","DDI","GAD","hoc","bioasq"]:
         metric = load_metric("glue", data_args.task_name)
+    elif data_args.task_name in ["chemprot","DDI","GAD","hoc"]:
+        metric = load_metric("re")
+    elif data_args.task_name == "hoc":
+        metric = load_metric("hoc")
+    elif data_args.task_name in ["biosses"]:
+        metric = load_metric("pearsonr")
     else:
         metric = load_metric("accuracy")
 
@@ -630,6 +649,11 @@ def main():
     else:
         data_collator = None
 
+    # Log a few random samples from the training set:
+    if training_args.do_train:
+        for index in random.sample(range(len(train_dataset)), 3):
+            _LOGGER.info(f"Sample {index} of training set: {train_dataset[index]}.")
+    
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
