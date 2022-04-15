@@ -365,6 +365,27 @@ class RecipeManagerTrainerInterface:
 
         return (loss, student_outputs) if return_outputs else loss
 
+    def prediction_step(
+        self,
+        model: Module,
+        inputs:
+        Dict[str, Union[torch.Tensor, Any]],
+        prediction_loss_only: bool
+    ) -> Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        """
+        Wraps the prediction step from the original trainer to remove any input entry
+        that should not be passed to model.
+        This situation may arise when distillation is used and the teacher model
+        contains more inputs than the student model.
+        """
+        self._check_super_defined("prediction_step")
+
+        inputs = {
+            k: inputs[k] for k in inputs if k in self._model_signature_columns
+        }
+
+        return super().prediction_step(model, inputs, prediction_loss_only)
+
     def save_model(
         self,
         output_dir: Optional[str] = None,
