@@ -340,6 +340,9 @@ class RecipeManagerTrainerInterface:
             or not self.manager.enabled
             or not self.manager.distillation_modifiers
         ):
+            inputs = {
+                k: inputs[k] for k in inputs if k in self._model_signature_columns
+            }
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
         student_inputs = {
