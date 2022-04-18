@@ -53,10 +53,12 @@ from yolov5.utils.torch_utils import (
     torch_distributed_zero_first,
 )
 
+
 FILE = Path(__file__).resolve()
 
+
 def export_onnx(
-    model, im, file,  opset, train, dynamic, simplify, prefix=colorstr("ONNX:")
+    model, im, file, opset, train, dynamic, simplify, prefix=colorstr("ONNX:")
 ):
     # YOLOv5 ONNX export
     try:
