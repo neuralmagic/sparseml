@@ -380,9 +380,7 @@ class RecipeManagerTrainerInterface:
         """
         self._check_super_defined("prediction_step")
 
-        inputs = {
-            k: inputs[k] for k in inputs if k in self._model_signature_columns
-        }
+        inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
 
         return super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
 
