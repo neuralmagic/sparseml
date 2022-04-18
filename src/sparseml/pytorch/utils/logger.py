@@ -369,7 +369,7 @@ class PythonLogger(LambdaLogger):
         :return: True if logged, False otherwise.
         """
         if not level:
-            level = self._log_level
+            level = LOGGING_LEVELS["debug"]
 
         if level > LOGGING_LEVELS["debug"]:
             format = "%s %s step %s: %s"
