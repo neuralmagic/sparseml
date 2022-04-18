@@ -55,9 +55,6 @@ def _install_yolov5_and_deps():
                 "pip",
                 "install",
                 yolov5_requirement,
-                "datasets<=1.18.4",
-                "sklearn",
-                "seqeval",
             ]
         )
 
