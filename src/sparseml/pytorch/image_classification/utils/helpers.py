@@ -15,7 +15,7 @@
 """
 Helper methods for image classification/detection based tasks
 """
-
+import json
 import os
 import warnings
 from contextlib import contextmanager
@@ -27,6 +27,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 
+import click
 from sparseml.pytorch.datasets import DatasetRegistry
 from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
     FFCVCompatibleDataset,
@@ -35,12 +36,16 @@ from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
+    CrossEntropyLossWrapper,
     ModuleExporter,
     ModuleRunResults,
     PythonLogger,
     TensorBoardLogger,
+    TopKAccuracy,
     default_device,
     early_stop_data_loader,
+    model_to_device,
+    set_deterministic_seeds,
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
@@ -55,6 +60,13 @@ __all__ = [
     "infer_num_classes",
     "save_recipe",
     "save_model_training",
+    "parse_json_callback",
+    "create_dir_callback",
+    "OptionEatAllArguments",
+    "parse_into_tuple_of_ints",
+    "set_seeds",
+    "get_loss_wrapper",
+    "ddp_aware_model_move",
 ]
 
 
@@ -399,6 +411,151 @@ def save_model_training(
         info_file.write("\n".join(info_lines))
 
 
+def set_seeds(local_rank: int):
+    """
+    Utility method to initialize process group and set seeds
+
+    :param local_rank: The local rank of the process
+    """
+    if local_rank != -1:
+        torch.distributed.init_process_group(
+            backend="nccl",
+            init_method="env://",
+        )
+        set_deterministic_seeds(0)
+
+
+def get_loss_wrapper() -> CrossEntropyLossWrapper:
+    """
+    :return loss_wrapper: A Cross Entropy Loss Wrapper with extra metrics
+    """
+    extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
+    return CrossEntropyLossWrapper(extras=extras)
+
+
+def ddp_aware_model_move(
+    device: Any,
+    local_rank: int,
+    model: Any,
+    rank: int,
+) -> Tuple[bool, Any, Any]:
+    """
+    Move model to device and wrap in DistributedDataParallel if necessary.
+
+    :param device: device to move model to
+    :param local_rank: local rank of current process
+    :param model: model to move
+    :param rank: rank of current process
+    :return: A tuple of the following form (ddp_state, device, model)
+    """
+    if rank == -1:
+        ddp = False
+    else:
+        torch.cuda.set_device(local_rank)
+        device = local_rank
+        ddp = True
+    model, device, _ = model_to_device(
+        model=model,
+        device=device,
+        ddp=ddp,
+    )
+    return ddp, device, model
+
+
+# cli callbacks and helpers
+
+
+def parse_json_callback(ctx, params, value: str) -> Dict:
+    """
+    Parse a json string into a dictionary
+
+    :param ctx: The click context
+    :param params: The click params
+    :param value: The json string to parse
+    :return: The parsed dictionary
+    """
+    # JSON string -> dict Callback
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
+
+
+def create_dir_callback(ctx, params, value: str):
+    """
+    Create and return directory if it doesn't exist.
+
+    :param ctx: The click context
+    :param params: The click params
+    :param value: The value to create the directory from
+    :returns: The directory path
+    """
+    os.makedirs(value, exist_ok=True)
+    return value
+
+
+def parse_into_tuple_of_ints(ctx, params, value) -> Tuple[int, ...]:
+    """
+    Parse a string into a tuple of ints.
+
+    :param ctx: The click context
+    :param params: The click params
+    :param value: The value to parse
+    :return: Tuple of ints
+    """
+    if not value:
+        return ()
+    return tuple(int(element) for element in eval(value))
+
+
+class OptionEatAllArguments(click.Option):
+    """
+    A click.Option that eats all arguments. Click does not support nargs=-1 for
+    options. This class is a work around for this limitation.
+    Repurposed from https://stackoverflow.com/a/48394004
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.save_other_options = kwargs.pop("save_other_options", True)
+        nargs = kwargs.pop("nargs", -1)
+        assert nargs == -1, "nargs, if set, must be -1 not {}".format(nargs)
+        super(OptionEatAllArguments, self).__init__(*args, **kwargs)
+        self._previous_parser_process = None
+        self._eat_all_parser = None
+
+    def add_to_parser(self, parser, ctx):
+        def parser_process(value, state):
+            # method to hook to the parser.process
+            done = False
+            value = [value]
+            if self.save_other_options:
+                # grab everything up to the next option
+                while state.rargs and not done:
+                    for prefix in self._eat_all_parser.prefixes:
+                        if state.rargs[0].startswith(prefix):
+                            done = True
+                    if not done:
+                        value.append(state.rargs.pop(0))
+            else:
+                # grab everything remaining
+                value += state.rargs
+                state.rargs[:] = []
+            value = tuple(value)
+
+            # call the actual process
+            self._previous_parser_process(value, state)
+
+        retval = super(OptionEatAllArguments, self).add_to_parser(parser, ctx)
+        for name in self.opts:
+            our_parser = parser._long_opt.get(name) or parser._short_opt.get(name)
+            if our_parser:
+                self._eat_all_parser = our_parser
+                self._previous_parser_process = our_parser.process
+                our_parser.process = parser_process
+                break
+
+        return retval
+
+
 def _download_model_from_zoo_using_recipe(
     recipe_stub: str,
 ) -> Optional[str]:
@@ -417,7 +574,10 @@ def _download_model_from_zoo_using_recipe(
             f" but got {recipe_stub} instead"
         )
 
-    files = Zoo.download_recipe_base_framework_files(recipe_stub, extensions=[".pth"])
+    files = Zoo.download_recipe_base_framework_files(
+        stub=recipe_stub,
+        extensions=[".pth"],
+    )
 
     checkpoint_path = files[0]
     return checkpoint_path
