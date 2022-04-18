@@ -368,9 +368,9 @@ class RecipeManagerTrainerInterface:
     def prediction_step(
         self,
         model: Module,
-        inputs:
-        Dict[str, Union[torch.Tensor, Any]],
-        prediction_loss_only: bool
+        inputs: Dict[str, Union[torch.Tensor, Any]],
+        prediction_loss_only: bool,
+        ignore_keys: Optional[List[str]] = None,
     ) -> Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
         """
         Wraps the prediction step from the original trainer to remove any input entry
@@ -384,7 +384,7 @@ class RecipeManagerTrainerInterface:
             k: inputs[k] for k in inputs if k in self._model_signature_columns
         }
 
-        return super().prediction_step(model, inputs, prediction_loss_only)
+        return super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
 
     def save_model(
         self,
