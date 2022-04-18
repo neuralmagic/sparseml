@@ -1,5 +1,3 @@
-# flake8: noqa
-
 # Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .constants import *
-from .nm_argparser import *
-from .trainer import *
+"""
+Constants for PyTorch Image Classification Integrations
+"""
+from inspect import isclass
+
+import torch
+
+
+__all__ = [
+    "OPTIMIZERS",
+    "DEFAULT_OPTIMIZER",
+]
+
+OPTIMIZERS = [
+    key
+    for key in torch.optim.__dict__.keys()
+    if isclass(torch.optim.__dict__[key]) and key != "Optimizer"
+]
+
+# Early exit if no optimizer is found
+if not OPTIMIZERS:
+    raise RuntimeError(
+        "No optimizers found in torch.optim. "
+        "Please install a torch optimizer to use this integration."
+    )
+
+DEFAULT_OPTIMIZER = "SGD" if "SGD" in OPTIMIZERS else OPTIMIZERS[0]
