@@ -159,14 +159,6 @@ class ImageClassificationTrainer(Trainer):
             _LOGGER.info("adjusting ScheduledOptimizer to restore point")
             self.optim.adjust_current_step(self.epoch, 0)
 
-    def _setup_checkpoint_manager(self):
-        checkpoint_state = torch.load(self.checkpoint_path)
-        checkpoint_manager = None
-        if "recipe" in checkpoint_state:
-            checkpoint_recipe = checkpoint_state["recipe"]
-            checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint_recipe)
-        return checkpoint_manager
-
     def run_one_epoch(
         self,
         mode: str = "train",
@@ -294,3 +286,11 @@ class ImageClassificationTrainer(Trainer):
             max_steps=max_steps,
             show_progress=self.is_main_process,
         )
+
+    def _setup_checkpoint_manager(self):
+        checkpoint_state = torch.load(self.checkpoint_path)
+        checkpoint_manager = None
+        if "recipe" in checkpoint_state:
+            checkpoint_recipe = checkpoint_state["recipe"]
+            checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint_recipe)
+        return checkpoint_manager
