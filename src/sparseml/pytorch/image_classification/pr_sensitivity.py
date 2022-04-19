@@ -44,7 +44,7 @@ Options:
                                   not specified or set to `True`. Otherwise
                                   should be set to the desired weights type:
                                   [base, optim, optim-perf]. To not load any
-                                  weights setto one of [none, false]
+                                  weights set to one of [none, false]
                                   [default: True]
   --pretrained-dataset, --pretrained_dataset TEXT
                                   The dataset to load pretrained weights for
@@ -175,7 +175,7 @@ LOGGER = get_main_logger()
     "loads default pretrained weights for "
     "the model if not specified or set to `True`. "
     "Otherwise should be set to the desired weights "
-    "type: [base, optim, optim-perf]. To not load any weights set"
+    "type: [base, optim, optim-perf]. To not load any weights set "
     "to one of [none, false]",
 )
 @click.option(
