@@ -103,6 +103,7 @@ def get_save_dir_and_loggers(
         if model_tag not given
     :return: A tuple of the save directory and a list of loggers
     """
+    arch_key = arch_key or ""
     if is_main_process:
         save_dir = os.path.abspath(os.path.expanduser(save_dir))
         logs_dir = (
