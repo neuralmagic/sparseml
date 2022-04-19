@@ -95,10 +95,10 @@ Options:
                                   testing for when in debug mode
   --pretrained TEXT               The type of pretrained weights to use, loads
                                   default pretrained weights for the model if
-                                  not specified or set to `True`. Otherwise
+                                  not specified or set to `True`. Otherwise,
                                   should be set to the desired weights type:
                                   [base, optim, optim-perf]. To not load any
-                                  weights setto one of [none, false]
+                                  weights set to one of [none, false]
                                   [default: True]
   --pretrained-dataset, --pretrained_dataset TEXT
                                   The dataset to load pretrained weights for
@@ -177,6 +177,7 @@ from sparseml.pytorch.image_classification.utils import (
     DEFAULT_OPTIMIZER,
     OPTIMIZERS,
     ImageClassificationTrainer,
+    cli_helpers,
     helpers,
 )
 from sparseml.pytorch.utils import default_device, get_prunable_layers, tensor_sparsity
@@ -216,7 +217,7 @@ LOGGER = get_main_logger()
     "--dataset-path",
     "--dataset_path",
     type=click.Path(dir_okay=True, file_okay=False),
-    callback=helpers.create_dir_callback,
+    callback=cli_helpers.create_dir_callback,
     required=True,
     help="The root dir path where the dataset is stored or should "
     "be downloaded to if available",
@@ -236,6 +237,7 @@ LOGGER = get_main_logger()
     type=int,
     default=-1,
     help="Local rank for distributed training",
+    hidden=True,  # should not be modified by user
 )
 @click.option(
     "--checkpoint-path",
@@ -278,7 +280,6 @@ LOGGER = get_main_logger()
 )
 @click.option(
     "--optim",
-    "--optimizer",
     type=click.Choice(OPTIMIZERS, case_sensitive=True),
     default=DEFAULT_OPTIMIZER,
     show_default=True,
@@ -297,7 +298,7 @@ LOGGER = get_main_logger()
         }
     ),
     type=str,
-    callback=helpers.parse_json_callback,
+    callback=cli_helpers.parse_json_callback,
     help="Additional args to be passed to the optimizer; "
     "should be specified as a json object. "
     f"Default args set for {DEFAULT_OPTIMIZER}",
@@ -307,7 +308,7 @@ LOGGER = get_main_logger()
     "--logs_dir",
     type=click.Path(dir_okay=True, file_okay=False),
     default=os.path.join("pytorch_vision_train", "tensorboard-logs"),
-    callback=helpers.create_dir_callback,
+    callback=cli_helpers.create_dir_callback,
     show_default=True,
     help="The path to the directory for saving logs",
 )
@@ -323,15 +324,13 @@ LOGGER = get_main_logger()
 @click.option(
     "--save-epochs",
     "--save_epochs",
-    "-se",
-    cls=helpers.OptionEatAllArguments,
-    callback=helpers.parse_into_tuple_of_ints,
+    cls=cli_helpers.OptionEatAllArguments,
+    callback=cli_helpers.parse_into_tuple_of_ints,
     help="Epochs to save checkpoints at",
 )
 @click.option(
     "--use-mixed-precision",
     "--use_mixed_precision",
-    "--amp",
     is_flag=True,
     help="Trains model using mixed precision. Supported "
     "environments are single GPU and multiple GPUs using "
@@ -340,7 +339,6 @@ LOGGER = get_main_logger()
 @click.option(
     "--debug-steps",
     "--debug_steps",
-    "-ds",
     type=int,
     default=-1,
     help="Amount of steps to run for training and testing for when in " "debug mode",
@@ -353,9 +351,9 @@ LOGGER = get_main_logger()
     help="The type of pretrained weights to use, "
     "loads default pretrained weights for "
     "the model if not specified or set to `True`. "
-    "Otherwise should be set to the desired weights "
+    "Otherwise, should be set to the desired weights "
     "type: [base, optim, optim-perf]. To not load any weights set"
-    "to one of [none, false]",
+    " to one of [none, false]",
 )
 @click.option(
     "--pretrained-dataset",
@@ -372,7 +370,7 @@ LOGGER = get_main_logger()
     "--model_kwargs",
     default=json.dumps({}),
     type=str,
-    callback=helpers.parse_json_callback,
+    callback=cli_helpers.parse_json_callback,
     help="Keyword arguments to be passed to model constructor, should "
     "be given as a json object",
 )
@@ -381,7 +379,7 @@ LOGGER = get_main_logger()
     "--dataset_kwargs",
     default=json.dumps({}),
     type=str,
-    callback=helpers.parse_json_callback,
+    callback=cli_helpers.parse_json_callback,
     help="Keyword arguments to be passed to dataset constructor, "
     "should be specified as a json object",
 )
@@ -398,7 +396,7 @@ LOGGER = get_main_logger()
     "--save_dir",
     type=click.Path(dir_okay=True, file_okay=False),
     default="pytorch_vision",
-    callback=helpers.create_dir_callback,
+    callback=cli_helpers.create_dir_callback,
     show_default=True,
     help="The path to the directory for saving results",
 )

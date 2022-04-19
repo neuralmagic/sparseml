@@ -111,7 +111,7 @@ from torch.utils.data import DataLoader
 
 import click
 from sparseml import get_main_logger
-from sparseml.pytorch.image_classification.utils import helpers
+from sparseml.pytorch.image_classification.utils import cli_helpers, helpers
 from sparseml.pytorch.optim import (
     pruning_loss_sens_magnitude,
     pruning_loss_sens_one_shot,
@@ -143,7 +143,7 @@ LOGGER = get_main_logger()
     "--dataset-path",
     "--dataset_path",
     type=click.Path(dir_okay=True, file_okay=False),
-    callback=helpers.create_dir_callback,
+    callback=cli_helpers.create_dir_callback,
     required=True,
     help="The root dir path where the dataset is stored or should "
     "be downloaded to if available",
@@ -193,7 +193,7 @@ LOGGER = get_main_logger()
     "--model_kwargs",
     default=json.dumps({}),
     type=str,
-    callback=helpers.parse_json_callback,
+    callback=cli_helpers.parse_json_callback,
     help="Keyword arguments to be passed to model constructor, should "
     "be given as a json object",
 )
@@ -202,7 +202,7 @@ LOGGER = get_main_logger()
     "--dataset_kwargs",
     default=json.dumps({}),
     type=str,
-    callback=helpers.parse_json_callback,
+    callback=cli_helpers.parse_json_callback,
     help="Keyword arguments to be passed to dataset constructor, "
     "should be specified as a json object",
 )
@@ -219,7 +219,7 @@ LOGGER = get_main_logger()
     "--save_dir",
     type=click.Path(dir_okay=True, file_okay=False),
     default="pytorch_vision",
-    callback=helpers.create_dir_callback,
+    callback=cli_helpers.create_dir_callback,
     show_default=True,
     help="The path to the directory for saving results",
 )
