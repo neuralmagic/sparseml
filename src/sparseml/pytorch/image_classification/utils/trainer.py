@@ -140,7 +140,7 @@ class ImageClassificationTrainer(Trainer):
             self.optim = self.manager = self.module_trainer = None
 
         self.checkpoint_manager = (
-            self._load_checkpoint() if self.checkpoint_path else None
+            self._setup_checkpoint_manager() if self.checkpoint_path else None
         )
 
         if self.val_loader is not None:
@@ -159,20 +159,12 @@ class ImageClassificationTrainer(Trainer):
             _LOGGER.info("adjusting ScheduledOptimizer to restore point")
             self.optim.adjust_current_step(self.epoch, 0)
 
-    def _load_checkpoint(self):
+    def _setup_checkpoint_manager(self):
         checkpoint_state = torch.load(self.checkpoint_path)
-        required_keys = ["recipe", "state_dict"]
-        for key in required_keys:
-            if key not in checkpoint_state.keys():
-                raise ValueError(
-                    f"The expected key {key} was not found "
-                    f"in the checkpoint from {self.checkpoint_path}"
-                )
-        checkpoint_recipe = checkpoint_state["recipe"]
-        checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint_recipe)
-        checkpoint_manager.apply(self.model)
-        self.model.load_state_dict(checkpoint_state["state_dict"])
-        _LOGGER.info(f"successfully loaded checkpoint from {self.checkpoint_path}")
+        checkpoint_manager = None
+        if "recipe" in checkpoint_state:
+            checkpoint_recipe = checkpoint_state["recipe"]
+            checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint_recipe)
         return checkpoint_manager
 
     def run_one_epoch(
