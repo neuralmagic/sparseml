@@ -38,8 +38,6 @@ Options:
                                   classification model; example: `resnet50`,
                                   `mobilenet`. Note: Will be read from the
                                   checkpoint if not specified
-  --local_rank, --local-rank INTEGER
-                                  Local rank for distributed training
   --checkpoint-path, --checkpoint_path TEXT
                                   A path to a previous checkpoint to load the
                                   state from and resume the state for. If
@@ -51,7 +49,7 @@ Options:
                                   weights from SparseZoo
   --init-lr FLOAT                 The initial learning rate to use while
                                   training, the actual initial value used will
-                                  be set by thesparseml recipe  [default:
+                                  be set by the sparseml recipe  [default:
                                   1e-09]
   --recipe-path, --recipe_path TEXT
                                   The path to the yaml/md file containing the
@@ -63,8 +61,8 @@ Options:
                                   Puts model into evaluation mode (Model
                                   weights are not updated)  [default: no-eval-
                                   mode]
-  --optim, --optimizer [Adadelta|Adagrad|Adam|AdamW|SparseAdam|Adamax|ASGD|SGD|
-                        Rprop|RMSprop|LBFGS]
+  --optim [Adadelta|Adagrad|Adam|AdamW|SparseAdam|Adamax|ASGD|SGD|Rprop
+  |RMSprop|LBFGS]
                                   The optimizer type to use, one of
                                   ['Adadelta', 'Adagrad', 'Adam', 'AdamW',
                                   'SparseAdam', 'Adamax', 'ASGD', 'SGD',
@@ -82,15 +80,15 @@ Options:
                                   Save the best validation result after the
                                   given epoch completes until the end of
                                   training  [default: 1]
-  -se, --save-epochs, --save_epochs TEXT
+  --save-epochs, --save_epochs TEXT
                                   Epochs to save checkpoints at
-  --use-mixed-precision, --use_mixed_precision, --amp
+  --use-mixed-precision, --use_mixed_precision
                                   Trains model using mixed precision.
                                   Supported environments are single GPU and
                                   multiple GPUs using
                                   `DistributedDataParallel` with one GPU per
                                   process
-  -ds, --debug-steps, --debug_steps INTEGER
+  --debug-steps, --debug_steps INTEGER
                                   Amount of steps to run for training and
                                   testing for when in debug mode
   --pretrained TEXT               The type of pretrained weights to use, loads
@@ -258,7 +256,7 @@ LOGGER = get_main_logger()
     show_default=True,
     help="The initial learning rate to use while training, "
     "the actual initial value used will be set by the"
-    "sparseml recipe",
+    " sparseml recipe",
 )
 @click.option(
     "--recipe-path",
