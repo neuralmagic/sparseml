@@ -1,6 +1,6 @@
 ARG TORCH_VERSION=1.9.1
 ARG TORCHVISION_VERSION=0.10.1
-ARG CUDA_VERSION=11.3.1
+ARG CUDA_VERSION
 
 # Setup the base image & install dependencies
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu18.04 as base
