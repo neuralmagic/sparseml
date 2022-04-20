@@ -66,7 +66,7 @@ output:
 
 ### Dense Teacher Creation
 
-To enable distillation, you will first create a dense teacher model that the sparse model will learn from while transferring. **If you already have a Transformers-compatible model, you can use this as the dense teacher in place of training one from scratch.** The following command will use the dense BERT base model from the SparseZoo and fine-tune it on the SQuAD dataset, resulting in a model that achieves 0.885 F1 on the validation set: 
+To enable distillation, you will first create a dense teacher model that the sparse model will learn from while transferring. **If you already have a Transformers-compatible model, you can use this as the dense teacher in place of training one from scratch.** The following command will use the dense BERT base model from the SparseZoo and fine-tune it on the SQuAD dataset, resulting in a model that achieves 88.5% F1 on the validation set: 
 
 ```bash
 sparseml.transformers.question_answering \
@@ -96,7 +96,7 @@ Once the command has completed, you will have a sparse checkpoint located in `mo
 
 ### Transfer Learn the Model
 
-The following command will use the 80% sparse-quantized BERT model from the SparseZoo and fine-tune it on the SQuAD dataset, resulting in a model that achieves an F1 of 0.885 on the validation set. Keep in mind that the `--distill_teacher` argument is set to pull a dense SQuAD model from the SparseZoo to enable it to run independent of the dense teacher step. If you trained a dense teacher, change this out for the path to your model folder:
+The following command will use the 80% sparse-quantized BERT model from the SparseZoo and fine-tune it on the SQuAD dataset, resulting in a model that achieves an F1 of 88.5% on the validation set. Keep in mind that the `--distill_teacher` argument is set to pull a dense SQuAD model from the SparseZoo to enable it to run independent of the dense teacher step. If you trained a dense teacher, change this out for the path to your model folder:
 
 ```bash
 sparseml.transformers.question_answering \
