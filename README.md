@@ -152,71 +152,63 @@ Supported deep learning frameworks:
 
 More information on installation such as optional dependencies and requirements can be found [here.](https://docs.neuralmagic.com/sparseml/source/installation.html)
 
-## Training ⚒️
+## 🏋️ Training
 
-The following steps can be used for either the Computer Vision and NLP domains. The sections below will observe an example of using SparseML in the NLP domain for the token classification task (NER) even though you can apply any of these steps across domains and tasks.
+The following steps can be used for either the Computer Vision or NLP domain. The flow for interacting with our software is to first:
 
-### Step 1: Obtaining a Dense Teacher Model
+- Select a sparse pretrained model from the [SparseZoo](https://sparsezoo.neuralmagic.com/).
+- Transfer learn the model on your custom dataset.
 
-Before applying sparse transfer learning, a dense teacher model must first be included in the process in order to distill its "knowledge" to a student model. You have two options for obtaining a dense teacher:
+**OR**
 
-- Train your own teacher model.
-- Download an available teacher model from the SparseZoo. For NLP, please take a look at the select list of [masked language models](https://sparsezoo.neuralmagic.com/?page=1&domain=nlp&sub_domain=masked_language_modeling) and for Computer Vision please see [placeholder]
+- Download a recipe from the [SparseZoo](https://sparsezoo.neuralmagic.com/) associated with the model you are interested in sparsifying.
+- Sparsify your model using the downloaded recipe.
+- Transfer learn the model on your custom dataset.
 
-If you prefer to train your own dense teacher model, the following is an example of using a script for training BERT for the token classification task (NER):
+### 🌱 Training a Sparse Pretrained Model | NLP Token Classification Example
+
+To get started, install the PyTorch version of SparseML:
 
 ```bash
-sparseml.transformers.token_classification \
-    --output_dir models/teacher \
-    --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none \
-    --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none?recipe_type=transfer-token_classification \
-    --recipe_args '{"init_lr":0.00003}' \
-    --dataset_name conll2003 \
-    --per_device_train_batch_size 32 \
-    --per_device_eval_batch_size 32 \
-    --preprocessing_num_workers 6 \
-    --do_train \
-    --do_eval \
-    --evaluation_strategy epoch \
-    --fp16 \
-    --save_strategy epoch \
-    --save_total_limit 1
+pip install sparseml[torch]
 ```
 
-The training command should run to completion in less than a few hours. Once the command has completed, you will have a deployable sparse model located in `models/teacher`.
-</br>
-
-### Step 2: Distilling Teacher Model to Student Model
-
-Now that we have a dense teacher model, we'll use the 80% sparse-quantized BERT model from the SparseZoo and fine-tune it on the CoNLL-2003 dataset, resulting in a model that achieves 98.59% F1 on the validation set. Keep in mind that the `--distill_teacher` argument is set to pull a dense CoNLL-2003 model from the SparseZoo to enable it to run independent of the dense teacher step above.
+For NLP tranfer learning, you can select one of our sparse pretrained [models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1) and its accompanying recipes. The good news is we already did plenty of experimentation to discover the appropriate parameters a particular recipe requires for transfer learning on a particular task. For example, if we were interested in the [BERT base 6 layer pruned 90%](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fbert-base%2Fpytorch%2Fhuggingface%2Fbookcorpus_wikitext%2F6layer_pruned90-none) model for the Named Entity Recognition (NER) task, we would run the following script:
 
 ```bash
 sparseml.transformers.train.token_classification \
-    --output_dir models/sparse_quantized \
-    --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni \
-    --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni?recipe_type=transfer-token_classification \
-    --recipe_args '{"init_lr":0.00005}' \
-    --distill_teacher zoo:nlp/token_classification/bert-base/pytorch/huggingface/conll2003/base-none \
-    --dataset_name conll2003 \
-    --per_device_train_batch_size 32 \
-    --per_device_eval_batch_size 32 \
-    --preprocessing_num_workers 6 \
-    --do_train \
-    --do_eval \
-    --evaluation_strategy epoch \
-    --fp16 \
-    --save_strategy epoch \
-    --save_total_limit 1
+  --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/6layer_pruned90-none \
+  --distill_teacher $MODEL_DIR/teacher \
+  --dataset_name conll2003 \
+  --do_train \
+  --do_eval \
+  --evaluation_strategy epoch \
+  --per_device_train_batch_size 32 \
+  --learning_rate 5e-5 \
+  --preprocessing_num_workers 16 \
+  --output_dir $MODEL_DIR/6layer_pruned90-none \
+  --fp16 \
+  --seed 21097 \
+  --num_train_epochs 5 \
+  --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/6layer_pruned90-none?recipe_type=transfer-CoNLL2003 \
+  --save_strategy epoch \
+  --save_total_limit 2
 ```
-</br>
+For more info on CLI arguments run the following command and append the appropriate `task`:
 
-### STEP 3: Export Student Model to ONNX
+```bash
+sparseml.transformers.[task] --help
+```
 
-The SparseML installation additionally provided a sparseml.transformers.export_onnx command. You will use this to load the training model folder and create a new model.onnx file within. Be sure the --model_path argument points to your trained model. By default, it is set to the result from transfer learning a sparse-quantized BERT model: --model_path "models/sparse_quantized".
+e.g. `sparseml.transformers.token_classification --help`
+
+### 🌳 Export to ONNX
+
+The SparseML installation additionally provided a `sparseml.transformers.export_onnx` command to convert your recently trained model to ONNX. Be sure the `--model_path` argument points to your trained model's location.
 
 ```bash
 sparseml.transformers.export_onnx \
-    --model_path "models/sparse_quantized" \
+    --model_path "models/layer_pruned90-none" \
     --task 'token-classification' \
     --sequence_length 128   
 ```
@@ -225,7 +217,6 @@ More information on the codebase and contained processes can be found in the Spa
 - [Sparsification Code](https://docs.neuralmagic.com/sparseml/source/code)
 - [Sparsification Recipes](https://docs.neuralmagic.com/sparseml/source/recipes)
 - [Exporting to ONNX](https://docs.neuralmagic.com/sparseml/source/onnx_export)
-</br>
 
 ## Resources
 
