@@ -166,19 +166,20 @@ def test_four_block_mask_creator_matches_block(tensors, sparsity_val):
 
 @pytest.mark.parametrize(
     "N, M",
-    [(2, 4), (3, 4), (1,8), (7, 8)],
+    [(2, 4), (3, 4), (1, 8), (7, 8)],
     scope="function",
 )
 @pytest.mark.parametrize(
-        "tensor_shape",
-        [[[64, 64]] * 10, [[64, 64, 3, 3]], [[64, 513]]],
-    )
+    "tensor_shape",
+    [[[64, 64]] * 10, [[64, 64, 3, 3]], [[64, 513]]],
+)
 class TestNMPruningMaskCreator:
     def test_sparsity_mask_creator(self, N, M, tensor_shape):
         sparsity_val = 1 - (N / M)
         sparsity_mask_creator_test(
             tensor_shape, NMPruningMaskCreator(N, M), sparsity_val, "cpu"
         )
+
     @pytest.mark.skipif(
         not torch.cuda.is_available(), reason="requires cuda availability"
     )
@@ -187,6 +188,7 @@ class TestNMPruningMaskCreator:
         sparsity_mask_creator_test(
             tensor_shape, NMPruningMaskCreator(N, M), sparsity_val, "cuda"
         )
+
     def test_pre_prune_sparsity(self, N, M, tensor_shape):
         sparsity_val = 0.0
         sparsity_mask_creator_test(
