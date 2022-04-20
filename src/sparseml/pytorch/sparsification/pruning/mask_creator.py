@@ -625,7 +625,7 @@ class NMPruningMaskCreator(PruningMaskCreator):
         """
         nm_sparsity = 1 - (self._N / self._M)
         if (isinstance(target, float) and target == 0.0) or (
-            isinstance(target, List) and all([target == 0.0 for sparsity in target])
+            isinstance(target, List) and all([sparsity == 0.0 for sparsity in target])
         ):
             return [torch.ones_like(tensor) for tensor in tensors]
         if (isinstance(target, float) and abs(nm_sparsity - target) > 1e-2) or (
