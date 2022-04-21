@@ -85,9 +85,14 @@ def _compare_onnx_models(model_1, model_2):
     [
         (
             "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned-conservative",  # noqa: E501
-            False,
+            True,
             "question-answering",
-        )
+        ),
+        (
+            "zoo:nlp/sentiment_analysis/bert-base/pytorch/huggingface/sst2/12layer_pruned80_quant-none-vnni",  # noqa: E501
+            True,
+            "sentiment-analysis",
+        ),
     ],
     scope="function",
 )
@@ -108,18 +113,27 @@ class TestModelFromZoo:
     def test_load_weights_apply_recipe(self, setup):
         model, recipe_present, task = setup
         model_path = model.framework_files[0].dir_path
+        recipe_path = os.path.join(os.path.dirname(model_path), "recipes")
+        recipe_path = recipe_path if os.path.exists(recipe_path) else model_path
 
         config = AutoConfig.from_pretrained(model_path)
         model = load_task_model(task, model_path, config)
 
         assert model
-        assert recipe_present == _is_yaml_recipe_present(model_path)
+        assert recipe_present == _is_yaml_recipe_present(recipe_path)
         if recipe_present:
+            recipe = str(
+                (
+                    glob.glob(os.path.join(recipe_path, "*.md"))
+                    or glob.glob(os.path.join(recipe_path, "*.yaml"))
+                    or glob.glob(os.path.join(recipe_path, "*recipe"))
+                )[0]
+            )
 
             trainer = Trainer(
                 model=model,
                 model_state_path=model_path,
-                recipe=None,
+                recipe=recipe,
                 recipe_args=None,
                 teacher=None,
             )
