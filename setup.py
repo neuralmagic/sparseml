@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
@@ -51,6 +52,12 @@ _deps = [
     "toposort>=1.0",
     "GPUtil>=1.4.0",
 ]
+
+# omit package installation if
+# installation on Mac Os
+if sys.platform not in ["darwin"]:
+    _deps.append("onnxruntime-gpu>=1.0.0")
+
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
