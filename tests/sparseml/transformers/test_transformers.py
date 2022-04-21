@@ -15,6 +15,7 @@
 import glob
 import math
 import os
+import shutil
 from collections import Counter, OrderedDict
 
 import onnx
@@ -126,8 +127,8 @@ class TestModelFromZoo:
         yield model, recipe_present, task
 
         # teardown
-        # model_path = model.framework_files[0].dir_path
-        # shutil.rmtree(os.path.dirname(model_path))
+        model_path = model.framework_files[0].dir_path
+        shutil.rmtree(os.path.dirname(model_path))
 
     def test_load_weights_apply_recipe(self, setup):
         model, recipe_present, task = setup
