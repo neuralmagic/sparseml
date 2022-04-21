@@ -165,7 +165,7 @@ The following steps can be used for either the Computer Vision or NLP domain. Th
 - Sparsify your model using the downloaded recipe.
 - Transfer learn the model on your custom dataset.
 
-### 🌱 Training a Sparse Pretrained Model | NLP Token Classification Example
+### 🌱 Training a Sparse Pretrained Model | NLP Text Classification Example
 
 To get started, install the PyTorch version of SparseML:
 
@@ -173,13 +173,14 @@ To get started, install the PyTorch version of SparseML:
 pip install sparseml[torch]
 ```
 
-For NLP tranfer learning, you can select one of our sparse pretrained [models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1) and its accompanying recipes. The good news is we already did plenty of experimentation to discover the appropriate parameters a particular recipe requires for transfer learning on a particular task. For example, if we were interested in the [BERT base 6 layer pruned 90%](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fbert-base%2Fpytorch%2Fhuggingface%2Fbookcorpus_wikitext%2F6layer_pruned90-none) model for the Named Entity Recognition (NER) task, we would run the following script:
+For NLP transfer learning, you can select one of our sparse pretrained [models](https://sparsezoo.neuralmagic.com/?domain=nlp&sub_domain=masked_language_modeling&page=1) and its accompanying recipes. The good news is we already did plenty of experimentation to discover the appropriate parameters a particular recipe requires for transfer learning on a particular task. So you can just plug and play the recipe in your training script. For example, if we were interested in the [BERT base 6 layer pruned 90%](https://sparsezoo.neuralmagic.com/models/nlp%2Fmasked_language_modeling%2Fbert-base%2Fpytorch%2Fhuggingface%2Fbookcorpus_wikitext%2F6layer_pruned90-none) model for the multi-class classification task on a custom dataset, we would run the following script:
 
 ```bash
-sparseml.transformers.train.token_classification \
+sparseml.transformers.train.text_classification \
   --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/6layer_pruned90-none \
   --distill_teacher $MODEL_DIR/teacher \
-  --dataset_name conll2003 \
+  --train_file <file path>\
+  --validation_file <file path>\
   --do_train \
   --do_eval \
   --evaluation_strategy epoch \
@@ -190,17 +191,20 @@ sparseml.transformers.train.token_classification \
   --fp16 \
   --seed 21097 \
   --num_train_epochs 5 \
-  --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/6layer_pruned90-none?recipe_type=transfer-CoNLL2003 \
+  --recipe zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/bookcorpus_wikitext/6layer_pruned90-none?recipe_type=transfer-MNLI \
   --save_strategy epoch \
   --save_total_limit 2
 ```
+
+The `--train_file` and `--validation_file` allows you to add the paths for your custom training and validation datasets.
+
 For more info on CLI arguments run the following command and append the appropriate `task`:
 
 ```bash
 sparseml.transformers.[task] --help
 ```
 
-e.g. `sparseml.transformers.token_classification --help`
+e.g. `sparseml.transformers.text_classification --help`
 
 ### 🌳 Export to ONNX
 
@@ -209,7 +213,7 @@ The SparseML installation additionally provided a `sparseml.transformers.export_
 ```bash
 sparseml.transformers.export_onnx \
     --model_path "models/layer_pruned90-none" \
-    --task 'token-classification' \
+    --task "token-classification" \
     --sequence_length 128   
 ```
 
