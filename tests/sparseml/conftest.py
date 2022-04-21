@@ -17,6 +17,8 @@ import shutil
 
 import pytest
 
+import wandb
+
 
 os.environ["NM_TEST_MODE"] = "True"
 os.environ["NM_TEST_LOG_DIR"] = "temp_test_logs"
@@ -26,6 +28,7 @@ os.environ["NM_TEST_LOG_DIR"] = "temp_test_logs"
 def check_for_created_files():
     start_file_count = sum(len(files) for _, _, files in os.walk(r"."))
     yield
+    wandb.finish()
     log_dir = os.environ.get("NM_TEST_LOG_DIR")
     log_dir_tensorboard = os.path.join(log_dir, "tensorboard")
     log_dir_wandb = os.path.join(log_dir, "wandb")
@@ -37,5 +40,5 @@ def check_for_created_files():
         os.rmdir(log_dir)
     end_file_count = sum(len(files) for _, _, files in os.walk(r"."))
     assert (
-        start_file_count == end_file_count
+        start_file_count >= end_file_count
     ), f"{end_file_count - start_file_count} files created during pytest run"

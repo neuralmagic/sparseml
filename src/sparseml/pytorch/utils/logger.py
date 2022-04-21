@@ -529,8 +529,7 @@ class WANDBLogger(LambdaLogger):
         )
 
         if os.environ.get("NM_TEST_MODE"):
-            test_log_root = os.environ.get("NM_TEST_LOG_DIR")
-            test_log_path = os.path.join(test_log_root, "wandb")
+            test_log_path = os.environ.get("NM_TEST_LOG_DIR")
             create_dirs(test_log_path)
             if init_kwargs:
                 init_kwargs["dir"] = test_log_path
