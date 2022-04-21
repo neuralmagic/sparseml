@@ -56,7 +56,6 @@ sparseml.transformers.export_onnx \
 
 import argparse
 import collections
-import glob
 import inspect
 import logging
 import math
@@ -158,22 +157,13 @@ def export_transformer_to_onnx(
         model_path, model_max_length=sequence_length
     )
     model = load_task_model(task, model_path, config)
-    zoomodels_recipe_path = os.path.join(model_path, "..", "recipes")
-    recipe = str(
-        (
-            glob.glob(os.path.join(model_path, "*.md"))
-            or glob.glob(os.path.join(model_path, "*.yaml"))
-            or glob.glob(os.path.join(zoomodels_recipe_path, "*.md"))
-            or glob.glob(os.path.join(zoomodels_recipe_path, "*.yaml"))
-        )[0]
-    )
 
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
     trainer = Trainer(
         model=model,
         model_state_path=model_path,
-        recipe=recipe,
+        recipe=None,
         recipe_args=None,
         teacher=None,
     )

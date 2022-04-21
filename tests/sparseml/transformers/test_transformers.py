@@ -15,7 +15,6 @@
 import glob
 import math
 import os
-import shutil
 from collections import Counter, OrderedDict
 
 import onnx
@@ -23,6 +22,7 @@ import onnxruntime as ort
 import pytest
 from transformers import AutoConfig
 
+from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.transformers.sparsification import Trainer
 from sparsezoo import Zoo
 from sparsezoo.utils import load_numpy_list
@@ -34,7 +34,12 @@ def _is_yaml_recipe_present(model_path):
         [
             file
             for file in glob.glob(os.path.join(model_path, "*"))
-            if (file.endswith((".yaml", ".md")) or ("recipe" in file))
+            if (
+                file.endswith(
+                    ".yaml",
+                )
+                or ("recipe" in file)
+            )
         ]
     )
 
@@ -80,6 +85,20 @@ def _compare_onnx_models(model_1, model_2):
         assert nodes1_count[node] == nodes2_count[node]
 
 
+def _attempt_copy_original_recipe(model_path):
+    recipe_path = os.path.join(os.path.dirname(model_path), "recipes")
+    recipe_path = recipe_path if os.path.exists(recipe_path) else model_path
+
+    recipe_match = glob.glob(os.path.join(recipe_path, "*.md")) or glob.glob(
+        os.path.join(recipe_path, "*recipe")
+    )
+    recipe = str(recipe_match[0]) if recipe_match else None
+
+    if recipe:
+        manager = ScheduledModifierManager.from_yaml(recipe)
+        manager.save(os.path.join(model_path, "recipe.yaml"))
+
+
 @pytest.mark.parametrize(
     "model_stub, recipe_present, task",
     [
@@ -107,33 +126,25 @@ class TestModelFromZoo:
         yield model, recipe_present, task
 
         # teardown
-        model_path = model.framework_files[0].dir_path
-        shutil.rmtree(os.path.dirname(model_path))
+        # model_path = model.framework_files[0].dir_path
+        # shutil.rmtree(os.path.dirname(model_path))
 
     def test_load_weights_apply_recipe(self, setup):
         model, recipe_present, task = setup
         model_path = model.framework_files[0].dir_path
-        recipe_path = os.path.join(os.path.dirname(model_path), "recipes")
-        recipe_path = recipe_path if os.path.exists(recipe_path) else model_path
+        _attempt_copy_original_recipe(model_path)
 
         config = AutoConfig.from_pretrained(model_path)
         model = load_task_model(task, model_path, config)
 
         assert model
-        assert recipe_present == _is_yaml_recipe_present(recipe_path)
-        if recipe_present:
-            recipe = str(
-                (
-                    glob.glob(os.path.join(recipe_path, "*.md"))
-                    or glob.glob(os.path.join(recipe_path, "*.yaml"))
-                    or glob.glob(os.path.join(recipe_path, "*recipe"))
-                )[0]
-            )
+        assert recipe_present == _is_yaml_recipe_present(model_path)
 
+        if recipe_present:
             trainer = Trainer(
                 model=model,
                 model_state_path=model_path,
-                recipe=recipe,
+                recipe=None,
                 recipe_args=None,
                 teacher=None,
             )
@@ -145,6 +156,7 @@ class TestModelFromZoo:
         model, recipe_present, task = setup
         path_onnx = model.onnx_file.downloaded_path()
         model_path = model.framework_files[0].dir_path
+        _attempt_copy_original_recipe(model_path)
 
         path_retrieved_onnx = export_transformer_to_onnx(
             task=task,
@@ -166,6 +178,7 @@ class TestModelFromZoo:
         path_onnx = model.onnx_file.downloaded_path()
         model_path = model.framework_files[0].dir_path
         inputs_path = model.data_inputs.path
+        _attempt_copy_original_recipe(model_path)
 
         input_data = load_numpy_list(inputs_path)[0]
 
