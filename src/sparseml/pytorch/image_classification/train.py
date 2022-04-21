@@ -24,7 +24,7 @@ Options:
                                   Train batch size  [required]
   --test-batch-size, --test_batch_size INTEGER
                                   Test/Validation batch size  [required]
-  -d, --dataset TEXT              The dataset to use for training, ex:
+  --dataset TEXT                  The dataset to use for training, ex:
                                   `imagenet`, `imagenette`, `cifar10`, etc.
                                   Set to `imagefolder` for a generic dataset
                                   setup with imagefolder type structure like
@@ -57,18 +57,18 @@ Options:
                                   Can also provide a SparseZoo stub prefixed
                                   with 'zoo:' with an optional '?recipe_type='
                                   argument
-  --eval-mode, --eval_mode, --eval / --no-eval-mode, --no_eval_mode, --no-eval
+  --eval-mode, --eval_mode / --no-eval-mode, --no_eval_mode
                                   Puts model into evaluation mode (Model
                                   weights are not updated)  [default: no-eval-
                                   mode]
-  --optim [Adadelta|Adagrad|Adam|AdamW|SparseAdam|Adamax|ASGD|SGD|Rprop
-  |RMSprop|LBFGS]
+  --optim [Adadelta|Adagrad|Adam|AdamW|SparseAdam|Adamax|ASGD|SGD|Rprop|RMSprop
+  |LBFGS]
                                   The optimizer type to use, one of
                                   ['Adadelta', 'Adagrad', 'Adam', 'AdamW',
                                   'SparseAdam', 'Adamax', 'ASGD', 'SGD',
                                   'Rprop', 'RMSprop', 'LBFGS'].  [default:
                                   SGD]
-  --optim-args, --optimizer-args, --optim_args, --optimizer_args TEXT
+  --optim-args, --optim_args TEXT
                                   Additional args to be passed to the
                                   optimizer; should be specified as a json
                                   object. Default args set for SGD
@@ -118,7 +118,7 @@ Options:
                                   [default: pytorch_vision]
   --device TEXT                   The device to run on (can also include ids
                                   for data parallel), ex: cpu, cuda, cuda:0,1
-                                  [default: cuda]
+                                  [default: cpu]
   --loader-num-workers, --loader_num_workers INTEGER
                                   The number of workers to use for data
                                   loading
@@ -202,7 +202,6 @@ LOGGER = get_main_logger()
 )
 @click.option(
     "--dataset",
-    "-d",
     type=str,
     required=True,
     help="The dataset to use for training, "
@@ -271,7 +270,6 @@ LOGGER = get_main_logger()
 @click.option(
     "--eval-mode/--no-eval-mode",
     "--eval_mode/--no_eval_mode",
-    "--eval/--no-eval",
     is_flag=True,
     show_default=True,
     help="Puts model into evaluation mode (Model weights are not updated)",
@@ -285,9 +283,7 @@ LOGGER = get_main_logger()
 )
 @click.option(
     "--optim-args",
-    "--optimizer-args",
     "--optim_args",
-    "--optimizer_args",
     default=json.dumps(
         {
             "momentum": 0.9,

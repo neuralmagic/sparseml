@@ -22,7 +22,7 @@ Options:
   --batch-size, --batch_size INTEGER
                                   The batch size to use for analysis
                                   [required]
-  -d, --dataset TEXT              The dataset used for training, ex:
+  --dataset TEXT                  The dataset used for training, ex:
                                   `imagenet`, `imagenette`, `cifar10`, etc.
                                   Set to `imagefolder` for a generic dataset
                                   setup with imagefolder type structure like
@@ -63,7 +63,7 @@ Options:
                                   [default: pytorch_vision]
   --device TEXT                   The device to run on (can also include ids
                                   for data parallel), ex: cpu, cuda, cuda:0,1
-                                  [default: cuda]
+                                  [default: cpu]
   --loader-num-workers, --loader_num_workers INTEGER
                                   The number of workers to use for data
                                   loading
@@ -82,7 +82,7 @@ Options:
                                   weights from SparseZoo
   --init-lr, --init_lr FLOAT      The initial learning rate to use for
                                   analysis  [default: 1e-09]
-  --optim-args, --optimizer-args, --optim_args, --optimizer_args TEXT
+  --optim-args, --optim_args TEXT
                                   Additional args to be passed to the
                                   optimizer; should be specified as a json
                                   object
@@ -91,7 +91,7 @@ Options:
   --steps-per-measurement, --steps_per_measurement INTEGER
                                   The number of steps (batches) to run for
                                   each measurement
-  -is, --image-size, --image_size INTEGER
+  --image-size, --image_size INTEGER
                                   The size of the image input to the model.
                                   Value should be equal to S for [C, S, S] or
                                   [S, S, C] dimensional input  [default: 224]
@@ -148,7 +148,6 @@ LOGGER = get_main_logger()
 )
 @click.option(
     "--dataset",
-    "-d",
     type=str,
     required=True,
     help="The dataset used for training, "
@@ -276,9 +275,7 @@ LOGGER = get_main_logger()
 )
 @click.option(
     "--optim-args",
-    "--optimizer-args",
     "--optim_args",
-    "--optimizer_args",
     default=json.dumps({}),
     type=str,
     callback=cli_helpers.parse_json_callback,
@@ -303,7 +300,6 @@ LOGGER = get_main_logger()
 @click.option(
     "--image-size",
     "--image_size",
-    "-is",
     type=int,
     default=224,
     show_default=True,

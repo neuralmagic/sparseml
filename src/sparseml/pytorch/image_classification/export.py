@@ -13,13 +13,13 @@
 # limitations under the License.
 
 """
-Usage: sparseml.image_classification.export [OPTIONS]
+√ΩUsage: sparseml.image_classification.export_onnx [OPTIONS]
 
   SparseML-PyTorch Integration for exporting image classification models to
   onnx along with sample inputs and outputs
 
 Options:
-  -d, --dataset TEXT              The dataset used for training, ex:
+  --dataset TEXT                  The dataset used for training, ex:
                                   `imagenet`, `imagenette`, `cifar10`, etc.
                                   Set to `imagefolder` for a generic dataset
                                   setup with imagefolder type structure like
@@ -45,8 +45,8 @@ Options:
   --onnx-opset, --onnx_opset INTEGER
                                   The onnx opset to use for exporting the
                                   model  [default: 11]
-  -z, --use_zipfile_serialization_if_available,
-  --use-zipfile-serialization-if-available / -Z, --no_zipfile_serialization,
+  --use_zipfile_serialization_if_available,
+  --use-zipfile-serialization-if-available / --no_zipfile_serialization,
   --no-zipfile-serialization
                                   For torch >= 1.6.0 only exports the Module's
                                   state dict using the new zipfile
@@ -78,7 +78,7 @@ Options:
   --save-dir, --save_dir DIRECTORY
                                   The path to the directory for saving results
                                   [default: pytorch_vision]
-  -is, --image-size, --image_size INTEGER
+  --image-size, --image_size INTEGER
                                   The size of the image input to the model.
                                   Value should be equal to S for [C, S, S] or
                                   [S, S, C] dimensional input  [default: 224]
@@ -111,7 +111,6 @@ LOGGER = get_main_logger()
 @click.command()
 @click.option(
     "--dataset",
-    "-d",
     type=str,
     required=True,
     help="The dataset used for training, "
@@ -167,7 +166,6 @@ LOGGER = get_main_logger()
 @click.option(
     "--use_zipfile_serialization_if_available/--no_zipfile_serialization",
     "--use-zipfile-serialization-if-available/--no-zipfile-serialization",
-    "-z/-Z",
     is_flag=True,
     default=True,
     show_default=True,
@@ -235,7 +233,6 @@ LOGGER = get_main_logger()
 @click.option(
     "--image-size",
     "--image_size",
-    "-is",
     type=int,
     default=224,
     show_default=True,

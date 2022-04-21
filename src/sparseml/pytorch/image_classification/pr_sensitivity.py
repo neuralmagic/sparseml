@@ -15,13 +15,13 @@
 """
 #####
 Command help:
-Usage: sparseml.image_classification.pr_sensitivity.py [OPTIONS]
+Usage: sparseml.image_classification.pr_sensitivity [OPTIONS]
 
   Run kernel sparsity (pruning) analysis for a desired image classification
   architecture
 
 Options:
-  -d, --dataset TEXT              The dataset to use for analysis, ex:
+  --dataset TEXT                  The dataset to use for analysis, ex:
                                   `imagenet`, `imagenette`, `cifar10`, etc.
                                   Set to `imagefolder` for a generic dataset
                                   setup with imagefolder type structure like
@@ -66,7 +66,7 @@ Options:
                                   [default: pytorch_vision]
   --device TEXT                   The device to run on (can also include ids
                                   for data parallel), ex: cpu, cuda, cuda:0,1
-                                  [default: cuda]
+                                  [default: cpu]
   --loader-num-workers, --loader_num_workers INTEGER
                                   The number of workers to use for data
                                   loading
@@ -83,7 +83,7 @@ Options:
   --approximate                   approximate without running data through the
                                   model(uses one shot analysis if
                                   --approximate not passed)  [default: False]
-  -is, --image-size, --image_size INTEGER
+  --image-size, --image_size INTEGER
                                   The size of the image input to the model.
                                   Value should be equal to S for [C, S, S] or
                                   [S, S, C] dimensional input  [default: 224]
@@ -130,7 +130,6 @@ LOGGER = get_main_logger()
 @click.command()
 @click.option(
     "--dataset",
-    "-d",
     type=str,
     required=True,
     help="The dataset to use for analysis, "
@@ -271,7 +270,6 @@ LOGGER = get_main_logger()
 @click.option(
     "--image-size",
     "--image_size",
-    "-is",
     type=int,
     default=224,
     show_default=True,
