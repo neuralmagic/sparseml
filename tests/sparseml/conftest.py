@@ -20,7 +20,7 @@ import pytest
 
 try:
     import wandb
-except Exception as err:
+except Exception:
     wandb = None
 
 
