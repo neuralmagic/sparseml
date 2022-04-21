@@ -21,9 +21,12 @@ Also handles loading modifiers from yaml files
 import itertools
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import tensorflow as tf
+
 from sparseml.optim import (
     BaseManager,
     BaseScheduled,
+    add_framework_metadata,
     load_recipe_yaml_str,
     parse_recipe_variables,
     validate_metadata,
@@ -110,10 +113,16 @@ class ScheduledModifierManager(BaseManager, Modifier):
         if add_modifiers:
             modifiers.extend(add_modifiers)
 
-        metadata = validate_metadata(metadata, yaml_str)
+        validated_metadata = validate_metadata(metadata, yaml_str)
 
-        manager = ScheduledModifierManager(modifiers=modifiers, metadata=metadata)
+        if metadata is not None:
+            validated_metadata = add_framework_metadata(
+                validated_metadata, tensorflow_version=tf.__version__
+            )
 
+        manager = ScheduledModifierManager(
+            modifiers=modifiers, metadata=validated_metadata
+        )
         return manager
 
     RECAL_UPDATE = "recal_update"

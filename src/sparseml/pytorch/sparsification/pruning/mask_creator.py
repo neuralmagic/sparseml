@@ -130,9 +130,24 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
                 masks.append(tensor.new_ones(tensor.shape))
                 continue
 
+            num_elem = tensor.numel()
+            target_num_mask = round(num_elem * sparsity_target)
             min_val = tensor.min().item()
+
             if threshold.item() > min_val:
-                masks.append((tensor > threshold).type(tensor.type()))
+                threshold_mask = (tensor > threshold).type(tensor.type())
+
+                num_masked = num_elem - torch.sum(threshold_mask).item()
+                if num_masked != target_num_mask:
+                    # attempt to reconcile expected number of masked weights
+                    # may occur if multiple values have the threshold weight
+                    num_to_flip = abs(num_masked - target_num_mask)
+                    over_masked = num_masked > target_num_mask
+                    threshold_mask = self._flip_threshold_mask_vals(
+                        threshold_mask, tensor, threshold, num_to_flip, over_masked
+                    )
+
+                masks.append(threshold_mask)
                 continue
 
             # too many zeros so will go over the already given sparsity
@@ -141,9 +156,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             rand_indices = list(range(zero_indices.shape[0]))
             local_rng = random.Random(42)
             local_rng.shuffle(rand_indices)
-            num_elem = tensor.numel()
-            num_mask = round(num_elem * sparsity_target)
-            rand_indices = rand_indices[:num_mask]
+            rand_indices = rand_indices[:target_num_mask]
             rand_indices = tensor.new_tensor(rand_indices, dtype=torch.int64)
             zero_indices = zero_indices[rand_indices, :]
             mask = tensor.new_ones(tensor.shape).type(tensor.type())
@@ -173,7 +186,7 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             return tensor.new_tensor([])
 
         sorted_vals, _ = torch.sort(tensor.view(-1))
-        lookup_index = round(sparsity * (tensor.numel() - 1))
+        lookup_index = round(sparsity * tensor.numel()) - 1
 
         if lookup_index < 0:
             lookup_index = 0
@@ -217,6 +230,35 @@ class UnstructuredPruningMaskCreator(PruningMaskCreator):
             global_idx += tensor.numel()
 
         return unstacked_tensors
+
+    def _flip_threshold_mask_vals(
+        self,
+        mask: Tensor,
+        tensor: Tensor,
+        threshold: Tensor,
+        max_flip: int,
+        over_masked: bool,
+    ) -> Tensor:
+        # flip mask values where tensor == threshold until mask has desired
+        # number of 0s/1s
+        threshold_idxs = torch.nonzero(tensor == threshold, as_tuple=False)
+        num_flipped = 0
+        for threshold_elem_idx in threshold_idxs:
+            # make tensor returned by nonzero() indexable
+            threshold_elem_idx = threshold_elem_idx.split(1)
+            threshold_mask_elem = mask[threshold_elem_idx]
+
+            # flip mask val at threshold index if necessary
+            if over_masked and threshold_mask_elem == 0:
+                mask[threshold_elem_idx] = 1
+                num_flipped += 1
+            elif not over_masked and threshold_mask_elem == 1:
+                mask[threshold_elem_idx] = 0
+                num_flipped += 1
+
+            if num_flipped >= max_flip:
+                break
+        return mask
 
 
 class GroupedPruningMaskCreator(UnstructuredPruningMaskCreator):

@@ -21,7 +21,7 @@ import numpy
 import pytest
 import torch
 from torch import Tensor
-from torch.nn import Linear, Module, ReLU, Sequential
+from torch.nn import BatchNorm2d, Conv2d, Linear, Module, ReLU, Sequential
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 
@@ -43,6 +43,7 @@ from sparseml.pytorch.utils import (
     tensors_module_forward,
     tensors_to_device,
     tensors_to_precision,
+    thin_model_from_checkpoint,
 )
 from tests.sparseml.pytorch.helpers import LinearNet
 
@@ -837,3 +838,45 @@ def test_tensor_sample_cuda(tensor, size, dim, expected_shape):
 def test_mask_difference(old_mask, new_mask, expected_diff):
     diff = mask_difference(old_mask, new_mask)
     assert torch.sum((diff - expected_diff).abs()) < sys.float_info.epsilon
+
+
+@pytest.mark.skipif(
+    os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
+    reason="Skipping pytorch tests",
+)
+@pytest.mark.parametrize(
+    "model,state_dict,test_input",
+    [
+        (
+            Sequential(Conv2d(3, 16, (1, 1)), BatchNorm2d(16), Conv2d(16, 16, (1, 1))),
+            {
+                "0.weight": torch.randn(8, 3, 1, 1),
+                "0.bias": torch.randn(8),
+                "1.weight": torch.randn(8),
+                "1.bias": torch.randn(8),
+                "1.running_mean": torch.randn(8),
+                "1.running_var": torch.randn(8),
+                "2.weight": torch.randn(12, 8, 1, 1),
+                "2.bias": torch.randn(12),
+            },
+            torch.randn(2, 3, 16, 16),
+        ),
+        (
+            Sequential(Linear(8, 12), Linear(12, 16)),
+            {
+                "0.weight": torch.randn(7, 8),
+                "0.bias": torch.randn(7),
+                "1.weight": torch.randn(9, 7),
+                "1.bias": torch.randn(9),
+            },
+            torch.randn(5, 8),
+        ),
+    ],
+)
+def test_thin_model_from_checkpoint(model, state_dict, test_input):
+    with pytest.raises(RuntimeError):
+        model.load_state_dict(state_dict)
+
+    thin_model_from_checkpoint(model, state_dict)
+    model.load_state_dict(state_dict, strict=True)
+    assert isinstance(model(test_input), Tensor)
