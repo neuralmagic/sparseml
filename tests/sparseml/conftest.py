@@ -17,7 +17,11 @@ import shutil
 
 import pytest
 
-import wandb
+
+try:
+    import wandb
+except Exception as err:
+    wandb = None
 
 
 os.environ["NM_TEST_MODE"] = "True"
@@ -28,7 +32,8 @@ os.environ["NM_TEST_LOG_DIR"] = "temp_test_logs"
 def check_for_created_files():
     start_file_count = sum(len(files) for _, _, files in os.walk(r"."))
     yield
-    wandb.finish()
+    if wandb:
+        wandb.finish()
     log_dir = os.environ.get("NM_TEST_LOG_DIR")
     log_dir_tensorboard = os.path.join(log_dir, "tensorboard")
     log_dir_wandb = os.path.join(log_dir, "wandb")
