@@ -34,7 +34,7 @@ def _is_yaml_recipe_present(model_path):
         [
             file
             for file in glob.glob(os.path.join(model_path, "*"))
-            if (file.endswith(".yaml") or ("recipe" in file))
+            if (file.endswith((".yaml", ".md")) or ("recipe" in file))
         ]
     )
 
@@ -173,6 +173,7 @@ class TestModelFromZoo:
             task=task,
             model_path=model_path,
             onnx_file_name=self.onnx_retrieved_name,
+            sequence_length=next(iter(input_data.values())).shape[0],
         )
 
         out1 = _run_inference_onnx(path_onnx, input_data)

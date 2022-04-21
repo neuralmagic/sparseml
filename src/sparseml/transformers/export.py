@@ -56,12 +56,12 @@ sparseml.transformers.export_onnx \
 
 import argparse
 import collections
+import glob
 import inspect
 import logging
 import math
 import os
 from typing import Any, Optional
-import glob
 
 from torch.nn import Module
 from transformers import AutoConfig, AutoTokenizer
@@ -158,15 +158,16 @@ def export_transformer_to_onnx(
         model_path, model_max_length=sequence_length
     )
     model = load_task_model(task, model_path, config)
-    zoomodels_recipe_path= os.path.join(model_path, "..", "recipes")
+    zoomodels_recipe_path = os.path.join(model_path, "..", "recipes")
     recipe = str(
-                (
-                    glob.glob(os.path.join(model_path, "*.md"))
-                    or glob.glob(os.path.join(model_path, "*.yaml"))
-                    or glob.glob(os.path.join(zoomodels_recipe_path, "*.md"))
-                    or glob.glob(os.path.join(zoomodels_recipe_path, "*.yaml"))
-                )[0]
-            )
+        (
+            glob.glob(os.path.join(model_path, "*.md"))
+            or glob.glob(os.path.join(model_path, "*.yaml"))
+            or glob.glob(os.path.join(zoomodels_recipe_path, "*.md"))
+            or glob.glob(os.path.join(zoomodels_recipe_path, "*.yaml"))
+        )[0]
+    )
+
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
     trainer = Trainer(
