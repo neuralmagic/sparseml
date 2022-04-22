@@ -615,9 +615,8 @@ class QuantizationModifier(ScheduledModifier):
                 "Overriding quantization scheme to symmetric int8 "
                 "for both weights and activations because tensorrt flag is True."
             )
-            qproperties.symmetric_activations = True
+            qproperties.tensorrt = True
             qproperties.activation_dtype = torch.qint8
-            qproperties.symmetric_weights = True
             qproperties.weight_dtype = torch.qint8
 
         qconfig = get_qat_qconfig(qproperties)
