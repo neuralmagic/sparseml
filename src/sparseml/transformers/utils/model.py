@@ -27,7 +27,7 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
-from sparseml.pytorch.utils import ModuleSparsificationInfo
+from sparseml.pytorch.utils import ModuleSparsificationInfo, apply_weight_mask
 
 
 __all__ = ["SparseAutoModel", "get_shared_tokenizer_src"]
@@ -45,12 +45,14 @@ class SparseAutoModel:
     def masked_language_modeling_from_pretrained(
         model_name_or_path: str,
         model_type: str,
+        mask_name_or_path: Optional[str] = None,
         **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
         :param model_type: specify the type of model loaded for logging;
             ex one of [model, student, teacher]
+        :param mask_name_or_path: the name of or path to the model whose mask to apply
         :param kwargs: keyword arguments to pass through to the AutoModel call
         :return: the created model for masked language modeling
         """
@@ -72,7 +74,13 @@ class SparseAutoModel:
                 model_name_or_path,
                 **kwargs,
             )
-
+        if mask_name_or_path:
+            SparseAutoModel._transfer_masks(
+                mask_name_or_path,
+                model_name_or_path,
+                model,
+                delayed,
+            )
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -83,6 +91,7 @@ class SparseAutoModel:
         teacher_name_or_path: Optional[str],
         model_kwargs: Dict[str, Any],
         teacher_kwargs: Dict[str, Any],
+        mask_name_or_path: Optional[str] = None,
     ) -> Tuple[Module, Optional[Union[Module, str]]]:
         """
         :param model_name_or_path: the name of or path to the model to load
@@ -91,6 +100,7 @@ class SparseAutoModel:
             instead return the value passed in
         :param model_kwargs: the keyword args to pass into the AutoModel for model
         :param teacher_kwargs: the keyword args to pass into the AutoModel for teacher
+        :param mask_name_or_path: the name of or path to the model whose mask to apply
         :return: a tuple containing the model and distillation teacher (optional)
             for masked language modeling
         """
@@ -98,6 +108,7 @@ class SparseAutoModel:
             model_name_or_path,
             model_type="student" if teacher_name_or_path else "model",
             **model_kwargs,
+            mask_name_or_path=mask_name_or_path,
         )
         teacher = (
             SparseAutoModel.masked_language_modeling_from_pretrained(
@@ -115,12 +126,14 @@ class SparseAutoModel:
     def question_answering_from_pretrained(
         model_name_or_path: str,
         model_type: str,
+        mask_name_or_path: Optional[str] = None,
         **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
         :param model_type: specify the type of model loaded for logging;
             ex one of [model, student, teacher]
+        :param mask_name_or_path: the name of or path to the model whose mask to apply
         :param kwargs: keyword arguments to pass through to the AutoModel call
         :return: the created model for question answering
         """
@@ -137,6 +150,13 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        if mask_name_or_path:
+            SparseAutoModel._transfer_masks(
+                mask_name_or_path,
+                model_name_or_path,
+                model,
+                delayed,
+            )
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -147,6 +167,7 @@ class SparseAutoModel:
         teacher_name_or_path: Optional[str],
         model_kwargs: Dict[str, Any],
         teacher_kwargs: Dict[str, Any],
+        mask_name_or_path: Optional[str] = None,
     ) -> Tuple[Module, Optional[Union[Module, str]]]:
         """
         :param model_name_or_path: the name of or path to the model to load
@@ -155,6 +176,7 @@ class SparseAutoModel:
             instead return the value passed in
         :param model_kwargs: the keyword args to pass into the AutoModel for model
         :param teacher_kwargs: the keyword args to pass into the AutoModel for teacher
+        :param mask_name_or_path: the name of or path to the model whose mask to apply
         :return: a tuple containing the model and distillation teacher (optional)
             for question answering
         """
@@ -162,6 +184,7 @@ class SparseAutoModel:
             model_name_or_path,
             model_type="student" if teacher_name_or_path else "model",
             **model_kwargs,
+            mask_name_or_path=mask_name_or_path,
         )
         teacher = (
             SparseAutoModel.question_answering_from_pretrained(
@@ -177,12 +200,14 @@ class SparseAutoModel:
     def text_classification_from_pretrained(
         model_name_or_path: str,
         model_type: str,
+        mask_name_or_path: Optional[str] = None,
         **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
         :param model_type: specify the type of model loaded for logging;
             ex one of [model, student, teacher]
+        :param mask_name_or_path: the name of or path to the model whose mask to apply
         :param kwargs: keyword arguments to pass through to the AutoModel call
         :return: the created model for text classification
         """
@@ -199,6 +224,13 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        if mask_name_or_path:
+            SparseAutoModel._transfer_masks(
+                mask_name_or_path,
+                model_name_or_path,
+                model,
+                delayed,
+            )
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -209,6 +241,7 @@ class SparseAutoModel:
         teacher_name_or_path: Optional[str],
         model_kwargs: Dict[str, Any],
         teacher_kwargs: Dict[str, Any],
+        mask_name_or_path: Optional[str] = None,
     ) -> Tuple[Module, Optional[Module]]:
         """
         :param model_name_or_path: the name of or path to the model to load
@@ -217,6 +250,7 @@ class SparseAutoModel:
             instead return the value passed in
         :param model_kwargs: the keyword args to pass into the AutoModel for model
         :param teacher_kwargs: the keyword args to pass into the AutoModel for teacher
+        :param mask_name_or_path: the name of or path to the model whose mask to apply
         :return: a tuple containing the model and distillation teacher (optional)
             for sequence/text classification
         """
@@ -224,6 +258,7 @@ class SparseAutoModel:
             model_name_or_path,
             model_type="student" if teacher_name_or_path else "model",
             **model_kwargs,
+            mask_name_or_path=mask_name_or_path,
         )
         teacher = (
             SparseAutoModel.text_classification_from_pretrained(
@@ -239,12 +274,14 @@ class SparseAutoModel:
     def token_classification_from_pretrained(
         model_name_or_path: str,
         model_type: str,
+        mask_name_or_path: Optional[str] = None,
         **kwargs,
     ) -> Module:
         """
         :param model_name_or_path: the name of or path to the model to load
         :param model_type: specify the type of model loaded for logging;
             ex one of [model, student, teacher]
+        :param mask_name_or_path: the name of or path to the model whose mask to apply
         :param kwargs: keyword arguments to pass through to the AutoModel call
         :return: the created model for token classification
         """
@@ -261,6 +298,13 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        if mask_name_or_path:
+            SparseAutoModel._transfer_masks(
+                mask_name_or_path,
+                model_name_or_path,
+                model,
+                delayed,
+            )
         SparseAutoModel.log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -271,6 +315,7 @@ class SparseAutoModel:
         teacher_name_or_path: Optional[str],
         model_kwargs: Dict[str, Any],
         teacher_kwargs: Dict[str, Any],
+        mask_name_or_path: Optional[str] = None,
     ) -> Tuple[Module, Optional[Module]]:
         """
         :param model_name_or_path: the name of or path to the model to load
@@ -279,6 +324,7 @@ class SparseAutoModel:
             instead return the value passed in
         :param model_kwargs: the keyword args to pass into the AutoModel for model
         :param teacher_kwargs: the keyword args to pass into the AutoModel for teacher
+        :param mask_name_or_path: the name of or path to the model whose mask to apply
         :return: a tuple containing the model and distillation teacher (optional)
             for token classification
         """
@@ -286,6 +332,7 @@ class SparseAutoModel:
             model_name_or_path,
             model_type="student" if teacher_name_or_path else "model",
             **model_kwargs,
+            mask_name_or_path=mask_name_or_path,
         )
         teacher = (
             SparseAutoModel.token_classification_from_pretrained(
@@ -382,6 +429,18 @@ class SparseAutoModel:
                 "Detected a TensorFlow model from model_name_or_path: "
                 f"{model_name_or_path}"
             )
+
+    @staticmethod
+    def _transfer_masks(
+        mask_name_or_path: str, model_name_or_path: str, model: Module, delayed: bool
+    ):
+        _LOGGER.info(
+            f"Loading masks from {mask_name_or_path} "
+            f"and transferring to {model_name_or_path}"
+        )
+        mask = type(model).from_pretrained(mask_name_or_path)  # type: ignore
+        SparseAutoModel.log_model_load(mask, mask_name_or_path, "mask", delayed)
+        apply_weight_mask(mask, model)
 
 
 def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:

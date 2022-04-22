@@ -33,6 +33,7 @@ from sparseml.pytorch.utils.helpers import (
 __all__ = [
     "ModuleSparsificationInfo",
     "GradSampler",
+    "apply_weight_mask",
 ]
 
 
@@ -231,3 +232,18 @@ class GradSampler:
                 if computed_grads >= num_grads:
                     break
         module.zero_grad()
+
+
+def apply_weight_mask(from_mdl: Module, to_mdl: Module, threshold: float = 0.1):
+    """
+    :param from_mdl: model whose mask to apply
+    :param to_mdl: model to be masked
+    :param threshold: param sparsity to be considered as pruned intentionally
+    """
+    with torch.no_grad():
+        mask_src = dict(from_mdl.named_parameters())
+        prunable = get_prunable_layers(to_mdl)
+        for name, module in prunable:
+            param = name + ".weight"
+            if tensor_sparsity(mask_src[param]) > threshold:
+                module.weight[mask_src[param] == 0.0] = 0.0
