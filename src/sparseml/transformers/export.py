@@ -157,7 +157,6 @@ def export_transformer_to_onnx(
         model_path, model_max_length=sequence_length
     )
     model = load_task_model(task, model_path, config)
-
     _LOGGER.info(f"loaded model, config, and tokenizer from {model_path}")
 
     trainer = Trainer(
