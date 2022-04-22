@@ -123,6 +123,7 @@ class TestModelFromZoo:
         self.onnx_retrieved_name = "retrieved_model.onnx"
         model = Zoo.load_model_from_stub(model_stub)
         model.download()
+        _attempt_copy_original_recipe(model.framework_files[0].dir_path)
 
         yield model, recipe_present, task
 
@@ -133,7 +134,6 @@ class TestModelFromZoo:
     def test_load_weights_apply_recipe(self, setup):
         model, recipe_present, task = setup
         model_path = model.framework_files[0].dir_path
-        _attempt_copy_original_recipe(model_path)
 
         config = AutoConfig.from_pretrained(model_path)
         model = load_task_model(task, model_path, config)
@@ -157,7 +157,6 @@ class TestModelFromZoo:
         model, recipe_present, task = setup
         path_onnx = model.onnx_file.downloaded_path()
         model_path = model.framework_files[0].dir_path
-        _attempt_copy_original_recipe(model_path)
 
         path_retrieved_onnx = export_transformer_to_onnx(
             task=task,
@@ -179,7 +178,6 @@ class TestModelFromZoo:
         path_onnx = model.onnx_file.downloaded_path()
         model_path = model.framework_files[0].dir_path
         inputs_path = model.data_inputs.path
-        _attempt_copy_original_recipe(model_path)
 
         input_data = load_numpy_list(inputs_path)[0]
 
