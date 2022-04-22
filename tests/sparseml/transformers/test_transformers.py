@@ -23,6 +23,7 @@ import onnxruntime as ort
 import pytest
 from transformers import AutoConfig
 
+import GPUtil
 from sparseml.transformers.sparsification import Trainer
 from sparsezoo import Zoo
 from sparsezoo.utils import load_numpy_list
@@ -40,7 +41,12 @@ def _is_yaml_recipe_present(model_path):
 
 
 def _run_inference_onnx(path_onnx, input_data):
-    ort_sess = ort.InferenceSession(path_onnx)
+    providers = (
+        ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        if GPUtil.getAvailable()
+        else ["CPUExecutionProvider"]
+    )
+    ort_sess = ort.InferenceSession(path_onnx, providers=providers)
     model = onnx.load(path_onnx)
     input_names = [inp.name for inp in model.graph.input]
 
@@ -163,5 +169,6 @@ class TestModelFromZoo:
 
         out1 = _run_inference_onnx(path_onnx, input_data)
         out2 = _run_inference_onnx(path_retrieved_onnx, input_data)
+
         for o1, o2 in zip(out1, out2):
             pytest.approx(o1, abs=1e-5) == o2
