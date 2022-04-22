@@ -86,6 +86,7 @@ def _compare_onnx_models(model_1, model_2):
         assert nodes1_count[node] == nodes2_count[node]
 
 
+# TODO: Remove this function once yaml recipes supplied
 def _attempt_copy_original_recipe(model_path):
     recipe_path = os.path.join(os.path.dirname(model_path), "recipes")
     recipe_path = recipe_path if os.path.exists(recipe_path) else model_path
