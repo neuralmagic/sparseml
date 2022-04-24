@@ -51,7 +51,7 @@ from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml.transformers.sparsification import Trainer
-from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
 
 # Will error if the minimal version of Transformers is not installed.
@@ -76,6 +76,12 @@ _TASK_TO_KEYS = {
 }
 
 _LOGGER = logging.getLogger(__name__)
+
+metadata_args = [
+    "per_device_train_batch_size",
+    "per_device_eval_batch_size",
+    "fp16",
+]
 
 
 @dataclass
@@ -424,15 +430,7 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name
-        if model_args.tokenizer_name
-        else model_args.model_name_or_path,
-        cache_dir=model_args.cache_dir,
-        use_fast=model_args.use_fast_tokenizer,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
+
     model, teacher = SparseAutoModel.text_classification_from_pretrained_distil(
         model_name_or_path=(
             model_args.tokenizer_name
@@ -450,6 +448,19 @@ def main():
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
+    )
+
+    tokenizer_src = (
+        model_args.tokenizer_name
+        if model_args.tokenizer_name
+        else get_shared_tokenizer_src(model, teacher)
+    )
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_src,
+        cache_dir=model_args.cache_dir,
+        use_fast=model_args.use_fast_tokenizer,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
     )
 
     # Preprocessing the datasets
@@ -624,6 +635,7 @@ def main():
         model=model,
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
+        metadata_args=metadata_args,
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,
