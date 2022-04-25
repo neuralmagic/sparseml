@@ -1,51 +1,25 @@
-from jina import Flow
 from docarray import Document, DocumentArray
+from jina import Flow
 
-# A DocumentArray is a list of Documents.
-docs = DocumentArray(
-    [
-        # We set the `text` of each Document to a line from "Squid Game"
-        Document(
-            text="I’m Good At Everything, Except The Things I Can’t Do."),
-        Document(
-            text="I Don’t Have A Home To Go Back To. In Here, I Stand A Chance At Least. But Out There? I Got Nothing Out There."
-        ),
-        Document(
-            text="This Is Hell. What Are The Rules In Hell?"),
-        Document(
-            text="Do You Know What Someone With No Money Has In Common With Someone With Too Much Money? Living Is No Fun For Them."
-        ),
-        Document(
-            text="You Don’t Trust People Here Because You Can. You Do It Because You Don’t Have Anybody Else."
-        ),
-    ]
-)
+from executors import DeepSparseExecutor
 
-# Create a new Flow to process our Documents
-flow = (
-    Flow()
-    # Add encoder, to convert text to vector embeddings
-    .add(uses="jinahub://TransformerTorchEncoder", name="encoder", install_requirements=True)
-    # Add indexer
-    # When indexing it embeds embeddings in a graph
-    # When searching it retrieves nearest neighbor to search term
-    .add(uses="jinahub://SimpleIndexer/v0.15", install_requirements=True, name="indexer")
-)
+# Create a document with a query and context
+query, context = "What's my name?", "My name is Mario!"
+docs = DocumentArray([Document(text=query),
+                      Document(text=context)
+                      ])
+# Pass the SparseZoo model
+model_stub = "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned_3layers-aggressive_90"
+
+# Create a new Flow that includes our custom Executor
+flow = (Flow().add(uses=DeepSparseExecutor,
+                   uses_with={'model_stub': model_stub},
+                   name="executor",
+                   install_requirements=True))
+
 # Open Flow as context manager
 with flow:
-    # Index our DocumentArray of Squid Game Documents
-    flow.index(inputs=docs)
-    # Create a Document containing our search term. In this case, we take it from user's input
-    query = Document(text="Should I trust people here?")
-    # Search the index, return similar matches, and store in `response`
-    docs = flow.search(inputs=query)
+    answer = flow.post(on='/question_answering', inputs=docs)
 
-# Pull out the matches from all the other data in the response
-matches = docs[0].matches
-
-print("Your search results")
-print("-------------------\n")
-
-for match in matches:
-    # Print the text of each match (from `Document.text`)
-    print(f"- {match.text}")
+print(f"Input question: {query}, input context: {context}")
+print(f"Response: {answer.contents[0]}")
