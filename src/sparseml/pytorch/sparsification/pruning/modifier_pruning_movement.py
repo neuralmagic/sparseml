@@ -24,7 +24,7 @@ import torch.distributed as dist
 from torch import Tensor
 from torch.nn import Parameter
 
-from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
+from sparseml.pytorch.sparsification.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
     GMPruningModifier,
 )

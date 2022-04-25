@@ -28,6 +28,7 @@ https://huggingface.co/models?filter=masked-lm
 
 # You can also adapt this script on your own masked language modeling task.
 # Pointers for this are left as comments
+
 import logging
 import math
 import os
@@ -54,7 +55,14 @@ from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml.transformers.sparsification import Trainer
-from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+
+
+metadata_args = [
+    "per_device_train_batch_size",
+    "per_device_eval_batch_size",
+    "fp16",
+]
 
 
 # Will error if the minimal version of Transformers is not installed.
@@ -465,27 +473,6 @@ def main():
             config.update_from_string(model_args.config_overrides)
             _LOGGER.info(f"New config: {config}")
 
-    tokenizer_kwargs = {
-        "cache_dir": model_args.cache_dir,
-        "use_fast": model_args.use_fast_tokenizer,
-        "revision": model_args.model_revision,
-        "use_auth_token": True if model_args.use_auth_token else None,
-    }
-    if model_args.tokenizer_name:
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_args.tokenizer_name, **tokenizer_kwargs
-        )
-    elif model_args.model_name_or_path:
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_args.model_name_or_path, **tokenizer_kwargs
-        )
-    else:
-        raise ValueError(
-            "You are instantiating a new tokenizer from scratch. This is not "
-            "supported by this script. You can do it from another script, save "
-            "it, and load it from here, using --tokenizer_name."
-        )
-
     model, teacher = SparseAutoModel.masked_language_modeling_from_pretrained_distil(
         model_name_or_path=model_args.model_name_or_path,
         model_kwargs={
@@ -500,6 +487,19 @@ def main():
             "use_auth_token": True if model_args.use_auth_token else None,
         },
     )
+
+    tokenizer_kwargs = {
+        "cache_dir": model_args.cache_dir,
+        "use_fast": model_args.use_fast_tokenizer,
+        "revision": model_args.model_revision,
+        "use_auth_token": True if model_args.use_auth_token else None,
+    }
+    tokenizer_src = (
+        model_args.tokenizer_name
+        if model_args.tokenizer_name
+        else get_shared_tokenizer_src(model, teacher)
+    )
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_src, **tokenizer_kwargs)
 
     model.resize_token_embeddings(len(tokenizer))
 
@@ -673,6 +673,7 @@ def main():
         model=model,
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
+        metadata_args=metadata_args,
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,

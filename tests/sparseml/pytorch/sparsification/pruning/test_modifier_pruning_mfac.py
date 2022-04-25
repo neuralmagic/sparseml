@@ -22,12 +22,12 @@ from sparseml.pytorch.sparsification.pruning import MFACPruningModifier
 from sparseml.pytorch.utils import GradSampler, tensor_sparsity
 from sparseml.utils import FROM_PARAM_TOKEN
 from tests.sparseml.pytorch.helpers import MLPDataset, MLPNet
-from tests.sparseml.pytorch.optim.test_modifier import (
-    ScheduledUpdateModifierTest,
-    create_optim_adam,
-)
 from tests.sparseml.pytorch.sparsification.pruning.helpers import (
     pruning_modifier_serialization_vals_test,
+)
+from tests.sparseml.pytorch.sparsification.test_modifier import (
+    ScheduledUpdateModifierTest,
+    create_optim_adam,
 )
 
 
