@@ -64,10 +64,10 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     init_sparsity until final_sparsity is reached over a given amount of time
     and applied with an interpolated function for each step taken.
 
-    Uses the Matrix-Free Approxmiate Curvature (M-FAC) algorithm for solving
+    Uses the Matrix-Free Approxmiate Curvature (M-FAC) algorithm from the 
+    paper https://arxiv.org/abs/2107.03356 for solving
     for optimal pruning updates by estimating the inverse Hessian matrix to the
     loss over time under the Optimal Brain Surgeon (OBS) framework.
-    A link to the paper will be included here in an upcoming update.
 
     | Sample yaml:
     |   !MFACPruningModifier
@@ -151,6 +151,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         num_pages: int = 1,  # break computation into pages when block size is None
         available_devices: Optional[List[str]] = None,
         mask_type: str = "unstructured",
+        **kwargs
     ):
         super().__init__(
             params=params,

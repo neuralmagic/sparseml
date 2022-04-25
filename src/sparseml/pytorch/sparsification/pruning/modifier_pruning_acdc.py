@@ -13,32 +13,40 @@
 # limitations under the License.
 
 import math
-from typing import List, Union
+
+from typing import List, Dict, Union, Optional
 
 from torch.nn import Module, Parameter
 from torch.optim.optimizer import Optimizer
 
-from sparseml.pytorch.sparsification.modifier import ModifierProp, PyTorchModifierYAML
+from sparseml.pytorch.optim.modifier import ModifierProp, PyTorchModifierYAML
 from sparseml.pytorch.sparsification.pruning.mask_creator import (
     PruningMaskCreator,
     get_mask_creator_default,
 )
 from sparseml.pytorch.sparsification.pruning.modifier_pruning_base import (
-    BasePruningModifier,
+    BaseGradualPruningModifier,
 )
-from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import (
-    MagnitudePruningParamsScorer,
-)
-from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
+from sparseml.pytorch.sparsification.pruning.modifier_pruning_magnitude import \
+    MagnitudePruningModifier, GlobalMagnitudePruningModifier
+from sparseml.pytorch.sparsification.pruning.modifier_pruning_mfac import \
+    MFACPruningModifier
+from sparseml.pytorch.sparsification.pruning.modifier_pruning_movement import \
+    MovementPruningModifier
 
-
-__all__ = ["ACDCPruningModifier"]
+__all__ = [
+    "ACDCMagnitudePruningModifier",
+    "ACDCMovementPruningModifier", 
+    "ACDCGlobalMagnitudePruningModifier", 
+    "ACDCMFACPruningModifier"
+]
 
 
 @PyTorchModifierYAML()
-class ACDCPruningModifier(BasePruningModifier):
+class ACDCBasePruningModifier(BaseGradualPruningModifier):
+
     """
-    Implementation of
+    Base class for the implementation of
     Alternating Compressed/DeCompressed Training of Deep Neural Networks:
     https://arxiv.org/pdf/2106.12379.pdf.
     AC/DC performs co-training of sparse and dense models, and can return both an
@@ -51,7 +59,6 @@ class ACDCPruningModifier(BasePruningModifier):
     |       update_frequency: 5
     |       params: __ALL_PRUNABLE__
     |       global_sparsity: True
-
     :param compression_sparsity: The sparsity enforced during the compression phase.
     :param start_epoch: The epoch to start the modifier at
     :param end_epoch: The epoch to end the modifier at
@@ -91,6 +98,7 @@ class ACDCPruningModifier(BasePruningModifier):
         leave_enabled: bool = True,
         momentum_buffer_reset: bool = True,
         mask_type: str = "unstructured",
+        **kwargs
     ):
         # AC/DC assumes that variables `start_epoch`, `end_epoch`
         # and `update_frequency` are integers.
@@ -107,13 +115,17 @@ class ACDCPruningModifier(BasePruningModifier):
         self._momentum_buffer_reset = momentum_buffer_reset
         self._mask_type = mask_type
 
-        super(ACDCPruningModifier, self).__init__(
+        super(ACDCBasePruningModifier, self).__init__(
+            init_sparsity=0.0,
+            final_sparsity=compression_sparsity,
             start_epoch=start_epoch,
-            end_epoch=end_epoch,
+            end_epoch=self._finish_on_compression(
+                start_epoch, end_epoch, update_frequency
+            ),
             update_frequency=update_frequency,
             global_sparsity=global_sparsity,
             params=params,
-            leave_enabled=leave_enabled,
+            leave_enabled=leave_enabled
         )
 
         self._momentum_buffer_empty = True
@@ -162,12 +174,8 @@ class ACDCPruningModifier(BasePruningModifier):
             should be set to different sparsities, should return a list of those values
             in the order the parameters appear in the mask manager for this object
         """
-        if epoch == float("inf"):
-            return self._compression_sparsity
-
         self._num_phase = math.floor((epoch - self.start_epoch) / self.update_frequency)
-
-        if self._num_phase % 2 == 0 and self.end_epoch - self.update_frequency > epoch:
+        if self._num_phase % 2 == 1:
             # entering decompression phase
             self._is_phase_decompression = True
             applied_sparsity = self._decompression_sparsity
@@ -211,13 +219,6 @@ class ACDCPruningModifier(BasePruningModifier):
         """
         return self._compression_sparsity
 
-    def _get_scorer(self, params: List[Parameter]) -> PruningParamsScorer:
-        """
-        :param params: list of Parameters for scorer to track
-        :return: param scorer object to be used by this pruning algorithm
-        """
-        return MagnitudePruningParamsScorer(params)
-
     def _get_mask_creator(
         self, param_names: List[str], params: List[Parameter]
     ) -> PruningMaskCreator:
@@ -237,6 +238,46 @@ class ACDCPruningModifier(BasePruningModifier):
                 param_buffer["momentum_buffer"].mul_(0.0)
 
     @staticmethod
+    def _finish_on_compression(
+        start_epoch: float, end_epoch: float, update_frequency: float
+    ) -> float:
+        """
+        This function asserts that training will always
+        end on compression phase. This will happen by directly removing
+        all the last decompression epochs until we encounter the final compression
+        epoch.
+        E.g. if start_epoch = 0, end_epoch = 9 and update_frequency = 2:
+        compression_phases = [0,0,1,1,0,0,1,1,0]
+        Because last epoch is decompression phase, end_epoch will be reduced to 8.
+        (so that compression_phases = [0,0,1,1,0,0,1,1]
+
+        :param start_epoch:
+            The epoch to start the modifier at
+        :param end_epoch:
+            The epoch to end the modifier at
+        :param update_frequency:
+            The length (in epochs) of each and every compression/decompression phase.
+        :return: reduced_end_epoch:
+            (If required) reduced, original end_epoch (reduced_end_epoch <= end_epoch)
+        """
+        compression_phases = [
+            math.floor(epoch / update_frequency) % 2 == 0.0
+            for epoch in range(start_epoch, end_epoch)
+        ]
+
+        for compressed_phase_epoch in reversed(compression_phases):
+            if compressed_phase_epoch:
+                # when compressed_phase_epoch encountered
+                # this function returns original 'end_epoch'
+                break
+            else:
+                # otherwise, keep subtracting last
+                # decompression epochs count from the 'end epoch'
+                end_epoch -= 1
+
+        return end_epoch
+
+    @staticmethod
     def _assert_is_integer(x):
         """
         Check if x, which is expected to be either a float or int,
@@ -254,3 +295,141 @@ class ACDCPruningModifier(BasePruningModifier):
                 "However: type(x)==float and x.is_integer() == False."
             )
         return int(x)
+
+    
+@PyTorchModifierYAML()
+class ACDCMagnitudePruningModifier(ACDCBasePruningModifier, MagnitudePruningModifier):
+    """
+    This subclass of the ACDCBasePruningModifier implements 
+    AC/DC training with the MagnitudePruning scorer as 
+    in the original paper https://arxiv.org/pdf/2106.12379.pdf. 
+    """
+    pass
+
+
+@PyTorchModifierYAML()
+class ACDCGlobalMagnitudePruningModifier(ACDCBasePruningModifier, GlobalMagnitudePruningModifier):
+    """
+    This subclass of the ACDCBasePruningModifier implements 
+    AC/DC training with the GlobalMagnitudePruningModifier scorer.
+    """
+    pass
+
+
+@PyTorchModifierYAML()
+class ACDCMovementPruningModifier(ACDCBasePruningModifier, MovementPruningModifier):
+    """
+    This subclass of the ACDCBasePruningModifier implements 
+    AC/DC training with the MovementPruningModifier scorer.
+    """
+    pass
+
+
+@PyTorchModifierYAML()
+class ACDCMFACPruningModifier(ACDCBasePruningModifier, MFACPruningModifier):
+    """
+    This subclass of the ACDCBasePruningModifier implements 
+    AC/DC training with the MFACPruningModifier scorer.
+
+    Uses the Matrix-Free Approxmiate Curvature (M-FAC) algorithm from the 
+    paper https://arxiv.org/abs/2107.03356 for solving
+    for optimal pruning updates by estimating the inverse Hessian matrix to the
+    loss over time under the Optimal Brain Surgeon (OBS) framework.
+
+    | Sample yaml:
+    |   !ACDCMFACPruningModifier
+    |       compression_sparsity: 0.9
+    |       start_epoch: 0
+    |       end_epoch: 100
+    |       update_frequency: 5.0
+    |       params: ["re:.*weight"]
+    |       leave_enabled: True
+    |       mask_type: unstructured
+    |       num_grads: 256
+    |       fisher_block_size: 10000
+    |       available_devices: ["cuda:0"]
+
+    :param compression_sparsity: The sparsity enforced during the compression phase.
+    :param start_epoch: The epoch to start the modifier at
+    :param end_epoch: The epoch to end the modifier at
+    :param update_frequency: The length (in epochs) of compression/decompression phase
+    :param params: A list of full parameter names or regex patterns of names to apply
+        pruning to.  Regex patterns must be specified with the prefix 're:'. __ALL__
+        will match to all parameters. __ALL_PRUNABLE__ will match to all ConvNd
+        and Linear layers' weights. If a sparsity to param mapping is defined by
+        final_sparsity, then params should be set to []
+    :param leave_enabled: True to continue masking the weights after end_epoch,
+        False to stop masking. Should be set to False if exporting the result
+        immediately after or doing some other prune
+    :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
+        for unstructured pruning or 'block4' for four block pruning or a list of two
+        integers for a custom block shape. Default is 'unstructured'
+    :param global_sparsity: set True to enable global pruning. if False, pruning will
+        be layer-wise. Default is False
+    :param use_gradient_buffering: Optional bool to use gradient buffering instead of
+    grad sampling. By default, grad sampling is always used when available
+    :param num_grads: number of gradients to store in buffer for Fisher computation.
+        can be an int where that constant value will be used throughout pruning or a
+        dictionary of float sparsity values to the number of gradients that should be
+        stored when that sparsity level (between 0.0 and 1.0) is reached. If a
+        dictionary, then 0.0 must be included as a key for the base number of gradients
+        to store (i.e. {0: 64, 0.5: 128, 0.75: 256}). Default is 64
+    :param damp: dampening factor, default is 1e-5
+    :param grads_device: device to store the gradient buffer on. Default is "cpu"
+    :param fisher_block_size: optional value to enable blocked computation of the
+        Fisher matrix. Blocks will be formed consecutively along the diagonal. If
+        None, blocked computation is not used. Default is 2000
+    :param num_pages: number of pages to break the gradient samples into for GPU
+        computation. Only available when blocked computation is not enabled.
+        Default is 1
+    :param available_devices: list of device names to perform computation on. Default
+        is empty
+    :param mask_type: String to define type of sparsity to apply. May be 'unstructred'
+        for unstructured pruning or 'block4' for four block pruning or a list of two
+        integers for a custom block shape. Default is 'unstructured'
+    """
+    
+    def __init__(
+        self,
+        compression_sparsity: float,
+        start_epoch: Union[int, float],
+        end_epoch: Union[int, float],
+        update_frequency: Union[int, float],
+        params: Union[str, List[str]],
+        global_sparsity: bool = True,
+        leave_enabled: bool = True,
+        momentum_buffer_reset: bool = True,
+        mask_type: str = "unstructured",
+        use_gradient_buffering: Optional[bool] = None,
+        num_grads: Union[Dict[float, int], int] = 64,
+        damp: float = 1e-5,
+        grads_device: Union[str, int] = "cpu",
+        fisher_block_size: int = 2000,
+        num_pages: int = 1,  # break computation into pages when block size is None
+        available_devices: Optional[List[str]] = None,
+        **kwargs
+    ):
+        super(ACDCMFACPruningModifier, self).__init__(
+            compression_sparsity=compression_sparsity,
+            init_sparsity=0.0,
+            final_sparsity=compression_sparsity,
+            start_epoch=start_epoch,
+            end_epoch=self._finish_on_compression(
+                start_epoch, end_epoch, update_frequency
+            ),
+            update_frequency=update_frequency,
+            global_sparsity=global_sparsity,
+            params=params,
+            leave_enabled=leave_enabled,
+            momentum_buffer_reset=momentum_buffer_reset,
+            mask_type=mask_type,
+            use_gradient_buffering=use_gradient_buffering,
+            num_grads=num_grads,
+            damp=damp,
+            grads_device=grads_device,
+            fisher_block_size=fisher_block_size,
+            num_pages=num_pages,
+            available_devices=available_devices
+        )
+
+

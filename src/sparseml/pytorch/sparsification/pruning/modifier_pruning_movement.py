@@ -96,6 +96,7 @@ class MovementPruningModifier(GMPruningModifier):
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         mask_type: str = "unstructured",
+        **kwargs
     ):
         super(MovementPruningModifier, self).__init__(
             init_sparsity=init_sparsity,
