@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import sys
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
@@ -53,11 +52,6 @@ _deps = [
     "GPUtil>=1.4.0",
 ]
 
-# omit package installation if
-# installation on Mac Os
-if sys.platform not in ["darwin"]:
-    _deps.append("onnxruntime-gpu>=1.0.0")
-
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
@@ -69,8 +63,9 @@ _pytorch_deps = [
     "gputils",
 ]
 _pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.10.1"]
+_gpu_deps = ["onnxruntime-gpu>=1.0.0"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
-_tensorflow_v1_gpu_deps = [
+_tensorflow_v1_gpu_deps = _gpu_deps + [
     "tensorflow-gpu<2.0.0",
     "tensorboard<2.0.0",
     "tf2onnx>=1.0.0,<1.6",
@@ -121,6 +116,7 @@ def _setup_extras() -> Dict:
         "deepsparse": _deepsparse_deps,
         "torch": _pytorch_deps,
         "torchvision": _pytorch_vision_deps,
+        "gpu": _gpu_deps,
         "tf_v1": _tensorflow_v1_deps,
         "tf_v1_gpu": _tensorflow_v1_gpu_deps,
         "tf_keras": _keras_deps,
