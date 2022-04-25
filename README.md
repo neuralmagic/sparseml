@@ -208,7 +208,7 @@ e.g. `sparseml.transformers.text_classification --help`
 
 ### 🌳 Export to ONNX
 
-The SparseML installation additionally provided a `sparseml.transformers.export_onnx` command to convert your recently trained model to ONNX. Be sure the `--model_path` argument points to your trained model's location.
+The SparseML installation additionally provides a `sparseml.transformers.export_onnx` command to convert your recently trained model to ONNX format. Be sure the `--model_path` argument points to your trained model's location.
 
 ```bash
 sparseml.transformers.export_onnx \
@@ -216,6 +216,10 @@ sparseml.transformers.export_onnx \
     --task "token-classification" \
     --sequence_length 128   
 ```
+### Creating Your Own Recipe
+
+**[placeholder]**
+
 
 More information on the codebase and contained processes can be found in the SparseML docs:
 - [Sparsification Code](https://docs.neuralmagic.com/sparseml/source/code)
@@ -280,6 +284,50 @@ Find this project useful in your research or other communications? Please consid
     publisher = {PMLR}, 
     pdf = {http://proceedings.mlr.press/v119/kurtz20a/kurtz20a.pdf},
     url = {http://proceedings.mlr.press/v119/kurtz20a.html},
+}
+```
+
+```bibtex
+@misc{
+    title={The Optimal BERT Surgeon: Scalable and Accurate Second-Order Pruning for Large Language Models}, 
+    author={Kurtic, Eldar and Campos, Daniel and Nguyen, Tuan and Frantar, Elias and Kurtz, Mark and Fineran, Benjamin and Goin, Michael and Alistarh, Dan},
+    year={2022},
+    eprint={2203.07259},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG}
+}
+```
+
+```bibtex
+@misc{
+    title={How Well Do Sparse Imagenet Models Transfer?}, 
+    author={Iofinova, Eugenia and Peste, Alexandra and Kurtz, Mark and Alistarh, Dan},
+    year={2021},
+    eprint={2111.13445},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG}
+}
+```
+
+```bibtex
+@misc{
+    title={M-FAC: Efficient Matrix-Free Approximations of Second-Order Information},
+    author={Frantar, Elias and Kurtic, Eldar and Alistarh, Dan},
+    year={2021},
+    eprint={2107.03356},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG}
+}
+```
+
+```bibtex
+@misc{
+    title={AC/DC: Alternating Compressed/DeCompressed Training of Deep Neural Networks},
+    author={Peste, Alexandra and Iofinova, Eugenia and Vladu, Adrian and Alistarh, Dan},
+    year={2021},
+    eprint={2106.12379},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG}
 }
 ```
 
