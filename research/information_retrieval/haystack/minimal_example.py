@@ -1,60 +1,61 @@
 """
+To run:
+1. pip install deepsparse
+2. pip install farm-haystack
+3. python minimal_example.py
+
 Minimal example from: https://github.com/deepset-ai/haystack/blob/master/tutorials/Tutorial3_Basic_QA_Pipeline_without_Elasticsearch.ipynb
 https://github.com/deepset-ai/haystack/issues/248#issuecomment-661977237
 https://haystack.deepset.ai/components/reader
 
 """
-import GPUtil
 from haystack.document_stores import InMemoryDocumentStore
-from haystack.nodes import TfidfRetriever, TransformersReader
+from haystack.nodes import TfidfRetriever
 from haystack.pipelines import ExtractiveQAPipeline
-from haystack.utils import fetch_archive_from_http, convert_files_to_dicts, clean_wiki_text, print_answers
+from haystack.utils import print_answers
 
-GPU_available = GPUtil.getAvailable()
+from readers import DeepSparseReader
 
+# Pass the SparseZoo model
+model_stub = "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/pruned_3layers-aggressive_90"
 
-def fetch_docs():
-    doc_dir = "data/tutorial3"
-    s3_url = "https://s3.eu-central-1.amazonaws.com/deepset.ai-farm-qa/datasets/documents/wiki_gameofthrones_txt3.zip"
-    fetch_archive_from_http(url=s3_url, output_dir=doc_dir)
-    docs = convert_files_to_dicts(dir_path=doc_dir, clean_func=clean_wiki_text, split_paragraphs=True)
-    return docs
+query, contexts = "Who's brother is holding a sword?", ["Mario has red pants", "Wario wields a fire sword", "Wario is Mario's brother"]
 
+# Haystack finds answer to query within the documents stored in a DocumentStore
+# e.g. ElasticsearchDocumentStore, SQLDocumentStore etc.
+# Let's just use our memory as a store.
+document_store = InMemoryDocumentStore()
+docs = [
+    {
+        'content': contexts[0],
+        'meta': {'name': '...'}
+    },
+    {
+        'content': contexts[1],
+        'meta': {'name': '...'}
+    },
+    {
+        'content': contexts[2],
+        'meta': {'name': '...'}
+    }
+]
+document_store.write_documents(docs)
 
-def run():
-    # 1. Document Preprocessing and Saving in DocumentStore
+# Initializing a Retriever (inaccurate but fast)
+# Retrievers help to narrow down the scope for the Reader to smaller units of text
+# where a given question could be answered.
+retriever = TfidfRetriever(document_store=document_store)
 
-    # Haystack finds answer to query within the documents stored in a DocumentStore
-    # e.g. ElasticsearchDocumentStore, SQLDocumentStore etc.
-    # for the sake of this demo, let's just use our memory as a store.
-    document_store = InMemoryDocumentStore()
-    docs = fetch_docs()
-    document_store.write_documents(docs)
+# Initializing a Reader (accurate but slow)
+# A Reader scans the texts returned by retrievers in detail and extracts the k best answers.
+reader = DeepSparseReader(model_stub=model_stub)
 
-    # 2. Initializing a Retriever (inaccurate but fast)
+# 4. Creating a Pipeline
+# With a Haystack Pipeline you can stick together your building blocks to a search pipeline.
+# Under the hood, Pipelines are Directed Acyclic Graphs (DAGs) that you can easily customize for your own use cases.
+pipe = ExtractiveQAPipeline(reader, retriever)
 
-    # Retrievers help to narrow down the scope for the Reader to smaller units of text
-    # where a given question could be answered.
-    retriever = TfidfRetriever(document_store=document_store)
-
-    # 3. Initializing a Reader (accurate but slow)
-
-    # A Reader scans the texts returned by retrievers in detail and extracts the k best answers.
-    # Haystack supports TransformersReader and also propitiatory FARMReader
-    reader = TransformersReader(model_name_or_path="distilbert-base-uncased-distilled-squad",
-                                tokenizer="distilbert-base-uncased", use_gpu=GPU_available)
-
-    # 4. Creating a Pipeline
-    # With a Haystack Pipeline you can stick together your building blocks to a search pipeline.
-    # Under the hood, Pipelines are Directed Acyclic Graphs (DAGs) that you can easily customize for your own use cases.
-
-    pipe = ExtractiveQAPipeline(reader, retriever)
-
-    prediction = pipe.run(
-        query="How did Ned Stark die?", params={"Retriever": {"top_k": 10}, "Reader": {"top_k": 2}}
-    )
-    print_answers(prediction, details="minimum")
-
-
-if __name__ == "__main__":
-    run()
+prediction = pipe.run(
+    query=query, params={"Retriever": {"top_k": 2}, "Reader": {"top_k": 1}}
+)
+print_answers(prediction, details="minimum")
