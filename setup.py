@@ -173,8 +173,6 @@ def _setup_entry_points() -> Dict:
             "sparseml.pytorch.object_detection.train:main",
             "sparseml.object_detection.validation="
             "sparseml.pytorch.object_detection.val:main",
-            "sparseml.object_detection.detect="
-            "sparseml.pytorch.object_detection.detect:main",
         ]
     )
 
