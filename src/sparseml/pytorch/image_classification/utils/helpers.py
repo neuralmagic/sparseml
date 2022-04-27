@@ -63,6 +63,7 @@ __all__ = [
     "set_seeds",
     "get_loss_wrapper",
     "ddp_aware_model_move",
+    "extract_metadata",
 ]
 
 

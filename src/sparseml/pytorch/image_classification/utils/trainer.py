@@ -295,7 +295,7 @@ class ImageClassificationTrainer(Trainer):
     def _setup_checkpoint_manager(self):
         checkpoint_state = torch.load(self.checkpoint_path)
         checkpoint_manager = None
-        if "recipe" in checkpoint_state:
-            checkpoint_recipe = checkpoint_state["recipe"]
+        checkpoint_recipe = checkpoint_state.get("recipe")
+        if checkpoint_recipe:
             checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint_recipe)
         return checkpoint_manager

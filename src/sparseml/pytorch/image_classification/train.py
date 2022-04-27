@@ -166,8 +166,6 @@ sparseml.image_classification.train \
 import json
 import os
 from typing import Any, Dict, Optional, Tuple, Union
-from dataclasses import asdict, dataclass, field
-from typing import List, Optional, Tuple
 
 import torch
 
@@ -558,12 +556,18 @@ def main(
         rank=rank,
     )
 
+    metadata = helpers.extract_metadata(
+        metadata_args=METADATA_ARGS, training_args_dict=cli_helpers.parameters_to_dict()
+    )
+
     LOGGER.info(f"running on device {device}")
 
     trainer = ImageClassificationTrainer(
         model=model,
         key=arch_key,
         recipe_path=recipe_path,
+        checkpoint_path=checkpoint_path,
+        metadata=metadata,
         ddp=ddp,
         device=device,
         use_mixed_precision=use_mixed_precision,
