@@ -195,7 +195,7 @@ class TestNMPruningMaskCreator:
             tensor_shape, NMPruningMaskCreator(N, M), sparsity_val, "cpu"
         )
 
-    def test_four_block_mask_creator_matches_block(self, N, M, tensor_shape):
+    def test_mask_structure_pattern(self, N, M, tensor_shape):
         sparsity_val = 1 - (N / M)
         mask_creator = NMPruningMaskCreator(N, M)
         tensors = [torch.randn(shape) for shape in tensor_shape]
