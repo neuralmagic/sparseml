@@ -37,12 +37,16 @@ from sparseml.pytorch.models import ModelRegistry
 from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
+    CrossEntropyLossWrapper,
     ModuleExporter,
     ModuleRunResults,
     PythonLogger,
     TensorBoardLogger,
+    TopKAccuracy,
     default_device,
     early_stop_data_loader,
+    model_to_device,
+    set_deterministic_seeds,
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
@@ -56,6 +60,9 @@ __all__ = [
     "create_model",
     "infer_num_classes",
     "save_model_training",
+    "set_seeds",
+    "get_loss_wrapper",
+    "ddp_aware_model_move",
 ]
 
 
@@ -92,6 +99,7 @@ def get_save_dir_and_loggers(
         if model_tag not given
     :return: A tuple of the save directory and a list of loggers
     """
+    arch_key = arch_key or ""
     if is_main_process:
         save_dir = os.path.abspath(os.path.expanduser(save_dir))
         logs_dir = (
@@ -369,13 +377,14 @@ def save_model_training(
         else str(manager)
     )
 
-    has_top1 = "top1acc" in val_res.results
-    metric_name = "top-1 accuracy" if has_top1 else "val_loss"
-    metric = val_res.result_mean("top1acc" if has_top1 else DEFAULT_LOSS_KEY).item()
-    print(
-        f"Saving model for epoch {epoch} and {metric_name} "
-        f"{metric} to {save_dir} for {save_name}"
-    )
+    if val_res is not None:
+        has_top1 = "top1acc" in val_res.results
+        metric_name = "top-1 accuracy" if has_top1 else "val_loss"
+        metric = val_res.result_mean("top1acc" if has_top1 else DEFAULT_LOSS_KEY).item()
+        print(
+            f"Saving model for epoch {epoch} and {metric_name} "
+            f"{metric} to {save_dir} for {save_name}"
+        )
     exporter = ModuleExporter(model, save_dir)
     exporter.export_pytorch(
         optimizer=optim,
@@ -396,6 +405,57 @@ def save_model_training(
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
+
+
+def set_seeds(local_rank: int):
+    """
+    Utility method to initialize process group and set seeds
+
+    :param local_rank: The local rank of the process
+    """
+    if local_rank != -1:
+        torch.distributed.init_process_group(
+            backend="nccl",
+            init_method="env://",
+        )
+        set_deterministic_seeds(0)
+
+
+def get_loss_wrapper() -> CrossEntropyLossWrapper:
+    """
+    :return loss_wrapper: A Cross Entropy Loss Wrapper with extra metrics
+    """
+    extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
+    return CrossEntropyLossWrapper(extras=extras)
+
+
+def ddp_aware_model_move(
+    device: Any,
+    local_rank: int,
+    model: Any,
+    rank: int,
+) -> Tuple[bool, Any, Any]:
+    """
+    Move model to device and wrap in DistributedDataParallel if necessary.
+
+    :param device: device to move model to
+    :param local_rank: local rank of current process
+    :param model: model to move
+    :param rank: rank of current process
+    :return: A tuple of the following form (ddp_state, device, model)
+    """
+    if rank == -1:
+        ddp = False
+    else:
+        torch.cuda.set_device(local_rank)
+        device = local_rank
+        ddp = True
+    model, device, _ = model_to_device(
+        model=model,
+        device=device,
+        ddp=ddp,
+    )
+    return ddp, device, model
 
 
 def extract_metadata(
@@ -445,7 +505,10 @@ def _download_model_from_zoo_using_recipe(
             f" but got {recipe_stub} instead"
         )
 
-    files = Zoo.download_recipe_base_framework_files(recipe_stub, extensions=[".pth"])
+    files = Zoo.download_recipe_base_framework_files(
+        stub=recipe_stub,
+        extensions=[".pth"],
+    )
 
     checkpoint_path = files[0]
     return checkpoint_path
