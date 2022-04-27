@@ -694,6 +694,8 @@ def get_mask_creator_default(mask_type: Union[str, List[int]]) -> PruningMaskCre
                 f"2 values, but {len(nm)} values were found"
             )
         return NMPruningMaskCreator(N=int(nm[0]), M=int(nm[1]))
+    elif mask_type == "tensorrt":
+        return NMPruningMaskCreator(N=2, M=4)
     elif isinstance(mask_type, List):
         if not all(isinstance(val, int) for val in mask_type):
             raise ValueError(
