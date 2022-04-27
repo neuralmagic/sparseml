@@ -621,7 +621,6 @@ def train(
     )
 
     if not eval_mode:
-        helpers.save_recipe(recipe_manager=trainer.manager, save_dir=save_dir)
         LOGGER.info(f"Starting training from epoch {trainer.epoch}")
 
         val_metric = best_metric = val_res = None
