@@ -194,3 +194,14 @@ class TestNMPruningMaskCreator:
         sparsity_mask_creator_test(
             tensor_shape, NMPruningMaskCreator(N, M), sparsity_val, "cpu"
         )
+
+    def test_four_block_mask_creator_matches_block(self, N, M, tensor_shape):
+        sparsity_val = 1 - (N / M)
+        mask_creator = NMPruningMaskCreator(N, M)
+        tensors = [torch.randn(shape) for shape in tensor_shape]
+        masks = mask_creator.create_sparsity_masks(tensors, sparsity_val)
+
+        for mask in masks:
+            flat_mask = torch.flatten(mask)
+            for i in range(torch.numel(flat_mask) // M):
+                assert torch.sum(flat_mask[i * M : (i + 1) * M]) == N
