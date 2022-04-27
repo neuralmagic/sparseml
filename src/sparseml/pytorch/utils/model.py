@@ -85,6 +85,14 @@ def load_model(
             )[0]
     model_dict = torch.load(path, map_location="cpu")
     current_dict = model.state_dict()
+    recipe = model_dict.get("recipe")
+
+    if recipe:
+        from sparseml.pytorch.optim import ScheduledModifierManager
+
+        epoch = model_dict.get("epoch", 0.0)
+        checkpoint_manager = ScheduledModifierManager.from_yaml(recipe)
+        checkpoint_manager.apply_structure(module=model, epoch=epoch)
 
     if "state_dict" in model_dict:
         model_dict = model_dict["state_dict"]
