@@ -1,0 +1,23 @@
+cadence: "nightly"
+command_types:
+  train:
+    command_args:
+      model_dir: "some/dir" 
+      epochs: 15
+      recipe: "some/recipe.md"
+      flags:
+        - do_train
+        - do_val
+    target: 
+      mean: 93.7 
+      std: 1.3
+  export:
+    command_args:
+      model_dir: "some/dir"
+      flags:
+        - dynamic
+  deploy:
+    command_args:
+      model_dir: "some/dir"
+       
+    

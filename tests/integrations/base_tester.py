@@ -29,13 +29,12 @@ described in B and should be decorated by @skip_inactive_stage found in helpers.
 """
 
 import os
+import shutil
 import subprocess
 from functools import wraps
 from typing import Dict, Union
 
 import pytest
-import yaml
-from pydantic import BaseModel
 
 from tests.integrations.helpers import Config, get_configs_with_cadence
 
@@ -124,16 +123,17 @@ class BaseIntegrationManager:
         """
         return self.command_stubs
 
-    
-    def capture_pre_run_state(self):
-        """
-        Store pre-run information which will be relevant for post-run testing
-        """
-        self._start_file_count = sum(len(files) for _, _, files in os.walk(r"."))
+    def cleanup_files(self, dir):
+        if os.path.isdir(dir):
+            shutil.rmtree(dir)
 
-    def run_commands(self, kwargs_dict: Union[Dict[str, Dict], None] = None):
-        """
-        Execute CLI commands in order
+    def check_file_creation(self, dir):
+        self._end_file_count = sum(len(files) for _, _, files in os.walk(r"."))
+        assert self._start_file_count >= self._end_file_count, (
+            f"{self._end_file_count - self._start_file_count} files created during "
+            "pytest run"
+        )
+
 
         :param kwargs_dict: dict mapping command type to subprocess.call() kwargs
             to be used with the command, if any
@@ -153,10 +153,7 @@ class BaseIntegrationManager:
                     )
                 )
 
-    def save_stage_information(self, command_type):
-        """
-        Optional function for saving state information between stages.
-        """
+    def test_target_metric_compliance(self):
         pass
 
     def teardown(self):
@@ -165,10 +162,8 @@ class BaseIntegrationManager:
         """
         raise NotImplementedError()
 
-    def teardown_check(self):
-        """
-        Check for successful environment cleanup.
-        """
+class BaseExportTester(BaseIntegrationTester):
+    def test_onnx_nodes(self, setup):
         pass
 
     def check_file_creation(self, dir):
