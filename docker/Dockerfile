@@ -16,9 +16,8 @@ RUN : \
         python3-dev \
         build-essential libssl-dev libffi-dev \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && :
- \
+    && rm -rf /var/lib/apt/lists/*
+
 # Activate venv
 RUN python3.8 -m venv /venv
 ENV PATH="venv/bin:$PATH"
@@ -26,15 +25,14 @@ ENV PATH="venv/bin:$PATH"
 FROM base as cuda-10.2
 ARG TORCH_VERSION
 ARG TORCHVISION_VERSION
-RUN pip3 install --upgrade pip torch==$TORCH_VERSION torchvision==$TORCHVISION_VERSION
+RUN pip3 install --upgrade torch==${TORCH_VERSION}+cu102 torchvision==${TORCHVISION_VERSION}+cu102  -f https://download.pytorch.org/whl/torch_stable.html
 
-FROM base as cuda-11.3.1
+FROM base as cuda-11.1
 ARG TORCH_VERSION
 ARG TORCHVISION_VERSION
-RUN pip3 install --upgrade pip torch==$TORCH_VERSION torchvision==$TORCHVISION_VERSION --extra-index-url https://download.pytorch.org/whl/cu113
+RUN pip3 install --upgrade pip torch==${TORCH_VERSION}+cu111 torchvision==${TORCHVISION_VERSION}+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 
 FROM cuda-$CUDA_VERSION as target
+
 # Install SparseML
 RUN pip3 install sparseml
-
-
