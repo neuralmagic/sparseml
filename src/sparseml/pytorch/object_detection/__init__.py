@@ -44,9 +44,12 @@ def _install_yolov5_and_deps():
 
     import sparseml as _sparseml
 
-    yolov5_requirement = _NM_YOLOV5_TAR_TEMPLATE.format(
-        version=f"v{_sparseml.version_major_minor}"
+    nm_yolov5_release = (
+        "nightly" if not _sparseml.is_release else f"v{_sparseml.version_major_minor}"
     )
+
+    yolov5_requirement = _NM_YOLOV5_TAR_TEMPLATE.format(version=nm_yolov5_release)
+
     try:
         _subprocess.check_call(
             [
