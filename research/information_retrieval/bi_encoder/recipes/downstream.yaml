@@ -1,0 +1,55 @@
+version: 1.1.0
+# General Variables
+num_epochs: &num_epochs 10
+init_lr: &init_lr 5e-5
+final_lr: &final_lr 0
+init_sparsity: &init_sparsity 0.3
+final_sparsity: &final_sparsity 0.9
+
+pruning_start_epoch: &pruning_start_epoch 0
+pruning_end_epoch: &pruning_end_epoch 8
+pruning_update_frequency: &pruning_update_frequency 0.01
+distill_temperature: &distill_temperature 2.0
+distill_hardness: &distill_hardness 0.5
+
+
+
+# Modifiers:
+
+training_modifiers:
+  - !EpochRangeModifier
+      end_epoch: eval(num_epochs)
+      start_epoch: 0.0
+
+  - !LearningRateFunctionModifier
+      start_epoch: eval(pruning_start_epoch)
+      end_epoch: eval(pruning_end_epoch) 
+      lr_func: linear
+      init_lr: eval(init_lr)
+      final_lr: eval(final_lr)
+
+  - !LearningRateFunctionModifier
+      start_epoch: eval(pruning_end_epoch)
+      end_epoch: eval(num_epochs)
+      lr_func: linear
+      init_lr: eval(init_lr)
+      final_lr: eval(final_lr)
+
+pruning_modifiers:
+  - !GMPruningModifier
+    params:
+      - re:question_encoder.bert_model.encoder.layer.*.attention.self.query.weight
+      - re:question_encoder.bert_model.encoder.layer.*.attention.self.key.weight
+      - re:question_encoder.bert_model.encoder.layer.*.attention.self.value.weight
+      - re:question_encoder.bert_model.encoder.layer.*.attention.output.dense.weight
+      - re:question_encoder.bert_model.encoder.layer.*.intermediate.dense.weight
+      - re:question_encoder.bert_model.encoder.layer.*.output.dense.weight
+    start_epoch: 0
+    end_epoch: eval(pruning_end_epoch)
+    init_sparsity: eval(init_sparsity)
+    final_sparsity: eval(final_sparsity)
+    inter_func: cubic
+    update_frequency: eval(pruning_update_frequency)
+    leave_enabled: True
+    mask_type: unstructured
+    log_types: __ALL__

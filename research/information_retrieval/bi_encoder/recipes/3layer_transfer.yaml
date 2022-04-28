@@ -1,0 +1,29 @@
+
+
+version: 1.1.0
+
+# General Variables
+
+# Modifiers:
+
+
+pruning_modifiers:
+  - !LayerPruningModifier
+    layers:
+      - bert.encoder.layer.1
+      - bert.encoder.layer.2
+      - bert.encoder.layer.3
+      - bert.encoder.layer.4
+      - bert.encoder.layer.6
+      - bert.encoder.layer.7
+      - bert.encoder.layer.8
+      - bert.encoder.layer.9
+      - bert.encoder.layer.10
+
+
+constant_modifiers:
+
+  - !ConstantPruningModifier
+      start_epoch: 0.0
+      params: __ALL_PRUNABLE__
+
