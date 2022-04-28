@@ -12,18 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import glob
-import os
-
 import pytest
-import yaml
+
+from tests.integrations.base_tester import BaseIntegrationTester
+from yolov5.export import create_checkpoint, load_checkpoint
+from yolov5.val import run as val
+
+from .yolov5_args import Yolov5TrainArgs
 
 
-def get_configs_with_cadence(cadence: str, dir_path: str = "."):
-    all_files_found = glob.glob("test*.test", root_dir=dir_path)
-    matching_files = []
-    for file in all_files_found:
-        config = yaml.safe_load(file)
-        if config.get("cadence") == cadence:
-            matching_files.append(config)
-        # read one line a time
+@pytest.mark.usefixtures("setup")
+class Yolov5IntegrationTester(BaseIntegrationTester):
+    command_stubs = {
+        "train": "sparseml.yolov5.train",
+        "export": "sparseml.yolov5.export",
+        "deploy": "sparseml.yolov5.deploy",
+    }
+    command_args_classes = {
+        "train": Yolov5TrainArgs,
+    }
+
+    def test_checkpoint_load(self, setup):
+        pass
