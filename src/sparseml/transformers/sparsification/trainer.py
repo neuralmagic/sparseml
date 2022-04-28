@@ -152,7 +152,7 @@ class RecipeManagerTrainerInterface:
         model_signature = inspect.signature(self.model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
-        if self.teacher is not None:
+        if self.teacher is not None and teacher not in ("disable", "self"):
             teacher_signature = inspect.signature(self.teacher.forward)
             self._teacher_signature_columns = list(teacher_signature.parameters.keys())
         else:
