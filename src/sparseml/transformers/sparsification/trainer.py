@@ -346,7 +346,7 @@ class RecipeManagerTrainerInterface:
             k: inputs[k] for k in inputs if k in self._model_signature_columns
         }
         student_outputs = model(**student_inputs)
-        if self._teacher_signature_columns:
+        if self._teacher_signature_columns is not None:
             teacher_inputs = {
                 k: inputs[k] for k in inputs if k in self._teacher_signature_columns
             }
