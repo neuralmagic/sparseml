@@ -346,10 +346,12 @@ class RecipeManagerTrainerInterface:
             k: inputs[k] for k in inputs if k in self._model_signature_columns
         }
         student_outputs = model(**student_inputs)
-
-        teacher_inputs = {
-            k: inputs[k] for k in inputs if k in self._teacher_signature_columns
-        }
+        if self._teacher_signature_columns:
+            teacher_inputs = {
+                k: inputs[k] for k in inputs if k in self._teacher_signature_columns
+            }
+        else:
+            teacher_inputs = None
 
         loss = student_outputs["loss"]
         loss = self.manager.loss_update(
@@ -758,7 +760,11 @@ class Trainer(TrainerInterface, TransformersTrainer):
     ):
         if not self.args.remove_unused_columns:
             return dataset
-        if self._signature_columns is None and self.teacher is not None:
+        if (
+            self._signature_columns is None
+            and self.teacher is not None
+            and self.teacher not in ("disable", "self")
+        ):
             model_signature = inspect.signature(self.model.forward)
             model_signature_columns = set(model_signature.parameters.keys())
 
