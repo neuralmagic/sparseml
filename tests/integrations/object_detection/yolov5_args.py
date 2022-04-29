@@ -15,43 +15,84 @@
 from pathlib import Path
 from typing import List, Literal, Tuple, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from yolov5.utils.general import ROOT
 
 
 class Yolov5TrainArgs(BaseModel):
-    weights: Union[str, Path] = ROOT
-    cfg: Union[str, Path] = ""
-    data: Union[str, Path] = ROOT
-    hyp: Union[str, Path] = ROOT
-    epochs: int = 300
-    batch_size: int = 16
-    imgsz: int = 640
-    rect: bool = False
-    resume: bool = False
-    nosave: bool = False
-    noval: bool = False
-    noautoanchor: bool = False
-    evolve: Tuple[bool, int] = [False, 300]
-    bucket: str = ""
-    cache: Literal["ram", "disk"] = "ram"
-    image_weights: bool = False
-    device: str = ""
-    multi_scale: bool = False
-    single_cls: bool = False
-    optimizer: Literal["SGD", "Adam", "AdamW"] = "SGD"
-    sync_bin: False
-    workers: int = 8
-    project: Union[str, Path] = ROOT / "runs/train"
-    name: str = "exp"
-    exist_ok: False
-    quad: False
-    cost_lr: False
-    label_smoothing: float = 0.0
-    patience: int = -1
-    freeze: List[int] = [0]
-    save_period: int = -1
-    local_rank: int = -1
-    recipe: Union[str, Path, None] = None
-    disable_ema: False
+    weights: Union[str, Path] = Field(default=ROOT, description="initial weights path")
+    cfg: Union[str, Path] = Field(default="", description="model.yaml path")
+    data: Union[str, Path] = Field(default=ROOT, description="dataset.yaml path")
+    hyp: Union[str, Path] = Field(default=ROOT, description="hyperparameters path")
+    epochs: int = Field(default=300)
+    batch_size: int = Field(
+        default=16, description="total batch size for all GPUs, -1 for autobatch"
+    )
+    imgsz: int = Field(default=640, description="train, val image size (pixels)")
+    rect: bool = Field(default=False, description="rectangular training")
+    resume: bool = Field(default=False, description="resume most recent training")
+    nosave: bool = Field(default=False, description="only save final checkpoint")
+    noval: bool = Field(default=False, description="only validate final epoch")
+    noautoanchor: bool = Field(default=False, description="disable AutoAnchor")
+    evolve: Tuple[bool, int] = Field(
+        default=[False, 300], description="evolve hyperparameters for x generations"
+    )
+    bucket: str = Field(default="", description="gsutil bucket")
+    cache: Literal["ram", "disk"] = Field(
+        default="ram", description='--cache images in "ram" (default) or "disk"'
+    )
+    image_weights: bool = Field(
+        default=False, description="use weighted image selection for training"
+    )
+    device: str = Field(default="", description="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    multi_scale: bool = Field(default=False, description="vary img-size +/- 50%%")
+    single_cls: bool = Field(
+        default=False, description="train multi-class data as single-class"
+    )
+    optimizer: Literal["SGD", "Adam", "AdamW"] = Field(
+        default="SGD", description="optimizer"
+    )
+    sync_bin: bool = Field(
+        default=False, description="use SyncBatchNorm, only available in DDP mode"
+    )
+    workers: int = Field(
+        default=8, description="max dataloader workers (per RANK in DDP mode)"
+    )
+    project: Union[str, Path] = Field(
+        default=ROOT / "runs/train", description="save to project/name"
+    )
+    name: str = Field(default="exp", description="save to project/name")
+    exist_ok: bool = Field(
+        default=False, description="existing project/name ok, do not increment"
+    )
+    quad: bool = Field(default=False, description="quad dataloader")
+    cost_lr: bool = Field(default=False, description="cosine LR scheduler")
+    label_smoothing: float = Field(default=0.0, description="Label smoothing epsilon")
+    patience: int = Field(
+        default=-1, description="EarlyStopping patience (epochs without improvement)"
+    )
+    freeze: List[int] = Field(
+        default=[0], description="Freeze layers: backbone=10, first3=0 1 2"
+    )
+    save_period: int = Field(
+        default=-1, description="Save checkpoint every x epochs (disabled if < 1)"
+    )
+    local_rank: int = Field(default=-1, description="DDP parameter, do not modify")
+    recipe: Union[str, Path, None] = Field(
+        default=None,
+        description="Path to a sparsification recipe, "
+        "see https://github.com/neuralmagic/sparseml for more information",
+    )
+    upload_dataset: bool = Field(
+        default=False, description='W&B: Upload data, "val" option'
+    )
+    bbox_interval: int = Field(
+        default=-1, description="W&B: Set bounding-box image logging interval"
+    )
+    artifact_alias: str = Field(
+        default="latest", help="W&B: Version of dataset artifact to use"
+    )
+    disable_ema: bool = Field(
+        default=False, description="Disable EMA model updates (enabled by default)"
+    )
