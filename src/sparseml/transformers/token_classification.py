@@ -26,7 +26,7 @@ Fine-tuning the library models for token classification
 import logging
 import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 import datasets
@@ -48,7 +48,11 @@ from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml.transformers.sparsification import Trainer
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.utils import (
+    SparseAutoModel,
+    extract_metadata_from_args,
+    get_shared_tokenizer_src,
+)
 
 
 # Will error if the minimal version of Transformers is not installed.
@@ -634,7 +638,10 @@ def main():
         model=model,
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
-        metadata_args=metadata_args,
+        metadata=extract_metadata_from_args(
+            metadata_args,
+            {**asdict(model_args), **asdict(data_args), **asdict(training_args)},
+        ),
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,

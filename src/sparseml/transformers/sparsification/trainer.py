@@ -85,8 +85,7 @@ class RecipeManagerTrainerInterface:
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
-    :param metadata_args A list of arguments to be extracted from training_args
-        and passed as metadata for the final, saved recipe.
+    :param metadata: A dictionary of extracted metadata for the final saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -98,7 +97,7 @@ class RecipeManagerTrainerInterface:
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        metadata_args: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -108,13 +107,7 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
-        self.metadata = (
-            self._extract_metadata(
-                metadata_args=metadata_args, training_args=kwargs["args"]
-            )
-            if ("args" in kwargs and metadata_args)
-            else None
-        )
+        self.metadata = metadata
 
         report_to = (
             ""
@@ -447,24 +440,6 @@ class RecipeManagerTrainerInterface:
             f"all sparsification info: {sparsification_info}"
         )
 
-    def _extract_metadata(
-        self, metadata_args: List[str], training_args: TrainingArguments
-    ) -> Dict:
-        metadata = {}
-        training_args_dict = training_args.to_dict()
-
-        for arg in metadata_args:
-            if arg not in training_args_dict.keys():
-                logging.warning(
-                    f"Required metadata argument {arg} was not found "
-                    f"in the training arguments. Setting {arg} to None."
-                )
-                metadata[arg] = None
-            else:
-                metadata[arg] = training_args_dict[arg]
-
-        return metadata
-
     def _check_super_defined(self, func: str):
         if not hasattr(super(), func):
             raise NotImplementedError(
@@ -614,8 +589,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
-    :param metadata_args A list of arguments to be extracted from training_args
-        and passed as metadata for the final, saved recipe.
+    :param metadata: A dictionary of extracted metadata for the final saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -627,7 +601,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
-        metadata_args: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -637,7 +611,7 @@ class TrainerInterface(RecipeManagerTrainerInterface):
             model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,
-            metadata_args=metadata_args,
+            metadata=metadata,
             teacher=teacher,
             **kwargs,
         )

@@ -27,7 +27,7 @@ Fine-tuning the library models for question answering integrated with sparseml
 import logging
 import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 import datasets
@@ -52,7 +52,11 @@ from sparseml.transformers.sparsification import (
     QuestionAnsweringTrainer,
     postprocess_qa_predictions,
 )
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.utils import (
+    SparseAutoModel,
+    extract_metadata_from_args,
+    get_shared_tokenizer_src,
+)
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your
@@ -764,7 +768,10 @@ def main():
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
         recipe_args=data_args.recipe_args,
-        metadata_args=metadata_args,
+        metadata=extract_metadata_from_args(
+            metadata_args,
+            {**asdict(model_args), **asdict(data_args), **asdict(training_args)},
+        ),
         teacher=teacher,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,

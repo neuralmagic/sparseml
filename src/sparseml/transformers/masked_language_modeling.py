@@ -33,7 +33,7 @@ import logging
 import math
 import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from itertools import chain
 from typing import Optional
 
@@ -55,7 +55,11 @@ from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 
 from sparseml.transformers.sparsification import Trainer
-from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
+from sparseml.transformers.utils import (
+    SparseAutoModel,
+    extract_metadata_from_args,
+    get_shared_tokenizer_src,
+)
 
 
 metadata_args = [
@@ -673,7 +677,10 @@ def main():
         model=model,
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
-        metadata_args=metadata_args,
+        metadata=extract_metadata_from_args(
+            metadata_args,
+            {**asdict(model_args), **asdict(data_args), **asdict(training_args)},
+        ),
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,

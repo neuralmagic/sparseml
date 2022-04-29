@@ -16,10 +16,30 @@
 Helper variables and functions for integrating SparseML with huggingface/transformers
 flows
 """
+import logging
+from typing import Any, Dict, List
+
 
 __all__ = [
     "RECIPE_NAME",
+    "extract_metadata_from_args",
 ]
 
 
 RECIPE_NAME = "recipe.yaml"
+_LOGGER = logging.getLogger(__name__)
+
+
+def extract_metadata_from_args(metadata_args: List[str], args: Dict[str, Any]) -> Dict:
+    metadata = {}
+    for arg in metadata_args:
+        if arg not in args.keys():
+            _LOGGER.warning(
+                f"Required metadata argument {arg} was not found "
+                f"in the training arguments. Setting {arg} to None."
+            )
+            metadata[arg] = None
+        else:
+            metadata[arg] = args[arg]
+
+    return metadata
