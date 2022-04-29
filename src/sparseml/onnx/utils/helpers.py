@@ -259,7 +259,7 @@ def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
     sess = onnxruntime.InferenceSession(
         model_copy.SerializeToString(),
         sess_options=sess_options,
-        providers=["CPUExecutionProvider"],
+        providers=providers,
     )
 
     output_shapes = {}
