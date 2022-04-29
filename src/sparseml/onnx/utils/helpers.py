@@ -255,6 +255,7 @@ def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
         ["CUDAExecutionProvider", "CPUExecutionProvider"]
         if onnxruntime.get_device() == 'GPU'
         else ["CPUExecutionProvider"]
+    )
   
     sess = onnxruntime.InferenceSession(
         model_copy.SerializeToString(),
