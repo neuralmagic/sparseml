@@ -462,6 +462,7 @@ stage_0:
           quantize_conv_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
+          quantize_embedding_activations: True
           reduce_range: False
           start_epoch: 50
           submodules: ['model.0']
@@ -497,6 +498,7 @@ stage_1:
           quantize_conv_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
+          quantize_embedding_activations: True
           reduce_range: False
           start_epoch: 102
           submodules: ['model.0']
