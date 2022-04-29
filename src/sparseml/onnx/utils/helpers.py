@@ -251,6 +251,11 @@ def extract_nodes_shapes_ort(model: ModelProto) -> Dict[str, List[List[int]]]:
 
     sess_options = onnxruntime.SessionOptions()
     sess_options.log_severity_level = 3
+    providers = (
+        ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        if onnxruntime.get_device() == 'GPU'
+        else ["CPUExecutionProvider"]
+  
     sess = onnxruntime.InferenceSession(
         model_copy.SerializeToString(),
         sess_options=sess_options,
