@@ -696,8 +696,6 @@ def test_lifecycle_manager_staged(
             )
 
     final_recipe = str(recipe_manager)
-    print(final_recipe)
-    print(expected_recipe)
     assert final_recipe == expected_recipe
 
 
