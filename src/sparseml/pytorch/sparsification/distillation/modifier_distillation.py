@@ -371,7 +371,8 @@ class DistillationModifier(ScheduledUpdateModifier):
         v = (
             TF.kl_div(
                 input=TF.log_softmax(student_val / self._temperature, dim=-1),
-                target=TF.softmax(teacher_val / self._temperature, dim=-1),
+                target=TF.log_softmax(teacher_val / self._temperature, dim=-1),
+                log_target=True,
                 reduction="sum",
             )
             * (self._temperature ** 2)
