@@ -132,6 +132,9 @@ Options:
                                   [S, S, C] dimensional input  [default: 224]
   --ffcv                          Use `ffcv` for loading data  [default:
                                   False]
+  --recipe-args, --recipe_args TEXT
+                                  json parsable dict of recipe variable names
+                                  to values to overwrite with
   --help                          Show this message and exit.
 
 #########
