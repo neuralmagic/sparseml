@@ -419,7 +419,6 @@ LOGGER = get_main_logger()
 @click.option(
     "--image-size",
     "--image_size",
-    "-is",
     type=int,
     default=224,
     show_default=True,
@@ -431,6 +430,13 @@ LOGGER = get_main_logger()
     is_flag=True,
     show_default=True,
     help="Use `ffcv` for loading data",
+)
+@click.option(
+    "--recipe-args",
+    "--recipe_args",
+    type=str,
+    default=None,
+    help="json parsable dict of recipe variable names to values to overwrite with",
 )
 def main(
     train_batch_size: int,
@@ -461,6 +467,7 @@ def main(
     loader_pin_memory: bool,
     image_size: int,
     ffcv: bool,
+    recipe_args: str,
 ):
     """
     PyTorch training integration with SparseML for image classification models
@@ -565,6 +572,7 @@ def main(
         init_lr=init_lr,
         optim_name=optim,
         optim_kwargs=optim_args,
+        recipe_args=recipe_args,
     )
 
     train(
