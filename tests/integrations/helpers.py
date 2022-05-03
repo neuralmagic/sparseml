@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import glob
+import inspect
 import os
 from typing import Dict, List
 
@@ -29,6 +30,7 @@ def get_configs_with_cadence(cadence: str, dir_path: str = "."):
     """
     all_files_found = glob.glob(os.path.join(dir_path, "test*.yaml"))
     matching_files = []
+    print(all_files_found)
     for file in all_files_found:
         with open(file) as f:
             lines = f.readlines()
