@@ -50,7 +50,7 @@ from tests.integrations.helpers import get_configs_with_cadence
 
 pytest.mark.parametrize(
     "config_path",
-    get_configs_with_cadence(os.environ["NM_TEST_CADENCE"], indirect=True),
+    get_configs_with_cadence(os.environ.get("NM_TEST_CADENCE")),
 )
 
 
@@ -84,10 +84,6 @@ class BaseIntegrationTester:
 
         # 3 The command stub is fetched. See method description
         self.command_stubs_final = self.get_base_commands(raw_config)
-
-        # 3 extract test args.
-        self.test_args = self.get_test_args(raw_config)
-
         # Command-specific args are loaded into their respective pydantic classes.
         # pre_args are CLI commands that can precede the python call
         # e.g. "torch distributed launch" or env variable setting. If any are present,
@@ -99,6 +95,8 @@ class BaseIntegrationTester:
             }
             for _type, config in raw_config
         }
+        # Targets are loaded. Targets help determine testing regimes and values
+        self.targets = {_type: config["target"] for _type, config in raw_config}
         # Generate full CLI commands for each stage of run
         self.commands = self.compose_command_scripts(self.configs)
         # 3 Override to save any information which may be needed for testing post-run
@@ -107,7 +105,7 @@ class BaseIntegrationTester:
         self.run_commands(self.commands)
         yield  # all tests are run here
         # 3 WIP post-test teardown
-        self.cleanup_files()
+        self.teardown()
         self.check_file_creation()
         # pytest.skip(f"Not a {class_command_type} command")
 
@@ -227,7 +225,7 @@ class BaseIntegrationTester:
         target = config.get("target")
         return [-target["std"], target["std"]] + target["mean"] if target else None
 
-    def cleanup_files(self, dir):
+    def teardown(self, dir):
         """
         Dummy cleanup function. Will be fleshed out later
         """
