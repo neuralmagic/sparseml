@@ -260,6 +260,9 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         start_epoch: float,
         end_epoch: float,
         cycle_epochs: float = 1.0,
+        cycle_mul: float = 1.0,
+        cycle_coef: float = 1.0,
+        cycle_warmup: float = 0.0,
         param_groups: Optional[List[int]] = None,
         update_frequency: float = -1.0,
     ):
@@ -273,6 +276,9 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         self._init_lr = init_lr
         self._final_lr = final_lr
         self._cycle_epochs = cycle_epochs
+        self._cycle_warmup = cycle_warmup
+        self._cycle_coef = cycle_coef
+        self._cycle_mul = cycle_mul
         self._param_groups = param_groups
         self._learning_rate = None
         self._last_applied_lr = None
@@ -334,6 +340,18 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     @ModifierProp()
     def cycle_epochs(self) -> float:
         return self._cycle_epochs
+
+    @ModifierProp()
+    def cycle_warmup(self) -> float:
+        return self._cycle_warmup
+
+    @ModifierProp()
+    def cycle_coef(self) -> float:
+        return self._cycle_coef
+
+    @ModifierProp()
+    def cycle_mul(self) -> float:
+        return self._cycle_mul
 
     @cycle_epochs.setter
     def cycle_epochs(self, value: float):
@@ -419,7 +437,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         """
         Validate the values of the params for the current instance are valid
         """
-        lr_funcs = ["linear", "cosine", "cyclic_linear"]
+        lr_funcs = ["linear", "cosine", "cyclic_linear", "cyclic_cosine", "cyclic_linear_envelope"]
         if self.lr_func not in lr_funcs:
             raise ValueError(f"lr_func must be one of {lr_funcs}")
 
@@ -493,10 +511,43 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         if current_step > int((end_step - start_step) / cycle_steps) * cycle_steps:
             cycle_steps = (end_step - start_step) % cycle_steps
         adjusted_step = current_step % cycle_steps
-        lr = self.init_lr - (adjusted_step / (cycle_steps - 1)) * (
+        lr = self.init_lr - (       ) * (
             self.init_lr - self.final_lr
         )
         return lr
+
+    def _cyclic_cosine(self, epoch: int, steps_per_epoch: int,):
+        end_step     = self.end_epoch    * steps_per_epoch
+        start_step   = self.start_epoch  * steps_per_epoch
+        cycle_steps  = self.cycle_epochs * steps_per_epoch
+        warmup_steps = self.cycle_warmup * steps_per_epoch
+        # get current step and cycle idx
+        current_step  = (epoch - self.start_epoch) * steps_per_epoch
+        # clamp steps
+        current_step = min(max(current_step, start_step), end_step) % cycle_steps
+        current_cycle = max(epoch - self.start_epoch, 0.0) // self.cycle_epochs
+        #
+        cosine_lr = self.final_lr + 0.5 * (self.init_lr - self.final_lr) * \
+            (1 + math.cos(math.pi * current_step / cycle_steps))
+        warmup_lr = min(current_step / warmup_steps, 1.0)
+        lr_mult   = self.cycle_mul ** current_cycle
+        return lr_mult * cosine_lr * warmup_lr 
+
+    def _cyclic_linear_envelope(self, epoch: int, steps_per_epoch: int):
+        end_step     = self.end_epoch    * steps_per_epoch
+        start_step   = self.start_epoch  * steps_per_epoch
+        cycle_steps  = self.cycle_epochs * steps_per_epoch
+        warmup_steps = self.cycle_warmup * steps_per_epoch
+        # get current step and cycle idx
+        current_step  = (epoch - self.start_epoch) * steps_per_epoch
+        # clamp steps
+        current_step = min(max(current_step, start_step), end_step) % cycle_steps
+        current_cycle = max(epoch - self.start_epoch, 0.0) // self.cycle_epochs
+        #
+        cycle_lr = min(current_step / warmup_steps, 1.0) * ((self.init_lr - self.final_lr) * min(
+            (cycle_steps - current_step) / (cycle_steps - warmup_steps), 1.0) + self.final_lr)
+        envelope_lr = 1 + self.cycle_coef * current_cycle
+        return cycle_lr * envelope_lr
 
 
 @PyTorchModifierYAML()
