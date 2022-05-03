@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import glob
+import inspect
 import os
 from typing import Dict, List
 
@@ -20,8 +21,11 @@ from pydantic import BaseModel
 
 
 def get_configs_with_cadence(cadence: str, dir_path: str = "."):
-    all_files_found = glob.glob("test*.test", root_dir=dir_path)
+    all_files_found = glob.glob(
+        "/home/konstantin/Source/sparseml/tests/integrations/yolov5/test*.test"
+    )
     matching_files = []
+    print(all_files_found)
     for file in all_files_found:
         with open(file) as f:
             lines = f.readlines()
