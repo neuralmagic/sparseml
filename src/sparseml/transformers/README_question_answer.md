@@ -147,8 +147,6 @@ The deployment is intuitive and simple thanks to DeepSparse Python API.
 ```python
 from deepsparse.transformers import pipeline
 
-model_path = "zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/12layer_pruned80_quant-none-vnni"
-
 qa_pipeline = pipeline(
   task="question-answering", 
   model_path='./output'
