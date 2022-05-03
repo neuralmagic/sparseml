@@ -87,6 +87,6 @@ def test_multi_step_lr_schedule(
                 gammas = sum(
                     [1 for mile in milestone_steps if step >= mile + start_step]
                 )
-                expected = init_lr * gamma ** gammas
+                expected = init_lr * gamma**gammas
 
                 assert abs(measured - expected) < 1e-5
