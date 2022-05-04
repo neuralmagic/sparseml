@@ -10,11 +10,3 @@ train:
     target_name: "mAP_0.5"
     target_mean: 93.7 
     target_std: 1.3
-export:
-  command_args:
-    model_dir: "some/dir"
-    flags:
-      - dynamic
-deploy:
-  command_args:
-    model_dir: "some/dir"
