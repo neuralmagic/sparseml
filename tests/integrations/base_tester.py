@@ -48,13 +48,10 @@ from tests.integrations.base_args import (
 from tests.integrations.helpers import get_configs_with_cadence
 
 
-pytest.mark.parametrize(
-    "config_path",
-    get_configs_with_cadence(os.environ.get("NM_TEST_CADENCE")),
-)
-
-
 class BaseIntegrationTester:
+    '''
+    Base class for testing integration runs. 
+    '''
     # 1 The command stubs should not include tasks. To modify the command stubs to add
     # tasks (or make any other changes), ovveride the get_base_commands() method.
     command_stubs = {
@@ -71,11 +68,16 @@ class BaseIntegrationTester:
         "deploy": DummyDeployArgs,
     }
 
-    @pytest.fixture(scope="class")
-    def setup(self, config_path):
+    @pytest.fixture(
+        scope="class",
+        params=get_configs_with_cadence(os.environ.get("NM_TEST_CADENCE", "nightly")),
+    )
+    def setup(self, request):
         # A path for a config file which mathes our integration and cadence is provided
         # The raw config can contain multiple command stages (train, export, deploy)
-        raw_config = yaml.safe_load(config_path)
+        config_path = request.param
+        with open(config_path) as f:
+            raw_config = yaml.safe_load(f)
         # Remove cadence for easier processing. It's saved, but not utilized later
         self.cadence = raw_config.pop("cadence")
 
@@ -90,13 +92,13 @@ class BaseIntegrationTester:
         # they are read in as well.
         self.configs = {
             _type: {
-                "pre_args": config.pop("pre_args", None),
-                "args": self.command_args_classes[_type](config.get("command_args")),
+                "pre_args": config.pop("pre_args", ""),
+                "args": self.command_args_classes[_type](**config.get("command_args")),
             }
-            for _type, config in raw_config
+            for _type, config in raw_config.items()
         }
         # Targets are loaded. Targets help determine testing regimes and values
-        self.targets = {_type: config["target"] for _type, config in raw_config}
+        self.targets = {_type: config["test_args"] for _type, config in raw_config.items()}
         # Generate full CLI commands for each stage of run
         self.commands = self.compose_command_scripts(self.configs)
         # 3 Override to save any information which may be needed for testing post-run
@@ -140,14 +142,14 @@ class BaseIntegrationTester:
         command stub, and run args.
         """
         commands = []
-        for _type, config in configs:
+        for _type, config in configs.items():
             if _type not in cls.command_stubs:
                 raise ValueError(f"{_type} is not a valid command type")
-        commands.append(
-            cls.create_command_script(
-                config["pre_args"], cls.command_stubs_final[_type], config["args"]
+            commands.append(
+                cls.create_command_script(
+                    config["pre_args"], cls.command_stubs_final[_type], config["args"]
+                )
             )
-        )
         return commands
 
     @classmethod

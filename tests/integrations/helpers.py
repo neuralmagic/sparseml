@@ -23,15 +23,18 @@ import yaml
 
 def get_configs_with_cadence(cadence: str, dir_path: str = "."):
     all_files_found = glob.glob(
-        "/home/konstantin/Source/sparseml/tests/integrations/yolov5/test*.test"
+        "/home/konstantin/Source/sparseml/tests/integrations/yolov5/test*.yaml"
     )
     matching_files = []
-    print(all_files_found)
     for file in all_files_found:
-        config = yaml.safe_load(file)
-        if config.get("cadence") == cadence:
-            matching_files.append(config)
-        # read one line a time
+        with open(file) as f:
+            lines = f.readlines()
+            for line in lines:
+                if line.startswith("cadence:"):
+                    if line.split(":")[1].strip().strip('"').lower() == cadence: 
+                        matching_files.append(file)
+                        break
+    return matching_files
 
 
 def skip_inactive_stage(test):
