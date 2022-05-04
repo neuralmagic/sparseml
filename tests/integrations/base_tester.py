@@ -82,7 +82,7 @@ class BaseIntegrationTester:
     @pytest.fixture(
         scope="class",
         # Iterate over configs with the matching cadence (default commit)
-        params=get_configs_with_cadence(os.environ.get("NM_TEST_CADENCE", "commit")),
+        params=get_configs_with_cadence(os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)),
     )
     def setup(self, request):
 
@@ -125,7 +125,7 @@ class BaseIntegrationTester:
         self.capture_pre_run_state()
 
         # All commands are run sequentially
-        self.run_commands(self.commands)
+        self.run_commands()
 
         yield  # all tests are run here
 
@@ -149,8 +149,7 @@ class BaseIntegrationTester:
         """
         return cls.command_stubs
 
-    @classmethod
-    def compose_command_scripts(cls, configs: Dict[str, BaseModel]):
+    def compose_command_scripts(self, configs: Dict[str, BaseModel]):
         """
         For each command, create the full CLI command by combining the pre-args,
         command stub, and run args.
@@ -161,10 +160,10 @@ class BaseIntegrationTester:
         """
         commands = {}
         for _type, config in configs.items():
-            if _type not in cls.command_stubs:
+            if _type not in self.command_stubs:
                 raise ValueError(f"{_type} is not a valid command type")
-            commands[_type] = cls.create_command_script(
-                config["pre_args"], cls.command_stubs_final[_type], config["args"]
+            commands[_type] = self.create_command_script(
+                config["pre_args"], self.command_stubs_final[_type], config["args"]
             )
         return commands
 
@@ -183,11 +182,11 @@ class BaseIntegrationTester:
         """
         args_dict = config.dict()
         args_string_list = []
-        for key, value in args_dict:
+        for key, value in args_dict.items():
             # Handles bool type args (e.g. --do-train)
             if isinstance(value, bool):
                 if value:
-                    args_string_list.append("--" + key)
+                    args_string_list.append("--" + str(key))
             # Handles args that are both bool and value based
             elif isinstance(value, Tuple):
                 if not isinstance(value[0], bool):
@@ -196,15 +195,15 @@ class BaseIntegrationTester:
                         "a defined const value. {value} does not qualify"
                     )
                 if value:
-                    args_string_list.append("--" + key + " " + value[1])
+                    args_string_list.append("--" + key + " " + str(value[1]))
             # Handles args that have multiple values after the keyword.
             # e.g. --freeze-layers 0 10 15
             elif isinstance(value, List):
-                args_string_list.append("--" + key + " ".join(value))
+                args_string_list.append("--" + key + " ".join(map(str, value)))
             # Handles the most straightforward case of keyword followed by value
             # e.g. --epochs 30
             else:
-                args_string_list.append("--" + key + " " + value)
+                args_string_list.append("--" + key + " " + str(value))
         args_string_combined = " ".join(args_string_list)
         return " ".join([pre_args, command_stub, args_string_combined])
 
@@ -214,19 +213,21 @@ class BaseIntegrationTester:
         """
         self._start_file_count = sum(len(files) for _, _, files in os.walk(r"."))
 
-    def run_commands(self, kwargs_dict: Dict[str, Dict] = {}):
+    def run_commands(self, kwargs_dict: Union[Dict[str, Dict], None] = None):
         """
         Execute CLI commands in order
 
         :param kwargs_dict: dict mapping command type to subprocess.call() kwargs
             to be used with the command, if any
         """
+        if not kwargs_dict:
+            kwargs_dict = {key: {} for key in self.command_types}
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
             self.save_stage_information(_type)
-            subprocess.call(self.command_types[_type], **kwargs_dict[_type])
+            subprocess.call(self.commands[_type], **kwargs_dict[_type])
 
-    def save_stage_information(self):
+    def save_stage_information(self, command_type):
         """
         Optional function for saving state information between stages.
         """
