@@ -26,12 +26,6 @@ from yolov5.export import create_checkpoint, load_checkpoint
 from yolov5.val import run as val
 
 
-pytest.mark.parametrize(
-    "config_path",
-    ["test"],  # get_configs_with_cadence(os.environ.get("NM_TEST_CADENCE")),
-)
-
-
 @pytest.mark.usefixtures("setup")
 class TestYolov5Integration(BaseIntegrationTester):
 
@@ -43,9 +37,6 @@ class TestYolov5Integration(BaseIntegrationTester):
     command_args_classes = {
         "train": Yolov5TrainArgs,
     }
-
-    def capture_pre_run_state(self, config, config_path):
-        super().capture_pre_run_state(config)
 
     @skip_inactive_stage
     def test_train_checkpoint_load(self, setup):

@@ -22,10 +22,9 @@ from pydantic import BaseModel
 
 def get_configs_with_cadence(cadence: str, dir_path: str = "."):
     all_files_found = glob.glob(
-        "/home/konstantin/Source/sparseml/tests/integrations/yolov5/test*.test"
+        "/home/konstantin/Source/sparseml/tests/integrations/yolov5/test*.yaml"
     )
     matching_files = []
-    print(all_files_found)
     for file in all_files_found:
         with open(file) as f:
             lines = f.readlines()
