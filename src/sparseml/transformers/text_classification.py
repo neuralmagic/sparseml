@@ -187,8 +187,8 @@ class DataTrainingArguments:
         default=None,
         metadata={
             "help": (
-                "name of column to read model input data from. may also be comma "
-                "separated list of two columns to use as inputs. examples include "
+                "name of column to read model input data from. May also be comma "
+                "separated list of two columns to use as inputs. Examples include "
                 "'sentence' for single column and 'sentence_1,sentence_2' for two. "
                 "Default behavior is to read columns based on task name or infer from "
                 "non 'label' columns if sentence_column_names and task name not"
@@ -489,7 +489,7 @@ def main():
     if data_args.input_column_names is not None:
         if "," in data_args.input_column_names:
             # two input columns
-            columns = data_args.input_column_names
+            columns = data_args.input_column_names.split(",")
             if len(columns) != 2:
                 raise ValueError(
                     "input_column_names may only specify up to two columns "
@@ -500,7 +500,7 @@ def main():
             # one input column
             sentence1_key = data_args.input_column_names
             sentence2_key = None
-    if data_args.task_name is not None:
+    elif data_args.task_name is not None:
         sentence1_key, sentence2_key = _TASK_TO_KEYS[data_args.task_name]
     else:
         # Again, we try to have some nice defaults but don't hesitate to tweak to your
