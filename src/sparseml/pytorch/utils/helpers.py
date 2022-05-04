@@ -70,6 +70,7 @@ __all__ = [
     "tensors_export",
     "tensor_density",
     "tensor_sparsity",
+    "tensor_list_sparsity",
     "tensor_sample",
     "mask_difference",
     "get_layer",
@@ -650,6 +651,18 @@ def tensor_sample(
     samples = samples.view(*(tens.shape[ind] for ind in dim), sample_size)
 
     return samples
+
+
+def tensor_list_sparsity(tensors: List[Tensor]) -> float:
+    """
+    :param tensors: the list of tensors to calculate the sparsity for
+    :return: the total sparsity of all tensors in the list
+    """
+    zeros, numel = 0, 0
+    for tensor in tensors:
+        zeros += (tensor == 0).sum().item()
+        numel += tensor.numel()
+    return float(zeros) / float(numel)
 
 
 def mask_difference(old_mask: Tensor, new_mask: Tensor) -> Tensor:
