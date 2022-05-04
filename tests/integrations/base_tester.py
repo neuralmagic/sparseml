@@ -219,7 +219,7 @@ class BaseIntegrationTester:
         """
         self._start_file_count = sum(len(files) for _, _, files in os.walk(r"."))
 
-    def run_commands(self, kwargs_dict: Dict[Dict] = {}):
+    def run_commands(self, kwargs_dict: Dict[str, Dict] = {}):
         """
         Execute CLI commands in order
 
