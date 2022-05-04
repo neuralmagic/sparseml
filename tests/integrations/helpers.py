@@ -21,16 +21,14 @@ from pydantic import BaseModel
 
 
 def get_configs_with_cadence(cadence: str, dir_path: str = "."):
-    '''
+    """
     Find all config files in the given directory with a matching cadence.
     :param cadence: string signifying how often to run this test. Possible values are:
         commit, daily, weekly
     :param dir_path: path to the directory in which to search for the config files
     :return List of file paths to matching configs
-    '''
-    all_files_found = glob.glob(
-        os.path.join(dir_path,"test*.yaml")
-    )
+    """
+    all_files_found = glob.glob(os.path.join(dir_path, "test*.yaml"))
     matching_files = []
     for file in all_files_found:
         with open(file) as f:
