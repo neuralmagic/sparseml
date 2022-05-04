@@ -38,11 +38,6 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from tests.integrations.base_args import (
-    DummyDeployArgs,
-    DummyExportArgs,
-    DummyTrainArgs,
-)
 from tests.integrations.helpers import get_configs_with_cadence
 
 from tests.integrations.helpers import Config, get_configs_with_cadence
