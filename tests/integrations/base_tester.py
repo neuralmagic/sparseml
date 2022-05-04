@@ -38,11 +38,6 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from tests.integrations.base_args import (
-    DummyDeployArgs,
-    DummyExportArgs,
-    DummyTrainArgs,
-)
 from tests.integrations.helpers import get_configs_with_cadence
 
 
@@ -51,7 +46,7 @@ class BaseIntegrationTester:
     Base class for testing integrations through train, export, and deploy scripts.
 
     Each of train, export, and deploy are "command types" and can constitute a stage
-    in a multi-stage run. 
+    in a multi-stage run.
 
     Each integration will implement a subclass of this class, with the following
     fields and functions filled out:
@@ -60,16 +55,16 @@ class BaseIntegrationTester:
         Note that the stubs can be modified via the get_root_commands() function
     :field command_args_classes: Mapping from command type to the pydnatic class
         which holds the CLI args for that command
-    :function teardown: Perform the appropriate post-testing teardown, including 
+    :function teardown: Perform the appropriate post-testing teardown, including
         file cleanup
-    :function get_root_commands: [Optional] If the CLI root commands are dynamic 
-        (e.g. transformers commands are task-dependent), override this function to 
+    :function get_root_commands: [Optional] If the CLI root commands are dynamic
+        (e.g. transformers commands are task-dependent), override this function to
         return the correct stubs
     :function capture_pre_run_state: [Optional] Used to save any information about
         the pre-run state which may be needed for testing post-run
-    :function check_teardown: [Optional] Add checks for a successful environment 
+    :function check_teardown: [Optional] Add checks for a successful environment
         cleanup
-    :function save_stage_information [Optional] Save state information in between 
+    :function save_stage_information [Optional] Save state information in between
         stage runs
     """
 
@@ -126,7 +121,7 @@ class BaseIntegrationTester:
         # Combine pre-args, command stubs, and args into complete CLI commands
         self.commands = self.compose_command_scripts(self.configs)
 
-        # Capture any pre-run information that may be needed for post-run testing 
+        # Capture any pre-run information that may be needed for post-run testing
         self.capture_pre_run_state()
 
         # All commands are run sequentially
@@ -134,7 +129,7 @@ class BaseIntegrationTester:
 
         yield  # all tests are run here
 
-        # Clean up environment after testing is complete 
+        # Clean up environment after testing is complete
         self.teardown()
 
         # Check for successful teardown
@@ -155,7 +150,7 @@ class BaseIntegrationTester:
         return cls.command_stubs
 
     @classmethod
-    def compose_command_scripts(cls, configs: Dict[str,BaseModel]):
+    def compose_command_scripts(cls, configs: Dict[str, BaseModel]):
         """
         For each command, create the full CLI command by combining the pre-args,
         command stub, and run args.
@@ -169,8 +164,8 @@ class BaseIntegrationTester:
             if _type not in cls.command_stubs:
                 raise ValueError(f"{_type} is not a valid command type")
             commands[_type] = cls.create_command_script(
-                    config["pre_args"], cls.command_stubs_final[_type], config["args"]
-                )
+                config["pre_args"], cls.command_stubs_final[_type], config["args"]
+            )
         return commands
 
     @classmethod
