@@ -30,9 +30,9 @@ from yolov5.val import run as val
 class TestYolov5Integration(BaseIntegrationTester):
 
     command_stubs = {
-        "train": "sparseml.object_detection.train",
-        "export": "sparseml.object_detection.export",
-        "deploy": "sparseml.object_detection.deploy",
+        "train": "sparseml.yolov5.train",
+        "export": "sparseml.yolov5.export",
+        "deploy": "sparseml.yolov5.deploy",
     }
     command_args_classes = {
         "train": Yolov5TrainArgs,
