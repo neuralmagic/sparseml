@@ -33,6 +33,7 @@ __all__ = [
     "UnstructuredPruningMaskCreator",
     "FourBlockMaskCreator",
     "BlockMaskCreator",
+    "NMPruningMaskCreator",
 ]
 
 
@@ -583,17 +584,118 @@ class BlockMaskCreator(GroupedPruningMaskCreator):
             return [tens_shape[0] // block_shape[0], block_shape[0], -1]
 
 
+class NMPruningMaskCreator(PruningMaskCreator):
+    """
+    Class for creating N:M sparsity masks.
+    Masks will be created using the N:M ratio, where for every block of M weights,
+    N will be pruned based on ranked weight value. Each mask will correspond to the
+    given tensor.
+
+    :param N: The number of weights in a group to keep
+    :param M: The size of a weight group
+    """
+
+    def __init__(
+        self,
+        N: int = 2,
+        M: int = 4,
+    ):
+        self._N = N
+        self._M = M
+
+    def create_sparsity_masks(
+        self,
+        tensors: List[Tensor],
+        target: Union[float, List[float]],
+        global_sparsity: bool = False,
+    ) -> List[Tensor]:
+        """
+        :param tensors: list of tensors to calculate a masks based on their contained
+            values
+        :param target: the desired sparsity (decimal fraction of zeros) to reach
+            within the mask or other float target value to base sparsity masks on.
+            Can also be a list where each element is a target for a tensor in the same
+            position in the tensor list. The target value must be within 1e-2 of the
+            effective sparsity of the N:M ratio.
+        :param global_sparsity: typically used to determine pruning masks globally.
+            Not used here because global sparsity doesn't apply to N:M pruning
+        :return: list of masks (0.0 for values that are masked, 1.0 for values that are
+            unmasked) calculated from the tensors such that the desired number of zeros
+            matches the sparsity.
+        """
+        nm_sparsity = 1 - (self._N / self._M)
+        if (isinstance(target, float) and target == 0.0) or (
+            isinstance(target, List) and all([sparsity == 0.0 for sparsity in target])
+        ):
+            return [torch.ones_like(tensor) for tensor in tensors]
+        if (isinstance(target, float) and abs(nm_sparsity - target) > 1e-2) or (
+            isinstance(target, List)
+            and any([abs(nm_sparsity - sparsity) > 1e-2 for sparsity in target])
+        ):
+            raise ValueError(
+                "Sparsity must match N:M ratio. e.g. if using '3:4' then sparsity "
+                "should be set to 0.25"
+            )
+
+        masks = []
+        for tensor in tensors:
+            if tensor.numel() % self._M != 0:
+                raise ValueError(
+                    f"Tensor of size {tensor.shape} can't be evenly divided into "
+                    f"{self._M} groups"
+                )
+            original_tensor = tensor.clone()
+            num_groups = tensor.numel() // self._M
+            if len(tensor.shape) == 4:
+                # N:M sparsity for convolutional layers
+                tensor_temp = (
+                    tensor.detach()
+                    .abs()
+                    .permute(0, 2, 3, 1)
+                    .reshape(num_groups, self._M)
+                )
+                index = torch.argsort(tensor_temp, dim=1)[:, : int(self._M - self._N)]
+                w_b = torch.ones(tensor_temp.shape, device=tensor_temp.device)
+                masks.append(
+                    w_b.scatter_(dim=1, index=index, value=0).reshape(
+                        original_tensor.permute(0, 2, 3, 1).shape
+                    )
+                )
+            elif len(tensor.shape) == 2:
+                # N:M sparsity for linear layers
+                tensor_temp = tensor.detach().abs().reshape(num_groups, self._M)
+                index = torch.argsort(tensor_temp, dim=1)[:, : int(self._M - self._N)]
+                w_b = torch.ones(tensor_temp.shape, device=tensor_temp.device)
+                masks.append(
+                    w_b.scatter_(dim=1, index=index, value=0).reshape(tensor.shape)
+                )
+            else:
+                raise NotImplementedError("Only support layers of dimension 2 or 4")
+        return masks
+
+
 def get_mask_creator_default(mask_type: Union[str, List[int]]) -> PruningMaskCreator:
     """
     :param mask_type: type of mask creator to use, can be 'unstructured', for
-        unstructured mask creator, 'block4' for 1x4 block pruning, or a list of two
-        integers for custom block pruning (does not support padding)
+        unstructured mask creator, 'block4' for 1x4 block pruning, 'N:M' where N and M
+        are integers for N:M pruning, or a list of two integers for custom block
+        pruning (does not support padding)
     :return: mask creator object created from the mask type
     """
     if mask_type == "unstructured":
         return UnstructuredPruningMaskCreator()
     elif mask_type == "block4":
         return FourBlockMaskCreator()
+    elif ":" in mask_type:
+        nm = mask_type.split(":")
+        if len(nm) != 2:
+            raise ValueError(
+                "N:M pruning must be specified in the format 'N:M' with "
+                f"2 values, but {len(nm)} values were found"
+            )
+        return NMPruningMaskCreator(N=int(nm[0]), M=int(nm[1]))
+    elif mask_type == "tensorrt":
+        return NMPruningMaskCreator(N=2, M=4)
     elif isinstance(mask_type, List):
         if not all(isinstance(val, int) for val in mask_type):
             raise ValueError(
