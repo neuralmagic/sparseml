@@ -22,8 +22,15 @@ import yaml
 
 
 def get_configs_with_cadence(cadence: str, dir_path: str = "."):
+    '''
+    Find all config files in the given directory with a matching cadence.
+    :param cadence: string signifying how often to run this test. Possible values are:
+        commit, daily, weekly
+    :param dir_path: path to the directory in which to search for the config files
+    :return List of file paths to matching configs
+    '''
     all_files_found = glob.glob(
-        "/home/konstantin/Source/sparseml/tests/integrations/yolov5/test*.yaml"
+        os.path.join(dir_path,"test*.yaml")
     )
     matching_files = []
     for file in all_files_found:
@@ -31,13 +38,19 @@ def get_configs_with_cadence(cadence: str, dir_path: str = "."):
             lines = f.readlines()
             for line in lines:
                 if line.startswith("cadence:"):
-                    if line.split(":")[1].strip().strip('"').lower() == cadence: 
+                    if line.split(":")[1].strip().strip('"').lower() == cadence:
                         matching_files.append(file)
                         break
     return matching_files
 
 
 def skip_inactive_stage(test):
+    '''
+    Check whether the this test's command type is active in this run. If not,
+    skip test.
+
+    :param test: test function which follows the name convention test_{command_type}_... 
+    '''
     @wraps(test)
     def wrapped_test(self, *args, **kwargs):
         command_type = inspect.currentframe().f_code.co_name.split("_")[1]
