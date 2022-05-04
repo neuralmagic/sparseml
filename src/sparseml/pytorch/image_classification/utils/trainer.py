@@ -101,7 +101,7 @@ class ImageClassificationTrainer(Trainer):
         init_lr=1e-9,
         optim_name="Adam",
         optim_kwargs: Optional[Dict[str, Any]] = None,
-        recipe_args: str = None,
+        recipe_args: Optional[str] = None,
     ):
         """
         Initializes the module_trainer.
