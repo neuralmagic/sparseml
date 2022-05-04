@@ -24,7 +24,7 @@ Note: Transformers will not immediately install with this command. Instead, a sp
 - [Sparsifying BERT Models Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/sparsifying_bert_using_recipes.md)
 - [Sparse Transfer Learning With BERT](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/bert_sparse_transfer_learning.md)
 
-## Getting started
+## Getting Started
 
 *This should explain to the user in the learn-by-doing fashion about the functionalities of the pipeline.*
 
@@ -51,7 +51,7 @@ sparseml.transformers.question_answering \
 Once you sparsify a model using SparseML, you can easily sparse fine-tune it on a new dataset.
 While you are free to use your backbone, we encourage you to leverage one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com) to boost your productivity!
 
-In the example below, we fetch a pruned, quantized BERT model, pre-trained on Wikipedia and Bookcorpus datasets. We then fine tune the model to the SQuAD dataset. 
+In the example below, we fetch a pruned, quantized BERT model, pre-trained on Wikipedia and Bookcorpus datasets. We then fine-tune the model to the SQuAD dataset. 
 ```python
 sparseml.transformers.question_answering \
     --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/12layer_pruned80_quant-none-vnni \
@@ -72,7 +72,7 @@ In this example, the `--distill_teacher` argument is set to pull a dense SQuAD m
 --distill_teacher zoo:nlp/question_answering/bert-base/pytorch/huggingface/squad/base-none
 ```
 
-Alternatively, the user may decide to train their own dense teacher model. The following command will use the dense BERT base model from the SparseZoo and fine-tune it on the SQuAD dataset.
+Alternatively, the user may decide to train their own dense teacher model. The following command uses the dense BERT base model from the SparseZoo and fine-tunes it on the SQuAD dataset.
 ```bash
 sparseml.transformers.question_answering \
     --model_name_or_path zoo:nlp/masked_language_modeling/bert-base/pytorch/huggingface/wikipedia_bookcorpus/base-none \
@@ -92,7 +92,7 @@ Once the dense teacher is trained we may reuse it for KD. This only requires pas
 ## SparseML CLI
 *This section should explain the functionality of the most important parameters of the CLI. The goal is not to teach the user about every argument, but to make it easy for them to tweak the crucial ones.*
 
-The SparseML installation provides a CLI for sparsifying your models for a specific task; appending the `--help` argument will provide a full list of options for training in SparseML:
+The SparseML installation provides a CLI for sparsifying your models for a specific task; appending the `--help` argument displays a full list of options for training in SparseML:
 ```bash
 sparseml.transformers.question_answering --help
 ```
@@ -111,7 +111,7 @@ output:
   ...
 ```
 
-To learn about the Hugging Face Transformers parameters in more detail, please also refer to [Hugging Face Transformers documentation](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments).
+To learn about the Hugging Face Transformers parameters in more detail, refer to [Hugging Face Transformers documentation](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments).
 
 ## Once the Training is Done...
 
@@ -142,7 +142,7 @@ on their CPU! Let's make this section short, referencing internal DeepSparse doc
 
 Once the model is exported an ONNX format, it is ready for deployment with the DeepSparse Engine. 
 
-The deployment is intuitive and simple thanks to DeepSparse Python API.
+The deployment is intuitive due to the DeepSparse Python API.
 
 ```python
 from deepsparse.transformers import pipeline
@@ -158,5 +158,5 @@ inference = qa_pipeline(question="What's my name?", context="My name is Snorlax"
 ```
 
 
-To learn more, please refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers)
+To learn more, refer to the [appropriate documentation in the DeepSparse repository](https://github.com/neuralmagic/deepsparse/tree/main/examples/huggingface-transformers)
 
