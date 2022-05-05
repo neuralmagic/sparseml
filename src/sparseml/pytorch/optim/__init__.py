@@ -27,13 +27,6 @@ from .manager import *
 from .mask_creator_pruning import *
 from .mask_pruning import *
 from .mask_pruning_scorer import *
-from .modifier import *
-from .modifier_as import *
-from .modifier_distillation import *
-from .modifier_epoch import *
-from .modifier_lr import *
-from .modifier_params import *
-from .modifier_regularizer import *
 from .optimizer import *
 from .sensitivity_as import *
 from .sensitivity_lr import *

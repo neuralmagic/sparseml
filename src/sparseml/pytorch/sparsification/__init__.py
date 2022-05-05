@@ -21,7 +21,10 @@ algorithms to models within in the PyTorch framework.
 
 # flake8: noqa
 
+from .distillation import *
 from .info import *
+from .modifier import *
 from .modifier_thinning import *
 from .pruning import *
 from .quantization.modifier_quantization import *
+from .training import *

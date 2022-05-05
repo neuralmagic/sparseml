@@ -31,6 +31,7 @@ from sparseml.pytorch.utils import (
     ModuleTester,
     ModuleTrainer,
     default_device,
+    is_parallel_model,
 )
 
 
@@ -123,7 +124,9 @@ class ImageClassificationTrainer(Trainer):
 
         self.optim_name = optim_name
         self.epoch = 0
-
+        self._device_context = ModuleDeviceContext(
+            use_mixed_precision=self.use_mixed_precision,
+        )
         if self.train_loader is not None:
             (
                 self.epoch,
@@ -169,6 +172,10 @@ class ImageClassificationTrainer(Trainer):
         train_mode = mode == "train"
         validation_mode = not train_mode
 
+        if torch.__version__ < "1.9" and self.manager.qat_active(epoch=self.epoch):
+            # switch off fp16
+            self._device_context.use_mixed_precision = False
+
         if validation_mode:
             return self._run_validation_epoch(
                 max_steps=max_steps,
@@ -212,9 +219,10 @@ class ImageClassificationTrainer(Trainer):
         manager = ScheduledModifierManager.from_yaml(
             file_path=self.recipe_path,
         )
+
         optim = ScheduledOptimizer(
             optim,
-            self.model,
+            self.model.module if is_parallel_model(self.model) else self.model,
             manager,
             steps_per_epoch=len(self.train_loader),
             loggers=self.loggers,
@@ -223,15 +231,14 @@ class ImageClassificationTrainer(Trainer):
         return epoch, optim, manager
 
     def _initialize_module_trainer(self):
+
         trainer = ModuleTrainer(
             module=self.model,
             device=self.device,
             loss=self.train_loss,
             optimizer=self.optim,
             loggers=self.loggers,
-            device_context=ModuleDeviceContext(
-                use_mixed_precision=self.use_mixed_precision,
-            ),
+            device_context=self._device_context,
         )
         _LOGGER.info(f"created Module Trainer: {trainer}")
 

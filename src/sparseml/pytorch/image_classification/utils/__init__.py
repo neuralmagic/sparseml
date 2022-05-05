@@ -14,5 +14,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .nm_argparser import *
+from .constants import *
 from .trainer import *

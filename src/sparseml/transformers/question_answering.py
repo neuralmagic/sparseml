@@ -52,7 +52,7 @@ from sparseml.transformers.sparsification import (
     QuestionAnsweringTrainer,
     postprocess_qa_predictions,
 )
-from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers.utils import SparseAutoModel, get_shared_tokenizer_src
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your
@@ -66,6 +66,14 @@ require_version(
 
 
 _LOGGER = logging.getLogger(__name__)
+
+metadata_args = [
+    "per_device_train_batch_size",
+    "per_device_eval_batch_size",
+    "doc_stride",
+    "fp16",
+    "max_seq_length",
+]
 
 
 @dataclass
@@ -376,7 +384,7 @@ def main():
     # 'text' is found. You can easily tweak this behavior (see below).
     #
     # In distributed training, the load_dataset function guarantee that
-    # only one local process can concurrentlydownload the dataset.
+    # only one local process can concurrently download the dataset.
     if data_args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
         raw_datasets = load_dataset(
@@ -419,15 +427,7 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name
-        if model_args.tokenizer_name
-        else model_args.model_name_or_path,
-        cache_dir=model_args.cache_dir,
-        use_fast=True,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
+
     model, teacher = SparseAutoModel.question_answering_from_pretrained_distil(
         model_name_or_path=model_args.model_name_or_path,
         model_kwargs={
@@ -441,6 +441,19 @@ def main():
             "cache_dir": model_args.cache_dir,
             "use_auth_token": True if model_args.use_auth_token else None,
         },
+    )
+
+    tokenizer_src = (
+        model_args.tokenizer_name
+        if model_args.tokenizer_name
+        else get_shared_tokenizer_src(model, teacher)
+    )
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_src,
+        cache_dir=model_args.cache_dir,
+        use_fast=True,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
     )
 
     # Tokenizer check: this script requires a fast tokenizer.
@@ -751,6 +764,7 @@ def main():
         model_state_path=model_args.model_name_or_path,
         recipe=data_args.recipe,
         recipe_args=data_args.recipe_args,
+        metadata_args=metadata_args,
         teacher=teacher,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
