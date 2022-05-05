@@ -21,6 +21,7 @@ from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Tup
 
 import torch
 from torch.nn import Module
+from tqdm import tqdm
 
 from sparseml.pytorch.utils.helpers import (
     get_prunable_layers,
@@ -215,19 +216,20 @@ class GradSampler:
             of the gradient sample number
         """
         computed_grads = 0
+        with tqdm(total=num_grads) as pbar:
+            pbar.set_description("Collecting gradients")
+            while computed_grads < num_grads:
+                for forward_args, forward_kwargs, loss_target in self._data_loader:
+                    module.zero_grad()
+                    # run sample forward and backwards pass
+                    model_outputs = module(*forward_args, **forward_kwargs)
+                    loss = self._loss_fn(model_outputs, loss_target)
+                    loss.backward()
 
-        while computed_grads < num_grads:
-            for forward_args, forward_kwargs, loss_target in self._data_loader:
-                module.zero_grad()
-                # run sample forward and backwards pass
-                model_outputs = module(*forward_args, **forward_kwargs)
-                loss = self._loss_fn(model_outputs, loss_target)
-                loss.backward()
-
-                # yield so gradients can be collected
-                computed_grads += 1
-                yield computed_grads
-
-                if computed_grads >= num_grads:
-                    break
+                    # yield so gradients can be collected
+                    computed_grads += 1
+                    yield computed_grads
+                    pbar.update(1)
+                    if computed_grads >= num_grads:
+                        break
         module.zero_grad()
