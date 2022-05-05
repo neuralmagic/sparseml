@@ -17,36 +17,51 @@ Helper methods for image classification/detection based tasks
 """
 import os
 import warnings
+from contextlib import contextmanager
 from enum import Enum, auto, unique
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import Module
-from torch.nn import functional as torch_functional
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
-from sparseml.pytorch.datasets import DatasetRegistry, ssd_collate_fn, yolo_collate_fn
+from sparseml.pytorch.datasets import DatasetRegistry
+from sparseml.pytorch.datasets.image_classification.ffcv_dataset import (
+    FFCVCompatibleDataset,
+)
 from sparseml.pytorch.models import ModelRegistry
-from sparseml.pytorch.optim import ScheduledModifierManager, ScheduledOptimizer
-from sparseml.pytorch.sparsification import ConstantPruningModifier
+from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import (
     DEFAULT_LOSS_KEY,
     CrossEntropyLossWrapper,
-    InceptionCrossEntropyLossWrapper,
-    LossWrapper,
     ModuleExporter,
     ModuleRunResults,
     PythonLogger,
-    SSDLossWrapper,
     TensorBoardLogger,
     TopKAccuracy,
-    YoloLossWrapper,
+    default_device,
     early_stop_data_loader,
+    model_to_device,
+    set_deterministic_seeds,
     torch_distributed_zero_first,
 )
 from sparseml.utils import create_dirs
 from sparsezoo import Zoo
+
+
+__all__ = [
+    "Tasks",
+    "get_save_dir_and_loggers",
+    "get_dataset_and_dataloader",
+    "create_model",
+    "infer_num_classes",
+    "save_recipe",
+    "save_model_training",
+    "set_seeds",
+    "get_loss_wrapper",
+    "ddp_aware_model_move",
+]
 
 
 @unique
@@ -62,25 +77,37 @@ class Tasks(Enum):
     PR_SENSITIVITY = auto()
 
 
-# loggers
 def get_save_dir_and_loggers(
-    args: Any, task: Optional[Tasks] = None
+    task: Optional[Tasks] = None,
+    is_main_process: bool = True,
+    save_dir: Optional[str] = None,
+    logs_dir: Optional[str] = None,
+    arch_key: Optional[str] = "",
+    model_tag: Optional[str] = None,
+    dataset_name: Optional[str] = "",
 ) -> Tuple[Union[str, None], List]:
-    if args.is_main_process:
-        save_dir = os.path.abspath(os.path.expanduser(args.save_dir))
+    """
+    :param task: The current task being performed
+    :param is_main_process: Whether this is the main process or not
+    :param save_dir: The directory to save the model
+    :param logs_dir: The directory to save logs
+    :param arch_key: The architecture key of the image classification model
+    :param model_tag: A str tag to optionally tag this model with
+    :param dataset_name: The name of the dataset used to tag a model
+        if model_tag not given
+    :return: A tuple of the save directory and a list of loggers
+    """
+    arch_key = arch_key or ""
+    if is_main_process:
+        save_dir = os.path.abspath(os.path.expanduser(save_dir))
         logs_dir = (
-            os.path.abspath(os.path.expanduser(os.path.join(args.logs_dir)))
+            os.path.abspath(os.path.expanduser(os.path.join(logs_dir)))
             if task == Tasks.TRAIN
             else None
         )
 
-        if not args.model_tag:
-            dataset_name = (
-                f"{args.dataset}-{args.dataset_kwargs['year']}"
-                if "year" in args.dataset_kwargs
-                else args.dataset
-            )
-            model_tag = f"{args.arch_key.replace('/', '.')}_{dataset_name}"
+        if not model_tag:
+            model_tag = f"{arch_key.replace('/', '.')}_{dataset_name}"
             model_id = model_tag
             model_inc = 0
             # set location to check for models with same name
@@ -90,7 +117,7 @@ def get_save_dir_and_loggers(
                 model_inc += 1
                 model_id = f"{model_tag}__{model_inc:02d}"
         else:
-            model_id = args.model_tag
+            model_id = model_tag
 
         save_dir = os.path.join(save_dir, model_id)
         create_dirs(save_dir)
@@ -116,124 +143,173 @@ def get_save_dir_and_loggers(
     return save_dir, loggers
 
 
-# data helpers_
-def _get_collate_fn(arch_key: str, task: Optional[Tasks] = None):
-    is_ssd = "ssd" in arch_key.lower()
-    need_collate_function = (
-        is_ssd or "yolo" in arch_key.lower()
-    ) and task != Tasks.EXPORT
-    if need_collate_function:
-        return ssd_collate_fn if is_ssd else yolo_collate_fn
-    return None
+# data helpers
+def get_dataset_and_dataloader(
+    dataset_name: str,
+    dataset_path: str,
+    batch_size: int,
+    image_size: int,
+    dataset_kwargs: Optional[Dict[str, Any]] = None,
+    training: bool = False,
+    rank: int = -1,
+    local_rank: int = -1,
+    loader_num_workers: int = 0,
+    loader_pin_memory: bool = False,
+    max_samples: Optional[int] = None,
+    ffcv: bool = False,
+    device: Optional[torch.device] = default_device(),
+) -> Tuple[Dataset, Union[DataLoader, Any]]:
+    """
+    :param dataset_name: The name of the dataset
+    :param dataset_path: The path to the dataset
+    :param batch_size: The batch size
+    :param image_size: A tuple of ints representing the image size
+    :param dataset_kwargs: A dict of kwargs for dataset creation
+    :param training: Whether this is training or validation
+    :param rank: The rank of the current process
+    :param local_rank: The local rank of the current process
+    :param loader_num_workers: The number of workers to use for the data loader
+    :param loader_pin_memory: Whether to pin memory for the data loader
+    :param max_samples: The maximum number of samples to use
+    :param ffcv: Whether to use ffcv dataset and data loaders
+    :param device: The device to use for the data loader. Required for ffcv
+    :return: Tuple with the following format (dataset, dataloader)
+    """
 
-
-def _create_train_dataset_and_loader(
-    args: Any,
-    image_size: Tuple[int, ...],
-    task: Optional[Tasks] = None,
-) -> Tuple[Any, Any]:
-    need_train_data = not (
-        task == Tasks.EXPORT
-        or task == Tasks.PR_SENSITIVITY
-        and args.approximate
-        or task == Tasks.TRAIN
-        and args.eval_mode
+    download_context = (
+        torch_distributed_zero_first(local_rank)  # only download once locally
+        if training
+        else _nullcontext()
     )
+    dataset_kwargs = dataset_kwargs or {}
 
-    if need_train_data:
-        with torch_distributed_zero_first(
-            args.local_rank,
-        ):  # only download once locally
-            train_dataset = DatasetRegistry.create(
-                args.dataset,
-                root=args.dataset_path,
-                train=True,
-                rand_trans=True,
-                image_size=image_size,
-                **args.dataset_kwargs,
-            )
-        sampler = (
-            torch.utils.data.distributed.DistributedSampler(train_dataset)
-            if args.rank != -1
-            else None
+    with download_context:
+        dataset = DatasetRegistry.create(
+            dataset_name,
+            root=dataset_path,
+            train=training,
+            rand_trans=training,
+            image_size=image_size,
+            **dataset_kwargs,
         )
-        shuffle = True if sampler is None else False
-        batch_size = args.train_batch_size if task == Tasks.TRAIN else args.batch_size
 
-        train_loader = DataLoader(
-            train_dataset,
+    sampler = (
+        torch.utils.data.distributed.DistributedSampler(dataset)
+        if rank != -1 and training  # only run on DDP + training
+        else None
+    )
+    shuffle = sampler is None and not training
+
+    if ffcv:
+        if not isinstance(dataset, FFCVCompatibleDataset):
+            raise ValueError(f"Dataset {dataset} must implement FFCVCompatibleDataset")
+        dataset_type = "train" if training else "val"
+        write_path = os.path.join(
+            dataset_path,
+            "ffcv_cache",
+            f"{dataset_type}.beton",
+        )
+
+        data_loader = dataset.get_ffcv_loader(
+            write_path=write_path,
+            batch_size=batch_size,
+            num_workers=loader_num_workers,
+            device=device,
+        )
+
+    else:
+        data_loader = DataLoader(
+            dataset=dataset,
             batch_size=batch_size,
             shuffle=shuffle,
-            num_workers=args.loader_num_workers,
-            pin_memory=args.loader_pin_memory,
+            num_workers=loader_num_workers,
+            pin_memory=loader_pin_memory,
             sampler=sampler,
-            collate_fn=_get_collate_fn(arch_key=args.arch_key, task=task),
         )
-        print(f"created train_dataset: {train_dataset}")
-        return train_dataset, train_loader
 
-    return None, None
-
-
-def _create_val_dataset_and_loader(
-    args, image_size: Tuple[int, ...], task: Optional[Tasks] = None
-) -> Tuple[Any, Any]:
-    need_val_data = not (
-        task == Tasks.PR_SENSITIVITY
-        or task == Tasks.LR_ANALYSIS
-        or not (args.is_main_process and args.dataset != "imagefolder")
-    )
-
-    if need_val_data:
-        val_dataset = DatasetRegistry.create(
-            args.dataset,
-            root=args.dataset_path,
-            train=False,
-            rand_trans=False,
-            image_size=image_size,
-            **args.dataset_kwargs,
+    if max_samples is not None:
+        data_loader = early_stop_data_loader(
+            data_loader, max_samples if max_samples > 1 else 1
         )
-        if args.is_main_process:
-            is_training = task == Tasks.TRAIN
-            val_loader = DataLoader(
-                val_dataset,
-                batch_size=args.test_batch_size if is_training else 1,
-                shuffle=False,
-                num_workers=args.loader_num_workers if is_training else 1,
-                pin_memory=args.loader_pin_memory if is_training else False,
-                collate_fn=_get_collate_fn(arch_key=args.arch_key, task=task),
-            )
-            if task == Tasks.EXPORT:
-                val_loader = early_stop_data_loader(
-                    val_loader, args.num_samples if args.num_samples > 1 else 1
-                )
-            print(f"created val_dataset: {val_dataset}")
-        else:
-            val_loader = None  # only val dataset needed to get the number of classes
-        return val_dataset, val_loader
-    return None, None  # val dataset not needed
 
-
-def get_train_and_validation_loaders(
-    args: Any, image_size: Tuple[int, ...], task: Optional[Tasks] = None
-):
-    """
-    :param args: Object containing relevant configuration for the task
-    :param image_size: A Tuple of integers representing the shape of input image
-    :param task: The current task being performed
-    :return: 4 element tuple with the following format (train_dataset,
-        train_loader, val_dataset, val_loader)
-    """
-    train_dataset, train_loader = _create_train_dataset_and_loader(
-        args, image_size, task=task
-    )
-    val_dataset, val_loader = _create_val_dataset_and_loader(
-        args, image_size, task=task
-    )
-    return train_dataset, train_loader, val_dataset, val_loader
+    return dataset, data_loader
 
 
 # Model creation Helpers
+def create_model(
+    checkpoint_path: str,
+    num_classes: int,
+    recipe_path: Optional[str] = None,
+    arch_key: Optional[str] = None,
+    pretrained: Union[bool, str] = False,
+    pretrained_dataset: Optional[str] = None,
+    local_rank: int = -1,
+    **model_kwargs,
+) -> Tuple[Module, str]:
+    """
+    :param checkpoint_path: Path to the checkpoint to load. `zoo` for
+        downloading weights with respect to a SparseZoo recipe
+    :param num_classes: Integer representing the number of output classes
+    :param recipe_path: Path or SparseZoo stub to the recipe for downloading,
+        respective model. Defaults to `None`
+    :param arch_key: The architecture key of the image classification model.
+        Defaults to `None`
+    :param pretrained: Whether to use pretrained weights or not. Defaults to
+        False
+    :param pretrained_dataset: The dataset to used for pretraining. Defaults to
+        None
+    :param local_rank: The local rank of the process. Defaults to -1
+    :param model_kwargs: Additional keyword arguments to pass to the model
+    :returns: A tuple containing the model and the model's arch_key
+    """
+    with torch_distributed_zero_first(local_rank):
+        # only download once locally
+        if checkpoint_path and checkpoint_path.lower() == "zoo":
+            checkpoint_path = _download_model_from_zoo_using_recipe(
+                recipe_stub=recipe_path,
+            )
+
+        result = ModelRegistry.create(
+            key=arch_key,
+            pretrained=pretrained,
+            pretrained_path=checkpoint_path,
+            pretrained_dataset=pretrained_dataset,
+            num_classes=num_classes,
+            **model_kwargs,
+        )
+
+        if not isinstance(result, tuple):
+            model, arch_key = result, arch_key
+        else:
+            model, arch_key = result
+
+        return model, arch_key
+
+
+def infer_num_classes(
+    train_dataset: Optional[Dataset],
+    val_dataset: Optional[Dataset],
+    dataset: str,
+    model_kwargs: Dict[str, Any],
+) -> int:
+    """
+    :param train_dataset: dataset representing training data
+    :param val_dataset: dataset representing validation data
+    :param dataset: name of the dataset
+    :param model_kwargs: keyword arguments used for model creation
+    :return: An integer representing the number of classes
+    """
+    if "num_classes" in model_kwargs:
+        # handle manually overriden num classes
+        num_classes = model_kwargs["num_classes"]
+        del model_kwargs["num_classes"]
+    elif dataset == "imagefolder":
+        dataset = val_dataset or train_dataset  # get non None dataset
+        num_classes = dataset.num_classes
+    else:
+        dataset_attributes = DatasetRegistry.attributes(dataset)
+        num_classes = dataset_attributes["num_classes"]
+    return num_classes
 
 
 def get_arch_key(arch_key: Optional[str], checkpoint_path: Optional[str]) -> str:
@@ -243,7 +319,9 @@ def get_arch_key(arch_key: Optional[str], checkpoint_path: Optional[str]) -> str
     returned
 
     :param arch_key: Optional[str] The arch_key to use for the model
-    :checkpoint_path: Optiona[str] The path to the checkpoint
+    :param checkpoint_path: Optional[str] The path to the checkpoint
+    :return: str The arch_key to use for the model if present in the
+        checkpoint
     """
     if arch_key is None:
         if checkpoint_path:
@@ -262,137 +340,6 @@ def get_arch_key(arch_key: Optional[str], checkpoint_path: Optional[str]) -> str
             )
 
     return arch_key
-
-
-def create_model(args: Any, num_classes: int) -> Module:
-    """
-    :param args: object with configuration for model classes
-    :param num_classes: Integer representing the number of output classes
-    :returns: A Module object representing the created model
-    """
-    with torch_distributed_zero_first(args.local_rank):  # only download once locally
-        if args.checkpoint_path == "zoo":
-            if args.recipe_path and args.recipe_path.startswith("zoo:"):
-                args.checkpoint_path = Zoo.download_recipe_base_framework_files(
-                    args.recipe_path, extensions=[".pth"]
-                )[0]
-            else:
-                raise ValueError(
-                    "'zoo' provided as --checkpoint-path but a SparseZoo stub"
-                    " prefixed by 'zoo:' not provided as --recipe-path"
-                )
-
-        model = ModelRegistry.create(
-            args.arch_key,
-            args.pretrained,
-            args.checkpoint_path,
-            args.pretrained_dataset,
-            num_classes=num_classes,
-            **args.model_kwargs,
-        )
-    print(f"created model: {model}")
-    return model
-
-
-def infer_num_classes(args: Any, train_dataset, val_dataset):
-    """
-    :param args: Object with configuration settings
-    :param train_dataset: dataset representing training data
-    :param val_dataset: dataset representing validation data
-    :return: An integer representing the number of classes
-    """
-    if "num_classes" in args.model_kwargs:
-        # handle manually overriden num classes
-        num_classes = args.model_kwargs["num_classes"]
-        del args.model_kwargs["num_classes"]
-    elif args.dataset == "imagefolder":
-        dataset = val_dataset or train_dataset  # get non None dataset
-        num_classes = dataset.num_classes
-    else:
-        dataset_attributes = DatasetRegistry.attributes(args.dataset)
-        num_classes = dataset_attributes["num_classes"]
-    return num_classes
-
-
-def get_loss_wrapper(
-    arch_key: str, training: bool = False, task: Optional[Tasks] = None
-):
-    """
-    :param arch_key: The model architecture
-    :param training: True if training task started else False
-    :param task: current task being executed
-    """
-    if "ssd" in arch_key.lower():
-        return SSDLossWrapper()
-    if "yolo" in arch_key.lower():
-        return YoloLossWrapper()
-
-    extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
-    if task == Tasks.TRAIN:
-        return (
-            CrossEntropyLossWrapper(extras)
-            if training and "inception" not in arch_key
-            else InceptionCrossEntropyLossWrapper(extras)
-        )
-    return LossWrapper(loss_fn=torch_functional.cross_entropy, extras=extras)
-
-
-#  optimizer helper
-def create_scheduled_optimizer(
-    train_args: Any,
-    model: Module,
-    train_loader: DataLoader,
-    loggers: List[Any],
-) -> Tuple[int, ScheduledOptimizer, ScheduledModifierManager]:
-    """
-    :param train_args : An object with task specific config
-    :param model: model architecture to train
-    :param train_loader: A DataLoader for training data
-    :param loggers: List of loggers to use during training process
-    :type train_args: TrainingArguments
-    """
-    # # optimizer setup
-    optim_const = torch.optim.__dict__[train_args.optim]
-    optim = optim_const(
-        model.parameters(), lr=train_args.init_lr, **train_args.optim_args
-    )
-    print(f"created optimizer: {optim}")
-    print(
-        "note, the lr for the optimizer may not reflect the manager yet until "
-        "the recipe config is created and run"
-    )
-
-    # restore from previous check point
-    if train_args.checkpoint_path:
-        # currently optimizer restoring is unsupported
-        # mapping of the restored params to the correct device is not working
-        # load_optimizer(args.checkpoint_path, optim)
-        epoch = 0  # load_epoch(args.checkpoint_path) + 1
-        print(
-            f"restored checkpoint from {train_args.checkpoint_path} for "
-            f"epoch {epoch - 1}"
-        )
-    else:
-        epoch = 0
-
-    # modifier setup
-    add_mods = (
-        ConstantPruningModifier.from_sparse_model(model)
-        if train_args.sparse_transfer_learn
-        else None
-    )
-    manager = ScheduledModifierManager.from_yaml(
-        file_path=train_args.recipe_path, add_modifiers=add_mods
-    )
-    optim = ScheduledOptimizer(
-        optim,
-        model,
-        manager,
-        steps_per_epoch=len(train_loader),
-        loggers=loggers,
-    )
-    print(f"created manager: {manager}")
-    return epoch, optim, manager
 
 
 # saving helpers
@@ -417,27 +364,34 @@ def save_model_training(
     save_name: str,
     save_dir: str,
     epoch: int,
-    val_res: Union[ModuleRunResults, None],
+    val_res: Optional[ModuleRunResults],
+    arch_key: Optional[str] = None,
 ):
     """
     :param model: model architecture
     :param optim: The optimizer used
-    :param input_shape: A tuple of integers representing the input shape
     :param save_name: name to save model to
     :param save_dir: directory to save results in
     :param epoch: integer representing umber of epochs to
     :param val_res: results from validation run
-    :param convert_qat: True if model is to be quantized before saving
+    :param arch_key: if provided, the `arch_key` will be saved in the
+        checkpoint
     """
-    has_top1 = "top1acc" in val_res.results
-    metric_name = "top-1 accuracy" if has_top1 else "val_loss"
-    metric = val_res.result_mean("top1acc" if has_top1 else DEFAULT_LOSS_KEY).item()
-    print(
-        f"Saving model for epoch {epoch} and {metric_name} "
-        f"{metric} to {save_dir} for {save_name}"
-    )
+    if val_res is not None:
+        has_top1 = "top1acc" in val_res.results
+        metric_name = "top-1 accuracy" if has_top1 else "val_loss"
+        metric = val_res.result_mean("top1acc" if has_top1 else DEFAULT_LOSS_KEY).item()
+        print(
+            f"Saving model for epoch {epoch} and {metric_name} "
+            f"{metric} to {save_dir} for {save_name}"
+        )
     exporter = ModuleExporter(model, save_dir)
-    exporter.export_pytorch(optim, epoch, f"{save_name}.pth")
+    exporter.export_pytorch(
+        optim,
+        epoch,
+        f"{save_name}.pth",
+        arch_key=arch_key,
+    )
     info_path = os.path.join(save_dir, f"{save_name}.txt")
 
     with open(info_path, "w") as info_file:
@@ -450,3 +404,90 @@ def save_model_training(
                 info_lines.append(f"{loss}: {val_res.result_mean(loss).item()}")
 
         info_file.write("\n".join(info_lines))
+
+
+def set_seeds(local_rank: int):
+    """
+    Utility method to initialize process group and set seeds
+
+    :param local_rank: The local rank of the process
+    """
+    if local_rank != -1:
+        torch.distributed.init_process_group(
+            backend="nccl",
+            init_method="env://",
+        )
+        set_deterministic_seeds(0)
+
+
+def get_loss_wrapper() -> CrossEntropyLossWrapper:
+    """
+    :return loss_wrapper: A Cross Entropy Loss Wrapper with extra metrics
+    """
+    extras = {"top1acc": TopKAccuracy(1), "top5acc": TopKAccuracy(5)}
+    return CrossEntropyLossWrapper(extras=extras)
+
+
+def ddp_aware_model_move(
+    device: Any,
+    local_rank: int,
+    model: Any,
+    rank: int,
+) -> Tuple[bool, Any, Any]:
+    """
+    Move model to device and wrap in DistributedDataParallel if necessary.
+
+    :param device: device to move model to
+    :param local_rank: local rank of current process
+    :param model: model to move
+    :param rank: rank of current process
+    :return: A tuple of the following form (ddp_state, device, model)
+    """
+    if rank == -1:
+        ddp = False
+    else:
+        torch.cuda.set_device(local_rank)
+        device = local_rank
+        ddp = True
+    model, device, _ = model_to_device(
+        model=model,
+        device=device,
+        ddp=ddp,
+    )
+    return ddp, device, model
+
+
+def _download_model_from_zoo_using_recipe(
+    recipe_stub: str,
+) -> Optional[str]:
+    """
+    Download a model from the zoo using a recipe stub and return the
+    path to the downloaded model.
+
+    :param recipe_stub: Path to a valid recipe stub
+    :return: Path to the downloaded model
+    """
+    valid_recipe_stub = recipe_stub and recipe_stub.startswith("zoo:")
+
+    if not valid_recipe_stub:
+        raise ValueError(
+            "The recipe path must start with 'zoo:' to download from the zoo"
+            f" but got {recipe_stub} instead"
+        )
+
+    files = Zoo.download_recipe_base_framework_files(
+        stub=recipe_stub,
+        extensions=[".pth"],
+    )
+
+    checkpoint_path = files[0]
+    return checkpoint_path
+
+
+@contextmanager
+def _nullcontext(enter_result=None):
+    """
+    A context manager that does nothing. For compatibility with Python 3.6
+    Update usages to use contextlib.nullcontext on Python 3.7+
+    """
+    yield enter_result

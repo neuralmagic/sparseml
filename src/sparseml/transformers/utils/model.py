@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import logging
 import os
 from typing import Any, Dict, Optional, Tuple, Union
@@ -29,7 +30,7 @@ from transformers.file_utils import WEIGHTS_NAME
 from sparseml.pytorch.utils import ModuleSparsificationInfo
 
 
-__all__ = ["SparseAutoModel"]
+__all__ = ["SparseAutoModel", "get_shared_tokenizer_src"]
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -381,3 +382,32 @@ class SparseAutoModel:
                 "Detected a TensorFlow model from model_name_or_path: "
                 f"{model_name_or_path}"
             )
+
+
+def get_shared_tokenizer_src(student: Module, teacher: Optional[Module]) -> str:
+    """
+    Get a tokenizer source used for both student and teacher, assuming
+    that they could be shared
+
+    :param student: the student model
+    :param teacher: the teacher model
+    :return: the source for the tokenizer shared between teacher and model
+    """
+
+    if teacher is not None and teacher not in ("disable", "self"):
+        student_forward_params = list(
+            inspect.signature(student.forward).parameters.keys()
+        )
+        teacher_forward_params = list(
+            inspect.signature(teacher.forward).parameters.keys()
+        )
+        diff = [p for p in student_forward_params if p not in teacher_forward_params]
+        if diff:
+            raise RuntimeError(
+                "Teacher tokenizer cannot be used for student "
+                f"due to missing args: {diff}"
+            )
+        src_model = teacher
+    else:
+        src_model = student
+    return src_model.config._name_or_path

@@ -17,13 +17,13 @@ SparseML transformers trainer classes and interfaces to be plugged in with
 existing or similiar HF trainer flows
 """
 
-
-import glob
+import inspect
 import logging
 import math
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import datasets
 import torch
 from torch import distributed as dist
 from torch.nn import Module
@@ -42,7 +42,7 @@ from sparseml.pytorch.utils import (
     WANDBLogger,
 )
 from sparseml.transformers.utils import SparseAutoModel
-from sparseml.transformers.utils.helpers import RECIPE_REGEX, RECIPE_TEMPLATE
+from sparseml.transformers.utils.helpers import RECIPE_NAME
 
 
 __all__ = [
@@ -85,6 +85,8 @@ class RecipeManagerTrainerInterface:
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
+    :param metadata_args A list of arguments to be extracted from training_args
+        and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -96,6 +98,7 @@ class RecipeManagerTrainerInterface:
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        metadata_args: Optional[List[str]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
@@ -105,6 +108,13 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
+        self.metadata = (
+            self._extract_metadata(
+                metadata_args=metadata_args, training_args=kwargs["args"]
+            )
+            if ("args" in kwargs and metadata_args)
+            else None
+        )
 
         report_to = (
             ""
@@ -127,8 +137,7 @@ class RecipeManagerTrainerInterface:
         else:
             self.logger_manager = LoggerManager(log_python=False)
 
-        # remove arch_managers once recipe stages are supported
-        self.manager, self.arch_managers = self._setup_manager(kwargs)
+        self.manager, self.arch_manager = self._setup_manager(kwargs)
         self.manager_applied = False
         self.manager_initialized = False
         self.manager_finalized = False
@@ -143,6 +152,15 @@ class RecipeManagerTrainerInterface:
             self._mfac_data_loader(), self._mfac_loss_function
         )
 
+        model_signature = inspect.signature(self.model.forward)
+        self._model_signature_columns = list(model_signature.parameters.keys())
+
+        if self.teacher is not None and teacher not in ("disable", "self"):
+            teacher_signature = inspect.signature(self.teacher.forward)
+            self._teacher_signature_columns = list(teacher_signature.parameters.keys())
+        else:
+            self._teacher_signature_columns = None
+
     def apply_manager(self, epoch: float, checkpoint: Optional[str]) -> bool:
         """
         Apply the recipe(s) to the model and training/validation process.
@@ -154,19 +172,17 @@ class RecipeManagerTrainerInterface:
             If not supplied, falls back to self.model_state_path
         :return: True if recipes were applied, False otherwise
         """
-        if (not self.arch_managers and self.manager is None) or self.manager_applied:
+
+        if (not self.arch_manager and self.manager is None) or self.manager_applied:
             return False
 
         orig_state_dict = self.model.state_dict()
 
-        # apply architecture changes to prep for reload of weights to handle
-        # things like layer dropping and quantization which changes param names
-        if self.arch_managers:
-            for arch_manager in self.arch_managers:
-                arch_manager.apply_structure(self.model, epoch=math.inf, finalize=True)
+        if self.arch_manager:
+            self.arch_manager.apply_structure(self.model, epoch=epoch)
             _LOGGER.info(
-                f"Applied structure from {len(self.arch_managers)} "
-                "SparseML recipes to model and finalized "
+                f"Applied structure from {self.arch_manager.num_stages()} "
+                "previous recipe stage(s) to model and finalized "
                 "(recipes saved with model_path)"
             )
 
@@ -329,7 +345,17 @@ class RecipeManagerTrainerInterface:
         ):
             return super().compute_loss(model, inputs, return_outputs=return_outputs)
 
-        student_outputs = model(**inputs)
+        student_inputs = {
+            k: inputs[k] for k in inputs if k in self._model_signature_columns
+        }
+        student_outputs = model(**student_inputs)
+        if self._teacher_signature_columns is not None:
+            teacher_inputs = {
+                k: inputs[k] for k in inputs if k in self._teacher_signature_columns
+            }
+        else:
+            teacher_inputs = None
+
         loss = student_outputs["loss"]
         loss = self.manager.loss_update(
             loss,
@@ -338,12 +364,36 @@ class RecipeManagerTrainerInterface:
             self.state.epoch,
             self.manager_steps_per_epoch,
             student_outputs=student_outputs,
-            student_inputs=inputs,
+            student_inputs=student_inputs,
+            teacher_inputs=teacher_inputs,
         )
 
         return (loss, student_outputs) if return_outputs else loss
 
-    def save_model(self, output_dir: Optional[str] = None, _internal_call=True):
+    def prediction_step(
+        self,
+        model: Module,
+        inputs: Dict[str, Union[torch.Tensor, Any]],
+        prediction_loss_only: bool,
+        ignore_keys: Optional[List[str]] = None,
+    ) -> Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        """
+        Wraps the prediction step from the original trainer to remove any input entry
+        that should not be passed to model.
+        This situation may arise when distillation is used and the teacher model
+        contains more inputs than the student model.
+        """
+        self._check_super_defined("prediction_step")
+
+        inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
+
+        return super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
+
+    def save_model(
+        self,
+        output_dir: Optional[str] = None,
+        _internal_call=True,
+    ):
         """
         Override of the save_model function and expects it to exist in the parent.
         Calls into super() to save the model and additionally saves any recipes
@@ -364,11 +414,17 @@ class RecipeManagerTrainerInterface:
         if output_dir is None:
             output_dir = self.args.output_dir
 
-        index = len(self.arch_managers)
-        recipe_path = os.path.join(
-            output_dir, RECIPE_TEMPLATE.format(f"_{index:02d}" if index > 0 else "")
-        )
-        self.manager.save(recipe_path)
+        recipe_path = os.path.join(output_dir, RECIPE_NAME)
+        if self.arch_manager:
+            composed_manager = ScheduledModifierManager.compose_staged(
+                base_recipe=str(self.arch_manager),
+                additional_recipe=str(self.manager),
+            )
+            composed_manager.save(recipe_path)
+        else:
+
+            self.manager.save(recipe_path)
+
         _LOGGER.info(f"Saved SparseML recipe with model state to {recipe_path}")
 
     def log_model_sparsification(self):
@@ -394,6 +450,24 @@ class RecipeManagerTrainerInterface:
             f"all sparsification info: {sparsification_info}"
         )
 
+    def _extract_metadata(
+        self, metadata_args: List[str], training_args: TrainingArguments
+    ) -> Dict:
+        metadata = {}
+        training_args_dict = training_args.to_dict()
+
+        for arg in metadata_args:
+            if arg not in training_args_dict.keys():
+                logging.warning(
+                    f"Required metadata argument {arg} was not found "
+                    f"in the training arguments. Setting {arg} to None."
+                )
+                metadata[arg] = None
+            else:
+                metadata[arg] = training_args_dict[arg]
+
+        return metadata
+
     def _check_super_defined(self, func: str):
         if not hasattr(super(), func):
             raise NotImplementedError(
@@ -404,35 +478,26 @@ class RecipeManagerTrainerInterface:
         self, kwargs
     ) -> Tuple[Optional[ScheduledModifierManager], List[ScheduledModifierManager]]:
         manager = None
-        arch_managers = []
+        arch_manager = None
 
         if self.recipe is not None:
             manager = ScheduledModifierManager.from_yaml(
-                self.recipe, recipe_variables=self.recipe_args
+                self.recipe,
+                recipe_variables=self.recipe_args,
+                metadata=self.metadata,
             )
             _LOGGER.info(
                 "Loaded SparseML recipe variable into manager for recipe: "
-                f"{self.recipe} and recipe_variables: {self.recipe_args}"
+                f"{self.recipe}, recipe_variables: {self.recipe_args} "
+                f"and metadata {self.metadata}"
             )
 
-        arch_recipe_paths = glob.glob(os.path.join(self.model_state_path, RECIPE_REGEX))
-        if arch_recipe_paths:
-            arch_managers = [
-                ScheduledModifierManager.from_yaml(path) for path in arch_recipe_paths
-            ]
+        arch_recipe = os.path.join(self.model_state_path, RECIPE_NAME)
+        if os.path.isfile(arch_recipe):
+            arch_manager = ScheduledModifierManager.from_yaml(arch_recipe)
             _LOGGER.info(
-                f"Loaded SparseML {len(arch_recipe_paths)} recipes into architecture "
-                f"managers from {arch_recipe_paths}"
-            )
-
-        if manager is not None and manager in arch_managers:
-            # new recipe and the one stored with model are the same,
-            # keep manager and remove from arch_managers to keep from applying twice.
-            # remove this logic once recipe stages land
-            arch_managers.remove(manager)
-            _LOGGER.info(
-                "Removed duplicate SparseML recipe from arch_managers that matched "
-                "the recipe variable to prevent double application"
+                f"Loaded {arch_manager.num_stages()} SparseML checkpoint recipe "
+                f"stage(s) from {arch_recipe} to replicate model sparse state"
             )
 
         if (
@@ -446,7 +511,7 @@ class RecipeManagerTrainerInterface:
             )
             kwargs["args"].num_train_epochs = manager.max_epochs
 
-        return manager, arch_managers
+        return manager, arch_manager
 
     def _reload_model_state(self, load_path: str, orig_state_dict: Dict[str, Any]):
         if (
@@ -552,6 +617,8 @@ class TrainerInterface(RecipeManagerTrainerInterface):
     :param recipe_args: A json string, csv key=value string, or dictionary containing
         arguments to override the root arguments within the recipe such as
         learning rate or num epochs
+    :param metadata_args A list of arguments to be extracted from training_args
+        and passed as metadata for the final, saved recipe.
     :param teacher: teacher model for distillation. Set to 'self' to distill
         from the loaded model or 'disable' to turn of distillation
     :param kwargs: key word arguments passed to the parent class
@@ -563,14 +630,17 @@ class TrainerInterface(RecipeManagerTrainerInterface):
         model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
+        metadata_args: Optional[List[str]] = None,
         teacher: Optional[Union[Module, str]] = None,
         **kwargs,
     ):
+
         super().__init__(
             model=model,
             model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,
+            metadata_args=metadata_args,
             teacher=teacher,
             **kwargs,
         )
@@ -688,6 +758,32 @@ class Trainer(TrainerInterface, TransformersTrainer):
             **kwargs,
         )
 
+    def _remove_unused_columns(
+        self, dataset: "datasets.Dataset", description: Optional[str] = None
+    ):
+        if not self.args.remove_unused_columns:
+            return dataset
+        if (
+            self._signature_columns is None
+            and self.teacher is not None
+            and self.teacher not in ("disable", "self")
+        ):
+            model_signature = inspect.signature(self.model.forward)
+            model_signature_columns = set(model_signature.parameters.keys())
+
+            teacher_signature = inspect.signature(self.teacher.forward)
+            teacher_signature_columns = set(teacher_signature.parameters.keys())
+
+            self._signature_columns = list(
+                model_signature_columns | teacher_signature_columns
+            )
+
+            # Labels may be named label or label_ids, the default data
+            # collator handles that.
+            self._signature_columns += ["label", "label_ids"]
+
+        return super()._remove_unused_columns(dataset, description)
+
 
 class DisableHalfPrecisionCallback(TrainerCallback):
     """
@@ -710,9 +806,14 @@ class DisableHalfPrecisionCallback(TrainerCallback):
             self.disable_amp(epoch)
 
     def qat_active(self, epoch: float) -> bool:
-        return (self.trainer.manager and self.trainer.manager.qat_active(epoch)) or any(
-            bool(man.quantization_modifiers) for man in self.trainer.arch_managers
-        )
+        manager_q_active = arch_manager_q_active = False
+        if self.trainer.manager:
+            manager_q_active = bool(self.trainer.manager.qat_active(epoch))
+        if self.trainer.arch_manager:
+            arch_manager_q_active = bool(
+                self.trainer.arch_manager.quantization_modifiers
+            )
+        return manager_q_active or arch_manager_q_active
 
     def disable_amp(self, epoch: float):
         if not self.on_begin_called:

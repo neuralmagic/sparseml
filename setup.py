@@ -56,12 +56,12 @@ _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
 ]
 _pytorch_deps = [
-    "torch>=1.1.0,<=1.10.2",
+    "torch>=1.1.0,<=1.9.1",
     "tensorboard>=1.0",
     "tensorboardX>=1.0",
     "gputils",
 ]
-_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.11.3"]
+_pytorch_vision_deps = _pytorch_deps + ["torchvision>=0.3.0,<=0.10.1"]
 _tensorflow_v1_deps = ["tensorflow<2.0.0", "tensorboard<2.0.0", "tf2onnx>=1.0.0,<1.6"]
 _tensorflow_v1_gpu_deps = [
     "tensorflow-gpu<2.0.0",
@@ -132,6 +132,7 @@ def _setup_entry_points() -> Dict:
 
     # transformers integration
     for task in [
+        "masked_language_modeling",
         "question_answering",
         "text_classification",
         "token_classification",
@@ -159,6 +160,19 @@ def _setup_entry_points() -> Dict:
             "sparseml.pytorch.image_classification.lr_analysis:main",
             "sparseml.image_classification.pr_sensitivity="
             "sparseml.pytorch.image_classification.pr_sensitivity:main",
+        ]
+    )
+
+    # object detection integration
+
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.object_detection.export_onnx="
+            "sparseml.pytorch.object_detection.export:main",
+            "sparseml.object_detection.train="
+            "sparseml.pytorch.object_detection.train:main",
+            "sparseml.object_detection.validation="
+            "sparseml.pytorch.object_detection.val:main",
         ]
     )
 

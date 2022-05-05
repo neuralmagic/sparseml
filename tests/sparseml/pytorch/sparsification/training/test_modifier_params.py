@@ -17,7 +17,7 @@ import os
 import pytest
 import torch
 
-from sparseml.pytorch.optim import (
+from sparseml.pytorch.sparsification import (
     GradualParamModifier,
     SetParamModifier,
     TrainableParamsModifier,
@@ -28,7 +28,7 @@ from sparseml.pytorch.utils import (
 )
 from sparseml.utils import ALL_TOKEN
 from tests.sparseml.pytorch.helpers import LinearNet, create_optim_sgd
-from tests.sparseml.pytorch.optim.test_modifier import (
+from tests.sparseml.pytorch.sparsification.test_modifier import (
     ScheduledModifierTest,
     ScheduledUpdateModifierTest,
 )
