@@ -658,7 +658,8 @@ def tensor_list_sparsity(tensors: List[Tensor]) -> float:
     :param tensors: the list of tensors to calculate the sparsity for
     :return: the total sparsity of all tensors in the list
     """
-    zeros, numel = 0, 0
+    zeros = 0
+    numel = 0
     for tensor in tensors:
         zeros += (tensor == 0).sum().item()
         numel += tensor.numel()
