@@ -52,8 +52,8 @@ __all__ = [
     "FisherInverseFastPageSwap",
     "FisherInverseFastSmallBlocks",
 ]
-_LOGGER = logging.getLogger(__name__)
 
+_LOGGER = logging.getLogger(__name__)
 BYTES_IN_MIB = 1024 ** 2
 
 
@@ -1204,7 +1204,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
         # build hinv_g values from grad samples
         _LOGGER.debug(
-            "Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
+            f"Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
         )
         for sample_idx in range(self._num_samples):
             self._add(grads[sample_idx, :], device, call_idx)
