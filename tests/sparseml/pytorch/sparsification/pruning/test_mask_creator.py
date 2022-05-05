@@ -19,6 +19,7 @@ from sparseml.pytorch.sparsification.pruning import (
     BlockMaskCreator,
     FourBlockMaskCreator,
     GroupedPruningMaskCreator,
+    NMPruningMaskCreator,
     UnstructuredPruningMaskCreator,
 )
 from sparseml.pytorch.utils import tensor_sparsity
@@ -161,3 +162,46 @@ def test_four_block_mask_creator_matches_block(tensors, sparsity_val):
     for mask_1, mask_2 in zip(masks_1, masks_2):
         assert mask_1.shape == mask_2.shape
         assert torch.all(mask_1 == mask_2)
+
+
+@pytest.mark.parametrize(
+    "N, M",
+    [(2, 4), (3, 4), (1, 8), (7, 8)],
+    scope="function",
+)
+@pytest.mark.parametrize(
+    "tensor_shape",
+    [[[64, 64]] * 10, [[64, 64, 3, 3]], [[64, 513]]],
+)
+class TestNMPruningMaskCreator:
+    def test_sparsity_mask_creator(self, N, M, tensor_shape):
+        sparsity_val = 1 - (N / M)
+        sparsity_mask_creator_test(
+            tensor_shape, NMPruningMaskCreator(N, M), sparsity_val, "cpu"
+        )
+
+    @pytest.mark.skipif(
+        not torch.cuda.is_available(), reason="requires cuda availability"
+    )
+    def test_sparsity_mask_creator_cuda(self, N, M, tensor_shape):
+        sparsity_val = 1 - (N / M)
+        sparsity_mask_creator_test(
+            tensor_shape, NMPruningMaskCreator(N, M), sparsity_val, "cuda"
+        )
+
+    def test_pre_prune_sparsity(self, N, M, tensor_shape):
+        sparsity_val = 0.0
+        sparsity_mask_creator_test(
+            tensor_shape, NMPruningMaskCreator(N, M), sparsity_val, "cpu"
+        )
+
+    def test_mask_structure_pattern(self, N, M, tensor_shape):
+        sparsity_val = 1 - (N / M)
+        mask_creator = NMPruningMaskCreator(N, M)
+        tensors = [torch.randn(shape) for shape in tensor_shape]
+        masks = mask_creator.create_sparsity_masks(tensors, sparsity_val)
+
+        for mask in masks:
+            flat_mask = torch.flatten(mask)
+            for i in range(torch.numel(flat_mask) // M):
+                assert torch.sum(flat_mask[i * M : (i + 1) * M]) == N
