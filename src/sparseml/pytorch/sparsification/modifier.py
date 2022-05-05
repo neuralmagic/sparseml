@@ -701,17 +701,18 @@ class ScheduledModifier(Modifier, BaseScheduled):
         loggers: Optional[LoggerManager] = None,
         epoch: Optional[float] = None,
         steps_per_epoch: Optional[int] = None,
-        level: Optional[int] = None,
     ):
-        tag = tag or type(self).__name__
-        loggers = loggers or self.loggers
-        level = level or LOGGING_LEVELS["debug"]
-        step = (
-            loggers.epoch_to_step(epoch, steps_per_epoch)
-            if (epoch and steps_per_epoch)
-            else None
+        if not tag:
+            tag = type(self).__name__
+        if not loggers:
+            loggers = self.loggers
+        if epoch and steps_per_epoch:
+            step = loggers.epoch_to_step(epoch, steps_per_epoch)
+        else:
+            step = None
+        loggers.log_string(
+            tag=tag, string=string, step=step, level=LOGGING_LEVELS["debug"]
         )
-        loggers.log_string(tag=tag, string=string, step=step, level=level)
 
     def log_scalar(
         self,
@@ -722,13 +723,14 @@ class ScheduledModifier(Modifier, BaseScheduled):
         steps_per_epoch: Optional[int] = None,
         level: Optional[int] = None,
     ):
-        tag = tag or type(self).__name__
-        loggers = loggers or self.loggers
-        step = (
-            loggers.epoch_to_step(epoch, steps_per_epoch)
-            if (epoch and steps_per_epoch)
-            else None
-        )
+        if not tag:
+            tag = type(self).__name__
+        if not loggers:
+            loggers = self.loggers
+        if epoch and steps_per_epoch:
+            step = loggers.epoch_to_step(epoch, steps_per_epoch)
+        else:
+            step = None
         loggers.log_scalar(tag=tag, value=value, step=step, level=level)
 
     def log_named_scalars(

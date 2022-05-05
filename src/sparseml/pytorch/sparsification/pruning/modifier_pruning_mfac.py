@@ -335,15 +335,11 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             self._num_grads, self._applied_sparsity or 0.0
         )
 
-<<<<<<< HEAD
         is_training = module.training
         _LOGGER.debug("Setting the model in the eval mode")
         module.eval()
 
         _LOGGER.debug(f"Starting to collect {num_grads} grads with GradSampler")
-=======
-        self.log_string("Starting to collect {num_grads} grads with GradSampler")
->>>>>>> Update: More informative M-FAC logging
         for _ in grad_sampler.iter_module_backwards(module, num_grads):
             self._module_masks.pre_optim_step_update()
         self.log_string("GradSampler grad collection complete")
