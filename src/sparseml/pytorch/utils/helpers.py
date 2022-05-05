@@ -23,7 +23,7 @@ import warnings
 from collections import OrderedDict, namedtuple
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 
 import numpy
 import torch
@@ -121,7 +121,7 @@ def default_device() -> str:
 def device_of(inputs: Any):
     if isinstance(inputs, Tensor):
         return inputs.device
-    elif isinstance(inputs, Dict):
+    elif isinstance(inputs, Mapping):
         for tens in inputs.values():
             return device_of(tens)
     elif isinstance(inputs, Iterable):
@@ -356,7 +356,7 @@ def tensors_to_precision(
 
 
 def tensors_module_forward(
-    tensors: Union[Tensor, Iterable[Tensor], Dict[Any, Tensor]],
+    tensors: Union[Tensor, Iterable[Tensor], Mapping[Any, Tensor]],
     module: Module,
     check_feat_lab_inp: bool = True,
 ) -> Any:
@@ -391,7 +391,7 @@ def tensors_module_forward(
     if isinstance(tensors, Tensor):
         return module(tensors)
 
-    if isinstance(tensors, Dict):
+    if isinstance(tensors, Mapping):
         return module(**tensors)
 
     if isinstance(tensors, Iterable):
