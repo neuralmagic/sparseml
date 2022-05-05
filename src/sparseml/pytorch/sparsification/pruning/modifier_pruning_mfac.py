@@ -255,7 +255,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
-        _LOGGER.debug("Initializing MFACPruningModifier")
+        _LOGGER.info("Initializing MFACPruningModifier")
         if "grad_sampler" in kwargs and self._use_gradient_buffering is not True:
             # set grad sampler, must be done before initialize in case pruning step
             # occurs on initialize epoch
@@ -265,7 +265,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
                     "grad_sampler must be an instance of the GradSampler class"
                 )
             self._grad_sampler = grad_sampler
-            _LOGGER.debug("Using provided GradSampler")
+            _LOGGER.info("Using provided GradSampler")
 
         elif self._use_gradient_buffering is False:
             raise RuntimeError(
@@ -273,7 +273,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
                 "to False"
             )
         else:
-            _LOGGER.debug("Using gradient buffering")
+            _LOGGER.info("Using gradient buffering")
 
         super().initialize(module, epoch, loggers, **kwargs)
 
@@ -308,7 +308,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     def check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
     ):
-        _LOGGER.debug("Running M-FAC Pruning")
+        _LOGGER.info("Running M-FAC Pruning")
         # create grads for pne-shot pruning
         if self._grad_sampler is not None:
             self._scorer.buffer_grads = True  # enable buffering
@@ -332,10 +332,10 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             self._num_grads, self._applied_sparsity or 0.0
         )
 
-        _LOGGER.debug("Starting to collect {num_grads} grads with GradSampler")
+        _LOGGER.info("Starting to collect {num_grads} grads with GradSampler")
         for _ in grad_sampler.iter_module_backwards(module, num_grads):
             self._module_masks.pre_optim_step_update()
-        _LOGGER.debug("GradSampler grad collection complete")
+        _LOGGER.info("GradSampler grad collection complete")
 
 
 class MFACPruningParamsScorer(PruningParamsGradScorer):
@@ -738,7 +738,7 @@ class FisherInverseFastBlock(FisherInverse):
 
         self._fisher_inv_blocks = []
 
-        _LOGGER.debug("Starting FisherInverseFastBlock")
+        _LOGGER.info("Starting FisherInverseFastBlock")
         for block_start_idx in range(0, grads.shape[1], self._block_size):
             block = (
                 grads[:, block_start_idx : (block_start_idx + self._block_size)]
@@ -749,7 +749,7 @@ class FisherInverseFastBlock(FisherInverse):
             fisher_inv_block = FisherInverseFast(block, damp=damp)
             self._fisher_inv_blocks.append(fisher_inv_block.to("cpu"))
             del block
-        _LOGGER.debug("FisherInverseFastBlock H^-1 Calculation Complete")
+        _LOGGER.info("FisherInverseFastBlock H^-1 Calculation Complete")
 
     def diag(self):
         """
@@ -1114,7 +1114,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
                             )
                         )
                         self._remaining_blocks -= self._num_blocks_per_device_call[-1]
-                        _LOGGER.debug(
+                        _LOGGER.info(
                             f"""
                             Allocating {self._num_blocks_per_device_call[-1]} blocks to
                             device {device}. {self._remaining_blocks} blocks remaining
@@ -1141,14 +1141,14 @@ class FisherInverseFastSmallBlocks(FisherInverse):
                     for i in range(len(free_device_memory)):
                         mem_diff = prev_free_memory[i] - free_device_memory[i]
                         if mem_diff > 0:
-                            _LOGGER.debug(
+                            _LOGGER.info(
                                 f"WARNING - GPU memory not cleanly freed."
                                 f"Found {(mem_diff)/BYTES_IN_MIB} less MiB"
                                 f"since the last iteration"
                             )
 
                 if sum(self._num_blocks_per_device_call) != self._num_blocks:
-                    _LOGGER.debug(
+                    _LOGGER.info(
                         "WARNING - Number of blocks processed does not equal to total "
                         "number of blocks."
                         f"Total blocks - {self._num_blocks}"
@@ -1172,11 +1172,11 @@ class FisherInverseFastSmallBlocks(FisherInverse):
             self._hinvs.append(
                 self._init_hinv(num_blocks, self._damp, device, self._dtype)
             )
-            _LOGGER.debug(f"Initialized H^-1 for {num_blocks} blocks on {device}")
+            _LOGGER.info(f"Initialized H^-1 for {num_blocks} blocks on {device}")
         # As a failsafe for a memory issue, try again with half the number of blocks
         # This condition has not been encountered in testing as of yet
         except Exception as error_msg:
-            _LOGGER.debug(
+            _LOGGER.info(
                 f"{error_msg}"
                 f"Initialization of H^-1 for {num_blocks} blocks on {device} failed"
                 f"Retrying with {num_blocks//2} blocks"
@@ -1186,19 +1186,19 @@ class FisherInverseFastSmallBlocks(FisherInverse):
             )
             self._num_blocks_per_device_call[call_idx] //= 2
             self._remaining_blocks += self._num_blocks_per_device_call[call_idx]
-            _LOGGER.debug(
+            _LOGGER.info(
                 f"Initialized H^-1 for {num_blocks//2} blocks on {device}"
                 f"remaining blocks increased to {self._remaining_blocks}"
             )
 
         # build hinv_g values from grad samples
-        _LOGGER.debug(
+        _LOGGER.info(
             "Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
         )
         for sample_idx in range(self._num_samples):
             self._add(grads[sample_idx, :], device, call_idx)
         self._hinvs[call_idx] = self._hinvs[call_idx].to("cpu")
-        _LOGGER.debug("Finished H^-1 calculation and moved mat to CPU")
+        _LOGGER.info("Finished H^-1 calculation and moved mat to CPU")
 
         return None
 
@@ -1372,7 +1372,7 @@ def _compute_hessian_inv(
             block_size=fisher_block_size, element_size=grads.element_size()
         )
 
-        _LOGGER.debug(
+        _LOGGER.info(
             f"""
             Calculated Fisher block with size {fisher_block_size}
             to occupy {block_mem_size} bytes/ {block_mem_size/BYTES_IN_MIB} MiB
@@ -1382,7 +1382,7 @@ def _compute_hessian_inv(
         if available_devices != ["cpu"]:
             free_device_mem = _get_free_gpu_memory(_cuda_list_to_idx(available_devices))
 
-            _LOGGER.debug(
+            _LOGGER.info(
                 "Free memory on devices:"
                 + "\n".join(
                     [
@@ -1405,7 +1405,7 @@ def _compute_hessian_inv(
         # or less can fit on the GPU, FisherInverseFastSmallBlocks should be used
         if len(available_devices) > 0 or not free_device_mem:
             _LOGGER.info("Using Small Block Fast Fisher Inverse Implementation")
-            _LOGGER.debug(
+            _LOGGER.info(
                 "Using the following devices for M-FAC:" + "\n".join(available_devices)
             )
             available_devices = available_devices
