@@ -308,6 +308,9 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     def check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
     ):
+        if steps_per_epoch == 1 and not math.isinf(epoch):
+            return  # not a one-shot run
+
         _LOGGER.debug("Running M-FAC Pruning")
         # create grads for pne-shot pruning
         if self._grad_sampler is not None:
