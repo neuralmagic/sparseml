@@ -332,7 +332,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             self._num_grads, self._applied_sparsity or 0.0
         )
 
-        _LOGGER.debug("Starting to collect {num_grads} grads with GradSampler")
+        _LOGGER.debug(f"Starting to collect {num_grads} grads with GradSampler")
         _LOGGER.debug("Setting the model in the eval mode")
         module.eval()
         for _ in grad_sampler.iter_module_backwards(module, num_grads):
@@ -1197,7 +1197,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
         # build hinv_g values from grad samples
         _LOGGER.debug(
-            "Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
+            f"Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
         )
         for sample_idx in range(self._num_samples):
             self._add(grads[sample_idx, :], device, call_idx)
