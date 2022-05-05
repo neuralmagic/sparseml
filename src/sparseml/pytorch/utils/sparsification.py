@@ -17,6 +17,7 @@ Helper functions for retrieving information related to model sparsification
 """
 
 import json
+from contextlib import nullcontext
 from typing import Any, Callable, Dict, Generator, Iterable, Iterator, List, Tuple
 
 import torch
@@ -207,7 +208,10 @@ class GradSampler:
         self._loss_fn = loss_fn
 
     def iter_module_backwards(
-        self, module: Module, num_grads: int
+        self,
+        module: Module,
+        num_grads: int,
+        progress_bar: bool = True,
     ) -> Generator[int, None, None]:
         """
         :param module: module to compute gradients for
@@ -216,7 +220,9 @@ class GradSampler:
             of the gradient sample number
         """
         computed_grads = 0
-        with tqdm(total=num_grads) as pbar:
+        # if progress bar is turned off, use nullcontext which has no effect on loop
+        context = tqdm(total=num_grads) if progress_bar else nullcontext
+        with context as pbar:
             pbar.set_description("Collecting gradients")
             while computed_grads < num_grads:
                 for forward_args, forward_kwargs, loss_target in self._data_loader:
@@ -229,7 +235,8 @@ class GradSampler:
                     # yield so gradients can be collected
                     computed_grads += 1
                     yield computed_grads
-                    pbar.update(1)
+                    if progress_bar:
+                        pbar.update(1)
                     if computed_grads >= num_grads:
                         break
         module.zero_grad()

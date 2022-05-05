@@ -255,7 +255,7 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         :param kwargs: Optional kwargs to support specific arguments
             for individual modifiers.
         """
-        self.log_string("Initializing MFACPruningModifier")
+        super().initialize(module, epoch, loggers, **kwargs)
         if "grad_sampler" in kwargs and self._use_gradient_buffering is not True:
             # set grad sampler, must be done before initialize in case pruning step
             # occurs on initialize epoch
@@ -274,8 +274,6 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             )
         else:
             self.log_string("Using gradient buffering")
-
-        super().initialize(module, epoch, loggers, **kwargs)
 
         if self._grad_sampler is not None:
             # disable gradient buffering until sampler is invoked
