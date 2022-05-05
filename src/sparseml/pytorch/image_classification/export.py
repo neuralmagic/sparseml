@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-√ΩUsage: sparseml.image_classification.export_onnx [OPTIONS]
+Usage: sparseml.image_classification.export_onnx [OPTIONS]
 
   SparseML-PyTorch Integration for exporting image classification models to
   onnx along with sample inputs and outputs
@@ -82,6 +82,8 @@ Options:
                                   The size of the image input to the model.
                                   Value should be equal to S for [C, S, S] or
                                   [S, S, C] dimensional input  [default: 224]
+  --recipe TEXT                   The path to a recipe file or SparseZoo stub
+                                  to use for exporting the model
   --help                          Show this message and exit.
 
 ##########
@@ -101,7 +103,8 @@ from tqdm import tqdm
 import click
 from sparseml import get_main_logger
 from sparseml.pytorch.image_classification.utils import cli_helpers, helpers
-from sparseml.pytorch.utils import ModuleExporter
+from sparseml.pytorch.optim import ScheduledModifierManager
+from sparseml.pytorch.utils import ModuleExporter, load_model
 
 
 CURRENT_TASK = helpers.Tasks.EXPORT
@@ -239,6 +242,12 @@ LOGGER = get_main_logger()
     help="The size of the image input to the model. Value should be "
     "equal to S for [C, S, S] or [S, S, C] dimensional input",
 )
+@click.option(
+    "--recipe",
+    type=str,
+    default=None,
+    help="The path to a recipe file or SparseZoo stub to use for exporting the model",
+)
 def main(
     dataset: str,
     dataset_path: str,
@@ -254,6 +263,7 @@ def main(
     model_tag: Optional[str],
     save_dir: str,
     image_size: int,
+    recipe: Optional[str],
 ):
     """
     SparseML-PyTorch Integration for exporting image classification models to
@@ -292,9 +302,10 @@ def main(
         dataset=dataset,
         model_kwargs=model_kwargs,
     )
+
     model, arch_key = helpers.create_model(
-        checkpoint_path=checkpoint_path,
-        recipe_path=None,
+        checkpoint_path=checkpoint_path if recipe is None else None,
+        recipe_path=recipe,
         num_classes=num_classes,
         arch_key=arch_key,
         pretrained=pretrained,
@@ -303,6 +314,9 @@ def main(
         **model_kwargs,
     )
 
+    if recipe is not None:
+        ScheduledModifierManager.from_yaml(recipe).apply(model)
+        load_model(checkpoint_path, model, strict=True)
     export(
         model=model,
         val_loader=val_loader,
