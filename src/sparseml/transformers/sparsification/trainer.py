@@ -152,7 +152,7 @@ class RecipeManagerTrainerInterface:
         model_signature = inspect.signature(self.model.forward)
         self._model_signature_columns = list(model_signature.parameters.keys())
 
-        if self.teacher is not None:
+        if self.teacher is not None and teacher not in ("disable", "self"):
             teacher_signature = inspect.signature(self.teacher.forward)
             self._teacher_signature_columns = list(teacher_signature.parameters.keys())
         else:
@@ -349,10 +349,12 @@ class RecipeManagerTrainerInterface:
             k: inputs[k] for k in inputs if k in self._model_signature_columns
         }
         student_outputs = model(**student_inputs)
-
-        teacher_inputs = {
-            k: inputs[k] for k in inputs if k in self._teacher_signature_columns
-        }
+        if self._teacher_signature_columns is not None:
+            teacher_inputs = {
+                k: inputs[k] for k in inputs if k in self._teacher_signature_columns
+            }
+        else:
+            teacher_inputs = None
 
         loss = student_outputs["loss"]
         loss = self.manager.loss_update(
@@ -367,6 +369,25 @@ class RecipeManagerTrainerInterface:
         )
 
         return (loss, student_outputs) if return_outputs else loss
+
+    def prediction_step(
+        self,
+        model: Module,
+        inputs: Dict[str, Union[torch.Tensor, Any]],
+        prediction_loss_only: bool,
+        ignore_keys: Optional[List[str]] = None,
+    ) -> Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        """
+        Wraps the prediction step from the original trainer to remove any input entry
+        that should not be passed to model.
+        This situation may arise when distillation is used and the teacher model
+        contains more inputs than the student model.
+        """
+        self._check_super_defined("prediction_step")
+
+        inputs = {k: inputs[k] for k in inputs if k in self._model_signature_columns}
+
+        return super().prediction_step(model, inputs, prediction_loss_only, ignore_keys)
 
     def save_model(
         self,
@@ -742,7 +763,11 @@ class Trainer(TrainerInterface, TransformersTrainer):
     ):
         if not self.args.remove_unused_columns:
             return dataset
-        if self._signature_columns is None and self.teacher is not None:
+        if (
+            self._signature_columns is None
+            and self.teacher is not None
+            and self.teacher not in ("disable", "self")
+        ):
             model_signature = inspect.signature(self.model.forward)
             model_signature_columns = set(model_signature.parameters.keys())
 
