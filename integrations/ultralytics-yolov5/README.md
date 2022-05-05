@@ -62,7 +62,8 @@ Otherwise, all other arguments and functionality remain the same as the original
 
 ### SparseZoo
 
-SparseZoo models are coming soon!
+Neural Magic’s ML team creates sparsified models that allow anyone to plug in their data and leverage pre-sparsified models from the SparseZoo.
+Select a yolov5 model from the [SparseZoo](https://sparsezoo.neuralmagic.com/?repo=ultralytics&page=1).
 
 ### Structure
 
