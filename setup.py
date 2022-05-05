@@ -132,6 +132,7 @@ def _setup_entry_points() -> Dict:
 
     # transformers integration
     for task in [
+        "masked_language_modeling",
         "question_answering",
         "text_classification",
         "token_classification",
@@ -159,6 +160,19 @@ def _setup_entry_points() -> Dict:
             "sparseml.pytorch.image_classification.lr_analysis:main",
             "sparseml.image_classification.pr_sensitivity="
             "sparseml.pytorch.image_classification.pr_sensitivity:main",
+        ]
+    )
+
+    # object detection integration
+
+    entry_points["console_scripts"].extend(
+        [
+            "sparseml.object_detection.export_onnx="
+            "sparseml.pytorch.object_detection.export:main",
+            "sparseml.object_detection.train="
+            "sparseml.pytorch.object_detection.train:main",
+            "sparseml.object_detection.validation="
+            "sparseml.pytorch.object_detection.val:main",
         ]
     )
 

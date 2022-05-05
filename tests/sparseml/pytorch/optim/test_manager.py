@@ -460,6 +460,7 @@ stage_0:
           exclude_batchnorm: True
           model_fuse_fn_name: conv_bn_relus
           quantize_conv_activations: True
+          quantize_embedding_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
           reduce_range: False
@@ -495,6 +496,7 @@ stage_1:
           exclude_batchnorm: True
           model_fuse_fn_name: conv_bn_relus
           quantize_conv_activations: True
+          quantize_embedding_activations: True
           quantize_embeddings: True
           quantize_linear_activations: True
           reduce_range: False
