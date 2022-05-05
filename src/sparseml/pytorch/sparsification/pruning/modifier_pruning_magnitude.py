@@ -130,6 +130,7 @@ class GMPruningModifier(BaseGradualPruningModifier, BaseGMPruningModifier):
         global_sparsity: bool = False,
         phased: bool = False,
         score_type: str = "magnitude",
+        **kwargs
     ):
         self._check_deprecated_params(global_sparsity, phased, score_type)
 
@@ -264,6 +265,7 @@ class MagnitudePruningModifier(GMPruningModifier):
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         mask_type: str = "unstructured",
+        **kwargs
     ):
         super(MagnitudePruningModifier, self).__init__(
             params=params,
@@ -346,6 +348,7 @@ class GlobalMagnitudePruningModifier(GMPruningModifier):
         leave_enabled: bool = True,
         inter_func: str = "cubic",
         mask_type: str = "unstructured",
+        **kwargs
     ):
         super(GlobalMagnitudePruningModifier, self).__init__(
             params=params,
