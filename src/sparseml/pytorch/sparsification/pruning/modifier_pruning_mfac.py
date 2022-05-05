@@ -308,6 +308,9 @@ class MFACPruningModifier(BaseGradualPruningModifier):
     def check_mask_update(
         self, module: Module, epoch: float, steps_per_epoch: int, **kwargs
     ):
+        if steps_per_epoch == 1 and not math.isinf(epoch):
+            return  # not a one-shot run
+
         _LOGGER.debug("Running M-FAC Pruning")
         # create grads for pne-shot pruning
         if self._grad_sampler is not None:
@@ -332,10 +335,18 @@ class MFACPruningModifier(BaseGradualPruningModifier):
             self._num_grads, self._applied_sparsity or 0.0
         )
 
-        _LOGGER.debug("Starting to collect {num_grads} grads with GradSampler")
+        is_training = module.training
+        _LOGGER.debug("Setting the model in the eval mode")
+        module.eval()
+
+        _LOGGER.debug(f"Starting to collect {num_grads} grads with GradSampler")
         for _ in grad_sampler.iter_module_backwards(module, num_grads):
             self._module_masks.pre_optim_step_update()
         _LOGGER.debug("GradSampler grad collection complete")
+
+        if is_training:
+            _LOGGER.debug("Setting the model back to the train mode")
+            module.train()
 
 
 class MFACPruningParamsScorer(PruningParamsGradScorer):
@@ -1193,7 +1204,7 @@ class FisherInverseFastSmallBlocks(FisherInverse):
 
         # build hinv_g values from grad samples
         _LOGGER.debug(
-            "Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
+            f"Calculating H^-1 with {self._num_samples} samples for call {call_idx}"
         )
         for sample_idx in range(self._num_samples):
             self._add(grads[sample_idx, :], device, call_idx)
