@@ -221,9 +221,13 @@ class GradSampler:
         """
         computed_grads = 0
         # if progress bar is turned off, use nullcontext which has no effect on loop
-        context = tqdm(total=num_grads) if progress_bar else nullcontext
+        context = (
+            tqdm(total=num_grads, desc="Collecting gradients")
+            if progress_bar
+            else nullcontext()
+        )
+
         with context as pbar:
-            pbar.set_description("Collecting gradients")
             while computed_grads < num_grads:
                 for forward_args, forward_kwargs, loss_target in self._data_loader:
                     module.zero_grad()
