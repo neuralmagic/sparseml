@@ -334,9 +334,13 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         )
 
         _LOGGER.debug("Starting to collect {num_grads} grads with GradSampler")
+        _LOGGER.debug("Starting to collect {num_grads} grads with GradSampler")
+        module.eval()
         for _ in grad_sampler.iter_module_backwards(module, num_grads):
             self._module_masks.pre_optim_step_update()
         _LOGGER.debug("GradSampler grad collection complete")
+        _LOGGER.info("Setting the model back to the train mode")
+        module.train()
 
 
 class MFACPruningParamsScorer(PruningParamsGradScorer):

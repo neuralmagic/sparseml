@@ -26,7 +26,7 @@ from torch.nn import Module, Parameter
 
 from sparseml.pytorch.sparsification.pruning.mask_creator import PruningMaskCreator
 from sparseml.pytorch.sparsification.pruning.scorer import PruningParamsScorer
-from sparseml.pytorch.utils import mask_difference, tensor_sparsity
+from sparseml.pytorch.utils import mask_difference, tensor_list_sparsity
 
 
 __all__ = [
@@ -373,9 +373,7 @@ class ModuleParamPruningMask(object):
         )
 
         if self._scorer:
-            self._scorer.update_last_applied_sparsity(
-                tensor_sparsity(self.params_data[0])
-            )
+            self._scorer.update_last_applied_sparsity(tensor_list_sparsity(masks))
 
         return self.set_param_masks(masks)
 

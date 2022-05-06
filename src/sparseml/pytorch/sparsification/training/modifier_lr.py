@@ -236,7 +236,8 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
     |       init_lr: 0.1
     |       final_lr: 0.001
 
-    :param lr_func: The name of the lr function to use: [linear, cosine]
+    :param lr_func: The name of the lr function to use: 
+        [linear, cosine, cyclic_linear, cyclic_cosine, cyclic_linear_envelope]
     :param init_lr: The initial learning rate to use once this modifier starts
     :param init_lr: The final learning rate to use once this modifier starts
     :param start_epoch: The epoch to start the modifier at
@@ -245,6 +246,13 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         (set to -1.0 so it doesn't end)
     :param cycle_epochs: The number of epochs between two consecutive LR rewinding;
         used for cyclic_linear schedule only.
+    :param cycle_mul: The factor on which lr is increased at each cycle;
+        used for cyclic_cosine schedule only.
+    :param cycle_coef: The coefficient in linear envelope of cyclic_linear
+        i.e lr = (1 + cycle_coef * cycle_idx) * cyclic_linear;
+        used for cyclic_linear_envelope only.
+    :param cycle_warmup: Number of warmup epochs inside cycle
+        used in cyclic_cosine and cyclic_linear_envelope.
     :param_groups: The param group indices to set the lr for within the optimizer,
         if not set will set the lr for all param groups
     :param update_frequency: unused and should not be set
@@ -511,7 +519,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         if current_step > int((end_step - start_step) / cycle_steps) * cycle_steps:
             cycle_steps = (end_step - start_step) % cycle_steps
         adjusted_step = current_step % cycle_steps
-        lr = self.init_lr - (       ) * (
+        lr = self.init_lr - (adjusted_step / (cycle_steps - 1)) * (
             self.init_lr - self.final_lr
         )
         return lr
@@ -529,7 +537,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         #
         cosine_lr = self.final_lr + 0.5 * (self.init_lr - self.final_lr) * \
             (1 + math.cos(math.pi * current_step / cycle_steps))
-        warmup_lr = min(current_step / warmup_steps, 1.0)
+        warmup_lr = min(current_step / max(warmup_steps, 1.0), 1.0)
         lr_mult   = self.cycle_mul ** current_cycle
         return lr_mult * cosine_lr * warmup_lr 
 
@@ -544,7 +552,7 @@ class LearningRateFunctionModifier(ScheduledUpdateModifier):
         current_step = min(max(current_step, start_step), end_step) % cycle_steps
         current_cycle = max(epoch - self.start_epoch, 0.0) // self.cycle_epochs
         #
-        cycle_lr = min(current_step / warmup_steps, 1.0) * ((self.init_lr - self.final_lr) * min(
+        cycle_lr = min(current_step / max(warmup_steps, 1.0), 1.0) * ((self.init_lr - self.final_lr) * min(
             (cycle_steps - current_step) / (cycle_steps - warmup_steps), 1.0) + self.final_lr)
         envelope_lr = 1 + self.cycle_coef * current_cycle
         return cycle_lr * envelope_lr
