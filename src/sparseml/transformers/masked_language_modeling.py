@@ -677,6 +677,7 @@ def main():
         recipe_args=data_args.recipe_args,
         teacher=teacher,
         args=training_args,
+        data_args=data_args,
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
