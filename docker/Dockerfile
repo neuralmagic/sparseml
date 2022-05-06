@@ -41,4 +41,4 @@ RUN pip3 install --upgrade pip torch==${TORCH_VERSION}+cu111 torchvision==${TORC
 FROM cuda-$CUDA_VERSION as target
 
 # Install SparseML
-RUN pip3 install --no-cache-dir --upgrade sparseml
+RUN pip3 install --no-cache-dir --upgrade sparseml[dev,torchvision]
