@@ -137,6 +137,9 @@ class RecipeManagerTrainerInterface:
                 )
             else:
                 self.logger_manager = LoggerManager(loggers)
+
+            if recipe:
+                self.logger_manager.save(recipe)
         else:
             self.logger_manager = LoggerManager(log_python=False)
 
