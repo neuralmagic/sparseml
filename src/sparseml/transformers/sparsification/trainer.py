@@ -21,7 +21,6 @@ import inspect
 import logging
 import math
 import os
-from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import datasets
@@ -109,16 +108,11 @@ class RecipeManagerTrainerInterface:
         self.recipe = recipe
         self.recipe_args = recipe_args
         self.teacher = teacher
-
-        training_args, data_args = kwargs.get("args"), kwargs.get("data_args")
-
         self.metadata = (
             self._extract_metadata(
-                metadata_args=metadata_args,
-                training_args_dict=training_args.to_dict(),
-                data_args_dict=asdict(data_args),
+                metadata_args=metadata_args, training_args=kwargs["args"]
             )
-            if (training_args or data_args)
+            if ("args" in kwargs and metadata_args)
             else None
         )
 
@@ -457,29 +451,20 @@ class RecipeManagerTrainerInterface:
         )
 
     def _extract_metadata(
-        self,
-        metadata_args: List[str],
-        training_args_dict: Dict[str, Any],
-        data_args_dict: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        self, metadata_args: List[str], training_args: TrainingArguments
+    ) -> Dict:
         metadata = {}
-        if not training_args_dict.keys().isdisjoint(data_args_dict.keys()):
-            raise ValueError(
-                "Found common keys in `training_args` and `data args`. "
-                "This is prohibitive and may lead to undesired behavior."
-            )
-
-        args_dict = {**training_args_dict, **data_args_dict}
+        training_args_dict = training_args.to_dict()
 
         for arg in metadata_args:
-            if arg not in args_dict.keys():
+            if arg not in training_args_dict.keys():
                 logging.warning(
                     f"Required metadata argument {arg} was not found "
                     f"in the training arguments. Setting {arg} to None."
                 )
                 metadata[arg] = None
             else:
-                metadata[arg] = args_dict[arg]
+                metadata[arg] = training_args_dict[arg]
 
         return metadata
 
