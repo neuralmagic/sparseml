@@ -20,7 +20,7 @@ Note: Transformers will not immediately install with this command. Instead, a sp
 ## Tutorials
 
 - [Sparse Sentiment Analysis with BERT](https://neuralmagic.com/use-cases/sparse-sentiment-analysis/)
-- **Bonus**: [Crypto Sentiment Analysis script](https://github.com/neuralmagic/deepsparse/tree/500d132f27e97547b752c99dd06e17b8e53a1ba8/examples/twitter-nlp) + [accompanying video](https://www.youtube.com/watch?v=7UTKt-PDLvk)
+- [Crypto Sentiment Analysis example](https://github.com/neuralmagic/deepsparse/tree/500d132f27e97547b752c99dd06e17b8e53a1ba8/examples/twitter-nlp) + [accompanying video](https://www.youtube.com/watch?v=7UTKt-PDLvk)
 
 ## Getting Started
 
@@ -37,7 +37,7 @@ sparseml.transformers.text_classification \
   --do_train \                                      # run training
   --do_eval \                                       # run evaluation on validation set 
   --output_dir './output' \                         # output directory of the saved model
-  --cache_dir cache \                               # local directory to store the downloaded hugging face model."   
+  --cache_dir cache \                               # local directory to store the downloaded hugging face model.   
   --distill_teacher disable \                       # disable knowledge destillation
   --recipe zoo:nlp/text_classification/bert-base/pytorch/huggingface/mnli/12layer_pruned90-none         
 ```
@@ -94,16 +94,16 @@ sparseml.transformers.text_classification --help
 output:
 ```bash
   --model_name_or_path MODEL_NAME_OR_PATH
-                        Path to pre-trained model or model identifier from huggingface.co/models
+                        Path to pretrained model, sparsezoo stub. or model identifier from huggingface.co/models (default: None)
   --distill_teacher DISTILL_TEACHER
-                        Teacher model which needs to be a trained QA model
-  --cache_dir CACHE_DIR 
-                        Directory path to store the pre-trained models downloaded from huggingface.co
+                        Teacher model which must be a trained text classification model (default: None)
+  --cache_dir CACHE_DIR
+                        Where to store the pretrained data from huggingface.co (default: None)
   --recipe RECIPE       
-                        Path to a SparseML sparsification recipe, see https://github.com/neuralmagic/sparseml for more information
+                        Path to a SparseML sparsification recipe, see https://github.com/neuralmagic/sparseml for more information (default: None)
   --task_name TASK_NAME
                         The name of the task to train on: cola, mnli, mrpc, qnli, qqp, rte, sst2, stsb, wnli (default: None)
-  ...
+...
 ```
 
 To learn about the Hugging Face Transformers parameters in more detail, refer to [Hugging Face Transformers documentation](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments).
@@ -133,15 +133,17 @@ The deployment is intuitive due to the DeepSparse Python API.
 
 ```python
 from deepsparse.transformers import pipeline
-model_path = "zoo:nlp/sentiment_analysis/bert-base/pytorch/huggingface/sst2/12layer_pruned80_quant-none-vnni"
-text_classification = pipeline(
+
+tc_pipeline = pipeline(
     task="text-classification",
-    model_path=model_path)
-inference = text_classification("Snorlax loves my Tesla!")
+    model_path='./output'
+)
+
+inference = tc_pipeline("Snorlax loves my Tesla!")
 
 >> [{'label': 'LABEL_1', 'score': 0.9884248375892639}]
 
-inference = text_classification("Snorlax hates pineapple pizza!")
+inference = tc_pipeline("Snorlax hates pineapple pizza!")
 
 >> [{'label': 'LABEL_0', 'score': 0.9981569051742554}]
 ```
