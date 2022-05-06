@@ -21,10 +21,10 @@ from yolov5.utils.general import ROOT
 
 
 class Yolov5TrainArgs(BaseModel):
-    weights: Union[str, Path] = Field(default=ROOT, description="initial weights path")
-    cfg: Union[str, Path] = Field(default="", description="model.yaml path")
-    data: Union[str, Path] = Field(default=ROOT, description="dataset.yaml path")
-    hyp: Union[str, Path] = Field(default=ROOT, description="hyperparameters path")
+    weights: Union[str, Path] = Field(default= '""', description="initial weights path")
+    cfg: Union[str, Path] = Field(default='""', description="model.yaml path")
+    data: Union[str, Path] = Field(default=ROOT / 'data/coco128.yaml', description="dataset.yaml path")
+    hyp: Union[str, Path] = Field(default=ROOT / 'data/hyps/hyp.scratch-low.yaml', description="hyperparameters path")
     epochs: int = Field(default=300)
     batch_size: int = Field(
         default=16, description="total batch size for all GPUs, -1 for autobatch"
@@ -38,14 +38,14 @@ class Yolov5TrainArgs(BaseModel):
     evolve: Tuple[bool, int] = Field(
         default=[False, 300], description="evolve hyperparameters for x generations"
     )
-    bucket: str = Field(default="", description="gsutil bucket")
+    bucket: str = Field(default='""', description="gsutil bucket")
     cache: Literal["ram", "disk"] = Field(
         default="ram", description='--cache images in "ram" (default) or "disk"'
     )
     image_weights: bool = Field(
         default=False, description="use weighted image selection for training"
     )
-    device: str = Field(default="", description="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    device: str = Field(default='', description="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     multi_scale: bool = Field(default=False, description="vary img-size +/- 50%%")
     single_cls: bool = Field(
         default=False, description="train multi-class data as single-class"
@@ -70,15 +70,14 @@ class Yolov5TrainArgs(BaseModel):
     cost_lr: bool = Field(default=False, description="cosine LR scheduler")
     label_smoothing: float = Field(default=0.0, description="Label smoothing epsilon")
     patience: int = Field(
-        default=-1, description="EarlyStopping patience (epochs without improvement)"
+        default=100, description="EarlyStopping patience (epochs without improvement)"
     )
-    freeze: List[int] = Field(
-        default=[0], description="Freeze layers: backbone=10, first3=0 1 2"
+    freeze: str = Field(
+        default='0', description="Freeze layers: backbone=10, first3=0 1 2"
     )
     save_period: int = Field(
         default=-1, description="Save checkpoint every x epochs (disabled if < 1)"
     )
-    local_rank: int = Field(default=-1, description="DDP parameter, do not modify")
     recipe: Union[str, Path, None] = Field(
         default=None,
         description="Path to a sparsification recipe, "
@@ -86,12 +85,6 @@ class Yolov5TrainArgs(BaseModel):
     )
     upload_dataset: bool = Field(
         default=False, description='W&B: Upload data, "val" option'
-    )
-    bbox_interval: int = Field(
-        default=-1, description="W&B: Set bounding-box image logging interval"
-    )
-    artifact_alias: str = Field(
-        default="latest", help="W&B: Version of dataset artifact to use"
     )
     disable_ema: bool = Field(
         default=False, description="Disable EMA model updates (enabled by default)"
