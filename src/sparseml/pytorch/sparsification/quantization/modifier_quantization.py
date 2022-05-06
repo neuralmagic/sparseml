@@ -57,6 +57,7 @@ from sparseml.pytorch.sparsification.quantization.helpers import (
     configure_module_bn_wrappers,
     configure_module_default_qconfigs,
     configure_module_qat_wrappers,
+    emulate_linear_bias_qat,
     fix_observer_quant_range,
     freeze_bn_stats,
     fuse_module_conv_bn_relus,
@@ -82,65 +83,69 @@ _ModuleToQuantize = NamedTuple(
 @PyTorchModifierYAML()
 class QuantizationModifier(ScheduledModifier):
     """
-    Enables quantization aware training (QAT) for a given module or its submodules
-    After the start epoch, the specified module(s)' forward pass will emulate
-    quantized execution and the modifier will be enabled until training is completed.
+     Enables quantization aware training (QAT) for a given module or its submodules
+     After the start epoch, the specified module(s)' forward pass will emulate
+     quantized execution and the modifier will be enabled until training is completed.
 
-    | Sample yaml:
-    |   !QuantizationModifier
-    |       start_epoch: 0.0
-    |       submodules: ['blocks.0', 'blocks.2']
-    |       model_fuse_fn_name: 'fuse_module'
-    |       disable_quantization_observer_epoch: 2.0
-    |       freeze_bn_stats_epoch: 3.0
-    |       reduce_range: False
-    |       activation_bits: False
+     | Sample yaml:
+     |   !QuantizationModifier
+     |       start_epoch: 0.0
+     |       submodules: ['blocks.0', 'blocks.2']
+     |       model_fuse_fn_name: 'fuse_module'
+     |       disable_quantization_observer_epoch: 2.0
+     |       freeze_bn_stats_epoch: 3.0
+     |       reduce_range: False
+     |       activation_bits: False
 
-    :param start_epoch: The epoch to start the modifier at
-    :param submodules: List of submodule names to perform QAT on. Leave None to quantize
-        entire model. Default is None
-    :param model_fuse_fn_name: Name of model function to fuse the model in place prior
-        to performing QAT.  Set as None or 'no_fuse' to skip module fusing. Set as
-         'conv_bv_relus' to use `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
-        Default is None
-    :param disable_quantization_observer_epoch: Epoch to disable updates to the module's
-        quantization observers. After this point, quantized weights and zero points will
-        not be updated. Leave None to not disable observers during QAT. Default is None
-    :param freeze_bn_stats_epoch: Epoch to stop the tracking of batch norm stats. Leave
-        None to not stop tracking batch norm stats during QAT. Default is None
-    :param end_epoch: Disabled, setting to anything other than -1 will raise an
-        exception. For compatibility with YAML serialization only.
-    :param model_fuse_fn_kwargs: dictionary of keyword argument values to be passed
-        to the model fusing function
-    :param quantize_embeddings: if True, will perform QAT on torch.nn.Embedding layers
-        using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
-        quantize embedding weights. Default is True. Models without embedding layers
-        will be unaffected
-    :param reduce_range: if True, the quantization range will be reduced by one bit.
-        This may prevent overflow issues with model execution on certain hardware
-        Default is False
-    :param quantize_linear_activations: if True, FakeQuantize ops will be run
-        for output activations of fully connected layers. Default is True.
-    :param quantize_conv_activations: if True, FakeQuantize ops will be run
-        for output activations of convolutional layers. Default is True.
-    :param quantize_embedding_activations: if True, FakeQuantize ops will be run
-        for output activations of embedding layers. Default is True.
-    :param activation_bits: Number of bits to use for setting quant min/max values for
-        activations. Default 8.
-    :param weight_bits: Number of bits to use for setting quant min/max values for
-        weights. Default is 8.
-    :param num_calibration_steps: Number of steps to run post training calibration for.
-        When None, the entire calibration_dataloader is used
-    :param exclude_batchnorm: If True, do not propagate quantization qconfigs to
-        batch-normalization modules
-    :param exclude_module_types: optional list of module class names
-        to not propagate quantization configs to. Default is None
-    :param activation_qconfig_kwargs: Additional kwargs for quantization of
-        activations.
-    :param weight_qconfig_kwargs: Additional kwargs for quantization of
-        weights.
-    :param tenssorrt: if True sets quantization configuration for compatibility with
-       explict quantization as supported by TensorRT 8.2.
+     :param start_epoch: The epoch to start the modifier at
+     :param submodules: List of submodule names to perform QAT on. Leave None to
+         quantize entire model. Default is None
+     :param model_fuse_fn_name: Name of model function to fuse the model in place prior
+         to performing QAT.  Set as None or 'no_fuse' to skip module fusing. Set as
+          'conv_bv_relus' to use `sparseml.pytorch.utils.fuse_module_conv_bn_relus`.
+         Default is None
+     :param disable_quantization_observer_epoch: Epoch to disable updates to the
+         module quantization observers. After this point, quantized weights and zero
+         points will not be updated. Leave None to not disable observers during QAT.
+         Default is None
+     :param freeze_bn_stats_epoch: Epoch to stop the tracking of batch norm stats. Leave
+         None to not stop tracking batch norm stats during QAT. Default is None
+     :param end_epoch: Disabled, setting to anything other than -1 will raise an
+         exception. For compatibility with YAML serialization only.
+     :param model_fuse_fn_kwargs: dictionary of keyword argument values to be passed
+         to the model fusing function
+     :param quantize_embeddings: if True, will perform QAT on torch.nn.Embedding layers
+         using sparseml.pytorch.utils.quantization.prepare_embeddings_qat to fake
+         quantize embedding weights. Default is True. Models without embedding layers
+         will be unaffected
+     :param reduce_range: if True, the quantization range will be reduced by one bit.
+         This may prevent overflow issues with model execution on certain hardware
+         Default is False
+     :param quantize_linear_activations: if True, FakeQuantize ops will be run
+         for output activations of fully connected layers. Default is True.
+     :param quantize_conv_activations: if True, FakeQuantize ops will be run
+         for output activations of convolutional layers. Default is True.
+     :param quantize_embedding_activations: if True, FakeQuantize ops will be run
+         for output activations of embedding layers. Default is True.
+     :param activation_bits: Number of bits to use for setting quant min/max values for
+         activations. Default 8.
+     :param weight_bits: Number of bits to use for setting quant min/max values for
+         weights. Default is 8.
+     :param num_calibration_steps: Number of steps to run post training calibration for.
+         When None, the entire calibration_dataloader is used
+     :param exclude_batchnorm: If True, do not propagate quantization qconfigs to
+         batch-normalization modules
+     :param exclude_module_types: optional list of module class names
+         to not propagate quantization configs to. Default is None
+     :param activation_qconfig_kwargs: Additional kwargs for quantization of
+         activations.
+     :param weight_qconfig_kwargs: Additional kwargs for quantization of
+         weights.
+     :param tenssorrt: if True sets quantization configuration for compatibility with
+         explict quantization as supported by TensorRT 8.2.
+    :param emulate_linear_bias_qat: if True will perform an INT32 quant/dequant pass
+         on bias parameters of QAT Linear modules to better emulate how the graph
+         will be run at inference time. Default is False
     """
 
     def __init__(
@@ -165,6 +170,7 @@ class QuantizationModifier(ScheduledModifier):
         activation_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         weight_qconfig_kwargs: Optional[Dict[str, Any]] = None,
         tensorrt: bool = False,
+        emulate_linear_bias_qat: bool = False,
     ):
         if torch_quantization is None or torch_intrinsic is None:
             raise RuntimeError(
@@ -203,6 +209,7 @@ class QuantizationModifier(ScheduledModifier):
         self._activation_qconfig_kwargs = activation_qconfig_kwargs
         self._weight_qconfig_kwargs = weight_qconfig_kwargs
         self._tensorrt = tensorrt
+        self._emulate_linear_bias_qat = emulate_linear_bias_qat
 
         self._calibration_dataloader = None
         self._calibration_function = None
@@ -460,9 +467,18 @@ class QuantizationModifier(ScheduledModifier):
     def tensorrt(self) -> bool:
         """
         :return: boolean. When set to True overrides quantization configs
-        to be compatible with TensorRT.
+            to be compatible with TensorRT
         """
         return self._tensorrt
+
+    @ModifierProp()
+    def emulate_linear_bias_qat(self) -> bool:
+        """
+        :return: if True will perform an INT32 quant/dequant pass
+            on bias parameters of QAT Linear modules to better emulate how the graph
+            will be run at inference time
+        """
+        return self._emulate_linear_bias_qat
 
     def initialize(
         self,
@@ -679,6 +695,9 @@ class QuantizationModifier(ScheduledModifier):
         torch_quantization.prepare_qat(module, inplace=True)
         if self._quantize_embeddings:
             prepare_embeddings_qat(module, qproperties)
+
+        if self._emulate_linear_bias_qat:
+            emulate_linear_bias_qat(module)
 
         # propagate custom quant min/max range from FakeQuantize to Observer objects
         fix_observer_quant_range(module)

@@ -47,6 +47,7 @@ __all__ = [
     "freeze_bn_stats",
     "fuse_module_conv_bn_relus",
     "prepare_embeddings_qat",
+    "emulate_linear_bias_qat",
     "QConfigProperties",
     "LINEAR_ACTIVATION_NAMES",
     "CONV_ACTIVATION_NAMES",
@@ -695,6 +696,24 @@ def prepare_embeddings_qat(
             _prepare_qat_embedding(submodule, qconfig)
 
 
+def emulate_linear_bias_qat(module: Module):
+    """
+    Replaces forward pass of torch.nn.qat.Linear modules wrapped by a QuantWrapper
+    with a forward pass that accounts for quantization of the bias (INT32 quantization
+    with scale = act_scale * weight_scale)
+
+    :param module: module to modify QAT Linear forward pass functions of
+    """
+    for submodule in module.modules():
+        if type(submodule) is torch_quantization.QuantWrapper and isinstance(
+            submodule.module, torch.nn.qat.Linear
+        ):
+            _overwrite_qat_linear_with_bias(
+                linear_wrapper=submodule,
+                linear=submodule.module,
+            )
+
+
 def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConfig"):
     embedding.weight_fake_quant = qconfig.weight()
 
@@ -712,6 +731,43 @@ def _prepare_qat_embedding(embedding: Module, qconfig: "torch.quantization.QConf
     # bind qat forward to embedding
     qat_forward_bound = _qat_forward.__get__(embedding, embedding.__class__)
     setattr(embedding, "forward", qat_forward_bound)
+
+
+def _overwrite_qat_linear_with_bias(
+    linear_wrapper: "torch.quantization.QuantWrapper",
+    linear: "torch.nn.qat.Linear",
+):
+    int32_min = torch.iinfo(torch.int32).min
+    int32_max = torch.iinfo(torch.int32).max
+
+    def _bias_fake_quant(bias: torch.Tensor):
+        input_scale = linear_wrapper.quant.activation_post_process.scale
+        weight_scale = linear.weight_fake_quant.scale
+
+        with torch.no_grad():
+            bias_scale = input_scale * weight_scale
+
+        # fake fp32 -> int32 quantization
+        bias = bias / bias_scale
+        bias.round_()
+        bias.clip_(min=int32_min, max=int32_max)
+        # fake dequant
+        bias = bias * bias_scale
+
+        return bias
+
+    def _forward_with_qat_bias(self, input: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.linear(
+            input,
+            self.weight_fake_quant(self.weight),
+            _bias_fake_quant(self.bias),
+        )
+
+    # bind qat forward to embedding
+    _forward_with_qat_bias_bound = _forward_with_qat_bias.__get__(
+        linear, linear.__class__
+    )
+    setattr(linear, "forward", _forward_with_qat_bias_bound)
 
 
 def _set_submodule(root_module, sub_module_path, sub_module):
