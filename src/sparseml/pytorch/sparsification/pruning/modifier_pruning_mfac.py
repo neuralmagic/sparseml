@@ -340,8 +340,10 @@ class MFACPruningModifier(BaseGradualPruningModifier):
         module.eval()
 
         _LOGGER.debug(f"Starting to collect {num_grads} grads with GradSampler")
-        for _ in grad_sampler.iter_module_backwards(module, num_grads):
+        for i in grad_sampler.iter_module_backwards(module, num_grads):
             self._module_masks.pre_optim_step_update()
+            if i % 100 == 0:
+                _LOGGER.debug(f"GradSampler collected {i} gradients")
         _LOGGER.debug("GradSampler grad collection complete")
 
         if is_training:
