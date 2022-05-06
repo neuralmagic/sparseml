@@ -16,23 +16,21 @@
 """
 To implement an integration-specific set of integrations tests 4 components are needed:
 
-A. {Integration_name}_args.py file containing pydantic classes for the args of each of 
-    the commands (i.e. train, export, deploy).
+- {Integration_name}_args.py file containing pydantic classes for the args of each of
+the commands (i.e. train, export, deploy).
 
-B. {Integration_name}_tester.py file containing integration testing class inherited 
-    from BaseIntegrationTester
+- {Integration_name}_tester.py file containing integration testing class inherited
+from BaseIntegrationTester
 
-C. Tests to run after commands are run. Tests should be implemented in the tester class
-    described in B and should be decorated by @skip_inactive_stage found in helpers.py
+- Tests to run after commands are run. Tests should be implemented in the tester class
+described in B and should be decorated by @skip_inactive_stage found in helpers.py
 
-D. .yaml file for each scenario to run
+- .yaml file for each scenario to run
 """
 
 import os
-import shutil
 import subprocess
-from multiprocessing.sharedctypes import Value
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Union
 
 import pytest
 import yaml
@@ -82,7 +80,9 @@ class BaseIntegrationTester:
     @pytest.fixture(
         scope="class",
         # Iterate over configs with the matching cadence (default commit)
-        params=get_configs_with_cadence(os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)),
+        params=get_configs_with_cadence(
+            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+        ),
     )
     def setup(self, request):
 
@@ -133,9 +133,7 @@ class BaseIntegrationTester:
         self.teardown()
 
         # Check for successful teardown
-        self.check_teardown()
-
-        self.check_file_creation()
+        self.teardown_check()
 
     @classmethod
     def get_root_commands(cls, configs: Dict[str, Union[str, BaseModel]]):
@@ -183,29 +181,29 @@ class BaseIntegrationTester:
         args_dict = config.dict()
         args_string_list = []
         for key, value in args_dict.items():
+            key = "--" + key.replace("_", "-")
             # Handles bool type args (e.g. --do-train)
             if isinstance(value, bool):
                 if value:
-                    args_string_list.append("--" + str(key))
-            # Handles args that are both bool and value based
-            elif isinstance(value, Tuple):
-                if not isinstance(value[0], bool):
-                    raise ValueError(
-                        "Tuple types are used to specify bool args with "
-                        "a defined const value. {value} does not qualify"
-                    )
-                if value:
-                    args_string_list.append("--" + key + " " + str(value[1]))
-            # Handles args that have multiple values after the keyword.
-            # e.g. --freeze-layers 0 10 15
+                    args_string_list.append(key)
             elif isinstance(value, List):
-                args_string_list.append("--" + key + " ".join(map(str, value)))
+                # Handles args that are both bool and value based (see evolve in yolov5)
+                if isinstance(value[0], bool):
+                    if value[0]:
+                        args_string_list.extend([key, str(value[1])])
+                # Handles args that have multiple values after the keyword.
+                # e.g. --freeze-layers 0 10 15
+                else:
+                    args_string_list.append(key)
+                    args_string_list.extend(value)
             # Handles the most straightforward case of keyword followed by value
             # e.g. --epochs 30
             else:
-                args_string_list.append("--" + key + " " + str(value))
-        args_string_combined = " ".join(args_string_list)
-        return " ".join([pre_args, command_stub, args_string_combined])
+                if value is None:
+                    continue
+                args_string_list.extend([key, str(value)])
+        pre_args = pre_args.split(" ") if pre_args else []
+        return pre_args + [command_stub] + args_string_list
 
     def capture_pre_run_state(self):
         """
@@ -225,7 +223,14 @@ class BaseIntegrationTester:
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
             self.save_stage_information(_type)
-            subprocess.call(self.commands[_type], **kwargs_dict[_type])
+            try:
+                subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
+            except subprocess.CalledProcessError as e:
+                raise RuntimeError(
+                    "command '{}' return with error (code {}): {}".format(
+                        e.cmd, e.returncode, e.output
+                    )
+                )
 
     def save_stage_information(self, command_type):
         """
@@ -236,19 +241,18 @@ class BaseIntegrationTester:
     def teardown(self):
         """
         Cleanup environment after test completion
-        NOTE: Generalized directory deletion logic will go here
         """
-        pass
+        raise NotImplementedError
 
     def teardown_check(self):
         """
-        Check for successful environment cleanup. Logic to be fleshed out
+        Check for successful environment cleanup.
         """
-        self.check_file_creation()
+        pass
 
     def check_file_creation(self, dir):
         """
-        Check whether files have been created during the run. Logic to be fleshed out
+        Check whether files have been created during the run.
         TODO: Move to universal fixtures file?
         """
         self._end_file_count = sum(len(files) for _, _, files in os.walk(r"."))

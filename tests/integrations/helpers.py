@@ -13,12 +13,10 @@
 # limitations under the License.
 
 import glob
-import inspect
 import os
 from functools import wraps
 
 import pytest
-import yaml
 
 
 def get_configs_with_cadence(cadence: str, dir_path: str = "."):
@@ -52,7 +50,7 @@ def skip_inactive_stage(test):
 
     @wraps(test)
     def wrapped_test(self, *args, **kwargs):
-        command_type = inspect.currentframe().f_code.co_name.split("_")[1]
+        command_type = test.__name__.split("_")[1]
         if command_type not in self.command_stubs:
             raise ValueError(
                 "Invalid test function definition. Test names must take the form "
