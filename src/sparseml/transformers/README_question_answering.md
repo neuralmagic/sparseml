@@ -131,7 +131,7 @@ The SparseML installation provides a `sparseml.transformers.export_onnx` command
 ```bash
 sparseml.transformers.export_onnx \
     --model_path './output' \
-    --task 'question-answering' \
+    --task 'question-answering' 
 ```
 
 ### DeepSparse Engine Deployment
