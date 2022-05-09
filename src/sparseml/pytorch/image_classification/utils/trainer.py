@@ -88,6 +88,8 @@ class ImageClassificationTrainer(Trainer):
         model: torch.nn.Module,
         key: str,
         recipe_path: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        checkpoint_path: Optional[str] = None,
         ddp: bool = False,
         device: str = default_device(),
         use_mixed_precision: bool = False,
@@ -104,6 +106,8 @@ class ImageClassificationTrainer(Trainer):
         Initializes the module_trainer.
         """
         self.recipe_path = recipe_path
+        self.metadata = metadata
+        self.checkpoint_path = checkpoint_path
         self.ddp = ddp
         self.is_main_process = is_main_process
         self.optim_kwargs = optim_kwargs or {}
@@ -136,6 +140,10 @@ class ImageClassificationTrainer(Trainer):
             self.module_trainer = self._initialize_module_trainer()
         else:
             self.optim = self.manager = self.module_trainer = None
+
+        self.checkpoint_manager = (
+            self._setup_checkpoint_manager() if self.checkpoint_path else None
+        )
 
         if self.val_loader is not None:
             self.module_tester = self._initialize_module_tester()
@@ -217,7 +225,7 @@ class ImageClassificationTrainer(Trainer):
         epoch = 0
 
         manager = ScheduledModifierManager.from_yaml(
-            file_path=self.recipe_path,
+            file_path=self.recipe_path, metadata=self.metadata
         )
 
         optim = ScheduledOptimizer(
@@ -283,3 +291,11 @@ class ImageClassificationTrainer(Trainer):
             max_steps=max_steps,
             show_progress=self.is_main_process,
         )
+
+    def _setup_checkpoint_manager(self):
+        checkpoint_state = torch.load(self.checkpoint_path)
+        checkpoint_manager = None
+        checkpoint_recipe = checkpoint_state.get("recipe")
+        if checkpoint_recipe:
+            checkpoint_manager = ScheduledModifierManager.from_yaml(checkpoint_recipe)
+        return checkpoint_manager
