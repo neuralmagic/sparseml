@@ -102,7 +102,7 @@ class BaseIntegrationManager:
         }
 
         # Capture any pre-run information that may be needed for post-run testing
-        self.capture_pre_run_state()
+        self.capture_pre_run_state(self)
 
         # Combine pre-args, command stubs, and args into complete CLI commands
         self.commands = {
@@ -111,7 +111,7 @@ class BaseIntegrationManager:
         }
 
         # All commands are run sequentially
-        self.run_commands()
+        self.run_commands(self)
 
     def get_root_commands(self, configs: Dict[str, Union[str, BaseModel]]):
         """
@@ -124,6 +124,7 @@ class BaseIntegrationManager:
         """
         return self.command_stubs
 
+    
     def capture_pre_run_state(self):
         """
         Store pre-run information which will be relevant for post-run testing
@@ -142,7 +143,7 @@ class BaseIntegrationManager:
             kwargs_dict = {key: {} for key in self.command_types}
         for _type in self.command_types:
             # Optionally, save intermediate state variables between stages
-            self.save_stage_information(_type)
+            self.save_stage_information(self, _type)
             try:
                 subprocess.check_output(self.commands[_type], **kwargs_dict[_type])
             except subprocess.CalledProcessError as e:
