@@ -132,6 +132,9 @@ Options:
                                   [S, S, C] dimensional input  [default: 224]
   --ffcv                          Use `ffcv` for loading data  [default:
                                   False]
+  --recipe-args, --recipe_args TEXT
+                                  json parsable dict of recipe variable names
+                                  to values to overwrite with
   --help                          Show this message and exit.
 
 #########
@@ -427,7 +430,6 @@ METADATA_ARGS = [
 @click.option(
     "--image-size",
     "--image_size",
-    "-is",
     type=int,
     default=224,
     show_default=True,
@@ -439,6 +441,13 @@ METADATA_ARGS = [
     is_flag=True,
     show_default=True,
     help="Use `ffcv` for loading data",
+)
+@click.option(
+    "--recipe-args",
+    "--recipe_args",
+    type=str,
+    default=None,
+    help="json parsable dict of recipe variable names to values to overwrite with",
 )
 def main(
     train_batch_size: int,
@@ -469,6 +478,7 @@ def main(
     loader_pin_memory: bool,
     image_size: int,
     ffcv: bool,
+    recipe_args: str,
 ):
     """
     PyTorch training integration with SparseML for image classification models
@@ -579,6 +589,7 @@ def main(
         init_lr=init_lr,
         optim_name=optim,
         optim_kwargs=optim_args,
+        recipe_args=recipe_args,
     )
 
     train(

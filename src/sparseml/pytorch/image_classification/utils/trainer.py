@@ -77,10 +77,12 @@ class ImageClassificationTrainer(Trainer):
     :param loss_fn: A Callable loss function for training and validation
         losses.
     :param init_lr: The initial learning rate for the optimizer.Defaults to
-        1e-9
+        1e-9.
     :param optim_name: str representing the optimizer type to use.
         Defaults to `Adam`.
     :param optim_kwargs: dict of additional kwargs to pass to the optimizer.
+    :param recipe_args: json parsable dict of recipe variable names to values
+        to overwrite with.
     """
 
     def __init__(
@@ -101,6 +103,7 @@ class ImageClassificationTrainer(Trainer):
         init_lr=1e-9,
         optim_name="Adam",
         optim_kwargs: Optional[Dict[str, Any]] = None,
+        recipe_args: Optional[str] = None,
     ):
         """
         Initializes the module_trainer.
@@ -119,6 +122,7 @@ class ImageClassificationTrainer(Trainer):
         self.val_loader = val_loader
         self.train_loader = train_loader
         self.loggers = loggers
+        self.recipe_args = recipe_args
 
         self.val_loss = loss_fn()
         _LOGGER.info(f"created loss for validation: {self.val_loss}")
@@ -225,7 +229,9 @@ class ImageClassificationTrainer(Trainer):
         epoch = 0
 
         manager = ScheduledModifierManager.from_yaml(
-            file_path=self.recipe_path, metadata=self.metadata
+            file_path=self.recipe_path,
+            recipe_variables=self.recipe_args,
+            metadata=self.metadata,
         )
 
         optim = ScheduledOptimizer(
