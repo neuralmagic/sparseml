@@ -1,6 +1,5 @@
-# [Pipeline Template Example] SparseML Transformer Question Answer Integration
+# SparseML Transformer Question Answer Integration
 
-*This section serves as a short overview of the functionality of the pipeline. Should contain a brief intro plus a compact description of the use cases.*
 
 SparseML Question Answer pipeline integrates with Hugging Face’s Transformers library to enable the sparsification of any transformer model.
 Sparsification is a powerful feature that results in faster, smaller, and cheaper deployable Transformer models. 
@@ -11,7 +10,6 @@ This integration enables spinning up one of the following end-to-end functionali
 - **Sparse Transfer Learning** - fine-tune a sparse backbone model (or use one of our [sparse pre-trained models](https://sparsezoo.neuralmagic.com/?page=1&domain=nlp&sub_domain=question_answering)) on your own, private dataset.
 
 ## Installation
-*Description of minimal requirements to run the pipeline.*
 
 ```pip install sparseml[torch]```
 
@@ -20,13 +18,11 @@ It is recommended to run Python 3.8 as some of the scripts within the transforme
 Note: Transformers will not immediately install with this command. Instead, a sparsification-compatible version of Transformers will install on the first invocation of the Transformers code in SparseML.
 
 ## Tutorials
-*Pointer to any existing tutorials published on neuralmagic.com.*
+
 - [Sparsifying BERT Models Using Recipes](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/sparsifying_bert_using_recipes.md)
 - [Sparse Transfer Learning With BERT](https://github.com/neuralmagic/sparseml/blob/main/integrations/huggingface-transformers/tutorials/bert_sparse_transfer_learning.md)
 
 ## Getting Started
-
-*This should explain to the user in the learn-by-doing fashion about the functionalities of the pipeline.*
 
 ### Sparsification of Popular Transformer Models
 
@@ -90,7 +86,6 @@ Once the dense teacher is trained we may reuse it for KD. This only requires pas
 ```
 
 ## SparseML CLI
-*This section should explain the functionality of the most important parameters of the CLI. The goal is not to teach the user about every argument, but to make it easy for them to tweak the crucial ones.*
 
 The SparseML installation provides a CLI for sparsifying your models for a specific task; appending the `--help` argument displays a full list of options for training in SparseML:
 ```bash
@@ -115,15 +110,11 @@ To learn about the Hugging Face Transformers parameters in more detail, refer to
 
 ## Once the Training is Done...
 
-*This section should inform the user what to do with the train user. It should serve as a walkthrough for generated artifacts and a pointer to next actions such as export to onnx, deployment on SparseEngine, GPU*
-
 The artifacts of the training process are saved to the directory `--output_dir`. Once the script terminates, you should find there everything required to deploy or further modify the model. 
 
 This includes the recipe (with the full description of the sparsification attributes), checkpoint files (saved in the appropriate framework format), Hugging Face Transformer's specific files (e.g. the tokenizer), etc.
 
 ### Exporting the Sparse Model to ONNX
-
-*This subsection should explain to the user how to export their trained, sparse model to ONNX format.*
 
 The DeepSparse Engine uses the ONNX format to load neural networks and then deliver breakthrough performance for CPUs by leveraging the sparsity and quantization within a network.
 
@@ -135,10 +126,6 @@ sparseml.transformers.export_onnx \
 ```
 
 ### DeepSparse Engine Deployment
-
-*No pipeline is complete without its integration with the DeepSparse Engine. This chapter should communicate to the user,
-that they can eventually use their ONNX model to deploy the network using the DeepSparse Engine and benefit from GPU-class performance
-on their CPU! Let's make this section short, referencing internal DeepSparse docs as much as possible.* 
 
 Once the model is exported an ONNX format, it is ready for deployment with the DeepSparse Engine. 
 
