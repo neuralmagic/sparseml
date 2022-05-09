@@ -150,16 +150,16 @@ def get_stride(model_path, image_shape=(640, 640)) -> int:
     :param image_shape: Tuple of ints representing the image shape
     """
     model = onnx.load(model_path)
-    model_input = model.graph.input[0]
 
-    initial_x = get_tensor_dim_shape(model_input, 2)
-    initial_y = get_tensor_dim_shape(model_input, 3)
+    grid_shapes = (
+        get_tensor_dim_shape(model.graph.output[index], 2)
+        for index in range(1, len(model.graph.output))
+    )
 
-    if not (isinstance(initial_x, int) and isinstance(initial_y, int)):
-        return model_path, None  # model graph does not have static integer
-        # input shape
-
-    return initial_x / image_shape[0]
+    strides = [
+        image_shape[0] // grid_shape for grid_shape in grid_shapes
+    ]
+    return strides
 
 
 @torch.no_grad()
@@ -212,7 +212,6 @@ def run(
         batch_size=batch_size,
     )
 
-    # stride = yolo_pipeline.stride
     stride = get_stride(model_path=yolo_pipeline.onnx_file_path, image_shape=(640, 640))
 
     imgsz = check_img_size(imgsz, s=stride)  # check image size
