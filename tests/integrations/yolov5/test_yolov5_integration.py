@@ -18,15 +18,21 @@ from collections import Counter
 import onnx
 import pandas as pd
 import pytest
+from pathlib import Path
 
 from tests.integrations.base_tester import BaseIntegrationTester
 from tests.integrations.helpers import get_configs_with_cadence, skip_inactive_stage
 from tests.integrations.yolov5.yolov5_args import Yolov5TrainArgs
 from yolov5.export import create_checkpoint, load_checkpoint
 from yolov5.val import run as val
+from yolov5.utils.general import increment_path
 
 
-@pytest.mark.usefixtures("setup")
+@pytest.mark.parametrize("setup", get_configs_with_cadence(
+            os.environ.get("NM_TEST_CADENCE", "commit"), os.path.dirname(__file__)
+        ), indirect=True, scope = "class"
+)
+# Iterate over configs with the matching cadence (default commit)
 class TestYolov5Integration(BaseIntegrationTester):
 
     command_stubs = {
@@ -36,11 +42,16 @@ class TestYolov5Integration(BaseIntegrationTester):
     }
     command_args_classes = {
         "train": Yolov5TrainArgs,
-    }
+    }     
+
+    def capture_pre_run_state(self):
+        args = self.configs["train"]['args']
+        self.save_dir = str(increment_path(Path(args.project) / args.name, exist_ok=args.exist_ok))
+
 
     @skip_inactive_stage
     def test_train_checkpoint_load(self, setup):
-        model_file = os.path.join(self.configs["train"].project, "weights", "last.pt")
+        model_file = os.path.join(self.save_dir, "weights", "last.pt")
         assert os.path.isfile(model_file)
         val(model_file)
 
