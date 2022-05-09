@@ -222,9 +222,7 @@ class GradSampler:
         computed_grads = 0
         # if progress bar is turned off, use nullcontext which has no effect on loop
         context = (
-            tqdm(total=num_grads, desc="Collecting gradients")
-            if progress_bar
-            else nullcontext()
+            tqdm(total=num_grads, desc="Collecting gradients", disable = not progress_bar)
         )
 
         with context as pbar:
